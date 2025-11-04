@@ -6,11 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Bot, User, Mic, Link as LinkIcon, Library, Plus, ArrowUp, ArrowDown } from "lucide-react";
+import { Paperclip, Send, Bot, User, Mic, Library, ChevronDown, Link as LinkIcon } from "lucide-react";
 import { ChatMessage } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import type { Message } from "./chat-message";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export function ChatInterface() {
@@ -69,13 +70,11 @@ export function ChatInterface() {
 
     setMessages((prev) => [...prev, userMessage, aiMessage]);
     setInput("");
-    // Ensure we scroll down after sending a new message
     setIsScrolledToBottom(true);
   };
 
   const handlePromptClick = (prompt: string) => {
     setInput(prompt);
-    // Automatically focus the textarea after clicking a prompt
     textareaRef.current?.focus();
   };
   
@@ -100,60 +99,73 @@ export function ChatInterface() {
   
   return (
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
-        {/* This is the scrollable message area */}
-        <div className="flex-1 relative min-h-0">
-            <ScrollArea className="h-full" viewportRef={scrollViewportRef} onScroll={handleScroll}>
-                <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
-                {messages.length === 0 ? (
-                    <InitialPrompts onPromptClick={handlePromptClick} />
-                ) : (
-                    messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+        <ScrollArea className="flex-1" viewportRef={scrollViewportRef} onScroll={handleScroll}>
+            <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
+            {messages.length === 0 ? (
+                <InitialPrompts onPromptClick={handlePromptClick} />
+            ) : (
+                messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+            )}
+            </div>
+        </ScrollArea>
+        {messages.length > 0 && (
+             <div className="absolute bottom-24 right-4 flex flex-col gap-2 z-10">
+                {!isAtTop && (
+                    <Button 
+                        onClick={scrollToTop}
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-full"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m18 15-6-6-6 6"/></svg>
+                    </Button>
                 )}
-                </div>
-            </ScrollArea>
-             {/* Action buttons are positioned relative to this container */}
-             {messages.length > 0 && !isAtTop && (
-                 <Button 
-                    onClick={scrollToTop}
-                    variant="outline" 
-                    size="icon"
-                    className="absolute bottom-4 right-16 rounded-full z-10"
-                >
-                    <ArrowUp className="h-4 w-4" />
-                </Button>
-            )}
-             {!isScrolledToBottom && (
-                <Button 
-                    onClick={scrollToBottom}
-                    variant="outline" 
-                    size="icon"
-                    className="absolute bottom-4 right-4 rounded-full z-10"
-                >
-                    <ArrowDown className="h-4 w-4" />
-                </Button>
-            )}
-        </div>
-
-      {/* This is the fixed footer */}
-      <footer className="shrink-0 p-4 border-t border-border/20 bg-card">
-        <div className="max-w-4xl mx-auto w-full space-y-4">
+                {!isScrolledToBottom && (
+                    <Button 
+                        onClick={scrollToBottom}
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-full"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m6 9 6 6 6-6"/></svg>
+                    </Button>
+                )}
+            </div>
+        )}
+      <footer className="shrink-0 p-4 bg-card">
+        <div className="relative max-w-4xl mx-auto w-full space-y-2">
             <div className="flex gap-2">
-                <Button variant="outline" className="bg-background">
+                <Button variant="outline" className="rounded-full bg-background">
                     <Library className="mr-2 h-4 w-4" />
                     Library
                 </Button>
-                <Button variant="outline" className="bg-background">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Context
-                </Button>
-                 <Button variant="outline" size="icon" className="bg-background">
-                    <LinkIcon className="h-4 w-4" />
-                 </Button>
-                 <Button variant="outline" size="icon" className="bg-background">
-                    <Mic className="h-4 w-4" />
-                 </Button>
+                <Select>
+                    <SelectTrigger className="rounded-full bg-background w-auto gap-2">
+                        <SelectValue placeholder="Choose Persona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="researcher">Researcher</SelectItem>
+                        <SelectItem value="writer">Creative Writer</SelectItem>
+                        <SelectItem value="technical">Technical Expert</SelectItem>
+                    </SelectContent>
+                </Select>
+                 <Select>
+                    <SelectTrigger className="rounded-full bg-background w-auto gap-2">
+                        <SelectValue placeholder="Add Context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="file">From File</SelectItem>
+                        <SelectItem value="url">From URL</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
-          <div className="relative">
+          <div className="relative flex items-center p-2 rounded-full border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+             <Button variant="ghost" size="icon" className="rounded-full">
+                <Paperclip className="h-4 w-4" />
+             </Button>
+             <Button variant="ghost" size="icon" className="rounded-full">
+                <Mic className="h-4 w-4" />
+             </Button>
             <Textarea
               ref={textareaRef}
               value={input}
@@ -164,13 +176,14 @@ export function ChatInterface() {
                   handleSend();
                 }
               }}
-              placeholder="Send message"
-              className="pr-28 text-base resize-none"
+              placeholder="Lets Play....."
+              className="pr-28 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
               rows={1}
             />
             <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
-              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9">
-                <Send className="h-4 w-4" />
+              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9 rounded-full px-4">
+                <Send className="h-4 w-4 mr-2" />
+                Send message
               </Button>
             </div>
           </div>
@@ -179,5 +192,3 @@ export function ChatInterface() {
     </div>
   );
 }
-
-    
