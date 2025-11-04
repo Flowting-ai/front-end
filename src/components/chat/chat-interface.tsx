@@ -5,19 +5,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Bot, User } from "lucide-react";
-import { ModelSelector } from "./model-selector";
-import { TokenTracker } from "./token-tracker";
+import { Paperclip, Send, Bot, User, Mic, Link as LinkIcon, Library, Plus } from "lucide-react";
 import { ChatMessage } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import type { Message } from "./chat-message";
+import { Input } from "../ui/input";
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const aiAvatar = PlaceHolderImages.find((img) => img.id === "ai-avatar");
-  const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
+  const userAvatar = { imageUrl: "https://picsum.photos/seed/1/40/40", imageHint: "user avatar" };
+  const aiAvatar = { imageUrl: "https://picsum.photos/seed/2/40/40", imageHint: "ai avatar" };
+
 
   const handleSend = () => {
     if (input.trim() === "") return;
@@ -55,12 +54,7 @@ export function ChatInterface() {
   };
   
   return (
-    <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-xl font-semibold">Chat</h2>
-        <ModelSelector />
-      </header>
-
+    <div className="flex flex-col h-full flex-1 bg-card">
       <ScrollArea className="flex-1 p-4">
         <div className="max-w-4xl mx-auto w-full space-y-6">
           {messages.length === 0 ? (
@@ -71,10 +65,26 @@ export function ChatInterface() {
         </div>
       </ScrollArea>
 
-      <footer className="p-4 border-t">
+      <footer className="p-4 border-t border-border/20">
         <div className="max-w-4xl mx-auto w-full space-y-4">
+            <div className="flex gap-2">
+                <Button variant="outline" className="bg-background">
+                    <Library className="mr-2 h-4 w-4" />
+                    Library
+                </Button>
+                <Button variant="outline" className="bg-background">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Context
+                </Button>
+                 <Button variant="outline" size="icon" className="bg-background">
+                    <LinkIcon className="h-4 w-4" />
+                 </Button>
+                 <Button variant="outline" size="icon" className="bg-background">
+                    <Mic className="h-4 w-4" />
+                 </Button>
+            </div>
           <div className="relative">
-            <Textarea
+            <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -83,21 +93,15 @@ export function ChatInterface() {
                   handleSend();
                 }
               }}
-              placeholder="Ask a question or type '/' for commands..."
-              className="pr-24 min-h-[4rem]"
+              placeholder="Send message"
+              className="pr-28 h-12 text-base"
             />
-            <div className="absolute bottom-3 right-3 flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <Paperclip className="h-5 w-5" />
-                <span className="sr-only">Attach file</span>
-              </Button>
-              <Button size="icon" onClick={handleSend} disabled={!input.trim()}>
-                <Send className="h-5 w-5" />
-                <span className="sr-only">Send</span>
+            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
+              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9">
+                <Send className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <TokenTracker />
         </div>
       </footer>
     </div>

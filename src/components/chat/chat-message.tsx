@@ -27,10 +27,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {!isUser && message.avatar}
       <div
         className={cn(
-          "max-w-lg rounded-lg p-3",
+          "max-w-2xl rounded-lg p-4",
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-secondary"
+            : "bg-background"
         )}
       >
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>

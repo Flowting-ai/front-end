@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { LeftSidebar } from "./left-sidebar";
-import { RightSidebar } from "./right-sidebar";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -10,12 +9,11 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-card">
         <LeftSidebar />
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex">
           {children}
         </main>
-        <RightSidebar />
       </div>
     </SidebarProvider>
   );
