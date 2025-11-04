@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -10,6 +12,8 @@ import {
   SelectLabel,
 } from "@/components/ui/select";
 import { ChevronsUpDown } from "lucide-react";
+import { ModelSelectorDialog } from "./model-selector-dialog";
+import { Button } from "../ui/button";
 
 const models = [
   { name: "Gemini 2.5 Flash", credits: "1M tokens" },
@@ -18,25 +22,15 @@ const models = [
 ];
 
 export function ModelSelector() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
-    <Select defaultValue={models[0].name}>
-      <SelectTrigger className="w-auto gap-2">
+    <>
+      <Button variant="outline" className="w-auto gap-2" onClick={() => setIsDialogOpen(true)}>
         <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
-        <SelectValue placeholder="Select a model" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          <SelectLabel>Available Models</SelectLabel>
-          {models.map((model) => (
-            <SelectItem key={model.name} value={model.name}>
-              <div className="flex justify-between items-center w-full">
-                <span>{model.name}</span>
-                <span className="text-xs text-muted-foreground ml-4">{model.credits}</span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+        <span>Select a model</span>
+      </Button>
+      <ModelSelectorDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+    </>
   );
 }

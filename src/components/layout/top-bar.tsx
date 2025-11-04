@@ -2,8 +2,7 @@
 "use client";
 
 import { Button } from "../ui/button";
-import { ModelSelector } from "../chat/model-selector";
-import { WandSparkles, BarChart2, Plus } from "lucide-react";
+import { WandSparkles, BarChart2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -19,13 +18,10 @@ export function Topbar({ children }: { children?: ReactNode }) {
     { name: "AI Automation", href: "/dashboard", icon: WandSparkles },
   ];
 
-  if (isMobile) {
-    return null; // Topbar content is handled within AppLayout for mobile
-  }
-
   return (
     <header className="flex items-center justify-between p-2 border-b h-[69px] bg-card shrink-0 z-20">
       <div className="flex items-center gap-4">
+        {isMobile ? children : (
          <Link href="/" className="flex items-center gap-2 px-4">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
                       <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
@@ -33,7 +29,8 @@ export function Topbar({ children }: { children?: ReactNode }) {
                   </svg>
               <h1 className="text-lg font-semibold">Flowting</h1>
           </Link>
-          <nav className="items-center gap-2 flex">
+        )}
+          <nav className={cn("items-center gap-2", isMobile ? "hidden" : "flex")}>
             {tabs.map((tab) => (
               <Button
                 key={tab.name}
@@ -53,8 +50,7 @@ export function Topbar({ children }: { children?: ReactNode }) {
         </nav>
       </div>
 
-      <div className="flex items-center gap-2 px-4">
-        {children}
+      <div className={cn("items-center gap-2 px-4", isMobile ? "hidden" : "flex")}>
          <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-[25px]">
               <BarChart2 className="mr-2 h-4 w-4" />
@@ -62,7 +58,6 @@ export function Topbar({ children }: { children?: ReactNode }) {
             </Button>
             <CreatePersonaDialog />
          </div>
-        <ModelSelector />
       </div>
     </header>
   );

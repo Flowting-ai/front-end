@@ -4,8 +4,14 @@
 import AppLayout from "@/components/layout/app-layout";
 import { ModelBenchmark } from "@/components/dashboard/model-benchmark";
 import { PerformanceCharts } from "@/components/dashboard/performance-charts";
+import type { Dispatch, SetStateAction } from "react";
 
-function DashboardPageContent() {
+interface DashboardPageProps {
+    isRightSidebarVisible?: boolean;
+    setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
+}
+
+function DashboardPageContent({ isRightSidebarVisible, setIsRightSidebarVisible }: DashboardPageProps) {
   return (
     <div className="flex flex-col h-full flex-1">
       <div className="flex-1 p-4 md:p-6 lg:p-8 space-y-8 overflow-y-auto">

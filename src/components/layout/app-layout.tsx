@@ -17,13 +17,12 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-interface PageContentWrapperProps extends AppLayoutProps {
-    isRightSidebarVisible?: boolean;
-    setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
 // This wrapper component consumes the props so they aren't passed to the DOM
-function PageContentWrapper({ children }: PageContentWrapperProps) {
+function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>}) {
+    // Clone the child and pass down the props it expects
+    if (React.isValidElement(children)) {
+        return React.cloneElement(children, props);
+    }
     return <>{children}</>;
 }
 
@@ -33,15 +32,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-
-  const mainContent = React.cloneElement(
-    (<PageContentWrapper>{children}</PageContentWrapper>) as React.ReactElement, 
-    {
-      isRightSidebarVisible: !isRightSidebarCollapsed,
-      setIsRightSidebarVisible: (visible: boolean) => setIsRightSidebarCollapsed(!visible)
-    }
-  );
-
+  
   if (isMobile) {
     return (
         <div className="flex flex-col h-screen bg-card w-full">
@@ -62,7 +53,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </Sheet>
             </Topbar>
              <main className="flex-1 flex flex-col min-w-0">
-                {mainContent}
+                {children}
             </main>
         </div>
     )
@@ -78,7 +69,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
         />
         <ChatListSidebar isLeftSidebarCollapsed={isLeftSidebarCollapsed} />
         <main className="flex-1 flex flex-col min-w-0">
-            {mainContent}
+            <PageContentWrapper 
+                isRightSidebarVisible={!isRightSidebarCollapsed}
+                setIsRightSidebarVisible={(visible: boolean) => setIsRightSidebarCollapsed(!visible)}
+            >
+                {children}
+            </PageContentWrapper>
         </main>
         <div className="relative">
             <Button variant="ghost" size="icon" onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)} className={cn("absolute top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full transition-all", isRightSidebarCollapsed ? '-left-4' : '-left-4')}>

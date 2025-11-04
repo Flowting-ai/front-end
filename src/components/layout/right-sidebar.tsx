@@ -46,74 +46,79 @@ export function RightSidebar({ isCollapsed }: RightSidebarProps) {
   const [pins, setPins] = useState(initialPins);
   const [activeTab, setActiveTab] = useState("Pins");
 
-  if (isCollapsed) {
-    return null;
-  }
-
   return (
     <aside className={cn(
         "border-l bg-card hidden lg:flex flex-col transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-0" : "w-[258px]"
+        isCollapsed ? "w-[58px]" : "w-[258px]"
         )}>
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Pinboard</h2>
-        </div>
-        <div className="relative mt-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
-        </div>
-        <div className="mt-4 flex gap-2">
-            <Button variant={activeTab === 'Pins' ? 'default' : 'outline'} className="w-full rounded-[25px]" onClick={() => setActiveTab('Pins')}>
-                <Pin className="mr-2 h-4 w-4" />
-                Pins
-            </Button>
-            <Button variant={activeTab === 'Files' ? 'default' : 'outline'} className="w-full rounded-[25px]" onClick={() => setActiveTab('Files')}>
-                <Files className="mr-2 h-4 w-4" />
-                Files
-            </Button>
-        </div>
-        <div className="mt-4">
-            <Button variant="outline" className="w-full justify-between rounded-[25px]">
-                <span>Filter by Chats</span>
-                <ChevronDown className="h-4 w-4" />
-            </Button>
-        </div>
-      </div>
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
-          {pins.map((pin, index) => (
-            <Card key={index} className="bg-background">
-              <CardContent className="p-3 space-y-2">
-                <p className="text-sm">{pin.text}</p>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Add tags</span>
-                    {pin.tags.map(tag => (
-                        <Badge key={tag} variant="secondary" className="font-normal">
-                            {tag}
-                            <Button variant="ghost" size="icon" className="h-4 w-4 ml-1">
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
+        
+        {isCollapsed ? (
+            <div className="flex flex-col items-center py-4">
+                <Pin className="h-6 w-6" />
+            </div>
+        ) : (
+            <>
+                <div className="p-4 border-b">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-lg font-semibold">Pinboard</h2>
+                    </div>
+                    <div className="relative mt-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                        <Button variant={activeTab === 'Pins' ? 'default' : 'outline'} className="w-full rounded-[25px]" onClick={() => setActiveTab('Pins')}>
+                            <Pin className="mr-2 h-4 w-4" />
+                            Pins
+                        </Button>
+                        <Button variant={activeTab === 'Files' ? 'default' : 'outline'} className="w-full rounded-[25px]" onClick={() => setActiveTab('Files')}>
+                            <Files className="mr-2 h-4 w-4" />
+                            Files
+                        </Button>
+                    </div>
+                    <div className="mt-4">
+                        <Button variant="outline" className="w-full justify-between rounded-[25px]">
+                            <span>Filter by Chats</span>
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-3">
+                    {pins.map((pin, index) => (
+                        <Card key={index} className="bg-background">
+                        <CardContent className="p-3 space-y-2">
+                            <p className="text-xs">{pin.text}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-muted-foreground">Add tags</span>
+                                {pin.tags.map(tag => (
+                                    <Badge key={tag} variant="secondary" className="font-normal" style={{ fontSize: '8px', padding: '2px 4px' }}>
+                                        {tag}
+                                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1">
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </Badge>
+                                ))}
+                            </div>
+                            <div>
+                                <Textarea placeholder="Add private notes..." className="text-xs bg-card mt-1"/>
+                            </div>
+                            <div className="flex justify-between items-center pt-2">
+                                <Badge variant="outline" className="font-normal border-dashed">{pin.chat}</Badge>
+                                <span className="text-xs text-muted-foreground">{pin.time}</span>
+                            </div>
+                        </CardContent>
+                        </Card>
                     ))}
+                    </div>
+                </ScrollArea>
+                <div className="p-4 border-t mt-auto">
+                    <Button className="w-full rounded-[25px]">
+                        Export Pins
+                    </Button>
                 </div>
-                <div>
-                    <Textarea placeholder="Add private notes..." className="text-xs bg-card mt-1"/>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                    <Badge variant="outline" className="font-normal border-dashed">{pin.chat}</Badge>
-                    <span className="text-xs text-muted-foreground">{pin.time}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </ScrollArea>
-      <div className="p-4 border-t mt-auto">
-          <Button className="w-full rounded-[25px]">
-              Export Pins
-          </Button>
-      </div>
+            </>
+        )}
     </aside>
   );
 }
