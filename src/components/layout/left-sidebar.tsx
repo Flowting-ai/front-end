@@ -29,7 +29,7 @@ const chatBoards = [
     { name: "Q3 Earnings Call Prep", time: "1 month", isStarred: false, pinCount: 0 },
     { name: "User Feedback Synthesis", time: "1 month", isStarred: false, pinCount: 0 },
     { name: "Marketing Campaign Ideas", time: "1 month", isStarred: true, pinCount: 5 },
-    { name: "API Integration Plan", time: "2 months", isStarred: false, pinCount: 0 },
+    { name: "API Integration Plan for the new mobile application", time: "2 months", isStarred: false, pinCount: 0 },
     { name: "Onboarding Flow UX", time: "2 months", isStarred: false, pinCount: 0 },
     { name: "Website Redesign Brainstorm", time: "3 months", isStarred: false, pinCount: 0 },
 ];
@@ -96,7 +96,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                             isCollapsed && "px-0 w-10 h-10 justify-center"
                           )}
                         >
-                            <div className={cn("flex items-center gap-2", isCollapsed ? "justify-center" : "")}>
+                            <div className={cn("flex items-center gap-2 overflow-hidden", isCollapsed ? "justify-center" : "")}>
                                 <MessageSquare className="w-5 h-5 flex-shrink-0" />
                                 <div className={cn("flex-grow text-left overflow-hidden", isCollapsed && "hidden")}>
                                     <p className="truncate w-full">{board.name}</p>
@@ -105,7 +105,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                             </div>
                              <div className={cn("ml-2 flex-shrink-0 flex flex-col items-center gap-0.5", isCollapsed && "hidden")}>
                                {board.isStarred && <Star className="w-4 h-4 text-blue-400 fill-blue-400" />}
-                               {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 p-0 flex items-center justify-center bg-blue-400 text-primary-foreground border-blue-400">{board.pinCount}</Badge>}
+                               {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-4 w-4 p-0 flex items-center justify-center bg-blue-400 text-primary-foreground dark:text-primary border-blue-400">{board.pinCount}</Badge>}
                             </div>
                     </Button>
                 ))}
