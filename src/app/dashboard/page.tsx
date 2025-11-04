@@ -1,12 +1,17 @@
+
 import AppLayout from "@/components/layout/app-layout";
 import { Topbar } from "@/components/layout/top-bar";
 import { RightSidebar } from "@/components/layout/right-sidebar";
 import { ModelBenchmark } from "@/components/dashboard/model-benchmark";
 import { PerformanceCharts } from "@/components/dashboard/performance-charts";
+import { LeftSidebar } from "@/components/layout/left-sidebar";
 
 export default function DashboardPage() {
   return (
-    <AppLayout>
+    <AppLayout
+        leftSidebar={<LeftSidebar />}
+        rightSidebar={<RightSidebar />}
+    >
       <div className="flex flex-col h-full flex-1">
         <Topbar />
         <div className="flex-1 p-4 md:p-6 lg:p-8 space-y-8 overflow-y-auto">
@@ -16,7 +21,6 @@ export default function DashboardPage() {
             <ModelBenchmark />
         </div>
       </div>
-      <RightSidebar />
     </AppLayout>
   );
 }

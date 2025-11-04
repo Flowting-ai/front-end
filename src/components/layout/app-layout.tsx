@@ -1,17 +1,21 @@
+
+'use client';
 import type { ReactNode } from "react";
-import { LeftSidebar } from "./left-sidebar";
 
 interface AppLayoutProps {
   children: ReactNode;
+  leftSidebar: ReactNode;
+  rightSidebar: ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout({ children, leftSidebar, rightSidebar }: AppLayoutProps) {
   return (
       <div className="flex min-h-screen bg-card">
-          <LeftSidebar />
+          {leftSidebar}
           <main className="flex-1 flex flex-col">
             {children}
           </main>
+          {rightSidebar}
       </div>
   );
 }

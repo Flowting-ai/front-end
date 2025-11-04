@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -21,7 +22,9 @@ export function ChatInterface() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 200; // max height 
+      textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     }
   }, [input]);
 
@@ -102,7 +105,7 @@ export function ChatInterface() {
                 }
               }}
               placeholder="Send message"
-              className="pr-28 text-base resize-none overflow-y-hidden"
+              className="pr-28 text-base resize-none"
               rows={1}
             />
             <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
