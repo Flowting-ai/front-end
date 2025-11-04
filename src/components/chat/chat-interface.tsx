@@ -135,12 +135,12 @@ export function ChatInterface() {
       <footer className="shrink-0 p-4 bg-card">
         <div className="relative max-w-4xl mx-auto w-full space-y-2">
             <div className="flex gap-2">
-                <Button variant="outline" className="rounded-full bg-background">
+                <Button variant="outline" className="rounded-[25px] bg-background">
                     <Library className="mr-2 h-4 w-4" />
                     Library
                 </Button>
                 <Select>
-                    <SelectTrigger className="rounded-full bg-background w-auto gap-2">
+                    <SelectTrigger className="rounded-[25px] bg-background w-auto gap-2">
                         <SelectValue placeholder="Choose Persona" />
                     </SelectTrigger>
                     <SelectContent>
@@ -150,7 +150,7 @@ export function ChatInterface() {
                     </SelectContent>
                 </Select>
                  <Select>
-                    <SelectTrigger className="rounded-full bg-background w-auto gap-2">
+                    <SelectTrigger className="rounded-[25px] bg-background w-auto gap-2">
                         <SelectValue placeholder="Add Context" />
                     </SelectTrigger>
                     <SelectContent>
@@ -159,11 +159,11 @@ export function ChatInterface() {
                     </SelectContent>
                 </Select>
             </div>
-          <div className="relative flex items-center p-2 rounded-full border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-             <Button variant="ghost" size="icon" className="rounded-full">
+          <div className="relative flex items-center p-2 rounded-[25px] border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                 <Paperclip className="h-4 w-4" />
              </Button>
-             <Button variant="ghost" size="icon" className="rounded-full">
+             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                 <Mic className="h-4 w-4" />
              </Button>
             <Textarea
@@ -181,9 +181,8 @@ export function ChatInterface() {
               rows={1}
             />
             <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
-              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9 rounded-full px-4">
-                <Send className="h-4 w-4 mr-2" />
-                Send message
+              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9 rounded-[25px] px-4">
+                <Send className="h-4 w-4" />
               </Button>
             </div>
           </div>
