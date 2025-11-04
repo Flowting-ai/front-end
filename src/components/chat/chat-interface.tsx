@@ -34,8 +34,11 @@ export function ChatInterface() {
 
   useEffect(() => {
     const viewport = scrollViewportRef.current;
-    if (viewport && isScrolledToBottom) {
-      viewport.scrollTop = viewport.scrollHeight;
+    if (viewport) {
+      // Auto-scroll to bottom only if the user was already near the bottom
+      if (isScrolledToBottom) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages, isScrolledToBottom]);
 
@@ -67,8 +70,9 @@ export function ChatInterface() {
       ),
     };
 
-    setMessages((prev) => [...prev, userMessage, aiMessage]);
+    setMessages((prev) => [...prev, userMessage, aiMessage, userMessage, aiMessage, userMessage, aiMessage]);
     setInput("");
+    // Ensure we scroll down after sending a new message
     setIsScrolledToBottom(true);
   };
 
@@ -90,6 +94,7 @@ export function ChatInterface() {
 
   const scrollToBottom = () => {
     scrollViewportRef.current?.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'smooth' });
+    setIsScrolledToBottom(true);
   };
   
   const scrollToTop = () => {
@@ -98,6 +103,7 @@ export function ChatInterface() {
   
   return (
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
+        {/* This is the scrollable message area */}
         <div className="flex-1 relative">
             <ScrollArea className="h-full absolute inset-0" viewportRef={scrollViewportRef} onScroll={handleScroll}>
                 <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
@@ -108,6 +114,7 @@ export function ChatInterface() {
                 )}
                 </div>
             </ScrollArea>
+             {/* Action buttons are positioned relative to this container */}
              {messages.length > 0 && !isAtTop && (
                  <Button 
                     onClick={scrollToTop}
@@ -130,8 +137,8 @@ export function ChatInterface() {
             )}
         </div>
 
-
-      <footer className="p-4 border-t border-border/20">
+      {/* This is the fixed footer */}
+      <footer className="shrink-0 p-4 border-t border-border/20 bg-card">
         <div className="max-w-4xl mx-auto w-full space-y-4">
             <div className="flex gap-2">
                 <Button variant="outline" className="bg-background">
