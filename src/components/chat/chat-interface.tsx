@@ -17,6 +17,7 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
@@ -73,6 +74,8 @@ export function ChatInterface() {
 
   const handlePromptClick = (prompt: string) => {
     setInput(prompt);
+    // Automatically focus the textarea after clicking a prompt
+    textareaRef.current?.focus();
   };
   
   const handleScroll = () => {
@@ -80,6 +83,8 @@ export function ChatInterface() {
     if (viewport) {
       const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
       setIsScrolledToBottom(isAtBottom);
+      const isAtTop = viewport.scrollTop === 0;
+      setIsAtTop(isAtTop);
     }
   };
 
@@ -87,10 +92,14 @@ export function ChatInterface() {
     scrollViewportRef.current?.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'smooth' });
   };
   
+  const scrollToTop = () => {
+    scrollViewportRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  
   return (
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
         <div className="flex-1 relative">
-            <ScrollArea className="h-full" viewportRef={scrollViewportRef} onScroll={handleScroll}>
+            <ScrollArea className="h-full absolute inset-0" viewportRef={scrollViewportRef} onScroll={handleScroll}>
                 <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
                 {messages.length === 0 ? (
                     <InitialPrompts onPromptClick={handlePromptClick} />
@@ -99,6 +108,16 @@ export function ChatInterface() {
                 )}
                 </div>
             </ScrollArea>
+             {messages.length > 0 && !isAtTop && (
+                 <Button 
+                    onClick={scrollToTop}
+                    variant="outline" 
+                    size="icon"
+                    className="absolute bottom-4 right-16 rounded-full z-10"
+                >
+                    <ArrowUp className="h-4 w-4" />
+                </Button>
+            )}
              {!isScrolledToBottom && (
                 <Button 
                     onClick={scrollToBottom}
