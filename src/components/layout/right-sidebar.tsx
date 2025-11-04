@@ -19,12 +19,24 @@ export interface Pin {
 }
 
 
-const initialPins = [
+const initialPins: Pin[] = [
   {
     text: "The Q4 analysis shows a 25% increase user engagement",
     tags: ["Finance Research"],
     chat: "Product Analysis Q4",
     time: "2m",
+  },
+  {
+    text: "Competitive landscape is shifting towards AI-driven features.",
+    tags: ["Market Research"],
+    chat: "Competitive Landscape",
+    time: "1 Day",
+  },
+  {
+    text: "User feedback indicates a strong desire for a mobile app.",
+    tags: ["User Feedback"],
+    chat: "User Feedback Synthesis",
+    time: "1month",
   },
   {
     text: "The Q1 analysis shows a 15% decrease in churn.",
@@ -33,16 +45,10 @@ const initialPins = [
     time: "2m",
   },
     {
-    text: "Competitive landscape is shifting towards AI-driven features.",
-    tags: ["Market Research"],
-    chat: "Competitive Landscape",
-    time: "1 Day",
-  },
-    {
-    text: "User feedback indicates a strong desire for a mobile app.",
-    tags: ["User Feedback"],
-    chat: "User Feedback Synthesis",
-    time: "1month",
+    text: "New marketing slogan brainstorm: 'AI that flows with you.'",
+    tags: ["Marketing"],
+    chat: "Marketing Campaign Ideas",
+    time: "3d",
   },
 ];
 
@@ -50,25 +56,33 @@ interface RightSidebarProps {
     isCollapsed: boolean;
 }
 
-export function RightSidebar({ isCollapsed }: RightSidebarProps) {
-  const [pins, setPins] = useState(initialPins);
+export function RightSidebar({ isCollapsed, pins }: { isCollapsed: boolean, pins: Pin[] }) {
+  const [localPins, setLocalPins] = useState(initialPins);
   const [activeTab, setActiveTab] = useState("Pins");
   const [tagInput, setTagInput] = useState('');
+
+  const allPins = [...pins, ...localPins];
 
   const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>, pinIndex: number) => {
     if (event.key === 'Enter' && tagInput.trim()) {
       event.preventDefault();
-      const newPins = [...pins];
-      newPins[pinIndex].tags.push(tagInput.trim());
-      setPins(newPins);
+      const newPins = [...allPins];
+      if(newPins[pinIndex]) {
+        newPins[pinIndex].tags.push(tagInput.trim());
+        // This is a simplified state update. A more robust solution
+        // would differeniate between props-pins and local-pins
+        setLocalPins(newPins.filter(p => initialPins.includes(p)));
+      }
       setTagInput('');
     }
   };
 
   const removeTag = (pinIndex: number, tagIndex: number) => {
-    const newPins = [...pins];
-    newPins[pinIndex].tags.splice(tagIndex, 1);
-    setPins(newPins);
+    const newPins = [...allPins];
+    if(newPins[pinIndex]) {
+        newPins[pinIndex].tags.splice(tagIndex, 1);
+        setLocalPins(newPins.filter(p => initialPins.includes(p)));
+    }
   };
 
   return (
@@ -111,7 +125,7 @@ export function RightSidebar({ isCollapsed }: RightSidebarProps) {
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="p-4 space-y-3">
-                    {pins.map((pin, index) => (
+                    {allPins.map((pin, index) => (
                         <Card key={index} className="bg-background">
                         <CardContent className="p-3 space-y-2">
                             <p className="text-xs">{pin.text}</p>

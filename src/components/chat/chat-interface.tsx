@@ -15,13 +15,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Pin as PinType } from "../layout/right-sidebar";
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+    onPinMessage?: (pin: PinType) => void;
+}
+
+export function ChatInterface({ onPinMessage }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
-  const [pins, setPins] = useState<PinType[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
@@ -112,14 +115,16 @@ export function ChatInterface() {
   }
 
   const handlePin = (message: Message) => {
-    const newPin: PinType = {
-      text: message.content,
-      tags: [], // Tags can be added later
-      chat: "Current Chat", // Replace with dynamic chat name
-      time: "1m", // Replace with dynamic time
-    };
-    setPins(prev => [newPin, ...prev]);
-    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: true } : m));
+    if (onPinMessage) {
+        const newPin: PinType = {
+          text: message.content,
+          tags: [], // Tags can be added later
+          chat: "Current Chat", // Replace with dynamic chat name
+          time: new Date().toLocaleTimeString(), // Dynamic time
+        };
+        onPinMessage(newPin);
+        setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: true } : m));
+    }
   };
 
   const handleCopy = (content: string) => {
@@ -127,9 +132,11 @@ export function ChatInterface() {
   };
 
   const handleEdit = (message: Message) => {
-    setInput(message.content);
-    setEditingMessageId(message.id);
-    textareaRef.current?.focus();
+    if (message.sender === 'user') {
+      setInput(message.content);
+      setEditingMessageId(message.id);
+      textareaRef.current?.focus();
+    }
   };
 
   const handleDelete = (messageId: string) => {
@@ -171,7 +178,7 @@ export function ChatInterface() {
                 {!isScrolledToBottom && (
                     <Button 
                         onClick={scrollToBottom}
-                        variant="outline" 
+                        variant="outline" _
                         size="icon"
                         className="rounded-full"
                     >
@@ -240,5 +247,3 @@ export function ChatInterface() {
     </div>
   );
 }
-
-    

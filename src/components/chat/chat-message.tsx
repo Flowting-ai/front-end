@@ -26,7 +26,7 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete }: ChatMe
   const isUser = message.sender === "user";
 
   const UserActions = () => (
-    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="flex items-center gap-1 transition-opacity">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(message)}><Pencil className="h-4 w-4" /></Button>
       <Button variant="ghost" size="icon" className="h-7 w-7"><Flag className="h-4 w-4" /></Button>
@@ -35,7 +35,7 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete }: ChatMe
   )
 
   const AiActions = () => (
-    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="flex items-center gap-1 transition-opacity">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(message)}>
         <Pin className={cn("h-4 w-4", message.isPinned && "fill-current text-foreground")} />
       </Button>

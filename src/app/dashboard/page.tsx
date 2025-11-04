@@ -5,10 +5,13 @@ import AppLayout from "@/components/layout/app-layout";
 import { ModelBenchmark } from "@/components/dashboard/model-benchmark";
 import { PerformanceCharts } from "@/components/dashboard/performance-charts";
 import type { Dispatch, SetStateAction } from "react";
+import type { Pin } from "@/components/layout/right-sidebar";
 
 interface DashboardPageProps {
     isRightSidebarVisible?: boolean;
     setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
+    pins?: Pin[];
+    onPinMessage?: (pin: Pin) => void;
 }
 
 function DashboardPageContent({ isRightSidebarVisible, setIsRightSidebarVisible }: DashboardPageProps) {

@@ -8,13 +8,15 @@ import type { Dispatch, SetStateAction } from 'react';
 import AppLayout from '@/components/layout/app-layout';
 import { ModelSelector } from "@/components/chat/model-selector";
 import { TokenTracker } from "@/components/chat/token-tracker";
+import type { Pin as PinType } from "@/components/layout/right-sidebar";
 
 interface HomeProps {
     isRightSidebarVisible?: boolean;
     setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
+    onPinMessage?: (pin: PinType) => void;
 }
 
-function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible }: HomeProps) {
+function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage }: HomeProps) {
 
   return (
       <div className="flex flex-col flex-1 h-full overflow-hidden">
@@ -34,7 +36,7 @@ function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible }: Ho
                 )}
             </div>
         </header>
-        <ChatInterface />
+        <ChatInterface onPinMessage={onPinMessage} />
       </div>
   );
 }

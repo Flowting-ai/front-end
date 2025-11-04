@@ -2,9 +2,8 @@
 'use client';
 import type { ReactNode } from "react";
 import React, { useState } from "react";
-import Link from "next/link";
 import { LeftSidebar } from "./left-sidebar";
-import { RightSidebar } from "./right-sidebar";
+import { RightSidebar, type Pin } from "./right-sidebar";
 import { ChatListSidebar } from "./chat-list-sidebar";
 import { Topbar } from "./top-bar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -18,7 +17,7 @@ interface AppLayoutProps {
 }
 
 // This wrapper component consumes the props so they aren't passed to the DOM
-function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>}) {
+function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>, pins: Pin[]}) {
     // Clone the child and pass down the props it expects
     if (React.isValidElement(children)) {
         return React.cloneElement(children, props);
@@ -31,7 +30,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pins, setPins] = useState<Pin[]>([]);
   const isMobile = useIsMobile();
+
+  const handlePinMessage = (pin: Pin) => {
+    setPins(prev => [pin, ...prev]);
+  };
   
   if (isMobile) {
     return (
@@ -53,7 +57,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </Sheet>
             </Topbar>
              <main className="flex-1 flex flex-col min-w-0">
-                {children}
+                <PageContentWrapper pins={pins} onPinMessage={handlePinMessage}>
+                    {children}
+                </PageContentWrapper>
             </main>
         </div>
     )
@@ -72,6 +78,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <PageContentWrapper 
                 isRightSidebarVisible={!isRightSidebarCollapsed}
                 setIsRightSidebarVisible={(visible: boolean) => setIsRightSidebarCollapsed(!visible)}
+                pins={pins}
+                onPinMessage={handlePinMessage}
             >
                 {children}
             </PageContentWrapper>
@@ -82,6 +90,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </Button>
             <RightSidebar
                 isCollapsed={isRightSidebarCollapsed}
+                pins={pins}
             />
         </div>
       </div>
