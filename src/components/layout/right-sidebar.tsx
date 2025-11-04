@@ -11,6 +11,14 @@ import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { cn } from "@/lib/utils";
 
+export interface Pin {
+  text: string;
+  tags: string[];
+  chat: string;
+  time: string;
+}
+
+
 const initialPins = [
   {
     text: "The Q4 analysis shows a 25% increase user engagement",
@@ -78,6 +86,7 @@ export function RightSidebar({ isCollapsed }: RightSidebarProps) {
                 <div className="p-4 border-b">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold">Pinboard</h2>
+                        <Pin className="h-5 w-5" />
                     </div>
                     <div className="relative mt-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -145,3 +154,5 @@ export function RightSidebar({ isCollapsed }: RightSidebarProps) {
     </aside>
   );
 }
+
+    

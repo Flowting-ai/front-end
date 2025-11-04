@@ -11,31 +11,37 @@ export interface Message {
   sender: "user" | "ai";
   content: string;
   avatar: ReactNode;
+  isPinned?: boolean;
 }
 
 interface ChatMessageProps {
   message: Message;
+  onPin: (message: Message) => void;
+  onCopy: (content: string) => void;
+  onEdit: (message: Message) => void;
+  onDelete: (messageId: string) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete }: ChatMessageProps) {
   const isUser = message.sender === "user";
 
   const UserActions = () => (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Copy className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(message)}><Pencil className="h-4 w-4" /></Button>
       <Button variant="ghost" size="icon" className="h-7 w-7"><Flag className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
     </div>
   )
 
   const AiActions = () => (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Pin className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Copy className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(message)}>
+        <Pin className={cn("h-4 w-4", message.isPinned && "fill-current text-foreground")} />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
       <Button variant="ghost" size="icon" className="h-7 w-7"><Flag className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7"><Trash2 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
     </div>
   )
 
@@ -66,3 +72,5 @@ export function ChatMessage({ message }: ChatMessageProps) {
     </div>
   );
 }
+
+    
