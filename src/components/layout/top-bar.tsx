@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "../ui/button";
@@ -7,8 +8,9 @@ import { WandSparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
-export function Topbar() {
+export function Topbar({ children }: { children?: ReactNode }) {
   const pathname = usePathname();
   const tabs = [
     { name: "Chat Board", href: "/", icon: WandSparkles },
@@ -35,6 +37,7 @@ export function Topbar() {
         ))}
       </nav>
       <div className="flex items-center gap-4">
+        {children}
         <ModelSelector />
         <div className="w-48">
             <div className="flex justify-between items-center mb-1">

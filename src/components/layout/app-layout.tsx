@@ -10,7 +10,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, leftSidebar, rightSidebar }: AppLayoutProps) {
   return (
-      <div className="flex min-h-screen bg-card">
+      <div className="flex h-screen bg-card w-full">
           {leftSidebar}
           <main className="flex-1 flex flex-col">
             {children}
