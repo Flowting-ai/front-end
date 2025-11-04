@@ -159,13 +159,7 @@ export function ChatInterface() {
                     </SelectContent>
                 </Select>
             </div>
-          <div className="relative flex items-center p-2 rounded-[25px] border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Paperclip className="h-4 w-4" />
-             </Button>
-             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                <Mic className="h-4 w-4" />
-             </Button>
+          <div className="relative flex flex-col p-2 rounded-[25px] border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -177,13 +171,21 @@ export function ChatInterface() {
                 }
               }}
               placeholder="Lets Play....."
-              className="pr-28 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+              className="pr-12 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-2"
               rows={1}
             />
-            <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
-              <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9 rounded-[25px] px-4">
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center justify-between mt-1">
+                <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                        <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                        <Mic className="h-4 w-4" />
+                    </Button>
+                </div>
+                <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9 rounded-[25px] px-4">
+                    <Send className="h-4 w-4" />
+                </Button>
             </div>
           </div>
         </div>
