@@ -1,8 +1,7 @@
 
 'use client';
 import type { ReactNode } from "react";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import React, { useState } from "react";
 import { LeftSidebar } from "./left-sidebar";
 import { RightSidebar } from "./right-sidebar";
 

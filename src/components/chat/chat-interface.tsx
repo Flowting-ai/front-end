@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Bot, User, Mic, Link as LinkIcon, Library, Plus, ArrowUp } from "lucide-react";
+import { Paperclip, Send, Bot, User, Mic, Link as LinkIcon, Library, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { ChatMessage } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import type { Message } from "./chat-message";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
@@ -33,14 +33,10 @@ export function ChatInterface() {
 
   useEffect(() => {
     const viewport = scrollViewportRef.current;
-    if (viewport) {
-      // Auto-scroll to bottom only if user is already near the bottom
-      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 150;
-      if (isAtBottom) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
+    if (viewport && isScrolledToBottom) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isScrolledToBottom]);
 
 
   const handleSend = () => {
@@ -72,6 +68,7 @@ export function ChatInterface() {
 
     setMessages((prev) => [...prev, userMessage, aiMessage]);
     setInput("");
+    setIsScrolledToBottom(true);
   };
 
   const handlePromptClick = (prompt: string) => {
@@ -81,8 +78,8 @@ export function ChatInterface() {
   const handleScroll = () => {
     const viewport = scrollViewportRef.current;
     if (viewport) {
-      const isScrolledUp = viewport.scrollTop < viewport.scrollHeight - viewport.clientHeight - 100;
-      setIsScrolled(isScrolledUp);
+      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
+      setIsScrolledToBottom(isAtBottom);
     }
   };
 
@@ -102,7 +99,7 @@ export function ChatInterface() {
                 )}
                 </div>
             </ScrollArea>
-             {isScrolled && (
+             {!isScrolledToBottom && (
                 <Button 
                     onClick={scrollToBottom}
                     variant="outline" 

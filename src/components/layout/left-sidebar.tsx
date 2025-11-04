@@ -2,23 +2,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import {
-  Bot,
-  LogOut,
   MessageSquare,
   Plus,
   Search,
-  Settings,
-  Star,
   Users,
   WandSparkles,
-  PanelLeft,
   ChevronsLeft,
   ChevronsRight,
+  Star,
+  Settings,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { usePathname } from "next/navigation";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -28,14 +23,14 @@ import { Badge } from "../ui/badge";
 
 const chatBoards = [
     { name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
-    { name: "Product Analysis Q1", time: "2m" },
-    { name: "Product Analysis Q4", time: "1 Day", isStarred: true, pinCount: 1 },
-    { name: "Product Analysis Q4", time: "1 month" },
-    { name: "Product Analysis Q4", time: "1 month" },
-    { name: "Product Analysis Q4", time: "1 month" },
-    { name: "Product Analysis Q4", time: "1 month" },
-    { name: "Product Analysis Q4", time: "1 month" },
-    { name: "Product Analysis Q4", time: "1month" },
+    { name: "Product Analysis Q1", time: "2m", isStarred: false, pinCount: 0 },
+    { name: "Competitive Landscape", time: "1 Day", isStarred: true, pinCount: 1 },
+    { name: "Q3 Earnings Call Prep", time: "1 month", isStarred: false, pinCount: 0 },
+    { name: "User Feedback Synthesis", time: "1 month", isStarred: false, pinCount: 0 },
+    { name: "Marketing Campaign Ideas", time: "1 month", isStarred: true, pinCount: 5 },
+    { name: "API Integration Plan", time: "2 months", isStarred: false, pinCount: 0 },
+    { name: "Onboarding Flow UX", time: "2 months", isStarred: false, pinCount: 0 },
+    { name: "Website Redesign Brainstorm", time: "3 months", isStarred: false, pinCount: 0 },
 ];
 
 interface LeftSidebarProps {
@@ -44,7 +39,6 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
-  const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
   return (
@@ -62,7 +56,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                   </svg>
               <h1 className="text-lg font-semibold">Flowting</h1>
             </div>
-             <Button variant="ghost" size="icon" onClick={onToggle} className="absolute -right-4 top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8">
+             <Button variant="ghost" size="icon" onClick={onToggle} className="absolute -right-4 top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full">
                 {isCollapsed ? <ChevronsRight className="h-4 w-4"/> : <ChevronsLeft className="h-4 w-4"/>}
             </Button>
         </div>
@@ -113,7 +107,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
         </div>
       </div>
 
-      <div className={cn("p-4 border-t mt-auto", isCollapsed && "p-2")}>
+      <div className={cn("p-4 border-t border-sidebar-border mt-auto", isCollapsed && "p-2")}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8">

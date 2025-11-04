@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Pin, Search, X, Files, ChevronDown } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
@@ -20,22 +19,22 @@ const initialPins = [
     time: "2m",
   },
   {
-    text: "The Q4 analysis shows a 25% increase user engagement",
-    tags: ["Finance Research"],
-    chat: "Product Analysis Q4",
+    text: "The Q1 analysis shows a 15% decrease in churn.",
+    tags: ["User Retention"],
+    chat: "Product Analysis Q1",
     time: "2m",
   },
     {
-    text: "The Q4 analysis shows a 25% increase user engagement",
-    tags: ["Finance Research"],
-    chat: "Product Analysis Q4",
-    time: "2m",
+    text: "Competitive landscape is shifting towards AI-driven features.",
+    tags: ["Market Research"],
+    chat: "Competitive Landscape",
+    time: "1 Day",
   },
     {
-    text: "The Q4 analysis shows a 25% increase user engagement",
-    tags: ["Finance Research"],
-    chat: "Product Analysis Q4",
-    time: "2m",
+    text: "User feedback indicates a strong desire for a mobile app.",
+    tags: ["User Feedback"],
+    chat: "User Feedback Synthesis",
+    time: "1 month",
   },
 ];
 
@@ -45,7 +44,7 @@ interface RightSidebarProps {
 }
 
 export function RightSidebar({ isVisible, onClose }: RightSidebarProps) {
-  const [pins, setPins] = useState<string[]>(initialPins.map(p => p.text));
+  const [pins, setPins] = useState(initialPins);
   const [activeTab, setActiveTab] = useState("Pins");
 
   if (!isVisible) {
@@ -91,7 +90,7 @@ export function RightSidebar({ isVisible, onClose }: RightSidebarProps) {
       </div>
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-3">
-          {initialPins.map((pin, index) => (
+          {pins.map((pin, index) => (
             <Card key={index} className="bg-background">
               <CardContent className="p-3 space-y-2">
                 <p className="text-sm">{pin.text}</p>

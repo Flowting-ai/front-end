@@ -1,19 +1,19 @@
 
-"use client";
+'use client';
 
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Topbar } from "@/components/layout/top-bar";
-import AppLayout from "@/components/layout/app-layout";
 import { Button } from '@/components/ui/button';
 import { Pin } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
+import AppLayout from '@/components/layout/app-layout';
 
 interface HomeProps {
     isRightSidebarVisible?: boolean;
     setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
 }
 
-export default function Home({ isRightSidebarVisible, setIsRightSidebarVisible }: HomeProps) {
+function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible }: HomeProps) {
 
   return (
       <div className="flex flex-col flex-1 h-full">
@@ -28,4 +28,12 @@ export default function Home({ isRightSidebarVisible, setIsRightSidebarVisible }
         <ChatInterface />
       </div>
   );
+}
+
+export default function Home() {
+    return (
+        <AppLayout>
+            <HomePageContent />
+        </AppLayout>
+    )
 }
