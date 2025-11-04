@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isAtTop, setIsAtTop] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
@@ -32,10 +32,16 @@ export function ChatInterface() {
   }, [input]);
 
   useEffect(() => {
-    if (scrollViewportRef.current) {
-        scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      // Auto-scroll to bottom only if user is already near the bottom
+      const isAtBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 150;
+      if (isAtBottom) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages]);
+
 
   const handleSend = () => {
     if (input.trim() === "") return;
@@ -72,18 +78,21 @@ export function ChatInterface() {
     setInput(prompt);
   };
   
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop } = e.currentTarget;
-    setIsAtTop(scrollTop === 0);
+  const handleScroll = () => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      const isScrolledUp = viewport.scrollTop < viewport.scrollHeight - viewport.clientHeight - 100;
+      setIsScrolled(isScrolledUp);
+    }
   };
 
-  const scrollToTop = () => {
-    scrollViewportRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToBottom = () => {
+    scrollViewportRef.current?.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'smooth' });
   };
   
   return (
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
-        <div className="flex-1 overflow-y-auto relative">
+        <div className="flex-1 relative">
             <ScrollArea className="h-full" viewportRef={scrollViewportRef} onScroll={handleScroll}>
                 <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
                 {messages.length === 0 ? (
@@ -93,14 +102,14 @@ export function ChatInterface() {
                 )}
                 </div>
             </ScrollArea>
-             {!isAtTop && (
+             {isScrolled && (
                 <Button 
-                    onClick={scrollToTop}
+                    onClick={scrollToBottom}
                     variant="outline" 
                     size="icon"
-                    className="absolute bottom-4 right-4 rounded-full"
+                    className="absolute bottom-4 right-4 rounded-full z-10"
                 >
-                    <ArrowUp className="h-4 w-4" />
+                    <ArrowDown className="h-4 w-4" />
                 </Button>
             )}
         </div>

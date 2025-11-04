@@ -24,11 +24,12 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ThemeSwitcher } from "../theme-switcher";
 import { cn } from "@/lib/utils";
+import { Badge } from "../ui/badge";
 
 const chatBoards = [
-    { name: "Product Analysis Q4", time: "2m", isNew: true, isStarred: true },
+    { name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
     { name: "Product Analysis Q1", time: "2m" },
-    { name: "Product Analysis Q4", time: "1 Day", isNew: true, isStarred: true },
+    { name: "Product Analysis Q4", time: "1 Day", isStarred: true, pinCount: 1 },
     { name: "Product Analysis Q4", time: "1 month" },
     { name: "Product Analysis Q4", time: "1 month" },
     { name: "Product Analysis Q4", time: "1 month" },
@@ -37,10 +38,14 @@ const chatBoards = [
     { name: "Product Analysis Q4", time: "1month" },
 ];
 
-export function LeftSidebar() {
+interface LeftSidebarProps {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <aside className={cn(
@@ -48,7 +53,7 @@ export function LeftSidebar() {
         isCollapsed ? "w-16" : "w-72"
       )}>
         
-      <div className={cn("p-4 border-b", isCollapsed && "p-2")}>
+      <div className={cn("p-4 border-b border-sidebar-border", isCollapsed && "p-2")}>
         <div className="flex items-center justify-between">
             <div className={cn("flex items-center gap-2", isCollapsed && "hidden")}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
@@ -57,7 +62,7 @@ export function LeftSidebar() {
                   </svg>
               <h1 className="text-lg font-semibold">Flowting</h1>
             </div>
-             <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="absolute -right-4 top-1/2 -translate-y-1/2 bg-background border hover:bg-accent z-10 h-8 w-8">
+             <Button variant="ghost" size="icon" onClick={onToggle} className="absolute -right-4 top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8">
                 {isCollapsed ? <ChevronsRight className="h-4 w-4"/> : <ChevronsLeft className="h-4 w-4"/>}
             </Button>
         </div>
@@ -99,8 +104,8 @@ export function LeftSidebar() {
                                 <span className="text-xs text-muted-foreground">{board.time}</span>
                             </div>
                             <div className={cn("ml-auto flex items-center gap-1", isCollapsed && "hidden")}>
-                               {board.isStarred && <Star className="w-4 h-4 text-blue-500 fill-current" />}
-                               {board.isNew && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
+                               {board.isStarred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+                               {board.pinCount && board.pinCount > 0 && <Badge variant="secondary" className="rounded-full h-5 w-5 p-0 flex items-center justify-center">{board.pinCount}</Badge>}
                             </div>
                     </Button>
                 ))}
