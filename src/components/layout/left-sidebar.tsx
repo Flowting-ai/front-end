@@ -30,7 +30,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
         "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-300 ease-in-out border-r border-sidebar-border relative",
         isCollapsed ? "w-16 items-center" : "w-72"
       )}>
-        
+      
       <div className={cn("p-4 border-b border-sidebar-border w-full", isCollapsed && "p-2")}>
         <div className="flex items-center justify-between">
             <Link href="/" className={cn("flex items-center gap-2", isCollapsed && "hidden")}>
@@ -40,11 +40,12 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                   </svg>
               <h1 className="text-lg font-semibold">Flowting</h1>
             </Link>
-             <Button variant="ghost" size="icon" onClick={onToggle} className="absolute top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full" style={{ right: '-1rem' }}>
-                {isCollapsed ? <ChevronsRight className="h-4 w-4"/> : <ChevronsLeft className="h-4 w-4"/>}
-            </Button>
         </div>
       </div>
+
+      <Button variant="ghost" size="icon" onClick={onToggle} className="absolute top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full" style={{ right: '-1rem' }}>
+          {isCollapsed ? <ChevronsRight className="h-4 w-4"/> : <ChevronsLeft className="h-4 w-4"/>}
+      </Button>
 
       <div className={cn("p-4 space-y-4 flex-1 overflow-y-auto w-full", isCollapsed && "p-2")}>
         <Button variant="outline" className={cn("w-full justify-start gap-2", isCollapsed && "w-auto justify-center")}>

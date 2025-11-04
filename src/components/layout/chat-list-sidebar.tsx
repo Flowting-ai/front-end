@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import React from "react";
 
 const chatBoards = [
     { name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
@@ -61,25 +62,24 @@ export function ChatListSidebar({ isLeftSidebarCollapsed }: ChatListSidebarProps
           <h3 className="text-xs font-semibold text-muted-foreground px-2">CHAT BOARDS</h3>
           <div className="space-y-1">
               {chatBoards.map((board, index) => (
-                  <Button
+                  <div
                        key={index}
-                       variant="ghost"
-                       className="w-full h-auto py-2 group flex justify-between items-center"
+                       className="w-full h-auto py-2 group flex justify-between items-center rounded-md hover:bg-accent cursor-pointer"
                       >
-                          <div className="flex items-center gap-2 overflow-hidden">
+                          <div className="flex items-center gap-2 overflow-hidden flex-1 pl-2">
                               <MessageSquare className="w-5 h-5 flex-shrink-0" />
                               <div className="flex-grow text-left overflow-hidden">
                                   <p className="truncate w-full">{board.name}</p>
                                   <p className="text-xs text-muted-foreground">{board.time}</p>
                               </div>
                           </div>
-                           <div className="ml-2 flex-shrink-0 flex items-center gap-1">
-                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+                           <div className="ml-2 flex-shrink-0 flex items-center gap-1 pr-1">
+                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={(e) => e.stopPropagation()}>
                                <Star className={cn("w-4 h-4", board.isStarred ? "text-blue-400 fill-blue-400" : "text-muted-foreground")} />
                              </Button>
-                             {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 text-[10px] p-0 flex items-center justify-center bg-blue-400 text-primary-foreground dark:text-primary-foreground">{board.pinCount}</Badge>}
+                             {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 text-[10px] p-0 flex items-center justify-center bg-blue-400 text-primary-foreground dark:text-black">{board.pinCount}</Badge>}
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100">
                                         <MoreHorizontal className="w-4 h-4" />
                                     </Button>
@@ -92,7 +92,7 @@ export function ChatListSidebar({ isLeftSidebarCollapsed }: ChatListSidebarProps
                                 </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                  </Button>
+                  </div>
               ))}
           </div>
       </div>
