@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,9 +14,16 @@ import { Input } from "../ui/input";
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const userAvatar = { imageUrl: "https://picsum.photos/seed/1/40/40", imageHint: "user avatar" };
   const aiAvatar = { imageUrl: "https://picsum.photos/seed/2/40/40", imageHint: "ai avatar" };
 
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
 
   const handleSend = () => {
     if (input.trim() === "") return;
@@ -84,7 +91,8 @@ export function ChatInterface() {
                  </Button>
             </div>
           <div className="relative">
-            <Input
+            <Textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -94,7 +102,8 @@ export function ChatInterface() {
                 }
               }}
               placeholder="Send message"
-              className="pr-28 h-12 text-base"
+              className="pr-28 text-base resize-none overflow-y-hidden"
+              rows={1}
             />
             <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center">
               <Button size="lg" onClick={handleSend} disabled={!input.trim()} className="bg-primary text-primary-foreground h-9">
