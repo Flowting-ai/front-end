@@ -72,7 +72,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                 <Users />
                 <span className={cn(isCollapsed && "hidden")}>Personas</span>
             </Link>
-            <Link href="#" className={cn("flex items-center gap-2 p-2 rounded-md", isCollapsed && "justify-center")}>
+            <Link href="/dashboard" className={cn("flex items-center gap-2 p-2 rounded-md", isCollapsed && "justify-center")}>
                 <WandSparkles />
                 <span className={cn(isCollapsed && "hidden")}>AI Automation</span>
             </Link>
@@ -90,16 +90,16 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                     <Button
                          key={index}
                          variant="ghost"
-                         className={cn("w-full justify-start h-auto py-2", isCollapsed && "justify-center w-10 h-10 p-0")}
+                         className={cn("w-full justify-start h-12 py-2", isCollapsed && "justify-center w-10 h-10 p-0")}
                         >
                             <MessageSquare className="w-5 h-5 flex-shrink-0" />
-                            <div className={cn("flex flex-col items-start w-full ml-2", isCollapsed && "hidden")}>
-                                <span className="truncate">{board.name}</span>
+                            <div className={cn("flex flex-col items-start flex-grow ml-2 overflow-hidden", isCollapsed && "hidden")}>
+                                <span className="truncate w-full">{board.name}</span>
                                 <span className="text-xs text-muted-foreground">{board.time}</span>
                             </div>
-                            <div className={cn("ml-auto flex items-center gap-1", isCollapsed && "hidden")}>
+                            <div className={cn("ml-2 flex-shrink-0 flex items-center gap-1.5", isCollapsed && "hidden")}>
                                {board.isStarred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
-                               {board.pinCount && board.pinCount > 0 && <Badge variant="secondary" className="rounded-full h-5 w-5 p-0 flex items-center justify-center">{board.pinCount}</Badge>}
+                               {board.pinCount > 0 && <Badge variant="secondary" className="rounded-full h-5 w-5 p-0 flex items-center justify-center">{board.pinCount}</Badge>}
                             </div>
                     </Button>
                 ))}
