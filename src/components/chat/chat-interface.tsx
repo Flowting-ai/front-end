@@ -34,11 +34,8 @@ export function ChatInterface() {
 
   useEffect(() => {
     const viewport = scrollViewportRef.current;
-    if (viewport) {
-      // Auto-scroll to bottom only if the user was already near the bottom
-      if (isScrolledToBottom) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
+    if (viewport && isScrolledToBottom) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages, isScrolledToBottom]);
 
@@ -70,7 +67,7 @@ export function ChatInterface() {
       ),
     };
 
-    setMessages((prev) => [...prev, userMessage, aiMessage, userMessage, aiMessage, userMessage, aiMessage]);
+    setMessages((prev) => [...prev, userMessage, aiMessage]);
     setInput("");
     // Ensure we scroll down after sending a new message
     setIsScrolledToBottom(true);
@@ -104,8 +101,8 @@ export function ChatInterface() {
   return (
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
         {/* This is the scrollable message area */}
-        <div className="flex-1 relative">
-            <ScrollArea className="h-full absolute inset-0" viewportRef={scrollViewportRef} onScroll={handleScroll}>
+        <div className="flex-1 relative min-h-0">
+            <ScrollArea className="h-full" viewportRef={scrollViewportRef} onScroll={handleScroll}>
                 <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
                 {messages.length === 0 ? (
                     <InitialPrompts onPromptClick={handlePromptClick} />
@@ -182,3 +179,5 @@ export function ChatInterface() {
     </div>
   );
 }
+
+    
