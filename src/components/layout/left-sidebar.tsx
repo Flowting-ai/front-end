@@ -105,7 +105,7 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                             </div>
                              <div className={cn("ml-2 flex-shrink-0 flex flex-col items-center gap-0.5", isCollapsed && "hidden")}>
                                {board.isStarred && <Star className="w-4 h-4 text-blue-400 fill-blue-400" />}
-                               {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-4 w-4 p-0 flex items-center justify-center bg-blue-400 text-primary-foreground dark:text-primary border-blue-400">{board.pinCount}</Badge>}
+                               {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-4 w-4 p-0 flex items-center justify-center bg-blue-400 text-white dark:text-black border-blue-400">{board.pinCount}</Badge>}
                             </div>
                     </Button>
                 ))}
