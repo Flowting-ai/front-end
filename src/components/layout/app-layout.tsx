@@ -17,10 +17,22 @@ interface AppLayoutProps {
 }
 
 // This wrapper component consumes the props so they aren't passed to the DOM
-function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>, pins: Pin[]}) {
+function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>, onPinMessage?: (pin: Pin) => void, onUnpinMessage?: (messageId: string) => void }) {
     // Clone the child and pass down the props it expects
     if (React.isValidElement(children)) {
-        return React.cloneElement(children, props);
+        // Filter out props that shouldn't be passed to the DOM element child
+        const { isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage, onUnpinMessage, ...rest } = props;
+        const childProps = {
+            ...rest, // pass down any other standard props
+            ...(children.type === React.Fragment ? {} : { // only pass custom props to non-fragment components
+                isRightSidebarVisible,
+                setIsRightSidebarVisible,
+                onPinMessage,
+                onUnpinMessage,
+            })
+        };
+        // @ts-ignore
+        return React.cloneElement(children, childProps);
     }
     return <>{children}</>;
 }
@@ -34,7 +46,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
 
   const handlePinMessage = (pin: Pin) => {
-    setPins(prev => [pin, ...prev]);
+    setPins(prev => [pin, ...prev.filter(p => p.id !== pin.id)]);
+  };
+
+  const handleUnpinMessage = (messageId: string) => {
+    setPins(prev => prev.filter(p => p.id !== messageId));
   };
   
   if (isMobile) {
@@ -57,7 +73,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </Sheet>
             </Topbar>
              <main className="flex-1 flex flex-col min-w-0">
-                <PageContentWrapper pins={pins} onPinMessage={handlePinMessage}>
+                <PageContentWrapper onPinMessage={handlePinMessage} onUnpinMessage={handleUnpinMessage}>
                     {children}
                 </PageContentWrapper>
             </main>
@@ -78,8 +94,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <PageContentWrapper 
                 isRightSidebarVisible={!isRightSidebarCollapsed}
                 setIsRightSidebarVisible={(visible: boolean) => setIsRightSidebarCollapsed(!visible)}
-                pins={pins}
                 onPinMessage={handlePinMessage}
+                onUnpinMessage={handleUnpinMessage}
             >
                 {children}
             </PageContentWrapper>
@@ -91,6 +107,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <RightSidebar
                 isCollapsed={isRightSidebarCollapsed}
                 pins={pins}
+                setPins={setPins}
             />
         </div>
       </div>
