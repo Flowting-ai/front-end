@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,7 @@ const initialPins = [
     text: "User feedback indicates a strong desire for a mobile app.",
     tags: ["User Feedback"],
     chat: "User Feedback Synthesis",
-    time: "1 month",
+    time: "1month",
   },
 ];
 
@@ -45,6 +45,23 @@ interface RightSidebarProps {
 export function RightSidebar({ isCollapsed }: RightSidebarProps) {
   const [pins, setPins] = useState(initialPins);
   const [activeTab, setActiveTab] = useState("Pins");
+  const [tagInput, setTagInput] = useState('');
+
+  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>, pinIndex: number) => {
+    if (event.key === 'Enter' && tagInput.trim()) {
+      event.preventDefault();
+      const newPins = [...pins];
+      newPins[pinIndex].tags.push(tagInput.trim());
+      setPins(newPins);
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (pinIndex: number, tagIndex: number) => {
+    const newPins = [...pins];
+    newPins[pinIndex].tags.splice(tagIndex, 1);
+    setPins(newPins);
+  };
 
   return (
     <aside className={cn(
@@ -90,16 +107,22 @@ export function RightSidebar({ isCollapsed }: RightSidebarProps) {
                         <CardContent className="p-3 space-y-2">
                             <p className="text-xs">{pin.text}</p>
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs text-muted-foreground">Add tags</span>
-                                {pin.tags.map(tag => (
+                                {pin.tags.map((tag, tagIndex) => (
                                     <Badge key={tag} variant="secondary" className="font-normal" style={{ fontSize: '8px', padding: '2px 4px' }}>
                                         {tag}
-                                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1">
+                                        <button onClick={() => removeTag(index, tagIndex)} className="ml-1 focus:outline-none">
                                             <X className="h-3 w-3" />
-                                        </Button>
+                                        </button>
                                     </Badge>
                                 ))}
                             </div>
+                             <Input 
+                                placeholder="Add tags..." 
+                                className="text-xs h-6 mt-1"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={(e) => handleTagKeyDown(e, index)}
+                            />
                             <div>
                                 <Textarea placeholder="Add private notes..." className="text-xs bg-card mt-1"/>
                             </div>

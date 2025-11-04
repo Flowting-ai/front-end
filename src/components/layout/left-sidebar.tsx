@@ -8,6 +8,7 @@ import {
   WandSparkles,
   ChevronsLeft,
   Settings,
+  Plus
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -33,6 +34,13 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
             <ChevronsLeft className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}/>
         </Button>
         
+        <div className={cn("p-4 space-y-4 w-full", isCollapsed && "p-2")}>
+            <Button variant="outline" className={cn("w-full justify-start gap-2 rounded-[25px]", isCollapsed && "justify-center w-auto")}>
+                <Plus className="w-4 h-4" />
+                <span className={cn(isCollapsed && "hidden")}>Add Chat Board</span>
+            </Button>
+        </div>
+
         <div className={cn("p-4 space-y-4 flex-1 overflow-y-auto w-full", isCollapsed && "p-2")}>
             <nav className="space-y-1">
                 <Link href="#" className={cn("flex items-center gap-2 p-2 rounded-md hover:bg-accent", isCollapsed && "justify-center")}>

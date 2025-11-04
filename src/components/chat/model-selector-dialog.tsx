@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Model } from "./model-selector";
 import {
   Dialog,
   DialogContent,
@@ -15,29 +16,31 @@ import { Search, Info, Bookmark } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 
-const models = [
+const models: Model[] = [
   { name: "OpenAI: Gpt 5", type: "paid", icon: "/openai.svg" },
   { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
+  { name: "Claude-color 2", type: "free", icon: "/claude.svg" },
+  { name: "Claude-color 3", type: "free", icon: "/claude.svg" },
+  { name: "Claude-color 4", type: "free", icon: "/claude.svg" },
+  { name: "Claude-color 5", type: "free", icon: "/claude.svg" },
   { name: "Gemini Pro", type: "paid", icon: "/gemini.svg" },
+  { name: "Gemini 2.5 Flash", type: "paid", icon: "/gemini.svg" },
   { name: "Mistral", type: "free", icon: "/mistral.svg" },
 ];
 
 interface ModelSelectorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onModelSelect: (model: Model) => void;
 }
 
-export function ModelSelectorDialog({ open, onOpenChange }: ModelSelectorDialogProps) {
+export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: ModelSelectorDialogProps) {
   const [filter, setFilter] = useState("free");
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredModels = models.filter(
     (model) =>
-      model.type === filter &&
+      (filter === "all" || model.type === filter) &&
       model.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -53,6 +56,10 @@ export function ModelSelectorDialog({ open, onOpenChange }: ModelSelectorDialogP
             onValueChange={setFilter}
             className="flex gap-4"
           >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="all" id="all" />
+              <Label htmlFor="all">All</Label>
+            </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="free" id="free" />
               <Label htmlFor="free">Free Model</Label>
@@ -76,17 +83,18 @@ export function ModelSelectorDialog({ open, onOpenChange }: ModelSelectorDialogP
               {filteredModels.map((model, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent"
+                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
+                  onClick={() => onModelSelect(model)}
                 >
                   <div className="flex items-center gap-3">
                     <img src={model.icon} alt={`${model.name} logo`} className="h-5 w-5" />
                     <span className="text-sm">{model.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
                       <Info className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
                       <Bookmark className="h-4 w-4" />
                     </Button>
                   </div>

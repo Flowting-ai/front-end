@@ -1,6 +1,7 @@
 
 "use client";
 
+import React, { useState } from "react";
 import {
   MessageSquare,
   Plus,
@@ -22,26 +23,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import React from "react";
 
-const chatBoards = [
-    { name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
-    { name: "Product Analysis Q1", time: "2m", isStarred: false, pinCount: 0 },
-    { name: "Competitive Landscape is shifting towards AI-driven features", time: "1 Day", isStarred: true, pinCount: 1 },
-    { name: "Q3 Earnings Call Prep", time: "1 month", isStarred: false, pinCount: 0 },
-    { name: "User Feedback Synthesis", time: "1 month", isStarred: false, pinCount: 0 },
-    { name: "Marketing Campaign Ideas", time: "1 month", isStarred: true, pinCount: 5 },
-    { name: "API Integration Plan for the new mobile application", time: "2 months", isStarred: false, pinCount: 0 },
-    { name: "Onboarding Flow UX", time: "2 months", isStarred: false, pinCount: 0 },
-    { name: "Website Redesign Brainstorm", time: "3 months", isStarred: false, pinCount: 0 },
+const initialChatBoards = [
+    { id: 1, name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
+    { id: 2, name: "Competitive Landscape", time: "1 Day", isStarred: true, pinCount: 1 },
+    { id: 3, name: "Marketing Campaign Ideas", time: "1 month", isStarred: true, pinCount: 5 },
 ];
 
 
 export function ChatListSidebar() {
+  const [chatBoards, setChatBoards] = useState(initialChatBoards);
+  
+  const handleAddChat = () => {
+    const newChat = {
+        id: Date.now(),
+        name: "New Chat",
+        time: "1m",
+        isStarred: false,
+        pinCount: 0
+    };
+    setChatBoards(prev => [newChat, ...prev]);
+  };
+
+  const toggleStar = (id: number) => {
+    setChatBoards(prev => prev.map(board => 
+        board.id === id ? { ...board, isStarred: !board.isStarred } : board
+    ));
+  };
+
+
   return (
     <aside className="w-72 bg-card text-card-foreground flex-col border-r hidden md:flex">
       <div className="p-4 border-b w-full">
-        <Button variant="outline" className="w-full justify-start gap-2 rounded-[25px]">
+        <Button variant="outline" className="w-full justify-start gap-2 rounded-[25px]" onClick={handleAddChat}>
             <Plus className="w-4 h-4" />
             <span>Add Chat Board</span>
         </Button>
@@ -53,9 +67,9 @@ export function ChatListSidebar() {
       <div className="space-y-2 p-4 flex-1 overflow-y-auto">
           <h3 className="text-xs font-semibold text-muted-foreground px-2">CHAT BOARDS</h3>
           <div className="space-y-1">
-              {chatBoards.map((board, index) => (
+              {chatBoards.map((board) => (
                   <div
-                       key={index}
+                       key={board.id}
                        className="w-full h-auto py-2 group flex justify-between items-center rounded-md hover:bg-accent cursor-pointer"
                       >
                           <div className="flex items-center gap-2 overflow-hidden flex-1 pl-2">
@@ -66,13 +80,13 @@ export function ChatListSidebar() {
                               </div>
                           </div>
                            <div className="ml-2 flex-shrink-0 flex items-center gap-1 pr-1">
-                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={(e) => e.stopPropagation()}>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); toggleStar(board.id); }}>
                                <Star className={cn("w-4 h-4", board.isStarred ? "text-blue-400 fill-blue-400" : "text-muted-foreground")} />
                              </Button>
                              {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 text-[10px] p-0 flex items-center justify-center bg-blue-400 text-white dark:text-black">{board.pinCount}</Badge>}
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100">
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
                                         <MoreHorizontal className="w-4 h-4" />
                                     </Button>
                                 </DropdownMenuTrigger>

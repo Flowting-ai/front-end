@@ -78,7 +78,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </main>
         <div className="relative">
             <Button variant="ghost" size="icon" onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)} className={cn("absolute top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full transition-all", isRightSidebarCollapsed ? '-left-4' : '-left-4')}>
-                <ChevronsLeft className={cn("h-4 w-4 transition-transform", isRightSidebarCollapsed ? "rotate-180" : "rotate-0")}/>
+                <ChevronsLeft className={cn("h-4 w-4 transition-transform", isRightSidebarCollapsed ? "rotate-0" : "rotate-180")}/>
             </Button>
             <RightSidebar
                 isCollapsed={isRightSidebarCollapsed}
