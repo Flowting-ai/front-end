@@ -104,8 +104,8 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
                                         <span className="text-xs text-muted-foreground">{board.time}</span>
                                     </div>
                                     <div className={cn("ml-2 flex-shrink-0 flex items-center gap-1.5")}>
-                                       {board.isStarred && <Star className="w-4 h-4 text-muted-foreground" />}
-                                       {board.pinCount > 0 && <Badge variant="outline" className="rounded-full h-5 w-5 p-0 flex items-center justify-center border-zinc-300 dark:border-zinc-700">{board.pinCount}</Badge>}
+                                       {board.isStarred && <Star className="w-4 h-4 text-blue-400 fill-blue-400" />}
+                                       {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 p-0 flex items-center justify-center bg-blue-400 text-white border-blue-400">{board.pinCount}</Badge>}
                                     </div>
                                 </div>
                             </div>
@@ -142,3 +142,5 @@ export function LeftSidebar({ isCollapsed, onToggle }: LeftSidebarProps) {
     </aside>
   );
 }
+
+    
