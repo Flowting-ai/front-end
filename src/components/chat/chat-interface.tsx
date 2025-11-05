@@ -293,7 +293,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
       toast({ title: "Pinned to board!" });
     }
 
-    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: !isPinned } : m));
+    setMessages(messages.map(m => m.id === message.id ? { ...m, isPinned: !m.isPinned } : m));
   };
 
 
@@ -421,3 +421,5 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
 }
 
       
+
+    
