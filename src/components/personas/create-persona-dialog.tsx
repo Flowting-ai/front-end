@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Wand2 } from "lucide-react";
+import { Loader2, Plus, Wand2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "../ui/card";
 
@@ -92,7 +92,10 @@ export function CreatePersonaDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-[25px]">Create Persona</Button>
+        <Button variant="outline" className="rounded-[25px]">
+          <UserPlus className="mr-2 h-4 w-4" />
+          Create Persona
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>

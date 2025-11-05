@@ -2,7 +2,7 @@
 "use client";
 
 import { Button } from "../ui/button";
-import { WandSparkles, BarChart2 } from "lucide-react";
+import { WandSparkles, BarChart2, UserPlus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ export function Topbar({ children }: { children?: ReactNode }) {
   const isMobile = useIsMobile();
   const tabs = [
     { name: "Chat Board", href: "/", icon: WandSparkles },
-    { name: "AI Automation", href: "/dashboard", icon: WandSparkles },
+    { name: "AI Automation", href: "/dashboard", icon: WandSparkles, disabled: true },
   ];
 
   return (
@@ -28,26 +28,26 @@ export function Topbar({ children }: { children?: ReactNode }) {
               <h1 className="text-lg font-semibold">Flowting</h1>
           </Link>
         )}
+        <nav className={cn("items-center gap-2", isMobile ? "hidden" : "flex")}>
+            {tabs.map((tab) => (
+            <Button
+                key={tab.name}
+                variant="ghost"
+                asChild
+                disabled={tab.disabled}
+                className={cn(
+                    "font-semibold rounded-[25px]",
+                    pathname === tab.href && !tab.disabled ? "bg-accent text-accent-foreground" : ""
+                )}
+            >
+                <Link href={tab.href}>
+                <tab.icon className="mr-2 h-4 w-4" />
+                {tab.name}
+                </Link>
+            </Button>
+            ))}
+        </nav>
       </div>
-
-      <nav className={cn("items-center gap-2", isMobile ? "hidden" : "flex")}>
-        {tabs.map((tab) => (
-          <Button
-            key={tab.name}
-            variant="ghost"
-            asChild
-            className={cn(
-                "font-semibold rounded-[25px]",
-                pathname === tab.href ? "bg-accent text-accent-foreground" : ""
-            )}
-          >
-            <Link href={tab.href}>
-              <tab.icon className="mr-2 h-4 w-4" />
-              {tab.name}
-            </Link>
-          </Button>
-        ))}
-      </nav>
 
       <div className={cn("items-center gap-2 px-4", isMobile ? "hidden" : "flex")}>
          <div className="flex items-center gap-2">

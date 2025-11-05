@@ -16,17 +16,25 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
+const initialChatBoards = [
+    { id: 1, name: "Product Analysis Q4", time: "2m", isStarred: true, pinCount: 3 },
+    { id: 2, name: "Competitive Landscape", time: "1 Day", isStarred: true, pinCount: 1 },
+    { id: 3, name: "Marketing Campaign Ideas", time: "1 month", isStarred: true, pinCount: 5 },
+];
+
+
 function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>, onPinMessage?: (pin: Pin) => void, onUnpinMessage?: (messageId: string) => void }) {
     if (React.isValidElement(children)) {
+        // Filter out props that are not meant for the DOM element
         const { isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage, onUnpinMessage, ...rest } = props;
+
+        // Check if the child is a valid React component that accepts these props
+        // This is a simplified check, for more complex scenarios you might need a more robust solution
         const childProps = {
             ...rest,
-            isRightSidebarVisible,
-            setIsRightSidebarVisible,
-            onPinMessage,
-            onUnpinMessage,
+            ...(typeof children.type !== 'string' ? { isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage, onUnpinMessage } : {})
         };
-        // @ts-ignore
+        
         return React.cloneElement(children, childProps);
     }
     return <>{children}</>;
@@ -35,9 +43,11 @@ function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSi
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
+  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pins, setPins] = useState<Pin[]>([]);
+  const [chatBoards, setChatBoards] = useState(initialChatBoards);
+  const [activeChatId, setActiveChatId] = useState(1);
   const isMobile = useIsMobile();
 
   const handlePinMessage = (pin: Pin) => {
@@ -63,7 +73,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                             isCollapsed={false}
                             onToggle={() => {}}
                         />
-                        <ChatListSidebar />
+                        <ChatListSidebar 
+                            chatBoards={chatBoards}
+                            setChatBoards={setChatBoards}
+                            activeChatId={activeChatId}
+                            setActiveChatId={setActiveChatId}
+                        />
                     </SheetContent>
                 </Sheet>
             </Topbar>
@@ -84,7 +99,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
             isCollapsed={isLeftSidebarCollapsed}
             onToggle={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
         />
-        <ChatListSidebar isLeftSidebarCollapsed={isLeftSidebarCollapsed} />
+        <ChatListSidebar 
+            isLeftSidebarCollapsed={isLeftSidebarCollapsed} 
+            chatBoards={chatBoards}
+            setChatBoards={setChatBoards}
+            activeChatId={activeChatId}
+            setActiveChatId={setActiveChatId}
+        />
         <main className="flex-1 flex flex-col min-w-0">
             <PageContentWrapper 
                 isRightSidebarVisible={!isRightSidebarCollapsed}

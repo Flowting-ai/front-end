@@ -15,12 +15,7 @@ export type Model = {
 
 export function ModelSelector() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<Model | null>({
-    name: "Gemini 2.5 Flash",
-    credits: "1M tokens",
-    type: "paid",
-    icon: "/gemini.svg"
-  });
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
 
   const handleModelSelect = (model: Model) => {
     setSelectedModel(model);
