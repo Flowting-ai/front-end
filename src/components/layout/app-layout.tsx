@@ -16,20 +16,15 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-// This wrapper component consumes the props so they aren't passed to the DOM
 function PageContentWrapper({ children, ...props }: AppLayoutProps & { isRightSidebarVisible?: boolean, setIsRightSidebarVisible?: React.Dispatch<React.SetStateAction<boolean>>, onPinMessage?: (pin: Pin) => void, onUnpinMessage?: (messageId: string) => void }) {
-    // Clone the child and pass down the props it expects
     if (React.isValidElement(children)) {
-        // Filter out props that shouldn't be passed to the DOM element child
         const { isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage, onUnpinMessage, ...rest } = props;
         const childProps = {
-            ...rest, // pass down any other standard props
-            ...(children.type === React.Fragment ? {} : { // only pass custom props to non-fragment components
-                isRightSidebarVisible,
-                setIsRightSidebarVisible,
-                onPinMessage,
-                onUnpinMessage,
-            })
+            ...rest,
+            isRightSidebarVisible,
+            setIsRightSidebarVisible,
+            onPinMessage,
+            onUnpinMessage,
         };
         // @ts-ignore
         return React.cloneElement(children, childProps);
@@ -100,16 +95,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 {children}
             </PageContentWrapper>
         </main>
-        <div className="relative">
-            <Button variant="ghost" size="icon" onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)} className={cn("absolute top-1/2 -translate-y-1/2 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full transition-all", isRightSidebarCollapsed ? '-left-4' : '-left-4')}>
-                <ChevronsLeft className={cn("h-4 w-4 transition-transform", isRightSidebarCollapsed ? "rotate-0" : "rotate-180")}/>
-            </Button>
-            <RightSidebar
-                isCollapsed={isRightSidebarCollapsed}
-                pins={pins}
-                setPins={setPins}
-            />
-        </div>
+        <RightSidebar
+            isCollapsed={isRightSidebarCollapsed}
+            onToggle={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
+            pins={pins}
+            setPins={setPins}
+        />
       </div>
     </div>
   );

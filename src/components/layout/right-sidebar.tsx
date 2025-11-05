@@ -141,7 +141,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins }: RightSide
                 <div className="p-4 border-b shrink-0">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <Pin className="h-5 w-5" />
+                            <Pin className="h-4 w-4" />
                             <h2 className="font-medium text-base">Pinboard</h2>
                         </div>
                     </div>

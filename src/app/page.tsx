@@ -14,9 +14,10 @@ interface HomeProps {
     isRightSidebarVisible?: boolean;
     setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
     onPinMessage?: (pin: PinType) => void;
+    onUnpinMessage?: (pinId: string) => void;
 }
 
-function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage }: HomeProps) {
+function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible, onPinMessage, onUnpinMessage }: HomeProps) {
 
   return (
       <div className="flex flex-col flex-1 h-full overflow-hidden">
@@ -36,7 +37,7 @@ function HomePageContent({ isRightSidebarVisible, setIsRightSidebarVisible, onPi
                 )}
             </div>
         </header>
-        <ChatInterface onPinMessage={onPinMessage} />
+        <ChatInterface onPinMessage={onPinMessage} onUnpinMessage={onUnpinMessage} />
       </div>
   );
 }
