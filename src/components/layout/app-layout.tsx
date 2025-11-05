@@ -116,6 +116,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setActiveChatId: (id: number) => setActiveChatId(id),
   };
 
+  const pageContentProps = {
+    onPinMessage: handlePinMessage,
+    onUnpinMessage: handleUnpinMessage,
+    messages: chatHistory[activeChatId] || [],
+    setMessages: setMessagesForActiveChat
+  };
+
   if (isMobile) {
     return (
         <AppLayoutContext.Provider value={contextValue}>
@@ -143,12 +150,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     </Sheet>
                 </Topbar>
                  <main className="flex-1 flex flex-col min-w-0">
-                    <PageContentWrapper 
-                        onPinMessage={handlePinMessage} 
-                        onUnpinMessage={handleUnpinMessage}
-                        messages={chatHistory[activeChatId] || []}
-                        setMessages={setMessagesForActiveChat}
-                    >
+                    <PageContentWrapper {...pageContentProps}>
                         {children}
                     </PageContentWrapper>
                 </main>
@@ -174,12 +176,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               setChatHistory={setChatHistory}
           />
           <main className="flex-1 flex flex-col min-w-0">
-              <PageContentWrapper 
-                  onPinMessage={handlePinMessage}
-                  onUnpinMessage={handleUnpinMessage}
-                  messages={chatHistory[activeChatId] || []}
-                  setMessages={setMessagesForActiveChat}
-              >
+              <PageContentWrapper {...pageContentProps}>
                   {children}
               </PageContentWrapper>
           </main>
