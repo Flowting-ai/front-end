@@ -5,7 +5,7 @@ export async function POST(req: Request) {
     const { prompt } = await req.json();
     
     // Replace YOUR_BACKEND_URL with your actual backend endpoint
-    const response = await fetch('YOUR_BACKEND_URL', {
+    const response = await fetch('http://127.0.0.1:8000/response/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
