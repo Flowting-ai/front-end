@@ -1,13 +1,12 @@
 
 "use client";
 
-import { type ReactNode, useState, useRef, useEffect, useContext } from "react";
+import { type ReactNode, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Pin, Copy, Pencil, Flag, Trash2, Check, X } from "lucide-react";
+import { Pin, Copy, Pencil, Flag, Trash2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
-import { AppLayoutContext } from "../layout/app-layout";
 
 
 // Custom hook for typewriter effect
@@ -45,7 +44,7 @@ export interface Message {
 
 interface ChatMessageProps {
   message: Message;
-  onPin: (message: Message, chatName: string) => void;
+  onPin: (message: Message) => void;
   onCopy: (content: string) => void;
   onEdit: (messageId: string, newContent: string) => void;
   onDelete: (messageId: string) => void;
@@ -57,7 +56,6 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const layoutContext = useContext(AppLayoutContext);
   
   // Convert 90 WPM to character delay. Avg word is 5 chars + space = 6.
   // 90 WPM * 6 chars/word = 540 chars/min.
@@ -81,7 +79,8 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
   
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
-    onEdit(message.id, editedContent); // Update UI immediately
+    // The UI for the user message will update via the onResubmit flow,
+    // which modifies the main messages array. We don't need onEdit here.
     setIsEditing(false);
   }
 
@@ -93,7 +92,7 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
   const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSaveEdit();
+      handleSaveAndResubmit();
     }
     if (e.key === "Escape") {
       handleCancelEdit();
@@ -111,12 +110,9 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
   )
 
   const AiActions = () => {
-    const activeChat = layoutContext?.chatBoards.find(c => c.id === layoutContext.activeChatId);
-    const chatName = activeChat ? activeChat.name : "Current Chat";
-    
     return (
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(message, chatName)}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(message)}>
           <Pin className={cn("h-4 w-4", message.isPinned && "fill-current text-blue-500")} />
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
@@ -142,7 +138,7 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
       )}
     >
       {!isUser && message.avatar}
-      <div className="flex flex-col gap-2 max-w-4xl w-full">
+      <div className="flex flex-col gap-2 w-full max-w-[calc(100%-4rem)]">
         <div
             className={cn(
             "p-4 rounded-[20px] break-words",
@@ -180,3 +176,5 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
     </div>
   );
 }
+
+      

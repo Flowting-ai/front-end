@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Pin as PinType } from "../layout/right-sidebar";
 import { useToast } from "@/hooks/use-toast";
+import { AppLayoutContext } from "../layout/app-layout";
 
 
 interface ChatInterfaceProps {
@@ -34,6 +35,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isResponding, setIsResponding] = useState(false);
+  const layoutContext = useContext(AppLayoutContext);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -157,13 +159,16 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
 };
 =======
   const handleSend = (content: string, messageIdToUpdate?: string) => {
-    if (content.trim() === "") return;
+    if (content.trim() === "" || isResponding) return;
     setIsResponding(true);
 
     if (messageIdToUpdate) {
        // This is an edit and resubmit
        const userMessageIndex = messages.findIndex(m => m.id === messageIdToUpdate);
-       if (userMessageIndex === -1) return;
+       if (userMessageIndex === -1) {
+        setIsResponding(false);
+        return;
+       }
 
        const updatedMessages = messages.slice(0, userMessageIndex + 1);
        updatedMessages[userMessageIndex] = { ...updatedMessages[userMessageIndex], content };
@@ -264,12 +269,16 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
     scrollViewportRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  const handlePin = (message: Message, chatName: string) => {
+  const handlePin = (message: Message) => {
     if (!onPinMessage || !onUnpinMessage) return;
 
-    if (message.isPinned) {
+    const activeChat = layoutContext?.chatBoards.find(c => c.id === layoutContext.activeChatId);
+    const chatName = activeChat ? activeChat.name : "Current Chat";
+    
+    const isPinned = messages.find(m => m.id === message.id)?.isPinned;
+
+    if (isPinned) {
       onUnpinMessage(message.id);
-      setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: false } : m));
       toast({ title: "Unpinned from board!" });
     } else {
       const newPin: PinType = {
@@ -281,9 +290,10 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
         time: new Date(),
       };
       onPinMessage(newPin);
-      setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: true } : m));
       toast({ title: "Pinned to board!" });
     }
+
+    setMessages(prev => prev.map(m => m.id === message.id ? { ...m, isPinned: !isPinned } : m));
   };
 
 
@@ -314,7 +324,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
                   <ChatMessage 
                     key={msg.id} 
                     message={msg}
-                    onPin={(message, chatName) => handlePin(message, chatName)}
+                    onPin={handlePin}
                     onCopy={handleCopy}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
@@ -409,3 +419,5 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
     </div>
   );
 }
+
+      
