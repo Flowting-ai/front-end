@@ -20,11 +20,11 @@ import { AppLayoutContext } from "../layout/app-layout";
 interface ChatInterfaceProps {
     onPinMessage?: (pin: PinType) => void;
     onUnpinMessage?: (messageId: string) => void;
-    messages: Message[];
-    setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
+    messages?: Message[];
+    setMessages?: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
 }
 
-export function ChatInterface({ onPinMessage, onUnpinMessage, messages, setMessages }: ChatInterfaceProps) {
+export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], setMessages = () => {} }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
@@ -54,110 +54,6 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages, setMessa
   }, [messages, isScrolledToBottom]);
 
 
-<<<<<<< HEAD
-  
-
-
-
-
-    
-    const handleSend = async () => {
-  const trimmed = input.trim();
-  if (!trimmed) return;
-
-  const userMessage: Message = {
-    id: Date.now().toString(),
-    sender: "user",
-    content: trimmed,
-    avatar: (
-      <Avatar className="h-8 w-8">
-        {userAvatar && (
-          <AvatarImage
-            src={userAvatar.imageUrl}
-            alt="User"
-            data-ai-hint={userAvatar.imageHint}
-          />
-        )}
-        <AvatarFallback>
-          <User className="h-4 w-4" />
-        </AvatarFallback>
-      </Avatar>
-    ),
-  };
-
-  setMessages((prev) => [...prev, userMessage]);
-  setInput("");
-  setIsScrolledToBottom(true);
-
-  try {
-    const res = await fetch("http://127.0.0.1:8000/response/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt: trimmed }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`Request failed with status ${res.status}`);
-    }
-
-    const data = await res.json();
-
-    const loadingMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      sender: "ai",
-      content: data.response,
-      avatar: (
-        <Avatar className="h-8 w-8">
-          {aiAvatar && (
-            <AvatarImage
-              src={aiAvatar.imageUrl}
-              alt="AI"
-              data-ai-hint={aiAvatar.imageHint}
-            />
-          )}
-          <AvatarFallback>
-            <Bot className="h-4 w-4" />
-          </AvatarFallback>
-        </Avatar>
-      ),
-    };
-
-  
-  } catch (err: any) {
-    console.error(err);
-
-    const errorMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      sender: "ai",
-      content:
-        "Sorry, I encountered an error processing your request. Please try again.",
-      avatar: (
-        <Avatar className="h-8 w-8">
-          {aiAvatar && (
-            <AvatarImage
-              src={aiAvatar.imageUrl}
-              alt="AI"
-              data-ai-hint={aiAvatar.imageHint}
-            />
-          )}
-          <AvatarFallback>
-            <Bot className="h-4 w-4" />
-          </AvatarFallback>
-        </Avatar>
-      ),
-    };
-
-    setMessages((prev) => [...prev, errorMessage]);
-    toast({
-      title: "Error",
-      description: err.message || "Failed to get response",
-      variant: "destructive",
-    });
-  }
-};
-=======
   const handleSend = (content: string, messageIdToUpdate?: string) => {
     if (content.trim() === "" || isResponding) return;
     setIsResponding(true);
@@ -243,7 +139,6 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages, setMessa
       setIsResponding(false);
     }, 1000);
   }
->>>>>>> 973f270 (main change:)
 
   const handlePromptClick = (prompt: string) => {
     setInput(prompt);
