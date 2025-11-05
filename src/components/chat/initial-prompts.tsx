@@ -4,6 +4,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { Button } from "../ui/button";
+import { Logo } from "../icons/logo";
 
 interface InitialPromptsProps {
   onPromptClick: (prompt: string) => void;
@@ -30,13 +31,10 @@ const personaSuggestions = [
 export function InitialPrompts({ onPromptClick }: InitialPromptsProps) {
 
   return (
-    <div className="text-center space-y-8 flex flex-col items-center justify-center h-full pt-16">
+    <div className="text-center space-y-8 flex flex-col items-center justify-center h-full pt-16 max-w-4xl mx-auto w-full">
       <div className="flex flex-col items-center gap-4">
         <div className="w-20 h-20 bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-                <path d="M2 7L12 12M22 7L12 12M12 22V12M17 4.5L7 9.5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-            </svg>
+            <Logo className="w-10 h-10" />
         </div>
         <h1 className="text-3xl font-bold">Flowting.ai</h1>
       </div>
