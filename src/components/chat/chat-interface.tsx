@@ -60,13 +60,13 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
 
     if (messageIdToUpdate) {
        // This is an edit and resubmit
-       const userMessageIndex = messages.findIndex(m => m.id === messageIdToUpdate);
+       const userMessageIndex = (messages || []).findIndex(m => m.id === messageIdToUpdate);
        if (userMessageIndex === -1) {
         setIsResponding(false);
         return;
        }
 
-       const updatedMessages = messages.slice(0, userMessageIndex + 1);
+       const updatedMessages = (messages || []).slice(0, userMessageIndex + 1);
        updatedMessages[userMessageIndex] = { ...updatedMessages[userMessageIndex], content };
 
        const loadingMessage: Message = {
@@ -210,22 +210,20 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
     <div className="flex flex-col flex-1 bg-card overflow-hidden">
         <ScrollArea className="flex-1" viewportRef={scrollViewportRef} onScroll={handleScroll}>
             <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
-            {messages.length === 0 ? (
+            {(messages || []).length === 0 ? (
                 <InitialPrompts onPromptClick={handlePromptClick} />
             ) : (
-                messages.map((msg, index) => (
+                (messages || []).map((msg, index) => (
                   <ChatMessage 
                     key={msg.id} 
-                    message={{
-                        ...msg,
-                        isPinned: layoutContext?.pins.some(p => p.id === msg.id)
-                    }}
+                    message={msg}
+                    isPinned={layoutContext?.pins.some(p => p.id === msg.id)}
                     onPin={handlePin}
                     onCopy={handleCopy}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onResubmit={handleSend}
-                    isNewMessage={msg.id === messages[messages.length - 1].id && msg.sender === 'ai' && index === messages.length - 1}
+                    isNewMessage={!isResponding && msg.id === messages[messages.length - 1].id && msg.sender === 'ai' && index === messages.length - 1}
                   />
                 ))
             )}
@@ -292,7 +290,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
                     <Select>
                         <SelectTrigger className="rounded-[25px] bg-background w-auto gap-2 h-8 px-3">
                             <SelectValue placeholder="Add Context" />
-                        </SelectTrigger>
+                        </Trigger>
                         <SelectContent>
                             <SelectItem value="file">From File</SelectItem>
                             <SelectItem value="url">From URL</SelectItem>

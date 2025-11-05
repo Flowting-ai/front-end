@@ -42,12 +42,12 @@ export interface Message {
   sender: "user" | "ai";
   content: string;
   avatar: ReactNode;
-  isPinned?: boolean;
   isLoading?: boolean;
 }
 
 interface ChatMessageProps {
   message: Message;
+  isPinned?: boolean;
   onPin: (message: Message) => void;
   onCopy: (content: string) => void;
   onEdit: (messageId: string, newContent: string) => void;
@@ -56,7 +56,7 @@ interface ChatMessageProps {
   isNewMessage: boolean;
 }
 
-export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubmit, isNewMessage }: ChatMessageProps) {
+export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete, onResubmit, isNewMessage }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
@@ -118,7 +118,7 @@ export function ChatMessage({ message, onPin, onCopy, onEdit, onDelete, onResubm
     return (
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onPin(message)}>
-          <Pin className={cn("h-4 w-4", message.isPinned && "fill-primary text-primary")} />
+          <Pin className={cn("h-4 w-4", isPinned && "fill-blue-400 text-blue-400")} />
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
         <Button variant="ghost" size="icon" className="h-7 w-7"><Flag className="h-4 w-4" /></Button>
