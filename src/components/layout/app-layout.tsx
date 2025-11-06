@@ -61,17 +61,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const setChatBoards = useCallback((boards: ChatBoard[] | ((prev: ChatBoard[]) => ChatBoard[])) => {
-    setChatBoards_(prevBoards => {
-        const newBoards = typeof boards === 'function' ? boards(prevBoards) : boards;
-        const updatedBoards = newBoards.map(board => {
-            const boardPins = pins.filter(p => p.chatId === board.id.toString());
-            return { ...board, pinCount: boardPins.length };
-        });
-        return updatedBoards;
-    });
-  }, [pins]);
-
   // Redirect to login if not authenticated
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -101,11 +90,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // Save state to localStorage whenever it changes
   useEffect(() => {
     try {
-        const boardsWithPins = chatBoards.map(board => ({
-          ...board,
-          pinCount: pins.filter(p => p.chatId === board.id.toString()).length
-        }));
-        localStorage.setItem('chatBoards', JSON.stringify(boardsWithPins));
+        localStorage.setItem('chatBoards', JSON.stringify(chatBoards));
         localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
         localStorage.setItem('pins', JSON.stringify(pins));
         if (activeChatId) {
@@ -115,10 +100,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         console.error("Failed to save state to localStorage", error);
     }
   }, [chatBoards, chatHistory, pins, activeChatId]);
-
-  useEffect(() => {
-    setChatBoards(chatBoards);
-  }, [pins, chatBoards, setChatBoards]);
 
 
   const setMessagesForActiveChat = (messages: Message[] | ((prev: Message[]) => Message[])) => {
@@ -131,12 +112,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setPins(prevPins => {
         const isAlreadyPinned = prevPins.some(p => p.id === pin.id);
         if (isAlreadyPinned) return prevPins;
-        return [pin, ...prevPins];
+        const newPins = [pin, ...prevPins];
+
+        // Update pin count on the board
+        setChatBoards_(prevBoards => prevBoards.map(board => {
+            if (board.id.toString() === pin.chatId) {
+                return { ...board, pinCount: board.pinCount + 1 };
+            }
+            return board;
+        }));
+
+        return newPins;
     });
   };
 
   const handleUnpinMessage = (messageId: string) => {
+    const pinToRemove = pins.find(p => p.id === messageId);
+    if (!pinToRemove) return;
+
     setPins(prev => prev.filter(p => p.id !== messageId));
+
+    // Update pin count on the board
+    setChatBoards_(prevBoards => prevBoards.map(board => {
+        if (board.id.toString() === pinToRemove.chatId) {
+            return { ...board, pinCount: Math.max(0, board.pinCount - 1) };
+        }
+        return board;
+    }));
   };
 
   const handleAddChat = () => {
