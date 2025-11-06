@@ -37,6 +37,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
   const [activeTab, setActiveTab] = useState("Pins");
   const [filterMode, setFilterMode] = useState<FilterMode>('current-chat');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
   const layoutContext = useContext(AppLayoutContext);
   const activeChatId = layoutContext?.activeChatId;
 
@@ -59,6 +60,14 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
     pins.forEach(pin => pin.tags.forEach(tag => tagSet.add(tag)));
     return Array.from(tagSet).sort();
   }, [pins]);
+
+  const filteredTags = useMemo(() => {
+    if (!tagSearch) {
+      return allTags.slice(0, 5);
+    }
+    return allTags.filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase())).slice(0, 5);
+  }, [allTags, tagSearch]);
+
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev => 
@@ -133,11 +142,11 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
                       <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
                   </div>
                   <div className="mt-4 flex gap-2">
-                      <Button variant={activeTab === 'Pins' ? 'outline' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
+                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
                           <Pin className="mr-2 h-4 w-4" />
                           Pins
                       </Button>
-                      <Button variant={activeTab === 'Files' ? 'outline' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
+                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
                           <Files className="mr-2 h-4 w-4" />
                           Files
                       </Button>
@@ -159,20 +168,27 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
                             <Separator />
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>Filter by Tags</DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent className="p-0">
-                                    <ScrollArea className="h-48">
-                                        <div className="p-2">
-                                            {allTags.length > 0 ? allTags.map(tag => (
+                                <DropdownMenuSubContent className="p-2">
+                                    <Input
+                                        placeholder="Search tags..."
+                                        className="mb-2 h-8"
+                                        value={tagSearch}
+                                        onChange={(e) => setTagSearch(e.target.value)}
+                                        onClick={(e) => e.preventDefault()}
+                                    />
+                                    <ScrollArea className="h-auto max-h-48">
+                                        <div className="space-y-1">
+                                            {filteredTags.length > 0 ? filteredTags.map(tag => (
                                                 <DropdownMenuCheckboxItem
                                                     key={tag}
                                                     checked={selectedTags.includes(tag)}
                                                     onCheckedChange={() => handleTagToggle(tag)}
-                                                    onSelect={(e) => e.preventDefault()} // Prevent closing menu
+                                                    onSelect={(e) => e.preventDefault()}
                                                 >
                                                     {tag}
                                                 </DropdownMenuCheckboxItem>
                                             )) : (
-                                                <DropdownMenuItem disabled>No tags found</DropdownMenuItem>
+                                                <DropdownMenuItem disabled>No matching tags</DropdownMenuItem>
                                             )}
                                         </div>
                                     </ScrollArea>
