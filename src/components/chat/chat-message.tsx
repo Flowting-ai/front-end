@@ -8,6 +8,7 @@ import { Pin, Copy, Pencil, Flag, Trash2, Bot, User } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 
 // Custom hook for typewriter effect
@@ -105,22 +106,66 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
 
   const UserActions = () => (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => setIsEditing(true)}><Pencil className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Copy</p></TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => setIsEditing(true)}><Pencil className="h-4 w-4" /></Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Edit</p></TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Flag</p></TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Delete</p></TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   )
 
   const AiActions = () => {
     return (
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onPin(message)}>
-          <Pin className={cn("h-4 w-4", isPinned && "fill-primary text-primary")} />
-        </Button>
-        <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-        <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onPin(message)}>
+                <Pin className={cn("h-4 w-4", isPinned && "fill-primary text-primary")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>{isPinned ? "Unpin" : "Pin"} message</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Copy</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Flag</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message.id)}><Trash2 className="h-4 w-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Delete</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     )
   }
@@ -164,7 +209,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
                   value={editedContent}
                   onChange={(e) => setEditedContent(e.target.value)}
                   onKeyDown={handleEditKeyDown}
-                  className="w-full text-sm bg-background/20 text-primary-foreground focus-visible:ring-ring"
+                  className="w-full text-sm bg-background/20 text-card-foreground focus-visible:ring-ring"
                   rows={3}
                 />
                 <div className="flex justify-end gap-2">

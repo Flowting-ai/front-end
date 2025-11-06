@@ -82,7 +82,7 @@ const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: { pin: Pin, onUpda
 
                 <div className="flex items-center gap-2 flex-wrap">
                     {pin.tags.map((tag, tagIndex) => (
-                        <Badge key={tagIndex} variant="default" className="font-normal bg-primary/90 text-primary-foreground text-[10px] py-0.5 rounded-md">
+                        <Badge key={tagIndex} variant="secondary" className="font-normal text-foreground text-[10px] py-0.5 rounded-md">
                             {tag}
                             <button onClick={() => onRemoveTag(pin.id, tagIndex)} className="ml-1.5 focus:outline-none">
                                 <X className="h-3 w-3" />
@@ -186,11 +186,11 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
                       <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
                   </div>
                   <div className="mt-4 flex gap-2">
-                      <Button variant={activeTab === 'Pins' ? 'secondary' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
+                      <Button variant={activeTab === 'Pins' ? 'outline' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
                           <Pin className="mr-2 h-4 w-4" />
                           Pins
                       </Button>
-                      <Button variant={activeTab === 'Files' ? 'secondary' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
+                      <Button variant={activeTab === 'Files' ? 'outline' : 'ghost'} className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
                           <Files className="mr-2 h-4 w-4" />
                           Files
                       </Button>
@@ -225,7 +225,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
                   </div>
               </ScrollArea>
               <div className="p-4 border-t shrink-0">
-                  <Button variant="secondary" className="w-full rounded-[25px] h-9">
+                  <Button variant="ghost" className="w-full rounded-[25px] h-9">
                       <Download className="mr-2 h-4 w-4" />
                       Export Pins
                   </Button>
