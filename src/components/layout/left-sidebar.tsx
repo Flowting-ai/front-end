@@ -7,13 +7,16 @@ import {
   Users,
   ChevronsLeft,
   Settings,
-  Plus
+  Plus,
+  LogOut
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "../ui/button";
 import { ThemeSwitcher } from "../theme-switcher";
 import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -23,6 +26,12 @@ interface LeftSidebarProps {
 
 export function LeftSidebar({ isCollapsed, onToggle, onAddChat }: LeftSidebarProps) {
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    router.push('/auth/login');
+  };
 
   return (
       <aside className={cn(
@@ -68,10 +77,22 @@ export function LeftSidebar({ isCollapsed, onToggle, onAddChat }: LeftSidebarPro
             <ThemeSwitcher />
             </div>
             <nav className="space-y-1 mt-2">
-                <Link href="#" className={cn("flex items-center gap-2 p-2 rounded-md hover:bg-accent", isCollapsed && "justify-center")}>
-                    <Settings />
-                    <span className={cn(isCollapsed && "hidden")}>Setting</span>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className={cn("flex items-center gap-2 p-2 rounded-md w-full", isCollapsed ? "justify-center" : "justify-start")}>
+                      <Settings />
+                      <span className={cn(isCollapsed && "hidden")}>Setting</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align={isCollapsed ? "end" : "start"}>
+                    <DropdownMenuItem>Profile</DropdownMenuItem>
+                    <DropdownMenuItem>Billing</DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </nav>
         </div>
       </aside>
