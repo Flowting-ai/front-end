@@ -29,7 +29,7 @@ export default function SignupPage() {
     }
     // Here you would handle the sign-up logic (API call, etc.)
     // On success, you might redirect to a confirmation page or directly to the app
-    router.push('/chat');
+    router.push('/');
   };
 
   return (

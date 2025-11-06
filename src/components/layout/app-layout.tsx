@@ -53,7 +53,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [pins, setPins] = useState<Pin[]>([]);
-  const [chatBoards, setChatBoards] = useState<ChatBoard[]>(initialChatBoards);
+  const [chatBoards, setChatBoards_] = useState<ChatBoard[]>(initialChatBoards);
   const [activeChatId, setActiveChatId] = useState<number>(1);
   const [chatHistory, setChatHistory] = useState<ChatHistory>(initialChatHistory);
 
@@ -61,11 +61,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to login if not authenticated (simple check for dev)
+  const setChatBoards = (boards: ChatBoard[] | ((prev: ChatBoard[]) => ChatBoard[])) => {
+    setChatBoards_(prevBoards => {
+        const newBoards = typeof boards === 'function' ? boards(prevBoards) : boards;
+        const updatedBoards = newBoards.map(board => {
+            const boardPins = pins.filter(p => p.chatId === board.id.toString());
+            return { ...board, pinCount: boardPins.length };
+        });
+        return updatedBoards;
+    });
+  };
+
+  // Redirect to login if not authenticated
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    if (!isLoggedIn && (pathname.startsWith('/chat') || pathname.startsWith('/dashboard'))) {
-      router.replace('/auth/login');
+    if (!isLoggedIn && !pathname.startsWith('/auth')) {
+        router.replace('/auth/login');
     }
   }, [pathname, router]);
 
@@ -109,20 +120,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
   
   const handlePinMessage = (pin: Pin) => {
+    let isAlreadyPinned = false;
     setPins(prevPins => {
-      const isAlreadyPinned = prevPins.some(p => p.id === pin.id);
-      if (isAlreadyPinned) {
-        return prevPins;
-      }
-      return [pin, ...prevPins];
+        isAlreadyPinned = prevPins.some(p => p.id === pin.id);
+        if (isAlreadyPinned) return prevPins;
+        return [pin, ...prevPins];
     });
 
-    setChatBoards(prevBoards => prevBoards.map(board => {
-        if (board.id.toString() === pin.chatId) {
-            return { ...board, pinCount: (board.pinCount || 0) + 1 };
-        }
-        return board;
-    }));
+    if (!isAlreadyPinned) {
+        setChatBoards(prevBoards => prevBoards.map(board => {
+            if (board.id.toString() === pin.chatId) {
+                return { ...board, pinCount: (board.pinCount || 0) + 1 };
+            }
+            return board;
+        }));
+    }
   };
 
   const handleUnpinMessage = (messageId: string) => {

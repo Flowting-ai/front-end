@@ -19,7 +19,7 @@ export default function LoginPage() {
     // Simulate successful login by setting a flag in localStorage
     localStorage.setItem('isLoggedIn', 'true');
     // On success, redirect to the main app
-    router.push('/chat');
+    router.push('/');
   };
 
   return (

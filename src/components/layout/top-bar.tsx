@@ -15,7 +15,7 @@ export function Topbar({ children }: { children?: ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const tabs = [
-    { name: "Chat Board", href: "/chat", icon: WandSparkles },
+    { name: "Chat Board", href: "/", icon: WandSparkles },
   ];
 
   return (
@@ -35,7 +35,7 @@ export function Topbar({ children }: { children?: ReactNode }) {
                 asChild
                 className={cn(
                     "font-semibold rounded-[25px]",
-                    pathname.startsWith(tab.href) ? "bg-secondary text-accent-foreground" : ""
+                    pathname === tab.href ? "bg-secondary text-accent-foreground" : ""
                 )}
             >
                 <Link href={tab.href}>
