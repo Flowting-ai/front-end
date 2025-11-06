@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useContext } from "react";
@@ -73,12 +74,8 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
          sender: 'ai',
          isLoading: true,
          content: '',
-         avatar: (
-           <Avatar className="h-8 w-8">
-             {aiAvatar && <AvatarImage src={aiAvatar.imageUrl} alt="AI" data-ai-hint={aiAvatar.imageHint} />}
-             <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
-           </Avatar>
-         ),
+         avatarUrl: aiAvatar?.imageUrl,
+         avatarHint: aiAvatar?.imageHint
        };
        setMessages([...updatedMessages, loadingMessage]);
        fetchAiResponse(content, loadingMessage.id);
@@ -89,12 +86,8 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
           id: Date.now().toString(),
           sender: "user",
           content: content,
-          avatar: (
-            <Avatar className="h-8 w-8">
-              {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt="User" data-ai-hint={userAvatar.imageHint} />}
-              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-            </Avatar>
-          ),
+          avatarUrl: userAvatar?.imageUrl,
+          avatarHint: userAvatar?.imageHint
         };
 
         const loadingMessage: Message = {
@@ -102,12 +95,8 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
           sender: 'ai',
           isLoading: true,
           content: '',
-          avatar: (
-            <Avatar className="h-8 w-8">
-              {aiAvatar && <AvatarImage src={aiAvatar.imageUrl} alt="AI" data-ai-hint={aiAvatar.imageHint} />}
-              <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
-            </Avatar>
-          ),
+          avatarUrl: aiAvatar?.imageUrl,
+          avatarHint: aiAvatar?.imageHint
         };
 
         setMessages((prev) => [...(prev || []), userMessage, loadingMessage]);
@@ -139,12 +128,8 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
         id: loadingMessageId,
         sender: "ai",
         content: data.response || "API didn't respond",
-        avatar: (
-          <Avatar className="h-8 w-8">
-            {aiAvatar && <AvatarImage src={aiAvatar.imageUrl} alt="AI" data-ai-hint={aiAvatar.imageHint} />}
-            <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
-          </Avatar>
-        ),
+        avatarUrl: aiAvatar?.imageUrl,
+        avatarHint: aiAvatar?.imageHint,
       };
 
       setMessages((prev) =>
@@ -158,12 +143,8 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
         id: loadingMessageId,
         sender: "ai",
         content: "API didn't respond",
-        avatar: (
-          <Avatar className="h-8 w-8">
-            {aiAvatar && <AvatarImage src={aiAvatar.imageUrl} alt="AI" data-ai-hint={aiAvatar.imageHint} />}
-            <AvatarFallback><Bot className="h-4 w-4" /></AvatarFallback>
-          </Avatar>
-        ),
+        avatarUrl: aiAvatar?.imageUrl,
+        avatarHint: aiAvatar?.imageHint,
       };
 
       setMessages((prev) =>

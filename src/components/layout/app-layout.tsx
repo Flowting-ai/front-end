@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { Message } from "../chat/chat-message";
 
 interface AppLayoutProps {
-  children: React.Node;
+  children: React.ReactElement;
 }
 
 const initialChatBoards: ChatBoard[] = [
@@ -145,9 +145,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setMessages: setMessagesForActiveChat
   };
   
-  const pageContent = React.isValidElement(children) 
-    ? React.cloneElement(children as React.ReactElement<any>, pageContentProps) 
-    : children;
+  const pageContent = React.cloneElement(children, pageContentProps);
 
   if (isMobile) {
     return (

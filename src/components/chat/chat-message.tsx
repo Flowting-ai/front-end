@@ -1,12 +1,13 @@
 
 "use client";
 
-import { type ReactNode, useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Pin, Copy, Pencil, Flag, Trash2 } from "lucide-react";
+import { Pin, Copy, Pencil, Flag, Trash2, Bot, User } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 
 
 // Custom hook for typewriter effect
@@ -41,7 +42,8 @@ export interface Message {
   id: string;
   sender: "user" | "ai";
   content: string;
-  avatar: ReactNode;
+  avatarUrl?: string;
+  avatarHint?: string;
   isLoading?: boolean;
 }
 
@@ -62,9 +64,6 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Convert 90 WPM to character delay. Avg word is 5 chars + space = 6.
-  // 90 WPM * 6 chars/word = 540 chars/min.
-  // 60,000 ms/min / 540 chars/min = ~111 ms/char. We'll use a faster 20ms for better UX.
   const displayedContent = useTypewriter(message.content, 20, isNewMessage && !isUser && !message.isLoading);
 
   useEffect(() => {
@@ -84,8 +83,6 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
-    // The UI for the user message will update via the onResubmit flow,
-    // which modifies the main messages array. We don't need onEdit here.
     setIsEditing(false);
   }
 
@@ -135,6 +132,15 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
     </div>
   )
 
+  const AvatarComponent = (
+    <Avatar className="h-8 w-8">
+      {message.avatarUrl && <AvatarImage src={message.avatarUrl} alt={isUser ? "User" : "AI"} data-ai-hint={message.avatarHint} />}
+      <AvatarFallback>
+        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+      </AvatarFallback>
+    </Avatar>
+  );
+
   return (
     <div
       className={cn(
@@ -142,7 +148,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
         isUser ? "justify-end" : "justify-start"
       )}
     >
-      {!isUser && message.avatar}
+      {!isUser && AvatarComponent}
       <div className="flex flex-col gap-2 w-full max-w-[calc(100%-4rem)]">
         <div
             className={cn(
@@ -177,9 +183,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
             {isUser ? <UserActions /> : <AiActions />}
         </div>
       </div>
-      {isUser && message.avatar}
+      {isUser && AvatarComponent}
     </div>
   );
 }
-
-      
