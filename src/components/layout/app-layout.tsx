@@ -112,18 +112,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setPins(prevPins => {
         const isAlreadyPinned = prevPins.some(p => p.id === pin.id);
         if (isAlreadyPinned) return prevPins;
-        const newPins = [pin, ...prevPins];
-
-        // Update pin count on the board
-        setChatBoards_(prevBoards => prevBoards.map(board => {
-            if (board.id.toString() === pin.chatId) {
-                return { ...board, pinCount: (board.pinCount || 0) + 1 };
-            }
-            return board;
-        }));
-
-        return newPins;
+        return [pin, ...prevPins];
     });
+
+    setChatBoards_(prevBoards => prevBoards.map(board => {
+        if (board.id.toString() === pin.chatId) {
+            return { ...board, pinCount: (board.pinCount || 0) + 1 };
+        }
+        return board;
+    }));
   };
 
   const handleUnpinMessage = (messageId: string) => {
@@ -132,10 +129,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     setPins(prev => prev.filter(p => p.id !== messageId));
 
-    // Update pin count on the board
     setChatBoards_(prevBoards => prevBoards.map(board => {
         if (board.id.toString() === pinToRemove.chatId) {
-            return { ...board, pinCount: Math.max(0, board.pinCount - 1) };
+            return { ...board, pinCount: Math.max(0, (board.pinCount || 1) - 1) };
         }
         return board;
     }));
@@ -153,6 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setChatBoards_(prev => [newChat, ...prev]);
     setChatHistory(prev => ({...prev, [newChatId]: []}));
     setActiveChatId(newChatId);
+    router.push('/');
   };
   
   const contextValue: AppLayoutContextType = {
