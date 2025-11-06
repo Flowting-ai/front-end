@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import React, { useState, createContext, useEffect } from "react";
 import { LeftSidebar } from "./left-sidebar";
-import { RightSidebar, type Pin } from "./right-sidebar";
+import { RightSidebar, type PinType } from "./right-sidebar";
 import { ChatListSidebar, type ChatBoard } from "./chat-list-sidebar";
 import { Topbar } from "./top-bar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -39,8 +39,8 @@ interface AppLayoutContextType {
     setChatBoards: React.Dispatch<React.SetStateAction<ChatBoard[]>>;
     activeChatId: number | null;
     setActiveChatId: (id: number) => void;
-    pins: Pin[];
-    onPinMessage?: (pin: Pin) => void;
+    pins: PinType[];
+    onPinMessage?: (pin: PinType) => void;
     onUnpinMessage?: (pinId: string) => void;
     handleAddChat: () => void;
 }
@@ -52,7 +52,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const [pins, setPins] = useState<Pin[]>([]);
+  const [pins, setPins] = useState<PinType[]>([]);
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>(initialChatBoards);
   const [activeChatId, setActiveChatId] = useState<number>(1);
   const [chatHistory, setChatHistory] = useState<ChatHistory>(initialChatHistory);
@@ -88,9 +88,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       const savedPins = localStorage.getItem('pins');
       const savedActiveChatId = localStorage.getItem('activeChatId');
 
-      if (savedChatBoards) setChatBoards(JSON.parse(savedChatBoards));
+      if (savedChatBoards) setChatBoards_(JSON.parse(savedChatBoards));
       if (savedChatHistory) setChatHistory(JSON.parse(savedChatHistory));
-      if (savedPins) setPins(JSON.parse(savedPins).map((p: Pin) => ({...p, time: new Date(p.time)})) ); // Re-hydrate dates
+      if (savedPins) setPins(JSON.parse(savedPins).map((p: PinType) => ({...p, time: new Date(p.time)})) ); // Re-hydrate dates
       if (savedActiveChatId) setActiveChatId(JSON.parse(savedActiveChatId));
 
     } catch (error) {
@@ -101,7 +101,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // Save state to localStorage whenever it changes
   useEffect(() => {
     try {
-        localStorage.setItem('chatBoards', JSON.stringify(chatBoards));
+        const boardsWithPins = chatBoards.map(board => ({
+          ...board,
+          pinCount: pins.filter(p => p.chatId === board.id.toString()).length
+        }));
+        localStorage.setItem('chatBoards', JSON.stringify(boardsWithPins));
         localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
         localStorage.setItem('pins', JSON.stringify(pins));
         if (activeChatId) {
@@ -119,36 +123,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   };
   
-  const handlePinMessage = (pin: Pin) => {
-    let isAlreadyPinned = false;
+  const handlePinMessage = (pin: PinType) => {
     setPins(prevPins => {
-        isAlreadyPinned = prevPins.some(p => p.id === pin.id);
+        const isAlreadyPinned = prevPins.some(p => p.id === pin.id);
         if (isAlreadyPinned) return prevPins;
         return [pin, ...prevPins];
     });
-
-    if (!isAlreadyPinned) {
-        setChatBoards(prevBoards => prevBoards.map(board => {
-            if (board.id.toString() === pin.chatId) {
-                return { ...board, pinCount: (board.pinCount || 0) + 1 };
-            }
-            return board;
-        }));
-    }
   };
 
   const handleUnpinMessage = (messageId: string) => {
-    const pinToUnpin = pins.find(p => p.id === messageId);
-    if (!pinToUnpin) return;
-
     setPins(prev => prev.filter(p => p.id !== messageId));
-
-    setChatBoards(prevBoards => prevBoards.map(board => {
-        if (board.id.toString() === pinToUnpin.chatId) {
-            return { ...board, pinCount: Math.max(0, (board.pinCount || 0) - 1) };
-        }
-        return board;
-    }));
   };
 
   const handleAddChat = () => {
