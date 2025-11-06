@@ -273,7 +273,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
                     onEdit={handleEdit}
                     onDelete={handleDeleteRequest}
                     onResubmit={handleSend}
-                    isNewMessage={!isResponding && msg.id === messages[messages.length - 1].id && msg.sender === 'ai' && index === messages.length - 1}
+                    isNewMessage={!isResponding && index === messages.length - 1}
                   />
                 ))
             )}
@@ -369,7 +369,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete this message.
               {messageToDelete && isMessagePinned(messageToDelete.id) && (
-                <p className="font-semibold text-destructive mt-2">This message is currently pinned.</p>
+                <div className="font-semibold text-destructive mt-2">This message is currently pinned.</div>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -382,3 +382,5 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
     </div>
   );
 }
+
+    
