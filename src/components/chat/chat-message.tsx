@@ -101,7 +101,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
     }
   };
 
-  const actionButtonClasses = "h-7 w-7 text-muted-foreground/80 hover:text-muted-foreground";
+  const actionButtonClasses = "h-7 w-7 text-muted-foreground/60 hover:text-muted-foreground";
 
   const UserActions = () => (
     <div className="flex items-center gap-1">
@@ -145,7 +145,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   return (
     <div
       className={cn(
-        "flex items-start gap-4 w-full",
+        "flex items-start gap-4 w-full group",
         isUser ? "justify-end" : "justify-start"
       )}
     >
@@ -178,7 +178,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
             <p className="text-sm whitespace-pre-wrap">{isUser ? message.content : displayedContent}</p>
           )}
         </div>
-        <div className={cn("flex items-center transition-opacity", isUser ? "justify-end" : "justify-start")}>
+        <div className="flex items-center transition-opacity">
             {isUser ? <UserActions /> : <AiActions />}
         </div>
       </div>
