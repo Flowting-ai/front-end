@@ -144,18 +144,16 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   return (
     <div
       className={cn(
-        "flex items-start gap-4 group",
+        "flex items-start gap-4 w-full",
         isUser ? "justify-end" : "justify-start"
       )}
     >
       {!isUser && AvatarComponent}
-      <div className="flex flex-col gap-2 w-full max-w-[calc(100%-4rem)]">
+      <div className={cn("flex flex-col gap-2 max-w-[calc(100%-4rem)]", isUser ? 'items-end' : 'items-start')}>
         <div
             className={cn(
-            "p-4 rounded-[20px] break-words",
-            isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-background"
+            "p-4 rounded-[20px] break-words bg-card",
+            isUser && "bg-muted text-card-foreground"
             )}
         >
           {isEditing && isUser ? (
@@ -179,7 +177,7 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
             <p className="text-sm whitespace-pre-wrap">{isUser ? message.content : displayedContent}</p>
           )}
         </div>
-        <div className={cn("flex items-center", isUser ? "justify-end" : "justify-start")}>
+        <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isUser ? "justify-end" : "justify-start")}>
             {isUser ? <UserActions /> : <AiActions />}
         </div>
       </div>

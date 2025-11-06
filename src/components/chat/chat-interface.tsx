@@ -2,11 +2,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useContext } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Bot, User, Mic, Library } from "lucide-react";
+import { Paperclip, Send, Mic, Library } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -231,7 +230,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
   };
   
   return (
-    <div className="flex flex-col flex-1 bg-card overflow-hidden">
+    <div className="flex flex-col flex-1 bg-background overflow-hidden">
         <ScrollArea className="flex-1" viewportRef={scrollViewportRef} onScroll={handleScroll}>
             <div className="max-w-4xl mx-auto w-full space-y-6 p-4">
             {(messages || []).length === 0 ? (
@@ -277,9 +276,9 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
                 )}
             </div>
         )}
-      <footer className="shrink-0 p-4 bg-card">
+      <footer className="shrink-0 p-4 bg-background">
         <div className="relative max-w-4xl mx-auto w-full">
-          <div className="relative flex flex-col p-2 rounded-[25px] border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+          <div className="relative flex flex-col p-2 rounded-[25px] border border-input bg-card shadow-sm focus-within:ring-2 focus-within:ring-ring">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -297,12 +296,12 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
             />
             <div className="flex items-center justify-between mt-1 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <Button variant="outline" className="rounded-[25px] bg-background h-8 px-3">
+                    <Button variant="ghost" className="rounded-[25px] h-8 px-3">
                         <Library className="mr-2 h-4 w-4" />
                         Library
                     </Button>
                     <Select>
-                        <SelectTrigger className="rounded-[25px] bg-background w-auto gap-2 h-8 px-3">
+                        <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
                             <SelectValue placeholder="Choose Persona" />
                         </SelectTrigger>
                         <SelectContent>
@@ -312,7 +311,7 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
                         </SelectContent>
                     </Select>
                     <Select>
-                        <SelectTrigger className="rounded-[25px] bg-background w-auto gap-2 h-8 px-3">
+                        <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
                             <SelectValue placeholder="Add Context" />
                         </SelectTrigger>
                         <SelectContent>
