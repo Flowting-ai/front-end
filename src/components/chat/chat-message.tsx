@@ -65,9 +65,8 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Smart speed logic
-  // 150 wpm ~ 80ms/char, 300 wpm ~ 40ms/char
-  const typewriterSpeed = message.content.length < 500 ? 80 : 40;
+  // ~250 WPM
+  const typewriterSpeed = 40;
   const displayedContent = useTypewriter(message.content, typewriterSpeed, isNewMessage && !isUser && !message.isLoading);
 
   useEffect(() => {
