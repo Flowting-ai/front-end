@@ -19,6 +19,15 @@ interface PinItemProps {
     chatName?: string;
 }
 
+const formatTimestamp = (time: Date) => {
+    const pinTime = new Date(time);
+    const diffInSeconds = (Date.now() - pinTime.getTime()) / 1000;
+    if (diffInSeconds < 60) {
+        return "just now";
+    }
+    return formatDistanceToNow(pinTime, { addSuffix: true });
+}
+
 export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [tagInput, setTagInput] = useState('');
@@ -110,7 +119,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
 
                 <div className="flex justify-between items-center pt-1">
                     <Badge variant="outline" className="font-normal border-dashed text-[10px] rounded-md">{chatName || `Chat ${pin.chatId}`}</Badge>
-                    <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(pin.time), { addSuffix: true })}</span>
+                    <span className="text-xs text-muted-foreground">{formatTimestamp(pin.time)}</span>
                 </div>
             </CardContent>
         </Card>

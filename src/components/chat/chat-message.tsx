@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/
 
 
 // Custom hook for typewriter effect
-const useTypewriter = (text: string, speed: number = 20, enabled: boolean = true) => {
+const useTypewriter = (text: string, speed: number = 5, enabled: boolean = true) => {
     const [displayText, setDisplayText] = useState('');
   
     useEffect(() => {
@@ -65,24 +65,23 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onEdit, onDelete
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  const displayedContent = useTypewriter(message.content, 20, isNewMessage && !isUser && !message.isLoading);
+  const displayedContent = useTypewriter(message.content, 5, isNewMessage && !isUser && !message.isLoading);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       const textarea = textareaRef.current;
       textarea.focus();
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-
-      const handleChange = () => {
+      // Auto-resize logic
+      const adjustHeight = () => {
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
       };
-      textarea.addEventListener('input', handleChange);
+      adjustHeight();
+      textarea.addEventListener('input', adjustHeight);
 
       return () => {
         if (textarea) {
-            textarea.removeEventListener('input', handleChange);
+            textarea.removeEventListener('input', adjustHeight);
         }
       };
     }
