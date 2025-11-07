@@ -126,7 +126,7 @@ export function ChatListSidebar({ chatBoards, setChatBoards, activeChatId, setAc
                     <div
                          key={board.id}
                          className={cn(
-                            "w-full h-auto py-2 group flex justify-between items-center rounded-md hover:bg-accent cursor-pointer",
+                            "w-full h-auto py-2 group flex justify-between items-center rounded-[25px] hover:bg-accent cursor-pointer",
                              activeChatId === board.id && "bg-secondary"
                          )}
                          onClick={() => setActiveChatId(board.id)}
@@ -142,7 +142,7 @@ export function ChatListSidebar({ chatBoards, setChatBoards, activeChatId, setAc
                                             onChange={(e) => setRenamingText(e.target.value)}
                                             onBlur={handleRenameSave}
                                             onKeyDown={(e) => e.key === 'Enter' && handleRenameSave()}
-                                            className="h-7 text-sm"
+                                            className="h-7 text-xs"
                                         />
                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRenameSave}><Check className="h-4 w-4" /></Button>
                                     </div>
