@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { AIModel } from "@/types/model";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +14,17 @@ import { Label } from "@/components/ui/label";
 import { Search, Info, Bookmark, Loader2 } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
+
+// Define the model type directly here as the types file is removed.
+interface AIModel {
+  companyName: string;
+  modelName: string;
+  version: string;
+  modelType: 'free' | 'paid';
+  inputLimit: number;
+  outputLimit: number;
+}
+
 
 const getIconForCompany = (companyName: string) => {
     switch (companyName.toLowerCase()) {
@@ -48,15 +58,17 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
       const fetchModels = async () => {
         setIsLoading(true);
         try {
-          const response = await fetch('/api/models');
+          // Replace this URL with your actual Django API endpoint
+          const response = await fetch('https://your-django-api.com/api/models');
           if (!response.ok) {
-            throw new Error('Failed to fetch models');
+            throw new Error(`Failed to fetch models: ${response.statusText}`);
           }
           const data = await response.json();
           setModels(data);
         } catch (error) {
           console.error(error);
           // Handle error, e.g., show a toast notification
+          setModels([]); // Clear models on error
         } finally {
           setIsLoading(false);
         }
@@ -112,7 +124,7 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                filteredModels.map((model, index) => (
+                filteredModels.length > 0 ? filteredModels.map((model, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
@@ -131,7 +143,7 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
                       </Button>
                     </div>
                   </div>
-                ))
+                )) : <div className="text-center text-sm text-muted-foreground py-10">No models found.</div>
               )}
             </div>
           </ScrollArea>
