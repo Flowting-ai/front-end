@@ -5,19 +5,13 @@ import { useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import { ModelSelectorDialog } from "./model-selector-dialog";
 import { Button } from "../ui/button";
-
-export type Model = {
-  name: string;
-  credits?: string;
-  type: "free" | "paid";
-  icon: string;
-};
+import type { AIModel } from "@/types/model";
 
 export function ModelSelector() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
 
-  const handleModelSelect = (model: Model) => {
+  const handleModelSelect = (model: AIModel) => {
     setSelectedModel(model);
     setIsDialogOpen(false);
   };
@@ -26,7 +20,7 @@ export function ModelSelector() {
     <>
       <Button variant="outline" className="w-auto gap-2" onClick={() => setIsDialogOpen(true)}>
         <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
-        <span>{selectedModel ? selectedModel.name : "Select a model"}</span>
+        <span>{selectedModel ? selectedModel.modelName : "Select a model"}</span>
       </Button>
       <ModelSelectorDialog
         open={isDialogOpen}

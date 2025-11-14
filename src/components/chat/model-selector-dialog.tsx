@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import type { Model } from "./model-selector";
+import { useState, useEffect } from "react";
+import type { AIModel } from "@/types/model";
 import {
   Dialog,
   DialogContent,
@@ -12,36 +12,63 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Search, Info, Bookmark } from "lucide-react";
+import { Search, Info, Bookmark, Loader2 } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 
-const models: Model[] = [
-  { name: "OpenAI: Gpt 5", type: "paid", icon: "/openai.svg" },
-  { name: "Claude-color 1", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 2", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 3", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 4", type: "free", icon: "/claude.svg" },
-  { name: "Claude-color 5", type: "free", icon: "/claude.svg" },
-  { name: "Gemini Pro", type: "paid", icon: "/gemini.svg" },
-  { name: "Gemini 2.5 Flash", type: "paid", icon: "/gemini.svg" },
-  { name: "Mistral", type: "free", icon: "/mistral.svg" },
-];
+const getIconForCompany = (companyName: string) => {
+    switch (companyName.toLowerCase()) {
+        case 'openai':
+            return '/openai.svg';
+        case 'anthropic':
+            return '/claude.svg';
+        case 'google':
+            return '/gemini.svg';
+        case 'mistral ai':
+            return '/mistral.svg';
+        default:
+            return '/default-icon.svg'; // A fallback icon
+    }
+}
 
 interface ModelSelectorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onModelSelect: (model: Model) => void;
+  onModelSelect: (model: AIModel) => void;
 }
 
 export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: ModelSelectorDialogProps) {
-  const [filter, setFilter] = useState("free");
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      const fetchModels = async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch('/api/models');
+          if (!response.ok) {
+            throw new Error('Failed to fetch models');
+          }
+          const data = await response.json();
+          setModels(data);
+        } catch (error) {
+          console.error(error);
+          // Handle error, e.g., show a toast notification
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchModels();
+    }
+  }, [open]);
 
   const filteredModels = models.filter(
     (model) =>
-      (filter === "all" || model.type === filter) &&
-      model.name.toLowerCase().includes(searchTerm.toLowerCase())
+      (filter === "all" || model.modelType === filter) &&
+      model.modelName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -80,26 +107,32 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
           </div>
           <ScrollArea className="h-64">
             <div className="space-y-2 pr-4">
-              {filteredModels.map((model, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
-                  onClick={() => onModelSelect(model)}
-                >
-                  <div className="flex items-center gap-3">
-                    <img src={model.icon} alt={`${model.name} logo`} className="h-5 w-5" />
-                    <span className="text-sm">{model.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-                      <Info className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-                      <Bookmark className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ))}
+              ) : (
+                filteredModels.map((model, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
+                    onClick={() => onModelSelect(model)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img src={getIconForCompany(model.companyName)} alt={`${model.companyName} logo`} className="h-5 w-5" />
+                      <span className="text-sm">{model.modelName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                        <Info className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                        <Bookmark className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </ScrollArea>
         </div>
