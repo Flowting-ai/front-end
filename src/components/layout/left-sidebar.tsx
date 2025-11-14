@@ -52,7 +52,7 @@ export function LeftSidebar({ isCollapsed, onToggle, onAddChat }: LeftSidebarPro
 
         <div className={cn("p-4 space-y-4 flex-1 overflow-y-auto w-full", isCollapsed && "p-2")}>
             <nav className="space-y-1">
-                <Link href="#" className={cn("flex items-center gap-2 p-2 rounded-md hover:bg-accent", isCollapsed && "justify-center")}>
+                <Link href="/personas" className={cn("flex items-center gap-2 p-2 rounded-md hover:bg-accent", isCollapsed && "justify-center")}>
                     <Users />
                     <span className={cn(isCollapsed && "hidden")}>Personas</span>
                 </Link>
