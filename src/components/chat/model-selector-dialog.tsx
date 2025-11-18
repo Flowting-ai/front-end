@@ -14,32 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Search, Info, Bookmark, Loader2 } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
-
-// Define the model type directly here as the types file is removed.
-interface AIModel {
-  companyName: string;
-  modelName: string;
-  version: string;
-  modelType: 'free' | 'paid';
-  inputLimit: number;
-  outputLimit: number;
-}
-
-
-const getIconForCompany = (companyName: string) => {
-    switch (companyName.toLowerCase()) {
-        case 'openai':
-            return '/open.svg';
-        case 'anthropic':
-            return '/claude.svg';
-        case 'google':
-            return '/gemini.svg';
-        case 'mistral ai':
-            return '/mistral.svg';
-        default:
-            return '/default-icon.svg'; // A fallback icon
-    }
-}
+import type { AIModel } from "@/types/ai-model";
+import { MODELS_ENDPOINT } from "@/lib/config";
+import { getModelIcon } from "@/lib/model-icons";
 
 interface ModelSelectorDialogProps {
   open: boolean;
@@ -55,22 +32,40 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
 useEffect(() => {
   if (!open) return;
 
+  // ✅ If we already have models in state, don't re-fetch
+  if (models.length > 0) {
+    setIsLoading(false);
+    return;
+  }
+
+  // ✅ Try sessionStorage first
+  const cached = sessionStorage.getItem("aiModels");
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as AIModel[];
+      setModels(parsed);
+      setIsLoading(false);
+      return;
+    } catch {
+      // ignore parse errors and fall through to fetch
+    }
+  }
+
   const fetchModels = async () => {
     setIsLoading(true);
-
     try {
-      // NOTE: removed leading space and you can add slash if your URL expects it
-      const response = await fetch("http://127.0.0.1:8000/get_models");
-
+      const response = await fetch(MODELS_ENDPOINT, {
+        credentials: "include",
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
       }
-
       const raw: AIModel[] = await response.json();
       console.log("Raw models from backend:", raw);
 
-      
       setModels(raw);
+      // ✅ cache in sessionStorage
+      sessionStorage.setItem("aiModels", JSON.stringify(raw));
     } catch (error) {
       console.error("Error fetching models:", error);
       setModels([]);
@@ -80,7 +75,8 @@ useEffect(() => {
   };
 
   fetchModels();
-}, [open]);
+}, [open, models.length]);
+
 
  const filteredModels = models.filter((model) => {
 
@@ -144,7 +140,7 @@ useEffect(() => {
                     onClick={() => onModelSelect(model)}
                   >
                     <div className="flex items-center gap-3">
-                      <img src={getIconForCompany(model.companyName)} alt={`${model.companyName} logo`} className="h-5 w-5" />
+                      <img src={getModelIcon(model.companyName)} alt={`${model.companyName} logo`} className="h-5 w-5" />
                       <span className="text-sm">{model.modelName}</span>
                     </div>
                     <div className="flex items-center gap-2">

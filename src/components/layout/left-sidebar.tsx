@@ -31,17 +31,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ChatBoard } from "./app-layout";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
+import { useAuth } from "@/context/auth-context";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   chatBoards: ChatBoard[];
   setChatBoards: React.Dispatch<React.SetStateAction<ChatBoard[]>>;
-  activeChatId: number | null;
-  setActiveChatId: (id: number) => void;
+  activeChatId: string | null;
+  setActiveChatId: (id: string | null) => void;
   onAddChat: () => void;
-  renamingChatId: number | null;
-  setRenamingChatId: (id: number | null) => void;
+  renamingChatId: string | null;
+  setRenamingChatId: (id: string | null) => void;
   renamingText: string;
   setRenamingText: (text: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement>;
@@ -65,9 +66,10 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
   const router = useRouter();
+  const { user, clearAuth } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
+    clearAuth();
     router.push('/auth/login');
   };
 
@@ -195,7 +197,7 @@ export function LeftSidebar({
                 {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt="User avatar" data-ai-hint={userAvatar.imageHint} />}
                 <AvatarFallback>U</AvatarFallback>
                 </Avatar>
-                <span className={cn("text-sm font-medium")}>Avnish Poonia</span>
+                <span className={cn("text-sm font-medium")}>{user?.name || user?.email || "Guest User"}</span>
             </div>
             {isCollapsed && (
                 <Avatar className="h-8 w-8">

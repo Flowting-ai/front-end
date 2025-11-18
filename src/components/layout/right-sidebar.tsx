@@ -1,18 +1,13 @@
-
 "use client";
 
-import { useState, useMemo, useContext } from "react";
+import { useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pin, Search, Files, ChevronsLeft, ChevronDown, Download, Tag } from "lucide-react";
-import { Badge } from "../ui/badge";
+import { ChevronsLeft, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "../ui/dropdown-menu";
-import type { ChatBoard } from "./chat-list-sidebar";
-import { PinItem } from "../pinboard/pin-item";
 import { AppLayoutContext } from "./app-layout";
-import { Separator } from "../ui/separator";
+import { PinsSidebar } from "../pins/pins-sidebar";
+import { PIN_TAG_ACCENTS } from "../pins/types";
+import type { Pin as StickyPin, PinAccent, PinTag } from "../pins/types";
 
 export interface PinType {
   id: string;
@@ -21,217 +16,188 @@ export interface PinType {
   notes: string;
   chatId: string;
   time: Date;
+  messageId?: string;
 }
 
 interface RightSidebarProps {
-    isCollapsed: boolean;
-    onToggle: () => void;
-    pins: PinType[];
-    setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
-    chatBoards: ChatBoard[];
+  isCollapsed: boolean;
+  onToggle: () => void;
+  pins: PinType[];
+  setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
+  chatBoards: unknown[];
+  onPinDeleteRequest?: (pin: StickyPin) => void;
 }
 
-type FilterMode = 'current-chat' | 'newest' | 'oldest' | 'a-z' | 'z-a';
+const tagSynonyms: Record<PinTag, string[]> = {
+  Tone: ["style", "tone", "persona", "voice"],
+  Actions: ["process", "workflow", "steps", "method", "action"],
+  Notes: ["knowledge", "note", "context", "info", "reference"],
+  Formats: ["template", "format", "structure", "outline"],
+};
 
-export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards }: RightSidebarProps) {
-  const [activeTab, setActiveTab] = useState("Pins");
-  const [filterMode, setFilterMode] = useState<FilterMode>('current-chat');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagSearch, setTagSearch] = useState('');
-  const layoutContext = useContext(AppLayoutContext);
-  const activeChatId = layoutContext?.activeChatId;
+const fallbackTag: PinTag = "Notes";
 
-  const handleUpdatePin = (updatedPin: PinType) => {
-    setPins(prevPins => prevPins.map(p => p.id === updatedPin.id ? updatedPin : p));
-  };
-  
-  const handleRemoveTag = (pinId: string, tagIndex: number) => {
-      setPins(prevPins => prevPins.map(p => {
-          if (p.id === pinId) {
-              const updatedTags = p.tags.filter((_, i) => i !== tagIndex);
-              return { ...p, tags: updatedTags };
-          }
-          return p;
-      }));
-  };
+const accentByTag: Record<PinTag, PinAccent> = {
+  Tone: "lemon",
+  Actions: "sky",
+  Notes: "blush",
+  Formats: "mint",
+};
 
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    pins.forEach(pin => pin.tags.forEach(tag => tagSet.add(tag)));
-    return Array.from(tagSet).sort();
-  }, [pins]);
+const resolvePinTag = (tags?: string[]): PinTag => {
+  if (!tags || tags.length === 0) {
+    return fallbackTag;
+  }
 
-  const filteredTags = useMemo(() => {
-    if (!tagSearch) {
-      return allTags.slice(0, 5);
-    }
-    return allTags.filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase())).slice(0, 5);
-  }, [allTags, tagSearch]);
-
-
-  const handleTagToggle = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
-  };
-
-  const sortedAndFilteredPins = useMemo(() => {
-    let filtered = pins;
-    
-    if (selectedTags.length > 0) {
-        filtered = pins.filter(pin => selectedTags.every(tag => pin.tags.includes(tag)));
-    }
-
-    switch(filterMode) {
-      case 'current-chat':
-        return filtered.filter(p => p.chatId === activeChatId?.toString()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-      case 'newest':
-        return [...filtered].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-      case 'oldest':
-        return [...filtered].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-      case 'a-z':
-        return [...filtered].sort((a, b) => a.text.localeCompare(b.text));
-      case 'z-a':
-        return [...filtered].sort((a, b) => b.text.localeCompare(a.text));
-      default:
-        return filtered;
-    }
-  }, [pins, filterMode, activeChatId, selectedTags]);
-
-  const getFilterLabel = () => {
-    if (selectedTags.length > 0) {
-        return `Filtered by ${selectedTags.length} tag(s)`;
-    }
-    switch (filterMode) {
-        case 'current-chat': return 'Filter by Current Chat';
-        case 'newest': return 'Sort by Newest';
-        case 'oldest': return 'Sort by Oldest';
-        case 'a-z': return 'Sort A-Z';
-        case 'z-a': return 'Sort Z-A';
-        default: return 'Filter & Sort';
+  for (const rawTag of tags) {
+    const clean = rawTag.trim().toLowerCase();
+    for (const [canonical, synonyms] of Object.entries(tagSynonyms) as Array<
+      [PinTag, string[]]
+    >) {
+      const match = synonyms.some(
+        (keyword) => clean === keyword || clean.includes(keyword)
+      );
+      if (match) {
+        return canonical;
+      }
     }
   }
 
+  return fallbackTag;
+};
+
+const deriveTitle = (value: string) => {
+  if (!value) return "Pinned insight";
+  const firstLine =
+    value
+      .split("\n")
+      .map((segment) => segment.trim())
+      .find(Boolean) ?? value.trim();
+  return firstLine.length > 64 ? `${firstLine.slice(0, 61)}...` : firstLine;
+};
+
+const derivePreview = (pin: PinType) => {
+  if (pin.notes?.trim()) {
+    return pin.notes.trim();
+  }
+  return pin.text.replace(/\s+/g, " ").slice(0, 140);
+};
+
+const legacyPinToSticky = (pin: PinType): StickyPin => {
+  const primaryTag = resolvePinTag(pin.tags);
+
+  return {
+    id: pin.id,
+    title: deriveTitle(pin.text),
+    type: primaryTag,
+    content: pin.text,
+    preview: derivePreview(pin),
+    tag: primaryTag,
+    accentColor: PIN_TAG_ACCENTS[primaryTag] ?? accentByTag[primaryTag],
+    isFavorite: false,
+    updatedAt: pin.time ? pin.time.toISOString() : undefined,
+    chatId: pin.chatId,
+  };
+};
+
+const stickyPinToLegacy = (
+  pin: StickyPin,
+  options?: { previous?: PinType; fallbackChatId?: string }
+): PinType => {
+  const previous = options?.previous;
+  const selectedText =
+    pin.content && pin.content.trim().length > 0
+      ? pin.content
+      : previous?.text ?? pin.title;
+  const notes =
+    pin.preview ?? previous?.notes ?? pin.content?.slice(0, 140) ?? "";
+
+  const pinTag = pin.tag ?? fallbackTag;
+  return {
+    id: pin.id,
+    text: selectedText,
+    tags: [pinTag],
+    notes,
+    chatId: pin.chatId ?? previous?.chatId ?? options?.fallbackChatId ?? "",
+    time: pin.updatedAt
+      ? new Date(pin.updatedAt)
+      : previous?.time ?? new Date(),
+  };
+};
+
+export function RightSidebar({
+  isCollapsed,
+  onToggle,
+  pins,
+  setPins,
+  onPinDeleteRequest,
+}: RightSidebarProps) {
+  const layoutContext = useContext(AppLayoutContext);
+  const stickyPins = useMemo(() => pins.map(legacyPinToSticky), [pins]);
+
+  const handlePinCreate = (pin: StickyPin) => {
+    const legacy = stickyPinToLegacy(pin, {
+      fallbackChatId: layoutContext?.activeChatId ?? "",
+    });
+    setPins((prev) => [legacy, ...prev]);
+  };
+
+  const handlePinUpdate = (pin: StickyPin) => {
+    setPins((prev) =>
+      prev.map((existing) =>
+        existing.id === pin.id
+          ? stickyPinToLegacy(pin, { previous: existing })
+          : existing
+      )
+    );
+  };
+
+  const handlePinDelete = (pin: StickyPin) => {
+    setPins((prev) => prev.filter((existing) => existing.id !== pin.id));
+    onPinDeleteRequest?.(pin);
+  };
+
+  const handleInsertPin = (pin: StickyPin) => {
+    if (pin.chatId && layoutContext?.setActiveChatId) {
+      layoutContext.setActiveChatId(pin.chatId);
+    }
+  };
 
   return (
-    <aside className={cn(
-        "border-l bg-card hidden lg:flex flex-col transition-all duration-300 ease-in-out relative",
-        isCollapsed ? "w-[58px]" : "w-[300px]"
-        )}>
-        
-        <Button variant="ghost" size="icon" onClick={onToggle} className="absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full">
-            <ChevronsLeft className={cn("h-4 w-4 transition-transform", !isCollapsed && "rotate-180")}/>
-        </Button>
-        
-        <div className="flex flex-col h-full">
-          {isCollapsed ? (
-              <div className="flex flex-col items-center py-4 space-y-4">
-                  <Pin className="h-6 w-6" />
-              </div>
-          ) : (
-            <>
-              <div className="p-4 border-b shrink-0">
-                  <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                          <Pin className="h-4 w-4" />
-                          <h2 className="font-medium text-base">Pinboard</h2>
-                      </div>
-                  </div>
-                  <div className="relative mt-2">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
-                          <Pin className="mr-2 h-4 w-4" />
-                          Pins
-                      </Button>
-                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
-                          <Files className="mr-2 h-4 w-4" />
-                          Files
-                      </Button>
-                  </div>
-                  <div className="mt-4">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between rounded-[25px] h-9">
-                                <span>{getFilterLabel()}</span>
-                                <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[268px]">
-                            <DropdownMenuItem onSelect={() => { setFilterMode('current-chat'); setSelectedTags([]); }}>Filter by Current Chat</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setFilterMode('newest')}>Sort by Newest</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setFilterMode('oldest')}>Sort by Oldest</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setFilterMode('a-z')}>Sort A-Z</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setFilterMode('z-a')}>Sort Z-A</DropdownMenuItem>
-                            <Separator />
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>Filter by Tags</DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent className="p-2">
-                                    <div className="relative">
-                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Search tags..."
-                                            className="mb-2 h-8 rounded-[25px] pl-8"
-                                            value={tagSearch}
-                                            onChange={(e) => setTagSearch(e.target.value)}
-                                            onClick={(e) => e.preventDefault()}
-                                        />
-                                    </div>
-                                    <ScrollArea className="h-auto max-h-48">
-                                        <div className="space-y-1">
-                                            {filteredTags.length > 0 ? filteredTags.map(tag => (
-                                                <DropdownMenuCheckboxItem
-                                                    key={tag}
-                                                    checked={selectedTags.includes(tag)}
-                                                    onCheckedChange={() => handleTagToggle(tag)}
-                                                    onSelect={(e) => e.preventDefault()}
-                                                >
-                                                    {tag}
-                                                </DropdownMenuCheckboxItem>
-                                            )) : (
-                                                <DropdownMenuItem disabled>No matching tags</DropdownMenuItem>
-                                            )}
-                                        </div>
-                                    </ScrollArea>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                             {selectedTags.length > 0 && (
-                                <>
-                                <Separator />
-                                <DropdownMenuItem onSelect={() => setSelectedTags([])} className="text-red-500">Clear Tag Filter</DropdownMenuItem>
-                                </>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-              </div>
-              <ScrollArea className="flex-1 min-h-0">
-                  <div className="p-4 space-y-3">
-                  {sortedAndFilteredPins.length > 0 ? sortedAndFilteredPins.map((pin) => {
-                      const chatBoard = chatBoards.find(board => board.id.toString() === pin.chatId);
-                      return (
-                        <PinItem key={pin.id} pin={pin} onUpdatePin={handleUpdatePin} onRemoveTag={handleRemoveTag} chatName={chatBoard?.name} />
-                      )
-                  }) : (
-                      <div className="text-center text-sm text-muted-foreground py-10 flex flex-col items-center gap-2">
-                          <Pin className="h-8 w-8 text-muted-foreground" />
-                          <p className="font-bold text-base text-foreground">No pins yet</p>
-                          <p className="max-w-xs px-4">Pin useful answers or references from your chats to keep them handy for later.</p>
-                      </div>
-                  )}
-                  </div>
-              </ScrollArea>
-              <div className="p-4 border-t shrink-0">
-                  <Button variant="outline" className="w-full rounded-[25px] h-9">
-                      <Download className="mr-2 h-4 w-4" />
-                      Export Pins
-                  </Button>
-              </div>
-            </>
-          )}
-        </div>
+    <aside
+      className={cn(
+        "hidden lg:flex flex-col border-l bg-white/90 backdrop-blur-sm transition-all duration-300 ease-in-out relative shadow-[-12px_0_30px_rgba(15,23,42,0.03)]",
+        isCollapsed ? "w-[58px]" : "w-[min(320px,26vw)]"
+      )}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onToggle}
+        className="absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full"
+      >
+        <ChevronsLeft
+          className={cn("h-4 w-4 transition-transform", !isCollapsed && "rotate-180")}
+        />
+      </Button>
+
+      <div className="flex h-full flex-col">
+        {isCollapsed ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Pin className="h-5 w-5" />
+            Pins
+          </div>
+        ) : (
+          <PinsSidebar
+            className="border-0 w-full h-full"
+            pins={stickyPins}
+            onInsertPin={handleInsertPin}
+            onPinCreate={handlePinCreate}
+            onPinUpdate={handlePinUpdate}
+            onPinDelete={handlePinDelete}
+          />
+        )}
+      </div>
     </aside>
   );
 }
