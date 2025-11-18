@@ -117,62 +117,68 @@ export function ChatInterface({ onPinMessage, onUnpinMessage, messages = [], set
         fetchAiResponse(content, loadingMessage.id);
     }
   };
-  
-  const fetchAiResponse = async (userMessage: string, loadingMessageId: string) => {
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: userMessage
-        }),
-      });
+ const fetchAiResponse = async (userMessage: string, loadingMessageId: string) => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/chat/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: userMessage,
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error('API request failed');
-      }
+    console.log("response.ok:", response.ok);
 
-      const data = await response.json();
-      
-      const aiResponse: Message = {
-        id: loadingMessageId,
-        sender: "ai",
-        content: data.response || "API didn't respond",
-        avatarUrl: aiAvatar?.imageUrl,
-        avatarHint: aiAvatar?.imageHint,
-      };
-
-      setMessages((prev) =>
-        (prev || []).map((msg) => (msg.id === loadingMessageId ? aiResponse : msg))
-      );
-      setLastMessageId(loadingMessageId);
-      
-    } catch (error) {
-      console.error('Error fetching AI response:', error);
-      
-      const errorResponse: Message = {
-        id: loadingMessageId,
-        sender: "ai",
-        content: "API didn't respond",
-        avatarUrl: aiAvatar?.imageUrl,
-        avatarHint: aiAvatar?.imageHint,
-      };
-
-      setMessages((prev) =>
-        (prev || []).map((msg) => (msg.id === loadingMessageId ? errorResponse : msg))
-      );
-      
-      toast({ 
-        title: "Connection Error", 
-        description: "Failed to connect to AI service",
-        variant: "destructive" 
-      });
-    } finally {
-      setIsResponding(false);
+    if (!response.ok) {
+      // If you want to inspect error details, read the body ONCE as text or json
+      const errorText = await response.text();
+      console.error("Backend error body:", errorText);
+      throw new Error("API request failed");
     }
-  };
+
+    // ✅ Read body exactly once
+    const data = await response.json();
+    console.log("response data:", data);
+
+    const aiResponse: Message = {
+      id: loadingMessageId,
+      sender: "ai",
+      content: data.message|| "API didn't respond",
+      avatarUrl: aiAvatar?.imageUrl,
+      avatarHint: aiAvatar?.imageHint,
+    };
+
+    setMessages((prev) =>
+      (prev || []).map((msg) => (msg.id === loadingMessageId ? aiResponse : msg))
+    );
+    setLastMessageId(loadingMessageId);
+  } catch (error) {
+    console.error("Error fetching AI response:", error);
+
+    const errorResponse: Message = {
+      id: loadingMessageId,
+      sender: "ai",
+      content: "API didn't respond",
+      avatarUrl: aiAvatar?.imageUrl,
+      avatarHint: aiAvatar?.imageHint,
+    };
+
+    setMessages((prev) =>
+      (prev || []).map((msg) => (msg.id === loadingMessageId ? errorResponse : msg))
+    );
+
+    toast({
+      title: "Connection Error",
+      description: "Failed to connect to AI service",
+      variant: "destructive",
+    });
+  } finally {
+    setIsResponding(false);
+  }
+};
+
 
   const handlePromptClick = (prompt: string) => {
     setInput(prompt);

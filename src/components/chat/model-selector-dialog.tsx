@@ -29,7 +29,7 @@ interface AIModel {
 const getIconForCompany = (companyName: string) => {
     switch (companyName.toLowerCase()) {
         case 'openai':
-            return '/openai.svg';
+            return '/open.svg';
         case 'anthropic':
             return '/claude.svg';
         case 'google':
@@ -52,36 +52,49 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+useEffect(() => {
+  if (!open) return;
 
-  useEffect(() => {
-    if (open) {
-      const fetchModels = async () => {
-        setIsLoading(true);
-        try {
-          // Replace this URL with your actual Django API endpoint
-          const response = await fetch('https://your-django-api.com/api/models');
-          if (!response.ok) {
-            throw new Error(`Failed to fetch models: ${response.statusText}`);
-          }
-          const data = await response.json();
-          setModels(data);
-        } catch (error) {
-          console.error(error);
-          // Handle error, e.g., show a toast notification
-          setModels([]); // Clear models on error
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchModels();
+  const fetchModels = async () => {
+    setIsLoading(true);
+
+    try {
+      // NOTE: removed leading space and you can add slash if your URL expects it
+      const response = await fetch("http://127.0.0.1:8000/get_models");
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+      }
+
+      const raw: AIModel[] = await response.json();
+      console.log("Raw models from backend:", raw);
+
+      
+      setModels(raw);
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      setModels([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, [open]);
+  };
 
-  const filteredModels = models.filter(
-    (model) =>
-      (filter === "all" || model.modelType === filter) &&
-      model.modelName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  fetchModels();
+}, [open]);
+
+ const filteredModels = models.filter((model) => {
+
+  const matchesType =
+    filter === "all" || model.modelType.toLowerCase() === filter.toLowerCase();
+
+
+  const matchesSearch = model.modelName
+    .toLowerCase()
+    .includes(searchTerm.toLowerCase());
+
+  return matchesType && matchesSearch;
+});
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
