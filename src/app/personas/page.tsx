@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from "react";
+import Link from 'next/link';
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -171,11 +172,13 @@ function PersonasPageContent() {
                         <p className="text-lg text-muted-foreground">Create, customize, and manage AI personas tailored to your needs.</p>
                     </div>
                     <div className="flex w-full md:w-auto items-stretch gap-4">
-                        <Button variant="outline" className="add-model-button h-36 w-36 flex-col gap-2 rounded-2xl border-dashed border-2">
+                        <Button asChild variant="outline" className="add-model-button h-36 w-36 flex-col gap-2 rounded-2xl border-dashed border-2">
+                           <Link href="/personas/create">
                             <div className="h-16 w-16 rounded-full border-2 border-dashed flex items-center justify-center mb-1">
                                 <UserPlus className="h-8 w-8" />
                             </div>
-                            <span className="font-semibold">+ Add Model</span>
+                            <span className="font-semibold">+ Create Persona</span>
+                           </Link>
                         </Button>
                         <Card className="summary-stats flex-1 rounded-2xl">
                             <CardContent className="flex h-full items-center justify-around p-4 gap-4">
