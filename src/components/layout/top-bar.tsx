@@ -15,7 +15,7 @@ export function Topbar({ children }: { children?: ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const tabs = [
-    { name: "Chat Board", href: "/", icon: WandSparkles },
+    // { name: "Chat Board", href: "/", icon: WandSparkles },
   ];
 
   return (
@@ -50,10 +50,10 @@ export function Topbar({ children }: { children?: ReactNode }) {
       <div className={cn("items-center gap-2 px-4", isMobile ? "hidden" : "flex")}>
          <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-[25px]" asChild>
-              <Link href="/dashboard">
+              {/* <Link href="/dashboard">
                 <BarChart2 className="mr-2 h-4 w-4" />
                 Compare models
-              </Link>
+              </Link> */}
             </Button>
             <CreatePersonaDialog />
          </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect, useContext } from "react";
@@ -919,30 +920,24 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col flex-1 bg-background overflow-hidden">
-      <div className="border-b border-slate-200 bg-white/70 backdrop-blur-sm px-4 py-4 sm:px-6 lg:px-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="border-b border-slate-200 bg-white/70 backdrop-blur-sm px-4 py-2 sm:px-6 lg:px-10 flex items-center justify-between">
+        <div className="flex-1 min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Active Chat
           </p>
-          <p className="text-base font-semibold text-card-foreground">
+          <p className="text-sm font-semibold text-card-foreground truncate">
             {activeChatBoard?.name ?? "Untitled chat"}
           </p>
-          {activeChatBoard?.time && (
-            <p className="text-xs text-muted-foreground">
-              Last activity {activeChatBoard.time}
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full"
             onClick={() => setIsChatDeleteDialogOpen(true)}
             disabled={!layoutContext?.activeChatId || isDeletingChat}
           >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete Chat
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -1306,3 +1301,5 @@ export function ChatInterface({
     </div>
   );
 }
+
+    
