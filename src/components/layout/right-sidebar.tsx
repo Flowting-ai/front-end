@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useMemo, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pin, Search, Folder, ChevronsLeft, ChevronDown, Download, Tag, X } from "lucide-react";
+import { Pin, Search, FolderPlus, ChevronsLeft, ChevronDown, Download, Tag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "../ui/dropdown-menu";
 import type { ChatBoard } from "./app-layout";
@@ -166,18 +165,18 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
                           <X className="h-4 w-4" />
                       </Button>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2" style={{ backgroundColor: '#767676', color: 'white', borderColor: '#767676' }}>
-                    <Folder className="h-4 w-4" />
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 rounded-full h-9">
+                    <FolderPlus className="h-4 w-4" />
                     Organize Pins
                   </Button>
                   <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Search pins..." className="pl-9 bg-background rounded-md h-9" />
+                      <Input placeholder="Search pins..." className="pl-9 bg-background rounded-full h-9" />
                   </div>
                   <div className="mt-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between rounded-md h-9" style={{ backgroundColor: '#D9D9D9', borderColor: '#D9D9D9' }}>
+                            <Button variant="outline" className="w-full justify-between rounded-full h-9">
                                 <span>{getFilterLabel()}</span>
                                 <ChevronDown className="h-4 w-4 opacity-50" />
                             </Button>
@@ -247,7 +246,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
                   </div>
               </ScrollArea>
               <div className="p-4 border-t shrink-0">
-                  <Button variant="outline" className="w-full rounded-md h-9">
+                  <Button variant="outline" className="w-full rounded-full h-9">
                       <Download className="mr-2 h-4 w-4" />
                       Export Pins
                   </Button>
