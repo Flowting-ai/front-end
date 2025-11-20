@@ -11,6 +11,7 @@ import type { ChatBoard } from "./app-layout";
 import { PinItem } from "../pinboard/pin-item";
 import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
+import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
 
 export interface PinType {
   id: string;
@@ -20,6 +21,7 @@ export interface PinType {
   chatId: string;
   time: Date;
   messageId?: string;
+  folderId?: string;
 }
 
 interface RightSidebarProps {
@@ -40,6 +42,7 @@ const samplePins: PinType[] = [
       notes: 'Remember to follow up with the design team.',
       chatId: '1',
       time: new Date(Date.now() - 3600000),
+      folderId: 'unorganized',
     },
     {
       id: 'pin2',
@@ -48,6 +51,7 @@ const samplePins: PinType[] = [
       notes: '',
       chatId: '2',
       time: new Date(Date.now() - 86400000),
+      folderId: 'research',
     },
     {
       id: 'pin3',
@@ -56,6 +60,7 @@ const samplePins: PinType[] = [
       notes: 'Check the new copy deck.',
       chatId: '1',
       time: new Date(Date.now() - 172800000),
+      folderId: 'research',
     },
 ];
 
@@ -66,6 +71,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
   const [filterMode, setFilterMode] = useState<FilterMode>('current-chat');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState('');
+  const [isOrganizeDialogOpen, setIsOrganizeDialogOpen] = useState(false);
   const layoutContext = useContext(AppLayoutContext);
   const activeChatId = layoutContext?.activeChatId;
 
@@ -142,6 +148,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
 
 
   return (
+    <>
     <aside className={cn(
         "hidden lg:flex flex-col transition-all duration-300 ease-in-out relative",
         isCollapsed ? "w-[58px]" : "w-[300px]"
@@ -165,7 +172,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
                           <X className="h-4 w-4" />
                       </Button>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 rounded-full h-9">
+                  <Button variant="outline" size="sm" className="w-full justify-center gap-2 rounded-full h-9" onClick={() => setIsOrganizeDialogOpen(true)}>
                     <FolderPlus className="h-4 w-4" />
                     Organize Pins
                   </Button>
@@ -259,5 +266,11 @@ export function RightSidebar({ isCollapsed, onToggle, pins: initialPins, setPins
               </div>
         )}
     </aside>
+    <OrganizePinsDialog 
+        isOpen={isOrganizeDialogOpen} 
+        onClose={() => setIsOrganizeDialogOpen(false)}
+        pins={pins}
+    />
+    </>
   );
 }
