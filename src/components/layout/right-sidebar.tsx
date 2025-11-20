@@ -298,7 +298,10 @@ export function RightSidebar({
                 variant="ghost"
                 size="icon"
                 onClick={onToggle}
-                className="absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full"
+                className={cn(
+                    "absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full",
+                    isCollapsed && "hidden"
+                )}
             >
                 <ChevronsLeft
                 className={cn("h-4 w-4 transition-transform", !isCollapsed && "rotate-180")}
@@ -314,9 +317,13 @@ export function RightSidebar({
                 <div className="flex flex-col h-full">
                     <div className="p-4 space-y-4 border-b">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">Pinboard</h3>
-                             <Button variant="outline" size="sm" onClick={() => setIsOrganizeDialogOpen(true)}>Organize Pins</Button>
+                            <h3 className="font-semibold flex items-center gap-2"><Pin className="h-4 w-4" />Pinboard</h3>
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggle}><X className="h-4 w-4" /></Button>
                         </div>
+                        <Button variant="secondary" className="w-full text-muted-foreground" onClick={() => setIsOrganizeDialogOpen(true)}>
+                            <Folder className="mr-2 h-4 w-4" />
+                            Organize Pins
+                        </Button>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input 
@@ -383,5 +390,3 @@ export function RightSidebar({
         </aside>
     );
 }
-
-    

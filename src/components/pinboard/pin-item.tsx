@@ -91,8 +91,8 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
 
                 <div className="flex items-center gap-2 flex-wrap">
                     <Input 
-                        placeholder="+ Add tags" 
-                        className="text-xs h-7 flex-grow min-w-[80px] bg-card border-dashed rounded-md px-2"
+                        placeholder="Add tags" 
+                        className="text-xs h-7 w-24 bg-card border-dashed rounded-md px-2"
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={handleTagKeyDown}
