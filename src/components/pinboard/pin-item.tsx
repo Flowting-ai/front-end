@@ -5,12 +5,12 @@ import { useState, KeyboardEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Pin, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import type { PinType } from "../layout/right-sidebar";
+import { cn } from "@/lib/utils";
 
 interface PinItemProps {
     pin: PinType;
@@ -24,26 +24,33 @@ const formatTimestamp = (time: Date) => {
         return 'Invalid date';
     }
     const diffInSeconds = (Date.now() - time.getTime()) / 1000;
+    
     if (diffInSeconds < 60) {
         return "just now";
     }
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+        return `${diffInMinutes}m`;
+    }
+    
     return formatDistanceToNow(time, { addSuffix: true });
 }
 
+
 export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProps) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isNotesExpanded, setIsNotesExpanded] = useState(false);
     const [tagInput, setTagInput] = useState('');
     const [noteInput, setNoteInput] = useState(pin.notes);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
-    const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const notesInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    
+    const isNoteLong = pin.notes.length > 100;
 
     useEffect(() => {
-        if (isEditingNotes && notesTextareaRef.current) {
-            notesTextareaRef.current.focus();
-            const textarea = notesTextareaRef.current;
-            textarea.style.height = 'auto';
-            textarea.style.height = `${textarea.scrollHeight}px`;
+        if (isEditingNotes && notesInputRef.current) {
+            notesInputRef.current.focus();
         }
     }, [isEditingNotes]);
 
@@ -66,72 +73,77 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
         toast({ title: "Note saved!" });
     };
 
-    const handleNoteKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-        if (event.key === 'Enter' && !event.shiftKey) {
+    const handleNoteKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
             event.preventDefault();
             handleSaveNote();
         }
     }
 
+    const truncatedTitle = pin.title.length > 50 ? `${pin.title.substring(0, 50)}...` : pin.title;
+
     return (
-        <Card className="bg-background rounded-[30px] flex-grow flex flex-col">
+        <Card className="bg-background rounded-[10px] flex-grow flex flex-col border shadow-sm">
             <CardContent className="p-3 space-y-3 flex flex-col flex-1">
                  <div>
-                    <p className="font-semibold text-sm">{pin.title}</p>
-                    <p className="text-xs text-muted-foreground">{formatTimestamp(pin.time)} in "{chatName || `Chat ${pin.chatId}`}"</p>
-                </div>
-                <p className="text-sm text-card-foreground/90 flex-1">
-                    {isExpanded || pin.text.length <= 100 ? pin.text : `${pin.text.substring(0, 100)}...`}
-                    {pin.text.length > 100 && (
-                        <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => setIsExpanded(!isExpanded)}>
-                            {isExpanded ? "Read less" : "Read more"}
-                        </Button>
-                    )}
-                </p>
+                    <p className="font-semibold text-sm leading-tight">{truncatedTitle}</p>
+                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                    <Input 
+                        placeholder="+ Add tags" 
+                        className="text-xs h-7 flex-grow min-w-[80px] bg-card border-dashed rounded-md px-2"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                    />
                     {pin.tags.map((tag, tagIndex) => (
-                        <Badge key={tagIndex} variant="secondary" className="font-normal text-foreground">
+                        <Badge key={tagIndex} variant="secondary" className="font-normal text-white bg-gray-800 hover:bg-gray-700 rounded-md">
                             {tag}
                             <button onClick={() => onRemoveTag(pin.id, tagIndex)} className="ml-1.5 focus:outline-none">
                                 <X className="h-3 w-3" />
                             </button>
                         </Badge>
                     ))}
-                    <Input 
-                        placeholder="+ Add tag" 
-                        className="text-xs h-6 flex-1 min-w-[60px] bg-transparent border-dashed rounded-md"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={handleTagKeyDown}
-                    />
                 </div>
                 
                 <div onClick={() => !isEditingNotes && setIsEditingNotes(true)}>
                     {isEditingNotes ? (
                         <div className="relative">
-                            <Textarea 
-                                ref={notesTextareaRef}
+                            <Input 
+                                ref={notesInputRef}
                                 placeholder="Add private notes..." 
-                                className="text-sm bg-card mt-1 resize-none pr-8 rounded-md p-1 min-h-[24px]" 
+                                className="text-sm bg-card mt-1 rounded-md p-2 h-auto" 
                                 value={noteInput}
                                 onChange={(e) => setNoteInput(e.target.value)}
                                 onKeyDown={handleNoteKeyDown}
                                 onBlur={handleSaveNote}
-                                rows={1}
                             />
                         </div>
                     ) : (
-                        <div className="text-sm bg-card mt-1 p-1 rounded-md min-h-[24px] cursor-text border border-transparent hover:border-dashed hover:border-input">
-                            {pin.notes || <span className="text-muted-foreground italic">Add private notes...</span>}
+                        <div className={cn(
+                            "text-sm mt-1 p-2 rounded-md min-h-[36px] cursor-text border",
+                             pin.notes ? "bg-card border-input" : "bg-transparent border-input"
+                        )}>
+                            {pin.notes ? (
+                                <>
+                                    {isNoteLong && !isNotesExpanded ? `${pin.notes.substring(0, 100)}...` : pin.notes}
+                                    {isNoteLong && (
+                                        <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
+                                            {isNotesExpanded ? "Read less" : "Read more"}
+                                        </Button>
+                                    )}
+                                </>
+                            ) : <span className="text-muted-foreground">Add private notes...</span>}
                         </div>
                     )}
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                    <Badge variant="outline" className="font-normal text-xs rounded-md">{chatName || `Chat ${pin.chatId}`}</Badge>
+                    <span className="text-xs text-muted-foreground">{formatTimestamp(pin.time)}</span>
                 </div>
             </CardContent>
         </Card>
     );
 };
-
-    
-
-    
