@@ -10,8 +10,17 @@ import type { ReactNode } from "react";
 import { CreatePersonaDialog } from "../personas/create-persona-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Logo } from "../icons/logo";
+import { ModelSelector } from "../chat/model-selector";
+import { TokenTracker } from "../chat/token-tracker";
+import type { AIModel } from "@/types/ai-model";
 
-export function Topbar({ children }: { children?: ReactNode }) {
+interface TopbarProps {
+  children?: ReactNode;
+  selectedModel: AIModel | null;
+  onModelSelect: (model: AIModel) => void;
+}
+
+export function Topbar({ children, selectedModel, onModelSelect }: TopbarProps) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const tabs = [
@@ -45,6 +54,18 @@ export function Topbar({ children }: { children?: ReactNode }) {
             </Button>
             ))}
         </nav>
+      </div>
+
+      <div className={cn("flex-1 justify-center", isMobile ? "hidden" : "flex")}>
+          <div className="flex items-center gap-4 w-full max-w-2xl">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelSelect={onModelSelect}
+              />
+              <div className="w-full">
+                  <TokenTracker />
+              </div>
+          </div>
       </div>
 
       <div className={cn("items-center gap-2 px-4", isMobile ? "hidden" : "flex")}>

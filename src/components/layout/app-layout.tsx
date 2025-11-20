@@ -84,6 +84,8 @@ interface AppLayoutContextType {
   ensureChatOnServer: (
     options: EnsureChatOptions
   ) => Promise<EnsureChatResult | null>;
+  selectedModel: AIModel | null;
+  setSelectedModel: React.Dispatch<React.SetStateAction<AIModel | null>>;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(null);
@@ -210,6 +212,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(true);
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
 
   const [pins, setPins_] = useState<PinType[]>([]);
   const [pinsChatId, setPinsChatId] = useState<string | null>(null);
@@ -586,13 +589,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
     onUnpinMessage: handleUnpinMessage,
     handleAddChat,
     ensureChatOnServer,
+    selectedModel,
+    setSelectedModel,
   };
 
   const pageContentProps = {
     onPinMessage: handlePinMessage,
     onUnpinMessage: handleUnpinMessage,
     messages: activeChatId ? chatHistory[activeChatId] || [] : [],
-    setMessages: setMessagesForActiveChat
+    setMessages: setMessagesForActiveChat,
+    selectedModel: selectedModel,
+    setIsRightSidebarVisible: setIsRightSidebarCollapsed,
+    isRightSidebarVisible: !isRightSidebarCollapsed,
   };
   
   const pageContent = React.cloneElement(children, pageContentProps);
@@ -617,7 +625,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return (
         <AppLayoutContext.Provider value={contextValue}>
             <div className="flex flex-col h-screen bg-background w-full">
-                <Topbar>
+                <Topbar
+                  selectedModel={selectedModel}
+                  onModelSelect={setSelectedModel}
+                >
                     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                         <SheetTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -666,7 +677,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <AppLayoutContext.Provider value={contextValue}>
       <div className="flex flex-col h-screen bg-background w-full">
-        <Topbar />
+        <Topbar
+          selectedModel={selectedModel}
+          onModelSelect={setSelectedModel}
+        />
         <div className="flex flex-1 overflow-hidden">
           <LeftSidebar {...sidebarProps} />
           <main className="flex-1 flex flex-col min-w-0">
