@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,27 +12,27 @@ body {
 
 @layer base {
   :root {
-    --bg-body: 228 33.3% 97.1%;
+    --bg-body: 0 0% 100%;
     --bg-surface: 0 0% 100%;
-    --bg-subtle: 210 20% 98%;
-    --border-subtle: 220 13% 91%;
-    --text-primary: 220.9 39.3% 11%;
-    --text-muted: 220 8.9% 46.1%;
-    --text-soft: 217.9 10.6% 64.9%;
-    --accent-brand: 238.7 83.5% 66.7%;
-    --accent-soft: 225.9 100% 96.7%;
-    --accent-strong: 243.4 75.4% 58.6%;
+    --bg-subtle: 0 0% 98%;
+    --border-subtle: 0 0% 89.8%;
+    --text-primary: 0 0% 9%;
+    --text-muted: 0 0% 45.1%;
+    --text-soft: 0 0% 64.9%;
+    --accent-brand: 0 0% 17.3%; /* #2C2C2C */
+    --accent-soft: 0 0% 96.1%;
+    --accent-strong: 0 0% 17.3%; /* #2C2C2C */
     --success: 142.1 70.6% 45.3%;
     --danger: 0 84.2% 60.2%;
 
-    --background: var(--bg-body);
+    --background: 0 0% 100%; /* #FFFFFF */
     --foreground: var(--text-primary);
     --card: var(--bg-surface);
     --card-foreground: var(--text-primary);
     --popover: var(--bg-surface);
     --popover-foreground: var(--text-primary);
     --primary: var(--accent-brand);
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 98%; /* White text for dark buttons */
     --secondary: var(--bg-subtle);
     --secondary-foreground: var(--text-primary);
     --muted: var(--bg-subtle);
@@ -48,25 +49,33 @@ body {
     --chart-3: var(--success);
     --chart-4: 48 92% 65%;
     --chart-5: 333 76% 70%;
-    --sidebar-background: var(--bg-surface);
-    --sidebar-foreground: var(--text-primary);
-    --sidebar-primary: var(--accent-brand);
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: var(--accent-soft);
-    --sidebar-accent-foreground: var(--accent-brand);
-    --sidebar-border: var(--border-subtle);
-    --sidebar-ring: var(--accent-brand);
+
+    --left-sidebar-background: 0 0% 96.1%; /* #F5F5F5 */
+    --right-sidebar-background: 0 0% 85.1%; /* #D9D9D9 */
   }
 
   .dark {
+    --bg-body: 226 17% 12%;
+    --bg-surface: 222 28% 16%;
+    --bg-subtle: 226 16% 22%;
+    --border-subtle: 226 16% 22%;
+    --text-primary: 210 40% 98%;
+    --text-muted: 217.9 10.6% 74%;
+    --text-soft: 217.9 10.6% 64.9%;
+    --accent-brand: 0 0% 96.1%; /* Light gray for buttons in dark mode */
+    --accent-soft: 239 58% 35%;
+    --accent-strong: 0 0% 96.1%;
+    --success: 142.1 70.6% 45.3%;
+    --danger: 0 62.8% 30.6%;
+    
     --background: 226 17% 12%;
     --foreground: 210 40% 98%;
     --card: 222 28% 16%;
     --card-foreground: 210 40% 98%;
     --popover: 222 28% 16%;
     --popover-foreground: 210 40% 98%;
-    --primary: 238.7 83.5% 66.7%;
-    --primary-foreground: 0 0% 100%;
+    --primary: var(--accent-brand);
+    --primary-foreground: 0 0% 9%; /* Black text for light buttons */
     --secondary: 226 16% 22%;
     --secondary-foreground: 210 40% 98%;
     --muted: 226 16% 22%;
@@ -77,20 +86,10 @@ body {
     --destructive-foreground: 210 40% 98%;
     --border: 226 16% 22%;
     --input: 226 16% 22%;
-    --ring: 238.7 83.5% 66.7%;
-    --chart-1: 238.7 83.5% 66.7%;
-    --chart-2: 243.4 75.4% 58.6%;
-    --chart-3: 142.1 70.6% 45.3%;
-    --chart-4: 32 92% 62%;
-    --chart-5: 333 76% 70%;
-    --sidebar-background: 226 16% 18%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 238.7 83.5% 66.7%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 239 58% 35%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 226 16% 22%;
-    --sidebar-ring: 238.7 83.5% 66.7%;
+    --ring: var(--accent-brand);
+
+    --left-sidebar-background: 226 16% 18%;
+    --right-sidebar-background: 226 16% 14%;
   }
 }
 

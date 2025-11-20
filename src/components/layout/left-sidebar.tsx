@@ -20,8 +20,8 @@ import {
   Pencil,
   Check,
   LayoutGrid,
-  BarChart2,
-  UserPlus
+  UserPlus,
+  BarChart2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -103,9 +103,11 @@ export function LeftSidebar({
 
   return (
       <aside className={cn(
-          "bg-sidebar text-sidebar-foreground flex-col transition-all duration-300 ease-in-out border-r border-sidebar-border relative hidden md:flex",
+          "flex-col transition-all duration-300 ease-in-out border-r border-sidebar-border relative hidden md:flex",
           isCollapsed ? "w-16 items-center" : "w-64"
-        )}>
+        )}
+        style={{ backgroundColor: 'hsl(var(--left-sidebar-background))' }}
+        >
         
         <Button variant="ghost" size="icon" onClick={onToggle} className="absolute top-1/2 -translate-y-1/2 -right-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full">
             <ChevronsLeft className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}/>
@@ -170,9 +172,9 @@ export function LeftSidebar({
                       </div>
                         <div className={"ml-2 flex-shrink-0 flex items-center gap-1"}>
                           <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={(e) => toggleStar(e, board.id)}>
-                            <Star className={cn("w-4 h-4 text-muted-foreground", board.isStarred && "text-blue-400 fill-blue-400")} />
+                            <Star className={cn("w-4 h-4 text-muted-foreground", board.isStarred && "text-yellow-400 fill-yellow-400")} />
                           </Button>
-                          {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 text-[10px] p-0 flex items-center justify-center bg-blue-400 text-white dark:text-black">{board.pinCount}</Badge>}
+                          {board.pinCount > 0 && <Badge variant="default" className="rounded-full h-5 w-5 text-[10px] p-0 flex items-center justify-center bg-muted-foreground text-background">{board.pinCount}</Badge>}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
@@ -230,5 +232,3 @@ export function LeftSidebar({
       </aside>
   );
 }
-
-    
