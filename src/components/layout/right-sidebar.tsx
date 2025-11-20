@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronsLeft, Pin, File as FileIcon, Search, Download, Folder, Plus, MoreHorizontal, Trash2, Pencil, Check, X, FolderPlus } from "lucide-react";
+import { ChevronsLeft, Pin, File as FileIcon, Search, Folder, MoreHorizontal, Trash2, Pencil, Check, X, FolderPlus, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppLayoutContext, type ChatBoard } from './app-layout';
 import { useToast } from "@/hooks/use-toast";
@@ -291,31 +291,36 @@ export function RightSidebar({
         <aside
         className={cn(
             "hidden lg:flex flex-col border-l bg-card/90 backdrop-blur-sm transition-all duration-300 ease-in-out relative shadow-[-12px_0_30px_rgba(15,23,42,0.03)]",
-            isCollapsed ? "w-[58px]" : "w-80"
+            isCollapsed ? "w-0" : "w-80"
         )}
         >
-            <Button
+             <Button
                 variant="ghost"
                 size="icon"
                 onClick={onToggle}
                 className={cn(
                     "absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full",
+                     isCollapsed && "hidden"
                 )}
             >
                 <ChevronsLeft
-                className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}
+                    className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}
                 />
             </Button>
             
             {isCollapsed ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-muted-foreground p-2">
-                    <Pin className="h-5 w-5" />
-                     <span className="[writing-mode:vertical-rl]">Pinboard</span>
-                </div>
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onToggle}
+                    className="absolute top-1/2 -translate-y-1/2 -right-10 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full"
+                >
+                    <ChevronsLeft className="h-4 w-4 rotate-180" />
+                </Button>
             ) : (
                 <div className="flex flex-col h-full">
                     <div className="p-4 space-y-4 border-b">
-                        <div className="flex items-center justify-between">
+                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold flex items-center gap-2"><Pin className="h-4 w-4" />Pinboard</h3>
                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggle}><X className="h-4 w-4" /></Button>
                         </div>
@@ -375,7 +380,7 @@ export function RightSidebar({
                             ) : (
                                 <div className="text-center text-muted-foreground py-16">
                                     <div className="inline-block p-3 bg-muted rounded-full border mb-4">
-                                       <Pin className="h-6 w-6" />
+                                       <PinOff className="h-6 w-6" />
                                     </div>
                                     <p className="font-semibold">No pins found</p>
                                     <p className="text-sm">Try adjusting your search or filters.</p>
@@ -389,3 +394,5 @@ export function RightSidebar({
         </aside>
     );
 }
+
+    
