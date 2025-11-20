@@ -74,7 +74,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
     }
 
     return (
-        <Card className="bg-background rounded-2xl flex-grow flex flex-col">
+        <Card className="bg-background rounded-[30px] flex-grow flex flex-col">
             <CardContent className="p-3 space-y-3 flex flex-col flex-1">
                  <div>
                     <p className="font-semibold text-sm">{pin.title}</p>
@@ -131,5 +131,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
         </Card>
     );
 };
+
+    
 
     

@@ -228,15 +228,8 @@ export function RightSidebar({
     const [pins, setPins] = useState<PinType[]>(initialPins);
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortOrder, setSortOrder] = useState('newest');
-    const [filterChat, setFilterChat] = useState("all");
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-    const uniqueTags = useMemo(() => {
-        const tags = new Set<string>();
-        pins.forEach(pin => pin.tags.forEach(tag => tags.add(tag)));
-        return Array.from(tags).sort();
-    }, [pins]);
+    const [filterType, setFilterType] = useState('newest');
+    const [tagSearchTerm, setTagSearchTerm] = useState('');
 
     const filteredPins = useMemo(() => {
         let processedPins = [...pins];
@@ -249,15 +242,13 @@ export function RightSidebar({
             );
         }
 
-        if (filterChat === 'current' && layoutContext?.activeChatId) {
-            processedPins = processedPins.filter(pin => pin.chatId === layoutContext.activeChatId);
-        }
-        
-        if (selectedTags.length > 0) {
-            processedPins = processedPins.filter(pin => selectedTags.every(tag => pin.tags.includes(tag)));
+        if (tagSearchTerm && filterType === 'filter-by-tag') {
+            processedPins = processedPins.filter(pin => 
+                pin.tags.some(tag => tag.toLowerCase().includes(tagSearchTerm.toLowerCase()))
+            );
         }
 
-        switch (sortOrder) {
+        switch (filterType) {
             case 'newest':
                 processedPins.sort((a, b) => b.time.getTime() - a.time.getTime());
                 break;
@@ -270,10 +261,15 @@ export function RightSidebar({
             case 'z-a':
                 processedPins.sort((a, b) => b.title.localeCompare(a.title));
                 break;
+            case 'current-chat':
+                if (layoutContext?.activeChatId) {
+                    processedPins = processedPins.filter(pin => pin.chatId === layoutContext.activeChatId);
+                }
+                break;
         }
 
         return processedPins;
-    }, [pins, searchTerm, filterChat, sortOrder, selectedTags, layoutContext?.activeChatId]);
+    }, [pins, searchTerm, filterType, tagSearchTerm, layoutContext?.activeChatId]);
 
     const onUpdatePin = (updatedPin: PinType) => {
         setPins(pins.map(p => p.id === updatedPin.id ? updatedPin : p));
@@ -289,12 +285,6 @@ export function RightSidebar({
             return p;
         });
         setPins(updatedPins);
-    };
-
-    const toggleTagFilter = (tag: string) => {
-        setSelectedTags(prev => 
-            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-        );
     };
 
     return (
@@ -331,53 +321,35 @@ export function RightSidebar({
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input 
                                 placeholder="Search pins..." 
-                                className="pl-9 rounded-full h-9" 
+                                className="pl-9 rounded-[30px] h-9" 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="flex gap-2">
-                            <Select value={sortOrder} onValueChange={setSortOrder}>
-                                <SelectTrigger className="w-full rounded-full text-xs">
-                                    <SelectValue placeholder="Sort by" />
+                         <div className="flex flex-col gap-2">
+                            <Select value={filterType} onValueChange={setFilterType}>
+                                <SelectTrigger className="w-full rounded-[30px] text-xs">
+                                    <SelectValue placeholder="Sort & Filter" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="newest">Sort by: Newest</SelectItem>
                                     <SelectItem value="oldest">Sort by: Oldest</SelectItem>
                                     <SelectItem value="a-z">Sort by: A-Z</SelectItem>
                                     <SelectItem value="z-a">Sort by: Z-A</SelectItem>
+                                    <SelectItem value="current-chat">Filter: Current Chat</SelectItem>
+                                    <SelectItem value="filter-by-tag">Filter: by Tag</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Select value={filterChat} onValueChange={setFilterChat}>
-                                <SelectTrigger className="w-full rounded-full text-xs">
-                                    <SelectValue placeholder="Filter by" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Chats</SelectItem>
-                                    <SelectItem value="current">Current Chat</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {filterType === 'filter-by-tag' && (
+                                <Input
+                                    placeholder="Type a tag..."
+                                    className="rounded-[30px] h-9 text-xs"
+                                    value={tagSearchTerm}
+                                    onChange={(e) => setTagSearchTerm(e.target.value)}
+                                />
+                            )}
                         </div>
                     </div>
-                    
-                    {uniqueTags.length > 0 && (
-                        <div className="p-4 border-b">
-                            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Filter by Tags</h4>
-                            <div className="flex flex-wrap gap-1.5">
-                                {uniqueTags.map(tag => (
-                                    <Badge 
-                                        key={tag}
-                                        variant={selectedTags.includes(tag) ? 'default' : 'secondary'}
-                                        onClick={() => toggleTagFilter(tag)}
-                                        className="cursor-pointer"
-                                    >
-                                        {tag}
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
 
                     <ScrollArea className="flex-1">
                         <div className="p-4 space-y-3">
@@ -411,3 +383,5 @@ export function RightSidebar({
         </aside>
     );
 }
+
+    
