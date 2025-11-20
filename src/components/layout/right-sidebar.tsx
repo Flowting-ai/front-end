@@ -1,384 +1,237 @@
 
 "use client";
 
-import { useState, useMemo, useContext, type ReactNode } from 'react';
+import { useState, useMemo, useContext } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronsLeft, Pin, File as FileIcon, Search, Folder, MoreHorizontal, Trash2, Pencil, Check, X, FolderPlus, PinOff } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Pin, Search, Files, ChevronsLeft, ChevronDown, Download, Tag } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { AppLayoutContext, type ChatBoard } from './app-layout';
-import { useToast } from "@/hooks/use-toast";
-import { PinItem } from '../pinboard/pin-item';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from '../ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import type { ChatBoard } from "./app-layout";
+import { PinItem } from "../pinboard/pin-item";
+import { AppLayoutContext } from "./app-layout";
+import { Separator } from "../ui/separator";
 
 export interface PinType {
-    id: string;
-    title: string;
-    text: string;
-    tags: string[];
-    notes: string;
-    chatId: string;
-    time: Date;
-    messageId?: string;
-    folderId?: string | null;
-    isArchived: boolean;
-}
-
-export interface Folder {
-    id: string;
-    name:string;
-    createdAt: Date;
-}
-
-const mockFolders: Folder[] = [
-    { id: 'unorganized', name: 'Unorganized Pins', createdAt: new Date() },
-    { id: 'research', name: 'Research', createdAt: new Date() },
-];
-
-const initialPins: PinType[] = [
-    { id: '1', title: 'Initial Research Findings', text: 'The market for AI-driven collaboration tools is expanding rapidly. Key competitors are focusing on integration capabilities.', tags: ['market-research', 'AI'], notes: 'Follow up on competitor APIs.', chatId: '1', time: new Date(Date.now() - 86400000), folderId: 'research', isArchived: false },
-    { id: '2', title: 'UI/UX Feedback', text: 'Users report that the onboarding process could be more intuitive. Suggest adding a guided tour.', tags: ['ux', 'feedback'], notes: '', chatId: '1', time: new Date(Date.now() - 172800000), folderId: null, isArchived: false },
-    { id: '3', title: 'API Design Concepts', text: 'Initial thoughts on the REST API structure for version 2. Focus on clear versioning and webhook support.', tags: ['api', 'dev'], notes: 'Draft OpenAPI spec.', chatId: '2', time: new Date(Date.now() - 259200000), folderId: 'research', isArchived: false },
-    { id: '4', title: 'Marketing Copy Ideas', text: 'Headline: "FlowtingAI: Where your conversations become workflows." Sub-headline: "Automate, analyze, and create with the power of AI."', tags: ['marketing'], notes: '', chatId: '1', time: new Date(), folderId: null, isArchived: false },
-];
-
-
-function OrganizePinsDialog({ open, onOpenChange, folders, setFolders, pins, setPins }: { 
-    open: boolean, 
-    onOpenChange: (open: boolean) => void,
-    folders: Folder[],
-    setFolders: React.Dispatch<React.SetStateAction<Folder[]>>,
-    pins: PinType[],
-    setPins: React.Dispatch<React.SetStateAction<PinType[]>>
-}) {
-    const [selectedFolderId, setSelectedFolderId] = useState<string>('unorganized');
-    const [folderSearch, setFolderSearch] = useState('');
-    const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
-    const [renamingText, setRenamingText] = useState('');
-    const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null);
-    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-    const [newFolderName, setNewFolderName] = useState('');
-
-    const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(folderSearch.toLowerCase()));
-    
-    const pinsInSelectedFolder = pins.filter(p => (p.folderId || 'unorganized') === selectedFolderId);
-
-    const getPinCount = (folderId: string) => {
-        return pins.filter(p => (p.folderId || 'unorganized') === folderId).length;
-    };
-
-    const handleSaveRename = () => {
-        if (!renamingFolderId) return;
-        setFolders(folders.map(f => f.id === renamingFolderId ? { ...f, name: renamingText } : f));
-        setRenamingFolderId(null);
-    };
-
-    const handleSaveNewFolder = () => {
-        if (!newFolderName.trim()) return;
-        const newFolder: Folder = {
-            id: Date.now().toString(),
-            name: newFolderName.trim(),
-            createdAt: new Date(),
-        };
-        setFolders([...folders, newFolder]);
-        setIsCreatingFolder(false);
-        setNewFolderName('');
-    };
-    
-    const confirmDeleteFolder = () => {
-        if (!deletingFolder || deletingFolder.id === 'unorganized') return;
-        setFolders(folders.filter(f => f.id !== deletingFolder.id));
-        setPins(pins.map(p => p.folderId === deletingFolder.id ? { ...p, folderId: 'unorganized' } : p));
-        setDeletingFolder(null);
-    };
-
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[70vh] flex flex-col p-0 gap-0">
-                <DialogHeader className="p-4 border-b">
-                    <DialogTitle>Organize Pins</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 grid grid-cols-3 overflow-hidden">
-                    <div className="col-span-1 border-r bg-muted/30 flex flex-col">
-                        <div className="p-3 border-b">
-                             <Input placeholder="Search folders..." value={folderSearch} onChange={e => setFolderSearch(e.target.value)} className="bg-background"/>
-                        </div>
-                        <ScrollArea className="flex-1">
-                            <div className="p-2 space-y-1">
-                            {filteredFolders.map(folder => (
-                                <div key={folder.id}
-                                    className={cn("flex items-center justify-between p-2 rounded-md cursor-pointer", selectedFolderId === folder.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent')}
-                                    onClick={() => setSelectedFolderId(folder.id)}
-                                >
-                                    {renamingFolderId === folder.id ? (
-                                        <div className="flex-1 flex gap-1">
-                                            <Input value={renamingText} onChange={e => setRenamingText(e.target.value)} className="h-7"/>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleSaveRename}><Check className="h-4 w-4"/></Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setRenamingFolderId(null)}><X className="h-4 w-4"/></Button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="flex-1 flex items-center gap-2 overflow-hidden">
-                                                <Folder className="h-4 w-4 shrink-0"/>
-                                                <span className="truncate font-medium text-sm">{folder.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs text-muted-foreground">{getPinCount(folder.id)}</span>
-                                                 {folder.id !== 'unorganized' && (
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-6 w-6"><MoreHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
-                                                        <DropdownMenuContent>
-                                                            <DropdownMenuItem onSelect={() => { setRenamingFolderId(folder.id); setRenamingText(folder.name); }}><Pencil className="mr-2 h-4 w-4"/>Rename</DropdownMenuItem>
-                                                            <DropdownMenuItem onSelect={() => setDeletingFolder(folder)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                 )}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-                             {isCreatingFolder ? (
-                                <div className="p-2 flex gap-1">
-                                     <Input placeholder="New folder name..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveNewFolder()} className="h-8"/>
-                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleSaveNewFolder}><Check className="h-4 w-4"/></Button>
-                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setIsCreatingFolder(false)}><X className="h-4 w-4"/></Button>
-                                </div>
-                             ) : (
-                                <Button variant="ghost" className="w-full justify-start mt-2" onClick={() => setIsCreatingFolder(true)}><FolderPlus className="mr-2 h-4 w-4"/>Create New Folder</Button>
-                             )}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                    <div className="col-span-2">
-                        <ScrollArea className="h-full">
-                            <div className="p-4 space-y-3">
-                                {pinsInSelectedFolder.length > 0 ? pinsInSelectedFolder.map(pin => (
-                                    <PinItem key={pin.id} pin={pin} onUpdatePin={() => {}} onRemoveTag={() => {}} />
-                                )) : (
-                                     <div className="text-center text-muted-foreground py-16">
-                                        <div className="inline-block p-3 bg-muted rounded-full border mb-4">
-                                           <Pin className="h-6 w-6" />
-                                        </div>
-                                        <p className="font-semibold">No pins in this folder</p>
-                                        <p className="text-sm">Pins you create will appear here.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                </div>
-                <DialogFooter className="p-4 border-t">
-                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={() => onOpenChange(false)}>Done</Button>
-                </DialogFooter>
-                 <AlertDialog open={!!deletingFolder} onOpenChange={(open) => !open && setDeletingFolder(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure you want to delete "{deletingFolder?.name}"?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. All pins inside this folder will be moved to "Unorganized Pins".
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setDeletingFolder(null)}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDeleteFolder}>Delete</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </DialogContent>
-        </Dialog>
-    )
+  id: string;
+  text: string;
+  tags: string[];
+  notes: string;
+  chatId: string;
+  time: Date;
 }
 
 interface RightSidebarProps {
-  isCollapsed: boolean;
-  onToggle: () => void;
-  pins: PinType[];
-  setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
-  chatBoards: ChatBoard[];
+    isCollapsed: boolean;
+    onToggle: () => void;
+    pins: PinType[];
+    setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
+    chatBoards: ChatBoard[];
 }
 
-export function RightSidebar({
-  isCollapsed,
-  onToggle,
-  pins: allPins,
-  setPins: setAllPins,
-  chatBoards
-}: RightSidebarProps) {
-    const { toast } = useToast();
-    const layoutContext = useContext(AppLayoutContext);
-    const [isOrganizeDialogOpen, setIsOrganizeDialogOpen] = useState(false);
-    const [folders, setFolders] = useState<Folder[]>(mockFolders);
-    const [pins, setPins] = useState<PinType[]>(initialPins);
+type FilterMode = 'current-chat' | 'newest' | 'oldest' | 'a-z' | 'z-a';
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('newest');
-    const [tagSearchTerm, setTagSearchTerm] = useState('');
+export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards }: RightSidebarProps) {
+  const [activeTab, setActiveTab] = useState("Pins");
+  const [filterMode, setFilterMode] = useState<FilterMode>('current-chat');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
+  const layoutContext = useContext(AppLayoutContext);
+  const activeChatId = layoutContext?.activeChatId;
 
-    const filteredPins = useMemo(() => {
-        let processedPins = [...pins];
+  const handleUpdatePin = (updatedPin: PinType) => {
+    setPins(prevPins => prevPins.map(p => p.id === updatedPin.id ? updatedPin : p));
+  };
+  
+  const handleRemoveTag = (pinId: string, tagIndex: number) => {
+      setPins(prevPins => prevPins.map(p => {
+          if (p.id === pinId) {
+              const updatedTags = p.tags.filter((_, i) => i !== tagIndex);
+              return { ...p, tags: updatedTags };
+          }
+          return p;
+      }));
+  };
 
-        if (searchTerm) {
-            processedPins = processedPins.filter(pin => 
-                pin.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                pin.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                pin.title.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    pins.forEach(pin => pin.tags.forEach(tag => tagSet.add(tag)));
+    return Array.from(tagSet).sort();
+  }, [pins]);
 
-        if (tagSearchTerm && filterType === 'filter-by-tag') {
-            processedPins = processedPins.filter(pin => 
-                pin.tags.some(tag => tag.toLowerCase().includes(tagSearchTerm.toLowerCase()))
-            );
-        }
+  const filteredTags = useMemo(() => {
+    if (!tagSearch) {
+      return allTags.slice(0, 5);
+    }
+    return allTags.filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase())).slice(0, 5);
+  }, [allTags, tagSearch]);
 
-        switch (filterType) {
-            case 'newest':
-                processedPins.sort((a, b) => b.time.getTime() - a.time.getTime());
-                break;
-            case 'oldest':
-                processedPins.sort((a, b) => a.time.getTime() - b.time.getTime());
-                break;
-            case 'a-z':
-                processedPins.sort((a, b) => a.title.localeCompare(b.title));
-                break;
-            case 'z-a':
-                processedPins.sort((a, b) => b.title.localeCompare(a.title));
-                break;
-            case 'current-chat':
-                if (layoutContext?.activeChatId) {
-                    processedPins = processedPins.filter(pin => pin.chatId === layoutContext.activeChatId);
-                }
-                break;
-        }
 
-        return processedPins;
-    }, [pins, searchTerm, filterType, tagSearchTerm, layoutContext?.activeChatId]);
-
-    const onUpdatePin = (updatedPin: PinType) => {
-        setPins(pins.map(p => p.id === updatedPin.id ? updatedPin : p));
-    };
-
-    const onRemoveTag = (pinId: string, tagIndex: number) => {
-        const updatedPins = pins.map(p => {
-            if (p.id === pinId) {
-                const newTags = [...p.tags];
-                newTags.splice(tagIndex, 1);
-                return { ...p, tags: newTags };
-            }
-            return p;
-        });
-        setPins(updatedPins);
-    };
-
-    return (
-        <aside
-        className={cn(
-            "hidden lg:flex flex-col border-l bg-card/90 backdrop-blur-sm transition-all duration-300 ease-in-out relative shadow-[-12px_0_30px_rgba(15,23,42,0.03)]",
-            isCollapsed ? "w-0" : "w-80"
-        )}
-        >
-             <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                className="absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full"
-            >
-                <ChevronsLeft
-                    className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")}
-                />
-            </Button>
-            
-            {!isCollapsed && (
-                <div className="flex flex-col h-full">
-                    <div className="p-4 space-y-4 border-b">
-                         <div className="flex items-center justify-between">
-                            <h3 className="font-semibold flex items-center gap-2"><Pin className="h-4 w-4" />Pinboard</h3>
-                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggle}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <Button variant="secondary" className="w-full text-muted-foreground bg-[#767676]/10 hover:bg-[#767676]/20" onClick={() => setIsOrganizeDialogOpen(true)}>
-                            <Folder className="mr-2 h-4 w-4" />
-                            Organize Pins
-                        </Button>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Search pins..." 
-                                className="pl-9 rounded-[30px] h-9" 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                         <div className="flex flex-col gap-2">
-                            <Select value={filterType} onValueChange={setFilterType}>
-                                <SelectTrigger className="w-full rounded-[30px] text-xs bg-[#D9D9D9]/20 border-0">
-                                    <SelectValue placeholder="Sort & Filter" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="newest">Sort by: Newest</SelectItem>
-                                    <SelectItem value="oldest">Sort by: Oldest</SelectItem>
-                                    <SelectItem value="a-z">Sort by: A-Z</SelectItem>
-                                    <SelectItem value="z-a">Sort by: Z-A</SelectItem>
-                                    <SelectItem value="current-chat">Filter: Current Chat</SelectItem>
-                                    <SelectItem value="filter-by-tag">Filter: by Tag</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {filterType === 'filter-by-tag' && (
-                                <Input
-                                    placeholder="Type a tag..."
-                                    className="rounded-[30px] h-9 text-xs"
-                                    value={tagSearchTerm}
-                                    onChange={(e) => setTagSearchTerm(e.target.value)}
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    <ScrollArea className="flex-1">
-                        <div className="p-4 space-y-3">
-                            {filteredPins.length > 0 ? (
-                                filteredPins.map(pin => {
-                                    const chat = chatBoards.find(c => c.id === pin.chatId);
-                                    return (
-                                        <PinItem 
-                                            key={pin.id} 
-                                            pin={pin}
-                                            onUpdatePin={onUpdatePin}
-                                            onRemoveTag={onRemoveTag}
-                                            chatName={chat?.name}
-                                        />
-                                    );
-                                })
-                            ) : (
-                                <div className="text-center text-muted-foreground py-16">
-                                    <div className="inline-block p-3 bg-muted rounded-full border mb-4">
-                                       <PinOff className="h-6 w-6" />
-                                    </div>
-                                    <p className="font-semibold">No pins found</p>
-                                    <p className="text-sm">Try adjusting your search or filters.</p>
-                                </div>
-                            )}
-                        </div>
-                    </ScrollArea>
-                </div>
-            )}
-             <OrganizePinsDialog open={isOrganizeDialogOpen} onOpenChange={setIsOrganizeDialogOpen} folders={folders} setFolders={setFolders} pins={pins} setPins={setPins} />
-        </aside>
+  const handleTagToggle = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+  };
+
+  const sortedAndFilteredPins = useMemo(() => {
+    let filtered = pins;
+    
+    if (selectedTags.length > 0) {
+        filtered = pins.filter(pin => selectedTags.every(tag => pin.tags.includes(tag)));
+    }
+
+    switch(filterMode) {
+      case 'current-chat':
+        return filtered.filter(p => p.chatId === activeChatId?.toString()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      case 'newest':
+        return [...filtered].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      case 'oldest':
+        return [...filtered].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      case 'a-z':
+        return [...filtered].sort((a, b) => a.text.localeCompare(b.text));
+      case 'z-a':
+        return [...filtered].sort((a, b) => b.text.localeCompare(a.text));
+      default:
+        return filtered;
+    }
+  }, [pins, filterMode, activeChatId, selectedTags]);
+
+  const getFilterLabel = () => {
+    if (selectedTags.length > 0) {
+        return `Filtered by ${selectedTags.length} tag(s)`;
+    }
+    switch (filterMode) {
+        case 'current-chat': return 'Filter by Current Chat';
+        case 'newest': return 'Sort by Newest';
+        case 'oldest': return 'Sort by Oldest';
+        case 'a-z': return 'Sort A-Z';
+        case 'z-a': return 'Sort Z-A';
+        default: return 'Filter & Sort';
+    }
+  }
+
+
+  return (
+    <aside className={cn(
+        "border-l bg-card hidden lg:flex flex-col transition-all duration-300 ease-in-out relative",
+        isCollapsed ? "w-[58px]" : "w-[300px]"
+        )}>
+        
+        <Button variant="ghost" size="icon" onClick={onToggle} className="absolute top-1/2 -translate-y-1/2 -left-4 bg-card border hover:bg-accent z-10 h-8 w-8 rounded-full">
+            <ChevronsLeft className={cn("h-4 w-4 transition-transform", !isCollapsed && "rotate-180")}/>
+        </Button>
+        
+        <div className="flex flex-col h-full">
+          {isCollapsed ? (
+              <div className="flex flex-col items-center py-4 space-y-4">
+                  <Pin className="h-6 w-6" />
+              </div>
+          ) : (
+            <>
+              <div className="p-4 border-b shrink-0">
+                  <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                          <Pin className="h-4 w-4" />
+                          <h2 className="font-medium text-base">Pinboard</h2>
+                      </div>
+                  </div>
+                  <div className="relative mt-2">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Search pins..." className="pl-9 bg-background rounded-[25px]" />
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Pins')}>
+                          <Pin className="mr-2 h-4 w-4" />
+                          Pins
+                      </Button>
+                      <Button variant="outline" className="w-full rounded-[25px] h-9" onClick={() => setActiveTab('Files')}>
+                          <Files className="mr-2 h-4 w-4" />
+                          Files
+                      </Button>
+                  </div>
+                  <div className="mt-4">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between rounded-[25px] h-9">
+                                <span>{getFilterLabel()}</span>
+                                <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[268px]">
+                            <DropdownMenuItem onSelect={() => { setFilterMode('current-chat'); setSelectedTags([]); }}>Filter by Current Chat</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setFilterMode('newest')}>Sort by Newest</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setFilterMode('oldest')}>Sort by Oldest</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setFilterMode('a-z')}>Sort A-Z</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setFilterMode('z-a')}>Sort Z-A</DropdownMenuItem>
+                            <Separator />
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>Filter by Tags</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="p-2">
+                                    <div className="relative">
+                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search tags..."
+                                            className="mb-2 h-8 rounded-[25px] pl-8"
+                                            value={tagSearch}
+                                            onChange={(e) => setTagSearch(e.target.value)}
+                                            onClick={(e) => e.preventDefault()}
+                                        />
+                                    </div>
+                                    <ScrollArea className="h-auto max-h-48">
+                                        <div className="space-y-1">
+                                            {filteredTags.length > 0 ? filteredTags.map(tag => (
+                                                <DropdownMenuCheckboxItem
+                                                    key={tag}
+                                                    checked={selectedTags.includes(tag)}
+                                                    onCheckedChange={() => handleTagToggle(tag)}
+                                                    onSelect={(e) => e.preventDefault()}
+                                                >
+                                                    {tag}
+                                                </DropdownMenuCheckboxItem>
+                                            )) : (
+                                                <DropdownMenuItem disabled>No matching tags</DropdownMenuItem>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                             {selectedTags.length > 0 && (
+                                <>
+                                <Separator />
+                                <DropdownMenuItem onSelect={() => setSelectedTags([])} className="text-red-500">Clear Tag Filter</DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+              </div>
+              <ScrollArea className="flex-1 min-h-0">
+                  <div className="p-4 space-y-3">
+                  {sortedAndFilteredPins.length > 0 ? sortedAndFilteredPins.map((pin) => {
+                      const chatBoard = chatBoards.find(board => board.id.toString() === pin.chatId);
+                      return (
+                        <PinItem key={pin.id} pin={pin} onUpdatePin={handleUpdatePin} onRemoveTag={handleRemoveTag} chatName={chatBoard?.name} />
+                      )
+                  }) : (
+                      <div className="text-center text-sm text-muted-foreground py-10 flex flex-col items-center gap-2">
+                          <Pin className="h-8 w-8 text-muted-foreground" />
+                          <p className="font-bold text-base text-foreground">No pins yet</p>
+                          <p className="max-w-xs px-4">Pin useful answers or references from your chats to keep them handy for later.</p>
+                      </div>
+                  )}
+                  </div>
+              </ScrollArea>
+              <div className="p-4 border-t shrink-0">
+                  <Button variant="outline" className="w-full rounded-[25px] h-9">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Pins
+                  </Button>
+              </div>
+            </>
+          )}
+        </div>
+    </aside>
+  );
 }
