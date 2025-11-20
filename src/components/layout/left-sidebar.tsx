@@ -77,7 +77,7 @@ export function LeftSidebar({
     router.push("/auth/login");
   };
 
-  const toggleStar = (e: React.MouseEvent, id: number) => {
+  const toggleStar = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setChatBoards((prev) =>
       prev
@@ -111,9 +111,9 @@ export function LeftSidebar({
   };
 
   const navItems = [
-    { label: "Chat Board", icon: LayoutGrid, active: true },
-    // { label: "Workflows", icon: GitBranch, active: false },
-    // { label: "Ai Automation", icon: Bot, active: false },
+    { label: "Chat Board", href: "/", icon: LayoutGrid },
+    { label: "Personas", href: "/personas", icon: UserPlus },
+    { label: "Dashboard", href: "/dashboard", icon: BarChart2 },
   ];
 
   return (
@@ -154,14 +154,14 @@ export function LeftSidebar({
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-2 rounded-2xl h-10 px-3 text-sm",
-                item.active && "bg-foreground text-background hover:bg-foreground",
-                !item.active && "bg-muted/50 text-foreground hover:bg-muted"
+                item.href === "/" ? "bg-foreground text-background hover:bg-foreground" : "bg-muted/50 text-foreground hover:bg-muted"
               )}
+              onClick={() => router.push(item.href)}
             >
               <item.icon
                 className={cn(
                   "h-4 w-4",
-                  item.active ? "text-background" : "text-muted-foreground"
+                  item.href === "/" ? "text-background" : "text-muted-foreground"
                 )}
               />
               <span>{item.label}</span>
