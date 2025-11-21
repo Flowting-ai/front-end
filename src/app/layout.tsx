@@ -4,7 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import AppLayout from '@/components/layout/app-layout';
 import { AuthProvider } from '@/context/auth-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
@@ -29,10 +29,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <SidebarProvider>
+            <AppLayout>
               {children}
-              <Toaster />
-            </SidebarProvider>
+            </AppLayout>
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

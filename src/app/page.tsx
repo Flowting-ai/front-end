@@ -1,54 +1,23 @@
+
 'use client';
 
-import { ChatInterface } from "@/components/chat/chat-interface";
-import { Button } from "@/components/ui/button";
-import { Pin } from "lucide-react";
-import { useState, type Dispatch, type SetStateAction } from "react";
-import AppLayout from "@/components/layout/app-layout";
-import type { Pin as PinType } from "@/components/layout/right-sidebar";
-import type { Message } from "@/components/chat/chat-message";
-import type { AIModel } from "@/types/ai-model";
+import { useContext } from 'react';
+import type { Message } from '@/components/chat/chat-message';
+import { ChatInterface } from '@/components/chat/chat-interface';
+import { AppLayoutContext } from '@/context/app-layout-context';
 
-interface ChatPageProps {
-    isRightSidebarVisible?: boolean;
-    setIsRightSidebarVisible?: Dispatch<SetStateAction<boolean>>;
-    onPinMessage?: (pin: PinType) => void;
-    onUnpinMessage?: (pinId: string) => void;
-    messages?: Message[];
-    setMessages?: (
-      messages: Message[] | ((prev: Message[]) => Message[]),
-      chatIdOverride?: string
-    ) => void;
-    selectedModel?: AIModel | null;
-}
+// Main page component
+export default function Home() {
+  const context = useContext(AppLayoutContext);
+  if (!context) {
+    throw new Error('Home component must be used within an AppLayoutProvider');
+  }
 
-function ChatPageContent({
-  isRightSidebarVisible,
-  setIsRightSidebarVisible,
-  onPinMessage,
-  onUnpinMessage,
-  messages,
-  setMessages,
-  selectedModel,
-}: ChatPageProps) {
+  const { 
+    activeChatId, // Using this to decide which view to show
+  } = context;
 
-  return (
-      <div className="flex flex-col flex-1 h-full overflow-hidden">
-        <ChatInterface
-          onPinMessage={onPinMessage}
-          onUnpinMessage={onUnpinMessage}
-          messages={messages}
-          setMessages={setMessages}
-          selectedModel={selectedModel}
-        />
-      </div>
-  );
-}
-
-export default function ChatPage() {
-    return (
-        <AppLayout>
-            <ChatPageContent />
-        </AppLayout>
-    )
+  // The actual rendering logic is now handled within AppLayout
+  // This component can be simplified or used for other page-specific logic if needed.
+  return null;
 }
