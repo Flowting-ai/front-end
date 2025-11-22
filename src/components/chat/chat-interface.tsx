@@ -1,4 +1,3 @@
-// FILE: src/components/chat/chat-interface.tsx
 
 "use client";
 
@@ -6,7 +5,7 @@ import { useState, useRef, useEffect, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Mic, Library, Trash2, X, Plus, ChevronDown, ArrowUp } from "lucide-react";
+import { Paperclip, Send, Mic, Library, Trash2, X } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -50,10 +49,6 @@ import {
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
-
-// New modal components (separate files - see below)
-import PersonaModal from "./persona-modal";
-import UsageModal from "./usage-modal";
 
 interface ChatInterfaceProps {
   onPinMessage?: (pin: Pin) => Promise<void> | void;
@@ -111,11 +106,6 @@ export function ChatInterface({
   const layoutContext = useContext(AppLayoutContext);
   const { user, csrfToken } = useAuth();
 
-  // UI-specific state
-  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
-  const [isUsageOpen, setIsUsageOpen] = useState(false);
-  const [usagePercent, setUsagePercent] = useState<number>(layoutContext?.usagePercent ?? 80);
-
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [regenerationState, setRegenerationState] = useState<{
@@ -146,13 +136,6 @@ export function ChatInterface({
     setShowPinDropdown(false);
   }, [layoutContext?.activeChatId]);
 
-  // Keep usagePercent in sync if layout provides it
-  useEffect(() => {
-    if (typeof layoutContext?.usagePercent === "number") {
-      setUsagePercent(layoutContext.usagePercent);
-    }
-  }, [layoutContext?.usagePercent]);
-
   // Get available pins
   const availablePins = layoutContext?.pins || [];
 
@@ -178,7 +161,6 @@ export function ChatInterface({
     }
   }, [messages, isScrolledToBottom]);
 
-  // --- fetchAiResponse, handleSend and other backend logic remain unchanged ---
   const fetchAiResponse = async (
     userMessage: string,
     loadingMessageId: string,
@@ -936,12 +918,6 @@ export function ChatInterface({
 
   const isSendDisabled = !selectedModel || !input.trim() || isResponding;
 
-  // Mic / Send handler
-  const handleMicClick = () => {
-    // Placeholder: integrate with real audio capture if/when available
-    toast({ title: "Microphone action", description: "Voice input not implemented in this demo." });
-  };
-
   return (
     <div className="flex flex-col flex-1 bg-background overflow-hidden">
       <div className="border-b border-slate-200 bg-white/70 backdrop-blur-sm px-4 py-2 sm:px-6 lg:px-10 flex items-center justify-between">
@@ -1051,7 +1027,6 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Updated Footer: Textarea on top, toolbar row below */}
       <footer className="shrink-0 border-t bg-white/80 backdrop-blur-sm p-4">
         {referencedMessage && (
           <ReferenceBanner
@@ -1060,7 +1035,7 @@ export function ChatInterface({
           />
         )}
         <div className="relative mx-auto w-full max-w-[min(1400px,100%)]">
-          {/* Pin Dropdown (unchanged) */}
+          {/* @ Pin Dropdown */}
           {showPinDropdown && availablePins.length > 0 && (
             <div
               ref={dropdownRef}
@@ -1118,7 +1093,6 @@ export function ChatInterface({
               </div>
             )}
 
-            {/* TEXTAREA (full width) */}
             <Textarea
               ref={textareaRef}
               value={input}
@@ -1135,82 +1109,64 @@ export function ChatInterface({
               placeholder={
                 selectedModel ? "Type @ to mention pins..." : "Select a model to start chatting"
               }
-              className="w-full pr-12 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-2 min-h-[48px]"
-              rows={2}
+              className="pr-12 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-2 min-h-[48px]"
+              rows={1}
               disabled={isResponding}
             />
-
-            {/* Toolbar row BELOW textarea (matches requested layout) */}
-            <div className="mt-3 flex items-center gap-3">
-              {/* + Button */}
-              <button
-                type="button"
-                onClick={() => { /* future: open attach menu */ }}
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
-                title="Add"
-              >
-                <Plus className="h-5 w-5 text-gray-700" />
-              </button>
-
-              {/* Persona Button (opens modal) */}
-              <button
-                type="button"
-                onClick={() => setIsPersonaOpen(true)}
-                className="flex items-center gap-2 bg-white border rounded-xl px-3 py-2 hover:bg-gray-50"
-              >
-                <img
-                  src={userAvatar?.imageUrl}
-                  alt="persona"
-                  className="h-6 w-6 rounded-full"
-                />
-                <span className="text-sm font-medium">Choose Persona</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-
-              {/* spacer */}
-              <div className="flex-1" />
-
-              {/* Usage indicator (transparent button) */}
-              <button
-                type="button"
-                onClick={() => setIsUsageOpen(true)}
-                className="text-sm text-gray-700 bg-transparent py-1 px-2 opacity-80 hover:opacity-100"
-                title="Usage"
-              >
-                {usagePercent}% used
-              </button>
-
-              {/* Mic / Send Button */}
-              {input.trim().length === 0 ? (
-                <button
-                  type="button"
-                  onClick={handleMicClick}
-                  className="h-10 w-10 flex items-center justify-center rounded-full bg-black text-white hover:bg-gray-900"
-                  title="Record"
+            <div className="flex items-center justify-between mt-1 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="ghost" className="rounded-[25px] h-8 px-3">
+                  <Library className="mr-2 h-4 w-4" />
+                  Library
+                </Button>
+                <Select>
+                  <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
+                    <SelectValue placeholder="Choose Persona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="researcher">Researcher</SelectItem>
+                    <SelectItem value="writer">Creative Writer</SelectItem>
+                    <SelectItem value="technical">Technical Expert</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select>
+                  <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
+                    <SelectValue placeholder="Add Context" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="file">From File</SelectItem>
+                    <SelectItem value="url">From URL</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
                 >
-                  <Mic className="h-5 w-5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleSend(input)}
-                  disabled={isSendDisabled}
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-full text-white", isSendDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-primary")}
-                  title="Send"
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
                 >
-                  <ArrowUp className="h-5 w-5" />
-                </button>
-              )}
+                  <Mic className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                size={isMobile ? "icon" : "lg"}
+                onClick={() => handleSend(input)}
+                disabled={isSendDisabled}
+                className="bg-primary text-primary-foreground h-9 rounded-[25px] px-4 flex items-center gap-2"
+                title={!selectedModel ? "Select a model to send a message" : undefined}
+              >
+                {!isMobile && "Send Message"}
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
       </footer>
-
-      {/* Persona modal (separate file) */}
-      <PersonaModal open={isPersonaOpen} onOpenChange={setIsPersonaOpen} />
-
-      {/* Usage modal (separate file) */}
-      <UsageModal open={isUsageOpen} onOpenChange={setIsUsageOpen} usagePercent={usagePercent} />
 
       <Dialog
         open={!!regenerationState}
@@ -1346,4 +1302,4 @@ export function ChatInterface({
   );
 }
 
-export default ChatInterface;
+    
