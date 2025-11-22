@@ -40,7 +40,7 @@ import {
 import {
   createPin,
   deletePin,
-  fetchPins,
+  fetchAllPins,
   type BackendPin,
 } from "@/lib/api/pins";
 import { CHAT_DETAIL_ENDPOINT } from "@/lib/config";
@@ -457,35 +457,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, []);
 
-  const loadPinsForChat = useCallback(async (chatId: string) => {
-    // Load from cache first for immediate display
-    const cachedPins = loadPinsFromCache(chatId);
+  const loadPinsForChat = useCallback(async (_chatId: string | null = null) => {
+    const cacheKey = "all";
+    const cachedPins = loadPinsFromCache(cacheKey);
     if (cachedPins.length > 0) {
       setPins_(cachedPins);
-      setPinsChatId(chatId);
+      setPinsChatId(cacheKey);
     }
     const cachedById = new Map(cachedPins.map((pin) => [pin.id, pin]));
 
-    // Then fetch from server to sync
     try {
-      const backendPins = await fetchPins(chatId, csrfTokenRef.current);
+      const backendPins = await fetchAllPins(csrfTokenRef.current);
       const normalized = backendPins.map((backendPin) =>
         backendPinToLegacy(backendPin, cachedById.get(backendPin.id))
       );
       setPins_(normalized);
-      setPinsChatId(chatId);
-      savePinsToCache(chatId, normalized);
+      setPinsChatId(cacheKey);
+      savePinsToCache(cacheKey, normalized);
       setChatBoards_((prev) =>
         prev.map((board) =>
-          board.id === chatId ? { ...board, pinCount: normalized.length } : board
+          board.id === _chatId ? { ...board, pinCount: normalized.length } : board
         )
       );
     } catch (error) {
-      console.error(`Failed to load pins for chat ${chatId}`, error);
-      // If fetch fails but we have cache, keep the cached pins
+      console.error("Failed to load pins", error);
       if (cachedPins.length === 0) {
         setPins_([]);
-        setPinsChatId(chatId);
+        setPinsChatId(cacheKey);
       }
     }
   }, [loadPinsFromCache, savePinsToCache]);
@@ -497,14 +495,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [activeChatId, chatHistory, loadMessagesForChat]);
 
   useEffect(() => {
-    if (!activeChatId) {
-      // Don't clear pins when no active chat - keep the last loaded pins visible
-      return;
+    if (!pinsChatId) {
+      loadPinsForChat(activeChatId ?? null);
     }
-    if (pinsChatId === activeChatId) {
-      return;
-    }
-    loadPinsForChat(activeChatId);
   }, [activeChatId, loadPinsForChat, pinsChatId]);
 
   const setMessagesForActiveChat = (

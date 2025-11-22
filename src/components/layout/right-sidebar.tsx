@@ -35,7 +35,7 @@ interface RightSidebarProps {
     chatBoards: ChatBoard[];
 }
 
-type FilterMode = 'current-chat' | 'newest' | 'oldest' | 'a-z' | 'z-a';
+type FilterMode = 'all' | 'current-chat' | 'newest' | 'oldest' | 'a-z' | 'z-a';
 
 const samplePins: PinType[] = [
     {
@@ -69,7 +69,7 @@ const samplePins: PinType[] = [
 
 
 export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards }: RightSidebarProps) {
-  const [filterMode, setFilterMode] = useState<FilterMode>('current-chat');
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState('');
   const [isOrganizeDialogOpen, setIsOrganizeDialogOpen] = useState(false);
@@ -179,7 +179,12 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
     }
 
     switch(filterMode) {
+      case 'all':
+        return [...filtered].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       case 'current-chat':
+        if (!activeChatId) {
+          return [...filtered].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        }
         return filtered.filter(p => p.chatId === activeChatId?.toString()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       case 'newest':
         return [...filtered].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
@@ -199,6 +204,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
         return `Filtered by ${selectedTags.length} tag(s)`;
     }
     switch (filterMode) {
+        case 'all': return 'Show All Pins';
         case 'current-chat': return 'Filter by Current Chat';
         case 'newest': return 'Sort by Newest';
         case 'oldest': return 'Sort by Oldest';
@@ -251,6 +257,7 @@ export function RightSidebar({ isCollapsed, onToggle, pins, setPins, chatBoards 
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[268px]">
+                            <DropdownMenuItem onSelect={() => { setFilterMode('all'); setSelectedTags([]); }}>Show All Pins</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => { setFilterMode('current-chat'); setSelectedTags([]); }}>Filter by Current Chat</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setFilterMode('newest')}>Sort by Newest</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setFilterMode('oldest')}>Sort by Oldest</DropdownMenuItem>

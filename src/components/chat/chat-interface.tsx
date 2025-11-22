@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useContext } from "react";
+import { useState, useRef, useEffect, useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,7 @@ import { InitialPrompts } from "./initial-prompts";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Pin } from "../layout/right-sidebar";
+import type { PinType } from "../layout/right-sidebar";
 import type { AIModel } from "@/types/ai-model";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayoutContext } from "../layout/app-layout";
@@ -168,6 +168,10 @@ export function ChatInterface({
   const layoutContext = useContext(AppLayoutContext);
   const { user, csrfToken } = useAuth();
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
+  const pinsById = useMemo(() => {
+    const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
+    return new Map<string, PinType>(entries as [string, PinType][]);
+  }, [layoutContext?.pins]);
   const getCsrfToken = () => {
     if (csrfToken) return csrfToken;
     if (typeof document === "undefined") return null;
@@ -1182,6 +1186,15 @@ export function ChatInterface({
                       )
                     : null;
                   const metadataAvatar = resolveAvatarFromMetadata(msg);
+                  const taggedPins =
+                    (msg.metadata?.pinIds || [])
+                      .map((id) => {
+                        const pin = pinsById.get(id);
+                        return pin
+                          ? { id, label: pin.text.slice(0, 80) || id }
+                          : { id, label: id };
+                      })
+                      .filter(Boolean) || [];
                   const enrichedMessage =
                     msg.sender === "ai"
                       ? {
@@ -1217,6 +1230,7 @@ export function ChatInterface({
                     onReact={msg.sender === "ai" ? handleReact : undefined}
                     referencedMessage={refMsg}
                     isNewMessage={msg.id === lastMessageId}
+                    taggedPins={taggedPins}
                   />
                 );
               })}

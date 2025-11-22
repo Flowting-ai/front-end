@@ -1,6 +1,6 @@
 "use client";
 
-import { CHAT_PINS_ENDPOINT, PIN_DETAIL_ENDPOINT, PIN_FOLDERS_ENDPOINT } from "@/lib/config";
+import { CHAT_PINS_ENDPOINT, PIN_DETAIL_ENDPOINT, PIN_FOLDERS_ENDPOINT, PINS_ENDPOINT } from "@/lib/config";
 import { apiFetch } from "./client";
 
 export interface BackendPin {
@@ -67,6 +67,18 @@ export async function deletePin(
   if (!response.ok) {
     throw new Error("Failed to delete pin");
   }
+}
+
+export async function fetchAllPins(csrfToken?: string | null): Promise<BackendPin[]> {
+  const response = await apiFetch(PINS_ENDPOINT, { method: "GET" }, csrfToken);
+  if (!response.ok) {
+    throw new Error("Failed to load pins");
+  }
+  const data = await response.json();
+  if (Array.isArray(data)) {
+    return data as BackendPin[];
+  }
+  return [];
 }
 
 export interface PinFolder {

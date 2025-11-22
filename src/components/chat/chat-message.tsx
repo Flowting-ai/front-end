@@ -292,6 +292,7 @@ export interface Message {
 interface ChatMessageProps {
   message: Message;
   isPinned?: boolean;
+  taggedPins?: { id: string; label: string }[];
   onPin: (message: Message) => void;
   onCopy: (content: string) => void;
   onDelete: (message: Message) => void;
@@ -303,7 +304,7 @@ interface ChatMessageProps {
   isNewMessage: boolean;
 }
 
-export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResubmit, onReference, onRegenerate, onReact, referencedMessage, isNewMessage }: ChatMessageProps) {
+export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy, onDelete, onResubmit, onReference, onRegenerate, onReact, referencedMessage, isNewMessage }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
@@ -717,6 +718,19 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
                     alt={message.imageAlt || message.content || "Generated image"}
                     className="w-full h-auto object-contain bg-white"
                   />
+                </div>
+              )}
+              {taggedPins.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {taggedPins.map((pin) => (
+                    <span
+                      key={pin.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                    >
+                      <Pin className="h-3 w-3" />
+                      <span className="truncate max-w-[240px]">@{pin.label}</span>
+                    </span>
+                  ))}
                 </div>
               )}
             </div>

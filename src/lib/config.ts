@@ -22,6 +22,7 @@ export const CHAT_PINS_ENDPOINT = (chatId: string | number) =>
   `${API_BASE_URL}/chats/${chatId}/pins/`;
 export const PIN_DETAIL_ENDPOINT = (pinId: string | number) =>
   `${API_BASE_URL}/pins/${pinId}/`;
+export const PINS_ENDPOINT = `${API_BASE_URL}/pins/`;
 export const PIN_FOLDERS_ENDPOINT = `${API_BASE_URL}/pin-folders/`;
 export const DOCUMENTS_ENDPOINT = `${API_BASE_URL}/documents/`;
 export const DOCUMENT_SEARCH_ENDPOINT = `${API_BASE_URL}/documents/search/`;
