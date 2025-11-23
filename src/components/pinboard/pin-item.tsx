@@ -65,9 +65,9 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
     }
 
     return (
-        <Card className="bg-background rounded-2xl">
-            <CardContent className="p-3 space-y-2">
-                <p className="text-xs text-card-foreground/90">
+        <Card className="rounded-2xl border border-[#e6e6e6] bg-white">
+            <CardContent className="space-y-3 p-4">
+                <p className="text-xs text-[#1e1e1e]">
                     {isExpanded || pin.text.length <= 100 ? pin.text : `${pin.text.substring(0, 100)}...`}
                     {pin.text.length > 100 && (
                         <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => setIsExpanded(!isExpanded)}>
@@ -76,18 +76,22 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
                     )}
                 </p>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex flex-wrap items-center gap-2">
                     {pin.tags.map((tag, tagIndex) => (
-                        <Badge key={tagIndex} variant="secondary" className="font-normal text-foreground text-[10px] py-0.5 rounded-md">
+                        <Badge
+                            key={tagIndex}
+                            variant="secondary"
+                            className="rounded-md bg-[#f2f2f2] px-2 py-0.5 text-[10px] font-normal text-[#1e1e1e]"
+                        >
                             {tag}
                             <button onClick={() => onRemoveTag(pin.id, tagIndex)} className="ml-1.5 focus:outline-none">
-                                <X className="h-3 w-3" />
+                                <X className="h-3 w-3 text-[#6b6b6b]" />
                             </button>
                         </Badge>
                     ))}
-                    <Input 
-                        placeholder="+ Add tags" 
-                        className="text-xs h-6 flex-1 min-w-[60px] bg-transparent border-dashed rounded-md"
+                    <Input
+                        placeholder="+ Add tags"
+                        className="min-w-[60px] flex-1 h-6 rounded-md border border-dashed border-[#d4d4d4] bg-transparent text-xs"
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={handleTagKeyDown}
@@ -101,7 +105,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
                             <Textarea 
                                 ref={notesTextareaRef}
                                 placeholder="Add private notes..." 
-                                className="text-xs bg-card mt-1 resize-none pr-8 rounded-md p-1 min-h-[24px]" 
+                                className="mt-1 min-h-[24px] resize-none rounded-md border border-[#dcdcdc] bg-[#f9f9f9] p-2 text-xs text-[#1e1e1e]"
                                 value={noteInput}
                                 onChange={(e) => setNoteInput(e.target.value)}
                                 onKeyDown={handleNoteKeyDown}
@@ -111,15 +115,17 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, chatName }: PinItemProp
                             />
                         </div>
                     ) : (
-                        <div className="text-xs bg-card mt-1 p-1 rounded-md min-h-[24px] cursor-text border border-transparent hover:border-dashed hover:border-input">
-                            {pin.notes || <span className="text-muted-foreground">Add private notes...</span>}
+                        <div className="mt-1 min-h-[24px] cursor-text rounded-md border border-transparent bg-[#f9f9f9] p-2 text-xs text-[#1e1e1e] hover:border-dashed hover:border-[#d4d4d4]">
+                            {pin.notes || <span className="text-[#8a8a8a]">Add private notes...</span>}
                         </div>
                     )}
                 </div>
 
                 <div className="flex justify-between items-center pt-1">
-                    <Badge variant="outline" className="font-normal border-dashed text-[10px] rounded-md">{chatName || `Chat ${pin.chatId}`}</Badge>
-                    <span className="text-xs text-muted-foreground">{formatTimestamp(pin.time)}</span>
+                    <Badge variant="outline" className="rounded-md border-dashed border-[#d4d4d4] bg-transparent text-[10px] font-normal text-[#1e1e1e]">
+                        {chatName || `Chat ${pin.chatId}`}
+                    </Badge>
+                    <span className="text-xs text-[#7a7a7a]">{formatTimestamp(pin.time)}</span>
                 </div>
             </CardContent>
         </Card>

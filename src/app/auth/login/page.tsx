@@ -81,7 +81,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-[#F5F5F5] flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-3xl border border-[#D9D9D9] bg-white p-8 shadow-[0_12px_40px_rgba(15,23,42,0.08)]">
+      <div className="w-full max-w-md rounded-3xl border border-[#D9D9D9] bg-white p-8 shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold text-[#1E1E1E]">Welcome back</h1>
           <p className="text-sm text-[#555555]">Log in to continue your chats.</p>

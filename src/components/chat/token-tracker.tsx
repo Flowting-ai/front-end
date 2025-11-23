@@ -28,20 +28,16 @@ export function TokenTracker() {
   }, [stats.totalTokensUsed]);
 
   return (
-    <div className="w-[235px] flex flex-col items-start gap-[3px]">
+    <div className="flex w-[235px] flex-col items-center gap-2">
       {/* Token count label + percentage */}
-      <div className="flex items-end gap-[124px]">
-        <div className="relative text-[14px] leading-[129%] text-[#1E1E1E]">
-          Token count
-        </div>
-        <div className="relative text-[14px] leading-[129%] text-[#757575] text-right">
-          {isLoading ? "--" : `${usagePercent}%`}
-        </div>
+      <div className="flex w-full items-center justify-between text-[12px] leading-tight text-[#1E1E1E]">
+        <span className="truncate">Token count</span>
+        <span className="text-[#757575]">{isLoading ? "--" : `${usagePercent}%`}</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-[235px] h-[8px] relative">
-        <div className="absolute top-0 left-0 w-[235px] h-[8px] overflow-hidden">
+      <div className="relative h-[8px] w-[235px]">
+        <div className="absolute left-0 top-0 h-[8px] w-[235px] overflow-hidden">
           {/* Background */}
           <div className="absolute h-full w-full top-0 right-0 bottom-0 left-0 rounded-[10px] bg-[#D4D4D4]" />
           {/* Progress fill */}
@@ -53,7 +49,7 @@ export function TokenTracker() {
       </div>
 
       {/* Token usage text */}
-      <div className="self-stretch relative text-[10px] leading-[129%] text-[#757575] text-right">
+      <div className="text-[10px] leading-[129%] text-[#757575]">
         {isLoading ? "Updating..." : `${formattedTotalUsed}/${formattedBudget}`}
       </div>
     </div>

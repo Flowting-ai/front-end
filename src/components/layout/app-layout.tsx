@@ -68,6 +68,8 @@ export type ChatBoard = {
 
 type ChatHistory = Record<string, Message[]>;
 
+export type RightSidebarPanel = "pinboard" | "files" | "personas" | "compare";
+
 interface EnsureChatOptions {
   firstMessage: string;
   selectedModel?: AIModel | null;
@@ -131,9 +133,10 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
       ? (chat.metadata as ChatMetadata)
       : undefined;
+
   return {
     id: extractChatId(chat),
-    name: chat.title || chat.name || `Chat ${chat.id ?? "New Chat"}`,
+    name: chat.title || chat.name || "Untitled Chat",
     time: formatRelativeTime(chat.updated_at || chat.created_at),
     isStarred: Boolean(chat.is_starred ?? chat.isStarred ?? false),
     pinCount:
@@ -147,13 +150,13 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
 
 const extractMetadata = (msg: BackendMessage) => {
   const meta = (msg as { metadata?: Record<string, unknown> }).metadata || {};
-  const pinsRaw =
+  const pinsRaw: unknown[] =
     Array.isArray((msg as { pins_tagged?: unknown }).pins_tagged) &&
     (msg as { pins_tagged?: unknown[] }).pins_tagged
-      ? (msg as { pins_tagged: unknown[] }).pins_tagged
+      ? ((msg as { pins_tagged: unknown[] }).pins_tagged as unknown[])
       : Array.isArray((meta as { pinIds?: unknown }).pinIds)
-      ? (meta as { pinIds?: unknown[] }).pinIds
-      : [];
+      ? ((meta as { pinIds: unknown[] }).pinIds as unknown[])
+      : ([] as unknown[]);
 
   const pinIds = pinsRaw
     .map((p) => (p !== undefined && p !== null ? String(p) : null))
@@ -275,7 +278,7 @@ const PINS_CACHE_KEY = 'chat-pins-cache';
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(true);
+  const [activeRightSidebarPanel, setActiveRightSidebarPanel] = useState<RightSidebarPanel | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
 
@@ -290,6 +293,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [renamingText, setRenamingText] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [isDeletingChatBoard, setIsDeletingChatBoard] = useState(false);
+  const [isRenamingChatBoard, setIsRenamingChatBoard] = useState(false);
 
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -417,6 +421,98 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setIsDeletingChatBoard(false);
     }
   };
+
+  const resetRenameState = useCallback(() => {
+    setRenamingChatId(null);
+    setRenamingText("");
+  }, []);
+
+  const handleRenameCancel = useCallback(() => {
+    resetRenameState();
+    renameInputRef.current?.blur();
+  }, [resetRenameState, renameInputRef]);
+
+  const handleRenameConfirm = useCallback(async () => {
+    if (!renamingChatId || isRenamingChatBoard) return;
+    const targetId = renamingChatId;
+    const nextName = renamingText.trim();
+    if (!nextName) {
+      toast({
+        title: "Name required",
+        description: "Enter a chat name before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const targetBoard = chatBoards.find((board) => board.id === targetId);
+    if (!targetBoard) {
+      resetRenameState();
+      return;
+    }
+
+    const previousName = targetBoard.name;
+    if (previousName === nextName) {
+      resetRenameState();
+      return;
+    }
+
+    setIsRenamingChatBoard(true);
+    setChatBoards_((prev) =>
+      prev.map((board) =>
+        board.id === targetId ? { ...board, name: nextName } : board
+      )
+    );
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (csrfTokenRef.current) {
+        headers["X-CSRFToken"] = csrfTokenRef.current;
+      }
+
+      const response = await fetch(CHAT_DETAIL_ENDPOINT(targetId), {
+        method: "PATCH",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ title: nextName, name: nextName }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to rename chat");
+      }
+
+      resetRenameState();
+      toast({
+        title: "Chat renamed",
+        description: "Name updated successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to rename chat board", error);
+      setChatBoards_((prev) =>
+        prev.map((board) =>
+          board.id === targetId ? { ...board, name: previousName } : board
+        )
+      );
+      toast({
+        title: "Rename failed",
+        description:
+          error instanceof Error ? error.message : "Unable to rename chat.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRenamingChatBoard(false);
+    }
+  }, [
+    chatBoards,
+    isRenamingChatBoard,
+    renamingChatId,
+    renamingText,
+    resetRenameState,
+    toast,
+  ]);
 
   const loadChatBoards = useCallback(async () => {
     if (!user) return;
@@ -628,8 +724,26 @@ export default function AppLayout({ children }: AppLayoutProps) {
   );
 
   const handleAddChat = () => {
+    handleRenameCancel();
     setActiveChatId(null);
     router.push('/');
+  };
+
+  const isRightSidebarVisible = activeRightSidebarPanel !== null;
+
+  const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
+    setActiveRightSidebarPanel((prev) => {
+      const current = prev !== null;
+      const nextVisible = typeof value === "function" ? value(current) : value;
+      if (nextVisible) {
+        return prev ?? "pinboard";
+      }
+      return null;
+    });
+  };
+
+  const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
+    setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
   };
   
   const contextValue: AppLayoutContextType = {
@@ -652,11 +766,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
     messages: activeChatId ? chatHistory[activeChatId] || [] : [],
     setMessages: setMessagesForActiveChat,
     selectedModel: selectedModel,
-    setIsRightSidebarVisible: setIsRightSidebarCollapsed,
-    isRightSidebarVisible: !isRightSidebarCollapsed,
+    setIsRightSidebarVisible,
+    isRightSidebarVisible,
   };
   
-  const pageContent = React.cloneElement(children, pageContentProps);
+  const pageContent = React.cloneElement(children, {
+    key: activeChatId ?? "no-chat",
+    ...pageContentProps,
+  });
 
   const sidebarProps = {
     isCollapsed: isLeftSidebarCollapsed,
@@ -672,32 +789,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setRenamingText: setRenamingText,
     renameInputRef: renameInputRef,
     handleDeleteClick: handleDeleteClick,
+    onRenameConfirm: handleRenameConfirm,
+    onRenameCancel: handleRenameCancel,
+    isRenamingPending: isRenamingChatBoard,
   };
 
   if (isMobile) {
     return (
       <AppLayoutContext.Provider value={contextValue}>
-        <div className="h-screen min-h-0 w-full bg-[#f5f5f7]">
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-1 py-4 sm:px-3 lg:px-5">
-            <Topbar
-              selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-            >
+        <div className="flex h-screen min-h-0 w-full bg-[#f5f5f7]">
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-1 py-4 sm:px-3 lg:px-5">
+            <Topbar selectedModel={selectedModel} onModelSelect={setSelectedModel}>
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent
-                  side="left"
-                  className="flex w-[80vw] gap-0 p-0"
-                >
+                <SheetContent side="left" className="flex w-[80vw] gap-0 p-0">
                   <LeftSidebar {...sidebarProps} isCollapsed={false} />
                 </SheetContent>
               </Sheet>
             </Topbar>
-            <main className="mt-6 flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+            <main className="mt-6 flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
               {pageContent}
             </main>
           </div>
@@ -738,26 +852,34 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <AppLayoutContext.Provider value={contextValue}>
-      <div className="h-screen min-h-0 w-full bg-[#F5F5F5] flex">
+      <div className="flex h-screen min-h-0 w-full bg-[#f5f5f5]">
         <LeftSidebar {...sidebarProps} />
-        <div className="flex flex-1 flex-col min-h-0 h-full overflow-hidden">
-          <Topbar
-            selectedModel={selectedModel}
-            onModelSelect={setSelectedModel}
-          />
-          <main className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-            {pageContent}
-          </main>
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+          <Topbar selectedModel={selectedModel} onModelSelect={setSelectedModel} />
+          <div className="flex flex-1 min-h-0 overflow-hidden px-6 pb-6 pt-6 lg:pb-8">
+            <main className="flex flex-1 min-h-0 flex-col overflow-hidden">
+              <div className="mx-auto flex h-full w-full max-w-[1200px] flex-1 flex-col">
+                {pageContent}
+              </div>
+            </main>
+          </div>
         </div>
-        <RightSidebar
-          isCollapsed={isRightSidebarCollapsed}
-          onToggle={() =>
-            setIsRightSidebarCollapsed(!isRightSidebarCollapsed)
-          }
-          pins={pins}
-          setPins={setPins}
-          chatBoards={chatBoards}
-        />
+        <div className="hidden h-full lg:flex">
+          <RightSidebar
+            isOpen={isRightSidebarVisible}
+            activePanel={activeRightSidebarPanel}
+            onClose={() => setActiveRightSidebarPanel(null)}
+            pins={pins}
+            setPins={setPins}
+            chatBoards={chatBoards}
+            className="order-1"
+          />
+          <RightSidebarCollapsed
+            activePanel={activeRightSidebarPanel}
+            onSelect={handleRightSidebarSelect}
+            className="order-2"
+          />
+        </div>
       </div>
       <AlertDialog
         open={!!chatToDelete}

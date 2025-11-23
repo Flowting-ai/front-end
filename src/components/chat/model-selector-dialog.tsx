@@ -94,9 +94,9 @@ useEffect(() => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-4">
-        <DialogHeader className="mb-4">
-          <DialogTitle className="text-xl font-bold">Select Model</DialogTitle>
+      <DialogContent className="sm:max-w-md bg-white p-4 text-[#171717]">
+        <DialogHeader className="mb-4 text-[#171717]">
+          <DialogTitle className="text-xl font-bold text-[#171717]">Select Model</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <RadioGroup
@@ -106,15 +106,15 @@ useEffect(() => {
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="all" id="all" />
-              <Label htmlFor="all">All</Label>
+              <Label htmlFor="all" className="text-[#171717]">All</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="free" id="free" />
-              <Label htmlFor="free">Free Model</Label>
+              <Label htmlFor="free" className="text-[#171717]">Free Model</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="paid" id="paid" />
-              <Label htmlFor="paid">Paid Model</Label>
+              <Label htmlFor="paid" className="text-[#171717]">Paid Model</Label>
             </div>
           </RadioGroup>
           <div className="relative">
@@ -136,7 +136,7 @@ useEffect(() => {
                 filteredModels.length > 0 ? filteredModels.map((model, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent cursor-pointer"
+                    className="flex cursor-pointer items-center justify-between rounded-md border border-transparent p-2 hover:border-[#d9d9d9] hover:bg-[#f5f5f5]"
                     onClick={() => onModelSelect(model)}
                   >
                     <div className="flex items-center gap-3">
@@ -145,18 +145,28 @@ useEffect(() => {
                         alt={`${model.companyName || model.modelName} logo`}
                         className="h-5 w-5"
                       />
-                      <span className="text-sm">{model.modelName}</span>
+                      <span className="text-sm text-[#171717]">{model.modelName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-[#171717] hover:bg-[#f0f0f0]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Info className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-[#171717] hover:bg-[#f0f0f0]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Bookmark className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                )) : <div className="text-center text-sm text-muted-foreground py-10">No models found.</div>
+                )) : <div className="py-10 text-center text-sm text-[#171717]">No models found.</div>
               )}
             </div>
           </ScrollArea>

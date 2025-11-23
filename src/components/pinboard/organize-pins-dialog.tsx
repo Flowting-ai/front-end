@@ -174,16 +174,19 @@ export function OrganizePinsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent style={{ width: '675px', height: '685px', borderRadius: '1rem' }} className="p-0 flex flex-col">
-        <DialogHeader className="p-4 border-b">
-          <DialogTitle className="text-left">Organize Pins</DialogTitle>
+      <DialogContent
+        style={{ width: "760px", height: "685px", borderRadius: "1rem" }}
+        className="flex flex-col bg-white p-0 text-[#171717]"
+      >
+        <DialogHeader className="border-b bg-white p-4 text-[#171717]">
+          <DialogTitle className="text-left text-[#171717]">Organize Pins</DialogTitle>
         </DialogHeader>
         
         <div className="flex-1 grid grid-cols-1 md:grid-cols-[220px_1fr] overflow-hidden">
           {/* Left Section (Folders) */}
-          <div className="bg-[#F5F5F5] dark:bg-muted/30 flex flex-col border-r overflow-y-auto">
-            <div className="p-4 space-y-3 border-b">
-                <h3 className="text-sm font-semibold text-muted-foreground">Folders</h3>
+          <div className="flex flex-col overflow-y-auto border-r bg-[#f5f5f5]">
+            <div className="space-y-3 border-b p-4">
+                <h3 className="text-sm font-semibold text-[#171717]">Folders</h3>
                 <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -194,7 +197,12 @@ export function OrganizePinsDialog({
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" style={{ backgroundColor: '#E0E0E0' }} onClick={() => setIsCreatingFolder(true)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 rounded-lg bg-[#e0e0e0] text-[#1e1e1e] hover:bg-[#d6d6d6]"
+                      onClick={() => setIsCreatingFolder(true)}
+                    >
                         <FolderPlus className="h-5 w-5" />
                     </Button>
                 </div>
@@ -202,18 +210,27 @@ export function OrganizePinsDialog({
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
                 {isCreatingFolder && (
-                  <div className="p-2 bg-white rounded-lg shadow">
+                  <div className="rounded-lg border border-[#e6e6e6] bg-white p-3">
                     <Input
                       placeholder="New folder name"
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
-                      className="h-9 rounded-md bg-gray-100 mb-2"
+                      className="mb-2 h-9 rounded-md border border-[#dcdcdc] bg-[#f7f7f7]"
                     />
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" className="rounded-md" onClick={() => setIsCreatingFolder(false)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-md text-[#171717] hover:bg-[#f0f0f0]"
+                        onClick={() => setIsCreatingFolder(false)}
+                      >
                         Cancel
                       </Button>
-                      <Button size="sm" className="rounded-md" onClick={handleCreateFolder} style={{ backgroundColor: '#2C2C2C', color: 'white' }}>
+                      <Button
+                        size="sm"
+                        className="rounded-md bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]"
+                        onClick={handleCreateFolder}
+                      >
                         Create
                       </Button>
                     </div>
@@ -226,15 +243,15 @@ export function OrganizePinsDialog({
                     className={cn(
                       "w-full flex items-center justify-between text-left p-2 rounded-lg text-sm transition-colors",
                       selectedFolderId === folder.id
-                        ? "bg-black/5 dark:bg-white/10 text-primary font-semibold"
-                        : "hover:bg-black/5 dark:hover:bg-white/5"
+                        ? "bg-black/5 text-[#171717] font-semibold"
+                        : "hover:bg-black/5 text-[#171717]"
                     )}
                   >
                     <div className="flex items-center gap-2">
                         {folder.id === 'unorganized' ? <Unlink className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
                         <span className="truncate">{folder.name}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground font-medium">
+                    <span className="text-xs font-medium text-[#444444]">
                       {pinsByFolder[folder.id]?.length || 0}
                     </span>
                   </button>
@@ -244,20 +261,20 @@ export function OrganizePinsDialog({
           </div>
 
           {/* Right Section (Pins) */}
-          <div className="flex flex-col bg-white dark:bg-background">
-              <div className="p-4 border-b flex justify-between items-center">
-                  <h3 className="font-semibold">{selectedFolder?.name || 'Pins'}</h3>
+              <div className="flex flex-col bg-white">
+                <div className="flex items-center justify-between border-b p-4">
+                  <h3 className="font-semibold text-[#171717]">{selectedFolder?.name || 'Pins'}</h3>
                   {selectedPinIds.length > 0 && (
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="rounded-lg">
+                      <Button variant="outline" size="sm" className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#f5f5f5]">
                                 <Move className="h-4 w-4 mr-2"/>
                                 Move To
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-0">
+                  <PopoverContent className="w-48 border border-[#e6e6e6] bg-white p-0">
                             {folders.map(f => (
-                                <div key={f.id} onClick={() => handleMovePins(f.id)} className="p-2 hover:bg-accent cursor-pointer">
+                      <div key={f.id} onClick={() => handleMovePins(f.id)} className="cursor-pointer p-2 hover:bg-[#f5f5f5]">
                                     {f.name}
                                 </div>
                             ))}
@@ -269,13 +286,13 @@ export function OrganizePinsDialog({
               <div className="p-4">
                 {pinsInSelectedFolder && pinsInSelectedFolder.length > 0 ? (
                     <div>
-                         <div className="flex items-center pb-2">
+                 <div className="flex items-center pb-2">
                             <Checkbox 
                                 checked={selectedPinIds.length === pinsInSelectedFolder.length && pinsInSelectedFolder.length > 0}
                                 onCheckedChange={toggleSelectAll}
                                 className="mr-3 rounded-[4px]"
                             />
-                            <span className="text-sm text-muted-foreground">Select All</span>
+                  <span className="text-sm text-[#171717]">Select All</span>
                         </div>
                         {pinsInSelectedFolder.map(pin => (
                             <OrganizePinItem 
@@ -288,9 +305,9 @@ export function OrganizePinsDialog({
                         ))}
                     </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-20">
-                    <PinIcon className="w-10 h-10 mb-4" />
-                    <p className="font-semibold text-lg text-foreground">No pins yet</p>
+                  <div className="flex h-full flex-col items-center justify-center py-20 text-center text-[#444444]">
+                    <PinIcon className="mb-4 h-10 w-10 text-[#171717]" />
+                    <p className="text-lg font-semibold text-[#171717]">No pins yet</p>
                     <p className="max-w-xs">
                       Pin useful answers or references from your chats to keep them handy for later.
                     </p>
@@ -301,11 +318,11 @@ export function OrganizePinsDialog({
           </div>
         </div>
 
-        <DialogFooter className="p-4 border-t justify-end">
-          <Button variant="ghost" onClick={onClose} className="rounded-lg">
+        <DialogFooter className="justify-end gap-2 border-t bg-white p-4">
+          <Button variant="ghost" onClick={onClose} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0]">
             Cancel
           </Button>
-          <Button onClick={handleSaveChanges} style={{ backgroundColor: '#2C2C2C', color: 'white' }} className="rounded-lg">
+          <Button onClick={handleSaveChanges} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
             Done
           </Button>
         </DialogFooter>

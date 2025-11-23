@@ -117,3 +117,12 @@
     box-shadow: none !important;
     border-color: hsl(var(--input)) !important;
 }
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}

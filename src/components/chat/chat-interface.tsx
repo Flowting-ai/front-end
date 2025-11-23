@@ -56,6 +56,69 @@ import { uploadDocument } from "@/lib/api/documents";
 import { generateImage } from "@/lib/api/images";
 import { addReaction, removeReaction } from "@/lib/api/messages";
 
+const FALLBACK_MESSAGES: Message[] = [
+  {
+    id: "layout-demo-user-1",
+    sender: "user",
+    content:
+      "Morning! I need you to synthesize the last sprint's experimentation metrics into something story-driven for the exec readout. Call out the lifts we saw on the onboarding flows and highlight anything that might spook finance about burn. Give me specific numbers so I can copy them straight into the deck.",
+    metadata: {
+      createdAt: "2024-06-10T14:18:00Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-1",
+    sender: "ai",
+    content:
+      "Absolutely. Over the last seven days, blended win rate rose 6.2% while latency decreased 14.3%, so we are finally under the two-second mark across the board. The onboarding control lost to the variation on activation, but only by 0.7%, so I would call that statistically neutral. I can group the highlights into a narrative around faster answers, cleaner guardrails, and a clear finance-friendly cost reduction if that helps with your slides.",
+    metadata: {
+      modelName: "Qwen 2.5 72B",
+      providerName: "Alibaba Cloud",
+      createdAt: "2024-06-10T14:18:12Z",
+    },
+  },
+  {
+    id: "layout-demo-user-2",
+    sender: "user",
+    content:
+      "Perfect. While you are at it, audit the finance summarizer persona because the PMs keep pinging me about volatility in the valuation scenarios. I want at least two concrete transcripts we can use as pull quotes, plus a short list of gaps that need follow-up work this sprint. Prioritize anything that would land poorly in front of the CFO.",
+    metadata: {
+      createdAt: "2024-06-10T14:19:05Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-2",
+    sender: "ai",
+    content:
+      "On it. Finance summarizer accuracy dipped 3.5%, almost entirely on long-horizon equity dilution cases where the prompt failed to pin the vesting schedule. I pulled two transcripts showing the issue and added inline annotations so you can drop screenshots into the deck. To stabilize it, we either expand the conditioning window by 15% or ship the pending retrieval rules; I penciled both options into the action plan.",
+    metadata: {
+      modelName: "Claude 3 Opus",
+      providerName: "Anthropic",
+      createdAt: "2024-06-10T14:19:34Z",
+    },
+  },
+  {
+    id: "layout-demo-user-3",
+    sender: "user",
+    content:
+      "Great, thanks. Last piece: draft a forward-looking blurb that sets expectations for the multi-model routing pilot kicking off next week. I need language that balances optimism with a clear ask for headcount so we can actually run the vendor comparison. Think of it like the closer slide before the appendix.",
+    metadata: {
+      createdAt: "2024-06-10T14:20:11Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-3",
+    sender: "ai",
+    content:
+      "Done. The closer slide now tees up the routing pilot as the fastest path to lower response times without sacrificing domain accuracy, ending with a specific ask for one additional applied scientist and a shared infra block. I also left a note suggesting an appendix table that compares vendor SLAs and token pricing so you can defend the investment if procurement raises eyebrows. Ready for any final polish whenever you are.",
+    metadata: {
+      modelName: "Gemini 1.5 Pro",
+      providerName: "Google",
+      createdAt: "2024-06-10T14:20:38Z",
+    },
+  },
+];
+
 interface ChatInterfaceProps {
   onPinMessage?: (pin: Pin) => Promise<void> | void;
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
@@ -84,7 +147,6 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  const [isAtTop, setIsAtTop] = useState(true);
   const [referencedMessage, setReferencedMessage] = useState<Message | null>(null);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [showPinDropdown, setShowPinDropdown] = useState(false);
@@ -121,6 +183,9 @@ export function ChatInterface({
       avatarHint: hintParts.join(" ").trim() || undefined,
     };
   };
+
+  const isUsingFallbackMessages = messages.length === 0;
+  const displayMessages = isUsingFallbackMessages ? FALLBACK_MESSAGES : messages;
 
   const handleReact = async (message: Message, reaction: string | null) => {
     if (message.sender !== "ai") return;
@@ -796,23 +861,7 @@ export function ChatInterface({
       const isAtBottom =
         viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
       setIsScrolledToBottom(isAtBottom);
-      const isAtTopFlag = viewport.scrollTop === 0;
-      setIsAtTop(isAtTopFlag);
     }
-  };
-
-  const scrollToBottom = () => {
-    if (!scrollViewportRef.current) return;
-    scrollViewportRef.current.scrollTo({
-      top: scrollViewportRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-    setIsScrolledToBottom(true);
-  };
-
-  const scrollToTop = () => {
-    if (!scrollViewportRef.current) return;
-    scrollViewportRef.current.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handlePin = async (message: Message) => {
@@ -881,7 +930,7 @@ export function ChatInterface({
       });
       return;
     }
-    const allMessages = messages || [];
+    const allMessages = displayMessages;
     const aiIndex = allMessages.findIndex((msg) => msg.id === aiMessage.id);
     if (aiIndex === -1) {
       toast({
@@ -1155,33 +1204,31 @@ export function ChatInterface({
   const getMessagesToDelete = (message: Message) => {
     if (!message) return [];
 
-    // Find the index of the message to delete
-    const messageIndex = messages.findIndex((m) => m.id === message.id);
+    const messageIndex = displayMessages.findIndex((m) => m.id === message.id);
     if (messageIndex === -1) return [];
 
-    // All messages from this one onwards will be deleted
-    return messages.slice(messageIndex);
+    return displayMessages.slice(messageIndex);
   };
 
   return (
     <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-[#F5F5F5]">
       {/* Empty state: centered prompt box */}
-      {(messages || []).length === 0 ? (
+      {displayMessages.length === 0 ? (
         <section className="flex flex-1 items-center justify-center bg-[#F5F5F5] px-4 py-8">
           <InitialPrompts userName={user?.name ?? user?.email ?? null} />
         </section>
       ) : (
         <div
-          className="flex-1 min-h-0 overflow-y-auto"
+          className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden"
           ref={scrollViewportRef}
           onScroll={handleScroll}
         >
           <div className="mx-auto w-full max-w-[1280px] space-y-6 px-4 py-10 sm:px-6 lg:px-0">
-            <div className="rounded-[32px] border border-[#D9D9D9] bg-white p-6 shadow-[0px_2px_4px_rgba(25,33,61,0.08)]">
+            <div className="rounded-[32px] border border-transparent bg-[#F5F5F5] p-6 shadow-none">
               <div className="space-y-6">
-                {messages.map((msg) => {
+                {displayMessages.map((msg) => {
                   const refMsg = msg.referencedMessageId
-                    ? messages.find(
+                    ? displayMessages.find(
                         (m) => (m.chatMessageId || m.id) === msg.referencedMessageId
                       )
                     : null;
@@ -1237,57 +1284,6 @@ export function ChatInterface({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {(messages || []).length > 0 && (
-        <div className="absolute bottom-24 right-4 flex-col gap-2 hidden md:flex z-10">
-          {!isAtTop && (
-            <Button
-              onClick={scrollToTop}
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m18 15-6-6-6 6" />
-              </svg>
-            </Button>
-          )}
-          {!isScrolledToBottom && (
-            <Button
-              onClick={scrollToBottom}
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </Button>
-          )}
         </div>
       )}
 

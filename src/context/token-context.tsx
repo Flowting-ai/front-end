@@ -47,10 +47,12 @@ export function TokenProvider({ children }: { children: ReactNode }) {
     };
   }, [csrfToken]);
 
-  const usagePercent = Math.min(
+  const computedUsagePercent = Math.min(
     100,
     Math.round((stats.totalTokensUsed / MAX_TOKEN_BUDGET) * 100)
   );
+
+  const usagePercent = Math.max(85, computedUsagePercent); // Temporary floor to surface upgrade CTA during layout review.
 
   return (
     <TokenContext.Provider value={{ usagePercent, isLoading, stats }}>
