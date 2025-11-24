@@ -16,6 +16,7 @@ import {
   File,
   UserPlus,
   GitCompare,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -362,8 +363,11 @@ export function RightSidebar({
         <div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="flex h-9 w-full items-center justify-between rounded-full bg-[#f5f5f5] text-sm font-medium text-[#171717] hover:bg-[#ebebeb]">
-                <span>{getFilterLabel()}</span>
+              <Button className="flex h-9 w-full items-center justify-between rounded-[8px] bg-[#f5f5f5] px-3 text-sm font-medium text-[#171717] shadow-none hover:bg-[#ebebeb] hover:shadow-none">
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-[#6a6a6a]" />
+                  <span>{getFilterLabel()}</span>
+                </span>
                 <ChevronDown className="h-4 w-4 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
@@ -411,7 +415,7 @@ export function RightSidebar({
                 Sort Z-A
               </DropdownMenuItem>
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]">
+                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#1e1e1e] hover:text-white data-[state=open]:bg-[#1e1e1e] data-[state=open]:text-white">
                   Filter by Tags
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-[240px] border border-[#e6e6e6] bg-white p-2 text-[#171717]">
@@ -487,10 +491,10 @@ export function RightSidebar({
           )}
         </div>
       </ScrollArea>
-      <div className="border-t border-[#d9d9d9] px-4 py-4 space-y-3">
+      <div className="pinboard-footer">
         <Button
           size="sm"
-          className="h-9 w-full justify-center gap-2 rounded-full bg-[#f1f1f1] text-sm font-medium text-[#1e1e1e] hover:bg-[#e7e7e7]"
+          className="h-9 w-full justify-center gap-2 rounded-full bg-[#f1f1f1] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none"
           onClick={() => setIsOrganizeDialogOpen(true)}
         >
           <FolderPlus className="h-4 w-4" />
@@ -498,7 +502,11 @@ export function RightSidebar({
         </Button>
         <Button
           variant="outline"
-          className="h-9 w-full rounded-full border-[#d0d0d0] text-sm font-medium text-[#1e1e1e] hover:bg-[#f5f5f5]"
+          className={cn(
+            "h-9 w-full rounded-full border-[#d0d0d0] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none hover:text-[#1e1e1e] transition-opacity",
+            sortedAndFilteredPins.length === 0 && "opacity-30"
+          )}
+          disabled={sortedAndFilteredPins.length === 0}
         >
           <Download className="mr-2 h-4 w-4" />
           Export Pins
@@ -540,7 +548,7 @@ export function RightSidebar({
     <>
       <aside
         className={cn(
-          "hidden h-full w-[320px] flex-shrink-0 flex-col border-l border-[#d9d9d9] bg-white shadow-sm lg:flex",
+          "hidden h-full w-[278px] flex-shrink-0 flex-col border-l border-[#d9d9d9] bg-white shadow-sm lg:flex",
           className
         )}
       >

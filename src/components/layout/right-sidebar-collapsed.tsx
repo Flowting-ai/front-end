@@ -16,6 +16,7 @@ type CollapsedButtonConfig = {
   label: string;
   icon: typeof Pin;
   helperLabel?: string;
+  disabled?: boolean;
 };
 
 const BUTTONS: CollapsedButtonConfig[] = [
@@ -23,22 +24,26 @@ const BUTTONS: CollapsedButtonConfig[] = [
     panel: "pinboard",
     label: "Pin",
     icon: Pin,
+    disabled: false,
   },
   {
     panel: "files",
     label: "Files",
     icon: File,
+    disabled: true,
   },
   {
     panel: "personas",
     label: "Persona",
     icon: UserPlus,
+    disabled: true,
   },
   {
     panel: "compare",
     label: "Compare",
     helperLabel: "Models",
     icon: GitCompare,
+    disabled: true,
   },
 ];
 
@@ -48,30 +53,28 @@ export function RightSidebarCollapsed({
   className,
 }: RightSidebarCollapsedProps) {
   return (
-    <aside
-      className={cn(
-        "hidden h-full w-[68px] flex-shrink-0 flex-col items-center justify-center border-l border-[#d9d9d9] bg-white lg:flex",
-        className
-      )}
-    >
-      <div className="flex h-full w-full flex-col items-center gap-6 px-[13px] py-6">
-        {BUTTONS.map(({ panel, label, icon: Icon, helperLabel }) => {
+    <aside className={cn("sidebar-collapsed-container", className)}>
+      <div className="sidebar-collapsed-stack">
+        {BUTTONS.map(({ panel, label, icon: Icon, helperLabel, disabled }) => {
           const isActive = activePanel === panel;
           return (
             <Button
               key={panel}
               variant="ghost"
               className={cn(
-                "flex h-[52px] w-[52px] flex-col items-center gap-1 rounded-xl border border-transparent p-1 text-[#1e1e1e] transition-all",
-                isActive
-                  ? "border-[#1e1e1e] bg-[#f3f3f3]"
-                  : "hover:border-[#c9c9c9] hover:bg-[#f5f5f5]"
+                "sidebar-collapsed-button--size52",
+                disabled
+                  ? "sidebar-collapsed-button--disabled"
+                  : isActive
+                  ? "sidebar-collapsed-button--active"
+                  : "sidebar-collapsed-button--inactive"
               )}
-              onClick={() => onSelect(panel)}
+              onClick={() => !disabled && onSelect(panel)}
               aria-pressed={isActive}
+              disabled={disabled}
             >
-              <Icon className="h-[24px] w-[24px] text-[#1e1e1e]" strokeWidth={1.5} />
-              <span className="text-center text-[10px] font-semibold leading-[130%] text-[#1e1e1e]">
+              <Icon className="sidebar-collapsed-icon" strokeWidth={1.5} />
+              <span className="sidebar-collapsed-label">
                 {label}
                 {helperLabel ? (
                   <>

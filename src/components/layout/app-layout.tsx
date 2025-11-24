@@ -37,6 +37,7 @@ import {
   type BackendChat,
   type BackendMessage,
 } from "@/lib/api/chat";
+import { apiFetch } from "@/lib/api/client";
 import {
   createPin,
   deletePin,
@@ -294,6 +295,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [isDeletingChatBoard, setIsDeletingChatBoard] = useState(false);
   const [isRenamingChatBoard, setIsRenamingChatBoard] = useState(false);
+  const [starUpdatingChatId, setStarUpdatingChatId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -354,41 +356,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const handleDeleteClick = (board: ChatBoard) => {
     setChatToDelete(board);
   };
-  
+
   const confirmDelete = async () => {
     if (!chatToDelete) return;
     const chatId = chatToDelete.id;
     setIsDeletingChatBoard(true);
 
-    try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (csrfTokenRef.current) {
-        headers["X-CSRFToken"] = csrfTokenRef.current;
-      }
-
-      const response = await fetch(CHAT_DETAIL_ENDPOINT(chatId), {
-        method: "DELETE",
-        headers,
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to delete chat");
-      }
-
+    const removeChatLocally = (id: string) => {
       setChatHistory((prev) => {
         const next = { ...prev };
-        delete next[chatId];
+        delete next[id];
         return next;
       });
 
       setChatBoards_((prev) => {
-        const nextBoards = prev.filter((board) => board.id !== chatId);
-        if (activeChatId === chatId) {
-          const removedIndex = prev.findIndex((board) => board.id === chatId);
+        const nextBoards = prev.filter((board) => board.id !== id);
+        if (activeChatId === id) {
+          const removedIndex = prev.findIndex((board) => board.id === id);
           const fallback =
             nextBoards[removedIndex] ??
             nextBoards[removedIndex - 1] ??
@@ -403,8 +387,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
         setPins_([]);
         setPinsChatId(null);
       }
+    };
 
+    try {
+      if (chatId.startsWith("temp-")) {
+        removeChatLocally(chatId);
+        setChatToDelete(null);
+        toast({
+          title: "Chat deleted",
+          description: "This chat board has been removed.",
+        });
+        return;
+      }
+
+      const response = await apiFetch(
+        CHAT_DETAIL_ENDPOINT(chatId),
+        { method: "DELETE" },
+        csrfTokenRef.current
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to delete chat");
+      }
+
+      removeChatLocally(chatId);
       setChatToDelete(null);
+      await loadChatBoards();
       toast({
         title: "Chat deleted",
         description: "This chat board has been removed.",
@@ -432,6 +441,41 @@ export default function AppLayout({ children }: AppLayoutProps) {
     renameInputRef.current?.blur();
   }, [resetRenameState, renameInputRef]);
 
+  const loadChatBoards = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { chats: backendChats, csrfToken: freshToken } =
+        await fetchChatBoards(csrfTokenRef.current);
+      if (freshToken && freshToken !== csrfTokenRef.current) {
+        csrfTokenRef.current = freshToken;
+        setCsrfToken(freshToken);
+      }
+      const normalized = backendChats.map(normalizeChatBoard);
+      let combinedBoards: ChatBoard[] = normalized;
+      setChatBoards_((prev) => {
+        const tempBoards = prev.filter(
+          (board) =>
+            board.id.startsWith("temp-") &&
+            !normalized.some((chat) => chat.id === board.id)
+        );
+        combinedBoards = [...tempBoards, ...normalized];
+        return combinedBoards;
+      });
+      setActiveChatId((prev) => {
+        if (prev && combinedBoards.some((chat) => chat.id === prev)) {
+          return prev;
+        }
+        return combinedBoards.length > 0 ? combinedBoards[0].id : null;
+      });
+    } catch (error) {
+      console.error("Failed to load chats from backend", error);
+    }
+  }, [setCsrfToken, user]);
+
+  useEffect(() => {
+    loadChatBoards();
+  }, [loadChatBoards]);
+
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;
     const targetId = renamingChatId;
@@ -457,6 +501,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return;
     }
 
+    if (targetId.startsWith("temp-")) {
+      setChatBoards_((prev) =>
+        prev.map((board) =>
+          board.id === targetId ? { ...board, name: nextName } : board
+        )
+      );
+      handleRenameCancel();
+      toast({
+        title: "Chat renamed",
+        description: "Name updated successfully.",
+      });
+      return;
+    }
+
     setIsRenamingChatBoard(true);
     setChatBoards_((prev) =>
       prev.map((board) =>
@@ -465,26 +523,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
 
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (csrfTokenRef.current) {
-        headers["X-CSRFToken"] = csrfTokenRef.current;
-      }
-
-      const response = await fetch(CHAT_DETAIL_ENDPOINT(targetId), {
-        method: "PATCH",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ title: nextName, name: nextName }),
-      });
+      const response = await apiFetch(
+        CHAT_DETAIL_ENDPOINT(targetId),
+        {
+          method: "PATCH",
+          body: JSON.stringify({ title: nextName, name: nextName }),
+        },
+        csrfTokenRef.current
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || "Failed to rename chat");
       }
 
-      resetRenameState();
+      await loadChatBoards();
+      handleRenameCancel();
       toast({
         title: "Chat renamed",
         description: "Name updated successfully.",
@@ -496,6 +550,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           board.id === targetId ? { ...board, name: previousName } : board
         )
       );
+      setRenamingText(previousName);
       toast({
         title: "Rename failed",
         description:
@@ -507,38 +562,84 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [
     chatBoards,
+    handleRenameCancel,
     isRenamingChatBoard,
+    loadChatBoards,
     renamingChatId,
     renamingText,
     resetRenameState,
     toast,
   ]);
 
-  const loadChatBoards = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { chats: backendChats, csrfToken: freshToken } =
-        await fetchChatBoards(csrfTokenRef.current);
-      if (freshToken && freshToken !== csrfTokenRef.current) {
-        csrfTokenRef.current = freshToken;
-        setCsrfToken(freshToken);
-      }
-      const normalized = backendChats.map(normalizeChatBoard);
-      setChatBoards_(normalized);
-      setActiveChatId((prev) => {
-        if (prev && normalized.some((chat) => chat.id === prev)) {
-          return prev;
-        }
-        return normalized.length > 0 ? normalized[0].id : null;
-      });
-    } catch (error) {
-      console.error("Failed to load chats from backend", error);
-    }
-  }, [setCsrfToken, user]);
+  const handleToggleStar = useCallback(
+    async (board: ChatBoard) => {
+      const chatId = board.id;
+      const nextValue = !board.isStarred;
 
-  useEffect(() => {
-    loadChatBoards();
-  }, [loadChatBoards]);
+      if (chatId.startsWith("temp-")) {
+        setChatBoards_((prev) =>
+          prev.map((item) =>
+            item.id === chatId ? { ...item, isStarred: nextValue } : item
+          )
+        );
+        toast({
+          title: nextValue ? "Chat starred" : "Star removed",
+          description: nextValue
+            ? "Added to your favorites."
+            : "Removed from favorites.",
+        });
+        return;
+      }
+
+      setStarUpdatingChatId(chatId);
+      setChatBoards_((prev) =>
+        prev.map((item) =>
+          item.id === chatId ? { ...item, isStarred: nextValue } : item
+        )
+      );
+
+      try {
+        const response = await apiFetch(
+          CHAT_DETAIL_ENDPOINT(chatId),
+          {
+            method: "PATCH",
+            body: JSON.stringify({ is_starred: nextValue }),
+          },
+          csrfTokenRef.current
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Failed to update star");
+        }
+
+        toast({
+          title: nextValue ? "Chat starred" : "Star removed",
+          description: nextValue
+            ? "Added to your favorites."
+            : "Removed from favorites.",
+        });
+      } catch (error) {
+        console.error("Failed to toggle star", error);
+        setChatBoards_((prev) =>
+          prev.map((item) =>
+            item.id === chatId ? { ...item, isStarred: !nextValue } : item
+          )
+        );
+        toast({
+          title: "Star update failed",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Unable to update star.",
+          variant: "destructive",
+        });
+      } finally {
+        setStarUpdatingChatId(null);
+      }
+    },
+    [toast]
+  );
 
   const loadMessagesForChat = useCallback(async (chatId: string) => {
     try {
@@ -676,8 +777,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
       firstMessage,
       selectedModel,
     }: EnsureChatOptions): Promise<EnsureChatResult | null> => {
-      if (activeChatId) {
-        return { chatId: activeChatId, initialResponse: null };
+      const currentActiveId = activeChatId;
+      const isTempChat = currentActiveId?.startsWith("temp-") ?? false;
+      if (currentActiveId && !isTempChat) {
+        return { chatId: currentActiveId, initialResponse: null };
       }
       const payload = {
         title: firstMessage.slice(0, 60) || "New Chat",
@@ -703,11 +806,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
           setCsrfToken(freshToken);
         }
         const normalized = normalizeChatBoard(created);
-        setChatBoards_((prev) => [normalized, ...prev]);
+        const tempMessages = isTempChat && currentActiveId
+          ? chatHistory[currentActiveId] ?? []
+          : [];
+        setChatBoards_((prev) => {
+          const filtered = prev.filter(
+            (board) =>
+              board.id !== normalized.id && board.id !== currentActiveId
+          );
+          return [normalized, ...filtered];
+        });
         setActiveChatId(normalized.id);
-        setChatHistory((prev) =>
-          prev[normalized.id] ? prev : { ...prev, [normalized.id]: [] }
-        );
+        setChatHistory((prev) => {
+          const next = {
+            ...prev,
+            [normalized.id]: prev[normalized.id] ?? tempMessages,
+          };
+          if (isTempChat && currentActiveId && currentActiveId !== normalized.id) {
+            delete next[currentActiveId];
+          }
+          return next;
+        });
         // Load pins for the new chat (will be empty initially but won't clear existing display)
         loadPinsForChat(normalized.id);
         return {
@@ -720,12 +839,40 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, loadPinsForChat, setCsrfToken, user]
+    [activeChatId, chatHistory, loadPinsForChat, setCsrfToken, user]
   );
 
   const handleAddChat = () => {
     handleRenameCancel();
-    setActiveChatId(null);
+    const existingTemp = chatBoards.find((board) =>
+      board.id.startsWith("temp-")
+    );
+    if (existingTemp) {
+      setActiveChatId(existingTemp.id);
+      setChatHistory((prev) => (
+        prev[existingTemp.id]
+          ? prev
+          : { ...prev, [existingTemp.id]: [] }
+      ));
+      router.push("/");
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const placeholder: ChatBoard = {
+      id: tempId,
+      name: "New chat",
+      time: "Just now",
+      isStarred: false,
+      pinCount: 0,
+      metadata: { messageCount: 0, pinCount: 0 },
+    };
+
+    setChatBoards_((prev) => [placeholder, ...prev]);
+    setChatHistory((prev) => ({ ...prev, [tempId]: [] }));
+    setActiveChatId(tempId);
     router.push('/');
   };
 
@@ -779,7 +926,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     isCollapsed: isLeftSidebarCollapsed,
     onToggle: () => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed),
     chatBoards: chatBoards,
-    setChatBoards: setChatBoards_,
     activeChatId: activeChatId,
     setActiveChatId: setActiveChatId,
     onAddChat: handleAddChat,
@@ -792,13 +938,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
     onRenameConfirm: handleRenameConfirm,
     onRenameCancel: handleRenameCancel,
     isRenamingPending: isRenamingChatBoard,
+    onToggleStar: handleToggleStar,
+    starUpdatingChatId: starUpdatingChatId,
   };
 
   if (isMobile) {
     return (
       <AppLayoutContext.Provider value={contextValue}>
-        <div className="flex h-screen min-h-0 w-full bg-[#f5f5f7]">
-          <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-1 py-4 sm:px-3 lg:px-5">
+        <div className="chat-layout-mobile-shell--full">
+          <div className="chat-layout-mobile-container">
             <Topbar selectedModel={selectedModel} onModelSelect={setSelectedModel}>
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -806,12 +954,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     <Menu className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="flex w-[80vw] gap-0 p-0">
+                <SheetContent side="left" className="chat-layout-mobile-sheet">
                   <LeftSidebar {...sidebarProps} isCollapsed={false} />
                 </SheetContent>
               </Sheet>
             </Topbar>
-            <main className="mt-6 flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+            <main className="chat-layout-mobile-main">
               {pageContent}
             </main>
           </div>
@@ -852,33 +1000,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <AppLayoutContext.Provider value={contextValue}>
-      <div className="flex h-screen min-h-0 w-full bg-[#f5f5f5]">
+      <div className="chat-layout-shell--full">
         <LeftSidebar {...sidebarProps} />
-        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <div className="chat-layout-sidebar-area">
           <Topbar selectedModel={selectedModel} onModelSelect={setSelectedModel} />
-          <div className="flex flex-1 min-h-0 overflow-hidden px-6 pb-6 pt-6 lg:pb-8">
-            <main className="flex flex-1 min-h-0 flex-col overflow-hidden">
-              <div className="mx-auto flex h-full w-full max-w-[1200px] flex-1 flex-col">
-                {pageContent}
-              </div>
-            </main>
+          <div className="chat-layout-main-wrapper">
+            <div className="chat-layout-content-panel">
+              <main className="chat-layout-main">
+                <div className="chat-layout-window chat-layout-window--max960">
+                  {pageContent}
+                </div>
+              </main>
+            </div>
+            <div className="pinboard-layout-stack">
+              <RightSidebar
+                isOpen={isRightSidebarVisible}
+                activePanel={activeRightSidebarPanel}
+                onClose={() => setActiveRightSidebarPanel(null)}
+                pins={pins}
+                setPins={setPins}
+                chatBoards={chatBoards}
+                className="pinboard-panel--order1"
+              />
+              <RightSidebarCollapsed
+                activePanel={activeRightSidebarPanel}
+                onSelect={handleRightSidebarSelect}
+                className="pinboard-panel--order2"
+              />
+            </div>
           </div>
-        </div>
-        <div className="hidden h-full lg:flex">
-          <RightSidebar
-            isOpen={isRightSidebarVisible}
-            activePanel={activeRightSidebarPanel}
-            onClose={() => setActiveRightSidebarPanel(null)}
-            pins={pins}
-            setPins={setPins}
-            chatBoards={chatBoards}
-            className="order-1"
-          />
-          <RightSidebarCollapsed
-            activePanel={activeRightSidebarPanel}
-            onSelect={handleRightSidebarSelect}
-            className="order-2"
-          />
         </div>
       </div>
       <AlertDialog

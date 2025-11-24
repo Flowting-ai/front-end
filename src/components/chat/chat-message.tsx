@@ -4,19 +4,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Pin, Copy, Pencil, Flag, Trash2, Bot, User, Check, X, Info, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Pin, Copy, Pencil, Trash2, Check, X, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
 
 type ContentSegment =
   | { type: "text"; value: string }
@@ -323,21 +315,41 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     if (isEditing && textareaRef.current) {
       const textarea = textareaRef.current;
       textarea.focus();
-      // Auto-resize logic
-      const adjustHeight = () => {
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
+      
+      // Auto-resize logic for height and width
+      const adjustSize = () => {
+        // Calculate width based on content first
+        const span = document.createElement('span');
+        span.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; font-size: 14px; font-family: inherit; line-height: 1.5;';
+        span.textContent = textarea.value || textarea.placeholder;
+        document.body.appendChild(span);
+        const textWidth = span.offsetWidth;
+        document.body.removeChild(span);
+        
+        // If text is less than one line (less than 550px), shrink width
+        // Otherwise, keep at 550px max width
+        if (textWidth < 550) {
+          textarea.style.width = `${Math.max(textWidth + 40, 100)}px`;
+        } else {
+          textarea.style.width = '550px';
+        }
+        
+        // Then reset height to get accurate scrollHeight
+        textarea.style.height = '0px';
+        const newHeight = textarea.scrollHeight;
+        textarea.style.height = `${newHeight}px`;
       };
-      adjustHeight();
-      textarea.addEventListener('input', adjustHeight);
+      
+      adjustSize();
+      textarea.addEventListener('input', adjustSize);
 
       return () => {
         if (textarea) {
-            textarea.removeEventListener('input', adjustHeight);
+            textarea.removeEventListener('input', adjustSize);
         }
       };
     }
-  }, [isEditing]);
+  }, [isEditing, editedContent]);
   useEffect(() => {
     setShowThinking(false);
   }, [message.id, message.thinkingContent]);
@@ -385,40 +397,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
           </TooltipTrigger>
           <TooltipContent><p>Edit</p></TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-          </TooltipTrigger>
-          <TooltipContent><p>Flag</p></TooltipContent>
-        </Tooltip>
-        <Dialog>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className={actionButtonClasses}><Info className="h-4 w-4" /></Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent><p>Info</p></TooltipContent>
-          </Tooltip>
-          <DialogContent className="rounded-[25px]">
-            <DialogHeader>
-              <DialogTitle>Message Information</DialogTitle>
-              <DialogDescription>Metadata about this message</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="font-semibold text-muted-foreground">Message ID:</span>
-                <span className="text-card-foreground font-mono text-xs break-all">{message.chatMessageId || message.id}</span>
-              </div>
-              {message.metadata?.createdAt && (
-                <div className="grid grid-cols-[120px_1fr] gap-2">
-                  <span className="font-semibold text-muted-foreground">Created:</span>
-                  <span className="text-card-foreground">{new Date(message.metadata.createdAt).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}><Trash2 className="h-4 w-4" /></Button>
@@ -429,170 +408,104 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     </TooltipProvider>
   )
 
-  const AiActions = ({ className }: { className?: string } = {}) => {
-    return (
-      <TooltipProvider>
-        <div className={cn("inline-flex items-center gap-1", className)}>
+  const AiActions = ({ className }: { className?: string } = {}) => (
+    <TooltipProvider>
+      <div className={cn("inline-flex items-center gap-1", className)}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(actionButtonClasses, isPinned && "bg-[#E4E4E7] text-[#111827]")}
+              onClick={() => onPin(message)}
+              aria-pressed={isPinned}
+            >
+              <Pin className={cn("h-4 w-4", isPinned && "fill-current text-current")} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p>{isPinned ? "Unpin" : "Pin"} message</p></TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Copy</p></TooltipContent>
+        </Tooltip>
+        {onRegenerate && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onRegenerate(message)}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Regenerate</p></TooltipContent>
+          </Tooltip>
+        )}
+        {onReference && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onReference(message)}>
+                <CornerDownRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent><p>Reply to this message</p></TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p>Delete</p></TooltipContent>
+        </Tooltip>
+        {onReact && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn(actionButtonClasses, isPinned && "bg-[#E4E4E7] text-[#111827]")}
-                onClick={() => onPin(message)}
-                aria-pressed={isPinned}
+                className={cn(actionButtonClasses, message.metadata?.userReaction === "like" && "bg-[#E4E4E7] text-[#111827]")}
+                onClick={() =>
+                  onReact(
+                    message,
+                    message.metadata?.userReaction === "like" ? null : "like"
+                  )
+                }
+                aria-pressed={message.metadata?.userReaction === "like"}
               >
-                <Pin
-                  className={cn(
-                    "h-4 w-4",
-                    isPinned && "fill-current text-current"
-                  )}
-                />
+                <ThumbsUp className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>{isPinned ? "Unpin" : "Pin"} message</p></TooltipContent>
+            <TooltipContent><p>Good response</p></TooltipContent>
           </Tooltip>
+        )}
+        {onReact && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(actionButtonClasses, message.metadata?.userReaction === "dislike" && "bg-[#E4E4E7] text-[#111827]")}
+                onClick={() =>
+                  onReact(
+                    message,
+                    message.metadata?.userReaction === "dislike" ? null : "dislike"
+                  )
+                }
+                aria-pressed={message.metadata?.userReaction === "dislike"}
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </Button>
             </TooltipTrigger>
-            <TooltipContent><p>Copy</p></TooltipContent>
+            <TooltipContent><p>Needs improvement</p></TooltipContent>
           </Tooltip>
-          {onRegenerate && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                  onClick={() => onRegenerate(message)}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Regenerate</p></TooltipContent>
-            </Tooltip>
-          )}
-          {onReference && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onReference(message)}>
-                  <CornerDownRight className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Reply to this message</p></TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Flag</p></TooltipContent>
-          </Tooltip>
-          <Dialog>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className={actionButtonClasses}><Info className="h-4 w-4" /></Button>
-                </DialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent><p>Info</p></TooltipContent>
-            </Tooltip>
-            <DialogContent className="rounded-[25px]">
-              <DialogHeader>
-                <DialogTitle>Message Information</DialogTitle>
-                <DialogDescription>Metadata about this AI response</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-[120px_1fr] gap-2">
-                  <span className="font-semibold text-muted-foreground">Message ID:</span>
-                  <span className="text-card-foreground font-mono text-xs break-all">{message.chatMessageId || message.id}</span>
-                </div>
-                {message.metadata?.createdAt && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Created:</span>
-                    <span className="text-card-foreground">{new Date(message.metadata.createdAt).toLocaleString()}</span>
-                  </div>
-                )}
-                {message.metadata?.modelName && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Model:</span>
-                    <span className="text-card-foreground">{message.metadata.modelName}</span>
-                  </div>
-                )}
-                {message.metadata?.providerName && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Provider:</span>
-                    <span className="text-card-foreground">{message.metadata.providerName}</span>
-                  </div>
-                )}
-                {message.metadata?.outputTokens !== undefined && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Output Tokens:</span>
-                    <span className="text-card-foreground">{message.metadata.outputTokens.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}><Trash2 className="h-4 w-4" /></Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Delete</p></TooltipContent>
-          </Tooltip>
-          {onReact && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    actionButtonClasses,
-                    message.metadata?.userReaction === "like" && "bg-[#E4E4E7] text-[#111827]"
-                  )}
-                  onClick={() =>
-                    onReact(
-                      message,
-                      message.metadata?.userReaction === "like" ? null : "like"
-                    )
-                  }
-                  aria-pressed={message.metadata?.userReaction === "like"}
-                >
-                  <ThumbsUp className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Good response</p></TooltipContent>
-            </Tooltip>
-          )}
-          {onReact && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    actionButtonClasses,
-                    message.metadata?.userReaction === "dislike" && "bg-[#E4E4E7] text-[#111827]"
-                  )}
-                  onClick={() =>
-                    onReact(
-                      message,
-                      message.metadata?.userReaction === "dislike" ? null : "dislike"
-                    )
-                  }
-                  aria-pressed={message.metadata?.userReaction === "dislike"}
-                >
-                  <ThumbsDown className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Needs improvement</p></TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      </TooltipProvider>
-    )
-  }
+        )}
+      </div>
+    </TooltipProvider>
+  );
 
   const LoadingState = () => (
     <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#6B7280]">
@@ -607,22 +520,29 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     </div>
   )
 
-  const fallbackText = (() => {
-    if (isUser) return "U";
-    const hint = message.avatarHint || message.metadata?.modelName || message.metadata?.providerName || "";
-    const cleaned = hint.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const extractInitials = (value: string, fallback: string) => {
+    const cleaned = value.replace(/[^a-z0-9]/gi, "").toUpperCase();
     if (cleaned.length >= 2) return cleaned.slice(0, 2);
-    if (cleaned.length === 1) return cleaned;
-    return "AI";
+    if (cleaned.length === 1) return `${cleaned}${cleaned}`;
+    return fallback;
+  };
+
+  const fallbackText = (() => {
+    if (isUser) {
+      const hint = message.avatarHint || "User";
+      return extractInitials(hint, "US");
+    }
+    const hint = message.avatarHint || message.metadata?.modelName || message.metadata?.providerName || "AI";
+    return extractInitials(hint, "AI");
   })();
 
   const AvatarComponent = (
     <Avatar
       className={cn(
-        "h-10 w-10 border text-sm font-semibold",
+        "h-9 w-9 text-xs font-semibold",
         isUser
-          ? "border-[#E4E4E7] bg-white text-[#0F172A]"
-          : "border-transparent bg-[#1E1E1E] text-white"
+          ? "border border-[#111827] bg-transparent text-[#111827]"
+          : "border border-transparent bg-transparent text-[#111827]"
       )}
     >
       {message.avatarUrl && (
@@ -632,8 +552,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
           data-ai-hint={message.avatarHint}
         />
       )}
-      <AvatarFallback className={cn("text-xs font-semibold", isUser ? "text-[#0F172A]" : "text-white")}
-      >
+      <AvatarFallback className="bg-transparent text-xs font-semibold text-[#111827]">
         {fallbackText}
       </AvatarFallback>
     </Avatar>
@@ -647,7 +566,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     <div className="group/message w-full">
       <div
         className={cn(
-          "mx-auto flex w-full items-start gap-3 sm:gap-4",
+          "mx-auto flex w-full items-start gap-1.5 sm:gap-2",
           isUser ? "flex-row-reverse" : "flex-row"
         )}
       >
@@ -655,7 +574,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
         <div
           className={cn(
             "flex flex-1 flex-col gap-2",
-            isUser ? "items-end text-right" : "items-start text-left"
+            isUser ? "items-end text-left" : "items-start text-left"
           )}
         >
           <div
@@ -666,10 +585,10 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
           >
             <div
               className={cn(
-                "group/bubble relative w-full rounded-[28px] px-6 py-5 text-[15px] leading-relaxed",
+                "group/bubble chat-message-bubble relative rounded-[28px] px-6 py-5 leading-relaxed",
                 isUser
-                  ? "bg-white text-[#111827] border border-[#E4E4E7]"
-                  : "bg-[#F7F7F8] text-[#111827]"
+                  ? "chat-message-bubble--user bg-white text-[#111827] border border-[#E4E4E7]"
+                  : "chat-message-bubble--ai bg-[#F7F7F8] text-[#111827]"
               )}
             >
               {message.referencedMessageId && referencedMessage && (
@@ -708,13 +627,14 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
               )}
 
               {isEditing && isUser ? (
-                <div className="w-full space-y-2">
+                <div className="space-y-2">
                   <Textarea
                     ref={textareaRef}
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
                     onKeyDown={handleEditKeyDown}
-                    className="w-full resize-none overflow-hidden border-0 bg-transparent text-sm text-[#171717] ring-0 shadow-none focus-visible:ring-0"
+                    className="min-h-[1.5em] resize-none overflow-hidden border-0 bg-transparent text-sm text-[#171717] ring-0 shadow-none focus-visible:ring-0"
+                    style={{ width: 'auto', maxWidth: '100%' }}
                     rows={1}
                   />
                   <div className="flex justify-end gap-1">
@@ -777,7 +697,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
             </div>
             <div
               className={cn(
-                "mt-3 flex w-full",
+                "mt-1 flex w-full",
                 isUser ? "justify-end" : "justify-start"
               )}
             >

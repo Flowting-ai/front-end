@@ -23,25 +23,27 @@ export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorPro
   return (
     <>
       <button
-        className="group relative inline-flex h-[33px] min-w-[145px] items-center gap-2 rounded-full border border-[#171717] bg-[#171717] px-3 text-white transition-colors hover:bg-[#1f1f1f]"
+        className="model-selector-trigger"
         onClick={() => setIsDialogOpen(true)}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isDialogOpen}
       >
-        <span className="flex h-[27px] w-[27px] items-center justify-center rounded-full bg-white/10">
-          <img
-            src={getModelIcon(
-              selectedModel?.companyName,
-              selectedModel?.modelName
-            )}
-            alt="Model icon"
-            className="h-4 w-4"
-          />
-        </span>
-        <span className="text-[16px] leading-tight font-medium whitespace-nowrap">
+        {selectedModel && (
+          <span className="model-selector-icon">
+            <img
+              src={getModelIcon(
+                selectedModel?.companyName,
+                selectedModel?.modelName
+              )}
+              alt="Model icon"
+            />
+          </span>
+        )}
+        <span className="model-selector-label">
           {selectedModel ? selectedModel.modelName : "Select model"}
         </span>
-        <span className="flex h-[27px] w-[27px] items-center justify-center rounded-full border border-white/20 bg-white/10">
-          <ChevronDown className="h-4 w-4 text-white" strokeWidth={2} />
-        </span>
+        <ChevronDown className="model-selector-caret" strokeWidth={2} />
       </button>
       <ModelSelectorDialog
         open={isDialogOpen}

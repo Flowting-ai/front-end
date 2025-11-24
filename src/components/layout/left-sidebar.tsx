@@ -32,12 +32,12 @@ import {
 } from "../ui/tooltip";
 import type { ChatBoard } from "./app-layout";
 import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   chatBoards: ChatBoard[];
-  setChatBoards: React.Dispatch<React.SetStateAction<ChatBoard[]>>;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   onAddChat: () => void;
@@ -50,6 +50,8 @@ interface LeftSidebarProps {
   onRenameConfirm: () => void;
   onRenameCancel: () => void;
   isRenamingPending: boolean;
+  onToggleStar: (board: ChatBoard) => void;
+  starUpdatingChatId: string | null;
 }
 
 const dummyChatBoards: ChatBoard[] = [
@@ -91,7 +93,6 @@ export function LeftSidebar({
   isCollapsed,
   onToggle,
   chatBoards,
-  setChatBoards,
   activeChatId,
   setActiveChatId,
   onAddChat,
@@ -104,16 +105,22 @@ export function LeftSidebar({
   onRenameConfirm,
   onRenameCancel,
   isRenamingPending,
+  onToggleStar,
+  starUpdatingChatId,
 }: LeftSidebarProps) {
   const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [dummyBoards, setDummyBoards] = useState<ChatBoard[]>(() =>
+    dummyChatBoards.map((board) => ({ ...board }))
+  );
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const hasRealBoards = chatBoards.length > 0;
   const usingDummyBoards = !hasRealBoards;
-  const sourceBoards = hasRealBoards ? chatBoards : dummyChatBoards;
+  const sourceBoards = hasRealBoards ? chatBoards : dummyBoards;
   const boardsToDisplay = sourceBoards.filter((board) => {
     if (!normalizedSearch) return true;
     const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
@@ -250,10 +257,22 @@ export function LeftSidebar({
     <TooltipProvider delayDuration={100} disableHoverableContent>
       <aside className="relative hidden h-full w-[240px] flex-col justify-between border-r border-[#D9D9D9] bg-[#F5F5F5] md:flex transition-all duration-200">
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="px-4 pt-2">
-            <div className="flex h-[57px] items-center gap-2">
+          <div className="px-4 pt-[3px]">
+            <div className="flex h-[54px] items-center gap-2">
               {brandMark}
-              <span className="font-display text-[24px] font-normal leading-tight text-[#1E1E1E]">
+              <span
+                style={{
+                  // FlowtingAI logo text
+                  fontFamily: "Clash Grotesk Variable",
+                  fontSize: "19.86px",
+                  fontStyle: "normal",
+                  fontWeight: 400,
+                  lineHeight: "129%",
+                  letterSpacing: "0%",
+                  textAlign: "center",
+                  color: "#1E1E1E",
+                }}
+              >
                 FlowtingAi
               </span>
               <Tooltip>
@@ -284,18 +303,17 @@ export function LeftSidebar({
           <div className="px-4 py-3 space-y-3">
             {/* Primary dark button - Chat Board */}
             <Button
-              className="flex h-[45px] w-[210px] items-center justify-start gap-3 self-start rounded-[24px] border border-transparent bg-[#2C2C2C] px-6 text-[16px] font-medium text-[#F5F5F5] shadow-none hover:bg-[#2C2C2C] focus-visible:ring-0 focus-visible:ring-offset-0"
+              variant="ghost"
+              className="sidebar-primary-action-button"
               onClick={() => {
                 onAddChat();
                 router.push("/");
               }}
             >
-              <img
-                src="/icons/chatboard.svg"
-                alt="Chat board"
-                className="h-5 w-5"
-              />
-              Chat Board
+              <span className="sidebar-primary-action-icon">
+                <img src="/icons/chatboard.svg" alt="Chat board" />
+              </span>
+              <span className="sidebar-primary-action-label">Chat Board</span>
             </Button>
 
             {/* Secondary button - Workflows (disabled/coming soon) */}
@@ -323,7 +341,7 @@ export function LeftSidebar({
 
           <div className="h-px w-full bg-[#D9D9D9]" />
 
-          <div className="px-4 py-3">
+          <div className="px-4 pt-2.5 pb-3">
             {/* Section header - accordion trigger style */}
             <div className="flex h-[31px] w-full items-center gap-2 rounded-[8px]">
               <span className="flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
@@ -336,14 +354,14 @@ export function LeftSidebar({
               </div>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
                 <Input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search chats"
-                  className="h-9 w-full rounded-full border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
                   type="search"
                   aria-label="Search chats"
                 />
@@ -370,18 +388,28 @@ export function LeftSidebar({
                   };
 
                   const handleToggleStar = () => {
-                    if (isDummy) return;
-                    setChatBoards((prev) =>
-                      prev.map((item) =>
-                        item.id === board.id
-                          ? { ...item, isStarred: !item.isStarred }
-                          : item
-                      )
-                    );
+                    if (isDummy) {
+                      const willStar = !board.isStarred;
+                      setDummyBoards((prev) =>
+                        prev.map((item) =>
+                          item.id === board.id
+                            ? { ...item, isStarred: !item.isStarred }
+                            : item
+                        )
+                      );
+                      toast({
+                        title: willStar ? "Chat starred" : "Star removed",
+                        description: willStar
+                          ? "Added to your favorites."
+                          : "Removed from favorites.",
+                      });
+                      return;
+                    }
+                    void onToggleStar(board);
                   };
 
                   const handleRename = () => {
-                    if (isDummy || isRenamingPending) return;
+                    if (isRenamingPending) return;
                     setRenamingChatId(board.id);
                     setRenamingText(board.name);
                     requestAnimationFrame(() => {
@@ -390,8 +418,32 @@ export function LeftSidebar({
                   };
 
                   const handleDelete = () => {
-                    if (isDummy) return;
+                    if (isDummy) {
+                      setDummyBoards((prev) =>
+                        prev.filter((item) => item.id !== board.id)
+                      );
+                      return;
+                    }
                     handleDeleteClick(board);
+                  };
+
+                  const handleRenameSubmit = () => {
+                    const trimmed = renamingText.trim();
+                    if (!trimmed) return;
+                    if (isDummy) {
+                      setDummyBoards((prev) =>
+                        prev.map((item) =>
+                          item.id === board.id ? { ...item, name: trimmed } : item
+                        )
+                      );
+                      onRenameCancel();
+                      toast({
+                        title: "Chat renamed",
+                        description: "Name updated successfully.",
+                      });
+                      return;
+                    }
+                    void onRenameConfirm();
                   };
 
                   return (
@@ -414,29 +466,18 @@ export function LeftSidebar({
                             }
                           : undefined
                       }
-                      onRenameSubmit={
-                        isRenamingBoard
-                          ? () => {
-                              if (!isDummy) {
-                                onRenameConfirm();
-                              }
-                            }
-                          : undefined
-                      }
+                      onRenameSubmit={isRenamingBoard ? handleRenameSubmit : undefined}
                       onRenameCancel={
-                        isRenamingBoard
-                          ? () => {
-                              if (!isDummy) {
-                                onRenameCancel();
-                              }
-                            }
-                          : undefined
+                        isRenamingBoard ? onRenameCancel : undefined
                       }
                       renameInputRef={
                         isRenamingBoard ? renameInputRef : undefined
                       }
                       isRenamePending={
                         isRenamingBoard ? isRenamingPending : false
+                      }
+                      isStarPending={
+                        !isDummy && starUpdatingChatId === board.id
                       }
                     />
                   );
@@ -451,8 +492,12 @@ export function LeftSidebar({
         </div>
       {/* 5) User footer */}
       <div className="border-t border-[#D9D9D9] px-3 py-2">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <Avatar className="h-[22px] w-[22px] rounded-full">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex h-[35px] w-full items-center gap-2 rounded-[10px] px-2.5 text-left transition-colors hover:bg-[#EDEDED] focus:outline-none"
+        >
+          <Avatar className="h-[28px] w-[28px] rounded-full">
             {userAvatar ? (
               <AvatarImage
                 src={userAvatar.imageUrl}
@@ -471,34 +516,12 @@ export function LeftSidebar({
                 : "AP"}
             </AvatarFallback>
           </Avatar>
-          <span className="text-[16px] font-normal text-[#1E1E1E]">
-            {user?.name || "Avnish Poonia"}
-          </span>
-        </div>
-
-        {/* Settings dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="mt-1 flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm hover:bg-[#EDEDED]"
-            >
-              <span className="flex items-center gap-2 text-[#1E1E1E]">
-                <Settings className="h-4 w-4" />
-                Settings
-              </span>
-              <ChevronsLeft className="h-4 w-4 rotate-180 text-[#757575]" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-48" align="start">
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Billing</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <div className="flex flex-col justify-center">
+            <span className="text-[15px] font-medium text-[#1E1E1E]">
+              {user?.name || "Avnish Poonia"}
+            </span>
+          </div>
+        </button>
       </div>
     </aside>
   </TooltipProvider>

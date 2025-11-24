@@ -56,7 +56,7 @@ const ChatBoxMain: NextPage = () => {
           <div className={styles.divider} />
           <button className={styles.iconButtonDark} type="button">
             <span className={styles.iconMicWrapper}>
-              <Mic size={16} color="#fff" />
+              <Mic size={20} color="#fff" />
             </span>
           </button>
         </div>

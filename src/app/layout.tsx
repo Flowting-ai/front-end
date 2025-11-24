@@ -27,7 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn('font-body antialiased', inter.variable, spaceGrotesk.variable)}>
+      <body
+        suppressHydrationWarning
+        className={cn('font-body antialiased', inter.variable, spaceGrotesk.variable)}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

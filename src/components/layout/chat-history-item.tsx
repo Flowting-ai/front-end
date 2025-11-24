@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
-import { Check, Loader2, MoreHorizontal, Star, X } from "lucide-react";
+import { Check, Loader2, MoreHorizontal, Star, X, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Input } from "../ui/input";
@@ -22,6 +22,7 @@ export interface ChatHistoryItemProps {
   onRenameCancel?: () => void;
   renameInputRef?: RefObject<HTMLInputElement>;
   isRenamePending?: boolean;
+  isStarPending?: boolean;
 }
 
 export function ChatHistoryItem({
@@ -40,6 +41,7 @@ export function ChatHistoryItem({
   onRenameCancel,
   renameInputRef,
   isRenamePending = false,
+  isStarPending = false,
 }: ChatHistoryItemProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -60,7 +62,7 @@ export function ChatHistoryItem({
       onClick={isRenaming ? undefined : onSelect}
       onKeyDown={isRenaming ? undefined : handleKeyDown}
       className={cn(
-        "flex h-8 w-[210px] items-center justify-between rounded-[6px] px-3 text-[14px] text-black transition-colors",
+        "flex h-8 w-[210px] items-center justify-between rounded-[6px] px-2.5 text-[13px] text-black transition-colors",
         isRenaming ? "cursor-default" : "cursor-pointer select-none",
         isSelected ? "bg-[#E5E5E5]" : "bg-transparent hover:bg-[#F1F1F1]"
       )}
@@ -68,7 +70,7 @@ export function ChatHistoryItem({
       {isRenaming ? (
         <form
           onSubmit={handleRenameSubmit}
-          className="mr-2 flex max-w-[120px] flex-1 items-center gap-1"
+          className="mr-1.5 flex min-w-0 flex-1 items-center gap-1.5"
           onClick={(event) => event.stopPropagation()}
         >
           <Input
@@ -81,7 +83,7 @@ export function ChatHistoryItem({
                 onRenameCancel?.();
               }
             }}
-            className="h-[26px] flex-1 rounded-[4px] border border-[#D9D9D9] bg-white px-2 text-[13px] text-[#0A0A0A] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-[30px] flex-1 rounded-[6px] border border-[#D9D9D9] bg-white px-3 text-[13px] leading-tight text-[#0A0A0A] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
             maxLength={120}
             aria-label="Rename chat"
             disabled={isRenamePending}
@@ -90,7 +92,7 @@ export function ChatHistoryItem({
           <div className="flex items-center gap-1">
             <button
               type="submit"
-              className="flex h-[26px] w-[26px] items-center justify-center rounded-[4px] bg-[#2C2C2C] text-white transition-colors hover:bg-[#1F1F1F] disabled:bg-[#A8A8A8]"
+              className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2C2C2C] text-white transition-colors hover:bg-[#1F1F1F] disabled:bg-[#A8A8A8]"
               disabled={isRenamePending || !renameValue?.trim()}
               aria-label="Save chat name"
             >
@@ -115,12 +117,12 @@ export function ChatHistoryItem({
           </div>
         </form>
       ) : (
-        <span className="mr-2 max-w-[120px] truncate font-normal leading-5">
+        <span className="mr-2 max-w-[142px] truncate font-normal leading-[18px]">
           {title}
         </span>
       )}
-      <div className="flex items-center gap-2">
-        <span className="flex h-[20.5px] w-[20.5px] items-center justify-center rounded-full bg-[#5B5B5B] text-[11px] font-semibold text-white">
+      <div className="flex items-center gap-1.5">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5B5B5B] text-[10px] font-semibold text-white">
           {pinnedCount}
         </span>
         <button
@@ -130,15 +132,20 @@ export function ChatHistoryItem({
             onToggleStar();
           }}
           className={cn(
-            "flex h-6 w-6 items-center justify-center rounded-full text-[#5B5B5B] transition-colors",
+            "flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors",
             isStarred && "text-[#F5C04E]",
-            isRenaming && "pointer-events-none opacity-40"
+            (isRenaming || isStarPending) && "pointer-events-none opacity-40"
           )}
           aria-pressed={isStarred}
           aria-label={isStarred ? "Unstar chat" : "Star chat"}
-          disabled={isRenamePending || isRenaming}
+          disabled={isRenamePending || isRenaming || isStarPending}
+          aria-busy={isStarPending}
         >
-          <Star className={cn("h-4 w-4", isStarred && "fill-current")} />
+          {isStarPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Star className={cn("h-4 w-4", isStarred && "fill-current")} />
+          )}
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -146,31 +153,38 @@ export function ChatHistoryItem({
               type="button"
               onClick={(event) => event.stopPropagation()}
               className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-full text-[#5B5B5B] transition-colors hover:bg-[#E5E5E5]",
+                "flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors hover:bg-[#E5E5E5]",
                 (isRenaming || isRenamePending) && "pointer-events-none opacity-40"
               )}
               aria-label="Chat options"
               disabled={isRenamePending || isRenaming}
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent 
+            align="end" 
+            className="w-[108px] h-[76px] rounded-lg border border-[#E5E5E5] bg-white p-0.5 shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1),0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
+          >
             <DropdownMenuItem
               onClick={() => {
                 onRename();
               }}
               disabled={isRenamePending}
+              className="flex items-center gap-2 text-black cursor-pointer"
             >
-              Rename chat
+              <Edit className="h-4 w-4" />
+              Rename
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 onDelete();
               }}
               disabled={isRenamePending}
+              className="flex items-center gap-2 text-black cursor-pointer"
             >
-              Delete chat
+              <Trash2 className="h-4 w-4" />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

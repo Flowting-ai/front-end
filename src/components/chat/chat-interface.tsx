@@ -13,6 +13,13 @@ import {
   Plus,
   Mic,
   Square,
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  UserPlus,
+  Paperclip,
+  ScanText,
 } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -120,7 +127,7 @@ const FALLBACK_MESSAGES: Message[] = [
 ];
 
 interface ChatInterfaceProps {
-  onPinMessage?: (pin: Pin) => Promise<void> | void;
+  onPinMessage?: (pin: PinType) => Promise<void> | void;
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
   messages?: Message[];
   setMessages?: (
@@ -150,9 +157,50 @@ export function ChatInterface({
   const [referencedMessage, setReferencedMessage] = useState<Message | null>(null);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [showPinDropdown, setShowPinDropdown] = useState(false);
+  const [attachments, setAttachments] = useState<Array<{id: string; type: 'pdf' | 'image'; name: string; url: string}>>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Temporary test attachments - remove later
+  useEffect(() => {
+    setAttachments([
+      {id: '1', type: 'pdf', name: 'Project_Requirements_Document.pdf', url: '/test.pdf'},
+      {id: '2', type: 'pdf', name: 'Technical_Specifications.pdf', url: '/test2.pdf'},
+      {id: '3', type: 'image', name: 'Screenshot.png', url: 'https://picsum.photos/200/200?random=1'},
+      {id: '4', type: 'image', name: 'Chart.jpg', url: 'https://picsum.photos/200/200?random=2'},
+      {id: '5', type: 'pdf', name: 'Meeting_Notes.pdf', url: '/test3.pdf'},
+      {id: '6', type: 'image', name: 'Diagram.png', url: 'https://picsum.photos/200/200?random=3'},
+      {id: '7', type: 'pdf', name: 'API_Documentation.pdf', url: '/test4.pdf'},
+      {id: '8', type: 'image', name: 'Mockup.jpg', url: 'https://picsum.photos/200/200?random=4'},
+      {id: '9', type: 'pdf', name: 'User_Research_Report.pdf', url: '/test5.pdf'},
+      {id: '10', type: 'image', name: 'Wireframe.png', url: 'https://picsum.photos/200/200?random=5'},
+      {id: '11', type: 'pdf', name: 'Sprint_Planning.pdf', url: '/test6.pdf'},
+      {id: '12', type: 'image', name: 'Analytics.jpg', url: 'https://picsum.photos/200/200?random=6'},
+      {id: '13', type: 'pdf', name: 'Architecture_Design.pdf', url: '/test7.pdf'},
+      {id: '14', type: 'image', name: 'Prototype.png', url: 'https://picsum.photos/200/200?random=7'},
+    ]);
+    // Force scroll button to show for testing
+    setTimeout(() => setShowScrollButton(true), 100);
+  }, []);
+  
+  // Close attach menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target as Node)) {
+        setShowAttachMenu(false);
+      }
+    };
+    if (showAttachMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAttachMenu]);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
   const qwenAvatarUrl = "/Qwen.svg";
@@ -183,9 +231,6 @@ export function ChatInterface({
       avatarHint: hintParts.join(" ").trim() || undefined,
     };
   };
-
-  const isUsingFallbackMessages = messages.length === 0;
-  const displayMessages = isUsingFallbackMessages ? FALLBACK_MESSAGES : messages;
 
   const handleReact = async (message: Message, reaction: string | null) => {
     if (message.sender !== "ai") return;
@@ -231,6 +276,9 @@ export function ChatInterface({
   const { toast } = useToast();
   const [isResponding, setIsResponding] = useState(false);
   const layoutContext = useContext(AppLayoutContext);
+  const isUsingFallbackMessages =
+    messages.length === 0 && !layoutContext?.activeChatId;
+  const displayMessages = isUsingFallbackMessages ? FALLBACK_MESSAGES : messages;
   const { user, csrfToken } = useAuth();
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
   const pinsById = useMemo(() => {
@@ -657,7 +705,7 @@ export function ChatInterface({
     }
   };
 
-  const handleSelectPin = (pin: Pin) => {
+  const handleSelectPin = (pin: PinType) => {
     const pinLabel = pin.text.slice(0, 50) || pin.id;
 
     // Remove the trailing @ from input
@@ -890,7 +938,7 @@ export function ChatInterface({
         }
       } else {
         if (onPinMessage) {
-          const newPin: Pin = {
+          const newPin: PinType = {
             id: identifier,
             messageId: identifier,
             text: message.content,
@@ -1223,9 +1271,9 @@ export function ChatInterface({
           ref={scrollViewportRef}
           onScroll={handleScroll}
         >
-          <div className="mx-auto w-full max-w-[1280px] space-y-6 px-4 py-10 sm:px-6 lg:px-0">
+          <div className="mx-auto w-full max-w-[1280px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
             <div className="rounded-[32px] border border-transparent bg-[#F5F5F5] p-6 shadow-none">
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {displayMessages.map((msg) => {
                   const refMsg = msg.referencedMessageId
                     ? displayMessages.find(
@@ -1288,7 +1336,7 @@ export function ChatInterface({
       )}
 
       {/* Chat Input Footer */}
-      <footer className="shrink-0 bg-[#F5F5F5] px-4 pb-6 pt-4 sm:px-8 lg:px-10">
+      <footer className="shrink-0 bg-[#F5F5F5] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
         <div className="relative mx-auto w-full max-w-[1280px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
@@ -1325,7 +1373,13 @@ export function ChatInterface({
             </div>
           )}
 
-          <div className="rounded-[24px] border border-[#D9D9D9] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <div 
+            className="rounded-[24px] border border-[#D9D9D9] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]" 
+            style={{ 
+              minHeight: attachments.length > 0 ? '162px' : '90px',
+              transition: 'min-height 0.2s ease'
+            }}
+          >
             {referencedMessage && (
               <div className="px-5 pt-4">
                 <ReferenceBanner
@@ -1354,16 +1408,79 @@ export function ChatInterface({
               </div>
             )}
 
-            <div className="flex items-start gap-3 px-5 py-4">
-              <Button
-                variant="ghost"
-                onClick={handleOpenUploadDialog}
-                className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
-              >
-                <Plus className="h-5 w-5 text-[#555555]" />
-              </Button>
+            {attachments.length > 0 && (
+              <div className="relative px-5 pt-4">
+                <div 
+                  ref={attachmentScrollRef}
+                  className="flex gap-2 overflow-x-auto scrollbar-hidden"
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    setShowScrollButton(el.scrollWidth > el.clientWidth && el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+                  }}
+                >
+                  {attachments.map((attachment) => (
+                    attachment.type === 'pdf' ? (
+                      <div
+                        key={attachment.id}
+                        className="flex-shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5"
+                        style={{ width: '180.3px', height: '60px' }}
+                      >
+                        <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                          <FileText className="h-5 w-5 text-[#666666]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-xs font-medium text-[#1E1E1E]">{attachment.name}</p>
+                          <p className="text-[10px] text-[#888888]">PDF Document</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          className="flex-shrink-0 rounded-full p-1 hover:bg-[#E5E5E5] transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5 text-[#666666]" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        key={attachment.id}
+                        className="relative flex-shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
+                        style={{ width: '60px', height: '60px', padding: '1.08px' }}
+                      >
+                        <img 
+                          src={attachment.url} 
+                          alt={attachment.name}
+                          className="w-full h-full object-cover rounded-[10px]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors"
+                        >
+                          <X className="h-3 w-3 text-[#666666]" />
+                        </button>
+                      </div>
+                    )
+                  ))}
+                </div>
+                {showScrollButton && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (attachmentScrollRef.current) {
+                        attachmentScrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+                      }
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4 text-[#666666]" />
+                  </button>
+                )}
+              </div>
+            )}
 
-              <div className="flex-1">
+            <div className="flex flex-col gap-1.5 px-5 py-4">
+              {/* Text input area */}
+              <div className="w-full">
                 <Textarea
                   ref={textareaRef}
                   value={input}
@@ -1382,14 +1499,67 @@ export function ChatInterface({
                       handleSend(input);
                     }
                   }}
-                  placeholder={composerPlaceholder}
+                  placeholder="Ask anything... Hit '@' to add in a pin"
                   className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={1}
                   disabled={isResponding}
                 />
               </div>
 
-              <div className="flex shrink-0 items-center gap-4">
+              {/* Action buttons row */}
+              <div className="flex items-center gap-3">
+                <div className="relative" ref={attachMenuRef}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                  >
+                    <Plus className="h-5 w-5 text-[#555555]" />
+                  </Button>
+                  
+                  {showAttachMenu && (
+                    <div 
+                      className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
+                      style={{ width: '160px' }}
+                    >
+                      <button
+                        onClick={() => {
+                          handleOpenUploadDialog();
+                          setShowAttachMenu(false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
+                        <span>Attach Files</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          toast({ title: "Attach Context", description: "Coming soon!" });
+                          setShowAttachMenu(false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                      >
+                        <ScanText className="h-3.5 w-3.5 text-[#666666]" />
+                        <span>Attach Context</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  disabled
+                  className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
+                  title="Choose Persona (Coming Soon)"
+                >
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
+                    <UserPlus className="h-3 w-3" />
+                  </div>
+                  <span>Choose Persona</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+
+                <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
                 <span className="text-sm font-medium text-[#888888]">
                   {isTokenUsageLoading ? "--" : `${usagePercent}%`}
                 </span>
@@ -1428,11 +1598,16 @@ export function ChatInterface({
                     className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                     title="Voice input"
                   >
-                    <Mic className="h-[18px] w-[18px]" />
+                    <Mic className="h-[20px] w-[20px]" />
                   </Button>
                 )}
+                </div>
               </div>
             </div>
+          </div>
+          
+          <div className="mt-1 text-center text-xs text-[#888888]">
+            Models can make mistakes. Check important info.
           </div>
         </div>
       </footer>

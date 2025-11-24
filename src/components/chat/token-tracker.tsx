@@ -28,7 +28,7 @@ export function TokenTracker() {
   }, [stats.totalTokensUsed]);
 
   return (
-    <div className="flex w-[235px] flex-col items-center gap-2">
+    <div className="flex w-[235px] flex-col items-center gap-0.5">
       {/* Token count label + percentage */}
       <div className="flex w-full items-center justify-between text-[12px] leading-tight text-[#1E1E1E]">
         <span className="truncate">Token count</span>
@@ -42,14 +42,14 @@ export function TokenTracker() {
           <div className="absolute h-full w-full top-0 right-0 bottom-0 left-0 rounded-[10px] bg-[#D4D4D4]" />
           {/* Progress fill */}
           <div
-            className="absolute h-full top-0 bottom-0 left-0 rounded-[10px] bg-[#14AE5C]"
+            className="absolute h-full top-0 bottom-0 left-0 rounded-[10px] bg-[#1A1A1A]"
             style={{ width: `${Math.max(0, Math.min(100, usagePercent))}%` }}
           />
         </div>
       </div>
 
       {/* Token usage text */}
-      <div className="text-[10px] leading-[129%] text-[#757575]">
+      <div className="w-full text-right text-[10px] leading-[129%] text-[#757575]">
         {isLoading ? "Updating..." : `${formattedTotalUsed}/${formattedBudget}`}
       </div>
     </div>
