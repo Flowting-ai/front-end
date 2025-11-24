@@ -133,6 +133,32 @@
   display: none;
 }
 
+.scrollbar-transparent {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-transparent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-transparent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-transparent::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.scrollbar-transparent:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+.scrollbar-transparent:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+}
+
 /* Toast progress bar animation */
 @keyframes toast-progress {
   from {

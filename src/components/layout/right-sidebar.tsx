@@ -51,6 +51,7 @@ export interface PinType {
   time: Date;
   messageId?: string;
   folderId?: string;
+  comments?: string[];
 }
 
 interface RightSidebarProps {
@@ -61,6 +62,7 @@ interface RightSidebarProps {
   setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
   chatBoards: ChatBoard[];
   className?: string;
+  onInsertToChat?: (text: string) => void;
 }
 
 type FilterMode = "all" | "current-chat" | "newest" | "oldest" | "a-z" | "z-a";
@@ -98,7 +100,6 @@ const samplePins: PinType[] = [
 const PANEL_METADATA: Record<RightSidebarPanel, { title: string; description?: string }> = {
   pinboard: {
     title: "Pinboard",
-    description: "Save important answers and references for quick access.",
   },
   files: {
     title: "Files",
@@ -137,6 +138,7 @@ export function RightSidebar({
   setPins,
   chatBoards,
   className,
+  onInsertToChat,
 }: RightSidebarProps) {
   const [filterMode, setFilterMode] = useState<FilterMode>("current-chat");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -165,6 +167,10 @@ export function RightSidebar({
         return p;
       })
     );
+  };
+
+  const handleDeletePin = (pinId: string) => {
+    setPins((prevPins) => prevPins.filter((p) => p.id !== pinId));
   };
 
   const allTags = useMemo(() => {
@@ -347,7 +353,7 @@ export function RightSidebar({
 
   const renderPinboard = () => (
     <div className="flex h-full flex-col">
-      <div className="space-y-3 border-b border-[#d9d9d9] px-4 py-4">
+      <div className="px-4 py-2 border-b border-[#d9d9d9]" style={{ paddingBottom: '5px' }}>
         {isSearchOpen ? (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8a8a]" />
@@ -363,7 +369,7 @@ export function RightSidebar({
         <div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="flex h-9 w-full items-center justify-between rounded-[8px] bg-[#f5f5f5] px-3 text-sm font-medium text-[#171717] shadow-none hover:bg-[#ebebeb] hover:shadow-none">
+              <Button className="flex h-9 w-full items-center justify-between rounded-[8px] bg-[#f5f5f5] px-3 text-sm font-medium text-[#171717] shadow-none hover:bg-[#E5E5E5] hover:shadow-none">
                 <span className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-[#6a6a6a]" />
                   <span>{getFilterLabel()}</span>
@@ -415,7 +421,7 @@ export function RightSidebar({
                 Sort Z-A
               </DropdownMenuItem>
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#1e1e1e] hover:text-white data-[state=open]:bg-[#1e1e1e] data-[state=open]:text-white">
+                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5] data-[state=open]:bg-[#f5f5f5]">
                   Filter by Tags
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-[240px] border border-[#e6e6e6] bg-white p-2 text-[#171717]">
@@ -466,7 +472,7 @@ export function RightSidebar({
         </div>
       </div>
       <ScrollArea className="flex-1">
-        <div className="space-y-2.5 px-4 py-4">
+        <div className="space-y-2.5 px-4 pt-2 pb-4">
           {sortedAndFilteredPins.length > 0 ? (
             sortedAndFilteredPins.map((pin) => {
               const chatBoard = chatBoards.find((board) => board.id.toString() === pin.chatId);
@@ -476,7 +482,9 @@ export function RightSidebar({
                   pin={pin}
                   onUpdatePin={handleUpdatePin}
                   onRemoveTag={handleRemoveTag}
+                  onDeletePin={handleDeletePin}
                   chatName={chatBoard?.name}
+                  onInsertToChat={onInsertToChat}
                 />
               );
             })
@@ -554,12 +562,7 @@ export function RightSidebar({
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-[#d9d9d9] px-4 py-4">
-            <div>
-              <p className="text-base font-semibold text-[#1e1e1e]">{header.title}</p>
-              {header.description ? (
-                <p className="text-xs text-[#707070]">{header.description}</p>
-              ) : null}
-            </div>
+            <p className="text-base font-semibold text-[#1e1e1e]">{header.title}</p>
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -567,20 +570,22 @@ export function RightSidebar({
                 onClick={() => setIsSearchOpen((prev) => !prev)}
                 aria-pressed={isSearchOpen}
                 className={cn(
-                  "h-8 w-8 rounded-full border border-transparent bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8]",
+                  "border border-transparent bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8]",
                   isSearchOpen && "border-[#1e1e1e]"
                 )}
+                style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', padding: '7px' }}
               >
-                <Search className="h-5 w-5" />
+                <Search className="h-full w-full" />
                 <span className="sr-only">Toggle search</span>
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
-                className="h-8 w-8 rounded-full bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8]"
+                className="bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8]"
+                style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', padding: '7px' }}
               >
-                <X className="h-5 w-5" />
+                <X className="h-full w-full" />
                 <span className="sr-only">Close sidebar</span>
               </Button>
             </div>
