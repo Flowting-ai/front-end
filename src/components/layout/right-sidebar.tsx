@@ -600,6 +600,7 @@ export function RightSidebar({
         folders={pinFolders}
         onCreateFolder={handleCreateFolder}
         onPinsUpdate={handleOrganizePinsUpdate}
+        chatBoards={chatBoards}
       />
     </>
   );

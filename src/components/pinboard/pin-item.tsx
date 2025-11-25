@@ -32,6 +32,7 @@ interface PinItemProps {
     onDeletePin?: (pinId: string) => void;
     chatName?: string;
     onInsertToChat?: (text: string) => void;
+    compact?: boolean;
 }
 
 const formatTimestamp = (time: Date) => {
@@ -43,7 +44,7 @@ const formatTimestamp = (time: Date) => {
     return formatDistanceToNow(pinTime, { addSuffix: true });
 }
 
-export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, onInsertToChat }: PinItemProps) => {
+export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, onInsertToChat, compact = false }: PinItemProps) => {
     const router = useRouter();
     const [isExpanded, setIsExpanded] = useState(false);
     const [tagInput, setTagInput] = useState('');
@@ -170,7 +171,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
     };
 
     return (
-        <Card className="border border-[#e6e6e6] bg-white" style={{ width: '235px', minHeight: '180.72px', borderRadius: '8px' }}>
+            <Card className="border border-[#e6e6e6] bg-white" style={{ width: '235px', minHeight: compact ? 'auto' : '180.72px', borderRadius: '8px' }}>
             <CardContent className="flex flex-col p-3" style={{ gap: '8px' }}>
                 {/* Title with dropdown menu */}
                 <div className="flex items-start justify-between gap-2">
@@ -209,8 +210,8 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
                             </div>
                         ) : (
                             <p className="text-[#1e1e1e]" style={{ fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%' }}>
-                                {isExpanded || pin.text.length <= 100 ? pin.text : `${pin.text.substring(0, 100)}...`}
-                                {pin.text.length > 100 && (
+                                {isExpanded || pin.text.length <= 50 ? pin.text : `${pin.text.substring(0, 50)}...`}
+                                {pin.text.length > 50 && (
                                     <Button variant="link" className="h-auto p-0 ml-1 text-xs" onClick={() => setIsExpanded(!isExpanded)}>
                                         {isExpanded ? "Read less" : "Read more"}
                                     </Button>

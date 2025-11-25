@@ -2,8 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Clash Grotesk Variable Font */
+@font-face {
+  font-family: 'Clash Grotesk Variable';
+  src: url('/fonts/ClashGrotesk-Variable.woff2') format('woff2'),
+       url('/fonts/ClashGrotesk-Variable.woff') format('woff'),
+       url('/fonts/ClashGrotesk-Variable.ttf') format('truetype');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Clash Grotesk';
+  src: local('Clash Grotesk Variable'),
+       local('ClashGrotesk-Variable');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
+    --font-body: "Clash Grotesk Variable", "Clash Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+    --font-display: "Clash Grotesk Variable", "Clash Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+    
     /* FlowtingAI Color Scheme - Light Grey Background with White Cards */
     --background: 0 0% 96%; /* #F5F5F5 light grey */
     --foreground: 0 0% 12%; /* #1E1E1E dark text */
@@ -101,7 +124,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-[#F5F5F5] text-foreground font-body;
+    @apply bg-[#F5F5F5] text-foreground;
+    font-family: var(--font-body);
   }
   .font-display {
     font-family: var(--font-display);
@@ -125,38 +149,39 @@
 }
 
 .scrollbar-hidden {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 .scrollbar-hidden::-webkit-scrollbar {
-  display: none;
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .scrollbar-transparent {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: transparent transparent; /* Firefox */
 }
 
 .scrollbar-transparent::-webkit-scrollbar {
-  width: 8px;
+  width: 8px; /* Chrome, Safari, Opera */
+  height: 8px; /* For horizontal scrollbars */
 }
 
 .scrollbar-transparent::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent; /* Chrome, Safari, Opera */
 }
 
 .scrollbar-transparent::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: transparent; /* Chrome, Safari, Opera */
   border-radius: 4px;
 }
 
 .scrollbar-transparent:hover {
-  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent; /* Firefox */
 }
 
 .scrollbar-transparent:hover::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.1); /* Chrome, Safari, Opera */
 }
 
 /* Toast progress bar animation */
@@ -836,15 +861,15 @@
     font-size: 0.625rem;
     height: 1rem;
     padding: 0 0.5rem;
-    background-color: transparent;
-    color: #666666;
+    background-color: #f5f5f5;
+    color: #1e1e1e;
     border-radius: 0.25rem;
     line-height: 1;
   }
 
   .category-tab[data-state="active"] {
-    background-color: #e5e5e5;
-    color: #1e1e1e;
+    background-color: #666666;
+    color: #ffffff;
   }
 
   .models-list-container {

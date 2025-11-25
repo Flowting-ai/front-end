@@ -8,7 +8,8 @@
   font-size: 28px;
   color: #1e1e1e;
   font-family: "Clash Grotesk Variable", "Inter", sans-serif;
-  gap: 24px;
+  gap: 48px;
+  padding: 32px 16px;
 }
 
 .frameGroup {
@@ -30,7 +31,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: -90px;
+  margin-top: -60px;
 }
 
 .whatWouldYouLikeToExploreParent {

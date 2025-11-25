@@ -90,6 +90,94 @@ const dummyChatBoards: ChatBoard[] = [
     pinCount: 0,
     metadata: { messageCount: 15, pinCount: 0 },
   },
+  {
+    id: "demo-chat-5",
+    name: "Q4 Marketing Strategy",
+    time: "3h ago",
+    isStarred: true,
+    pinCount: 5,
+    metadata: { messageCount: 36, pinCount: 5 },
+  },
+  {
+    id: "demo-chat-6",
+    name: "API Documentation Review",
+    time: "5h ago",
+    isStarred: false,
+    pinCount: 2,
+    metadata: { messageCount: 28, pinCount: 2 },
+  },
+  {
+    id: "demo-chat-7",
+    name: "Customer Feedback Analysis",
+    time: "Yesterday",
+    isStarred: true,
+    pinCount: 8,
+    metadata: { messageCount: 54, pinCount: 8 },
+  },
+  {
+    id: "demo-chat-8",
+    name: "Design System Updates",
+    time: "Yesterday",
+    isStarred: false,
+    pinCount: 1,
+    metadata: { messageCount: 22, pinCount: 1 },
+  },
+  {
+    id: "demo-chat-9",
+    name: "Security Audit Findings",
+    time: "2 days ago",
+    isStarred: false,
+    pinCount: 4,
+    metadata: { messageCount: 31, pinCount: 4 },
+  },
+  {
+    id: "demo-chat-10",
+    name: "Product Roadmap Discussion",
+    time: "2 days ago",
+    isStarred: true,
+    pinCount: 6,
+    metadata: { messageCount: 48, pinCount: 6 },
+  },
+  {
+    id: "demo-chat-11",
+    name: "Onboarding Flow Improvements",
+    time: "3 days ago",
+    isStarred: false,
+    pinCount: 3,
+    metadata: { messageCount: 19, pinCount: 3 },
+  },
+  {
+    id: "demo-chat-12",
+    name: "Infrastructure Cost Optimization",
+    time: "3 days ago",
+    isStarred: false,
+    pinCount: 2,
+    metadata: { messageCount: 27, pinCount: 2 },
+  },
+  {
+    id: "demo-chat-13",
+    name: "Mobile App Feature Planning",
+    time: "4 days ago",
+    isStarred: false,
+    pinCount: 7,
+    metadata: { messageCount: 45, pinCount: 7 },
+  },
+  {
+    id: "demo-chat-14",
+    name: "User Research Synthesis",
+    time: "5 days ago",
+    isStarred: true,
+    pinCount: 4,
+    metadata: { messageCount: 33, pinCount: 4 },
+  },
+  {
+    id: "demo-chat-15",
+    name: "Competitor Analysis Report",
+    time: "1 week ago",
+    isStarred: false,
+    pinCount: 5,
+    metadata: { messageCount: 39, pinCount: 5 },
+  },
 ];
 
 export function LeftSidebar({
@@ -166,7 +254,7 @@ export function LeftSidebar({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="flex h-[57px] w-full items-center justify-center cursor-ew-resize bg-transparent"
+                className="flex h-[57px] w-full items-center justify-center cursor-pointer bg-transparent"
                 onClick={onToggle}
                 onMouseEnter={() => setLogoHovered(true)}
                 onMouseLeave={() => setLogoHovered(false)}
@@ -282,7 +370,6 @@ export function LeftSidebar({
               {brandMark}
               <span
                 style={{
-                  // FlowtingAI logo text
                   fontFamily: "Clash Grotesk Variable",
                   fontSize: "19.86px",
                   fontStyle: "normal",
@@ -290,7 +377,12 @@ export function LeftSidebar({
                   lineHeight: "129%",
                   letterSpacing: "0%",
                   textAlign: "center",
+                  width: "89px",
+                  height: "26px",
                   color: "#1E1E1E",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 FlowtingAi
@@ -300,7 +392,7 @@ export function LeftSidebar({
                   <button
                     type="button"
                     onClick={onToggle}
-                    className="ml-auto flex h-[32px] w-[32px] items-center justify-center rounded-lg text-[#1E1E1E] transition-colors hover:bg-[#EDEDED] focus:outline-none cursor-ew-resize"
+                    className="ml-auto flex h-[32px] w-[32px] items-center justify-center rounded-lg text-[#1E1E1E] transition-colors hover:bg-[#EDEDED] focus:outline-none cursor-pointer"
                     aria-label="Collapse sidebar"
                     style={{ userSelect: "none" }}
                   >

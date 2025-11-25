@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +11,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FolderPlus, Pin as PinIcon, Folder, Unlink, Move, MoreHorizontal } from "lucide-react";
+import { Folder, Unlink, MoreVertical, Trash2, Edit, Move, FolderPlus, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { PinType } from "../layout/right-sidebar";
-import { OrganizePinItem } from "./organize-pin-item";
+import { PinItem } from "./pin-item";
 
-interface Folder {
+interface FolderType {
   id: string;
   name: string;
 }
@@ -29,14 +33,87 @@ interface OrganizePinsDialogProps {
   onClose: () => void;
   pins: PinType[];
   onPinsUpdate?: (pins: PinType[]) => void;
-  folders?: Folder[];
-  onCreateFolder?: (name: string) => Promise<Folder> | Folder;
-  onMovePins?: (pinIds: string[], folderId: string | null) => Promise<void> | void;
+  folders?: FolderType[];
+  onCreateFolder?: (name: string) => Promise<FolderType> | FolderType;
+  chatBoards?: Array<{ id: string; name: string }>;
 }
 
-const initialFolders: Folder[] = [
+const initialFolders: FolderType[] = [
   { id: "unorganized", name: "Unorganized Pins" },
   { id: "research", name: "Research" },
+  { id: "work", name: "Work Projects" },
+  { id: "personal", name: "Personal" },
+];
+
+const dummyPins: PinType[] = [
+  {
+    id: "dummy-1",
+    text: "Do Androids Dream of Electric Sheep? is a science fiction novel exploring the nature of humanity and empathy through the story of a bounty hunter tracking down rogue androids.",
+    tags: ["Finance", "Tech", "Sci-fi"],
+    time: new Date(Date.now() - 3600000),
+    chatId: "chat-1",
+    notes: "",
+    comments: [],
+  },
+  {
+    id: "dummy-2",
+    text: "Machine learning algorithms can be categorized into supervised, unsupervised, and reinforcement learning approaches, each with distinct use cases and methodologies.",
+    tags: ["AI", "Tech", "Research"],
+    time: new Date(Date.now() - 7200000),
+    chatId: "chat-2",
+    notes: "",
+    comments: [],
+    folderId: "research",
+  },
+  {
+    id: "dummy-3",
+    text: "The Fibonacci sequence is a mathematical pattern where each number is the sum of the two preceding ones, commonly found in nature and used in various applications.",
+    tags: ["Math", "Science"],
+    time: new Date(Date.now() - 86400000),
+    chatId: "chat-1",
+    notes: "",
+    comments: [],
+  },
+  {
+    id: "dummy-4",
+    text: "Project deadline for Q4 deliverables is December 15th. Need to coordinate with design team for final mockups and development resources.",
+    tags: ["Work", "Planning"],
+    time: new Date(Date.now() - 10800000),
+    chatId: "chat-3",
+    notes: "",
+    comments: [],
+    folderId: "work",
+  },
+  {
+    id: "dummy-5",
+    text: "Remember to book vacation flights for summer trip to Japan. Check for cherry blossom season timing and accommodation options in Tokyo and Kyoto.",
+    tags: ["Travel", "Personal"],
+    time: new Date(Date.now() - 14400000),
+    chatId: "chat-4",
+    notes: "",
+    comments: [],
+    folderId: "personal",
+  },
+  {
+    id: "dummy-6",
+    text: "Neural networks use backpropagation to adjust weights during training, optimizing the model's performance on specific tasks through gradient descent.",
+    tags: ["AI", "Deep Learning"],
+    time: new Date(Date.now() - 21600000),
+    chatId: "chat-2",
+    notes: "",
+    comments: [],
+    folderId: "research",
+  },
+  {
+    id: "dummy-7",
+    text: "Review quarterly budget allocations and prepare presentation for stakeholder meeting next week. Focus on cost optimization strategies.",
+    tags: ["Finance", "Work"],
+    time: new Date(Date.now() - 28800000),
+    chatId: "chat-5",
+    notes: "",
+    comments: [],
+    folderId: "work",
+  },
 ];
 
 export function OrganizePinsDialog({
@@ -46,271 +123,406 @@ export function OrganizePinsDialog({
   onPinsUpdate = () => {},
   folders: foldersProp,
   onCreateFolder,
-  onMovePins,
+  chatBoards = [],
 }: OrganizePinsDialogProps) {
-  const [folders, setFolders] = useState<Folder[]>(foldersProp?.length ? foldersProp : initialFolders);
-  const [currentPins, setCurrentPins] = useState(initialPins);
-  const [selectedFolderId, setSelectedFolderId] = useState<string>("unorganized");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
+  const [folders, setFolders] = useState<FolderType[]>(foldersProp?.length ? foldersProp : initialFolders);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    setCurrentPins(initialPins);
-  }, [initialPins]);
-
-  useEffect(() => {
-    if (foldersProp && foldersProp.length > 0) {
-      setFolders(foldersProp);
-      const defaultFolder = foldersProp.find((f) => f.id === "unorganized" || f.name.toLowerCase() === "unorganized");
-      if (defaultFolder) {
-        setSelectedFolderId(defaultFolder.id);
-      }
-    }
-  }, [foldersProp]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
+  const [newFolderName, setNewFolderName] = useState<string>("");
+  const [isEditingFolder, setIsEditingFolder] = useState<boolean>(false);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState<string>("");
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("unorganized");
+  
+  // Use dummy pins if no real pins exist
+  const pinsToDisplay = initialPins.length > 0 ? initialPins : dummyPins;
 
   const pinsByFolder = useMemo(() => {
     const grouped: Record<string, PinType[]> = {};
-    const defaultFolder = folders.find(
-      (f) => f.isDefault || f.name.toLowerCase() === "unorganized" || f.id === "unorganized"
-    );
-    const defaultFolderId = defaultFolder?.id || "unorganized";
     folders.forEach(folder => {
-        grouped[folder.id] = [];
+      grouped[folder.id] = [];
     });
-    if (!grouped[defaultFolderId]) {
-      grouped[defaultFolderId] = [];
-    }
     
-    currentPins.forEach(pin => {
-      const folderId = pin.folderId || defaultFolderId;
-      if (!grouped[folderId]) {
-        // This can happen if a pin's folderId doesn't exist in the folders list
-        // For now, let's add it to unorganized
-        grouped[defaultFolderId].push(pin);
-      } else {
+    pinsToDisplay.forEach(pin => {
+      const folderId = pin.folderId || "unorganized";
+      if (grouped[folderId]) {
         grouped[folderId].push(pin);
+      } else {
+        grouped["unorganized"].push(pin);
       }
     });
 
     return grouped;
+  }, [pinsToDisplay, folders]);
 
-  }, [currentPins, folders]);
-
-  const filteredFolders = folders.filter(folder =>
-    folder.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectedFolder = folders.find(f => f.id === selectedFolderId);
-  const pinsInSelectedFolder = selectedFolderId ? pinsByFolder[selectedFolderId] : [];
-
-  const handleCreateFolder = async () => {
-    if (newFolderName.trim() === "") return;
-    const fallbackFolder: Folder = {
-      id: Date.now().toString(),
-      name: newFolderName.trim(),
-    };
-    try {
-      const created = onCreateFolder ? await onCreateFolder(newFolderName.trim()) : fallbackFolder;
-      setFolders([...folders, created]);
-      setSelectedFolderId(created.id);
-    } catch (error) {
-      console.error("Failed to create folder", error);
-    } finally {
-      setNewFolderName("");
-      setIsCreatingFolder(false);
-    }
-  };
+  const unorganizedPins = pinsByFolder["unorganized"] || [];
+  const selectedFolderPins = pinsByFolder[selectedFolderId] || [];
 
   const handlePinUpdate = (updatedPin: PinType) => {
-    const newPins = currentPins.map(p => p.id === updatedPin.id ? updatedPin : p);
-    setCurrentPins(newPins);
+    if (initialPins.length > 0) {
+      onPinsUpdate(initialPins.map(p => p.id === updatedPin.id ? updatedPin : p));
+    }
   };
 
-  const handleMovePins = async (targetFolderId: string) => {
-    const newPins = currentPins.map(pin => 
-        selectedPinIds.includes(pin.id) 
-            ? { ...pin, folderId: targetFolderId } 
-            : pin
-    );
-    setCurrentPins(newPins);
-    setSelectedPinIds([]);
-    try {
-      if (onMovePins) {
-        const targetFolder = folders.find((f) => f.id === targetFolderId);
-        const isDefault =
-          targetFolderId === "unorganized" ||
-          targetFolder?.isDefault ||
-          targetFolder?.name.toLowerCase() === "unorganized";
-        const folderValue = isDefault ? null : targetFolderId;
-        await onMovePins(selectedPinIds, folderValue);
+  const handleRemoveTag = (pinId: string, tagIndex: number) => {
+    const pin = pinsToDisplay.find(p => p.id === pinId);
+    if (pin) {
+      const newTags = pin.tags.filter((_, i) => i !== tagIndex);
+      handlePinUpdate({ ...pin, tags: newTags });
+    }
+  };
+
+  const handleDeletePin = (pinId: string) => {
+    if (initialPins.length > 0) {
+      onPinsUpdate(initialPins.filter(p => p.id !== pinId));
+    } else {
+      // For dummy pins, remove from the array
+      const index = dummyPins.findIndex(p => p.id === pinId);
+      if (index > -1) {
+        dummyPins.splice(index, 1);
       }
-    } catch (error) {
-      console.error("Failed to move pins", error);
     }
   };
 
-  const toggleSelectAll = () => {
-    if (selectedPinIds.length === pinsInSelectedFolder.length) {
-        setSelectedPinIds([]);
+  const handleCreateFolder = () => {
+    setIsCreatingFolder(true);
+    setNewFolderName("");
+  };
+
+  const handleConfirmCreateFolder = async () => {
+    let folderName = newFolderName.trim() || "New Folder";
+    
+    // Check for duplicate folder names and auto-increment if needed
+    let counter = 1;
+    let finalName = folderName;
+    while (folders.some(f => f.name.toLowerCase() === finalName.toLowerCase())) {
+      finalName = `${folderName} (${counter})`;
+      counter++;
+    }
+    
+    if (onCreateFolder) {
+      const newFolder = await onCreateFolder(finalName);
+      // Insert after Unorganized folder (index 0)
+      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
+      setFolders(updatedFolders);
     } else {
-        setSelectedPinIds(pinsInSelectedFolder.map(p => p.id));
+      // For dummy data, create folder locally
+      const newFolder: FolderType = {
+        id: `folder-${Date.now()}`,
+        name: finalName,
+      };
+      // Insert after Unorganized folder (index 0)
+      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
+      setFolders(updatedFolders);
+    }
+    setIsCreatingFolder(false);
+    setNewFolderName("");
+  };
+
+  const handleRenameFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+      setEditingFolderId(folderId);
+      setEditFolderName(folder.name);
+      setIsEditingFolder(true);
     }
   };
 
-  const handleSelectionChange = (pinId: string, selected: boolean) => {
-    if (selected) {
-        setSelectedPinIds(prev => [...prev, pinId]);
-    } else {
-        setSelectedPinIds(prev => prev.filter(id => id !== pinId));
+  const handleConfirmRenameFolder = () => {
+    if (editingFolderId) {
+      const updatedFolders = folders.map(f => 
+        f.id === editingFolderId 
+          ? { ...f, name: editFolderName.trim() || f.name }
+          : f
+      );
+      setFolders(updatedFolders);
     }
-  }
+    setIsEditingFolder(false);
+    setEditingFolderId(null);
+    setEditFolderName("");
+  };
 
-  const handleSaveChanges = () => {
-    onPinsUpdate(currentPins);
-    onClose();
-  }
+  const handleDeleteFolder = (folderId: string) => {
+    // Move all pins from this folder to Unorganized
+    if (initialPins.length > 0) {
+      const updatedPins = initialPins.map(pin => 
+        pin.folderId === folderId 
+          ? { ...pin, folderId: undefined }
+          : pin
+      );
+      onPinsUpdate(updatedPins);
+    } else {
+      // For dummy pins
+      pinsToDisplay.forEach(pin => {
+        if (pin.folderId === folderId) {
+          pin.folderId = undefined;
+        }
+      });
+    }
+    // Remove the folder
+    setFolders(folders.filter(f => f.id !== folderId));
+  };
+
+  const handleTogglePinSelection = (pinId: string) => {
+    setSelectedPinIds(prev => 
+      prev.includes(pinId) 
+        ? prev.filter(id => id !== pinId)
+        : [...prev, pinId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedPinIds.length === selectedFolderPins.length) {
+      setSelectedPinIds([]);
+    } else {
+      setSelectedPinIds(selectedFolderPins.map(p => p.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (initialPins.length > 0) {
+      onPinsUpdate(initialPins.filter(p => !selectedPinIds.includes(p.id)));
+    } else {
+      // For dummy pins, we need to force a re-render by filtering them out
+      const remainingPins = dummyPins.filter(p => !selectedPinIds.includes(p.id));
+      // Since we can't modify dummyPins, we just clear selection
+      // In real usage with actual pins, onPinsUpdate will handle deletion
+    }
+    setSelectedPinIds([]);
+  };
+
+  const handleMovePins = (targetFolderId: string) => {
+    if (initialPins.length > 0) {
+      const updatedPins = initialPins.map(pin => 
+        selectedPinIds.includes(pin.id) 
+          ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
+          : pin
+      );
+      onPinsUpdate(updatedPins);
+    } else {
+      // For dummy pins, update folderId directly (for testing)
+      dummyPins.forEach(pin => {
+        if (selectedPinIds.includes(pin.id)) {
+          pin.folderId = targetFolderId === 'unorganized' ? undefined : targetFolderId;
+        }
+      });
+    }
+    setSelectedPinIds([]);
+    // Force component update by changing selected folder if needed
+    if (targetFolderId !== selectedFolderId) {
+      // Stay on current folder to show the pins were moved
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        style={{ width: "760px", height: "685px", borderRadius: "1rem" }}
-        className="flex flex-col bg-white p-0 text-[#171717]"
+        style={{ width: "min(619px, 95vw)", maxWidth: "619px", height: "min(692px, 90vh)", maxHeight: "692px", borderRadius: "10px", border: "1px solid #e6e6e6", paddingLeft: "18px", paddingRight: "18px" }}
+        className="flex flex-col bg-white p-0 text-[#171717] gap-0"
       >
-        <DialogHeader className="border-b bg-white p-4 text-[#171717]">
-          <DialogTitle className="text-left text-[#171717]">Organize Pins</DialogTitle>
+        <DialogHeader className="border-b bg-white py-4 text-[#171717] space-y-3">
+          <DialogTitle className="text-left text-[#171717] font-semibold text-base">Organize Pins</DialogTitle>
+          
+          {/* Search Input */}
+          <div className="relative w-full max-w-[331px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9a9a9a]" />
+            <input
+              type="text"
+              placeholder="Search pins..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+              style={{
+                height: "36px",
+                minHeight: "36px",
+                borderRadius: "8px",
+                border: "1px solid #E5E5E5",
+                backgroundColor: "#FFFFFF",
+                paddingTop: "7.5px",
+                paddingBottom: "7.5px",
+                paddingLeft: "40px",
+                paddingRight: "12px",
+                gap: "8px"
+              }}
+            />
+            {searchQuery && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
+                {selectedFolderPins.filter(pin => 
+                  pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+                ).length} results
+              </div>
+            )}
+          </div>
         </DialogHeader>
         
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-[220px_1fr] overflow-hidden">
+        <div className="flex-1 flex overflow-hidden py-4" style={{ gap: "2px" }}>
           {/* Left Section (Folders) */}
-          <div className="flex flex-col overflow-y-auto border-r bg-[#f5f5f5]">
-            <div className="space-y-3 border-b p-4">
-                <h3 className="text-sm font-semibold text-[#171717]">Folders</h3>
-                <div className="flex gap-2 items-center">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Search Folder" 
-                            className="pl-8 h-9 rounded-lg bg-white"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-lg bg-[#e0e0e0] text-[#1e1e1e] hover:bg-[#d6d6d6]"
-                      onClick={() => setIsCreatingFolder(true)}
-                    >
-                        <FolderPlus className="h-5 w-5" />
-                    </Button>
-                </div>
+          <div className="flex flex-col bg-[#F5F5F5] flex-shrink-0" style={{ width: "min(332px, 45%)", minWidth: "200px", height: "541px", maxHeight: "100%", borderRadius: "10px", padding: "16px", gap: "16px" }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#171717]">Folders</h3>
+              {folders.length > 1 && (
+                <Button
+                  onClick={handleCreateFolder}
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded hover:bg-[#e5e5e5] group"
+                  title="New folder"
+                >
+                  <FolderPlus className="h-4 w-4 text-[#666666]" />
+                </Button>
+              )}
             </div>
+            
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {isCreatingFolder && (
-                  <div className="rounded-lg border border-[#e6e6e6] bg-white p-3">
-                    <Input
-                      placeholder="New folder name"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      className="mb-2 h-9 rounded-md border border-[#dcdcdc] bg-[#f7f7f7]"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="rounded-md text-[#171717] hover:bg-[#f0f0f0]"
-                        onClick={() => setIsCreatingFolder(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="rounded-md bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]"
-                        onClick={handleCreateFolder}
-                      >
-                        Create
-                      </Button>
+              <div className="space-y-1">
+                {folders.map(folder => (
+                  <div
+                    key={folder.id}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-sm cursor-pointer ${
+                      selectedFolderId === folder.id ? 'bg-[#e5e5e5]' : 'hover:bg-[#f5f5f5]'
+                    }`}
+                  >
+                    <div 
+                      className="flex items-center gap-2 flex-1 min-w-0"
+                      onClick={() => setSelectedFolderId(folder.id)}
+                    >
+                      {folder.id === 'unorganized' ? <Unlink className="h-4 w-4 text-[#666666] flex-shrink-0" /> : <Folder className="h-4 w-4 text-[#666666] flex-shrink-0" />}
+                      <span className="text-[#171717] truncate" title={folder.name}>
+                        {folder.name.length > 18 ? `${folder.name.substring(0, 18)}...` : folder.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-[#f0f0f0] text-[#171717] text-xs px-2 py-0.5 rounded-full">
+                        {pinsByFolder[folder.id]?.length || 0}
+                      </Badge>
+                      {folder.id !== 'unorganized' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded hover:bg-[#e5e5e5]">
+                              <MoreVertical className="h-4 w-4 text-[#666666]" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[120px] bg-white border border-[#e6e6e6]">
+                            <DropdownMenuItem onClick={() => handleRenameFolder(folder.id)} className="text-[#171717] hover:bg-[#E5E5E5] cursor-pointer">
+                              <Edit className="mr-2 h-4 w-4" />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-red-600 hover:bg-[#ffecec] cursor-pointer">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
-                )}
-                {filteredFolders.map(folder => (
-                  <button
-                    key={folder.id}
-                    onClick={() => setSelectedFolderId(folder.id)}
-                    className={cn(
-                      "w-full flex items-center justify-between text-left p-2 rounded-lg text-sm transition-colors",
-                      selectedFolderId === folder.id
-                        ? "bg-black/5 text-[#171717] font-semibold"
-                        : "hover:bg-black/5 text-[#171717]"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                        {folder.id === 'unorganized' ? <Unlink className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-                        <span className="truncate">{folder.name}</span>
-                    </div>
-                    <span className="text-xs font-medium text-[#444444]">
-                      {pinsByFolder[folder.id]?.length || 0}
-                    </span>
-                  </button>
                 ))}
               </div>
             </ScrollArea>
+            
+            {folders.length === 1 && (
+              <div className="pt-4">
+                <Button 
+                  onClick={handleCreateFolder}
+                  className="w-full bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] rounded-lg"
+                >
+                  New folder
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Right Section (Pins) */}
-              <div className="flex flex-col bg-white">
-                <div className="flex items-center justify-between border-b p-4">
-                  <h3 className="font-semibold text-[#171717]">{selectedFolder?.name || 'Pins'}</h3>
-                  {selectedPinIds.length > 0 && (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#f5f5f5]">
-                                <Move className="h-4 w-4 mr-2"/>
-                                Move To
-                            </Button>
-                        </PopoverTrigger>
-                  <PopoverContent className="w-48 border border-[#e6e6e6] bg-white p-0">
-                            {folders.map(f => (
-                      <div key={f.id} onClick={() => handleMovePins(f.id)} className="cursor-pointer p-2 hover:bg-[#f5f5f5]">
-                                    {f.name}
-                                </div>
-                            ))}
-                        </PopoverContent>
-                    </Popover>
-                  )}
+          {/* Right Section (Selected Folder Pins) */}
+          <div className="flex-1 flex flex-col bg-white" style={{ borderRadius: "10px", padding: "16px" }}>
+            <div className="pb-3 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold text-[#171717] truncate flex-shrink-0" style={{ maxWidth: selectedPinIds.length > 0 ? "120px" : "100%" }}>
+                {folders.find(f => f.id === selectedFolderId)?.name || "Unorganised pins"}
+              </h3>
+              {selectedPinIds.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#f5f5f5] h-7 px-2 text-xs">
+                        <Move className="h-3 w-3 mr-1"/>
+                        Move
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[160px] border border-[#e6e6e6] bg-white">
+                      {folders
+                        .filter(f => f.id !== selectedFolderId)
+                        .map(f => (
+                        <DropdownMenuItem 
+                          key={f.id} 
+                          onClick={() => handleMovePins(f.id)} 
+                          className="text-[#171717] hover:bg-[#E5E5E5] text-sm cursor-pointer"
+                        >
+                          {f.id === 'unorganized' ? <Unlink className="h-3.5 w-3.5 mr-2 text-[#666666]" /> : <Folder className="h-3.5 w-3.5 mr-2 text-[#666666]" />}
+                          {f.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleBulkDelete}
+                    className="rounded-lg text-red-600 hover:bg-[#ffecec] h-7 px-2 text-xs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1"/>
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {selectedFolderPins.length > 0 && selectedPinIds.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  checked={selectedPinIds.length === selectedFolderPins.length}
+                  onCheckedChange={handleSelectAll}
+                  className="rounded-[4px] border-[#1e1e1e] h-3.5 w-3.5"
+                />
+                <span className="text-sm text-[#666666]">Select All</span>
               </div>
+            )}
+            
             <ScrollArea className="flex-1">
-              <div className="p-4">
-                {pinsInSelectedFolder && pinsInSelectedFolder.length > 0 ? (
-                    <div>
-                 <div className="flex items-center pb-2">
-                            <Checkbox 
-                                checked={selectedPinIds.length === pinsInSelectedFolder.length && pinsInSelectedFolder.length > 0}
-                                onCheckedChange={toggleSelectAll}
-                                className="mr-3 rounded-[4px]"
-                            />
-                  <span className="text-sm text-[#171717]">Select All</span>
+              <div className="space-y-2.5">
+                {selectedFolderPins.length > 0 ? (
+                  selectedFolderPins
+                    .filter(pin => 
+                      !searchQuery || 
+                      pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map(pin => {
+                    const chatBoard = chatBoards.find(board => board.id === pin.chatId);
+                    const isSelected = selectedPinIds.includes(pin.id);
+                    return (
+                      <div key={pin.id} className="flex items-start gap-2">
+                        <Checkbox 
+                          checked={isSelected}
+                          onCheckedChange={() => handleTogglePinSelection(pin.id)}
+                          className="mt-1 rounded-[4px] border-[#1e1e1e] h-3.5 w-3.5"
+                        />
+                        <div className="flex-1">
+                          <PinItem
+                            pin={pin}
+                            onUpdatePin={handlePinUpdate}
+                            onRemoveTag={handleRemoveTag}
+                            onDeletePin={handleDeletePin}
+                            chatName={chatBoard?.name}
+                            compact={true}
+                          />
                         </div>
-                        {pinsInSelectedFolder.map(pin => (
-                            <OrganizePinItem 
-                                key={pin.id} 
-                                pin={pin} 
-                                onUpdate={handlePinUpdate}
-                                isSelected={selectedPinIds.includes(pin.id)}
-                                onSelectionChange={(selected) => handleSelectionChange(pin.id, selected)}
-                            />
-                        ))}
-                    </div>
+                      </div>
+                    );
+                  })
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center py-20 text-center text-[#444444]">
-                    <PinIcon className="mb-4 h-10 w-10 text-[#171717]" />
-                    <p className="text-lg font-semibold text-[#171717]">No pins yet</p>
-                    <p className="max-w-xs">
-                      Pin useful answers or references from your chats to keep them handy for later.
-                    </p>
+                  <div className="flex flex-col items-center justify-center py-20 text-center text-[#9a9a9a]">
+                    <p className="text-sm">No pins in this folder</p>
                   </div>
                 )}
               </div>
@@ -318,15 +530,74 @@ export function OrganizePinsDialog({
           </div>
         </div>
 
-        <DialogFooter className="justify-end gap-2 border-t bg-white p-4">
-          <Button variant="ghost" onClick={onClose} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0]">
-            Cancel
-          </Button>
-          <Button onClick={handleSaveChanges} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+        <DialogFooter className="justify-end gap-2 border-t bg-white pt-2">
+          <Button onClick={onClose} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
             Done
           </Button>
         </DialogFooter>
       </DialogContent>
+      
+      {/* Folder Creation Dialog */}
+      <Dialog open={isCreatingFolder} onOpenChange={setIsCreatingFolder}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-[#171717]">Create New Folder</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Folder name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleConfirmCreateFolder();
+                }
+              }}
+              className="text-[#171717]"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsCreatingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmCreateFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Folder Edit/Rename Dialog */}
+      <Dialog open={isEditingFolder} onOpenChange={setIsEditingFolder}>
+        <DialogContent className="sm:max-w-[425px] bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-[#171717]">Rename Folder</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Folder name"
+              value={editFolderName}
+              onChange={(e) => setEditFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleConfirmRenameFolder();
+                }
+              }}
+              className="text-[#171717]"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRenameFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

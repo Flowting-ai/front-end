@@ -51,7 +51,7 @@ export function Topbar({
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-3">
-          <CreatePersonaDialog triggerClassName="border-[#D4D4D4] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E] font-bold" />
+          <CreatePersonaDialog triggerClassName="border-[#D4D4D4] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E]" />
           {!user && (
             <Link href="/auth/login">
               <Button
