@@ -26,9 +26,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Wand2, UserPlus } from "lucide-react";
+import { Loader2, Wand2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "../ui/card";
+import { cn } from "@/lib/utils";
+
+interface CreatePersonaDialogProps {
+  triggerClassName?: string;
+}
 
 const personaSchema = z.object({
   role: z.string().min(2, "Role must be at least 2 characters."),
@@ -40,7 +45,7 @@ const personaSchema = z.object({
 type PersonaFormValues = z.infer<typeof personaSchema>;
 type RefinedPersona = Awaited<ReturnType<typeof createCustomPersona>>;
 
-export function CreatePersonaDialog() {
+export function CreatePersonaDialog({ triggerClassName }: CreatePersonaDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [refinedPersona, setRefinedPersona] = useState<RefinedPersona | null>(null);
@@ -92,8 +97,14 @@ export function CreatePersonaDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-[25px]">
-          <UserPlus className="mr-2 h-4 w-4" />
+        <Button
+          variant="outline"
+          className={cn(
+            "flex h-[38px] w-[170px] items-center justify-center gap-2 rounded-full px-5 text-sm font-medium",
+            triggerClassName
+          )}
+        >
+          <UserPlus className="h-4 w-4 text-current" />
           Create Persona
         </Button>
       </DialogTrigger>

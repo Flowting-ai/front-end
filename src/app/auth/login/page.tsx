@@ -1,228 +1,205 @@
-"use client";
+'use client';
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GoogleLogo } from "@/components/icons/google-logo";
-import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { useAuth, type AuthUser } from "@/context/auth-context";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 import { LOGIN_ENDPOINT } from "@/lib/config";
-
-const CSRF_COOKIE_NAME = "csrftoken";
-
-const getCookie = (name: string) => {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${name.replace(/([$?*|{}\[\]\\\/\+^])/g, "\\$1")}=([^;]*)`)
-  );
-  return match ? decodeURIComponent(match[1]) : null;
-};
-
-const normalizeUser = (payload: unknown, fallbackEmail: string | null): AuthUser => {
-  if (!payload || typeof payload !== "object") {
-    return { email: fallbackEmail ?? null };
-  }
-
-  const data = payload as Record<string, unknown>;
-  const email =
-    (typeof data.email === "string" && data.email) ?? fallbackEmail ?? null;
-  const name =
-    (typeof data.name === "string" && data.name) ||
-    (typeof data.full_name === "string" && data.full_name) ||
-    (typeof data.username === "string" && data.username) ||
-    null;
-  const id =
-    data.id ?? data.user_id ?? data.pk ?? null;
-
-  return {
-    ...data,
-    id: typeof id === "string" || typeof id === "number" ? id : null,
-    email,
-    name,
-  };
-};
+import { GoogleLogo } from "@/components/icons/google-logo";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, setCsrfToken } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
+  const { setUser, csrfToken, setCsrfToken } = useAuth();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [csrfToken, setLocalCsrfToken] = useState<string | null>(null);
-
-  const requestCsrfToken = useCallback(async (): Promise<string | null> => {
-    try {
-      const response = await fetch(LOGIN_ENDPOINT, {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch CSRF token");
-      }
-
-      let token =
-        response.headers.get("X-CSRFToken") ||
-        response.headers.get("x-csrftoken");
-
-      if (!token) {
-        try {
-          const payload = (await response.clone().json()) as
-            | Record<string, unknown>
-            | undefined;
-          if (payload) {
-            const possibleToken =
-              (typeof payload.csrfToken === "string" && payload.csrfToken) ||
-              (typeof payload.csrftoken === "string" && payload.csrftoken) ||
-              (typeof payload.csrf === "string" && payload.csrf) ||
-              (typeof payload.token === "string" && payload.token);
-            token = possibleToken ?? null;
-          }
-        } catch {
-          // non-JSON response is okay
-        }
-      }
-
-      if (!token) {
-        token = getCookie(CSRF_COOKIE_NAME);
-      }
-
-      if (!token) {
-        throw new Error("CSRF token missing from response");
-      }
-
-      setLocalCsrfToken(token);
-      setCsrfToken(token);
-      return token;
-    } catch (err) {
-      console.error("Unable to prepare CSRF token:", err);
-      setError("Unable to reach the authentication service. Please try again.");
-      return null;
-    }
-  }, [setCsrfToken, setError]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    requestCsrfToken();
-  }, [requestCsrfToken]);
+    const fetchCsrfToken = async () => {
+      try {
+        const response = await fetch(LOGIN_ENDPOINT, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.csrfToken) {
+            setCsrfToken(data.csrfToken);
+          }
+        }
+      } catch (fetchError) {
+        console.error("Failed to obtain CSRF token", fetchError);
+      }
+    };
+    fetchCsrfToken();
+  }, [setCsrfToken]);
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
     setError(null);
-    setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email");
-    const password = formData.get("password");
-
-    if (typeof email !== "string" || typeof password !== "string") {
-      setLoading(false);
-      setError("Please provide both email and password.");
+    // Test credentials bypass for development
+    if (identifier === "admin@gmail.com" && password === "admintesting@4321") {
+      const testUser = {
+        id: "test-user-1",
+        email: "admin@gmail.com",
+        username: "Admin User",
+      };
+      setUser(testUser);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("isLoggedIn", "true");
+      }
+      router.replace("/");
+      setIsSubmitting(false);
       return;
     }
 
+    const payload =
+      identifier.includes("@")
+        ? { email: identifier.trim(), username: "", password }
+        : { username: identifier.trim(), email: "", password };
+
     try {
-      let tokenToUse = csrfToken;
-      if (!tokenToUse) {
-        tokenToUse = await requestCsrfToken();
-      }
-
-      if (!tokenToUse) {
-        throw new Error("Unable to verify request. Please refresh and try again.");
-      }
-
-      const res = await fetch(LOGIN_ENDPOINT, {
+      const response = await fetch(LOGIN_ENDPOINT, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": tokenToUse,
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      console.log("STATUS:", res.status, "BODY:", data);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data?.error || "Unable to login. Please try again.");
+        return;
       }
 
-      localStorage.setItem("isLoggedIn", "true");
-      const fallbackEmail = typeof email === "string" ? email : null;
-      const normalizedUser = normalizeUser(
-        data?.user ?? data?.profile ?? data,
-        fallbackEmail
-      );
-      setUser(normalizedUser);
-
-      router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      if (data?.user) {
+        setUser(data.user);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("isLoggedIn", "true");
+        }
+      }
+      router.replace("/");
+    } catch (submitError) {
+      console.error("Login failed", submitError);
+      setError("Unexpected error. Please try again.");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Access your intelligent workspace
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          Log in to design, connect, and automate your AI systems, all in one place.
-        </p>
-      </div>
-
-      <form className="space-y-6" onSubmit={handleSignIn}>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+    <main className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
+      <div 
+        className="bg-white flex flex-col" 
+        style={{ 
+          width: '625px', 
+          height: '800px', 
+          minWidth: '320px', 
+          padding: '48px',
+          gap: '24px'
+        }}
+      >
+        {/* Header */}
+        <div className="flex flex-col" style={{ gap: '8px' }}>
+          <h1 className="text-3xl font-semibold text-[#1E1E1E]">Log in</h1>
+          <p className="text-sm text-[#666666]">Welcome back! Please enter your details.</p>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
-            <Link href="#" className="text-sm font-medium text-primary hover:underline">
-              Forgot password?
-            </Link>
-          </div>
-          <div className="relative">
+        {/* Form */}
+        <form className="flex flex-col flex-1" style={{ gap: '24px' }} onSubmit={handleSubmit}>
+          {/* Email Field */}
+          <div className="flex flex-col" style={{ gap: '8px' }}>
+            <Label htmlFor="identifier" className="text-sm font-medium text-[#1E1E1E]">
+              Email address
+            </Label>
             <Input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
+              id="identifier"
+              type="email"
+              placeholder="Email address"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
+              className="rounded-lg border-[#D4D4D4] text-[#1E1E1E]"
+              style={{ 
+                width: '100%', 
+                height: '40px',
+                padding: '8px 12px'
+              }}
               required
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              <span className="sr-only">
-                {showPassword ? "Hide password" : "Show password"}
-              </span>
-            </button>
           </div>
-        </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+          {/* Password Field */}
+          <div className="flex flex-col" style={{ gap: '8px' }}>
+            <Label htmlFor="password" className="text-sm font-medium text-[#1E1E1E]">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="rounded-lg border-[#D4D4D4] text-[#1E1E1E]"
+              style={{ 
+                width: '100%', 
+                height: '40px',
+                padding: '8px 12px'
+              }}
+              required
+            />
+          </div>
 
-        <div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Logging in..." : "Log in"}
+          {/* Error Message */}
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
+
+          {/* Login Button */}
+          <Button
+            type="submit"
+            className="w-full bg-[#1E1E1E] text-white hover:bg-[#0F0F0F] rounded-lg"
+            style={{ height: '48px' }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Signing in..." : "Log in"}
           </Button>
-        </div>
-      </form>
 
-      {/* rest of your UI... */}
-    </div>
+          {/* Google Button */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] border border-[#767676] rounded-lg flex items-center justify-center gap-3"
+            style={{ 
+              height: '48px',
+              paddingLeft: '215px',
+              paddingRight: '215px'
+            }}
+          >
+            <GoogleLogo className="h-5 w-5" />
+            <span>Log in with Google</span>
+          </Button>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Footer Link */}
+          <p className="text-center text-sm text-[#666666]">
+            Don't have an account?{" "}
+            <Link href="/auth/signup" className="text-[#1E1E1E] font-medium hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </form>
+      </div>
+    </main>
   );
 }

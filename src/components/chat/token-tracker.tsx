@@ -1,78 +1,56 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Progress } from "@/components/ui/progress";
-import { fetchTokenStats, type TokenStats } from "@/lib/api/tokens";
-import { useAuth } from "@/context/auth-context";
+import { useMemo } from "react";
+import { useTokenUsage } from "@/context/token-context";
+
+// Assuming a max token budget for display purposes, adjust as needed.
+// For example, if '2m' means 2 million.
+const MAX_TOKEN_BUDGET = 2_000_000;
+
+const formatLargeNumber = (num: number): string => {
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1)}M`;
+  }
+  if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(1)}K`;
+  }
+  return num.toString();
+};
 
 export function TokenTracker() {
-  const { csrfToken } = useAuth();
-  const [stats, setStats] = useState<TokenStats>({
-    availableTokens: 0,
-    totalTokensUsed: 0,
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const { usagePercent, isLoading, stats } = useTokenUsage();
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadStats = async () => {
-      setIsLoading(true);
-      try {
-        const data = await fetchTokenStats(csrfToken);
-        if (isMounted) {
-          setStats(data);
-        }
-      } catch (error) {
-        console.error("Failed to load token stats", error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-    loadStats();
-    const interval = setInterval(loadStats, 30_000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [csrfToken]);
-
-  const { usagePercent, remainingFormatted } = useMemo(() => {
-    const totalBudget = Math.max(
-      1,
-      stats.availableTokens + stats.totalTokensUsed
-    );
-    const percent = Math.min(
-      100,
-      (stats.totalTokensUsed / totalBudget) * 100
-    );
-    const formatter = new Intl.NumberFormat("en-US", {
-      maximumFractionDigits: 0,
-    });
+  const { formattedTotalUsed, formattedBudget } = useMemo(() => {
     return {
-      usagePercent: Math.round(percent),
-      remainingFormatted: formatter.format(stats.availableTokens),
+      formattedTotalUsed: formatLargeNumber(stats.totalTokensUsed),
+      formattedBudget: formatLargeNumber(MAX_TOKEN_BUDGET),
     };
-  }, [stats.availableTokens, stats.totalTokensUsed]);
+  }, [stats.totalTokensUsed]);
 
   return (
-    <div className="flex flex-col gap-1 w-full text-sm">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span>Token usage</span>
-        <span className="font-mono text-xs">
-          {isLoading ? "…" : `${usagePercent}% used`}
-        </span>
+    <div className="flex w-[235px] flex-col items-center gap-0.5">
+      {/* Token count label + percentage */}
+      <div className="flex w-full items-center justify-between text-[12px] leading-tight text-[#1E1E1E]">
+        <span className="truncate">Token count</span>
+        <span className="text-[#757575]">{isLoading ? "--" : `${usagePercent}%`}</span>
       </div>
-      <div className="flex items-center gap-3">
-        <Progress
-          value={usagePercent}
-          className="h-2 flex-grow"
-          indicatorClassName="bg-green-500"
-        />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {remainingFormatted} left
-        </span>
+
+      {/* Progress bar */}
+      <div className="relative h-[8px] w-[235px]">
+        <div className="absolute left-0 top-0 h-[8px] w-[235px] overflow-hidden">
+          {/* Background */}
+          <div className="absolute h-full w-full top-0 right-0 bottom-0 left-0 rounded-[10px] bg-[#D4D4D4]" />
+          {/* Progress fill */}
+          <div
+            className="absolute h-full top-0 bottom-0 left-0 rounded-[10px] bg-[#1A1A1A]"
+            style={{ width: `${Math.max(0, Math.min(100, usagePercent))}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Token usage text */}
+      <div className="w-full text-right text-[10px] leading-[129%] text-[#757575]">
+        {isLoading ? "Updating..." : `${formattedTotalUsed}/${formattedBudget}`}
       </div>
     </div>
   );

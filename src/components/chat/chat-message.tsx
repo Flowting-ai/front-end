@@ -4,19 +4,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Pin, Copy, Pencil, Flag, Trash2, Bot, User, Check, X, Info, CornerDownRight, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { Pin, Copy, Pencil, Trash2, Check, X, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../ui/dialog";
 
 type ContentSegment =
   | { type: "text"; value: string }
@@ -90,7 +82,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
     nodes.push(
       <strong
         key={`${keyPrefix}-bold-${boldCount++}`}
-        className="font-semibold text-card-foreground"
+        className="font-semibold text-[#171717]"
       >
         {match[2]}
       </strong>
@@ -118,7 +110,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     if (listBuffer.length === 0) return;
     const listKey = `${keyPrefix}-list-${nodes.length}`;
     nodes.push(
-      <ul key={listKey} className="ml-5 list-disc space-y-1 text-card-foreground">
+      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#171717]">
         {listBuffer.map((item, index) => (
           <li key={`${listKey}-item-${index}`} className="leading-relaxed">
             {renderInlineContent(item, `${listKey}-item-${index}`)}
@@ -151,7 +143,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
         <HeadingTag
           key={`${keyPrefix}-heading-${index}`}
           className={cn(
-            "font-semibold text-card-foreground tracking-tight",
+            "font-semibold text-[#171717] tracking-tight",
             headingClassByLevel[level]
           )}
         >
@@ -181,7 +173,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
                 {headerCells.map((cell, cellIndex) => (
                   <th
                     key={`${tableKey}-header-${cellIndex}`}
-                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold"
+                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
                   >
                     {renderInlineContent(cell, `${tableKey}-header-${cellIndex}`)}
                   </th>
@@ -194,7 +186,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
-                      className="border-t border-slate-100 px-3 py-2 align-top text-slate-600"
+                      className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]"
                     >
                       {renderInlineContent(
                         cell,
@@ -223,7 +215,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     nodes.push(
       <p
         key={`${keyPrefix}-paragraph-${index}`}
-        className="whitespace-pre-wrap leading-relaxed text-card-foreground"
+        className="whitespace-pre-wrap leading-relaxed text-[#171717]"
       >
         {renderInlineContent(line, `${keyPrefix}-paragraph-${index}`)}
       </p>
@@ -273,29 +265,38 @@ export interface Message {
   pinId?: string;
   referencedMessageId?: string | null;
   thinkingContent?: string | null;
+  imageUrl?: string;
+  imageAlt?: string;
   metadata?: {
     modelName?: string;
     providerName?: string;
+    llmModelId?: string | number | null;
     inputTokens?: number;
     outputTokens?: number;
     createdAt?: string;
+    documentId?: string | null;
+    documentUrl?: string | null;
+    pinIds?: string[];
+    userReaction?: string | null;
   };
 }
 
 interface ChatMessageProps {
   message: Message;
   isPinned?: boolean;
+  taggedPins?: { id: string; label: string }[];
   onPin: (message: Message) => void;
   onCopy: (content: string) => void;
   onDelete: (message: Message) => void;
   onResubmit: (newContent: string, messageId: string) => void;
   onReference?: (message: Message) => void;
   onRegenerate?: (message: Message) => void;
+  onReact?: (message: Message, reaction: string | null) => void;
   referencedMessage?: Message | null;
   isNewMessage: boolean;
 }
 
-export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResubmit, onReference, onRegenerate, referencedMessage, isNewMessage }: ChatMessageProps) {
+export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy, onDelete, onResubmit, onReference, onRegenerate, onReact, referencedMessage, isNewMessage }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
@@ -314,21 +315,41 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
     if (isEditing && textareaRef.current) {
       const textarea = textareaRef.current;
       textarea.focus();
-      // Auto-resize logic
-      const adjustHeight = () => {
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
+      
+      // Auto-resize logic for height and width
+      const adjustSize = () => {
+        // Calculate width based on content first
+        const span = document.createElement('span');
+        span.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; font-size: 14px; font-family: inherit; line-height: 1.5;';
+        span.textContent = textarea.value || textarea.placeholder;
+        document.body.appendChild(span);
+        const textWidth = span.offsetWidth;
+        document.body.removeChild(span);
+        
+        // If text is less than one line (less than 550px), shrink width
+        // Otherwise, keep at 550px max width
+        if (textWidth < 550) {
+          textarea.style.width = `${Math.max(textWidth + 40, 100)}px`;
+        } else {
+          textarea.style.width = '550px';
+        }
+        
+        // Then reset height to get accurate scrollHeight
+        textarea.style.height = '0px';
+        const newHeight = textarea.scrollHeight;
+        textarea.style.height = `${newHeight}px`;
       };
-      adjustHeight();
-      textarea.addEventListener('input', adjustHeight);
+      
+      adjustSize();
+      textarea.addEventListener('input', adjustSize);
 
       return () => {
         if (textarea) {
-            textarea.removeEventListener('input', adjustHeight);
+            textarea.removeEventListener('input', adjustSize);
         }
       };
     }
-  }, [isEditing]);
+  }, [isEditing, editedContent]);
   useEffect(() => {
     setShowThinking(false);
   }, [message.id, message.thinkingContent]);
@@ -359,11 +380,11 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
     [contentToDisplay]
   );
 
-  const actionButtonClasses = "h-7 w-7 text-muted-foreground/60 hover:text-muted-foreground";
+  const actionButtonClasses = "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
 
-  const UserActions = () => (
-    <div className="flex items-center gap-1">
-      <TooltipProvider>
+  const UserActions = ({ className }: { className?: string } = {}) => (
+    <TooltipProvider>
+      <div className={cn("inline-flex items-center gap-1", className)}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
@@ -376,77 +397,47 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
           </TooltipTrigger>
           <TooltipContent><p>Edit</p></TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-          </TooltipTrigger>
-          <TooltipContent><p>Flag</p></TooltipContent>
-        </Tooltip>
-        <Dialog>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className={actionButtonClasses}><Info className="h-4 w-4" /></Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent><p>Info</p></TooltipContent>
-          </Tooltip>
-          <DialogContent className="rounded-[25px]">
-            <DialogHeader>
-              <DialogTitle>Message Information</DialogTitle>
-              <DialogDescription>Metadata about this message</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="font-semibold text-muted-foreground">Message ID:</span>
-                <span className="text-card-foreground font-mono text-xs break-all">{message.chatMessageId || message.id}</span>
-              </div>
-              {message.metadata?.createdAt && (
-                <div className="grid grid-cols-[120px_1fr] gap-2">
-                  <span className="font-semibold text-muted-foreground">Created:</span>
-                  <span className="text-card-foreground">{new Date(message.metadata.createdAt).toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}><Trash2 className="h-4 w-4" /></Button>
           </TooltipTrigger>
           <TooltipContent><p>Delete</p></TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 
-  const AiActions = () => {
-    return (
-      <div className="flex items-center gap-1">
-        <TooltipProvider>
+  const AiActions = ({ className }: { className?: string } = {}) => (
+    <TooltipProvider>
+      <div className={cn("inline-flex items-center gap-1 w-full justify-between", className)}>
+        <div className="inline-flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onPin(message)}>
-                <Pin className={cn("h-4 w-4", isPinned && "fill-primary text-primary")} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(actionButtonClasses, isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]")}
+                onClick={() => onPin(message)}
+                aria-pressed={isPinned}
+              >
+                <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
               </Button>
             </TooltipTrigger>
             <TooltipContent><p>{isPinned ? "Unpin" : "Pin"} message</p></TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}>
+                <Copy className="h-4 w-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent><p>Copy</p></TooltipContent>
           </Tooltip>
           {onRegenerate && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                  onClick={() => onRegenerate(message)}
-                >
+                <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onRegenerate(message)}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -465,165 +456,207 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses}><Flag className="h-4 w-4" /></Button>
-            </TooltipTrigger>
-            <TooltipContent><p>Flag</p></TooltipContent>
-          </Tooltip>
-          <Dialog>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className={actionButtonClasses}><Info className="h-4 w-4" /></Button>
-                </DialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent><p>Info</p></TooltipContent>
-            </Tooltip>
-            <DialogContent className="rounded-[25px]">
-              <DialogHeader>
-                <DialogTitle>Message Information</DialogTitle>
-                <DialogDescription>Metadata about this AI response</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-[120px_1fr] gap-2">
-                  <span className="font-semibold text-muted-foreground">Message ID:</span>
-                  <span className="text-card-foreground font-mono text-xs break-all">{message.chatMessageId || message.id}</span>
-                </div>
-                {message.metadata?.createdAt && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Created:</span>
-                    <span className="text-card-foreground">{new Date(message.metadata.createdAt).toLocaleString()}</span>
-                  </div>
-                )}
-                {message.metadata?.modelName && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Model:</span>
-                    <span className="text-card-foreground">{message.metadata.modelName}</span>
-                  </div>
-                )}
-                {message.metadata?.outputTokens !== undefined && (
-                  <div className="grid grid-cols-[120px_1fr] gap-2">
-                    <span className="font-semibold text-muted-foreground">Output Tokens:</span>
-                    <span className="text-card-foreground">{message.metadata.outputTokens.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent><p>Delete</p></TooltipContent>
           </Tooltip>
-        </TooltipProvider>
+          {onReact && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(actionButtonClasses, message.metadata?.userReaction === "like" && "bg-[#E4E4E7] text-[#111827]")}
+                  onClick={() =>
+                    onReact(
+                      message,
+                      message.metadata?.userReaction === "like" ? null : "like"
+                    )
+                  }
+                  aria-pressed={message.metadata?.userReaction === "like"}
+                >
+                  <ThumbsUp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Good response</p></TooltipContent>
+            </Tooltip>
+          )}
+          {onReact && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(actionButtonClasses, message.metadata?.userReaction === "dislike" && "bg-[#E4E4E7] text-[#111827]")}
+                  onClick={() =>
+                    onReact(
+                      message,
+                      message.metadata?.userReaction === "dislike" ? null : "dislike"
+                    )
+                  }
+                  aria-pressed={message.metadata?.userReaction === "dislike"}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Needs improvement</p></TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        {message.metadata?.modelName && (
+          <span className="text-xs text-[#8a8a8a] font-medium pr-[5px]">
+            {message.metadata.modelName}
+          </span>
+        )}
       </div>
-    )
-  }
+    </TooltipProvider>
+  );
 
   const LoadingState = () => (
-    <div className="flex items-center gap-3">
-      <div className="h-9 w-9 rounded-full bg-slate-200/80 shadow-inner animate-pulse" />
-      <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          {[0, 1, 2].map((dot) => (
-            <span
-              key={dot}
-              className="h-2.5 w-2.5 rounded-full bg-slate-300 animate-bounce"
-              style={{ animationDelay: `${dot * 0.12}s` }}
-            />
-          ))}
-          <span className="text-xs font-medium text-muted-foreground">
-            thinking…
-          </span>
-        </div>
-      </div>
+    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#6B7280]">
+      {[0, 1, 2].map((dot) => (
+        <span
+          key={dot}
+          className="h-2 w-2 rounded-full bg-[#D4D4D8] animate-bounce"
+          style={{ animationDelay: `${dot * 0.12}s` }}
+        />
+      ))}
+      <span>Thinking…</span>
     </div>
   )
 
+  const extractInitials = (value: string, fallback: string) => {
+    const cleaned = value.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    if (cleaned.length >= 2) return cleaned.slice(0, 2);
+    if (cleaned.length === 1) return `${cleaned}${cleaned}`;
+    return fallback;
+  };
+
+  const fallbackText = (() => {
+    if (isUser) {
+      const hint = message.avatarHint || "User";
+      return extractInitials(hint, "US");
+    }
+    const hint = message.avatarHint || message.metadata?.modelName || message.metadata?.providerName || "AI";
+    return extractInitials(hint, "AI");
+  })();
+
   const AvatarComponent = (
-    <Avatar className="h-9 w-9 border border-white/70 bg-white shadow-[0_6px_15px_rgba(15,23,42,0.12)]">
-      {message.avatarUrl && <AvatarImage src={message.avatarUrl} alt={isUser ? "User" : "AI"} data-ai-hint={message.avatarHint} />}
-      <AvatarFallback>
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+    <Avatar
+      className={cn(
+        "h-9 w-9 text-xs font-semibold",
+        isUser
+          ? "border border-[#111827] bg-transparent text-[#111827]"
+          : "border border-transparent bg-transparent text-[#111827]"
+      )}
+    >
+      {message.avatarUrl && (
+        <AvatarImage
+          src={message.avatarUrl}
+          alt={isUser ? "User" : "AI"}
+          data-ai-hint={message.avatarHint}
+        />
+      )}
+      <AvatarFallback className="bg-transparent text-xs font-semibold text-[#111827]">
+        {fallbackText}
       </AvatarFallback>
     </Avatar>
   );
 
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-4 w-full group",
-        isUser ? "justify-end" : "justify-start"
-      )}
-    >
-      {!isUser && AvatarComponent}
-      <div className={cn("flex flex-col gap-1 max-w-[calc(100%-4rem)]", isUser ? 'items-end' : 'items-start')}>
-        <div
-            className={cn(
-            "p-4 rounded-[22px] break-words shadow-[0_12px_30px_rgba(15,23,42,0.08)] border",
-            isUser
-              ? "bg-[#EEF2FF] text-slate-900 border-white/60"
-              : "bg-white text-slate-900 border-slate-100"
-            )}
-        >
-          {message.referencedMessageId && referencedMessage && (
-            <div className="mb-3 pb-3 border-b border-slate-200">
-              <div className="flex items-start gap-2 text-xs">
-                <CornerDownRight className="h-3 w-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-500 mb-0.5">Replying to:</p>
-                  <p className="text-slate-600 line-clamp-2 italic">
-                    {referencedMessage.content}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          {message.thinkingContent && (
-            <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between text-left font-semibold"
-                onClick={() => setShowThinking((prev) => !prev)}
-              >
-                <span>{showThinking ? "Hide reasoning" : "Show reasoning"}</span>
-                {showThinking ? (
-                  <EyeOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
-              </button>
-              {showThinking && (
-                <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
-                  {message.thinkingContent}
-                </pre>
-              )}
-            </div>
-          )}
+  const renderActions = (className?: string) => (
+    isUser ? <UserActions className={className} /> : <AiActions className={className} />
+  );
 
-          {isEditing && isUser ? (
-            <div className="space-y-2 w-full">
-               <Textarea
-                  ref={textareaRef}
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  onKeyDown={handleEditKeyDown}
-                  className="w-full text-sm bg-transparent text-card-foreground focus-visible:ring-0 ring-0 border-0 shadow-none resize-none overflow-hidden"
-                  rows={1}
-                />
-                <div className="flex justify-end gap-1">
+  return (
+    <div className="group/message w-full">
+      <div
+        className={cn(
+          "mx-auto flex w-full items-start gap-1.5 sm:gap-2",
+          isUser ? "flex-row-reverse" : "flex-row"
+        )}
+      >
+        <div className="mt-1 shrink-0">{AvatarComponent}</div>
+        <div
+          className={cn(
+            "flex flex-1 flex-col gap-2",
+            isUser ? "items-end text-left" : "items-start text-left"
+          )}
+        >
+          <div
+            className={cn(
+              "relative flex w-full max-w-[calc(100%-3.5rem)] flex-col",
+              isUser ? "items-end" : "items-start"
+            )}
+          >
+            <div
+              className={cn(
+                "group/bubble chat-message-bubble relative rounded-[28px] px-6 py-5 leading-relaxed",
+                isUser
+                  ? "chat-message-bubble--user bg-white text-[#111827] border border-[#E4E4E7]"
+                  : "chat-message-bubble--ai bg-[#F7F7F8] text-[#111827]"
+              )}
+            >
+              {message.referencedMessageId && referencedMessage && (
+                <div className="mb-3 border-b border-slate-200 pb-3">
+                  <div className="flex items-start gap-2 text-xs">
+                    <CornerDownRight className="mt-0.5 h-3 w-3 flex-shrink-0 text-slate-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-0.5 font-semibold text-slate-500">Replying to:</p>
+                      <p className="text-slate-600 line-clamp-2 italic">
+                        {referencedMessage.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {message.thinkingContent && (
+                <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-left font-semibold"
+                    onClick={() => setShowThinking((prev) => !prev)}
+                  >
+                    <span>{showThinking ? "Hide reasoning" : "Show reasoning"}</span>
+                    {showThinking ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  {showThinking && (
+                    <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
+                      {message.thinkingContent}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {isEditing && isUser ? (
+                <div className="space-y-2">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    className="min-h-[1.5em] resize-none overflow-hidden border-0 bg-transparent text-sm text-[#171717] ring-0 shadow-none focus-visible:ring-0"
+                    style={{ width: 'auto', maxWidth: '100%' }}
+                    rows={1}
+                  />
+                  <div className="flex justify-end gap-1">
                     <Button size="icon" variant="ghost" onClick={handleSaveAndResubmit} className="h-7 w-7"><Check className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" onClick={handleCancelEdit} className="h-7 w-7"><X className="h-4 w-4" /></Button>
+                  </div>
                 </div>
-            </div>
-          ) : message.isLoading ? (
-            <LoadingState />
-          ) : (
-            <div className="flex flex-col gap-4 text-sm">
-              {contentSegments.length === 0 && (
-                <p className="whitespace-pre-wrap leading-relaxed">{contentToDisplay}</p>
-              )}
-              {contentSegments.map((segment, index) => {
+              ) : message.isLoading ? (
+                <LoadingState />
+              ) : (
+                <div className="flex flex-col gap-4 text-sm">
+                  {contentSegments.length === 0 && (
+                    <p className="whitespace-pre-wrap leading-relaxed">{contentToDisplay}</p>
+                  )}
+                  {contentSegments.map((segment, index) => {
                 if (segment.type === "code") {
                   return (
                     <div key={`code-${message.id}-${index}`} className="relative rounded-2xl bg-slate-900 text-slate-50">
@@ -657,14 +690,47 @@ export function ChatMessage({ message, isPinned, onPin, onCopy, onDelete, onResu
                   </div>
                 );
               })}
+              {message.imageUrl && (
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  <img
+                    src={message.imageUrl}
+                    alt={message.imageAlt || message.content || "Generated image"}
+                    className="w-full h-auto object-contain bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+            </div>
+            <div
+              className={cn(
+                "mt-1 flex w-full",
+                isUser ? "justify-end" : "justify-start"
+              )}
+            >
+              {renderActions("flex items-center gap-1 rounded-full bg-[#F5F5F5]/80 px-1.5 py-1 text-xs backdrop-blur-sm")}
+            </div>
+          </div>
+          {taggedPins.length > 0 && (
+            <div
+              className={cn(
+                "flex flex-wrap gap-2",
+                isUser ? "justify-end" : "justify-start"
+              )}
+            >
+              {taggedPins.map((pin) => (
+                <span
+                  key={pin.id}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#F2F2F4] px-3 py-1 text-xs font-medium text-[#44404D]"
+                >
+                  <Pin className="h-3 w-3" />
+                  <span className="truncate max-w-[240px]">@{pin.label}</span>
+                </span>
+              ))}
             </div>
           )}
         </div>
-        <div className="flex items-center transition-opacity">
-            {isUser ? <UserActions /> : <AiActions />}
-        </div>
       </div>
-      {isUser && AvatarComponent}
     </div>
   );
 }

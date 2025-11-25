@@ -1,62 +1,69 @@
-
 'use client';
 
-import { Button } from "../ui/button";
-import { WandSparkles, BarChart2, UserPlus } from "lucide-react";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { Button } from "../ui/button";
 import { CreatePersonaDialog } from "../personas/create-persona-dialog";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Logo } from "../icons/logo";
+import { ModelSelector } from "../chat/model-selector";
+import { TokenTracker } from "../chat/token-tracker";
+import type { AIModel } from "@/types/ai-model";
+import { useTokenUsage } from "@/context/token-context";
+import { useAuth } from "@/context/auth-context";
+import { UserRoundPen } from "lucide-react";
+import Link from "next/link";
 
-export function Topbar({ children }: { children?: ReactNode }) {
-  const pathname = usePathname();
-  const isMobile = useIsMobile();
-  const tabs = [
-    { name: "Chat Board", href: "/", icon: WandSparkles },
-  ];
+interface TopbarProps {
+  children?: ReactNode;
+  selectedModel: AIModel | null;
+  onModelSelect: (model: AIModel) => void;
+}
+
+export function Topbar({
+  children,
+  selectedModel,
+  onModelSelect,
+}: TopbarProps) {
+  const { usagePercent, isLoading } = useTokenUsage();
+  const { user } = useAuth();
+  const showUpgradePlan = !isLoading && usagePercent >= 80;
 
   return (
-    <header className="flex items-center justify-between p-2 border-b h-[60px] bg-card shrink-0 z-20">
-      <div className="flex items-center gap-4">
-        {isMobile ? children : (
-         <Link href="/" className="flex items-center gap-2 px-4">
-              <Logo className="text-primary h-6 w-6"/>
-              <h1 className="text-lg font-semibold">Flowting</h1>
-          </Link>
-        )}
-        <nav className={cn("items-center gap-2", isMobile ? "hidden" : "flex")}>
-            {tabs.map((tab) => (
-            <Button
-                key={tab.name}
-                variant="ghost"
-                asChild
-                className={cn(
-                    "font-semibold rounded-[25px]",
-                    pathname === tab.href ? "bg-secondary text-accent-foreground" : ""
-                )}
-            >
-                <Link href={tab.href}>
-                <tab.icon className="mr-2 h-4 w-4" />
-                {tab.name}
-                </Link>
-            </Button>
-            ))}
-        </nav>
-      </div>
+    <header className="sticky top-0 z-40 w-full border-b border-[#D9D9D9] bg-white">
+      <div className="flex h-[57px] w-full items-center justify-between gap-4 px-3 py-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 lg:flex-nowrap">
+          {children ? (
+            <div className="flex-shrink-0 lg:hidden">{children}</div>
+          ) : null}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelSelect={onModelSelect}
+          />
+          <div className="flex items-center gap-3">
+            <TokenTracker />
+            {showUpgradePlan ? (
+              <Button
+                variant="secondary"
+                className="flex h-[36px] w-[122px] items-center justify-center rounded-full bg-[#F5F5F5] px-4 text-sm font-medium text-[#1E1E1E] hover:bg-[#DCDCDC] hover:text-[#1E1E1E]"
+              >
+                Upgrade Plan
+              </Button>
+            ) : null}
+          </div>
+        </div>
 
-      <div className={cn("items-center gap-2 px-4", isMobile ? "hidden" : "flex")}>
-         <div className="flex items-center gap-2">
-            <Button variant="outline" className="rounded-[25px]" asChild>
-              <Link href="/dashboard">
-                <BarChart2 className="mr-2 h-4 w-4" />
-                Compare models
-              </Link>
-            </Button>
-            <CreatePersonaDialog />
-         </div>
+        <div className="flex flex-shrink-0 items-center gap-3">
+          <CreatePersonaDialog triggerClassName="border-[#D4D4D4] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E]" />
+          {!user && (
+            <Link href="/auth/login">
+              <Button
+                className="flex h-[38px] min-h-[32px] items-center justify-center gap-2 rounded-full bg-[#1E1E1E] px-1.5 py-[8.5px] text-sm font-medium text-white hover:bg-[#2E2E2E]"
+                style={{ width: '126.25px' }}
+              >
+                <UserRoundPen className="h-4 w-4" />
+                Sign In
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );

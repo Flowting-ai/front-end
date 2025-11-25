@@ -1,23 +1,33 @@
 "use client";
 
-import { useState, useRef, useEffect, useContext } from "react";
+import { useState, useRef, useEffect, useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Send, Mic, Library, Trash2, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Send,
+  Trash2,
+  X,
+  Loader2,
+  Plus,
+  Mic,
+  Square,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  UserPlus,
+  Paperclip,
+  ScanText,
+} from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Pin } from "../layout/right-sidebar";
+import type { PinType } from "../layout/right-sidebar";
 import type { AIModel } from "@/types/ai-model";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayoutContext } from "../layout/app-layout";
@@ -40,7 +50,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/context/auth-context";
+import { useTokenUsage } from "@/context/token-context";
 import {
   CHAT_COMPLETION_ENDPOINT,
   CHAT_DETAIL_ENDPOINT,
@@ -48,9 +66,75 @@ import {
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
+import { uploadDocument } from "@/lib/api/documents";
+import { generateImage } from "@/lib/api/images";
+import { addReaction, removeReaction } from "@/lib/api/messages";
+
+const FALLBACK_MESSAGES: Message[] = [
+  {
+    id: "layout-demo-user-1",
+    sender: "user",
+    content:
+      "Morning! I need you to synthesize the last sprint's experimentation metrics into something story-driven for the exec readout. Call out the lifts we saw on the onboarding flows and highlight anything that might spook finance about burn. Give me specific numbers so I can copy them straight into the deck.",
+    metadata: {
+      createdAt: "2024-06-10T14:18:00Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-1",
+    sender: "ai",
+    content:
+      "Absolutely. Over the last seven days, blended win rate rose 6.2% while latency decreased 14.3%, so we are finally under the two-second mark across the board. The onboarding control lost to the variation on activation, but only by 0.7%, so I would call that statistically neutral. I can group the highlights into a narrative around faster answers, cleaner guardrails, and a clear finance-friendly cost reduction if that helps with your slides.",
+    metadata: {
+      modelName: "Qwen 2.5 72B",
+      providerName: "Alibaba Cloud",
+      createdAt: "2024-06-10T14:18:12Z",
+    },
+  },
+  {
+    id: "layout-demo-user-2",
+    sender: "user",
+    content:
+      "Perfect. While you are at it, audit the finance summarizer persona because the PMs keep pinging me about volatility in the valuation scenarios. I want at least two concrete transcripts we can use as pull quotes, plus a short list of gaps that need follow-up work this sprint. Prioritize anything that would land poorly in front of the CFO.",
+    metadata: {
+      createdAt: "2024-06-10T14:19:05Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-2",
+    sender: "ai",
+    content:
+      "On it. Finance summarizer accuracy dipped 3.5%, almost entirely on long-horizon equity dilution cases where the prompt failed to pin the vesting schedule. I pulled two transcripts showing the issue and added inline annotations so you can drop screenshots into the deck. To stabilize it, we either expand the conditioning window by 15% or ship the pending retrieval rules; I penciled both options into the action plan.",
+    metadata: {
+      modelName: "Claude 3 Opus",
+      providerName: "Anthropic",
+      createdAt: "2024-06-10T14:19:34Z",
+    },
+  },
+  {
+    id: "layout-demo-user-3",
+    sender: "user",
+    content:
+      "Great, thanks. Last piece: draft a forward-looking blurb that sets expectations for the multi-model routing pilot kicking off next week. I need language that balances optimism with a clear ask for headcount so we can actually run the vendor comparison. Think of it like the closer slide before the appendix.",
+    metadata: {
+      createdAt: "2024-06-10T14:20:11Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-3",
+    sender: "ai",
+    content:
+      "Done. The closer slide now tees up the routing pilot as the fastest path to lower response times without sacrificing domain accuracy, ending with a specific ask for one additional applied scientist and a shared infra block. I also left a note suggesting an appendix table that compares vendor SLAs and token pricing so you can defend the investment if procurement raises eyebrows. Ready for any final polish whenever you are.",
+    metadata: {
+      modelName: "Gemini 1.5 Pro",
+      providerName: "Google",
+      createdAt: "2024-06-10T14:20:38Z",
+    },
+  },
+];
 
 interface ChatInterfaceProps {
-  onPinMessage?: (pin: Pin) => Promise<void> | void;
+  onPinMessage?: (pin: PinType) => Promise<void> | void;
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
   messages?: Message[];
   setMessages?: (
@@ -77,33 +161,169 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  const [isAtTop, setIsAtTop] = useState(true);
   const [referencedMessage, setReferencedMessage] = useState<Message | null>(null);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [showPinDropdown, setShowPinDropdown] = useState(false);
+  const [attachments, setAttachments] = useState<Array<{id: string; type: 'pdf' | 'image'; name: string; url: string; isUploading?: boolean; uploadProgress?: number}>>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showLeftScrollButton, setShowLeftScrollButton] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Temporary test attachments - remove later
+  useEffect(() => {
+    // Add initial attachments with uploading state
+    setAttachments([
+      {id: '1', type: 'pdf', name: 'Project_Requirements_Document.pdf', url: '/test.pdf', isUploading: true, uploadProgress: 0},
+      {id: '2', type: 'pdf', name: 'Technical_Specifications.pdf', url: '/test2.pdf'},
+      {id: '3', type: 'image', name: 'Screenshot.png', url: 'https://picsum.photos/200/200?random=1', isUploading: true, uploadProgress: 0},
+      {id: '4', type: 'image', name: 'Chart.jpg', url: 'https://picsum.photos/200/200?random=2'},
+      {id: '5', type: 'pdf', name: 'Meeting_Notes.pdf', url: '/test3.pdf'},
+      {id: '6', type: 'image', name: 'Diagram.png', url: 'https://picsum.photos/200/200?random=3'},
+      {id: '7', type: 'pdf', name: 'API_Documentation.pdf', url: '/test4.pdf'},
+      {id: '8', type: 'image', name: 'Mockup.jpg', url: 'https://picsum.photos/200/200?random=4'},
+      {id: '9', type: 'pdf', name: 'User_Research_Report.pdf', url: '/test5.pdf'},
+      {id: '10', type: 'image', name: 'Wireframe.png', url: 'https://picsum.photos/200/200?random=5'},
+      {id: '11', type: 'pdf', name: 'Sprint_Planning.pdf', url: '/test6.pdf'},
+      {id: '12', type: 'image', name: 'Analytics.jpg', url: 'https://picsum.photos/200/200?random=6'},
+      {id: '13', type: 'pdf', name: 'Architecture_Design.pdf', url: '/test7.pdf'},
+      {id: '14', type: 'image', name: 'Prototype.png', url: 'https://picsum.photos/200/200?random=7'},
+    ]);
+    
+    // Simulate upload progress for first PDF and first image
+    const interval = setInterval(() => {
+      setAttachments(prev => prev.map(att => {
+        if ((att.id === '1' || att.id === '3') && att.isUploading) {
+          const newProgress = (att.uploadProgress || 0) + 10;
+          if (newProgress >= 100) {
+            return { ...att, isUploading: false, uploadProgress: 100 };
+          }
+          return { ...att, uploadProgress: newProgress };
+        }
+        return att;
+      }));
+    }, 300);
+    
+    // Force scroll button to show for testing
+    setTimeout(() => setShowScrollButton(true), 100);
+    
+    // Cleanup interval after upload completes
+    setTimeout(() => clearInterval(interval), 3500);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Close attach menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target as Node)) {
+        setShowAttachMenu(false);
+      }
+    };
+    if (showAttachMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAttachMenu]);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
+  const qwenAvatarUrl = "/Qwen.svg";
   const resolveModelAvatar = (modelOverride?: AIModel | null): MessageAvatar => {
     if (modelOverride) {
       const hintParts = [modelOverride.modelName, modelOverride.companyName].filter(Boolean);
       return {
-        avatarUrl: getModelIcon(modelOverride.modelName || modelOverride.companyName),
+        avatarUrl: getModelIcon(
+          modelOverride.companyName,
+          modelOverride.modelName
+        ),
         avatarHint: hintParts.join(" ").trim(),
       };
     }
     return {
-      avatarUrl: defaultAiAvatar?.imageUrl,
-      avatarHint: defaultAiAvatar?.imageHint,
+      avatarUrl: defaultAiAvatar?.imageUrl ?? qwenAvatarUrl,
+      avatarHint: defaultAiAvatar?.imageHint ?? "AI model",
     };
   };
+  const resolveAvatarFromMetadata = (message: Message): MessageAvatar | null => {
+    if (message.sender !== "ai") return null;
+    const provider = message.metadata?.providerName || null;
+    const modelName = message.metadata?.modelName || null;
+    if (!provider && !modelName) return null;
+    const hintParts = [modelName, provider].filter(Boolean);
+    return {
+      avatarUrl: getModelIcon(provider, modelName),
+      avatarHint: hintParts.join(" ").trim() || undefined,
+    };
+  };
+
+  const handleReact = async (message: Message, reaction: string | null) => {
+    if (message.sender !== "ai") return;
+    const chatId = layoutContext?.activeChatId;
+    const messageId = message.chatMessageId || message.id;
+    if (!chatId || !messageId) return;
+
+    const current = message.metadata?.userReaction || null;
+    const isRemoving = reaction === null || current === reaction;
+
+    try {
+      if (isRemoving) {
+        await removeReaction({ chatId, messageId, csrfToken });
+      } else {
+        await addReaction({ chatId, messageId, reaction: reaction as any, csrfToken });
+      }
+
+      setMessages((prev = []) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                metadata: {
+                  ...m.metadata,
+                  userReaction: isRemoving ? null : reaction,
+                },
+              }
+            : m
+        ),
+        chatId
+      );
+    } catch (error) {
+      console.error("Reaction failed", error);
+      toast({
+        title: "Reaction failed",
+        description:
+          error instanceof Error ? error.message : "Unable to update reaction.",
+        variant: "destructive",
+      });
+    }
+  };
   const isMobile = useIsMobile();
+  // Prevent hydration mismatch: don't render until isMobile is known
+  if (typeof isMobile === "undefined") {
+    return null;
+  }
   const { toast } = useToast();
   const [isResponding, setIsResponding] = useState(false);
   const layoutContext = useContext(AppLayoutContext);
+  const isUsingFallbackMessages =
+    messages.length === 0 && !layoutContext?.activeChatId;
+  const displayMessages = isUsingFallbackMessages ? FALLBACK_MESSAGES : messages;
   const { user, csrfToken } = useAuth();
+  const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
+  const pinsById = useMemo(() => {
+    const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
+    return new Map<string, PinType>(entries as [string, PinType][]);
+  }, [layoutContext?.pins]);
+  const getCsrfToken = () => {
+    if (csrfToken) return csrfToken;
+    if (typeof document === "undefined") return null;
+    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  };
 
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
@@ -115,9 +335,16 @@ export function ChatInterface({
   const [isRegeneratingResponse, setIsRegeneratingResponse] = useState(false);
   const [isChatDeleteDialogOpen, setIsChatDeleteDialogOpen] = useState(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
-  const activeChatBoard = layoutContext?.chatBoards.find(
-    (board) => board.id === layoutContext?.activeChatId
-  );
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadSourceUrl, setUploadSourceUrl] = useState("");
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const composerPlaceholder = selectedModel
+    ? "Let's Play..."
+    : "Choose a model to start chatting";
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -180,8 +407,9 @@ export function ChatInterface({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
+      const token = getCsrfToken();
+      if (token) {
+        headers["X-CSRFToken"] = token;
       }
 
       const payload: Record<string, unknown> = {
@@ -510,7 +738,7 @@ export function ChatInterface({
     }
   };
 
-  const handleSelectPin = (pin: Pin) => {
+  const handleSelectPin = (pin: PinType) => {
     const pinLabel = pin.text.slice(0, 50) || pin.id;
 
     // Remove the trailing @ from input
@@ -530,9 +758,173 @@ export function ChatInterface({
     setMentionedPins(prev => prev.filter(mp => mp.id !== pinId));
   };
 
-  const handlePromptClick = (prompt: string) => {
-    setInput(prompt);
-    textareaRef.current?.focus();
+  const handleOpenUploadDialog = () => {
+    if (!layoutContext?.activeChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before uploading a document.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleUploadDocument = async () => {
+    if (!layoutContext?.activeChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before uploading a document.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!uploadFile) {
+      toast({
+        title: "Choose a file",
+        description: "Select a document to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingDocument(true);
+    try {
+      const result = await uploadDocument({
+        file: uploadFile,
+        chatId: layoutContext.activeChatId,
+        sourceUrl: uploadSourceUrl || undefined,
+        csrfToken,
+      });
+      toast({
+        title: "Document uploaded",
+        description:
+          result.message ||
+          `Saved as ${result.documentId ?? "document"}${
+            result.fileLink ? ` (${result.fileLink})` : ""
+          }`,
+      });
+      setIsUploadDialogOpen(false);
+      setUploadFile(null);
+      setUploadSourceUrl("");
+    } catch (error) {
+      console.error("Document upload failed", error);
+      toast({
+        title: "Upload failed",
+        description:
+          error instanceof Error ? error.message : "Unable to upload document.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleOpenImageDialog = () => {
+    if (!layoutContext?.activeChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before generating an image.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsImageDialogOpen(true);
+  };
+
+  const handleGenerateImage = async () => {
+    const targetChatId = layoutContext?.activeChatId;
+    const trimmedPrompt = imagePrompt.trim();
+    if (!targetChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before generating an image.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedPrompt) {
+      toast({
+        title: "Enter a prompt",
+        description: "Add a short description for the image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    const requestAvatar = resolveModelAvatar(selectedModel);
+    const imageMessageId = `img-${Date.now()}`;
+
+    // Optimistic placeholder while the image is generating
+    setMessages(
+      (prev = []) => [
+        ...prev,
+        {
+          id: imageMessageId,
+          sender: "ai",
+          content: `Generating image: ${trimmedPrompt}`,
+          avatarUrl: requestAvatar.avatarUrl,
+          avatarHint: requestAvatar.avatarHint,
+          isLoading: true,
+        },
+      ],
+      targetChatId
+    );
+
+    try {
+      const { imageUrl } = await generateImage({
+        prompt: trimmedPrompt,
+        chatId: targetChatId,
+        csrfToken,
+      });
+
+      setMessages(
+        (prev = []) =>
+          prev.map((msg) =>
+            msg.id === imageMessageId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  content: trimmedPrompt,
+                  imageUrl,
+                }
+              : msg
+          ),
+        targetChatId
+      );
+      toast({
+        title: "Image ready",
+        description: "Added to the conversation.",
+      });
+      setIsImageDialogOpen(false);
+      setImagePrompt("");
+    } catch (error) {
+      console.error("Image generation failed", error);
+      setMessages(
+        (prev = []) =>
+          prev.map((msg) =>
+            msg.id === imageMessageId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  content:
+                    error instanceof Error
+                      ? error.message
+                      : "Unable to generate image.",
+                }
+              : msg
+          ),
+        targetChatId
+      );
+      toast({
+        title: "Image generation failed",
+        description:
+          error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
   };
 
   const handleReference = (message: Message) => {
@@ -550,23 +942,7 @@ export function ChatInterface({
       const isAtBottom =
         viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
       setIsScrolledToBottom(isAtBottom);
-      const isAtTopFlag = viewport.scrollTop === 0;
-      setIsAtTop(isAtTopFlag);
     }
-  };
-
-  const scrollToBottom = () => {
-    if (!scrollViewportRef.current) return;
-    scrollViewportRef.current.scrollTo({
-      top: scrollViewportRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-    setIsScrolledToBottom(true);
-  };
-
-  const scrollToTop = () => {
-    if (!scrollViewportRef.current) return;
-    scrollViewportRef.current.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handlePin = async (message: Message) => {
@@ -595,7 +971,7 @@ export function ChatInterface({
         }
       } else {
         if (onPinMessage) {
-          const newPin: Pin = {
+          const newPin: PinType = {
             id: identifier,
             messageId: identifier,
             text: message.content,
@@ -635,7 +1011,7 @@ export function ChatInterface({
       });
       return;
     }
-    const allMessages = messages || [];
+    const allMessages = displayMessages;
     const aiIndex = allMessages.findIndex((msg) => msg.id === aiMessage.id);
     if (aiIndex === -1) {
       toast({
@@ -774,8 +1150,9 @@ export function ChatInterface({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
+      const token = getCsrfToken();
+      if (token) {
+        headers["X-CSRFToken"] = token;
       }
 
       const response = await fetch(DELETE_MESSAGE_ENDPOINT(chatId, identifier), {
@@ -843,8 +1220,9 @@ export function ChatInterface({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
+      const token = getCsrfToken();
+      if (token) {
+        headers["X-CSRFToken"] = token;
       }
 
       const response = await fetch(CHAT_DETAIL_ENDPOINT(chatId), {
@@ -907,164 +1285,116 @@ export function ChatInterface({
   const getMessagesToDelete = (message: Message) => {
     if (!message) return [];
 
-    // Find the index of the message to delete
-    const messageIndex = messages.findIndex((m) => m.id === message.id);
+    const messageIndex = displayMessages.findIndex((m) => m.id === message.id);
     if (messageIndex === -1) return [];
 
-    // All messages from this one onwards will be deleted
-    return messages.slice(messageIndex);
+    return displayMessages.slice(messageIndex);
   };
 
-  const isSendDisabled = !selectedModel || !input.trim() || isResponding;
-
   return (
-    <div className="flex flex-col flex-1 bg-background overflow-hidden">
-      <div className="border-b border-slate-200 bg-white/70 backdrop-blur-sm px-4 py-4 sm:px-6 lg:px-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Active Chat
-          </p>
-          <p className="text-base font-semibold text-card-foreground">
-            {activeChatBoard?.name ?? "Untitled chat"}
-          </p>
-          {activeChatBoard?.time && (
-            <p className="text-xs text-muted-foreground">
-              Last activity {activeChatBoard.time}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={() => setIsChatDeleteDialogOpen(true)}
-            disabled={!layoutContext?.activeChatId || isDeletingChat}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Delete Chat
-          </Button>
-        </div>
-      </div>
-      <ScrollArea
-        className="flex-1"
-        viewportRef={scrollViewportRef}
-        onScroll={handleScroll}
-      >
-        <div className="mx-auto w-full max-w-[min(1400px,100%)] space-y-6 px-4 py-4 sm:px-6 lg:px-10">
-          {(messages || []).length === 0 ? (
-            <InitialPrompts onPromptClick={handlePromptClick} />
-          ) : (
-            messages.map((msg) => {
-              // Find the referenced message if this message references one
-              const refMsg = msg.referencedMessageId
-                ? messages.find(m => (m.chatMessageId || m.id) === msg.referencedMessageId)
-                : null;
+    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-[#F5F5F5]">
+      {/* Empty state: centered prompt box */}
+      {displayMessages.length === 0 ? (
+        <section className="flex flex-1 items-center justify-center bg-[#F5F5F5] px-4 py-8">
+          <InitialPrompts userName={user?.name ?? user?.email ?? null} />
+        </section>
+      ) : (
+        <div
+          className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden"
+          ref={scrollViewportRef}
+          onScroll={handleScroll}
+        >
+          <div className="mx-auto w-full max-w-[1280px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
+            <div className="rounded-[32px] border border-transparent bg-[#F5F5F5] p-6 shadow-none">
+              <div className="space-y-3">
+                {displayMessages.map((msg) => {
+                  const refMsg = msg.referencedMessageId
+                    ? displayMessages.find(
+                        (m) => (m.chatMessageId || m.id) === msg.referencedMessageId
+                      )
+                    : null;
+                  const metadataAvatar = resolveAvatarFromMetadata(msg);
+                  const taggedPins =
+                    (msg.metadata?.pinIds || [])
+                      .map((id) => {
+                        const pin = pinsById.get(id);
+                        return pin
+                          ? { id, label: pin.text.slice(0, 80) || id }
+                          : { id, label: id };
+                      })
+                      .filter(Boolean) || [];
+                  const enrichedMessage =
+                    msg.sender === "ai"
+                      ? {
+                          ...msg,
+                          avatarUrl:
+                            msg.avatarUrl ||
+                            metadataAvatar?.avatarUrl ||
+                            getModelIcon(
+                              msg.metadata?.providerName,
+                              msg.metadata?.modelName
+                            ) ||
+                            qwenAvatarUrl,
+                          avatarHint:
+                            msg.avatarHint ||
+                            metadataAvatar?.avatarHint ||
+                            "AI model",
+                        }
+                      : msg;
 
-              return (
-                <ChatMessage
-                  key={msg.id}
-                  message={msg}
-                  isPinned={isMessagePinned(msg)}
-                  onPin={handlePin}
-                  onCopy={handleCopy}
-                  onDelete={handleDeleteRequest}
-                  onResubmit={handleSend}
-                  onRegenerate={msg.sender === "ai" ? handleRegenerateRequest : undefined}
-                  onReference={msg.sender === "ai" ? handleReference : undefined}
-                  referencedMessage={refMsg}
-                  isNewMessage={msg.id === lastMessageId}
-                />
-              );
-            })
-          )}
-        </div>
-      </ScrollArea>
-
-      {(messages || []).length > 0 && (
-        <div className="absolute bottom-24 right-4 flex-col gap-2 hidden md:flex z-10">
-          {!isAtTop && (
-            <Button
-              onClick={scrollToTop}
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m18 15-6-6-6 6" />
-              </svg>
-            </Button>
-          )}
-          {!isScrolledToBottom && (
-            <Button
-              onClick={scrollToBottom}
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </Button>
-          )}
+                return (
+                  <ChatMessage
+                    key={msg.id}
+                    message={enrichedMessage}
+                    isPinned={isMessagePinned(msg)}
+                    onPin={handlePin}
+                    onCopy={handleCopy}
+                    onDelete={handleDeleteRequest}
+                    onResubmit={handleSend}
+                    onRegenerate={
+                      msg.sender === "ai" ? handleRegenerateRequest : undefined
+                    }
+                    onReference={msg.sender === "ai" ? handleReference : undefined}
+                    onReact={msg.sender === "ai" ? handleReact : undefined}
+                    referencedMessage={refMsg}
+                    isNewMessage={msg.id === lastMessageId}
+                    taggedPins={taggedPins}
+                  />
+                );
+              })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      <footer className="shrink-0 border-t bg-white/80 backdrop-blur-sm p-4">
-        {referencedMessage && (
-          <ReferenceBanner
-            referencedMessage={referencedMessage}
-            onClear={handleClearReference}
-          />
-        )}
-        <div className="relative mx-auto w-full max-w-[min(1400px,100%)]">
-          {/* @ Pin Dropdown */}
+      {/* Chat Input Footer */}
+      <footer className="shrink-0 bg-[#F5F5F5] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
+        <div className="relative mx-auto w-full max-w-[1280px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
               ref={dropdownRef}
-              className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-50"
+              className="absolute bottom-full left-0 right-0 z-50 mb-3 max-h-64 overflow-y-auto rounded-2xl border border-[#D9D9D9] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
             >
-              <div className="p-2 border-b bg-slate-50">
-                <p className="text-xs font-medium text-slate-600">Select a pin to mention</p>
+              <div className="border-b border-[#F0F0F0] bg-[#F9F9F9] px-4 py-3 text-left text-xs font-semibold text-[#555555]">
+                Select a pin to mention
               </div>
               {availablePins.map((pin) => (
                 <button
                   key={pin.id}
                   type="button"
                   onClick={() => handleSelectPin(pin)}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                  className="w-full border-b border-[#F5F5F5] px-4 py-3 text-left text-sm hover:bg-[#F8F8F8]"
                 >
-                  <p className="text-sm font-medium text-slate-900 truncate">
+                  <p className="truncate font-medium text-[#1E1E1E]">
                     {pin.text.slice(0, 60) || "Untitled Pin"}
                   </p>
                   {pin.tags && pin.tags.length > 0 && (
-                    <div className="flex gap-1 mt-1.5">
+                    <div className="mt-1 flex gap-1">
                       {pin.tags.slice(0, 3).map((tag, i) => (
                         <span
                           key={i}
-                          className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full"
+                          className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#767676]"
                         >
                           {tag}
                         </span>
@@ -1076,20 +1406,33 @@ export function ChatInterface({
             </div>
           )}
 
-          <div className="relative flex flex-col p-3 rounded-[28px] border border-input/60 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.08)] focus-within:ring-2 focus-within:ring-ring">
-            {/* Mentioned Pins Chips */}
+          <div 
+            className="rounded-[24px] border border-[#D9D9D9] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]" 
+            style={{ 
+              minHeight: attachments.length > 0 ? '162px' : '90px',
+              transition: 'min-height 0.2s ease'
+            }}
+          >
+            {referencedMessage && (
+              <div className="px-5 pt-4">
+                <ReferenceBanner
+                  referencedMessage={referencedMessage}
+                  onClear={handleClearReference}
+                />
+              </div>
+            )}
             {mentionedPins.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2 px-2">
+              <div className="flex flex-wrap gap-2 px-5 pt-4">
                 {mentionedPins.map((mp) => (
                   <div
                     key={mp.id}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F5] px-3 py-1 text-sm text-[#1E1E1E]"
                   >
-                    <span className="font-medium">@{mp.label}</span>
+                    <span>@{mp.label}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveMention(mp.id)}
-                      className="hover:bg-blue-100 rounded-full p-0.5"
+                      className="rounded-full p-0.5 hover:bg-white"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1098,80 +1441,376 @@ export function ChatInterface({
               </div>
             )}
 
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && showPinDropdown) {
-                  e.preventDefault();
-                  setShowPinDropdown(false);
-                } else if (e.key === "Enter" && !e.shiftKey && !isResponding && !showPinDropdown) {
-                  e.preventDefault();
-                  handleSend(input);
-                }
-              }}
-              placeholder={
-                selectedModel ? "Type @ to mention pins..." : "Select a model to start chatting"
-              }
-              className="pr-12 text-base resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-2 min-h-[48px]"
-              rows={1}
-              disabled={isResponding}
-            />
-            <div className="flex items-center justify-between mt-1 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="ghost" className="rounded-[25px] h-8 px-3">
-                  <Library className="mr-2 h-4 w-4" />
-                  Library
-                </Button>
-                <Select>
-                  <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
-                    <SelectValue placeholder="Choose Persona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="researcher">Researcher</SelectItem>
-                    <SelectItem value="writer">Creative Writer</SelectItem>
-                    <SelectItem value="technical">Technical Expert</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select>
-                  <SelectTrigger className="rounded-[25px] bg-transparent w-auto gap-2 h-8 px-3 border-0">
-                    <SelectValue placeholder="Add Context" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="file">From File</SelectItem>
-                    <SelectItem value="url">From URL</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full"
+            {attachments.length > 0 && (
+              <div className="relative px-5 pt-4">
+                <div 
+                  ref={attachmentScrollRef}
+                  className="flex gap-2 overflow-x-auto scrollbar-hidden"
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    setShowLeftScrollButton(el.scrollLeft > 10);
+                    setShowScrollButton(el.scrollWidth > el.clientWidth && el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+                  }}
                 >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full"
-                >
-                  <Mic className="h-4 w-4" />
-                </Button>
+                  {attachments.map((attachment) => (
+                    attachment.type === 'pdf' ? (
+                      <div
+                        key={attachment.id}
+                        className="group relative flex-shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
+                        style={{ width: '180.3px', height: '60px' }}
+                      >
+                        {attachment.isUploading && (
+                          <div 
+                            className="absolute bottom-0 left-0 h-1 bg-[#22C55E] transition-all duration-300"
+                            style={{ width: `${attachment.uploadProgress || 0}%` }}
+                          />
+                        )}
+                        <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                          <FileText className="h-5 w-5 text-[#666666]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-xs font-medium text-[#1E1E1E]">{attachment.name}</p>
+                          <p className="text-[10px] text-[#888888]">
+                            {attachment.isUploading ? `Uploading... ${attachment.uploadProgress || 0}%` : 'PDF Document'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                        >
+                          <X className="h-3 w-3 text-[#666666]" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        key={attachment.id}
+                        className="group relative flex-shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
+                        style={{ width: '60px', height: '60px', padding: '1.08px' }}
+                      >
+                        <img 
+                          src={attachment.url} 
+                          alt={attachment.name}
+                          className={`w-full h-full object-cover rounded-[10px] transition-all duration-300 ${attachment.isUploading ? 'blur-sm' : 'blur-0'}`}
+                        />
+                        {attachment.isUploading && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-[10px]">
+                            <svg className="w-8 h-8" viewBox="0 0 36 36">
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="16"
+                                fill="none"
+                                stroke="#22C55E"
+                                strokeWidth="3"
+                                strokeDasharray={`${(attachment.uploadProgress || 0) * 100.48 / 100}, 100.48`}
+                                strokeLinecap="round"
+                                transform="rotate(-90 18 18)"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                        >
+                          <X className="h-3 w-3 text-[#666666]" />
+                        </button>
+                      </div>
+                    )
+                  ))}
+                </div>
+                {showLeftScrollButton && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (attachmentScrollRef.current) {
+                        attachmentScrollRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+                      }
+                    }}
+                    //left caret for attached files
+                    className="absolute left-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-[#666666]" />
+                  </button>
+                )}
+                {showScrollButton && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (attachmentScrollRef.current) {
+                        attachmentScrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+                      }
+                    }}
+                    //right caret for attached files
+                    className="absolute right-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4 text-[#666666]" />
+                  </button>
+                )}
               </div>
-              <Button
-                size={isMobile ? "icon" : "lg"}
-                onClick={() => handleSend(input)}
-                disabled={isSendDisabled}
-                className="bg-primary text-primary-foreground h-9 rounded-[25px] px-4 flex items-center gap-2"
-                title={!selectedModel ? "Select a model to send a message" : undefined}
-              >
-                {!isMobile && "Send Message"}
-                <Send className="h-4 w-4" />
-              </Button>
+            )}
+
+            <div className="flex flex-col gap-1.5 px-5 py-4">
+              {/* Text input area */}
+              <div className="w-full">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && showPinDropdown) {
+                      e.preventDefault();
+                      setShowPinDropdown(false);
+                    } else if (
+                      e.key === "Enter" &&
+                      !e.shiftKey &&
+                      !isResponding &&
+                      !showPinDropdown
+                    ) {
+                      e.preventDefault();
+                      handleSend(input);
+                    }
+                  }}
+                  placeholder="Ask anything... Hit '@' to add in a pin"
+                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  rows={1}
+                  disabled={isResponding}
+                />
+              </div>
+
+              {/* Action buttons row */}
+              <div className="flex items-center gap-3">
+                <div className="relative" ref={attachMenuRef}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                  >
+                    <Plus className="h-5 w-5 text-[#555555]" />
+                  </Button>
+                  
+                  {showAttachMenu && (
+                    <div 
+                      className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
+                      style={{ width: '160px' }}
+                    >
+                      <button
+                        onClick={() => {
+                          handleOpenUploadDialog();
+                          setShowAttachMenu(false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
+                        <span>Attach Files</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          toast({ title: "Attach Context", description: "Coming soon!" });
+                          setShowAttachMenu(false);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                      >
+                        <ScanText className="h-3.5 w-3.5 text-[#666666]" />
+                        <span>Attach Context</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  disabled
+                  className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
+                  title="Choose Persona (Coming Soon)"
+                >
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
+                    <UserPlus className="h-3 w-3" />
+                  </div>
+                  <span>Choose Persona</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+
+                <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
+                <span className="text-sm font-medium text-[#888888]">
+                  {isTokenUsageLoading ? "--" : `${usagePercent}%`}
+                </span>
+                {isResponding ? (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      // TODO: Implement stop generation logic
+                      setIsResponding(false);
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
+                    title="Stop generation"
+                  >
+                    <Square className="h-[18px] w-[18px] fill-white" />
+                  </Button>
+                ) : input.trim() ? (
+                  <TooltipProvider>
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          onClick={() => handleSend(input)}
+                          disabled={!selectedModel}
+                          className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
+                        >
+                          <Send className="h-[18px] w-[18px]" />
+                        </Button>
+                      </TooltipTrigger>
+                      {!selectedModel && (
+                        <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
+                          Please select a model to start the conversation
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      // TODO: Implement voice input logic
+                      toast({
+                        title: "Voice input",
+                        description: "Voice input feature coming soon!",
+                      });
+                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
+                    title="Voice input"
+                  >
+                    {/* mic icon button  */}
+                    <Mic className="h-[25px] w-[25px]" strokeWidth={2} style={{ minWidth: '18px', minHeight: '20px' }} />
+                  </Button>
+                )}
+                </div>
+              </div>
             </div>
+          </div>
+          
+          <div className="mt-1 text-center text-xs text-[#888888]">
+            Models can make mistakes. Check important information.
           </div>
         </div>
       </footer>
+
+      <Dialog
+        open={isUploadDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !uploadingDocument) {
+            setIsUploadDialogOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="rounded-[25px]">
+          <DialogHeader>
+            <DialogTitle>Upload document</DialogTitle>
+            <DialogDescription>
+              Attach a file to this chat so the backend can use it for RAG.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="chat-upload-file">File</Label>
+              <Input
+                id="chat-upload-file"
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls"
+                onChange={(event) =>
+                  setUploadFile(event.target.files?.item(0) ?? null)
+                }
+              />
+              {uploadFile && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {uploadFile.name}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="chat-upload-source">Source URL (optional)</Label>
+              <Input
+                id="chat-upload-source"
+                placeholder="https://example.com/document"
+                value={uploadSourceUrl}
+                onChange={(e) => setUploadSourceUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="rounded-[25px]"
+              onClick={() => setIsUploadDialogOpen(false)}
+              disabled={uploadingDocument}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-[25px]"
+              onClick={handleUploadDocument}
+              disabled={uploadingDocument}
+            >
+              {uploadingDocument && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {uploadingDocument ? "Uploading..." : "Upload"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isImageDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !isGeneratingImage) {
+            setIsImageDialogOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="rounded-[25px]">
+          <DialogHeader>
+            <DialogTitle>Generate image</DialogTitle>
+            <DialogDescription>
+              Send an image generation request tied to this chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="image-prompt">Prompt</Label>
+              <Textarea
+                id="image-prompt"
+                rows={3}
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder="e.g., astronaut riding a horse"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="rounded-[25px]"
+              onClick={() => setIsImageDialogOpen(false)}
+              disabled={isGeneratingImage}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-[25px]"
+              onClick={handleGenerateImage}
+              disabled={isGeneratingImage}
+            >
+              {isGeneratingImage && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isGeneratingImage ? "Generating..." : "Generate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!regenerationState}
@@ -1228,24 +1867,24 @@ export function ChatInterface({
           }
         }}
       >
-        <AlertDialogContent className="rounded-[25px]">
+        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete entire chat?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-black">Delete entire chat?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#6B7280]">
               This action removes every message in this conversation. It cannot
               be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setIsChatDeleteDialogOpen(false)}
               disabled={isDeletingChat}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-destructive hover:bg-destructive/90"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
               onClick={handleConfirmChatDelete}
               disabled={isDeletingChat}
             >
@@ -1259,10 +1898,10 @@ export function ChatInterface({
         open={!!messageToDelete}
         onOpenChange={(open) => !open && setMessageToDelete(null)}
       >
-        <AlertDialogContent className="rounded-[25px]">
+        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Message?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-black">Delete Message?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#6B7280]">
               {messageToDelete && (() => {
                 const messagesToDelete = getMessagesToDelete(messageToDelete);
                 const count = messagesToDelete.length;
@@ -1279,7 +1918,7 @@ export function ChatInterface({
 
               if (pinnedMessages.length > 0) {
                 return (
-                  <div className="font-semibold text-destructive mt-2 text-sm">
+                  <div className="font-semibold text-red-600 mt-2 text-sm">
                     ⚠️ {pinnedMessages.length} pinned message(s) will be affected.
                   </div>
                 );
@@ -1289,13 +1928,13 @@ export function ChatInterface({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setMessageToDelete(null)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-destructive hover:bg-destructive/90"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
               onClick={confirmDelete}
             >
               Delete

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { ModelSelectorDialog } from "./model-selector-dialog";
 import { Button } from "../ui/button";
 import type { AIModel } from "@/types/ai-model";
@@ -22,17 +22,29 @@ export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorPro
 
   return (
     <>
-      <Button variant="outline" className="w-auto gap-2" onClick={() => setIsDialogOpen(true)}>
-        <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+      <button
+        className="model-selector-trigger"
+        onClick={() => setIsDialogOpen(true)}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isDialogOpen}
+      >
         {selectedModel && (
-          <img
-            src={getModelIcon(selectedModel.companyName)}
-            alt={`${selectedModel.modelName} icon`}
-            className="h-5 w-5"
-          />
+          <span className="model-selector-icon">
+            <img
+              src={getModelIcon(
+                selectedModel?.companyName,
+                selectedModel?.modelName
+              )}
+              alt="Model icon"
+            />
+          </span>
         )}
-        <span>{selectedModel ? selectedModel.modelName : "Select a model"}</span>
-      </Button>
+        <span className="model-selector-label">
+          {selectedModel ? selectedModel.modelName : "Select model"}
+        </span>
+        <ChevronDown className="model-selector-caret" strokeWidth={2} />
+      </button>
       <ModelSelectorDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}

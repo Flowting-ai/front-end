@@ -15,6 +15,12 @@ export interface BackendChat {
   isStarred?: boolean;
   pin_count?: number;
   pinCount?: number;
+  metadata?: {
+    messageCount?: number;
+    lastMessageAt?: string | null;
+    pinCount?: number;
+    [key: string]: unknown;
+  };
 }
 
 export interface BackendMessage {

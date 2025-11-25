@@ -1,0 +1,58 @@
+.frameParent {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-size: 28px;
+  color: #1e1e1e;
+  font-family: "Clash Grotesk Variable", "Inter", sans-serif;
+  gap: 48px;
+  padding: 32px 16px;
+}
+
+.frameGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.frameChild {
+  width: 142px;
+  height: 133px;
+  border-radius: 84px;
+  object-fit: cover;
+}
+
+.frameItem {
+  height: 37px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -60px;
+}
+
+.whatWouldYouLikeToExploreParent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.whatWouldYou {
+  line-height: 129%;
+}
+
+.whatWouldYou span {
+  font-weight: 600;
+}
+
+.yourIntelligentAssistant {
+  width: 326px;
+  font-size: 14px;
+  line-height: 129%;
+  font-family: "Inter", sans-serif;
+  color: #333;
+}
