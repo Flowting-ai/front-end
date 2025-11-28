@@ -1,6 +1,6 @@
 "use client";
 
-import { CHAT_PINS_ENDPOINT, PIN_DETAIL_ENDPOINT, PIN_FOLDERS_ENDPOINT, PINS_ENDPOINT } from "@/lib/config";
+import { CHAT_PINS_ENDPOINT, PIN_DETAIL_ENDPOINT, PIN_FOLDERS_ENDPOINT, PINS_ENDPOINT, PIN_FOLDER_IDS_ENDPOINT } from "@/lib/config";
 import { apiFetch } from "./client";
 
 export interface BackendPin {
@@ -104,6 +104,13 @@ export interface PinFolder {
   isDefault?: boolean;
   created_at?: string;
   updated_at?: string;
+  pins?: BackendPin[];
+}
+
+export interface PinFolderIds {
+  id: string;
+  name: string;
+  pinIds: string[];
 }
 
 export async function fetchPinFolders(csrfToken?: string | null): Promise<PinFolder[]> {
@@ -113,7 +120,41 @@ export async function fetchPinFolders(csrfToken?: string | null): Promise<PinFol
   }
   const data = await response.json();
   if (!Array.isArray(data)) return [];
-  return data as PinFolder[];
+
+  return data.map((folder: PinFolder) => {
+    const folderId = folder.id;
+    const pinsArray: BackendPin[] = Array.isArray(folder.pins)
+      ? folder.pins
+      : [];
+    const pinsWithFolder =
+      pinsArray.length > 0
+        ? pinsArray.map((pin) => ({
+            ...pin,
+            folderId: pin.folderId ?? pin.folder_id ?? folderId ?? null,
+            folderName: pin.folderName ?? folder.name ?? null,
+          }))
+        : [];
+    return {
+      ...folder,
+      pins: pinsWithFolder,
+    };
+  });
+}
+
+export async function fetchPinFolderIds(csrfToken?: string | null): Promise<PinFolderIds[]> {
+  const response = await apiFetch(PIN_FOLDER_IDS_ENDPOINT, { method: "GET" }, csrfToken);
+  if (!response.ok) {
+    throw new Error("Failed to load pin folder ids");
+  }
+  const data = await response.json();
+  if (!Array.isArray(data)) return [];
+  return data.map((item) => ({
+    id: String(item.id),
+    name: String(item.name ?? ""),
+    pinIds: Array.isArray(item.pinIds ?? item.pin_ids)
+      ? (item.pinIds ?? item.pin_ids).map((id: unknown) => String(id))
+      : [],
+  }));
 }
 
 export async function createPinFolder(name: string, csrfToken?: string | null): Promise<PinFolder> {

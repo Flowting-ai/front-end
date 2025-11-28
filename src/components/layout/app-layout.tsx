@@ -44,7 +44,7 @@ import {
   fetchAllPins,
   type BackendPin,
 } from "@/lib/api/pins";
-import { CHAT_DETAIL_ENDPOINT } from "@/lib/config";
+import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { extractThinkingContent } from "@/lib/thinking";
 
@@ -56,6 +56,8 @@ export type ChatMetadata = {
   messageCount?: number | null;
   lastMessageAt?: string | null;
   pinCount?: number | null;
+  starred?: boolean | null;
+  starMessageId?: string | null;
 };
 
 export type ChatBoard = {
@@ -63,6 +65,7 @@ export type ChatBoard = {
   name: string;
   time: string;
   isStarred: boolean;
+  starMessageId?: string | null;
   pinCount: number;
   metadata?: ChatMetadata;
 };
@@ -136,12 +139,32 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
       ? (chat.metadata as ChatMetadata)
       : undefined;
+  const starMessageId =
+    (chat as { starMessageId?: unknown }).starMessageId ??
+    (chat as { star_message_id?: unknown }).star_message_id ??
+    (metadata as { starMessageId?: unknown })?.starMessageId ??
+    (metadata as { star_message_id?: unknown })?.star_message_id ??
+    null;
+  const starredFromMeta =
+    (metadata as { starred?: boolean | null })?.starred ??
+    (metadata as { isStarred?: boolean | null })?.isStarred ??
+    null;
 
   return {
     id: extractChatId(chat),
     name: chat.title || chat.name || "Untitled Chat",
     time: formatRelativeTime(chat.updated_at || chat.created_at),
-    isStarred: Boolean(chat.is_starred ?? chat.isStarred ?? false),
+    isStarred: Boolean(
+      chat.is_starred ??
+        (chat as { isStarred?: boolean }).isStarred ??
+        (chat as { starred?: boolean }).starred ??
+        starredFromMeta ??
+        false
+    ),
+    starMessageId:
+      starMessageId !== undefined && starMessageId !== null
+        ? String(starMessageId)
+        : undefined,
     pinCount:
       chat.pin_count ??
       chat.pinCount ??
@@ -651,10 +674,36 @@ export default function AppLayout({ children }: AppLayoutProps) {
       const chatId = board.id;
       const nextValue = !board.isStarred;
 
+      const resolveTargetMessageId = () => {
+        if (nextValue) {
+          if (board.starMessageId) return board.starMessageId;
+          const history = chatHistory[chatId] || [];
+          const last = history[history.length - 1];
+          if (last) {
+            return last.chatMessageId ?? last.id;
+          }
+          return null;
+        }
+        return board.starMessageId ?? null;
+      };
+
+      const targetMessageId = resolveTargetMessageId();
+
+      if (nextValue && !targetMessageId) {
+        toast({
+          title: "Star needs a message",
+          description: "Open the chat and star a specific message.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (chatId.startsWith("temp-")) {
         setChatBoards_((prev) =>
           prev.map((item) =>
-            item.id === chatId ? { ...item, isStarred: nextValue } : item
+            item.id === chatId
+              ? { ...item, isStarred: nextValue, starMessageId: targetMessageId ?? undefined }
+              : item
           )
         );
         toast({
@@ -669,16 +718,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setStarUpdatingChatId(chatId);
       setChatBoards_((prev) =>
         prev.map((item) =>
-          item.id === chatId ? { ...item, isStarred: nextValue } : item
+          item.id === chatId
+            ? { ...item, isStarred: nextValue, starMessageId: nextValue ? targetMessageId ?? undefined : undefined }
+            : item
         )
       );
 
       try {
         const response = await apiFetch(
-          CHAT_DETAIL_ENDPOINT(chatId),
+          CHAT_STAR_ENDPOINT(chatId),
           {
             method: "PATCH",
-            body: JSON.stringify({ is_starred: nextValue }),
+            body: JSON.stringify({
+              messageId: targetMessageId,
+              starred: nextValue,
+            }),
           },
           csrfTokenRef.current
         );

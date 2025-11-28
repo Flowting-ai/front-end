@@ -80,6 +80,11 @@ export function LeftSidebar({
   const pathname = usePathname();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const displayName =
+    (typeof user?.name === "string" && user.name.trim()) ||
+    (typeof user?.username === "string" && user.username) ||
+    (typeof user?.email === "string" && user.email) ||
+    "User";
   
   // Determine if user is on chat board route
   const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
@@ -464,7 +469,7 @@ export function LeftSidebar({
               </Avatar>
               <div className="flex flex-col justify-center">
                 <span className="text-[15px] font-medium text-[#1E1E1E]">
-                  {user?.name || user?.username || user?.email || "User"}
+                  {displayName}
                 </span>
               </div>
             </button>

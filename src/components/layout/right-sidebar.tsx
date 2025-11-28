@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Pin,
+  Pin as PinIcon,
   Search,
   FolderPlus,
   ChevronDown,
@@ -59,6 +59,8 @@ export interface PinType {
   formattedContent?: string | null;
   comments?: string[];
 }
+
+export type Pin = PinType;
 
 interface RightSidebarProps {
   isOpen: boolean;
@@ -472,9 +474,9 @@ export function RightSidebar({
                 />
               );
             })
-          ) : (
+            ) : (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[#dcdcdc] px-6 py-8 text-center text-sm text-[#5a5a5a]">
-              <Pin className="h-8 w-8 text-[#1e1e1e]" />
+              <PinIcon className="h-8 w-8 text-[#1e1e1e]" />
               <p className="text-base font-semibold text-[#1e1e1e]">No pins yet</p>
               <p className="text-sm text-[#5a5a5a]">
                 Pin useful answers or references from your chats to keep them handy for later.

@@ -38,84 +38,6 @@ interface OrganizePinsDialogProps {
   chatBoards?: Array<{ id: string; name: string }>;
 }
 
-const initialFolders: FolderType[] = [
-  { id: "unorganized", name: "Unorganized Pins" },
-  { id: "research", name: "Research" },
-  { id: "work", name: "Work Projects" },
-  { id: "personal", name: "Personal" },
-];
-
-const dummyPins: PinType[] = [
-  {
-    id: "dummy-1",
-    text: "Do Androids Dream of Electric Sheep? is a science fiction novel exploring the nature of humanity and empathy through the story of a bounty hunter tracking down rogue androids.",
-    tags: ["Finance", "Tech", "Sci-fi"],
-    time: new Date(Date.now() - 3600000),
-    chatId: "chat-1",
-    notes: "",
-    comments: [],
-  },
-  {
-    id: "dummy-2",
-    text: "Machine learning algorithms can be categorized into supervised, unsupervised, and reinforcement learning approaches, each with distinct use cases and methodologies.",
-    tags: ["AI", "Tech", "Research"],
-    time: new Date(Date.now() - 7200000),
-    chatId: "chat-2",
-    notes: "",
-    comments: [],
-    folderId: "research",
-  },
-  {
-    id: "dummy-3",
-    text: "The Fibonacci sequence is a mathematical pattern where each number is the sum of the two preceding ones, commonly found in nature and used in various applications.",
-    tags: ["Math", "Science"],
-    time: new Date(Date.now() - 86400000),
-    chatId: "chat-1",
-    notes: "",
-    comments: [],
-  },
-  {
-    id: "dummy-4",
-    text: "Project deadline for Q4 deliverables is December 15th. Need to coordinate with design team for final mockups and development resources.",
-    tags: ["Work", "Planning"],
-    time: new Date(Date.now() - 10800000),
-    chatId: "chat-3",
-    notes: "",
-    comments: [],
-    folderId: "work",
-  },
-  {
-    id: "dummy-5",
-    text: "Remember to book vacation flights for summer trip to Japan. Check for cherry blossom season timing and accommodation options in Tokyo and Kyoto.",
-    tags: ["Travel", "Personal"],
-    time: new Date(Date.now() - 14400000),
-    chatId: "chat-4",
-    notes: "",
-    comments: [],
-    folderId: "personal",
-  },
-  {
-    id: "dummy-6",
-    text: "Neural networks use backpropagation to adjust weights during training, optimizing the model's performance on specific tasks through gradient descent.",
-    tags: ["AI", "Deep Learning"],
-    time: new Date(Date.now() - 21600000),
-    chatId: "chat-2",
-    notes: "",
-    comments: [],
-    folderId: "research",
-  },
-  {
-    id: "dummy-7",
-    text: "Review quarterly budget allocations and prepare presentation for stakeholder meeting next week. Focus on cost optimization strategies.",
-    tags: ["Finance", "Work"],
-    time: new Date(Date.now() - 28800000),
-    chatId: "chat-5",
-    notes: "",
-    comments: [],
-    folderId: "work",
-  },
-];
-
 export function OrganizePinsDialog({
   isOpen,
   onClose,
@@ -125,7 +47,25 @@ export function OrganizePinsDialog({
   onCreateFolder,
   chatBoards = [],
 }: OrganizePinsDialogProps) {
-  const [folders, setFolders] = useState<FolderType[]>(foldersProp?.length ? foldersProp : initialFolders);
+  const buildInitialFolders = () => {
+    const unique: Record<string, FolderType> = {
+      unorganized: { id: "unorganized", name: "Unorganized" },
+    };
+    (foldersProp ?? []).forEach((folder) => {
+      unique[folder.id] = folder;
+    });
+    initialPins.forEach((pin) => {
+      if (pin.folderId) {
+        unique[pin.folderId] = unique[pin.folderId] ?? {
+          id: pin.folderId,
+          name: pin.folderName || "Folder",
+        };
+      }
+    });
+    return Object.values(unique);
+  };
+
+  const [folders, setFolders] = useState<FolderType[]>(buildInitialFolders);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
@@ -134,16 +74,19 @@ export function OrganizePinsDialog({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState<string>("");
   const [selectedFolderId, setSelectedFolderId] = useState<string>("unorganized");
-  
-  // Use dummy pins if no real pins exist
-  const pinsToDisplay = initialPins.length > 0 ? initialPins : dummyPins;
+
+  // Always use real pins; if none, show empty state
+  const pinsToDisplay = initialPins;
 
   const pinsByFolder = useMemo(() => {
     const grouped: Record<string, PinType[]> = {};
     folders.forEach(folder => {
       grouped[folder.id] = [];
     });
-    
+    if (!grouped["unorganized"]) {
+      grouped["unorganized"] = [];
+    }
+
     pinsToDisplay.forEach(pin => {
       const folderId = pin.folderId || "unorganized";
       if (grouped[folderId]) {
@@ -160,9 +103,7 @@ export function OrganizePinsDialog({
   const selectedFolderPins = pinsByFolder[selectedFolderId] || [];
 
   const handlePinUpdate = (updatedPin: PinType) => {
-    if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.map(p => p.id === updatedPin.id ? updatedPin : p));
-    }
+    onPinsUpdate(initialPins.map(p => p.id === updatedPin.id ? updatedPin : p));
   };
 
   const handleRemoveTag = (pinId: string, tagIndex: number) => {
@@ -174,14 +115,7 @@ export function OrganizePinsDialog({
   };
 
   const handleDeletePin = (pinId: string) => {
-    if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.filter(p => p.id !== pinId));
-    } else {
-      // For dummy pins, create new array and replace contents to trigger re-render
-      const remainingPins = dummyPins.filter(p => p.id !== pinId);
-      dummyPins.length = 0;
-      dummyPins.push(...remainingPins);
-    }
+    onPinsUpdate(initialPins.filter(p => p.id !== pinId));
   };
 
   const handleCreateFolder = () => {
@@ -203,7 +137,7 @@ export function OrganizePinsDialog({
     if (onCreateFolder) {
       const newFolder = await onCreateFolder(finalName);
       // Insert after Unorganized folder (index 0)
-      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
+      const updatedFolders = [folders.find(f => f.id === "unorganized")!, newFolder, ...folders.filter(f => f.id !== "unorganized")];
       setFolders(updatedFolders);
     } else {
       // For dummy data, create folder locally
@@ -212,7 +146,7 @@ export function OrganizePinsDialog({
         name: finalName,
       };
       // Insert after Unorganized folder (index 0)
-      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
+      const updatedFolders = [folders.find(f => f.id === "unorganized")!, newFolder, ...folders.filter(f => f.id !== "unorganized")];
       setFolders(updatedFolders);
     }
     setIsCreatingFolder(false);
@@ -244,21 +178,12 @@ export function OrganizePinsDialog({
 
   const handleDeleteFolder = (folderId: string) => {
     // Move all pins from this folder to Unorganized
-    if (initialPins.length > 0) {
-      const updatedPins = initialPins.map(pin => 
-        pin.folderId === folderId 
-          ? { ...pin, folderId: undefined }
-          : pin
-      );
-      onPinsUpdate(updatedPins);
-    } else {
-      // For dummy pins
-      pinsToDisplay.forEach(pin => {
-        if (pin.folderId === folderId) {
-          pin.folderId = undefined;
-        }
-      });
-    }
+    const updatedPins = initialPins.map(pin => 
+      pin.folderId === folderId 
+        ? { ...pin, folderId: undefined }
+        : pin
+    );
+    onPinsUpdate(updatedPins);
     // Remove the folder
     setFolders(folders.filter(f => f.id !== folderId));
   };
@@ -280,36 +205,17 @@ export function OrganizePinsDialog({
   };
 
   const handleBulkDelete = () => {
-    if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.filter(p => !selectedPinIds.includes(p.id)));
-    } else {
-      // For dummy pins, create new array and replace contents to trigger re-render
-      const remainingPins = dummyPins.filter(p => !selectedPinIds.includes(p.id));
-      dummyPins.length = 0;
-      dummyPins.push(...remainingPins);
-    }
+    onPinsUpdate(initialPins.filter(p => !selectedPinIds.includes(p.id)));
     setSelectedPinIds([]);
   };
 
   const handleMovePins = (targetFolderId: string) => {
-    if (initialPins.length > 0) {
-      const updatedPins = initialPins.map(pin => 
-        selectedPinIds.includes(pin.id) 
-          ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
-          : pin
-      );
-      onPinsUpdate(updatedPins);
-    } else {
-      // For dummy pins, create new array with updated pins (for testing)
-      const updatedDummyPins = dummyPins.map(pin => 
-        selectedPinIds.includes(pin.id)
-          ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
-          : pin
-      );
-      // Replace dummyPins array contents to trigger re-render
-      dummyPins.length = 0;
-      dummyPins.push(...updatedDummyPins);
-    }
+    const updatedPins = initialPins.map(pin => 
+      selectedPinIds.includes(pin.id) 
+        ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
+        : pin
+    );
+    onPinsUpdate(updatedPins);
     setSelectedPinIds([]);
     // Stay on current folder to show the pins were moved
   };
@@ -361,17 +267,15 @@ export function OrganizePinsDialog({
           <div className="flex flex-col bg-[#F5F5F5] flex-shrink-0" style={{ width: "min(332px, 45%)", minWidth: "200px", height: "541px", maxHeight: "100%", borderRadius: "10px", padding: "16px", gap: "16px" }}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#171717]">Folders</h3>
-              {folders.length > 1 && (
-                <Button
-                  onClick={handleCreateFolder}
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 rounded hover:bg-[#e5e5e5] group"
-                  title="New folder"
-                >
-                  <FolderPlus className="h-4 w-4 text-[#666666]" strokeWidth={2.5} />
-                </Button>
-              )}
+              <Button
+                onClick={handleCreateFolder}
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded hover:bg-[#e5e5e5] group"
+                title="New folder"
+              >
+                <FolderPlus className="h-4 w-4 text-[#666666]" strokeWidth={2.5} />
+              </Button>
             </div>
             
             <ScrollArea className="flex-1">
@@ -421,16 +325,14 @@ export function OrganizePinsDialog({
               </div>
             </ScrollArea>
             
-            {folders.length === 1 && (
-              <div className="pt-4">
-                <Button 
-                  onClick={handleCreateFolder}
-                  className="w-full bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] rounded-lg"
-                >
-                  New folder
-                </Button>
-              </div>
-            )}
+            <div className="pt-4">
+              <Button 
+                onClick={handleCreateFolder}
+                className="w-full bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] rounded-lg"
+              >
+                New folder
+              </Button>
+            </div>
           </div>
 
           {/* Right Section (Selected Folder Pins) */}

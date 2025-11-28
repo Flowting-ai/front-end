@@ -158,8 +158,8 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
     };
 
     const handleGoToChat = () => {
-        // Navigate to the chat and scroll to the specific message
-        router.push(`/?chatId=${pin.chatId}&messageId=${pin.messageId || ''}`);
+        const targetMessage = pin.messageId ? `&messageId=${pin.messageId}` : "";
+        router.push(`/?chatId=${pin.chatId}${targetMessage}`);
         toast({ title: "Navigating to chat..." });
     };
 
@@ -182,6 +182,10 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
         if (onInsertToChat) {
             onInsertToChat(bodyContent);
             toast({ title: "Pin inserted to chat" });
+        }
+        // Also copy to clipboard for quick paste
+        if (navigator?.clipboard) {
+            navigator.clipboard.writeText(bodyContent).catch(() => {});
         }
     };
 

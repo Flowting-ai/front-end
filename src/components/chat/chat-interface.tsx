@@ -62,6 +62,7 @@ import {
   CHAT_COMPLETION_ENDPOINT,
   CHAT_DETAIL_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
+  MESSAGE_EDIT_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
@@ -218,13 +219,18 @@ export function ChatInterface({
     return match ? decodeURIComponent(match[1]) : null;
   };
 
+  const sanitizeAiContent = (raw: string) => {
+    const sanitized = extractThinkingContent(raw || "API didn't respond");
+    return {
+      content:
+        sanitized.visibleText ||
+        (sanitized.thinkingText ? "" : raw || "API didn't respond"),
+      thinkingContent: sanitized.thinkingText,
+    };
+  };
+
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
-  const [regenerationState, setRegenerationState] = useState<{
-    aiMessage: Message;
-    userMessage: Message;
-  } | null>(null);
-  const [regeneratePrompt, setRegeneratePrompt] = useState("");
   const [isRegeneratingResponse, setIsRegeneratingResponse] = useState(false);
   const [isChatDeleteDialogOpen, setIsChatDeleteDialogOpen] = useState(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
@@ -326,6 +332,7 @@ export function ChatInterface({
               name: user.name ?? null,
             }
           : null,
+        context: {},
       };
 
       if (referencedMessageId) {
@@ -434,17 +441,10 @@ export function ChatInterface({
           }
         : undefined;
 
-      const sanitized = extractThinkingContent(
-        messageText || "API didn't respond"
-      );
-
       const aiResponse: Message = {
         id: loadingMessageId,
         sender: "ai",
-        content:
-          sanitized.visibleText ||
-          (sanitized.thinkingText ? "" : "API didn't respond"),
-        thinkingContent: sanitized.thinkingText,
+        ...sanitizeAiContent(messageText),
         avatarUrl: avatarForRequest.avatarUrl,
         avatarHint: avatarForRequest.avatarHint,
         chatMessageId:
@@ -897,34 +897,15 @@ export function ChatInterface({
       });
       return;
     }
-    setRegeneratePrompt(linkedUser.content);
-    setRegenerationState({
-      aiMessage,
-      userMessage: linkedUser,
-    });
+    regenerateTurn(linkedUser, aiMessage);
   };
 
-  const handleCancelRegenerate = () => {
-    if (isRegeneratingResponse) return;
-    setRegenerationState(null);
-    setRegeneratePrompt("");
-  };
-
-  const handleConfirmRegenerate = () => {
-    if (!regenerationState) return;
-    const trimmedPrompt = regeneratePrompt.trim();
+  const regenerateTurn = async (userMessage: Message, aiMessage: Message) => {
+    const trimmedPrompt = (userMessage.content || "").trim();
     if (!selectedModel) {
       toast({
         title: "Select a model",
         description: "Choose a model before regenerating a response.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (trimmedPrompt === "") {
-      toast({
-        title: "Missing prompt",
-        description: "Update the prompt before regenerating.",
         variant: "destructive",
       });
       return;
@@ -939,10 +920,8 @@ export function ChatInterface({
       return;
     }
 
-    const backendAiMessageId =
-      regenerationState.aiMessage.chatMessageId ?? regenerationState.aiMessage.id;
-    const backendUserMessageId =
-      regenerationState.userMessage.chatMessageId ?? regenerationState.userMessage.id;
+    const backendAiMessageId = aiMessage.chatMessageId ?? aiMessage.id;
+    const backendUserMessageId = userMessage.chatMessageId ?? userMessage.id;
 
     if (!backendAiMessageId || !backendUserMessageId) {
       toast({
@@ -957,41 +936,169 @@ export function ChatInterface({
     setIsRegeneratingResponse(true);
 
     const avatar = resolveModelAvatar(selectedModel);
+    const pinIdsFromMeta = Array.isArray(userMessage.metadata?.pinIds)
+      ? userMessage.metadata?.pinIds?.map(String)
+      : [];
 
-    setMessages(
-      (prev = []) =>
-        prev.map((msg) => {
-          if (msg.id === regenerationState.userMessage.id) {
-            return { ...msg, content: trimmedPrompt };
-          }
-          if (msg.id === regenerationState.aiMessage.id) {
-            return { ...msg, content: "", isLoading: true, thinkingContent: null };
-          }
-          return msg;
-        }),
-      chatId
-    );
-    setLastMessageId(regenerationState.aiMessage.id);
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const token = getCsrfToken();
+      if (token) {
+        headers["X-CSRFToken"] = token;
+      }
 
-    fetchAiResponse(
-      trimmedPrompt,
-      regenerationState.aiMessage.id,
-      chatId,
-      regenerationState.userMessage.id,
-      selectedModel,
-      avatar,
-      regenerationState.userMessage.referencedMessageId ?? null,
-      backendAiMessageId,
-      backendUserMessageId
-    )
-      .catch(() => {
-        // fetchAiResponse already surfaces the error via toast.
-      })
-      .finally(() => {
-        setIsRegeneratingResponse(false);
-        setRegenerationState(null);
-        setRegeneratePrompt("");
+      const payload: Record<string, unknown> = {
+        prompt: trimmedPrompt,
+        model: {
+          companyName: selectedModel.companyName,
+          modelName: selectedModel.modelName,
+          version: selectedModel.version,
+        },
+        context: {},
+      };
+      if (pinIdsFromMeta.length > 0) payload.pinIds = pinIdsFromMeta;
+      if (userMessage.referencedMessageId) {
+        payload.referencedMessageId = userMessage.referencedMessageId;
+      }
+
+      const response = await fetch(
+        MESSAGE_EDIT_ENDPOINT(chatId, backendUserMessageId),
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers,
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to regenerate response");
+      }
+
+      const data = await response.json();
+      const deletedRaw =
+        (data.deletedMessageIds ?? data.deleted_message_ids) || [];
+      const deletedIds = Array.isArray(deletedRaw)
+        ? deletedRaw.map((id: unknown) => String(id))
+        : [];
+
+      const messageText =
+        typeof data.message === "string"
+          ? data.message
+          : typeof data.response === "string"
+          ? data.response
+          : typeof data.message?.response === "string"
+          ? data.message.response
+          : typeof data.message?.content === "string"
+          ? data.message.content
+          : typeof data.message?.message === "string"
+          ? data.message.message
+          : "";
+
+      const messageMeta =
+        (data.metadata && typeof data.metadata === "object" ? data.metadata : null) ||
+        (data.message?.metadata && typeof data.message.metadata === "object"
+          ? data.message.metadata
+          : null);
+
+      const resolvedMessageId =
+        data.messageId ??
+        data.message_id ??
+        (data.message?.message_id ?? data.message?.id) ??
+        backendUserMessageId ??
+        null;
+
+      const metadata: Message["metadata"] | undefined = messageMeta
+        ? {
+            modelName:
+              (messageMeta as { modelName?: string }).modelName ??
+              (messageMeta as { model_name?: string }).model_name,
+            providerName:
+              (messageMeta as { providerName?: string }).providerName ??
+              (messageMeta as { provider_name?: string }).provider_name,
+            inputTokens:
+              (messageMeta as { inputTokens?: number }).inputTokens ??
+              (messageMeta as { input_tokens?: number }).input_tokens,
+            outputTokens:
+              (messageMeta as { outputTokens?: number }).outputTokens ??
+              (messageMeta as { output_tokens?: number }).output_tokens,
+            createdAt:
+              (messageMeta as { createdAt?: string }).createdAt ??
+              (messageMeta as { created_at?: string }).created_at,
+            documentId:
+              (messageMeta as { documentId?: string | null }).documentId ??
+              (messageMeta as { document_id?: string | null }).document_id ??
+              null,
+            documentUrl:
+              (messageMeta as { documentUrl?: string | null }).documentUrl ??
+              (messageMeta as { document_url?: string | null }).document_url ??
+              null,
+            llmModelId:
+              (messageMeta as { llmModelId?: string | number | null }).llmModelId ??
+              (messageMeta as { llm_model_id?: string | number | null }).llm_model_id ??
+              null,
+            pinIds: Array.isArray((messageMeta as { pinIds?: unknown[] }).pinIds)
+              ? ((messageMeta as { pinIds: unknown[] }).pinIds as unknown[]).map(String)
+              : Array.isArray((messageMeta as { pin_ids?: unknown[] }).pin_ids)
+              ? ((messageMeta as { pin_ids: unknown[] }).pin_ids as unknown[]).map(String)
+              : undefined,
+            userReaction:
+              (messageMeta as { userReaction?: string | null }).userReaction ??
+              (messageMeta as { user_reaction?: string | null }).user_reaction ??
+              null,
+          }
+        : undefined;
+
+      const regeneratedUser: Message = {
+        id: `${resolvedMessageId}-user-regenerate`,
+        sender: "user",
+        content: trimmedPrompt,
+        chatMessageId: resolvedMessageId ?? undefined,
+        avatarUrl: userAvatar?.imageUrl,
+        avatarHint: userAvatar?.imageHint,
+        referencedMessageId: userMessage.referencedMessageId ?? null,
+      };
+
+      const aiResponse: Message = {
+        id: `${resolvedMessageId}-ai-regenerate`,
+        sender: "ai",
+        ...sanitizeAiContent(messageText),
+        avatarUrl: avatar.avatarUrl,
+        avatarHint: avatar.avatarHint,
+        chatMessageId:
+          resolvedMessageId !== null && resolvedMessageId !== undefined
+            ? String(resolvedMessageId)
+            : undefined,
+        referencedMessageId: userMessage.referencedMessageId ?? null,
+        metadata,
+      };
+
+      setMessages(
+        (prev = []) => {
+          const filtered = prev.filter((msg) => {
+            const cid = msg.chatMessageId ?? msg.id;
+            return !deletedIds.includes(cid);
+          });
+          return [...filtered, regeneratedUser, aiResponse];
+        },
+        chatId
+      );
+      setLastMessageId(aiResponse.id);
+    } catch (error) {
+      console.error("Error regenerating message:", error);
+      toast({
+        title: "Regenerate failed",
+        description:
+          error instanceof Error ? error.message : "Unable to regenerate response.",
+        variant: "destructive",
       });
+    } finally {
+      setIsResponding(false);
+      setIsRegeneratingResponse(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -1646,54 +1753,6 @@ export function ChatInterface({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog
-        open={!!regenerationState}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleCancelRegenerate();
-          }
-        }}
-      >
-        <DialogContent className="rounded-[25px]">
-          <DialogHeader>
-            <DialogTitle>Regenerate response</DialogTitle>
-            <DialogDescription>
-              Adjust the original prompt and the assistant will respond again.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              Prompt
-            </label>
-            <Textarea
-              value={regeneratePrompt}
-              onChange={(e) => setRegeneratePrompt(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="rounded-[25px]"
-              onClick={handleCancelRegenerate}
-              disabled={isRegeneratingResponse}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="rounded-[25px]"
-              onClick={handleConfirmRegenerate}
-              disabled={
-                isRegeneratingResponse || regeneratePrompt.trim() === ""
-              }
-            >
-              {isRegeneratingResponse ? "Regenerating..." : "Regenerate"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog
         open={isChatDeleteDialogOpen}
         onOpenChange={(open) => {

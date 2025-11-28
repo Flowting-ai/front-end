@@ -1,6 +1,7 @@
 "use client";
 
-const DEFAULT_API_BASE_URL = "https://jellyfish-app-7brqd.ondigitalocean.app";
+// Default to local backend over HTTP; override with NEXT_PUBLIC_BACKEND_URL when needed.
+const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? DEFAULT_API_BASE_URL;
@@ -11,6 +12,10 @@ export const CHAT_COMPLETION_ENDPOINT = `${API_BASE_URL}/chat/`;
 export const CHATS_ENDPOINT = `${API_BASE_URL}/chats/`;
 export const CHAT_DETAIL_ENDPOINT = (chatId: string | number) =>
   `${API_BASE_URL}/chats/${chatId}/`;
+export const CHAT_STAR_ENDPOINT = (chatId: string | number) =>
+  `${API_BASE_URL}/chats/${chatId}/star/`;
+export const MESSAGE_EDIT_ENDPOINT = (chatId: string | number, messageId: string | number) =>
+  `${API_BASE_URL}/chats/${chatId}/messages/${messageId}/edit/`;
 export const MODELS_ENDPOINT = `${API_BASE_URL}/get_models`;
 export const CHAT_MESSAGES_ENDPOINT = (chatId: string | number) =>
   `${API_BASE_URL}/chats/${chatId}/messages/`;
@@ -24,6 +29,7 @@ export const PIN_DETAIL_ENDPOINT = (pinId: string | number) =>
   `${API_BASE_URL}/pins/${pinId}/`;
 export const PINS_ENDPOINT = `${API_BASE_URL}/pins/`;
 export const PIN_FOLDERS_ENDPOINT = `${API_BASE_URL}/pin-folders/`;
+export const PIN_FOLDER_IDS_ENDPOINT = `${API_BASE_URL}/pin-folders/ids/`;
 export const DOCUMENTS_ENDPOINT = `${API_BASE_URL}/documents/`;
 export const DOCUMENT_SEARCH_ENDPOINT = `${API_BASE_URL}/documents/search/`;
 export const TOKENS_ENDPOINT = `${API_BASE_URL}/tokens/`;
