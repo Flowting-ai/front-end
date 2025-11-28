@@ -445,23 +445,21 @@ export function LeftSidebar({
               type="button"
               className="flex h-[35px] w-full items-center gap-2 rounded-[10px] px-2.5 text-left transition-colors hover:bg-[#EDEDED] focus:outline-none"
             >
-              <Avatar className="h-[28px] w-[28px] rounded-full">
-                {userAvatar ? (
-                  <AvatarImage
-                    src={userAvatar.imageUrl}
-                    alt="User avatar"
-                    data-ai-hint={userAvatar.imageHint}
-                  />
-                ) : null}
-                <AvatarFallback>
-                  {user?.name
-                    ? user.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()
-                        .slice(0, 2)
-                    : "AP"}
+              <Avatar className="h-[28px] w-[28px] rounded-full bg-white border border-[#E5E5E5]">
+                <AvatarFallback className="bg-white text-black font-bold text-[15px] !text-black">
+                  {(() => {
+                    if (user?.name) {
+                      const parts = user.name.trim().split(" ");
+                      const first = parts[0]?.[0] || "";
+                      const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+                      return (first + last).toUpperCase();
+                    }
+                    if (user?.email) {
+                      const [first, last] = user.email.split("@")[0].split(".");
+                      return ((first?.[0] || "") + (last?.[0] || "")).toUpperCase() || "AP";
+                    }
+                    return "AP";
+                  })()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col justify-center">

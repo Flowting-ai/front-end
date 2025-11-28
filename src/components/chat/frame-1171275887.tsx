@@ -25,10 +25,10 @@ const Frame1171275887: NextPage<Frame117Props> = ({ userName }) => {
       <div className={styles.frameGroup}>
         <Image
           className={styles.frameChild}
-          src="/icons/logo.png"
+          src="/icons/FlowtingAI_LightGrey.png"
           alt="FlowtingAi orb"
-          width={142}
-          height={133}
+          width={82}
+          height={82}
           priority
         />
         <div className={styles.frameItem} />

@@ -19,11 +19,12 @@
   gap: 16px;
 }
 
+/* Styles for the logo image in chat-interface */
 .frameChild {
-  width: 142px;
-  height: 133px;
-  border-radius: 84px;
-  object-fit: cover;
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .frameItem {
