@@ -119,6 +119,8 @@ export function RightSidebar({
   const [filterMode, setFilterMode] = useState<FilterMode>("current-chat");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
+  const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [folderSearch, setFolderSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isOrganizeDialogOpen, setIsOrganizeDialogOpen] = useState(false);
@@ -186,6 +188,8 @@ export function RightSidebar({
     setSearchTerm("");
     setTagSearch("");
     setSelectedTags([]);
+    setFolderSearch("");
+    setSelectedFolders([]);
     setFilterMode("current-chat");
     setIsSearchOpen(false);
   }, [isOpen]);
@@ -200,10 +204,32 @@ export function RightSidebar({
       .slice(0, 5);
   }, [allTags, tagSearch]);
 
+  const filteredFolders = useMemo(() => {
+    const folders = pinFolders.filter(f => f.id !== "unorganized");
+    if (!folderSearch) {
+      return folders.slice(0, 5);
+    }
+    const query = folderSearch.toLowerCase();
+    return folders
+      .filter((folder) => folder.name.toLowerCase().includes(query))
+      .slice(0, 5);
+  }, [pinFolders, folderSearch]);
+
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) => {
       const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
       // When any tag is selected, switch to global view so tags filter across all chats
+      if (next.length > 0) {
+        setFilterMode("all");
+      }
+      return next;
+    });
+  };
+
+  const handleFolderToggle = (folderId: string) => {
+    setSelectedFolders((prev) => {
+      const next = prev.includes(folderId) ? prev.filter((f) => f !== folderId) : [...prev, folderId];
+      // When any folder is selected, switch to global view
       if (next.length > 0) {
         setFilterMode("all");
       }
@@ -272,6 +298,12 @@ export function RightSidebar({
       );
     }
 
+    if (selectedFolders.length > 0) {
+      filtered = filtered.filter((pin) =>
+        pin.folderId && selectedFolders.includes(pin.folderId)
+      );
+    }
+
     switch (filterMode) {
       case "all":
         return [...filtered].sort(
@@ -304,8 +336,14 @@ export function RightSidebar({
   }, [pinsToDisplay, searchTerm, selectedTags, filterMode, activeChatId]);
 
   const getFilterLabel = () => {
+    if (selectedTags.length > 0 && selectedFolders.length > 0) {
+      return `Filtered by ${selectedTags.length} tag(s) & ${selectedFolders.length} folder(s)`;
+    }
     if (selectedTags.length > 0) {
       return `Filtered by ${selectedTags.length} tag(s)`;
+    }
+    if (selectedFolders.length > 0) {
+      return `Filtered by ${selectedFolders.length} folder(s)`;
     }
     switch (filterMode) {
       case "all":
@@ -399,12 +437,6 @@ export function RightSidebar({
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]"
-                onSelect={() => setFilterMode("by-folder")}
-              >
-                Filter by Folder
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]"
                 onSelect={() => setFilterMode("unorganized")}
               >
                 Filter by Unorganized Pins
@@ -446,15 +478,62 @@ export function RightSidebar({
                   </ScrollArea>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              {selectedTags.length > 0 ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5] data-[state=open]:bg-[#f5f5f5]">
+                  Filter by Folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-[240px] border border-[#e6e6e6] bg-white p-2 text-[#171717]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8a8a]" />
+                    <Input
+                      placeholder="Search folders..."
+                      className="mb-2 h-8 rounded-md pl-8 text-sm"
+                      value={folderSearch}
+                      onChange={(event) => setFolderSearch(event.target.value)}
+                      onClick={(event) => event.preventDefault()}
+                    />
+                  </div>
+                  <ScrollArea className="max-h-48">
+                    <div className="space-y-1">
+                      {filteredFolders.length > 0 ? (
+                        filteredFolders.map((folder) => (
+                          <DropdownMenuCheckboxItem
+                            key={folder.id}
+                            className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0]"
+                            checked={selectedFolders.includes(folder.id)}
+                            indicatorRight
+                            onCheckedChange={() => handleFolderToggle(folder.id)}
+                            onSelect={(event) => event.preventDefault()}
+                          >
+                            {folder.name}
+                          </DropdownMenuCheckboxItem>
+                        ))
+                      ) : (
+                        <DropdownMenuItem disabled className="px-2 py-1.5 text-[#9a9a9a]">No matching folders</DropdownMenuItem>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {(selectedTags.length > 0 || selectedFolders.length > 0) ? (
                 <>
                   <Separator />
-                  <DropdownMenuItem
-                    onSelect={() => setSelectedTags([])}
-                    className="rounded-md px-3 py-2 text-red-500 hover:bg-[#ffecec]"
-                  >
-                    Clear Tag Filter
-                  </DropdownMenuItem>
+                  {selectedTags.length > 0 && (
+                    <DropdownMenuItem
+                      onSelect={() => setSelectedTags([])}
+                      className="rounded-md px-3 py-2 text-red-500 hover:bg-[#ffecec]"
+                    >
+                      Clear Tag Filter
+                    </DropdownMenuItem>
+                  )}
+                  {selectedFolders.length > 0 && (
+                    <DropdownMenuItem
+                      onSelect={() => setSelectedFolders([])}
+                      className="rounded-md px-3 py-2 text-red-500 hover:bg-[#ffecec]"
+                    >
+                      Clear Folder Filter
+                    </DropdownMenuItem>
+                  )}
                 </>
               ) : null}
             </DropdownMenuContent>

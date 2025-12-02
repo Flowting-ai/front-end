@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -133,6 +133,8 @@ export function OrganizePinsDialog({
   const [isEditingFolder, setIsEditingFolder] = useState<boolean>(false);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState<string>("");
+  const createInputRef = useRef<HTMLInputElement | null>(null);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>(["unorganized"]);
   
   // Use dummy pins if no real pins exist
@@ -208,21 +210,29 @@ export function OrganizePinsDialog({
       counter++;
     }
     
+    let createdFolder: FolderType | undefined;
     if (onCreateFolder) {
-      const newFolder = await onCreateFolder(finalName);
-      // Insert after Unorganized folder (index 0)
-      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
-      setFolders(updatedFolders);
-    } else {
-      // For dummy data, create folder locally
-      const newFolder: FolderType = {
-        id: `folder-${Date.now()}`,
-        name: finalName,
-      };
-      // Insert after Unorganized folder (index 0)
-      const updatedFolders = [folders[0], newFolder, ...folders.slice(1)];
-      setFolders(updatedFolders);
+      try {
+        const result = await onCreateFolder(finalName);
+        if (result && result.id) {
+          createdFolder = result;
+        }
+      } catch (err) {
+        // swallow and fallback to local creation below
+        createdFolder = undefined;
+      }
     }
+
+    if (!createdFolder) {
+      createdFolder = { id: `folder-${Date.now()}`, name: finalName };
+    }
+
+    // Insert after Unorganized folder (index 0) using latest state
+    setFolders((prev) => {
+      const base = prev.length ? prev : initialFolders;
+      return [base[0], createdFolder!, ...base.slice(1)];
+    });
+
     setIsCreatingFolder(false);
     setNewFolderName("");
   };
@@ -237,6 +247,20 @@ export function OrganizePinsDialog({
   };
 
   const handleConfirmRenameFolder = () => {
+
+      // Focus the create / edit inputs when the inline modals open
+      useEffect(() => {
+        if (isCreatingFolder) {
+          // wait a tick for rendering
+          setTimeout(() => createInputRef.current?.focus(), 0);
+        }
+      }, [isCreatingFolder]);
+
+      useEffect(() => {
+        if (isEditingFolder) {
+          setTimeout(() => editInputRef.current?.focus(), 0);
+        }
+      }, [isEditingFolder]);
     if (editingFolderId) {
       const updatedFolders = folders.map(f => 
         f.id === editingFolderId 
@@ -325,7 +349,7 @@ export function OrganizePinsDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="organize-dialog flex flex-col bg-transparent p-0 text-[#171717] gap-0">
-        <div className="organize-dialog-inner flex flex-col">
+        <div className="organize-dialog-inner relative flex flex-col">
         <DialogHeader className="border-b bg-white py-6 px-6 text-[#171717] space-y-4">
           <DialogTitle className="text-left text-[#171717] font-semibold text-lg">Organize Pins</DialogTitle>
           
@@ -465,7 +489,7 @@ export function OrganizePinsDialog({
                         <ChevronDown className="h-3 w-3 ml-1" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[200px] border border-[#e6e6e6] bg-white p-2">
+                    <DropdownMenuContent align="end" className="w-[200px] border border-[#e6e6e6] bg-white p-2 z-[10001]">
                       <div className="mb-2">
                         <div className="relative">
                           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8a8a]" />
@@ -484,42 +508,22 @@ export function OrganizePinsDialog({
                           />
                         </div>
                       </div>
-                      <ScrollArea className="max-h-[200px]">
+                      <ScrollArea className="max-h-[200px] scrollbar-grey">
                         <div className="space-y-0.5">
                           {folders
-                                .filter(f => !selectedFolderIds.includes(f.id))
-                                .slice(0, 5)
-                                .map(f => (
-                                <DropdownMenuItem 
-                                  key={f.id} 
-                                  onClick={() => handleMovePins(f.id)} 
-                                  className="text-[#171717] hover:bg-[#E5E5E5] text-sm cursor-pointer rounded-md"
-                                  data-folder-item
-                                  data-folder-name={f.name}
-                                >
-                                  {f.id === 'unorganized' ? <Unlink className="h-3.5 w-3.5 mr-2 text-[#666666]" /> : <Folder className="h-3.5 w-3.5 mr-2 text-[#666666]" />}
-                                  <span className="truncate">{f.name}</span>
-                                </DropdownMenuItem>
-                              ))}
-                              {folders.filter(f => !selectedFolderIds.includes(f.id)).length > 5 && (
-                            <>
-                              {folders
-                                .filter(f => !selectedFolderIds.includes(f.id))
-                                .slice(5)
-                                .map(f => (
-                                <DropdownMenuItem 
-                                  key={f.id} 
-                                  onClick={() => handleMovePins(f.id)} 
-                                  className="text-[#171717] hover:bg-[#E5E5E5] text-sm cursor-pointer rounded-md"
-                                  data-folder-item
-                                  data-folder-name={f.name}
-                                >
-                                  {f.id === 'unorganized' ? <Unlink className="h-3.5 w-3.5 mr-2 text-[#666666]" /> : <Folder className="h-3.5 w-3.5 mr-2 text-[#666666]" />}
-                                  <span className="truncate">{f.name}</span>
-                                </DropdownMenuItem>
-                              ))}
-                            </>
-                          )}
+                            .filter(f => !selectedFolderIds.includes(f.id))
+                            .map(f => (
+                              <DropdownMenuItem 
+                                key={f.id} 
+                                onClick={() => handleMovePins(f.id)} 
+                                className="text-[#171717] hover:bg-[#E5E5E5] text-sm cursor-pointer rounded-md"
+                                data-folder-item
+                                data-folder-name={f.name}
+                              >
+                                {f.id === 'unorganized' ? <Unlink className="h-3.5 w-3.5 mr-2 text-[#666666]" /> : <Folder className="h-3.5 w-3.5 mr-2 text-[#666666]" />}
+                                <span className="truncate">{f.name}</span>
+                              </DropdownMenuItem>
+                            ))}
                         </div>
                       </ScrollArea>
                     </DropdownMenuContent>
@@ -595,70 +599,78 @@ export function OrganizePinsDialog({
             Done
           </Button>
         </DialogFooter>
+
+        {/* Folder Creation Inline Modal (centered inside Organize dialog) */}
+        {isCreatingFolder && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+          <div className="absolute inset-0 bg-black/20" onClick={() => setIsCreatingFolder(false)} style={{ zIndex: 9998 }} />
+          <div className="relative w-[420px] bg-white rounded-md p-6 shadow-md" style={{ zIndex: 10000 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2">
+              <h3 className="text-lg font-semibold text-[#171717]">Create New Folder</h3>
+            </div>
+            <div className="py-2">
+              <Input
+                ref={createInputRef}
+                placeholder="Folder name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleConfirmCreateFolder();
+                  }
+                }}
+                className="text-[#171717]"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="ghost" onClick={() => setIsCreatingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmCreateFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+                Create
+              </Button>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* Folder Edit/Rename Inline Modal (centered inside Organize dialog) */}
+        {isEditingFolder && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+          <div className="absolute inset-0 bg-black/20" onClick={() => setIsEditingFolder(false)} style={{ zIndex: 9998 }} />
+          <div className="relative w-[420px] bg-white rounded-md p-6 shadow-md" style={{ zIndex: 10000 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2">
+              <h3 className="text-lg font-semibold text-[#171717]">Rename Folder</h3>
+            </div>
+            <div className="py-2">
+              <Input
+                ref={editInputRef}
+                placeholder="Folder name"
+                value={editFolderName}
+                onChange={(e) => setEditFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleConfirmRenameFolder();
+                  }
+                }}
+                className="text-[#171717]"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="ghost" onClick={() => setIsEditingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmRenameFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+        )}
         </div>
       </DialogContent>
-      
-      {/* Folder Creation Dialog */}
-      <Dialog open={isCreatingFolder} onOpenChange={setIsCreatingFolder}>
-        <DialogContent className="sm:max-w-[425px] bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-[#171717]">Create New Folder</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleConfirmCreateFolder();
-                }
-              }}
-              className="text-[#171717]"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsCreatingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmCreateFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Folder Edit/Rename Dialog */}
-      <Dialog open={isEditingFolder} onOpenChange={setIsEditingFolder}>
-        <DialogContent className="sm:max-w-[425px] bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-[#171717]">Rename Folder</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Folder name"
-              value={editFolderName}
-              onChange={(e) => setEditFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleConfirmRenameFolder();
-                }
-              }}
-              className="text-[#171717]"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmRenameFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   );
 }
