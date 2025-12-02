@@ -13,12 +13,15 @@ export interface BackendChat {
   created_at?: string;
   is_starred?: boolean;
   isStarred?: boolean;
+  starMessageId?: string | number | null;
   pin_count?: number;
   pinCount?: number;
   metadata?: {
     messageCount?: number;
     lastMessageAt?: string | null;
     pinCount?: number;
+    starred?: boolean;
+    starMessageId?: string | number | null;
     [key: string]: unknown;
   };
 }

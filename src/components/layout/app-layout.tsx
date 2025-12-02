@@ -56,6 +56,8 @@ export type ChatMetadata = {
   messageCount?: number | null;
   lastMessageAt?: string | null;
   pinCount?: number | null;
+  starred?: boolean | null;
+  starMessageId?: string | number | null;
 };
 
 export type ChatBoard = {
@@ -132,16 +134,38 @@ const extractChatId = (chat: BackendChat): string => {
 };
 
 const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
-  const metadata =
+  let metadata =
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
-      ? (chat.metadata as ChatMetadata)
+      ? { ...(chat.metadata as ChatMetadata) }
       : undefined;
+
+  if (metadata && metadata.starMessageId === undefined) {
+    const fromChat = (chat as { starMessageId?: string | number | null }).starMessageId;
+    if (fromChat !== undefined) {
+      metadata.starMessageId = fromChat;
+    }
+  } else if (!metadata) {
+    const fromChat = (chat as { starMessageId?: string | number | null }).starMessageId;
+    if (fromChat !== undefined) {
+      metadata = { starMessageId: fromChat };
+    }
+  }
+
+  const hasMetadataStarred =
+    metadata !== undefined &&
+    Object.prototype.hasOwnProperty.call(metadata, "starred");
+  const resolvedStarred = hasMetadataStarred
+    ? Boolean((metadata as { starred?: unknown }).starred)
+    : undefined;
 
   return {
     id: extractChatId(chat),
     name: chat.title || chat.name || "Untitled Chat",
     time: formatRelativeTime(chat.updated_at || chat.created_at),
-    isStarred: Boolean(chat.is_starred ?? chat.isStarred ?? false),
+    isStarred:
+      resolvedStarred !== undefined
+        ? resolvedStarred
+        : Boolean(chat.is_starred ?? chat.isStarred ?? false),
     pinCount:
       chat.pin_count ??
       chat.pinCount ??
