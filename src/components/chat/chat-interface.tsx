@@ -109,6 +109,7 @@ export function ChatInterface({
   const [showLeftScrollButton, setShowLeftScrollButton] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const PIN_INSERT_EVENT = "pin-insert-to-chat";
   
   // Close attach menu when clicking outside
   useEffect(() => {
@@ -122,6 +123,24 @@ export function ChatInterface({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showAttachMenu]);
+
+  useEffect(() => {
+    const handlePinInsert = (event: Event) => {
+      const custom = event as CustomEvent<{ text?: string }>;
+      const text = custom.detail?.text;
+      if (!text) return;
+      setInput((prev) => (prev ? `${prev}\n${text}` : text));
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(PIN_INSERT_EVENT, handlePinInsert as EventListener);
+      return () => {
+        window.removeEventListener(PIN_INSERT_EVENT, handlePinInsert as EventListener);
+      };
+    }
+  }, []);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);

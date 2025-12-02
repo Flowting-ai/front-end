@@ -3,10 +3,6 @@
 import { useMemo } from "react";
 import { useTokenUsage } from "@/context/token-context";
 
-// Assuming a max token budget for display purposes, adjust as needed.
-// For example, if '2m' means 2 million.
-const MAX_TOKEN_BUDGET = 2_000_000;
-
 const formatLargeNumber = (num: number): string => {
   if (num >= 1_000_000) {
     return `${(num / 1_000_000).toFixed(1)}M`;
@@ -21,11 +17,12 @@ export function TokenTracker() {
   const { usagePercent, isLoading, stats } = useTokenUsage();
 
   const { formattedTotalUsed, formattedBudget } = useMemo(() => {
+    const budget = stats.totalTokensUsed + stats.availableTokens;
     return {
       formattedTotalUsed: formatLargeNumber(stats.totalTokensUsed),
-      formattedBudget: formatLargeNumber(MAX_TOKEN_BUDGET),
+      formattedBudget: budget > 0 ? formatLargeNumber(budget) : "--",
     };
-  }, [stats.totalTokensUsed]);
+  }, [stats.availableTokens, stats.totalTokensUsed]);
 
   return (
     <div className="flex w-[235px] flex-col items-center gap-0.5">

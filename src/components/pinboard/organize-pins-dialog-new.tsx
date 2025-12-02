@@ -138,11 +138,20 @@ export function OrganizePinsDialog({
                       {folder.id !== 'unorganized' && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded hover:bg-[#e5e5e5]">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--primary))] h-6 w-6 rounded hover:bg-[#e5e5e5]"
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <MoreVertical className="h-4 w-4 text-[#666666]" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[120px] bg-white border border-[#e6e6e6]">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-[120px] bg-white border border-[#e6e6e6] z-[70]"
+                          >
                             <DropdownMenuItem onClick={() => handleRenameFolder(folder.id)} className="text-[#171717] hover:bg-[#f5f5f5]">
                               <Edit className="mr-2 h-4 w-4" />
                               Rename

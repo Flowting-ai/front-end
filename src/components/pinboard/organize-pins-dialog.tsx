@@ -35,14 +35,13 @@ interface OrganizePinsDialogProps {
   onPinsUpdate?: (pins: PinType[]) => void;
   folders?: FolderType[];
   onCreateFolder?: (name: string) => Promise<FolderType> | FolderType;
+  onRenameFolder?: (folderId: string, name: string) => Promise<FolderType> | FolderType;
+  onDeleteFolder?: (folderId: string) => Promise<void> | void;
   chatBoards?: Array<{ id: string; name: string }>;
 }
 
 const initialFolders: FolderType[] = [
   { id: "unorganized", name: "Unorganized Pins" },
-  { id: "research", name: "Research" },
-  { id: "work", name: "Work Projects" },
-  { id: "personal", name: "Personal" },
 ];
 
 const dummyPins: PinType[] = [
@@ -123,9 +122,13 @@ export function OrganizePinsDialog({
   onPinsUpdate = () => {},
   folders: foldersProp,
   onCreateFolder,
+   onRenameFolder,
+   onDeleteFolder,
   chatBoards = [],
 }: OrganizePinsDialogProps) {
-  const [folders, setFolders] = useState<FolderType[]>(foldersProp?.length ? foldersProp : initialFolders);
+  const [folders, setFolders] = useState<FolderType[]>(
+    foldersProp?.length ? foldersProp : initialFolders
+  );
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
@@ -136,6 +139,38 @@ export function OrganizePinsDialog({
   const createInputRef = useRef<HTMLInputElement | null>(null);
   const editInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>(["unorganized"]);
+
+  // When folders from the backend change, sync them into local state so
+  // pre-existing folders are always shown instead of only the static defaults.
+  useEffect(() => {
+    if (foldersProp && foldersProp.length > 0) {
+      // Treat any backend "Unorganized" / default folder as the same bucket
+      // as our top-level "Unorganized Pins" instead of a separate row.
+      const cleanedRemote = foldersProp.filter((folder) => {
+        const name = folder.name?.trim().toLowerCase();
+        return name !== "unorganized" && name !== "unorganized pins";
+      });
+      const next: FolderType[] = [
+        { id: "unorganized", name: "Unorganized Pins" },
+        ...cleanedRemote,
+      ];
+      setFolders(next);
+    } else {
+      setFolders(initialFolders);
+    }
+  }, [foldersProp]);
+
+  useEffect(() => {
+    if (isCreatingFolder) {
+      setTimeout(() => createInputRef.current?.focus(), 0);
+    }
+  }, [isCreatingFolder]);
+
+  useEffect(() => {
+    if (isEditingFolder) {
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    }
+  }, [isEditingFolder]);
   
   // Use dummy pins if no real pins exist
   const pinsToDisplay = initialPins.length > 0 ? initialPins : dummyPins;
@@ -246,53 +281,73 @@ export function OrganizePinsDialog({
     }
   };
 
-  const handleConfirmRenameFolder = () => {
-
-      // Focus the create / edit inputs when the inline modals open
-      useEffect(() => {
-        if (isCreatingFolder) {
-          // wait a tick for rendering
-          setTimeout(() => createInputRef.current?.focus(), 0);
-        }
-      }, [isCreatingFolder]);
-
-      useEffect(() => {
-        if (isEditingFolder) {
-          setTimeout(() => editInputRef.current?.focus(), 0);
-        }
-      }, [isEditingFolder]);
+  const handleConfirmRenameFolder = async () => {
     if (editingFolderId) {
-      const updatedFolders = folders.map(f => 
-        f.id === editingFolderId 
-          ? { ...f, name: editFolderName.trim() || f.name }
-          : f
-      );
-      setFolders(updatedFolders);
+      const nextName = editFolderName.trim();
+      if (!nextName) {
+        setIsEditingFolder(false);
+        setEditingFolderId(null);
+        setEditFolderName("");
+        return;
+      }
+
+      try {
+        let updatedFolder: FolderType | null = null;
+        if (onRenameFolder) {
+          const result = await onRenameFolder(editingFolderId, nextName);
+          if (result && result.id) {
+            updatedFolder = { id: result.id, name: result.name };
+          }
+        }
+
+        setFolders((prev) =>
+          prev.map((folder) =>
+            folder.id === editingFolderId
+              ? { ...folder, name: updatedFolder?.name ?? nextName }
+              : folder
+          )
+        );
+      } catch (error) {
+        // If the backend rejects the rename (e.g., duplicate or default folder),
+        // keep the previous name and just log the error.
+        console.error("Failed to rename folder", error);
+      }
     }
     setIsEditingFolder(false);
     setEditingFolderId(null);
     setEditFolderName("");
   };
 
-  const handleDeleteFolder = (folderId: string) => {
-    // Move all pins from this folder to Unorganized
-    if (initialPins.length > 0) {
-      const updatedPins = initialPins.map(pin => 
-        pin.folderId === folderId 
-          ? { ...pin, folderId: undefined }
-          : pin
-      );
-      onPinsUpdate(updatedPins);
-    } else {
-      // For dummy pins
-      pinsToDisplay.forEach(pin => {
-        if (pin.folderId === folderId) {
-          pin.folderId = undefined;
-        }
-      });
+  const handleDeleteFolder = async (folderId: string) => {
+    try {
+      if (onDeleteFolder) {
+        await onDeleteFolder(folderId);
+      }
+
+      // Move all pins from this folder to Unorganized locally
+      if (initialPins.length > 0) {
+        const updatedPins = initialPins.map(pin =>
+          pin.folderId === folderId
+            ? { ...pin, folderId: undefined }
+            : pin
+        );
+        onPinsUpdate(updatedPins);
+      } else {
+        // For dummy pins
+        pinsToDisplay.forEach(pin => {
+          if (pin.folderId === folderId) {
+            pin.folderId = undefined;
+          }
+        });
+      }
+
+      // Remove the folder from local state
+      setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
+    } catch (error) {
+      // Backend will enforce "cannot delete default" and "must be empty";
+      // if it fails, keep UI as-is.
+      console.error("Failed to delete folder", error);
     }
-    // Remove the folder
-    setFolders(folders.filter(f => f.id !== folderId));
   };
 
   const handleTogglePinSelection = (pinId: string) => {
@@ -439,11 +494,20 @@ export function OrganizePinsDialog({
                       {folder.id !== 'unorganized' && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded hover:bg-[#e5e5e5]">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--primary))] h-6 w-6 rounded hover:bg-[#e5e5e5]"
+                              onPointerDown={(event) => event.stopPropagation()}
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <MoreVertical className="h-4 w-4 text-[#666666]" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[120px] bg-white border border-[#e6e6e6]">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-[120px] bg-white border border-[#e6e6e6] z-[70]"
+                          >
                             <DropdownMenuItem onClick={() => handleRenameFolder(folder.id)} className="text-[#171717] hover:bg-[#E5E5E5] cursor-pointer">
                               <Edit className="mr-2 h-4 w-4" />
                               Rename

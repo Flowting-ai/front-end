@@ -31,7 +31,8 @@ interface PinItemProps {
     onRemoveTag: (pinId: string, tagIndex: number) => void;
     onDeletePin?: (pinId: string) => void;
     chatName?: string;
-    onInsertToChat?: (text: string) => void;
+    onInsertToChat?: (text: string, pin: PinType) => void;
+    onGoToChat?: (pin: PinType) => void;
     compact?: boolean;
 }
 
@@ -44,7 +45,16 @@ const formatTimestamp = (time: Date) => {
     return formatDistanceToNow(pinTime, { addSuffix: true });
 }
 
-export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, onInsertToChat, compact = false }: PinItemProps) => {
+export const PinItem = ({
+    pin,
+    onUpdatePin,
+    onRemoveTag,
+    onDeletePin,
+    chatName,
+    onInsertToChat,
+    onGoToChat,
+    compact = false,
+}: PinItemProps) => {
     const router = useRouter();
     const [showInfo, setShowInfo] = useState(false);
     const [isTitleExpanded, setIsTitleExpanded] = useState(false);
@@ -81,6 +91,10 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
     useEffect(() => {
         setTags(pin.tags);
     }, [pin.tags]);
+
+    useEffect(() => {
+        setComments(pin.comments || []);
+    }, [pin.comments]);
 
     const handleTagKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter' && tagInput.trim()) {
@@ -160,9 +174,18 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
     };
 
     const handleGoToChat = () => {
-        // Navigate to the chat and scroll to the specific message
-        router.push(`/?chatId=${pin.chatId}&messageId=${pin.messageId || ''}`);
-        toast({ title: "Navigating to chat..." });
+        // Allow parent to own navigation; otherwise fallback to URL redirect.
+        if (onGoToChat) {
+            onGoToChat(pin);
+            return;
+        }
+        // Simple redirect to chat; preserve messageId when available.
+        const searchParams = new URLSearchParams();
+        if (pin.chatId) searchParams.set("chatId", String(pin.chatId));
+        if (pin.messageId) searchParams.set("messageId", String(pin.messageId));
+        const suffix = searchParams.toString();
+        const target = suffix ? `/?${suffix}` : "/";
+        router.push(target);
     };
 
     const cleanContent = (raw: string) => {
@@ -184,8 +207,7 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
     const previewContent = (pin.title && bodyContent.startsWith((pin.title))) ? bodyContent.substring((pin.title).length).trim() : bodyContent;
     const handleInsertToChat = () => {
         if (onInsertToChat) {
-            onInsertToChat(bodyContent);
-            toast({ title: "Pin inserted to chat" });
+            onInsertToChat(bodyContent, pin);
         }
     };
 
@@ -253,7 +275,11 @@ export const PinItem = ({ pin, onUpdatePin, onRemoveTag, onDeletePin, chatName, 
                                 <MoreVertical className="h-4 w-4 text-[#666666]" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-white border border-[#E5E5E5]" style={{ width: '99px', borderRadius: '8px' }}>
+                        <DropdownMenuContent
+                            align="end"
+                            className="bg-white border border-[#E5E5E5] z-[70]"
+                            style={{ width: '99px', borderRadius: '8px' }}
+                        >
                             <DropdownMenuItem onClick={() => setIsEditingTitle(true)} className="text-[#1e1e1e]">
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit

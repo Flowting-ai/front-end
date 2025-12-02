@@ -1,6 +1,12 @@
 "use client";
 
-import { CHAT_PINS_ENDPOINT, PIN_DETAIL_ENDPOINT, PIN_FOLDERS_ENDPOINT, PINS_ENDPOINT } from "@/lib/config";
+import {
+  CHAT_PINS_ENDPOINT,
+  PIN_DETAIL_ENDPOINT,
+  PIN_FOLDERS_ENDPOINT,
+  PIN_FOLDER_DETAIL_ENDPOINT,
+  PINS_ENDPOINT,
+} from "@/lib/config";
 import { apiFetch } from "./client";
 
 export interface BackendPin {
@@ -15,6 +21,7 @@ export interface BackendPin {
   content?: string | null;
   formattedContent?: string | null;
   tags?: string[];
+  comments?: string[];
   model_name?: string;
   created_at?: string;
 }
@@ -42,7 +49,7 @@ export async function createPin(
   chatId: string,
   messageId: string,
   csrfToken?: string | null,
-  options?: { folderId?: string | null; tags?: string[] }
+  options?: { folderId?: string | null; tags?: string[]; comments?: string[] }
 ): Promise<BackendPin> {
   const payload: Record<string, unknown> = {
     messageId,
@@ -52,6 +59,9 @@ export async function createPin(
   }
   if (options?.tags) {
     payload.tags = options.tags;
+  }
+  if (options?.comments) {
+    payload.comments = options.comments;
   }
 
   const response = await apiFetch(
@@ -84,6 +94,28 @@ export async function deletePin(
   if (!response.ok) {
     throw new Error("Failed to delete pin");
   }
+}
+
+export async function updatePinComments(
+  pinId: string,
+  comments: string[],
+  csrfToken?: string | null
+): Promise<BackendPin> {
+  const response = await apiFetch(
+    PIN_DETAIL_ENDPOINT(pinId),
+    {
+      method: "PATCH",
+      body: JSON.stringify({ comments }),
+    },
+    csrfToken
+  );
+
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || "Failed to update pin comments");
+  }
+
+  return (await response.json()) as BackendPin;
 }
 
 export async function fetchAllPins(csrfToken?: string | null): Promise<BackendPin[]> {
@@ -130,6 +162,44 @@ export async function createPinFolder(name: string, csrfToken?: string | null): 
     throw new Error(msg || "Failed to create pin folder");
   }
   return (await response.json()) as PinFolder;
+}
+
+export async function renamePinFolder(
+  folderId: string,
+  name: string,
+  csrfToken?: string | null
+): Promise<PinFolder> {
+  const response = await apiFetch(
+    PIN_FOLDER_DETAIL_ENDPOINT(folderId),
+    {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    },
+    csrfToken
+  );
+
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || "Failed to rename pin folder");
+  }
+
+  return (await response.json()) as PinFolder;
+}
+
+export async function deletePinFolder(
+  folderId: string,
+  csrfToken?: string | null
+): Promise<void> {
+  const response = await apiFetch(
+    PIN_FOLDER_DETAIL_ENDPOINT(folderId),
+    { method: "DELETE" },
+    csrfToken
+  );
+
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || "Failed to delete pin folder");
+  }
 }
 
 export async function movePinToFolder(

@@ -105,7 +105,17 @@ export async function fetchChatMessages(
     csrfToken
   );
   if (!response.ok) {
-    throw new Error(`Failed to load messages for chat ${chatId}`);
+    let body = "";
+    try {
+      body = await response.text();
+    } catch {
+      body = "";
+    }
+    const statusInfo = `${response.status} ${response.statusText}`.trim();
+    const detail = body ? `: ${body}` : "";
+    throw new Error(
+      `Failed to load messages for chat ${chatId} (${statusInfo})${detail}`
+    );
   }
   const data = await response.json();
   if (Array.isArray(data)) {

@@ -44,7 +44,7 @@ import {
   fetchAllPins,
   type BackendPin,
 } from "@/lib/api/pins";
-import { CHAT_DETAIL_ENDPOINT } from "@/lib/config";
+import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import { extractThinkingContent } from "@/lib/thinking";
 
@@ -343,6 +343,10 @@ const backendPinToLegacy = (pin: BackendPin, fallback?: Partial<PinType>): PinTy
     sourceChatId: resolvedChatId,
     sourceMessageId: resolvedMessageId ?? null,
     formattedContent: (pin as { formattedContent?: string | null }).formattedContent ?? null,
+    comments:
+      (pin as { comments?: string[] }).comments ??
+      fallback?.comments ??
+      [],
   };
 };
 
@@ -674,11 +678,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       );
 
       try {
-        const response = await apiFetch(
-          CHAT_DETAIL_ENDPOINT(chatId),
+        let response = await apiFetch(
+          CHAT_STAR_ENDPOINT(chatId),
           {
             method: "PATCH",
-            body: JSON.stringify({ is_starred: nextValue }),
+            body: JSON.stringify({ starred: nextValue }),
           },
           csrfTokenRef.current
         );
@@ -686,6 +690,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || "Failed to update star");
+        }
+
+        // Sync with backend confirmation in case it adjusts the value.
+        try {
+          const data = await response.json();
+          const resolved =
+            typeof (data as { starred?: unknown }).starred === "boolean"
+              ? Boolean((data as { starred: boolean }).starred)
+              : typeof (data as { is_starred?: unknown }).is_starred === "boolean"
+              ? Boolean((data as { is_starred: boolean }).is_starred)
+              : nextValue;
+          setChatBoards_((prev) =>
+            prev.map((item) =>
+              item.id === chatId ? { ...item, isStarred: resolved } : item
+            )
+          );
+        } catch {
+          // Best-effort; ignore JSON parse issues for non-JSON responses.
         }
 
         toast({
@@ -762,9 +784,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (!activeChatId) return;
+    if (!user) return;
     if (chatHistory[activeChatId]) return;
     loadMessagesForChat(activeChatId);
-  }, [activeChatId, chatHistory, loadMessagesForChat]);
+  }, [activeChatId, chatHistory, loadMessagesForChat, user]);
 
   useEffect(() => {
     if (!pinsChatId) {
@@ -799,6 +822,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         const backendPin = await createPin(chatId, messageId, csrfTokenRef.current, {
           folderId: pinRequest.folderId ?? null,
           tags: pinRequest.tags,
+          comments: pinRequest.comments,
         });
         const normalized = backendPinToLegacy(backendPin, pinRequest);
         if (chatId === activeChatId) {

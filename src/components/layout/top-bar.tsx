@@ -25,6 +25,11 @@ export function Topbar({
   const { usagePercent, isLoading } = useTokenUsage();
   const { user } = useAuth();
   const showUpgradePlan = !isLoading && usagePercent >= 80;
+  const firstName =
+    (user?.firstName as string | undefined) ||
+    (user?.name as string | undefined)?.split(" ")[0] ||
+    (user?.username as string | undefined) ||
+    "there";
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#D9D9D9] bg-white">
@@ -51,6 +56,9 @@ export function Topbar({
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-3">
+          <span className="text-sm text-[#1E1E1E] hidden md:inline-block">
+            Hi, {firstName}
+          </span>
           <CreatePersonaDialog triggerClassName="border-[#D4D4D4] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E]" />
           {!user && (
             <Link href="/auth/login">

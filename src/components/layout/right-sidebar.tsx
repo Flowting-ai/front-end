@@ -35,11 +35,15 @@ import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
 import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
 import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import {
   createPinFolder,
   fetchPinFolders,
   movePinToFolder,
   deletePin,
+  renamePinFolder,
+  deletePinFolder,
+  updatePinComments,
   type PinFolder,
 } from "@/lib/api/pins";
 
@@ -68,8 +72,10 @@ interface RightSidebarProps {
   setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
   chatBoards: ChatBoard[];
   className?: string;
-  onInsertToChat?: (text: string) => void;
+  onInsertToChat?: (text: string, pin: PinType) => void;
 }
+
+const PIN_INSERT_EVENT = "pin-insert-to-chat";
 
 type FilterMode = "all" | "current-chat" | "newest" | "oldest" | "by-folder" | "unorganized";
 
@@ -128,11 +134,29 @@ export function RightSidebar({
   const layoutContext = useContext(AppLayoutContext);
   const activeChatId = layoutContext?.activeChatId;
   const { csrfToken } = useAuth();
+  const { toast } = useToast();
 
   const pinsToDisplay = pins;
 
   const handleUpdatePin = (updatedPin: PinType) => {
-    setPins((prevPins) => prevPins.map((p) => (p.id === updatedPin.id ? updatedPin : p)));
+    setPins((prevPins) => {
+      const prevMap = new Map(prevPins.map((p) => [p.id, p]));
+      const previous = prevMap.get(updatedPin.id);
+
+      // Persist comment changes to backend
+      const prevComments = previous?.comments ?? [];
+      const nextComments = updatedPin.comments ?? [];
+      const commentsChanged =
+        prevComments.length !== nextComments.length ||
+        prevComments.some((val, idx) => val !== nextComments[idx]);
+      if (commentsChanged && updatedPin.id) {
+        updatePinComments(updatedPin.id, nextComments, csrfToken).catch((error) =>
+          console.error("Failed to update pin comments", error)
+        );
+      }
+
+      return prevPins.map((p) => (p.id === updatedPin.id ? updatedPin : p));
+    });
   };
 
   const handleRemoveTag = (pinId: string, tagIndex: number) => {
@@ -246,6 +270,47 @@ export function RightSidebar({
     [csrfToken]
   );
 
+  const handleRenameFolderRemote = useCallback(
+    async (folderId: string, name: string) => {
+      if (folderId === "unorganized") {
+        return { id: folderId, name };
+      }
+      const updated = await renamePinFolder(folderId, name, csrfToken);
+      setPinFolders((prev) =>
+        prev.map((folder) => (folder.id === folderId ? updated : folder))
+      );
+      return { id: updated.id, name: updated.name };
+    },
+    [csrfToken]
+  );
+
+  const handleDeleteFolderRemote = useCallback(
+    async (folderId: string) => {
+      if (folderId === "unorganized") {
+        return;
+      }
+
+      // Move pins out of the folder first so backend deletion succeeds (backend rejects non-empty folders).
+      const pinsInFolder = pins.filter((pin) => pin.folderId === folderId);
+      if (pinsInFolder.length > 0) {
+        await Promise.all(
+          pinsInFolder.map((pin) => movePinToFolder(pin.id, null, csrfToken))
+        );
+        setPins((prev) =>
+          prev.map((pin) =>
+            pin.folderId === folderId
+              ? { ...pin, folderId: undefined, folderName: null }
+              : pin
+          )
+        );
+      }
+
+      await deletePinFolder(folderId, csrfToken);
+      setPinFolders((prev) => prev.filter((folder) => folder.id !== folderId));
+    },
+    [csrfToken, pins, setPins]
+  );
+
   const handleOrganizePinsUpdate = useCallback(
     async (updatedPins: PinType[]) => {
       const currentById = new Map(pins.map((p) => [p.id, p]));
@@ -277,6 +342,23 @@ export function RightSidebar({
       setPins(updatedPins);
     },
     [csrfToken, loadFolders, pins, setPins]
+  );
+
+  const handleInsertPin = useCallback(
+    async (text: string, pin: PinType) => {
+      if (onInsertToChat) {
+        onInsertToChat(text, pin);
+      } else if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(PIN_INSERT_EVENT, { detail: { text, pin } })
+        );
+        toast({
+          title: "Inserted into prompt",
+          description: "Pin content moved to the chat input.",
+        });
+      }
+    },
+    [onInsertToChat, toast]
   );
 
   const sortedAndFilteredPins = useMemo(() => {
@@ -335,6 +417,102 @@ export function RightSidebar({
     }
   }, [pinsToDisplay, searchTerm, selectedTags, filterMode, activeChatId]);
 
+  const handleGoToChat = useCallback(
+    (pin: PinType) => {
+      if (!pin.chatId) {
+        toast({
+          title: "Chat not found",
+          description: "This pin is not linked to a chat.",
+          variant: "destructive",
+        });
+        return;
+      }
+      layoutContext?.setActiveChatId(String(pin.chatId));
+      setIsOrganizeDialogOpen(false);
+    },
+    [layoutContext, toast]
+  );
+
+  const exportPinsToPdf = useCallback(() => {
+    if (sortedAndFilteredPins.length === 0) {
+      toast({
+        title: "No pins to export",
+        description: "Add or select pins before exporting.",
+      });
+      return;
+    }
+    if (typeof window === "undefined") return;
+
+    const now = new Date();
+    const htmlPins = sortedAndFilteredPins
+      .map((pin) => {
+        const tags = pin.tags.length
+          ? `<div style="margin-top:6px; font-size:11px; color:#444;">Tags: ${pin.tags.join(
+              ", "
+            )}</div>`
+          : "";
+        const comments =
+          Array.isArray(pin.comments) && pin.comments.length
+            ? `<div style="margin-top:6px; font-size:11px; color:#444;">Comments: ${pin.comments.join(
+                " | "
+              )}</div>`
+            : "";
+        return `
+          <div style="padding:12px 14px; border:1px solid #e1e1e1; border-radius:10px; margin-bottom:10px;">
+            <div style="font-weight:600; font-size:14px; color:#111; margin-bottom:4px;">${
+              pin.title || pin.text
+            }</div>
+            <div style="font-size:12px; color:#222; white-space:pre-wrap;">${pin.text}</div>
+            ${tags}
+            ${comments}
+          </div>
+        `;
+      })
+      .join("");
+
+    const docHtml = `
+      <html>
+        <head>
+          <title>Pins Export</title>
+          <style>
+            @page { margin: 18mm; }
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+            .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
+            .container { padding: 16px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="meta">Exported ${sortedAndFilteredPins.length} pin(s) · ${now.toLocaleString()}</div>
+            ${htmlPins}
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank", "width=900,height=1200");
+    if (!printWindow) {
+      toast({
+        title: "Popup blocked",
+        description: "Allow popups to export pins.",
+        variant: "destructive",
+      });
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(docHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    setTimeout(() => {
+      try {
+        printWindow.close();
+      } catch {
+        /* ignore */
+      }
+    }, 300);
+  }, [sortedAndFilteredPins, toast]);
+
   const getFilterLabel = () => {
     if (selectedTags.length > 0 && selectedFolders.length > 0) {
       return `Filtered by ${selectedTags.length} tag(s) & ${selectedFolders.length} folder(s)`;
@@ -373,6 +551,8 @@ export function RightSidebar({
           folders={pinFolders}
           onCreateFolder={handleCreateFolder}
           onPinsUpdate={handleOrganizePinsUpdate}
+          onRenameFolder={handleRenameFolderRemote}
+          onDeleteFolder={handleDeleteFolderRemote}
         />
       </>
     );
@@ -546,17 +726,18 @@ export function RightSidebar({
             sortedAndFilteredPins.map((pin) => {
               const chatBoard = chatBoards.find((board) => board.id.toString() === pin.chatId);
               return (
-                <PinItem
-                  key={pin.id}
-                  pin={pin}
-                  onUpdatePin={handleUpdatePin}
-                  onRemoveTag={handleRemoveTag}
-                  onDeletePin={handleDeletePin}
-                  chatName={chatBoard?.name}
-                  onInsertToChat={onInsertToChat}
-                />
-              );
-            })
+            <PinItem
+              key={pin.id}
+              pin={pin}
+              onUpdatePin={handleUpdatePin}
+              onRemoveTag={handleRemoveTag}
+              onDeletePin={handleDeletePin}
+              chatName={chatBoard?.name}
+              onInsertToChat={handleInsertPin}
+              onGoToChat={handleGoToChat}
+            />
+          );
+        })
           ) : (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[#dcdcdc] px-6 py-8 text-center text-sm text-[#5a5a5a]">
               <Pin className="h-8 w-8 text-[#1e1e1e]" />
@@ -584,6 +765,7 @@ export function RightSidebar({
             sortedAndFilteredPins.length === 0 && "opacity-30"
           )}
           disabled={sortedAndFilteredPins.length === 0}
+          onClick={exportPinsToPdf}
         >
           <Download className="mr-2 h-4 w-4" />
           Export Pins
@@ -669,6 +851,8 @@ export function RightSidebar({
         folders={pinFolders}
         onCreateFolder={handleCreateFolder}
         onPinsUpdate={handleOrganizePinsUpdate}
+        onRenameFolder={handleRenameFolderRemote}
+        onDeleteFolder={handleDeleteFolderRemote}
         chatBoards={chatBoards}
       />
     </>
