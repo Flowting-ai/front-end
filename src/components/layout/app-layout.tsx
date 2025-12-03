@@ -385,8 +385,30 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [pins, setPins_] = useState<PinType[]>([]);
   const [pinsChatId, setPinsChatId] = useState<string | null>(null);
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
+
+  // Wrapper for setActiveChatId that moves the selected chat to the top
+  const setActiveChatId = useCallback((id: string | null | ((prev: string | null) => string | null)) => {
+    setActiveChatId_((prevId) => {
+      const nextId = typeof id === 'function' ? id(prevId) : id;
+      
+      // If changing to a different chat, move it to the top
+      if (nextId && nextId !== prevId) {
+        setChatBoards_((prevBoards) => {
+          const chatIndex = prevBoards.findIndex((board) => board.id === nextId);
+          if (chatIndex > 0) {
+            const reordered = [...prevBoards];
+            const [selectedChat] = reordered.splice(chatIndex, 1);
+            return [selectedChat, ...reordered];
+          }
+          return prevBoards;
+        });
+      }
+      
+      return nextId;
+    });
+  }, []);
 
   const [chatToDelete, setChatToDelete] = useState<ChatBoard | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
@@ -849,10 +871,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           comments: pinRequest.comments,
         });
         const normalized = backendPinToLegacy(backendPin, pinRequest);
-        if (chatId === activeChatId) {
-          setPins((prev) => [normalized, ...prev.filter((p) => p.id !== normalized.id)]);
-          setPinsChatId(chatId);
-        }
+        // Always update pins state regardless of active chat since pins are loaded globally
+        setPins((prev) => [normalized, ...prev.filter((p) => p.id !== normalized.id)]);
         setChatBoards_((prevBoards) =>
           prevBoards.map((board) =>
             board.id === chatId

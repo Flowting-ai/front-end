@@ -1269,16 +1269,15 @@ export function ChatInterface({
         </div>
       )}
 
-
-      {/* Scroll to bottom button - floating inside scrollable chat window */}
+      {/* Scroll to bottom button - floating above the chat input */}
       {!isScrolledToBottom && (
-        <div className="pointer-events-none">
+        <div className="relative pointer-events-none" style={{ height: 0 }}>
           <button
             type="button"
             onClick={handleScrollToBottom}
-            className="absolute left-1/2 -translate-x-1/2 z-30 flex items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors h-10 w-10"
+            className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors h-10 w-10"
             aria-label="Scroll to bottom"
-            style={{ bottom: '140px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', pointerEvents: 'auto' }}
+            style={{ bottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', pointerEvents: 'auto', zIndex: 30 }}
           >
             {/* Down arrow with vertical line icon, perfectly centered */}
             <span className="flex items-center justify-center h-full w-full">
@@ -1517,7 +1516,7 @@ export function ChatInterface({
                     }
                   }}
                   placeholder="Ask anything... Hit '@' to add in a pin"
-                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey"
                   rows={1}
                   disabled={isResponding}
                 />

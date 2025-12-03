@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Pin, X, MoreVertical, Trash2, Edit, MessageSquareText, Tag, ArrowUp, Info } from "lucide-react";
+import { Pin, X, MoreVertical, Trash2, Edit, MessageSquareText, Tag, ArrowUp, Info, Copy, FolderInput, Search, ChevronRight, FolderPlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +16,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { PinFolder } from "@/lib/api/pins";
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +39,10 @@ interface PinItemProps {
     onInsertToChat?: (text: string, pin: PinType) => void;
     onGoToChat?: (pin: PinType) => void;
     compact?: boolean;
+    folders?: PinFolder[];
+    onDuplicatePin?: (pin: PinType) => void;
+    onMovePin?: (pinId: string, folderId: string | null) => void;
+    onCreateFolder?: (name: string) => Promise<PinFolder>;
 }
 
 const formatTimestamp = (time: Date) => {
@@ -54,6 +63,10 @@ export const PinItem = ({
     onInsertToChat,
     onGoToChat,
     compact = false,
+    folders = [],
+    onDuplicatePin,
+    onMovePin,
+    onCreateFolder,
 }: PinItemProps) => {
     const router = useRouter();
     const [showInfo, setShowInfo] = useState(false);
@@ -69,12 +82,22 @@ export const PinItem = ({
     const [commentInput, setCommentInput] = useState('');
     const [hoveredTagIndex, setHoveredTagIndex] = useState<number | null>(null);
     const [comments, setComments] = useState<string[]>(pin.comments || []);
+    const [editingCommentIndex, setEditingCommentIndex] = useState<number | null>(null);
+    const [editCommentInput, setEditCommentInput] = useState('');
+    const [moveFolderSearch, setMoveFolderSearch] = useState('');
     const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { toast } = useToast();
     
     const MAX_TAG_LINES = 2;
     const ESTIMATED_TAGS_PER_LINE = 4;
+
+    const filteredFolders = useMemo(() => {
+        if (!moveFolderSearch.trim()) return folders;
+        return folders.filter(folder => 
+            folder.name.toLowerCase().includes(moveFolderSearch.toLowerCase())
+        );
+    }, [folders, moveFolderSearch]);
 
     useEffect(() => {
         if (isEditingNotes && notesTextareaRef.current) {
@@ -110,7 +133,8 @@ export const PinItem = ({
             return;
           }
           
-          const newTags = [...tags, tagInput.trim()];
+          // Add new tag at the beginning (most recent first)
+          const newTags = [tagInput.trim(), ...tags];
           setTags(newTags);
           const updatedPin = { ...pin, tags: newTags };
           onUpdatePin(updatedPin);
@@ -170,6 +194,57 @@ export const PinItem = ({
             toast({ title: "Comment added!" });
             setCommentInput('');
             setShowComments(false);
+        }
+    };
+
+    const handleEditComment = (index: number) => {
+        setEditingCommentIndex(index);
+        setEditCommentInput(comments[index]);
+    };
+
+    const handleSaveEditedComment = () => {
+        if (editCommentInput.trim() && editingCommentIndex !== null) {
+            const updatedComments = [...comments];
+            updatedComments[editingCommentIndex] = editCommentInput.trim();
+            setComments(updatedComments);
+            onUpdatePin({ ...pin, comments: updatedComments });
+            toast({ title: "Comment updated!" });
+            setEditingCommentIndex(null);
+            setEditCommentInput('');
+        }
+    };
+
+    const handleCancelEditComment = () => {
+        setEditingCommentIndex(null);
+        setEditCommentInput('');
+    };
+
+    const handleDuplicatePin = () => {
+        if (onDuplicatePin) {
+            onDuplicatePin(pin);
+            toast({ title: "Pin duplicated!" });
+        }
+    };
+
+    const handleMoveToFolder = (folderId: string | null, folderName: string) => {
+        if (onMovePin) {
+            onMovePin(pin.id, folderId);
+            toast({ title: `Moved to ${folderName}` });
+            setMoveFolderSearch('');
+        }
+    };
+
+    const handleCreateAndMove = async () => {
+        if (!moveFolderSearch.trim() || !onCreateFolder || !onMovePin) return;
+        
+        try {
+            const newFolder = await onCreateFolder(moveFolderSearch.trim());
+            onMovePin(pin.id, newFolder.id);
+            toast({ title: `Created folder and moved to ${newFolder.name}` });
+            setMoveFolderSearch('');
+        } catch (error) {
+            console.error('Failed to create folder', error);
+            toast({ title: 'Failed to create folder', variant: 'destructive' });
         }
     };
 
@@ -278,13 +353,74 @@ export const PinItem = ({
                         <DropdownMenuContent
                             align="end"
                             className="bg-white border border-[#E5E5E5] z-[70]"
-                            style={{ width: '99px', borderRadius: '8px' }}
+                            style={{ width: '140px', borderRadius: '8px' }}
                         >
-                            <DropdownMenuItem onClick={() => setIsEditingTitle(true)} className="text-[#1e1e1e]">
+                            <DropdownMenuItem onClick={() => setIsEditingTitle(true)} className="text-[#1e1e1e] rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit
+                                Rename
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDeletePin} className="text-red-600">
+                            <DropdownMenuItem onClick={handleDuplicatePin} className="text-[#1e1e1e] rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#1e1e1e] hover:bg-[#f5f5f5] data-[state=open]:bg-[#f5f5f5]">
+                                    <FolderInput className="mr-2 h-4 w-4" />
+                                    Move
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-[240px] border border-[#e6e6e6] bg-white p-2 text-[#171717]">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8a8a]" />
+                                        <Input
+                                            placeholder="Search folders..."
+                                            className="mb-2 h-8 rounded-md pl-8 text-sm"
+                                            value={moveFolderSearch}
+                                            onChange={(event) => setMoveFolderSearch(event.target.value)}
+                                            onClick={(event) => event.preventDefault()}
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' && moveFolderSearch.trim() && filteredFolders.length === 0) {
+                                                    event.preventDefault();
+                                                    handleCreateAndMove();
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <ScrollArea className="max-h-48">
+                                        <div className="space-y-1" role="menu">
+                                            <DropdownMenuItem
+                                                className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
+                                                onSelect={() => handleMoveToFolder(null, 'Unorganized')}
+                                            >
+                                                Unorganized
+                                            </DropdownMenuItem>
+                                            {filteredFolders.length > 0 ? (
+                                                filteredFolders.map((folder) => (
+                                                    <DropdownMenuItem
+                                                        key={folder.id}
+                                                        className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
+                                                        onSelect={() => handleMoveToFolder(folder.id, folder.name)}
+                                                    >
+                                                        {folder.name}
+                                                    </DropdownMenuItem>
+                                                ))
+                                            ) : moveFolderSearch.trim() ? (
+                                                <DropdownMenuItem
+                                                    className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
+                                                    onSelect={handleCreateAndMove}
+                                                >
+                                                    <FolderPlus className="mr-2 h-3.5 w-3.5" />
+                                                    Create "{moveFolderSearch.trim()}"
+                                                </DropdownMenuItem>
+                                            ) : (
+                                                <DropdownMenuItem disabled className="px-2 py-1.5 text-[#9a9a9a]">
+                                                    No matching folders
+                                                </DropdownMenuItem>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuItem onClick={handleDeletePin} className="text-red-600 rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                             </DropdownMenuItem>
@@ -379,14 +515,16 @@ export const PinItem = ({
                             </span>
                         )}
                     </button>
-                    <button
+
+                    {/* summary icon commented */}
+                    {/* <button
                         onClick={() => setShowInfo(!showInfo)}
                         className="flex items-center justify-center border border-[#D4D4D4] hover:bg-[#f5f5f5] transition-colors"
                         style={{ width: '24px', height: '24px', minHeight: '24px', borderRadius: '9999px', padding: '4px' }}
                         title={showInfo ? 'Hide details' : 'Show details'}
                     >
                         <Info className="text-[#666666]" style={{ width: '16px', height: '16px' }} />
-                    </button>
+                    </button> */}
                     <TooltipProvider delayDuration={300}>
                         <div className="flex items-center gap-2">
                             <Tooltip>
@@ -435,18 +573,63 @@ export const PinItem = ({
                                         key={index}
                                         className="group relative rounded-lg bg-[#F9F9F9] p-2 text-xs text-[#1e1e1e]"
                                     >
-                                        {comment}
-                                        <button
-                                            onClick={() => {
-                                                const updatedComments = comments.filter((_, i) => i !== index);
-                                                setComments(updatedComments);
-                                                onUpdatePin({ ...pin, comments: updatedComments });
-                                                toast({ title: "Comment deleted" });
-                                            }}
-                                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-[#E5E5E5] p-1"
-                                        >
-                                            <Trash2 className="h-3 w-3 text-[#666666]" />
-                                        </button>
+                                        {editingCommentIndex === index ? (
+                                            <div className="space-y-2">
+                                                <Input
+                                                    value={editCommentInput}
+                                                    onChange={(e) => setEditCommentInput(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && editCommentInput.trim()) {
+                                                            handleSaveEditedComment();
+                                                        }
+                                                        if (e.key === 'Escape') {
+                                                            handleCancelEditComment();
+                                                        }
+                                                    }}
+                                                    className="w-full rounded-[6px] border border-[#dcdcdc] bg-white text-xs text-[#1e1e1e]"
+                                                    style={{ height: '32px', paddingLeft: '8px', paddingRight: '8px' }}
+                                                    autoFocus
+                                                />
+                                                <div className="flex gap-2 justify-end">
+                                                    <button
+                                                        onClick={handleSaveEditedComment}
+                                                        disabled={!editCommentInput.trim()}
+                                                        className="flex h-5 w-5 items-center justify-center rounded-full border border-[#1e1e1e] hover:bg-[#f5f5f5] disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        <ArrowUp className="h-3 w-3 text-[#1e1e1e]" />
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEditComment}
+                                                        className="text-[10px] text-[#666666] hover:text-[#1e1e1e] px-2"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {comment}
+                                                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => handleEditComment(index)}
+                                                        className="rounded hover:bg-[#E5E5E5] p-1"
+                                                    >
+                                                        <Edit className="h-3 w-3 text-[#666666]" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updatedComments = comments.filter((_, i) => i !== index);
+                                                            setComments(updatedComments);
+                                                            onUpdatePin({ ...pin, comments: updatedComments });
+                                                            toast({ title: "Comment deleted" });
+                                                        }}
+                                                        className="rounded hover:bg-[#E5E5E5] p-1"
+                                                    >
+                                                        <Trash2 className="h-3 w-3 text-[#666666]" />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -481,8 +664,10 @@ export const PinItem = ({
                         </div>
                     </div>
                 )}
+
+                {/* summary feature */}
                 {/* Info panel: toggled by Info button */}
-                {showInfo && (
+                {/* {showInfo && (
                     <div className="relative space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         <button
                             onClick={() => setShowInfo(false)}
@@ -496,7 +681,7 @@ export const PinItem = ({
                             {previewContent.length > 200 ? `${previewContent.substring(0, 200)}...` : previewContent}
                         </div>
                     </div>
-                )}
+                )} */}
                 {/* Removed inline expansion — 'read more' now opens the Info summary panel */}
             </CardContent>
         </Card>

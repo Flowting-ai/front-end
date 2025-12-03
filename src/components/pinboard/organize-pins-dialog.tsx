@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Folder, Unlink, MoreVertical, Trash2, Edit, Move, FolderPlus, Search, ChevronDown } from "lucide-react";
+import { Folder, Unlink, MoreVertical, Trash2, Edit, Move, FolderPlus, Search, ChevronDown, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -131,6 +131,9 @@ export function OrganizePinsDialog({
   );
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [moveFolderSearch, setMoveFolderSearch] = useState("");
+  const [isMoveMode, setIsMoveMode] = useState(false);
+  const [selectedMoveFolder, setSelectedMoveFolder] = useState<string | null>(null);
   const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
   const [newFolderName, setNewFolderName] = useState<string>("");
   const [isEditingFolder, setIsEditingFolder] = useState<boolean>(false);
@@ -203,6 +206,13 @@ export function OrganizePinsDialog({
     });
     return pins;
   }, [pinsByFolder, selectedFolderIds]);
+
+  const filteredMoveableFolders = useMemo(() => {
+    if (!moveFolderSearch.trim()) return folders;
+    return folders.filter(folder => 
+      folder.name.toLowerCase().includes(moveFolderSearch.toLowerCase())
+    );
+  }, [folders, moveFolderSearch]);
 
   const handlePinUpdate = (updatedPin: PinType) => {
     if (initialPins.length > 0) {
@@ -378,11 +388,14 @@ export function OrganizePinsDialog({
     setSelectedPinIds([]);
   };
 
-  const handleMovePins = (targetFolderId: string) => {
+  const handleConfirmMove = (targetFolderId?: string) => {
+    const folderId = targetFolderId || selectedMoveFolder;
+    if (!folderId) return;
+    
     if (initialPins.length > 0) {
       const updatedPins = initialPins.map(pin => 
         selectedPinIds.includes(pin.id) 
-          ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
+          ? { ...pin, folderId: folderId === 'unorganized' ? undefined : folderId }
           : pin
       );
       onPinsUpdate(updatedPins);
@@ -390,7 +403,7 @@ export function OrganizePinsDialog({
       // For dummy pins, create new array with updated pins (for testing)
       const updatedDummyPins = dummyPins.map(pin => 
         selectedPinIds.includes(pin.id)
-          ? { ...pin, folderId: targetFolderId === 'unorganized' ? undefined : targetFolderId }
+          ? { ...pin, folderId: folderId === 'unorganized' ? undefined : folderId }
           : pin
       );
       // Replace dummyPins array contents to trigger re-render
@@ -398,7 +411,28 @@ export function OrganizePinsDialog({
       dummyPins.push(...updatedDummyPins);
     }
     setSelectedPinIds([]);
-    // Stay on current folder to show the pins were moved
+    setMoveFolderSearch('');
+    setIsMoveMode(false);
+    setSelectedMoveFolder(null);
+  };
+
+  const handleCancelMove = () => {
+    setIsMoveMode(false);
+    setSelectedPinIds([]);
+    setSelectedMoveFolder(null);
+    setMoveFolderSearch('');
+  };
+
+  const handleCreateFolderAndMove = async () => {
+    if (!moveFolderSearch.trim() || !onCreateFolder) return;
+    
+    try {
+      const newFolder = await onCreateFolder(moveFolderSearch.trim());
+      setSelectedMoveFolder(newFolder.id);
+      setMoveFolderSearch('');
+    } catch (error) {
+      console.error('Failed to create folder', error);
+    }
   };
 
   return (
@@ -406,42 +440,100 @@ export function OrganizePinsDialog({
       <DialogContent className="organize-dialog flex flex-col bg-transparent p-0 text-[#171717] gap-0">
         <div className="organize-dialog-inner relative flex flex-col">
         <DialogHeader className="border-b bg-white py-6 px-6 text-[#171717] space-y-4">
-          <DialogTitle className="text-left text-[#171717] font-semibold text-lg">Organize Pins</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-left text-[#171717] font-semibold text-lg">Organize Pins</DialogTitle>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose}
+              className="h-8 w-8 rounded-md hover:bg-[#f5f5f5] text-[#666666] hover:text-[#1e1e1e]"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           
-          {/* Search Input */}
-          <div className="relative w-full max-w-[420px] mt-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9a9a9a]" />
-            <input
-              type="text"
-              placeholder="Search pins..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
-              style={{
-                height: "36px",
-                minHeight: "36px",
-                borderRadius: "8px",
-                border: "1px solid #E5E5E5",
-                backgroundColor: "#FFFFFF",
-                paddingTop: "7.5px",
-                paddingBottom: "7.5px",
-                paddingLeft: "40px",
-                paddingRight: "20px",
-                gap: "8px"
-              }}
-            />
-            {searchQuery && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
-                {selectedFolderPins.filter(pin => 
-                  pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-                ).length} results
-              </div>
-            )}
+          {/* Search Input with Move and Delete buttons */}
+          <div className="flex items-center gap-2">
+            <div className="relative" style={{ width: "min(380px, 46%)", minWidth: "220px" }}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9a9a9a]" />
+              <input
+                type="text"
+                placeholder="Search pins..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+                style={{
+                  height: "36px",
+                  minHeight: "36px",
+                  borderRadius: "8px",
+                  border: "1px solid #E5E5E5",
+                  backgroundColor: "#FFFFFF",
+                  paddingTop: "7.5px",
+                  paddingBottom: "7.5px",
+                  paddingLeft: "40px",
+                  paddingRight: searchQuery ? "60px" : "20px",
+                  gap: "8px"
+                }}
+              />
+              {searchQuery && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
+                  {selectedFolderPins.filter(pin => 
+                    pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+                  ).length} results
+                </div>
+              )}
+            </div>
+            <div className={`flex items-center gap-2 ${!isMoveMode || selectedPinIds.length === 0 ? 'ml-auto' : ''}`}>
+              {!isMoveMode ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsMoveMode(true)}
+                  className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#2c2c2c] hover:text-white h-9 px-3 text-sm"
+                >
+                  <Move className="h-4 w-4 mr-1.5"/>
+                  Move pins to folder
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    variant="default"
+                    size="sm" 
+                    className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] h-9 px-3 text-sm"
+                  >
+                    <Move className="h-4 w-4 mr-1.5"/>
+                    Move pins to folder {selectedPinIds.length > 0 && `(${selectedPinIds.length})`}
+                  </Button>
+                  {selectedPinIds.length > 0 && (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleBulkDelete}
+                        className="rounded-lg text-red-600 hover:bg-[#fee2e2] hover:text-red-600 h-9 w-9"
+                        title="Delete selected pins"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleCancelMove}
+                        className="rounded-lg border border-[#d4d4d4] text-[#1e1e1e] hover:bg-[#f5f5f5] hover:text-[#1e1e1e] h-9 px-3 text-sm"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </DialogHeader>
         
-        <div className="flex-1 flex overflow-hidden py-4 min-h-0" style={{ gap: "6px" }}>
+        {/* folder column padding */}
+        <div className="flex-1 flex overflow-hidden py-4 px-4 min-h-0" style={{ gap: "15px" }}>
           {/* Left Section (Folders) */}
           <div className="flex flex-col bg-[#F5F5F5] flex-shrink-0" style={{ width: "min(380px, 46%)", minWidth: "220px", height: "541px", maxHeight: "100%", borderRadius: "10px", padding: "12px 12px 12px 20px", gap: "12px" }}>
               <div className="flex items-center justify-between px-1">
@@ -459,13 +551,15 @@ export function OrganizePinsDialog({
               )}
             </div>
             
-            <ScrollArea className="flex-1 scrollbar-grey">
+                <ScrollArea className="flex-1 scrollbar-light-grey">
               <div className="space-y-1">
                 {folders.map(folder => (
                   <div
                     key={folder.id}
                     className={`w-full flex items-center justify-between p-3 sm:p-2 rounded-lg text-sm cursor-pointer transition-colors duration-150 ${
-                      selectedFolderIds.includes(folder.id) ? 'bg-white border border-[#e6e6e6] shadow-sm' : 'bg-white hover:bg-[#fbfbfb] border border-transparent'
+                      selectedFolderIds.includes(folder.id) ? 'bg-white border border-[#e6e6e6] shadow-sm' : 
+                      isMoveMode && selectedPinIds.length > 0 ? 'bg-white hover:bg-[#e8e8e8] border border-transparent' :
+                      'bg-white hover:bg-[#fbfbfb] border border-transparent'
                     }`}
                     role="button"
                     tabIndex={0}
@@ -475,7 +569,10 @@ export function OrganizePinsDialog({
                       className="flex items-center gap-2 flex-1 min-w-0"
                       onClick={(e) => {
                         const ev = e as React.MouseEvent;
-                        if (ev.ctrlKey || ev.metaKey || ev.shiftKey) {
+                        // In move mode with selected pins, clicking folder moves pins there
+                        if (isMoveMode && selectedPinIds.length > 0) {
+                          handleConfirmMove(folder.id);
+                        } else if (ev.ctrlKey || ev.metaKey || ev.shiftKey) {
                           setSelectedFolderIds(prev => prev.includes(folder.id) ? prev.filter(id => id !== folder.id) : [...prev, folder.id]);
                         } else {
                           setSelectedFolderIds([folder.id]);
@@ -540,72 +637,12 @@ export function OrganizePinsDialog({
           {/* Right Section (Selected Folder Pins) */}
           <div className="flex-1 flex flex-col bg-white" style={{ borderRadius: "10px", padding: "8px 20px 8px 8px" }}>
             <div className="pb-3 flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold text-[#171717] truncate flex-shrink-0" style={{ maxWidth: selectedPinIds.length > 0 ? "120px" : "100%" }}>
+              <h3 className="text-xs font-semibold text-[#171717] truncate flex-shrink-0">
                 {folders.find(f => f.id === selectedFolderIds[0])?.name || "Unorganised pins"}
               </h3>
-              {selectedPinIds.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#f5f5f5] h-7 px-2 text-xs">
-                        <Move className="h-3 w-3 mr-1"/>
-                        Move
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[200px] border border-[#e6e6e6] bg-white p-2 z-[10001]">
-                      <div className="mb-2">
-                        <div className="relative">
-                          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8a8a]" />
-                          <Input
-                            placeholder="Search folders..."
-                            className="h-8 pl-8 text-xs rounded-md border-[#e2e2e2]"
-                            onChange={(e) => {
-                              const searchValue = e.target.value.toLowerCase();
-                              const items = document.querySelectorAll('[data-folder-item]');
-                              items.forEach((item) => {
-                                const folderName = item.getAttribute('data-folder-name')?.toLowerCase() || '';
-                                const element = item as HTMLElement;
-                                element.style.display = folderName.includes(searchValue) ? 'flex' : 'none';
-                              });
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <ScrollArea className="max-h-[200px] scrollbar-grey">
-                        <div className="space-y-0.5">
-                          {folders
-                            .filter(f => !selectedFolderIds.includes(f.id))
-                            .map(f => (
-                              <DropdownMenuItem 
-                                key={f.id} 
-                                onClick={() => handleMovePins(f.id)} 
-                                className="text-[#171717] hover:bg-[#E5E5E5] text-sm cursor-pointer rounded-md"
-                                data-folder-item
-                                data-folder-name={f.name}
-                              >
-                                {f.id === 'unorganized' ? <Unlink className="h-3.5 w-3.5 mr-2 text-[#666666]" /> : <Folder className="h-3.5 w-3.5 mr-2 text-[#666666]" />}
-                                <span className="truncate">{f.name}</span>
-                              </DropdownMenuItem>
-                            ))}
-                        </div>
-                      </ScrollArea>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleBulkDelete}
-                    className="rounded-lg text-red-600 hover:bg-[#fee2e2] hover:text-black h-7 px-2 text-xs"
-                  >
-                    <Trash2 className="h-3 w-3 mr-1"/>
-                    Delete
-                  </Button>
-                </div>
-              )}
             </div>
             
-            {selectedFolderPins.length > 0 && selectedPinIds.length > 0 && (
+            {isMoveMode && selectedFolderPins.length > 0 && (
               <div className="flex items-center gap-2">
                 <Checkbox 
                   checked={selectedPinIds.length === selectedFolderPins.length}
@@ -630,11 +667,13 @@ export function OrganizePinsDialog({
                     const isSelected = selectedPinIds.includes(pin.id);
                     return (
                       <div key={pin.id} className="flex items-center gap-2">
-                        <Checkbox 
-                          checked={isSelected}
-                          onCheckedChange={() => handleTogglePinSelection(pin.id)}
-                          className="rounded-[4px] border-[#1e1e1e] h-4 w-4"
-                        />
+                        {isMoveMode && (
+                          <Checkbox 
+                            checked={isSelected}
+                            onCheckedChange={() => handleTogglePinSelection(pin.id)}
+                            className="rounded-[4px] border-[#1e1e1e] h-4 w-4"
+                          />
+                        )}
                         <div className="flex-1">
                           <PinItem
                             pin={pin}
@@ -658,7 +697,14 @@ export function OrganizePinsDialog({
           </div>
         </div>
 
-        <DialogFooter className="justify-end gap-4 bg-white pt-4 pb-4 px-6 z-20 mt-auto">
+        <DialogFooter className="justify-end gap-2 bg-white pt-4 pb-4 px-6 z-20 mt-auto">
+          <Button 
+            variant="ghost" 
+            onClick={onClose} 
+            className="rounded-lg border border-[#d4d4d4] text-[#1e1e1e] hover:bg-[#f5f5f5] hover:text-[#1e1e1e] pl-4 pr-4 py-2 min-w-[92px] z-30"
+          >
+            Cancel
+          </Button>
           <Button onClick={onClose} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] pl-4 pr-4 py-2 min-w-[92px] z-30">
             Done
           </Button>

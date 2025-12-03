@@ -212,6 +212,30 @@
   /* Chrome, Safari, Opera */
 }
 
+/* Light grey scrollbar for textarea */
+.scrollbar-light-grey {
+  scrollbar-width: thin;
+  scrollbar-color: #F5F5F5 transparent;
+}
+
+.scrollbar-light-grey::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-light-grey::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-light-grey::-webkit-scrollbar-thumb {
+  background: #F5F5F5;
+  border-radius: 4px;
+}
+
+.scrollbar-light-grey:hover::-webkit-scrollbar-thumb {
+  background: #E5E5E5;
+}
+
 /* Toast progress bar animation */
 @keyframes toast-progress {
   from {

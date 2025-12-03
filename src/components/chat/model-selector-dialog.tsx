@@ -46,13 +46,13 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
   useEffect(() => {
     if (!open) return;
 
-    // ✅ If we already have models in state, don't re-fetch
+    // If we already have models in state, don't re-fetch
     if (models.length > 0) {
       setIsLoading(false);
       return;
     }
 
-    // ✅ Try sessionStorage first
+    // Try sessionStorage first
     const cached = sessionStorage.getItem("aiModels");
     if (cached) {
       try {
@@ -67,7 +67,6 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
 
     const fetchModels = async () => {
       setIsLoading(true);
-
       let raw: AIModel[] = [];
       try {
         const response = await fetch(MODELS_ENDPOINT, {
@@ -80,172 +79,11 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
           console.log("Raw models from backend:", raw);
         }
       } catch (fetchError) {
-        console.warn("Failed to fetch models from backend, using dummy data:", fetchError);
+        console.warn("Failed to fetch models from backend:", fetchError);
       }
-
-      try {
-
-        // Add 9 dummy models for testing (3 paid + 6 new: 2 paid + 4 free)
-        const dummyModels: AIModel[] = [
-          {
-            companyName: "OpenAI",
-            modelName: "GPT-4",
-            version: "turbo",
-            modelType: "paid",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Anthropic",
-            modelName: "Claude 3.5 Sonnet",
-            version: "latest",
-            modelType: "paid",
-            inputLimit: 200000,
-            outputLimit: 8192,
-          },
-          {
-            companyName: "Google",
-            modelName: "Gemini Pro",
-            version: "1.5",
-            modelType: "free",
-            inputLimit: 32000,
-            outputLimit: 2048,
-          },
-          {
-            companyName: "Meta",
-            modelName: "Llama 3.1",
-            version: "70B",
-            modelType: "free",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Mistral AI",
-            modelName: "Mistral Large",
-            version: "2",
-            modelType: "paid",
-            inputLimit: 32000,
-            outputLimit: 8192,
-          },
-          {
-            companyName: "Cohere",
-            modelName: "Command R+",
-            version: "latest",
-            modelType: "paid",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "OpenAI",
-            modelName: "GPT-3.5 Turbo",
-            version: "latest",
-            modelType: "free",
-            inputLimit: 16000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Google",
-            modelName: "PaLM 2",
-            version: "bison",
-            modelType: "free",
-            inputLimit: 8000,
-            outputLimit: 1024,
-          },
-          {
-            companyName: "Anthropic",
-            modelName: "Claude 3 Haiku",
-            version: "latest",
-            modelType: "free",
-            inputLimit: 200000,
-            outputLimit: 4096,
-          },
-        ];
-
-        const combinedModels = [...raw];
-        setModels(raw);
-        // ✅ cache in sessionStorage
-        sessionStorage.setItem("aiModels", JSON.stringify(combinedModels));
-      } catch (error) {
-        console.error("Error fetching models:", error);
-        // If fetch fails, at least show dummy models
-        const dummyModels: AIModel[] = [
-          {
-            companyName: "OpenAI",
-            modelName: "GPT-4",
-            version: "turbo",
-            modelType: "paid",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Anthropic",
-            modelName: "Claude 3.5 Sonnet",
-            version: "latest",
-            modelType: "paid",
-            inputLimit: 200000,
-            outputLimit: 8192,
-          },
-          {
-            companyName: "Google",
-            modelName: "Gemini Pro",
-            version: "1.5",
-            modelType: "free",
-            inputLimit: 32000,
-            outputLimit: 2048,
-          },
-          {
-            companyName: "Meta",
-            modelName: "Llama 3.1",
-            version: "70B",
-            modelType: "free",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Mistral AI",
-            modelName: "Mistral Large",
-            version: "2",
-            modelType: "paid",
-            inputLimit: 32000,
-            outputLimit: 8192,
-          },
-          {
-            companyName: "Cohere",
-            modelName: "Command R+",
-            version: "latest",
-            modelType: "paid",
-            inputLimit: 128000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "OpenAI",
-            modelName: "GPT-3.5 Turbo",
-            version: "latest",
-            modelType: "free",
-            inputLimit: 16000,
-            outputLimit: 4096,
-          },
-          {
-            companyName: "Google",
-            modelName: "PaLM 2",
-            version: "bison",
-            modelType: "free",
-            inputLimit: 8000,
-            outputLimit: 1024,
-          },
-          {
-            companyName: "Anthropic",
-            modelName: "Claude 3 Haiku",
-            version: "latest",
-            modelType: "free",
-            inputLimit: 200000,
-            outputLimit: 4096,
-          },
-        ];
-        setModels([]);
-      } finally {
-        setIsLoading(false);
-      }
+      setModels(raw);
+      sessionStorage.setItem("aiModels", JSON.stringify(raw));
+      setIsLoading(false);
     };
 
     fetchModels();
@@ -308,7 +146,7 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
   };
 
 
-  return (
+  return (//box dimensions: 580x420
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="bg-white text-[#171717] p-2 gap-1"
@@ -356,7 +194,7 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
                 id="free"
                 checked={showFree}
                 onCheckedChange={(checked) => setShowFree(checked as boolean)}
-                className="checkbox-square"
+                className="h-4 w-4 rounded-[4px] border border-[#D4D4D4] data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
               />
               <Label htmlFor="free" className="checkbox-label">
                 Free
@@ -367,7 +205,7 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
                 id="paid"
                 checked={showPaid}
                 onCheckedChange={(checked) => setShowPaid(checked as boolean)}
-                className="checkbox-square"
+                className="h-4 w-4 rounded-[4px] border border-[#D4D4D4] data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
               />
               <Label htmlFor="paid" className="checkbox-label">
                 Paid
@@ -378,14 +216,44 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
 
         {/* Category Tabs */}
         <div className="category-tabs-wrapper">
-          <Tabs value={category} onValueChange={(v) => setCategory(v as ModelCategory)}>
-            <TabsList className="category-tabs">
-              <TabsTrigger value="all" className="category-tab">All</TabsTrigger>
-              <TabsTrigger value="text" className="category-tab">Text</TabsTrigger>
-              <TabsTrigger value="image" className="category-tab">Image</TabsTrigger>
-              <TabsTrigger value="video" className="category-tab">Video</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div
+            className="flex items-center"
+            style={{
+              background: '#F5F5F5',
+              width: 299,
+              height: 35,
+              borderRadius: 10,
+              padding: 3,
+              justifyContent: 'flex-start',
+            }}
+          >
+            <Tabs value={category} onValueChange={(v) => setCategory(v as ModelCategory)}>
+              <TabsList className="flex gap-2 h-full">
+                {[
+                  { key: 'all', label: 'All', icon: <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#A3A3A3" strokeWidth="2"/></svg> },
+                  { key: 'text', label: 'Text', icon: <svg width="26" height="26" viewBox="0 0 18 18" fill="none"><rect x="3" y="5" width="12" height="8" rx="2" stroke="#A3A3A3" strokeWidth="2"/><line x1="5" y1="8" x2="13" y2="8" stroke="#A3A3A3" strokeWidth="1.5"/><line x1="5" y1="11" x2="10" y2="11" stroke="#A3A3A3" strokeWidth="1.5"/></svg> },
+                  { key: 'image', label: 'Image', icon: <svg width="26" height="26" viewBox="0 0 18 18" fill="none"><rect x="3" y="5" width="12" height="8" rx="2" stroke="#A3A3A3" strokeWidth="2"/><circle cx="7" cy="9" r="1.5" stroke="#A3A3A3" strokeWidth="1.5"/><path d="M6 13L10 9L13 12" stroke="#A3A3A3" strokeWidth="1.5"/></svg> },
+                  { key: 'video', label: 'Video', icon: <svg width="26" height="26" viewBox="0 0 18 18" fill="none"><rect x="3" y="5" width="12" height="8" rx="2" stroke="#A3A3A3" strokeWidth="2"/><polygon points="7,8 12,9.5 7,11" fill="#A3A3A3"/></svg> },
+                ].map(({ key, label, icon }) => (
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className={
+                      `flex items-center gap-2 justify-center px-4 h-[29px] rounded-[8px] text-sm font-medium transition-colors
+                      ${category === key
+                        ? 'bg-white border border-[#F5F5F5] text-black'
+                        : 'bg-[#F5F5F5] border-none text-black'}
+                      `
+                    }
+                    style={{ minWidth: 50 }}
+                  >
+                    <span className="flex items-center" style={{ width: key === 'all' ? 15 : 26, height: key === 'all' ? 15 : 26 }}>{icon}</span>
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
 
         {/* Models List */}

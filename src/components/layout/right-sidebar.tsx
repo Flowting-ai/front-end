@@ -37,6 +37,7 @@ import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
+  createPin,
   createPinFolder,
   fetchPinFolders,
   movePinToFolder,
@@ -122,7 +123,7 @@ export function RightSidebar({
   className,
   onInsertToChat,
 }: RightSidebarProps) {
-  const [filterMode, setFilterMode] = useState<FilterMode>("current-chat");
+  const [filterMode, setFilterMode] = useState<FilterMode>("current-chat"); //
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
@@ -181,6 +182,80 @@ export function RightSidebar({
       setPins((prevPins) => prevPins.filter((p) => p.id !== pinId));
     },
     [csrfToken, setPins]
+  );
+
+  const handleDuplicatePin = useCallback(
+    async (pin: PinType) => {
+      try {
+        if (!pin.sourceChatId || !pin.sourceMessageId) {
+          console.error("Cannot duplicate pin: missing source chat or message ID");
+          return;
+        }
+        
+        const newPin = await createPin(
+          pin.sourceChatId,
+          pin.sourceMessageId,
+          csrfToken,
+          {
+            folderId: pin.folderId || null,
+            tags: [...pin.tags],
+            comments: [...(pin.comments || [])],
+          }
+        );
+        
+        const createdAt = newPin.created_at ? new Date(newPin.created_at) : new Date();
+        const resolvedChatId = newPin.chat || newPin.sourceChatId || pin.sourceChatId || "";
+        const resolvedTitle = newPin.title || pin.title || pin.text || "Untitled Pin";
+        const resolvedFolderId = newPin.folderId || newPin.folder_id || pin.folderId || undefined;
+        
+        const formattedPin: PinType = {
+          id: newPin.id,
+          text: resolvedTitle,
+          title: resolvedTitle,
+          tags: newPin.tags || [...pin.tags],
+          notes: pin.notes || "",
+          chatId: resolvedChatId,
+          time: createdAt,
+          messageId: newPin.sourceMessageId || pin.sourceMessageId || undefined,
+          folderId: resolvedFolderId,
+          folderName: newPin.folderName || pin.folderName || null,
+          sourceChatId: newPin.sourceChatId || pin.sourceChatId || null,
+          sourceMessageId: newPin.sourceMessageId || pin.sourceMessageId || null,
+          formattedContent: newPin.formattedContent || pin.formattedContent || null,
+          comments: newPin.comments || [...(pin.comments || [])],
+        };
+        
+        setPins((prevPins) => [formattedPin, ...prevPins]);
+      } catch (error) {
+        console.error("Failed to duplicate pin", error);
+      }
+    },
+    [csrfToken, setPins]
+  );
+
+  const handleMovePin = useCallback(
+    async (pinId: string, folderId: string | null) => {
+      try {
+        await movePinToFolder(pinId, folderId, csrfToken);
+        
+        setPins((prevPins) =>
+          prevPins.map((p) =>
+            p.id === pinId
+              ? {
+                  ...p,
+                  folderId: folderId || undefined,
+                  folderName: folderId
+                    ? pinFolders.find((f) => f.id === folderId)?.name || null
+                    : null,
+                }
+              : p
+          )
+        );
+      } catch (error) {
+        console.error("Failed to move pin", error);
+      }
+    },
+    [csrfToken, setPins, pinFolders]
   );
 
   const allTags = useMemo(() => {
@@ -735,6 +810,10 @@ export function RightSidebar({
               chatName={chatBoard?.name}
               onInsertToChat={handleInsertPin}
               onGoToChat={handleGoToChat}
+              folders={pinFolders}
+              onDuplicatePin={handleDuplicatePin}
+              onMovePin={handleMovePin}
+              onCreateFolder={handleCreateFolder}
             />
           );
         })
