@@ -880,12 +880,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
               : board
           )
         );
+        // Open the right sidebar and show toast
+        setActiveRightSidebarPanel('pinboard');
+        toast({
+          title: 'Pinned!',
+          description: 'Response has been pinned to your pinboard.',
+        });
       } catch (error) {
         console.error("Failed to pin message", error);
         throw error;
       }
     },
-    [activeChatId, setPins]
+    [activeChatId, setPins, toast]
   );
 
   const handleUnpinMessage = useCallback(
