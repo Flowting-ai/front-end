@@ -5,10 +5,7 @@
 /* Clash Grotesk Variable Font */
 @font-face {
   font-family: 'Clash Grotesk Variable';
-  src: url('/fonts/ClashGrotesk-Variable.woff2') format('woff2'),
-    url('/fonts/ClashGrotesk-Variable.woff') format('woff'),
-    url('/fonts/ClashGrotesk-Variable.ttf') format('truetype'),
-    url('/ClashGrotesk-Variable.ttf') format('truetype');
+  src: url('/fonts/ClashGrotesk-Variable.ttf') format('truetype');
   font-weight: 200 700;
   font-style: normal;
   font-display: swap;

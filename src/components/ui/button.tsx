@@ -20,6 +20,8 @@ const buttonVariants = cva(
         ghost:
           "text-[hsl(var(--text-muted))] hover:text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent-soft))]",
         link: "text-[hsl(var(--primary))] underline-offset-4 hover:underline",
+        upgrade:
+          "bg-[#F5F5F5] text-[#1e1e1e] rounded-full hover:bg-[#EBEBEB] font-medium tracking-[0.07px]",
       },
       size: {
         default: "h-10 px-4 py-2",

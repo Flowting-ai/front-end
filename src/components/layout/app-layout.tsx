@@ -421,6 +421,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const router = useRouter();
   const pathname = usePathname();
+  const isPersonasRoute = pathname?.startsWith("/personas");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const { toast } = useToast();
@@ -1045,9 +1046,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     router.push('/');
   };
 
-  const isRightSidebarVisible = activeRightSidebarPanel !== null;
+  const isRightSidebarVisible = !isPersonasRoute && activeRightSidebarPanel !== null;
 
   const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
+    if (isPersonasRoute) {
+      return;
+    }
     setActiveRightSidebarPanel((prev) => {
       const current = prev !== null;
       const nextVisible = typeof value === "function" ? value(current) : value;
@@ -1059,6 +1063,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
+    if (isPersonasRoute) {
+      return;
+    }
     setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
   };
   
@@ -1110,6 +1117,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     onToggleStar: handleToggleStar,
     starUpdatingChatId: starUpdatingChatId,
   };
+
+  useEffect(() => {
+    if (isPersonasRoute) {
+      setActiveRightSidebarPanel(null);
+    }
+  }, [isPersonasRoute]);
 
   if (isMobile) {
     return (
@@ -1200,22 +1213,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </div>
               </main>
             </div>
-            <div className="pinboard-layout-stack">
-              <RightSidebar
-                isOpen={isRightSidebarVisible}
-                activePanel={activeRightSidebarPanel}
-                onClose={() => setActiveRightSidebarPanel(null)}
-                pins={pins}
-                setPins={setPins}
-                chatBoards={chatBoards}
-                className="pinboard-panel--order1"
-              />
-              <RightSidebarCollapsed
-                activePanel={activeRightSidebarPanel}
-                onSelect={handleRightSidebarSelect}
-                className="pinboard-panel--order2"
-              />
-            </div>
+            {!isPersonasRoute && (
+              <div className="pinboard-layout-stack">
+                <RightSidebar
+                  isOpen={isRightSidebarVisible}
+                  activePanel={activeRightSidebarPanel}
+                  onClose={() => setActiveRightSidebarPanel(null)}
+                  pins={pins}
+                  setPins={setPins}
+                  chatBoards={chatBoards}
+                  className="pinboard-panel--order1"
+                />
+                <RightSidebarCollapsed
+                  activePanel={activeRightSidebarPanel}
+                  onSelect={handleRightSidebarSelect}
+                  className="pinboard-panel--order2"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

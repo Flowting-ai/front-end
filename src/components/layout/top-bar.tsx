@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { Button } from "../ui/button";
-import { CreatePersonaDialog } from "../personas/create-persona-dialog";
 import { ModelSelector } from "../chat/model-selector";
 import { TokenTracker } from "../chat/token-tracker";
 import type { AIModel } from "@/types/ai-model";
@@ -60,7 +59,6 @@ export function Topbar({
           <span className="text-sm text-[#1E1E1E] hidden md:inline-block">
             Hi, {firstName}
           </span>
-          <CreatePersonaDialog triggerClassName="border-[#D4D4D4] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E]" />
           {!user && (
             <Link href="/auth/login">
               <Button

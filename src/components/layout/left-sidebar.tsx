@@ -87,11 +87,11 @@ export function LeftSidebar({
       const first = fromName.split(/\s+/)[0];
       if (first) return first;
     }
-    if (user?.username) {
+    if (typeof user?.username === "string") {
       const first = user.username.split(/[.\s]/)[0];
       if (first) return first;
     }
-    if (user?.email) {
+    if (typeof user?.email === "string") {
       const first = user.email.split("@")[0];
       if (first) return first;
     }
@@ -200,15 +200,29 @@ export function LeftSidebar({
                 {isOnChatBoard ? "New Chat Board" : "Chat Board"}
               </TooltipContent>
             </Tooltip>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Workflows"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D9D9D9] bg-transparent hover:bg-transparent active:bg-transparent disabled:bg-transparent disabled:opacity-40"
-              disabled
-            >
-              <Layers className="h-5 w-5 text-[#303030]" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Personas"
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D9D9D9] bg-white shadow-none hover:bg-white focus-visible:ring-0 focus-visible:ring-offset-0",
+                    pathname?.startsWith("/personas") && "bg-[#EDEDED]"
+                  )}
+                  onClick={() => router.push("/personas")}
+                >
+                  <Layers className="h-5 w-5 text-[#303030]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                sideOffset={8}
+                className="pointer-events-none px-2 py-1 text-xs font-medium"
+              >
+                Personas
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="ghost"
               size="icon"
@@ -299,7 +313,6 @@ export function LeftSidebar({
           <div className="h-px w-full bg-[#D9D9D9]" />
 
           <div className="px-4 py-3 space-y-3">
-            {/* Primary dark button - Chat Board */}
             <Button
               variant="ghost"
               className="sidebar-primary-action-button"
@@ -316,16 +329,19 @@ export function LeftSidebar({
               <span className="sidebar-primary-action-label">{chatBoardButtonText}</span>
             </Button>
 
-            {/* Secondary button - Workflows (disabled/coming soon) */}
-            <div className="flex h-[45px] w-[210px] items-center justify-between rounded-[16px] px-3 text-[13px] font-medium text-[#303030] opacity-70">
-              <span className="flex items-center gap-[6px] whitespace-nowrap">
-                <Layers className="h-5 w-5" />
-                Workflows
+            <Button
+              variant="ghost"
+              className={cn(
+                "sidebar-primary-action-button",
+                pathname?.startsWith("/personas") && "bg-[#EDEDED]"
+              )}
+              onClick={() => router.push("/personas")}
+            >
+              <span className="sidebar-primary-action-icon">
+                <Layers className="h-5 w-5 text-[#303030]" />
               </span>
-              <span className="flex h-[16px] min-w-[78px] items-center justify-center rounded-[5px] border border-[#E5E5E5] bg-white/10 px-2 text-[9px] font-medium tracking-[0.02em] text-[#0A0A0A] whitespace-nowrap">
-                Coming soon
-              </span>
-            </div>
+              <span className="sidebar-primary-action-label">Personas</span>
+            </Button>
 
             {/* Secondary button - AI Automation (disabled/coming soon) */}
             <div className="flex h-[45px] w-[210px] items-center justify-between rounded-[16px] px-3 text-[13px] font-medium text-[#303030] opacity-70">

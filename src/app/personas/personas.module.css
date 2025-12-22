@@ -1,0 +1,386 @@
+.personasShell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+.scrollContainer {
+  flex: 1;
+  padding: 32px 40px 48px 40px;
+  overflow-y: auto;
+  background-color: #ffffff;
+}
+
+.section {
+  max-width: 960px;
+  margin: 0 auto 48px auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+.sectionSubtitle {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #666666;
+  margin: 4px 0 0 0;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.actionsSpacer {
+  flex: 1;
+  min-width: 12px;
+}
+
+.actionButton {
+  margin-left: auto;
+}
+
+.searchField {
+  position: relative;
+  width: 239px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #9F9F9F;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 239px;
+  height: 36px;
+  padding-left: 36px;
+  border-radius: 8px;
+}
+
+.cardsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+
+.personaCard,
+.templateCard {
+  position: relative;
+  display: flex;
+  width: 400px;
+  height: 148px;
+  border: 1px solid #E5E5E5;
+  border-radius: 12px;
+  background-color: #FFFFFF;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+  overflow: hidden;
+}
+
+.personaCard {
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.templateCard {
+  flex-direction: row;
+}
+
+.personaCard:hover,
+.templateCard:hover {
+  border-color: #D4D4D4;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+
+.personaImage {
+  width: 148px;
+  height: 148px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.personaContent {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.personaCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.templateCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.templateImage {
+  width: 148px;
+  height: 148px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.templateContent {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0A0A0A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardDescription {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #666666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  transition: background-color 120ms ease;
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background-color: #F5F5F5;
+}
+
+.templateFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.authorTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.authorAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E5E5E5, #FFFFFF);
+}
+
+.authorName {
+  font-size: 12px;
+  color: #666666;
+}
+
+.filterTabs {
+  flex-shrink: 0;
+}
+
+.filterList {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 160px;
+  height: 36px;
+  padding: 4px;
+  border-radius: 10px;
+  background-color: #F5F5F5;
+}
+
+.filterButton {
+  flex: 1;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #171717;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  gap: 6px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.filterButtonActive {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.04);
+}
+
+.filterIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.continueButton {
+  align-self: flex-start;
+}
+
+.categoryBlock {
+  margin-bottom: 32px;
+}
+
+.categoryTitle {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0A0A0A;
+}
+
+.emptyState {
+  padding: 24px;
+  border: 1px dashed #E5E5E5;
+  border-radius: 12px;
+  color: #666666;
+  font-size: 14px;
+  text-align: center;
+}
+
+@media (min-width: 1024px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: start;
+  }
+}
+
+@media (max-width: 1024px) {
+  .scrollContainer {
+    padding: 28px 24px 40px 24px;
+  }
+
+  .section {
+    margin-bottom: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .scrollContainer {
+    padding: 24px 16px 32px 16px;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actionsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchField {
+    width: 100%;
+  }
+
+  .searchInput {
+    width: 100%;
+  }
+
+  .actionButton {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .cardsGrid {
+    justify-content: center;
+  }
+
+  .personaCard,
+  .templateCard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .filterTabs {
+    width: 100%;
+  }
+
+  .filterList {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .personaCard,
+  .templateCard {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .sectionTitle {
+    font-size: 20px;
+  }
+
+  .sectionSubtitle {
+    font-size: 13px;
+  }
+}
