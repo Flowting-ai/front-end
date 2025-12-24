@@ -421,7 +421,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const router = useRouter();
   const pathname = usePathname();
-  const isPersonasRoute = pathname?.startsWith("/personas");
+  const isPersonasRoute = pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const { toast } = useToast();

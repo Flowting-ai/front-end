@@ -208,9 +208,9 @@ export function LeftSidebar({
                   aria-label="Personas"
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D9D9D9] bg-white shadow-none hover:bg-white focus-visible:ring-0 focus-visible:ring-offset-0",
-                    pathname?.startsWith("/personas") && "bg-[#EDEDED]"
+                    pathname?.startsWith("/personaAdmin") && "bg-[#EDEDED]"
                   )}
-                  onClick={() => router.push("/personas")}
+                  onClick={() => router.push("/personaAdmin")}
                 >
                   <Layers className="h-5 w-5 text-[#303030]" />
                 </Button>
@@ -333,9 +333,9 @@ export function LeftSidebar({
               variant="ghost"
               className={cn(
                 "sidebar-primary-action-button",
-                pathname?.startsWith("/personas") && "bg-[#EDEDED]"
+                pathname?.startsWith("/personaAdmin") && "bg-[#EDEDED]"
               )}
-              onClick={() => router.push("/personas")}
+              onClick={() => router.push("/personaAdmin")}
             >
               <span className="sidebar-primary-action-icon">
                 <Layers className="h-5 w-5 text-[#303030]" />
