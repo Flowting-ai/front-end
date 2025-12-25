@@ -58,14 +58,14 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] rounded-[8px] bg-gray-100 border-gray-200">
+              <DropdownMenuContent align="end" className="w-[200px] rounded-[8px] bg-white p-1 border-0 shadow-lg">
                 {STATUS_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onSelect={() => {
                       onStatusFilterChange(option.value);
                     }}
-                    className="text-sm text-gray-700 hover:bg-gray-600 hover:text-black focus:bg-gray-600 focus:text-black cursor-pointer"
+                    className="h-8 min-h-[32px] gap-2 rounded-[6px] px-0.5 py-[5.5px] text-[#111827] hover:bg-[#E5E5E5] hover:text-black focus:bg-[#E5E5E5] focus:text-black cursor-pointer"
                   >
                     {option.label}
                   </DropdownMenuItem>

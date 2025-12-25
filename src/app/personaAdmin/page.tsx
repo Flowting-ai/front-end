@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StatCard } from "@/components/personas/stat-card";
 import { BulkActionBar } from "@/components/personas/bulk-action-bar";
-import { PersonaRow, Persona } from "@/components/personas/persona-row";
+import { PersonaWrapper } from "@/components/personas/persona-wrapper";
+import { Persona } from "@/components/personas/unified-row";
 import { CommandCenter } from "@/components/personas/command-center";
 import {
   BarChart3,
@@ -32,6 +33,7 @@ import {
   Plus,
   Pause,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 
 // Mock data
@@ -39,7 +41,7 @@ const MOCK_PERSONAS: Persona[] = [
   {
     id: "1",
     name: "Marketing Assistant",
-    description: "Helps with content creation and marketing strategy",
+    description: "T: 0.3",
     avatar: "/personas/persona1.png",
     status: "active",
     tokensUsed: 1250000,
@@ -79,7 +81,7 @@ const MOCK_PERSONAS: Persona[] = [
   {
     id: "2",
     name: "Product Strategist",
-    description: "Analyzes feedback and creates product roadmaps",
+    description: "Analyzes feedback and creates...",
     avatar: "/personas/persona2.png",
     status: "active",
     tokensUsed: 980000,
@@ -109,7 +111,7 @@ const MOCK_PERSONAS: Persona[] = [
   {
     id: "3",
     name: "Data Analyst",
-    description: "Processes and interprets complex datasets",
+    description: "T: 0.3",
     avatar: "/personas/persona3.png",
     status: "paused",
     tokensUsed: 750000,
@@ -131,7 +133,7 @@ const MOCK_PERSONAS: Persona[] = [
   {
     id: "4",
     name: "Customer Support",
-    description: "Handles customer inquiries and support tickets",
+    description: "T: 0.3",
     avatar: "/personas/persona4.png",
     status: "active",
     tokensUsed: 1820000,
@@ -443,27 +445,96 @@ export default function PersonaAdminPage() {
             ) : (
               <>
                 {/* Stats */}
-                <div
-                  className={`flex w-full flex-nowrap gap-6 overflow-x-auto pb-1 ${chatStyles.customScrollbar}`}
-                >
+                {/* 
+                  RESPONSIVE BEHAVIOR: Stat Cards
+                  - Mobile (< 768px): flex-col stacks cards vertically, no horizontal scroll
+                  - Tablet/Desktop (>= 768px): md:flex-row arranges cards horizontally with md:overflow-x-auto for scrolling if needed
+                  - This ensures mobile users see all cards without horizontal scrolling
+                  - Container width matches table: md:max-w-[1200px] lg:max-w-[1400px] for alignment
+                */}
+                <div className="mx-auto w-full md:max-w-[1200px] lg:max-w-[1400px]">
+                  <div
+                    className="flex w-full flex-col md:flex-row md:flex-nowrap gap-6 md:overflow-x-auto pb-1"
+                  >
               <StatCard
                 title="Tokens Usage"
                 value={(totalTokens / 1000000).toFixed(1) + "M"}
                 suffix="Tokens"
-                change="+12.4%"
-                trend="up"
-                icon={<BarChart3 className="h-6 w-6 text-[var(--colors-gray-500,#6b7280)]" />}
-                className="h-[148px] w-[325px] flex-none"
-              />
+                className="h-[148px] w-[325px] flex-none !p-0"
+              >
+                <div className="relative flex h-full w-full flex-col">
+                  <div className="flex flex-col ml-[14px] mt-[14px]">
+                    <p className="text-[16px] font-semibold leading-[140%] tracking-tight text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 600 }}>
+                      Tokens Usage
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 ml-[14px] pt-2">
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-[32px] font-normal leading-[120%] text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 400 }}>
+                        {(totalTokens / 1000000).toFixed(1) + "M"}
+                      </p>
+                      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--colors-gray-500,#6b7280)]">
+                        Tokens
+                      </span>
+                    </div>
+                  </div>
+                  <button className="absolute bottom-[14px] left-[14px] inline-flex h-[26px] min-h-[24px] w-[161px] items-center justify-center gap-1.5 rounded-[8px] border border-[var(--general-border,#e5e5e5)] bg-white px-2 py-[3px] text-xs font-medium text-black transition-colors hover:bg-gray-100">
+                    <TrendingUp className="h-3 w-3" />
+                    +12.4% vs last period
+                  </button>
+                </div>
+              </StatCard>
               <StatCard
                 title="Active Consumers"
                 value={activeConsumers}
                 suffix="Users"
-                change="+8.2%"
-                trend="up"
-                icon={<Users className="h-6 w-6 text-[var(--colors-gray-500,#6b7280)]" />}
-                className="h-[148px] w-[325px] flex-none"
-              />
+                className="h-[148px] w-[325px] flex-none !p-0"
+              >
+                <div className="relative flex h-full w-full flex-col">
+                  <div className="flex flex-col ml-[14px] mt-[14px]">
+                    <p className="text-[16px] font-semibold leading-[140%] tracking-tight text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 600 }}>
+                      Active Consumers
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 ml-[14px] pt-2">
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-[32px] font-normal leading-[120%] text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 400 }}>
+                        {activeConsumers}
+                      </p>
+                      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--colors-gray-500,#6b7280)]">
+                        Users
+                      </span>
+                    </div>
+                  </div>
+                  {/* Avatar Stack */}
+                  <div className="absolute bottom-[14px] left-[14px] flex -space-x-2">
+                    {personas
+                      .filter(p => p.status === 'active')
+                      .flatMap(p => p.consumers.filter(c => c.status === 'active'))
+                      .slice(0, 4)
+                      .map((consumer, index) => (
+                        <div
+                          key={consumer.id}
+                          className="h-8 w-8 rounded-full border-2 border-white shadow-md"
+                          style={{ zIndex: 4 - index, opacity: 1 }}
+                        >
+                          {consumer.avatar ? (
+                            <img 
+                              src={consumer.avatar} 
+                              alt={consumer.name}
+                              className="h-full w-full rounded-full object-cover"
+                              style={{ opacity: 1 }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-indigo-400 text-xs font-semibold text-white">
+                              {consumer.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </StatCard>
               <StatCard
                 title="Create Persona"
                 value=""
@@ -471,7 +542,7 @@ export default function PersonaAdminPage() {
               >
                 <div className="flex h-full w-full flex-col items-center justify-center gap-6">
                   {/* Avatar Stack */}
-                  <div className="flex -space-x-2" style={{ width: '126px', height: '40px' }}>
+                  <div className="relative top-4 left-2 flex -space-x-2" style={{ width: '126px', height: '40px' }}>
                     {MOCK_PERSONAS.slice(0, 3).map((persona, index) => (
                       <div
                         key={persona.id}
@@ -485,50 +556,79 @@ export default function PersonaAdminPage() {
                     ))}
                   </div>
                   
-                  {/* Create Persona Button */}
+                  {/* Create Persona Button inside the card on row 1*/}
                   <Button
                     size="sm"
-                    className="h-10 w-[134px] min-h-[40px] gap-2 rounded-[8px] bg-[var(--general-primary,#171717)] px-1 py-[9.5px] text-white hover:bg-black"
+                    className="mt-4 h-10 w-[150px] min-h-[40px] gap-2 rounded-[8px] bg-[var(--general-primary,#171717)] px-1 py-[9.5px] text-white hover:bg-black"
                     onClick={handleCreatePersona}
                   >
-                    <Plus className="h-4 w-4" />
+                    {/* <Plus className="h-4 w-4" /> */}
                     <span className="text-sm font-medium">Create Persona</span>
                   </Button>
                 </div>
               </StatCard>
             </div>
+                </div>
 
             {/* Command Center + Table */}
+            {/* 
+              RESPONSIVE TABLE STRUCTURE:
+              
+              Parent Container:
+              - Mobile: overflow-x-auto allows horizontal scrolling for full table content
+              - Desktop: md:overflow-x-visible removes scrollbar, md:max-w-[1200px] lg:max-w-[1400px] centers content
+              
+              Table Width:
+              - Mobile: w-fit makes table width match content exactly (no empty space after Actions column)
+              - Desktop: md:w-full makes table expand to fill container width
+              
+              Breakpoints used:
+              - xs: < 640px (mobile)
+              - sm: >= 640px (large mobile)
+              - md: >= 768px (tablet)
+              - lg: >= 1024px (laptop)
+              - xl: >= 1280px (desktop)
+            */}
             <CommandCenter
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
               className="w-full"
             >
-              <div className="mx-auto flex w-full max-w-[1005px] flex-col gap-[15px]">
-                <div className="flex h-9 w-full items-center rounded-[8px] border border-[#E5E5E5] bg-[#F5F5F5] px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563]">
-                  <div className="w-[60px]"></div>
-                  <div className="w-[155px]">Persona Unit</div>
-                  <div className="w-[110px] text-right pr-2 ml-3">Token Usage</div>
-                  <div className="w-[130px] ml-3">Consumers</div>
-                  <div className="w-[95px] ml-3">Status</div>
-                  <div className="w-[130px] ml-3">Last Activity</div>
-                  <div className="ml-3 flex items-center gap-2">
-                    <div className="w-9"></div>
-                    <div className="w-8"></div>
-                  </div>
-                </div>
-                <div className="w-full overflow-hidden">
-                  <Table className="w-full border-collapse">
-                    <TableHeader className="sr-only">
-                      <TableRow>
-                        <TableHead>Toggle</TableHead>
-                        <TableHead>Persona</TableHead>
-                        <TableHead>Tokens Used</TableHead>
-                        <TableHead>Consumers</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Last Activity</TableHead>
-                        <TableHead>Messages</TableHead>
-                        <TableHead>Actions</TableHead>
+              <div className="mx-auto flex w-full md:max-w-[1200px] lg:max-w-[1400px] flex-col overflow-x-auto md:overflow-x-visible">
+                <div className={`w-fit md:w-full ${chatStyles.customScrollbar}`}>
+                  <Table className="w-fit md:w-full border-collapse">
+                    <TableHeader>
+                      <TableRow className="!border-0 border-none h-9 rounded-[8px] border border-[#E5E5E5] bg-[#F5F5F5] hover:bg-[#F5F5F5]">
+                        <TableHead colSpan={8} className="p-0 h-9">
+                          {/* 
+                            RESPONSIVE HEADER ROW:
+                            - Mobile: w-fit makes header match content width
+                            - Desktop: md:w-full makes header expand to container width
+                            - Each column uses responsive width classes that match data rows exactly
+                          */}
+                          <div className="flex w-fit md:w-full items-center h-full text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563]">
+                            {/* Spacer - Responsive: 8px -> 10px -> 12px */}
+                            <div className="w-2 md:w-2.5 lg:w-3 flex-shrink-0"></div>
+                            
+                            {/* Persona Unit - Responsive: 140px -> 160px -> 170px -> 180px -> 190px */}
+                            <div className="w-[140px] sm:w-[160px] md:w-[170px] lg:w-[180px] xl:w-[190px] flex-shrink-0 text-center">Persona Unit</div>
+                            
+                            {/* Token Usage - Responsive: 70px -> 80px -> 100px -> 110px */}
+                            <div className="w-[70px] sm:w-[80px] md:w-[100px] lg:w-[110px] flex-shrink-0 text-center">Token Usage</div>
+                            
+                            {/* Consumers - Responsive: 90px -> 100px -> 130px -> 150px -> 180px */}
+                            <div className="w-[90px] sm:w-[100px] md:w-[130px] lg:w-[150px] xl:w-[180px] flex-shrink-0 text-center">Consumers</div>
+                            
+                            {/* Status - Responsive: 75px -> 85px -> 95px -> 100px */}
+                            <div className="w-[75px] sm:w-[85px] md:w-[95px] lg:w-[100px] flex-shrink-0 text-center">Status</div>
+                            
+                            {/* Last Activity - Responsive: 80px -> 100px -> 120px -> 130px */}
+                            <div className="w-[80px] sm:w-[100px] md:w-[120px] lg:w-[130px] flex-shrink-0 text-center">Last Activity</div>
+                            
+                            {/* Actions - Responsive: 80px -> 90px -> 100px -> 110px */}
+                            <div className="w-[80px] sm:w-[90px] md:w-[100px] lg:w-[110px] flex-shrink-0 text-center">Actions</div>
+                          </div>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -540,7 +640,7 @@ export default function PersonaAdminPage() {
                         </TableRow>
                       ) : (
                         filteredPersonas.map((persona) => (
-                          <PersonaRow
+                          <PersonaWrapper
                             key={persona.id}
                             persona={persona}
                             expanded={expandedPersonaIds.includes(persona.id)}
@@ -550,6 +650,7 @@ export default function PersonaAdminPage() {
                             onPause={() => handlePausePersona(persona.id)}
                             onResume={() => handlePausePersona(persona.id)}
                             onDelete={() => handleDeletePersona(persona.id)}
+                            onModifyConfig={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}
                             onSelectAllConsumers={() =>
                               handleSelectAllConsumersForPersona(persona.id)
                             }

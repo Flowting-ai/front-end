@@ -102,6 +102,9 @@ export function LeftSidebar({
   const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
 
+  // Determine if user is on persona pages
+  const isOnPersonaPage = pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const boardsToDisplay = chatBoards.filter((board) => {
     if (!normalizedSearch) return true;
@@ -208,11 +211,14 @@ export function LeftSidebar({
                   aria-label="Personas"
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-2xl border border-[#D9D9D9] bg-white shadow-none hover:bg-white focus-visible:ring-0 focus-visible:ring-offset-0",
-                    pathname?.startsWith("/personaAdmin") && "bg-[#EDEDED]"
+                    isOnPersonaPage && "bg-[#EDEDED]"
                   )}
                   onClick={() => router.push("/personaAdmin")}
                 >
-                  <Layers className="h-5 w-5 text-[#303030]" />
+                  <Layers className={cn(
+                    "h-5 w-5",
+                    isOnPersonaPage ? "text-white" : "text-[#303030]"
+                  )} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent
@@ -315,7 +321,20 @@ export function LeftSidebar({
           <div className="px-4 py-3 space-y-3">
             <Button
               variant="ghost"
-              className="sidebar-primary-action-button"
+              className={cn(
+                "sidebar-primary-action-button",
+                isOnChatBoard && !isOnPersonaPage && "active"
+              )}
+              style={{
+                paddingLeft: '0px',
+                paddingRight: '88px',
+                paddingTop: '12px',
+                paddingBottom: '12px',
+                gap: '8px',
+                justifyContent: 'flex-start',
+                width: '210px',
+                height: '41px'
+              }}
               onClick={() => {
                 if (isOnChatBoard) {
                   onAddChat();
@@ -323,8 +342,12 @@ export function LeftSidebar({
                 router.push("/");
               }}
             >
-              <span className="sidebar-primary-action-icon">
-                <img src="/icons/chatboard.svg" alt="Chat board" />
+              <span className="sidebar-primary-action-icon" style={{ marginLeft: '15px' }}>
+                <img 
+                  src="/icons/chatboard.svg" 
+                  alt="Chat board"
+                  style={{ filter: isOnChatBoard && !isOnPersonaPage ? 'brightness(0) invert(1)' : 'brightness(0)' }}
+                />
               </span>
               <span className="sidebar-primary-action-label">{chatBoardButtonText}</span>
             </Button>
@@ -333,21 +356,45 @@ export function LeftSidebar({
               variant="ghost"
               className={cn(
                 "sidebar-primary-action-button",
-                pathname?.startsWith("/personaAdmin") && "bg-[#EDEDED]"
+                isOnPersonaPage && "active"
               )}
+              style={{
+                paddingLeft: '0px',
+                paddingRight: '88px',
+                paddingTop: '12px',
+                paddingBottom: '12px',
+                gap: '8px',
+                justifyContent: 'flex-start',
+                width: '210px',
+                height: '41px'
+              }}
               onClick={() => router.push("/personaAdmin")}
             >
-              <span className="sidebar-primary-action-icon">
-                <Layers className="h-5 w-5 text-[#303030]" />
+              <span className="sidebar-primary-action-icon" style={{ marginLeft: '15px' }}>
+                <Layers className={cn(
+                  "h-5 w-5",
+                  isOnPersonaPage ? "text-white" : "text-[#303030]"
+                )} />
               </span>
               <span className="sidebar-primary-action-label">Personas</span>
             </Button>
 
-            {/* Secondary button - AI Automation (disabled/coming soon) */}
-            <div className="flex h-[45px] w-[210px] items-center justify-between rounded-[16px] px-3 text-[13px] font-medium text-[#303030] opacity-70">
-              <span className="flex items-center gap-[6px] whitespace-nowrap">
+            {/* Workflows button (disabled/coming soon) */}
+            <div 
+              className="flex items-center justify-between rounded-[8px] border border-transparent text-[13px] font-medium text-[#303030] opacity-70"
+              style={{
+                paddingLeft: '0px',
+                paddingRight: '88px',
+                paddingTop: '12px',
+                paddingBottom: '12px',
+                gap: '8px',
+                width: '210px',
+                height: '41px'
+              }}
+            >
+              <span className="flex items-center gap-[8px] whitespace-nowrap" style={{ marginLeft: '15px' }}>
                 <Bot className="h-5 w-5" />
-                AI Automation
+                Workflows
               </span>
               <span className="flex h-[16px] min-w-[78px] items-center justify-center rounded-[5px] border border-[#E5E5E5] bg-white/10 px-2 text-[9px] font-medium tracking-[0.02em] text-[#0A0A0A] whitespace-nowrap">
                 Coming soon

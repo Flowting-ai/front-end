@@ -171,11 +171,19 @@ function PersonasPageContent() {
               />
             </div>
             <Button
-              className={cn(
-                styles.actionButton,
-                "flex items-center gap-2 h-9 rounded-lg px-4 text-sm font-medium",
-                "bg-[#171717] text-white hover:bg-black"
-              )}
+              className="flex items-center justify-center text-sm font-medium bg-[#171717] text-white hover:bg-black ml-auto"
+              style={{
+                width: '140.25px',
+                height: '36px',
+                minHeight: '36px',
+                borderRadius: '8px',
+                paddingTop: '7.5px',
+                paddingRight: '4px',
+                paddingBottom: '7.5px',
+                paddingLeft: '4px',
+                gap: '8px',
+                opacity: 1
+              }}
               onClick={() => router.push("/personas/new")}
             >
               <Plus className="h-4 w-4" />
@@ -208,11 +216,20 @@ function PersonasPageContent() {
                     </div>
                     {persona.isEditing ? (
                       <Button
-                        className={cn(
-                          styles.continueButton,
-                          "h-9 w-max rounded-lg px-4 text-sm font-medium",
-                          "bg-[#171717] text-white hover:bg-black"
-                        )}
+                        className="flex items-center justify-center text-sm font-medium bg-[#171717] text-white hover:bg-black"
+                        style={{
+                          width: '140.25px',
+                          height: '36px',
+                          minHeight: '36px',
+                          borderRadius: '8px',
+                          paddingTop: '7.5px',
+                          paddingRight: '4px',
+                          paddingBottom: '7.5px',
+                          paddingLeft: '4px',
+                          gap: '8px',
+                          opacity: 1,
+                          alignSelf: 'flex-start'
+                        }}
                       >
                         Continue building
                       </Button>

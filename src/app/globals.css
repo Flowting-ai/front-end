@@ -490,28 +490,38 @@
   .sidebar-primary-action-button {
     display: flex;
     width: 210px;
-    height: 45px;
+    height: 41px;
     padding-left: 0 !important;
-    padding-right: 60px !important;
-    /* to keep it aligned with the rest of the sidebar items */
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+    padding-right: 88px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px !important;
-    border-radius: var(--sds-size-radius-400) !important;
-    border: var(--sds-size-stroke-border) solid var(--sds-color-icon-danger-on-danger) !important;
-    background: var(--sds-color-background-brand-default) !important;
-    color: #ffffff !important;
+    gap: 8px !important;
+    border-radius: 8px !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    color: #1E1E1E !important;
     box-shadow: none !important;
     transition: background-color 0.2s ease, color 0.2s ease;
+    opacity: 1;
   }
 
   .sidebar-primary-action-button:hover,
   .sidebar-primary-action-button:focus-visible {
-    background: var(--sds-color-background-brand-default) !important;
-    color: #ffffff !important;
+    background: #EDEDED !important;
+    color: #1E1E1E !important;
     box-shadow: none !important;
+  }
+
+  .sidebar-primary-action-button.active {
+    background: #000000 !important;
+    color: #FFFFFF !important;
+  }
+
+  .sidebar-primary-action-button.active:hover {
+    background: #000000 !important;
+    color: #FFFFFF !important;
   }
 
   .sidebar-primary-action-icon {
@@ -521,12 +531,21 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    margin-left: 20px;
   }
 
   .sidebar-primary-action-icon>img,
   .sidebar-primary-action-icon>svg {
     height: 100%;
     width: 100%;
+  }
+
+  .sidebar-primary-action-icon>img {
+    filter: brightness(0);
+  }
+
+  .sidebar-primary-action-button.active .sidebar-primary-action-icon>img {
+    filter: brightness(0) invert(1);
   }
 
   .sidebar-primary-action-label {

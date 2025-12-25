@@ -105,11 +105,30 @@ function PersonaConfigurePageContent() {
     reset: resetRefinement,
   } = useRefinement(hasEnhancedContent);
 
-  // Get persona name from URL params
+  // Get persona name and ID from URL params
   useEffect(() => {
     const nameParam = searchParams.get("name");
+    const personaIdParam = searchParams.get("personaId");
+    
     if (nameParam) {
       setPersonaName(nameParam);
+    }
+    
+    // Load existing persona data if personaId is provided
+    if (personaIdParam) {
+      // TODO: Fetch persona data from backend using personaIdParam
+      // For now, we'll use mock data. Replace with actual API call:
+      // const personaData = await fetchPersonaById(personaIdParam);
+      
+      // Example of how to populate fields with existing data:
+      // setPersonaName(personaData.name);
+      // setSelectedModel(personaData.model);
+      // setTemperature([personaData.temperature]);
+      // setInstruction(personaData.instructions);
+      // setUploadedFiles(personaData.files);
+      
+      console.log("Loading persona for edit:", personaIdParam);
+      // Once backend is connected, load the persona data here
     }
   }, [searchParams]);
 
