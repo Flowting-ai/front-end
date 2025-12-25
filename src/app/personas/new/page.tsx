@@ -103,6 +103,12 @@ export default function NewPersonaPage() {
   const handleContinue = () => {
     const params = new URLSearchParams();
     params.set("name", name || DEFAULT_PERSONA_NAME);
+    
+    // Store avatar in sessionStorage to persist across navigation
+    if (avatarUrl) {
+      sessionStorage.setItem('personaAvatar', avatarUrl);
+    }
+    
     router.push(`/personas/new/configure?${params.toString()}`);
   };
 

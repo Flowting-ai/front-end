@@ -284,9 +284,8 @@
 .modelSelectorContent {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   min-width: 0;
 }
 
@@ -330,7 +329,29 @@
 }
 
 .selectItem {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: #0A0A0A;
+  min-width: 507px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 5.5px 8px 5.5px 8px;
+}
+
+.selectItem > * {
+  display: flex;
+  align-items: center;
+}
+
+.selectItem > svg {
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 5px;
+  color: #666666;
 }
 
 .selectItem:hover,
@@ -339,13 +360,13 @@
   color: #FFFFFF;
 }
 
-.selectItem:hover .modelOption span,
-.selectItem[data-highlighted] .modelOption span {
+.selectItem:hover > svg,
+.selectItem[data-highlighted] > svg {
   color: #FFFFFF;
 }
 
-.selectItem:hover .modelOption svg,
-.selectItem[data-highlighted] .modelOption svg {
+.selectItem:hover .modelOption span,
+.selectItem[data-highlighted] .modelOption span {
   color: #FFFFFF;
 }
 
@@ -353,7 +374,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 150%;
+  letter-spacing: 0.5%;
+}
+
+.modelOption span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .modelOptionIcon {
@@ -366,6 +401,7 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
   background-color: #FFFFFF;
   padding: 1px;
+  margin: 0 4px;
 }
 
 /* Ensure white outline is visible on hover (dark background) */
@@ -404,7 +440,7 @@
   gap: 10px;
   flex: 1;
   min-height: 0;
-  width: 500px;
+  width: 524px;
   max-width: 100%;
   overflow-y: auto;
   overflow-x: hidden;

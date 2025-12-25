@@ -8,16 +8,48 @@
 
 .scrollContainer {
   flex: 1;
-  padding: 32px 40px 48px 40px;
+  padding: 16px 16px 32px 16px;
   overflow-y: auto;
   background-color: #ffffff;
 }
 
+@media (min-width: 640px) {
+  .scrollContainer {
+    padding: 24px 24px 40px 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scrollContainer {
+    padding: 32px 40px 48px 40px;
+  }
+}
+
 .section {
-  max-width: 960px;
-  margin: 0 auto 48px auto;
+  max-width: 100%;
+  margin: 0 auto 32px auto;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .section {
+    max-width: 640px;
+    margin: 0 auto 40px auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .section {
+    max-width: 832px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section {
+    max-width: 832px;
+    margin: 0 auto 48px auto;
+  }
 }
 
 .sectionHeader {
@@ -29,27 +61,63 @@
 }
 
 .sectionTitle {
-  font-size: 24px;
-  line-height: 1.4;
-  font-weight: 600;
+  font-family: 'Clash Grotesk Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 140%;
+  letter-spacing: 0%;
   color: #0A0A0A;
   margin: 0;
 }
 
+@media (min-width: 640px) {
+  .sectionTitle {
+    font-size: 22px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .sectionTitle {
+    font-size: 24px;
+  }
+}
+
 .sectionSubtitle {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   color: #666666;
   margin: 4px 0 0 0;
 }
 
+@media (min-width: 640px) {
+  .sectionSubtitle {
+    font-size: 14px;
+  }
+}
+
 .actionsRow {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-top: 24px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+@media (min-width: 640px) {
+  .actionsRow {
+    gap: 16px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .actionsRow {
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
 }
 
 .actionsSpacer {
@@ -63,9 +131,15 @@
 
 .searchField {
   position: relative;
-  width: 239px;
+  width: 100%;
   height: 36px;
   flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .searchField {
+    width: 239px;
+  }
 }
 
 .searchIcon {
@@ -80,39 +154,62 @@
 }
 
 .searchInput {
-  width: 239px;
+  width: 100%;
   height: 36px;
   padding-left: 36px;
   border-radius: 8px;
 }
 
-.cardsGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+@media (min-width: 640px) {
+  .searchInput {
+    width: 239px;
+  }
 }
 
+.cardsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  justify-items: center;
+}
+
+@media (min-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
 
 .personaCard,
 .templateCard {
   position: relative;
   display: flex;
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
   height: 148px;
-  border: 1px solid #E5E5E5;
   border-radius: 12px;
-  background-color: #FFFFFF;
-  transition: box-shadow 120ms ease, border-color 120ms ease;
   overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #E5E5E5;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  flex-direction: row;
 }
 
-.personaCard {
-  flex-direction: row;
-  overflow: hidden;
-}
-
-.templateCard {
-  flex-direction: row;
+@media (min-width: 768px) {
+  .personaCard,
+  .templateCard {
+    width: 400px;
+    max-width: 400px;
+  }
 }
 
 .personaCard:hover,
@@ -383,4 +480,27 @@
   .sectionSubtitle {
     font-size: 13px;
   }
+}
+
+/* Custom scrollbar for category filter bar */
+.categoryScrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #E5E5E5 transparent;
+}
+
+.categoryScrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.categoryScrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.categoryScrollbar::-webkit-scrollbar-thumb {
+  background-color: #E5E5E5;
+  border-radius: 10px;
+}
+
+.categoryScrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #D4D4D4;
 }

@@ -28,7 +28,9 @@ import {
   Pencil,
   X,
   ChevronUp,
+  ChevronLeft,
   FileText,
+  Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getModelIcon } from "@/lib/model-icons";
@@ -38,6 +40,13 @@ import { ChatInterface } from "@/components/chat/chat-interface";
 import type { Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 // Import hooks and utilities
 import { useFileUpload } from "./hooks/use-file-upload";
@@ -58,6 +67,14 @@ function PersonaConfigurePageContent() {
   const [selectedModel, setSelectedModel] = useState("");
   const [temperature, setTemperature] = useState([DEFAULT_TEMPERATURE]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [createdPersonaId, setCreatedPersonaId] = useState<string | null>(null);
+  const [isChatMode, setIsChatMode] = useState(false);
 
   // Custom hooks
   const {
@@ -105,10 +122,75 @@ function PersonaConfigurePageContent() {
     reset: resetRefinement,
   } = useRefinement(hasEnhancedContent);
 
+  // Check if persona is ready to be saved
+  const isPersonaReady = useMemo(() => {
+    const ready = (
+      personaName.trim() !== "" &&
+      personaName.trim() !== "Persona name" &&
+      selectedModel !== "" &&
+      currentInstruction.trim() !== ""
+    );
+    console.log('isPersonaReady check:', {
+      personaName: personaName.trim(),
+      selectedModel,
+      instructionLength: currentInstruction.trim().length,
+      ready
+    });
+    return ready;
+  }, [personaName, selectedModel, currentInstruction]);
+
+  // Calculate progress dots (7 total)
+  const progressSteps = useMemo(() => {
+    let completed = 0;
+    
+    // Step 1: Persona name entered
+    if (personaName.trim() !== "" && personaName.trim() !== "Persona name") {
+      completed++;
+    }
+    
+    // Step 2: Model selected
+    if (selectedModel !== "") {
+      completed++;
+    }
+    
+    // Step 3: Instruction entered
+    if (currentInstruction.trim() !== "") {
+      completed++;
+    }
+    
+    // Step 4: Temperature adjusted (default is 1, so check if it's different)
+    if (temperature[0] !== DEFAULT_TEMPERATURE) {
+      completed++;
+    }
+    
+    // Step 5: Tone selected
+    if (selectedTone !== "") {
+      completed++;
+    }
+    
+    // Step 6: At least one Do added
+    if (selectedDos.length > 0) {
+      completed++;
+    }
+    
+    // Step 7: PDF uploaded
+    if (uploadedFiles.some(f => f.type === 'pdf')) {
+      completed++;
+    }
+    
+    return completed;
+  }, [personaName, selectedModel, currentInstruction, temperature, selectedTone, selectedDos, uploadedFiles]);
+
   // Get persona name and ID from URL params
   useEffect(() => {
     const nameParam = searchParams.get("name");
     const personaIdParam = searchParams.get("personaId");
+    
+    // Load avatar from sessionStorage
+    const savedAvatar = sessionStorage.getItem('personaAvatar');
+    if (savedAvatar) {
+      setAvatarUrl(savedAvatar);
+    }
     
     if (nameParam) {
       setPersonaName(nameParam);
@@ -183,14 +265,96 @@ function PersonaConfigurePageContent() {
     console.log("Share clicked");
   };
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Save clicked", {
-      personaName,
-      selectedModel,
-      systemInstruction: currentInstruction,
-      temperature: temperature[0],
-    });
+  const handleSaveToTest = async () => {
+    if (!isPersonaReady) return;
+
+    setIsSaving(true);
+    try {
+      // Collect all persona data for testing
+      const personaData = {
+        name: personaName,
+        model: selectedModel,
+        systemInstruction: currentInstruction,
+        temperature: temperature[0],
+        knowledgeFiles: uploadedFiles.map(f => ({ id: f.id, name: f.name, url: f.url, type: f.type })),
+        tone: selectedTone,
+        dos: [...selectedDos, dosText].filter(Boolean),
+        donts: [...selectedDonts, dontsText].filter(Boolean),
+      };
+
+      console.log('Saving persona for testing:', personaData);
+      
+      // Enable testing mode
+      setIsTesting(true);
+      
+      toast({
+        title: "Ready to test",
+        description: "You can now test your persona in the chat!",
+      });
+    } catch (error) {
+      console.error('Error preparing persona for testing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare persona. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleFinishBuilding = async () => {
+    if (!isPersonaReady) return;
+
+    setIsSaving(true);
+    try {
+      // TODO: Replace with actual API endpoint
+      const personaData = {
+        name: personaName,
+        model: selectedModel,
+        systemInstruction: currentInstruction,
+        temperature: temperature[0],
+        knowledgeFiles: uploadedFiles.map(f => ({ id: f.id, name: f.name, url: f.url, type: f.type })),
+        tone: selectedTone,
+        dos: [...selectedDos, dosText].filter(Boolean),
+        donts: [...selectedDonts, dontsText].filter(Boolean),
+        avatar: avatarUrl,
+      };
+
+      // Example API call - replace with your actual endpoint
+      // const response = await fetch('/api/personas', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(personaData),
+      // });
+      // 
+      // if (!response.ok) throw new Error('Failed to save persona');
+
+      console.log("Saving persona to backend:", personaData);
+      
+      // Store persona temporarily in sessionStorage for display on personas page
+      const existingPersonas = JSON.parse(sessionStorage.getItem('userPersonas') || '[]');
+      const newPersonaId = Date.now().toString();
+      existingPersonas.push({
+        id: newPersonaId,
+        ...personaData,
+        createdAt: new Date().toISOString(),
+      });
+      sessionStorage.setItem('userPersonas', JSON.stringify(existingPersonas));
+
+      // Save the persona ID and show success dialog
+      setCreatedPersonaId(newPersonaId);
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Failed to save persona:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save persona. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBack = () => {
@@ -204,6 +368,95 @@ function PersonaConfigurePageContent() {
 
   return (
     <AppLayout>
+      {isChatMode ? (
+        // Chat Mode View
+        <div className="flex flex-col h-full px-6 py-4">
+          {/* Top Action Bar */}
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              onClick={() => setIsChatMode(false)}
+              className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to Edit
+            </Button>
+            
+            <Button
+              onClick={() => setShowShareDialog(true)}
+              variant="outline"
+              className="flex items-center gap-2 h-9 px-4 rounded-lg border-black text-black hover:text-gray-900"
+              style={{ color: '#000000' }}
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </Button>
+          </div>
+
+          {/* Chat Container */}
+          <div 
+            style={{
+              width: '1072px',
+              height: '793px',
+              borderRadius: '30px',
+              padding: '12px',
+              borderWidth: '1px',
+              backgroundColor: '#FFFFFF',
+              borderColor: '#D9D9D9',
+              boxShadow: '0px 2px 4px 0px #19213D14',
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <ChatInterface
+              selectedModel={previewModel}
+              hidePersonaButton={true}
+              hideAttachButton={true}
+              customEmptyState={
+                <div className="flex flex-col items-center justify-center gap-6">
+                  <div style={{ 
+                    width: '81px', 
+                    height: '81px', 
+                    borderRadius: '50%', 
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#FFFFFF'
+                  }}>
+                    <img
+                      src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                      alt="Persona"
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Progress dots - all filled in chat mode */}
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: 7 }).map((_, index) => (
+                      <div
+                        key={index}
+                        className="h-2 w-2 rounded-full bg-green-500"
+                      />
+                    ))}
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-gray-900">{personaName} is ready!</p>
+                    <p className="text-xs text-gray-500 mt-1">Start chatting to test your persona</p>
+                  </div>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      ) : (
+        // Edit Mode View
       <div className={styles.container}>
         <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
           <div className={styles.contentWrapper}>
@@ -211,17 +464,38 @@ function PersonaConfigurePageContent() {
             <div className={styles.headerRow}>
               <h2 className={styles.personaNameTitle}>{personaName}</h2>
               <div className={styles.headerActions}>
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={handleShare}
                   className={styles.shareButton}
                 >
                   <Share2 className="h-4 w-4" />
                   Share
-                </Button>
-                <Button onClick={handleSave} className={styles.saveButton}>
-                  <Check className="h-4 w-4" />
-                  Save
+                </Button> */}
+                <Button 
+                  onClick={handleFinishBuilding} 
+                  disabled={!isPersonaReady || isSaving}
+                  className={cn(
+                    styles.saveButton,
+                    !isPersonaReady && "bg-[#D4D4D4] hover:bg-[#D4D4D4] cursor-not-allowed",
+                    isPersonaReady && "bg-[#171717] hover:bg-[#000000]"
+                  )}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      {isPersonaReady ? (
+                        <Rocket className="h-4 w-4" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Finish building
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -231,9 +505,13 @@ function PersonaConfigurePageContent() {
               <div className={styles.leftPanel}>
                 {/* Model Selector */}
                 <div className={styles.fieldGroup}>
-                  <Label htmlFor="model" className={styles.label}>
-                    Model
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="model" className={styles.label}>
+                      Model
+                    </Label>
+                    <Info className="h-4 w-4 text-[#000000]" />
+                  </div>
+
                   <Select value={selectedModel} onValueChange={setSelectedModel}>
                     <SelectTrigger id="model" className={styles.selectTrigger}>
                       <div className={styles.modelSelectorContent}>
@@ -250,11 +528,11 @@ function PersonaConfigurePageContent() {
                               <span>{selectedModelData.label}</span>
                             </>
                           ) : (
-                            <span className={styles.placeholderText}>Select Model</span>
+                            <span className={styles.placeholderText} style={{ marginLeft: '5px' }}>Select Model</span>
                           )}
                         </div>
-                        <Info className={styles.infoIconInSelect} />
                       </div>
+                      {/* <Info className={styles.infoIconInSelect} style={{ marginRight: '5px' }} /> */}
                     </SelectTrigger>
                     <SelectContent className={styles.selectContent}>
                       {MODELS.map((model) => (
@@ -268,8 +546,8 @@ function PersonaConfigurePageContent() {
                               className={styles.modelOptionIcon}
                             />
                             <span>{model.label}</span>
-                            <Info className="h-4 w-4 ml-auto text-[#666666]" />
                           </div>
+                          {/* <Info className="h-4 w-4 mr-[1px]" /> */}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -643,6 +921,76 @@ function PersonaConfigurePageContent() {
                     messages={chatMessages}
                     setMessages={setChatMessages}
                     selectedModel={previewModel}
+                    hidePersonaButton={true}
+                    disableInput={!isTesting}
+                    hideAttachButton={true}
+                    customEmptyState={
+                      <div className="flex flex-col items-center justify-center gap-6">
+                        <div style={{ 
+                          width: '81px', 
+                          height: '81px', 
+                          borderRadius: '50%', 
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#f5f5f5'
+                        }}>
+                          <img
+                            src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                            alt="Persona"
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover',
+                              display: 'block'
+                            }}
+                          />
+                        </div>
+                        
+                        {/* Progress dots */}
+                        <div className="flex items-center gap-2">
+                          {Array.from({ length: 7 }).map((_, index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                "h-2 w-2 rounded-full transition-colors duration-300",
+                                index < progressSteps 
+                                  ? "bg-green-500" 
+                                  : "border border-gray-300 bg-transparent"
+                              )}
+                            />
+                          ))}
+                        </div>
+                        
+                        <Button
+                          onClick={handleSaveToTest}
+                          disabled={!isPersonaReady || isSaving || isTesting}
+                          className={cn(
+                            "flex items-center gap-2 rounded-[8px] px-6 py-2.5 text-sm font-medium transition-colors",
+                            (!isPersonaReady || isTesting) && "bg-[#D4D4D4] hover:bg-[#D4D4D4] cursor-not-allowed text-gray-500",
+                            (isPersonaReady && !isTesting) && "bg-[#171717] hover:bg-[#000000] text-white"
+                          )}
+                        >
+                          {isSaving ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : isTesting ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Ready to test
+                            </>
+                          ) : (
+                            <>
+                              {isPersonaReady ? <Rocket className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                              Save to test
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    }
                   />
                 </div>
               </div>
@@ -650,6 +998,375 @@ function PersonaConfigurePageContent() {
           </div>
         </div>
       </div>
+      )}
+      
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent 
+          className="border-none p-0 gap-0"
+          style={{ 
+            width: '524px',
+            maxWidth: '524px',
+            borderRadius: '30px',
+            padding: '12px'
+          }}
+        >
+          <div 
+            className="flex flex-col items-center justify-center gap-3 px-6 py-8"
+            style={{
+              width: '500px',
+              minHeight: '371px'
+            }}
+          >
+            {/* Persona Image */}
+            <div style={{ 
+              width: '120px', 
+              height: '120px', 
+              borderRadius: '50%', 
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f5f5f5',
+              marginBottom: '16px'
+            }}>
+              <img
+                src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                alt="Persona"
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
+            </div>
+            
+            {/* Success Message */}
+            <h2 
+              style={{ 
+                fontFamily: 'Clash Grotesk Variable',
+                fontWeight: 500,
+                fontSize: '28.21px',
+                lineHeight: '129%',
+                letterSpacing: '0%',
+                textAlign: 'center',
+                color: '#0A0A0A',
+                marginBottom: '8px'
+              }}
+            >
+              Persona '{personaName}' has been created!
+            </h2>
+            
+            <p 
+              className="text-center text-sm"
+              style={{ 
+                color: '#666666',
+                maxWidth: '400px',
+                lineHeight: '1.5',
+                marginBottom: '24px'
+              }}
+            >
+              '{personaName}' was created and added to your manager page. Try chatting with your persona or share it with your team.
+            </p>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-3 w-full px-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  setShowShareDialog(true);
+                }}
+                style={{
+                  color: '#0A0A0A'
+                }}
+                className="flex-1 h-11 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] hover:text-[#0A0A0A] font-medium"
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  setIsChatMode(true);
+                }}
+                className="flex-1 h-11 rounded-lg bg-[#171717] hover:bg-[#000000] text-white font-medium"
+              >
+                Start Chat
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent 
+          className="border-none p-2 gap-3"
+          style={{ 
+            width: '420px',
+            maxWidth: '420px',
+            borderRadius: '10px',
+            padding: '8px'
+          }}
+        >
+          <div className="flex flex-col gap-3">
+            {/* Title with Close Button */}
+            <div className="flex items-center justify-between">
+              <h3 
+                style={{
+                  fontFamily: 'Clash Grotesk Variable',
+                  fontWeight: 400,
+                  fontSize: '24px',
+                  lineHeight: '120%',
+                  letterSpacing: '-2%',
+                  color: '#0A0A0A'
+                }}
+              >
+                Share "{personaName}"
+              </h3>
+              <button
+                onClick={() => setShowShareDialog(false)}
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  padding: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X style={{ width: '16px', height: '16px', color: '#666666' }} />
+              </button>
+            </div>
+            
+            {/* Email Input */}
+            <Input
+              type="email"
+              placeholder="Enter email for adding people"
+              value={shareEmail}
+              onChange={(e) => setShareEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && shareEmail.trim()) {
+                  toast({
+                    title: "User added",
+                    description: `Invitation sent to ${shareEmail}`,
+                  });
+                  setShareEmail("");
+                }
+              }}
+              style={{
+                width: '404px',
+                height: '36px',
+                minHeight: '36px',
+                borderRadius: '8px',
+                paddingTop: '7.5px',
+                paddingRight: '12px',
+                paddingBottom: '7.5px',
+                paddingLeft: '12px',
+                borderWidth: '1px',
+                color: '#000000'
+              }}
+              className="border-[#E5E5E5]"
+            />
+            
+            {/* User List */}
+            <div 
+              className="flex flex-col gap-3"
+              style={{
+                width: '404px',
+                height: '196px',
+                overflowY: 'auto'
+              }}
+            >
+              {/* Mock user - Owner */}
+              <div 
+                className="flex items-center justify-between"
+                style={{
+                  width: '404px',
+                  height: '40px',
+                  paddingRight: '8px',
+                  paddingLeft: '8px'
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      backgroundColor: '#F5F5F5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <img
+                      src={avatarUrl || '/icons/personas/persona1.png'}
+                      alt="User"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      style={{
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        lineHeight: '140%',
+                        textTransform: 'capitalize',
+                        color: '#0A0A0A'
+                      }}
+                    >
+                      You
+                    </span>
+                    <span 
+                      style={{
+                        fontSize: '11px',
+                        color: '#666666'
+                      }}
+                    >
+                      your@email.com
+                    </span>
+                  </div>
+                </div>
+                <div 
+                  style={{
+                    width: '86px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '4px',
+                    backgroundColor: '#FBEEB1',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: '#B47800'
+                  }}
+                >
+                  Owner
+                </div>
+              </div>
+              
+              {/* Mock users - Shared */}
+              {[1, 2, 3].map((i) => (
+                <div 
+                  key={i}
+                  className="flex items-center justify-between"
+                  style={{
+                    width: '404px',
+                    height: '40px',
+                    paddingRight: '8px',
+                    paddingLeft: '8px'
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div 
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: '#E5E5E5',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <span style={{ fontSize: '14px', color: '#666666' }}>
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span 
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          lineHeight: '140%',
+                          textTransform: 'capitalize',
+                          color: '#0A0A0A'
+                        }}
+                      >
+                        Team Member {i}
+                      </span>
+                      <span 
+                        style={{
+                          fontSize: '11px',
+                          color: '#666666'
+                        }}
+                      >
+                        member{i}@team.com
+                      </span>
+                    </div>
+                  </div>
+                  <div 
+                    style={{
+                      width: '86px',
+                      height: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px',
+                      backgroundColor: '#EEF2FF',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: '#4F46E7'
+                    }}
+                  >
+                    Shared
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Action buttons */}
+            <div className="mr-2 flex gap-2 justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setShowShareDialog(false)}
+                style={{
+                  fontSize: '14px',
+                  color: '#666666',
+                  padding: '8px 16px'
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (shareEmail.trim()) {
+                    toast({
+                      title: "User added",
+                      description: `Invitation sent to ${shareEmail}`,
+                    });
+                    setShareEmail("");
+                  }
+                }}
+                style={{
+                  width: '51px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  padding: '5.5px 3px',
+                  backgroundColor: '#000000',
+                  color: '#FFFFFF',
+                  marginTop: '3px',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

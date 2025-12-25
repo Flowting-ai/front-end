@@ -80,6 +80,10 @@ interface ChatInterfaceProps {
     chatIdOverride?: string
   ) => void;
   selectedModel?: AIModel | null;
+  hidePersonaButton?: boolean;
+  customEmptyState?: React.ReactNode;
+  disableInput?: boolean;
+  hideAttachButton?: boolean;
 }
 
 type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
@@ -96,6 +100,10 @@ export function ChatInterface({
   messages = [],
   setMessages = () => {},
   selectedModel = null,
+  hidePersonaButton = false,
+  customEmptyState,
+  disableInput = false,
+  hideAttachButton = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   // For pin mention dropdown keyboard navigation
@@ -1198,7 +1206,7 @@ export function ChatInterface({
       {/* Empty state: centered prompt box */}
       {displayMessages.length === 0 ? (
         <section className="flex flex-1 items-center justify-center bg-[#F5F5F5] px-4 py-8">
-          <InitialPrompts userName={user?.name ?? user?.email ?? null} />
+          {customEmptyState || <InitialPrompts userName={user?.name ?? user?.email ?? null} />}
         </section>
       ) : (
         <div
@@ -1206,7 +1214,7 @@ export function ChatInterface({
           ref={scrollViewportRef}
           onScroll={handleScroll}
         >
-          <div className="mx-auto w-full max-w-[1280px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
+          <div className="mx-auto w-full max-w-[756px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
             <div className="rounded-[32px] border border-transparent bg-[#F5F5F5] p-6 shadow-none">
               <div className="space-y-3">
                 {displayMessages.map((msg) => {
@@ -1292,7 +1300,7 @@ export function ChatInterface({
 
       {/* Chat Input Footer */}
       <footer className="shrink-0 bg-[#F5F5F5] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
-        <div className="relative mx-auto w-full max-w-[1280px]">
+        <div className="relative mx-auto w-full max-w-[756px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
               ref={dropdownRef}
@@ -1515,23 +1523,24 @@ export function ChatInterface({
                       handleSend(input);
                     }
                   }}
-                  placeholder="Ask anything... Hit '@' to add in a pin"
+                  placeholder={disableInput ? "Save to start chatting..." : "Ask your persona .... "}
                   className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey"
                   rows={1}
-                  disabled={isResponding}
+                  disabled={isResponding || disableInput}
                 />
               </div>
 
               {/* Action buttons row */}
               <div className="flex items-center gap-3">
-                <div className="relative" ref={attachMenuRef}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowAttachMenu(!showAttachMenu)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
-                  >
-                    <Plus className="h-5 w-5 text-[#555555]" />
-                  </Button>
+                {!hideAttachButton && (
+                  <div className="relative" ref={attachMenuRef}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                    >
+                      <Plus className="h-5 w-5 text-[#555555]" />
+                    </Button>
                   
                   {showAttachMenu && (
                     <div 
@@ -1561,19 +1570,22 @@ export function ChatInterface({
                     </div>
                   )}
                 </div>
+                )}
                 
-                <Button
-                  variant="ghost"
-                  disabled
-                  className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
-                  title="Choose Persona (Coming Soon)"
-                >
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
-                    <UserPlus className="h-3 w-3" />
-                  </div>
-                  <span>Choose Persona</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
+                {!hidePersonaButton && (
+                  <Button
+                    variant="ghost"
+                    disabled
+                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
+                    title="Choose Persona (Coming Soon)"
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
+                      <UserPlus className="h-3 w-3" />
+                    </div>
+                    <span>Choose Persona</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                )}
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
                 <span className="text-sm font-medium text-[#888888]">
@@ -1598,15 +1610,15 @@ export function ChatInterface({
                         <Button
                           type="button"
                           onClick={() => handleSend(input)}
-                          disabled={!selectedModel}
+                          disabled={!selectedModel || disableInput}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                         >
                           <Send className="h-[18px] w-[18px]" />
                         </Button>
                       </TooltipTrigger>
-                      {!selectedModel && (
+                      {(!selectedModel || disableInput) && (
                         <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
-                          Please select a model to start the conversation
+                          {disableInput ? "Save to test first to enable chat" : "Please select a model to start the conversation"}
                         </TooltipContent>
                       )}
                     </Tooltip>

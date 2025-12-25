@@ -1093,10 +1093,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
     isRightSidebarVisible,
   };
   
-  const pageContent = React.cloneElement(children, {
-    key: activeChatId ?? "no-chat",
-    ...pageContentProps,
-  });
+  // Only pass chat-related props to chat pages, not persona pages
+  const pageContent = isPersonasRoute 
+    ? children
+    : React.cloneElement(children, {
+        key: activeChatId ?? "no-chat",
+        ...pageContentProps,
+      });
 
   const sidebarProps = {
     isCollapsed: isLeftSidebarCollapsed,
