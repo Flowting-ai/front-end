@@ -370,9 +370,9 @@ function PersonaConfigurePageContent() {
     <AppLayout>
       {isChatMode ? (
         // Chat Mode View
-        <div className="flex flex-col h-full px-6 py-4">
+        <div className="flex flex-col h-full items-center py-4">
           {/* Top Action Bar */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 w-full" style={{ maxWidth: '1072px', paddingLeft: '24px', paddingRight: '24px' }}>
             <Button
               onClick={() => setIsChatMode(false)}
               className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
@@ -396,6 +396,8 @@ function PersonaConfigurePageContent() {
           <div 
             style={{
               width: '1072px',
+              maxWidth: '1072px',
+              minWidth: '1072px',
               height: '793px',
               borderRadius: '30px',
               padding: '12px',
@@ -403,7 +405,6 @@ function PersonaConfigurePageContent() {
               backgroundColor: '#FFFFFF',
               borderColor: '#D9D9D9',
               boxShadow: '0px 2px 4px 0px #19213D14',
-              margin: '0 auto',
               display: 'flex',
               flexDirection: 'column'
             }}
@@ -1310,13 +1311,23 @@ function PersonaConfigurePageContent() {
                     style={{
                       width: '86px',
                       height: '24px',
+                      minHeight: '24px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderRadius: '4px',
+                      borderRadius: '9999px',
                       backgroundColor: '#EEF2FF',
-                      fontSize: '11px',
+                      paddingTop: '3px',
+                      paddingRight: '2px',
+                      paddingBottom: '3px',
+                      paddingLeft: '2px',
+                      gap: '6px',
+                      fontFamily: 'Geist',
+                      fontSize: '12px',
                       fontWeight: 500,
+                      lineHeight: '150%',
+                      letterSpacing: '1.5%',
+                      textAlign: 'center',
                       color: '#4F46E7'
                     }}
                   >
