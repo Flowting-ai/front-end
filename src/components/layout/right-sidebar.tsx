@@ -4,7 +4,6 @@
 import { useState, useMemo, useContext, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Pin,
   Search,
@@ -634,6 +633,38 @@ export function RightSidebar({
   }
 
   const renderPinboard = () => (
+    <>
+      <style>{`
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+          overflow-x: hidden;
+        }
+        .custom-scrollbar:hover {
+          scrollbar-color: #e0e0e0 #f5f5f5;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 8px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar {
+          background: #f5f5f5;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: #e0e0e0;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 8px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-track {
+          background: #f5f5f5;
+        }
+      `}</style>
     <div className="flex h-full flex-col">
       <div className="px-4 py-2 border-b border-[#d9d9d9]" style={{ paddingBottom: '5px' }}>
         {isSearchOpen ? (
@@ -711,7 +742,7 @@ export function RightSidebar({
                       onClick={(event) => event.preventDefault()}
                     />
                   </div>
-                  <ScrollArea className="max-h-48">
+                  <div className="max-h-48 overflow-y-auto custom-scrollbar">
                     <div className="space-y-1">
                       {filteredTags.length > 0 ? (
                       filteredTags.map((tag) => (
@@ -730,7 +761,7 @@ export function RightSidebar({
                         <DropdownMenuItem disabled className="px-2 py-1.5 text-[#9a9a9a]">No matching tags</DropdownMenuItem>
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSub>
@@ -748,7 +779,7 @@ export function RightSidebar({
                       onClick={(event) => event.preventDefault()}
                     />
                   </div>
-                  <ScrollArea className="max-h-48">
+                  <div className="max-h-48 overflow-y-auto custom-scrollbar">
                     <div className="space-y-1">
                       {filteredFolders.length > 0 ? (
                         filteredFolders.map((folder) => (
@@ -767,7 +798,7 @@ export function RightSidebar({
                         <DropdownMenuItem disabled className="px-2 py-1.5 text-[#9a9a9a]">No matching folders</DropdownMenuItem>
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               {(selectedTags.length > 0 || selectedFolders.length > 0) ? (
@@ -795,7 +826,7 @@ export function RightSidebar({
           </DropdownMenu>
         </div>
       </div>
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="space-y-2.5 pt-2 pb-24 flex flex-col items-center" style={{ paddingLeft: '21.5px', paddingRight: '21.5px' }}>
           {sortedAndFilteredPins.length > 0 ? (
             sortedAndFilteredPins.map((pin) => {
@@ -827,7 +858,7 @@ export function RightSidebar({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
       <div className="pinboard-footer">
         <Button
           size="sm"
@@ -851,6 +882,7 @@ export function RightSidebar({
         </Button>
       </div>
     </div>
+    </>
   );
 
   const renderPlaceholder = (panel: Exclude<RightSidebarPanel, "pinboard">) => (

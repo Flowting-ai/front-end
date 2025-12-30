@@ -426,7 +426,7 @@ function PersonaConfigurePageContent() {
                     backgroundColor: '#FFFFFF'
                   }}>
                     <img
-                      src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                      src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/personas/persona1.png'}
                       alt="Persona"
                       style={{ 
                         width: '100%', 
@@ -938,7 +938,7 @@ function PersonaConfigurePageContent() {
                           backgroundColor: '#f5f5f5'
                         }}>
                           <img
-                            src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                            src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/personas/persona1.png'}
                             alt="Persona"
                             style={{ 
                               width: '100%', 
@@ -1032,7 +1032,7 @@ function PersonaConfigurePageContent() {
               marginBottom: '16px'
             }}>
               <img
-                src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/icons/personas/persona1.png'}
+                src={avatarUrl || uploadedFiles.find(f => f.type === 'image')?.url || '/personas/persona1.png'}
                 alt="Persona"
                 style={{ 
                   width: '100%', 
@@ -1208,7 +1208,7 @@ function PersonaConfigurePageContent() {
                     }}
                   >
                     <img
-                      src={avatarUrl || '/icons/personas/persona1.png'}
+                      src={avatarUrl || '/personas/persona1.png'}
                       alt="User"
                       style={{
                         width: '100%',

@@ -43,6 +43,8 @@ interface PinItemProps {
     onDuplicatePin?: (pin: PinType) => void;
     onMovePin?: (pinId: string, folderId: string | null) => void;
     onCreateFolder?: (name: string) => Promise<PinFolder>;
+    inOrganizeDialog?: boolean;
+    isSelected?: boolean;
 }
 
 const formatTimestamp = (time: Date) => {
@@ -67,6 +69,8 @@ export const PinItem = ({
     onDuplicatePin,
     onMovePin,
     onCreateFolder,
+    inOrganizeDialog = false,
+    isSelected = false,
 }: PinItemProps) => {
     const router = useRouter();
     const [showInfo, setShowInfo] = useState(false);
@@ -93,11 +97,38 @@ export const PinItem = ({
     const ESTIMATED_TAGS_PER_LINE = 4;
 
     const filteredFolders = useMemo(() => {
-        if (!moveFolderSearch.trim()) return folders;
-        return folders.filter(folder => 
+        // Filter out the current folder from the list
+        let availableFolders = folders.filter(folder => {
+            // Exclude current folder (if pin has folderId, exclude that folder)
+            if (pin.folderId && folder.id === pin.folderId) {
+                return false;
+            }
+            // Exclude 'unorganized' folder from the list since we show it separately
+            if (folder.id === 'unorganized' || folder.name.toLowerCase() === 'unorganized pins') {
+                return false;
+            }
+            return true;
+        });
+        
+        // Apply search filter
+        if (!moveFolderSearch.trim()) return availableFolders;
+        return availableFolders.filter(folder => 
             folder.name.toLowerCase().includes(moveFolderSearch.toLowerCase())
         );
-    }, [folders, moveFolderSearch]);
+    }, [folders, moveFolderSearch, pin.folderId]);
+
+    // Calculate dynamic dropdown width based on folder names
+    const dropdownWidth = useMemo(() => {
+        const allNames = [
+            'New Folder',
+            'Unorganized',
+            ...filteredFolders.map(f => f.name)
+        ];
+        const maxLength = Math.max(...allNames.map(name => Math.min(name.length, 22)));
+        // Base width of 160px, add ~8px per character
+        const calculatedWidth = Math.max(160, Math.min(maxLength * 8 + 60, 240));
+        return calculatedWidth;
+    }, [filteredFolders]);
 
     useEffect(() => {
         if (isEditingNotes && notesTextareaRef.current) {
@@ -287,8 +318,23 @@ export const PinItem = ({
     };
 
         return (
-            <Card className="border border-[#e6e6e6] bg-white" style={{ width: '100%', minHeight: compact ? 'auto' : '160px', borderRadius: '8px', marginRight: '6px' }}>
-            <CardContent className="flex flex-col p-3" style={{ gap: '10px' }}>
+            <Card 
+                className="border bg-white overflow-hidden" 
+                style={inOrganizeDialog ? {
+                    width: '235px',
+                    minHeight: 'auto',
+                    borderRadius: '8px',
+                    opacity: 1,
+                    overflow: 'hidden',
+                    border: isSelected ? '1px solid #756AF2' : '1px solid #e6e6e6'
+                } : {
+                    width: '100%',
+                    minHeight: compact ? 'auto' : '160px',
+                    borderRadius: '8px',
+                    marginRight: '6px',
+                    border: '1px solid #e6e6e6'
+                }}
+            >            <CardContent className="flex flex-col overflow-hidden" style={inOrganizeDialog ? { gap: '8px', padding: '12px', overflow: 'hidden' } : { gap: '10px', padding: '12px' }}>
                 {/* Title with dropdown menu */}
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -325,16 +371,16 @@ export const PinItem = ({
                                 </div>
                             </div>
                         ) : (
-                            <div>
+                            <div className="overflow-hidden">
                                 <div title={pin.title ?? pin.text}>
                                     <p
-                                        className="text-[#1e1e1e]"
-                                        style={isTitleExpanded ? { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%' } : { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%', display: '-webkit-box', WebkitLineClamp: 2 as any, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}
+                                        className="text-[#1e1e1e] overflow-hidden"
+                                        style={isTitleExpanded && !inOrganizeDialog ? { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%' } : { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%', display: '-webkit-box', WebkitLineClamp: inOrganizeDialog ? 1 : 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden', textOverflow: 'ellipsis' }}
                                     >
                                         {pin.title ?? pin.text}
                                     </p>
                                 </div>
-                                {(pin.title && (pin.title.length > TRUNCATE_TITLE_LEN)) || (!pin.title && pin.text.length > TRUNCATE_TITLE_LEN) ? (
+                                {!inOrganizeDialog && ((pin.title && (pin.title.length > TRUNCATE_TITLE_LEN)) || (!pin.title && pin.text.length > TRUNCATE_TITLE_LEN)) ? (
                                     <button className="text-xs text-[#3b82f6] mt-1 p-0" onClick={() => setIsTitleExpanded(prev => !prev)}>{isTitleExpanded ? 'show less' : 'read more...'}</button>
                                 ) : null}
                             </div>
@@ -353,27 +399,116 @@ export const PinItem = ({
                         <DropdownMenuContent
                             align="end"
                             className="bg-white border border-[#E5E5E5] z-[70]"
-                            style={{ width: '140px', borderRadius: '8px' }}
+                            style={{ 
+                              width: '122px',
+                              borderRadius: '8px',
+                              padding: '2px',
+                              backgroundColor: '#FFFFFF',
+                              border: '1px solid #E5E5E5',
+                              boxShadow: '0px 2px 4px -2px rgba(0, 0, 0, 0.1), 0px 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            }}
                         >
-                            <DropdownMenuItem onClick={() => setIsEditingTitle(true)} className="text-[#1e1e1e] rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
+                            <DropdownMenuItem 
+                                onClick={() => setIsEditingTitle(true)} 
+                                className="text-[#0A0A0A] cursor-pointer"
+                                style={{
+                                    width: '118px',
+                                    height: '32px',
+                                    minHeight: '32px',
+                                    borderRadius: '6px',
+                                    gap: '8px',
+                                    paddingTop: '5.5px',
+                                    paddingRight: '8px',
+                                    paddingBottom: '5.5px',
+                                    paddingLeft: '8px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                    e.currentTarget.style.color = '#0A0A0A';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#0A0A0A';
+                                }}
+                            >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Rename
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDuplicatePin} className="text-[#1e1e1e] rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
+                            <DropdownMenuItem 
+                                onClick={handleDuplicatePin} 
+                                className="text-[#0A0A0A] cursor-pointer"
+                                style={{
+                                    width: '118px',
+                                    height: '32px',
+                                    minHeight: '32px',
+                                    borderRadius: '6px',
+                                    gap: '8px',
+                                    paddingTop: '5.5px',
+                                    paddingRight: '8px',
+                                    paddingBottom: '5.5px',
+                                    paddingLeft: '8px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                    e.currentTarget.style.color = '#0A0A0A';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#0A0A0A';
+                                }}
+                            >
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuSub>
-                                <DropdownMenuSubTrigger className="rounded-md px-3 py-2 text-[#1e1e1e] hover:bg-[#f5f5f5] data-[state=open]:bg-[#f5f5f5]">
+                                <DropdownMenuSubTrigger 
+                                    className="text-[#0A0A0A] cursor-pointer"
+                                    style={{
+                                        width: '118px',
+                                        height: '32px',
+                                        minHeight: '32px',
+                                        borderRadius: '6px',
+                                        gap: '8px',
+                                        paddingTop: '5.5px',
+                                        paddingRight: '8px',
+                                        paddingBottom: '5.5px',
+                                        paddingLeft: '8px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                        e.currentTarget.style.color = '#0A0A0A';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#0A0A0A';
+                                    }}
+                                >
                                     <FolderInput className="mr-2 h-4 w-4" />
                                     Move
                                 </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent className="w-[240px] border border-[#e6e6e6] bg-white p-2 text-[#171717]">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a8a8a]" />
-                                        <Input
-                                            placeholder="Search folders..."
-                                            className="mb-2 h-8 rounded-md pl-8 text-sm"
+                                {/*Submenu content for Move dropdown under pincards*/}
+                                <DropdownMenuSubContent 
+                                    className="border border-[#e6e6e6] bg-white p-2 text-[#171717]"
+                                    style={{ width: `${dropdownWidth}px` }}
+                                >
+                                    <div className="relative mb-2">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search ..."
+                                            className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+                                            style={{
+                                                height: "36px",
+                                                minHeight: "36px",
+                                                borderRadius: "8px",
+                                                border: "1px solid #E5E5E5",
+                                                backgroundColor: "#FFFFFF",
+                                                paddingTop: "7.5px",
+                                                paddingBottom: "7.5px",
+                                                paddingLeft: "40px",
+                                                paddingRight: "20px",
+                                                gap: "8px"
+                                            }}
                                             value={moveFolderSearch}
                                             onChange={(event) => setMoveFolderSearch(event.target.value)}
                                             onClick={(event) => event.preventDefault()}
@@ -387,40 +522,156 @@ export const PinItem = ({
                                     </div>
                                     <ScrollArea className="max-h-48">
                                         <div className="space-y-1" role="menu">
+                                            {/* New Folder option - always show at top */}
                                             <DropdownMenuItem
-                                                className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
-                                                onSelect={() => handleMoveToFolder(null, 'Unorganized')}
+                                                className="cursor-pointer font-medium"
+                                                style={{
+                                                    width: '100%',
+                                                    height: '32px',
+                                                    minHeight: '32px',
+                                                    borderRadius: '6px',
+                                                    gap: '8px',
+                                                    paddingTop: '5.5px',
+                                                    paddingRight: '2px',
+                                                    paddingBottom: '5.5px',
+                                                    paddingLeft: '2px',
+                                                    color: '#171717'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                                    e.currentTarget.style.color = '#0A0A0A';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                    e.currentTarget.style.color = '#171717';
+                                                }}
+                                                onSelect={() => {
+                                                    setMoveFolderSearch('');
+                                                    if (onCreateFolder) {
+                                                        // Trigger folder creation flow
+                                                        const folderName = prompt('Enter new folder name:');
+                                                        if (folderName?.trim()) {
+                                                            onCreateFolder(folderName.trim()).then((newFolder) => {
+                                                                if (onMovePin) {
+                                                                    onMovePin(pin.id, newFolder.id);
+                                                                }
+                                                            });
+                                                        }
+                                                    }
+                                                }}
                                             >
-                                                Unorganized
+                                                <FolderPlus className="mr-2 h-3.5 w-3.5" />
+                                                New Folder
                                             </DropdownMenuItem>
+                                            
+                                            {/* Show Unorganized only if pin is not already in Unorganized */}
+                                            {pin.folderId && (
+                                                <DropdownMenuItem
+                                                    className="cursor-pointer"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '32px',
+                                                        minHeight: '32px',
+                                                        borderRadius: '6px',
+                                                        gap: '8px',
+                                                        paddingTop: '5.5px',
+                                                        paddingRight: '2px',
+                                                        paddingBottom: '5.5px',
+                                                        paddingLeft: '2px',
+                                                        color: '#171717'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                                        e.currentTarget.style.color = '#0A0A0A';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                        e.currentTarget.style.color = '#171717';
+                                                    }}
+                                                    onSelect={() => handleMoveToFolder(null, 'Unorganized')}
+                                                >
+                                                    Unorganized
+                                                </DropdownMenuItem>
+                                            )}
+                                            
+                                            {/* Show filtered folders */}
                                             {filteredFolders.length > 0 ? (
                                                 filteredFolders.map((folder) => (
                                                     <DropdownMenuItem
                                                         key={folder.id}
-                                                        className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
+                                                        className="cursor-pointer"
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '32px',
+                                                            minHeight: '32px',
+                                                            borderRadius: '6px',
+                                                            gap: '8px',
+                                                            paddingTop: '5.5px',
+                                                            paddingRight: '2px',
+                                                            paddingBottom: '5.5px',
+                                                            paddingLeft: '2px',
+                                                            color: '#171717'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                                            e.currentTarget.style.color = '#0A0A0A';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                                            e.currentTarget.style.color = '#171717';
+                                                        }}
                                                         onSelect={() => handleMoveToFolder(folder.id, folder.name)}
                                                     >
                                                         {folder.name}
                                                     </DropdownMenuItem>
                                                 ))
-                                            ) : moveFolderSearch.trim() ? (
-                                                <DropdownMenuItem
-                                                    className="rounded-md px-2 py-1.5 text-[#171717] hover:bg-[#f5f5f5] cursor-pointer"
-                                                    onSelect={handleCreateAndMove}
+                                            ) : moveFolderSearch.trim() && filteredFolders.length === 0 ? (
+                                                <DropdownMenuItem 
+                                                    disabled 
+                                                    className="cursor-not-allowed"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '32px',
+                                                        minHeight: '32px',
+                                                        borderRadius: '6px',
+                                                        gap: '8px',
+                                                        paddingTop: '5.5px',
+                                                        paddingRight: '2px',
+                                                        paddingBottom: '5.5px',
+                                                        paddingLeft: '2px',
+                                                        color: '#9a9a9a'
+                                                    }}
                                                 >
-                                                    <FolderPlus className="mr-2 h-3.5 w-3.5" />
-                                                    Create "{moveFolderSearch.trim()}"
-                                                </DropdownMenuItem>
-                                            ) : (
-                                                <DropdownMenuItem disabled className="px-2 py-1.5 text-[#9a9a9a]">
                                                     No matching folders
                                                 </DropdownMenuItem>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </ScrollArea>
                                 </DropdownMenuSubContent>
                             </DropdownMenuSub>
-                            <DropdownMenuItem onClick={handleDeletePin} className="text-red-600 rounded-md px-3 py-2 hover:bg-[#f5f5f5]">
+                            <DropdownMenuItem 
+                                onClick={handleDeletePin} 
+                                className="text-red-600 cursor-pointer"
+                                style={{
+                                    width: '118px',
+                                    height: '32px',
+                                    minHeight: '32px',
+                                    borderRadius: '6px',
+                                    gap: '8px',
+                                    paddingTop: '5.5px',
+                                    paddingRight: '8px',
+                                    paddingBottom: '5.5px',
+                                    paddingLeft: '8px'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                    e.currentTarget.style.color = '#0A0A0A';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#DC2626';
+                                }}
+                            >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                             </DropdownMenuItem>
@@ -431,8 +682,8 @@ export const PinItem = ({
                                 {/* Inline preview removed to avoid duplicated title/content */}
 
                 {/* Tags section */}
-                <div className="flex flex-wrap items-center gap-2" style={{ maxHeight: '44px', overflow: 'hidden', alignContent: 'flex-start' }}>
-                    {tags.length < MAX_TAG_LINES * ESTIMATED_TAGS_PER_LINE && (
+                <div className="flex flex-wrap items-center gap-2 overflow-hidden" style={inOrganizeDialog ? { maxHeight: '20px', overflow: 'hidden', alignContent: 'flex-start' } : { maxHeight: '44px', overflow: 'hidden', alignContent: 'flex-start' }}>
+                    {!inOrganizeDialog && tags.length < MAX_TAG_LINES * ESTIMATED_TAGS_PER_LINE && (
                         <div className="relative flex items-center">
                             <Tag className="absolute text-[#1e1e1e] pointer-events-none" style={{ left: '6px', height: '7.25px', width: '7.25px' }} />
                             <input
@@ -494,14 +745,15 @@ export const PinItem = ({
                 </div>
 
                 {/* Chat name and time */}
-                <div className="flex justify-between items-center">
-                    <span className="text-[#1e1e1e]" style={{ fontFamily: 'Inter', fontWeight: 400, fontSize: '10px', lineHeight: '130%', letterSpacing: '0.015em' }}>
+                <div className="flex justify-between items-center overflow-hidden">
+                    <span className="text-[#1e1e1e] truncate" style={{ fontFamily: 'Inter', fontWeight: 400, fontSize: '10px', lineHeight: '130%', letterSpacing: '0.015em' }}>
                         {chatName || 'Untitled Chat'}
                     </span>
-                    <span className="text-xs text-[#7a7a7a]">{formatTimestamp(pin.time)}</span>
+                    <span className="text-xs text-[#7a7a7a] flex-shrink-0 ml-2">{formatTimestamp(pin.time)}</span>
                 </div>
 
                 {/* Action buttons row */}
+                {!inOrganizeDialog && (
                 <div className="flex justify-between items-center">
                     <button
                         onClick={() => setShowComments(!showComments)}
@@ -561,9 +813,10 @@ export const PinItem = ({
                         </div>
                     </TooltipProvider>
                 </div>
+                )}
 
                 {/* Comment section */}
-                {showComments && (
+                {!inOrganizeDialog && showComments && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         {/* Display existing comments */}
                         {comments.length > 0 && (

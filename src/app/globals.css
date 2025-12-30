@@ -1213,3 +1213,25 @@
   border-radius: 6px;
 }
 
+/* Custom scrollbar for organize pins dialog - pin cards column */
+.scrollbar-custom-grey {
+  scrollbar-color: #E5E5E5 transparent !important;
+}
+.scrollbar-custom-grey::-webkit-scrollbar {
+  width: 6px !important;
+  height: auto !important;
+}
+.scrollbar-custom-grey::-webkit-scrollbar-track {
+  background: transparent !important;
+  margin: 4px 0 !important;
+}
+.scrollbar-custom-grey::-webkit-scrollbar-thumb {
+  background: #E5E5E5 !important;
+  border-radius: 4px !important;
+  min-height: 48px !important;
+  opacity: 1 !important;
+}
+.scrollbar-custom-grey::-webkit-scrollbar-thumb:hover {
+  background: #D4D4D4 !important;
+}
+

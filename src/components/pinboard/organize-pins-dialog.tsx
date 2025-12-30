@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Folder, Unlink, MoreVertical, Trash2, Edit, Move, FolderPlus, Search, ChevronDown, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -131,9 +130,11 @@ export function OrganizePinsDialog({
   );
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchFolderQuery, setSearchFolderQuery] = useState<string>("");
   const [moveFolderSearch, setMoveFolderSearch] = useState("");
   const [isMoveMode, setIsMoveMode] = useState(false);
   const [selectedMoveFolder, setSelectedMoveFolder] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
   const [newFolderName, setNewFolderName] = useState<string>("");
   const [isEditingFolder, setIsEditingFolder] = useState<boolean>(false);
@@ -142,6 +143,22 @@ export function OrganizePinsDialog({
   const createInputRef = useRef<HTMLInputElement | null>(null);
   const editInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>(["unorganized"]);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollThumbRef = useRef<HTMLDivElement | null>(null);
+  const [scrollThumbTop, setScrollThumbTop] = useState(0);
+
+  // Reset states when dialog opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset move mode and selections when dialog closes
+      setIsMoveMode(false);
+      setSelectedMoveFolder(null);
+      setSelectedPinIds([]);
+      setMoveFolderSearch('');
+      setSearchQuery('');
+      setSearchFolderQuery('');
+    }
+  }, [isOpen]);
 
   // When folders from the backend change, sync them into local state so
   // pre-existing folders are always shown instead of only the static defaults.
@@ -207,6 +224,36 @@ export function OrganizePinsDialog({
     return pins;
   }, [pinsByFolder, selectedFolderIds]);
 
+  // Handle scroll for custom scrollbar
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const scrollTop = container.scrollTop;
+      
+      if (scrollHeight <= clientHeight) {
+        setScrollThumbTop(0);
+        return;
+      }
+      
+      const scrollRatio = scrollTop / (scrollHeight - clientHeight);
+      const trackHeight = 541; // Total track height
+      const thumbHeight = 48; // Thumb height
+      const maxThumbTop = trackHeight - thumbHeight;
+      
+      setScrollThumbTop(scrollRatio * maxThumbTop);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial calculation
+    
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [selectedFolderPins]);
+
+
   const filteredMoveableFolders = useMemo(() => {
     if (!moveFolderSearch.trim()) return folders;
     return folders.filter(folder => 
@@ -216,7 +263,14 @@ export function OrganizePinsDialog({
 
   const handlePinUpdate = (updatedPin: PinType) => {
     if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.map(p => p.id === updatedPin.id ? updatedPin : p));
+      const existingPin = initialPins.find(p => p.id === updatedPin.id);
+      if (existingPin) {
+        // Update existing pin
+        onPinsUpdate(initialPins.map(p => p.id === updatedPin.id ? updatedPin : p));
+      } else {
+        // Add new pin (for duplication)
+        onPinsUpdate([...initialPins, updatedPin]);
+      }
     }
   };
 
@@ -277,6 +331,11 @@ export function OrganizePinsDialog({
       const base = prev.length ? prev : initialFolders;
       return [base[0], createdFolder!, ...base.slice(1)];
     });
+
+    // If in move mode, auto-select the newly created folder
+    if (isMoveMode && createdFolder) {
+      setSelectedMoveFolder(createdFolder.id);
+    }
 
     setIsCreatingFolder(false);
     setNewFolderName("");
@@ -377,13 +436,9 @@ export function OrganizePinsDialog({
   };
 
   const handleBulkDelete = () => {
-    if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.filter(p => !selectedPinIds.includes(p.id)));
-    } else {
-      // For dummy pins, create new array and replace contents to trigger re-render
-      const remainingPins = dummyPins.filter(p => !selectedPinIds.includes(p.id));
-      dummyPins.length = 0;
-      dummyPins.push(...remainingPins);
+    if (onPinsUpdate) {
+      const updatedPins = pinsToDisplay.filter(p => !selectedPinIds.includes(p.id));
+      onPinsUpdate(updatedPins);
     }
     setSelectedPinIds([]);
   };
@@ -392,24 +447,17 @@ export function OrganizePinsDialog({
     const folderId = targetFolderId || selectedMoveFolder;
     if (!folderId) return;
     
-    if (initialPins.length > 0) {
-      const updatedPins = initialPins.map(pin => 
+    // Update pins with new folder assignment
+    if (onPinsUpdate) {
+      const updatedPins = pinsToDisplay.map(pin => 
         selectedPinIds.includes(pin.id) 
           ? { ...pin, folderId: folderId === 'unorganized' ? undefined : folderId }
           : pin
       );
       onPinsUpdate(updatedPins);
-    } else {
-      // For dummy pins, create new array with updated pins (for testing)
-      const updatedDummyPins = dummyPins.map(pin => 
-        selectedPinIds.includes(pin.id)
-          ? { ...pin, folderId: folderId === 'unorganized' ? undefined : folderId }
-          : pin
-      );
-      // Replace dummyPins array contents to trigger re-render
-      dummyPins.length = 0;
-      dummyPins.push(...updatedDummyPins);
     }
+    
+    // Reset state
     setSelectedPinIds([]);
     setMoveFolderSearch('');
     setIsMoveMode(false);
@@ -421,6 +469,26 @@ export function OrganizePinsDialog({
     setSelectedPinIds([]);
     setSelectedMoveFolder(null);
     setMoveFolderSearch('');
+    setSearchFolderQuery('');
+  };
+
+  const handleDeletePins = () => {
+    if (selectedPinIds.length === 0) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePins = () => {
+    if (onPinsUpdate) {
+      const updatedPins = initialPins.filter(pin => !selectedPinIds.includes(pin.id));
+      onPinsUpdate(updatedPins);
+    }
+    setSelectedPinIds([]);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleMoveClick = () => {
+    if (selectedPinIds.length === 0) return;
+    setIsMoveMode(true);
   };
 
   const handleCreateFolderAndMove = async () => {
@@ -436,12 +504,56 @@ export function OrganizePinsDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="organize-dialog flex flex-col bg-transparent p-0 text-[#171717] gap-0">
-        <div className="organize-dialog-inner relative flex flex-col">
-        <DialogHeader className="border-b bg-white py-6 px-6 text-[#171717] space-y-4">
+    <>
+      <style>{`
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+          overflow-x: hidden;
+        }
+        .custom-scrollbar:hover {
+          scrollbar-color: #e0e0e0 #f5f5f5;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 8px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar {
+          background: #f5f5f5;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: #e0e0e0;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 8px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-track {
+          background: #f5f5f5;
+        }
+      `}</style>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        className="organize-dialog flex flex-col p-0 text-[#171717] gap-0 bg-white"
+        style={{
+          width: '633px',
+          maxWidth: 'min(633px, 95vw)',
+          height: '691px',
+          maxHeight: 'min(691px, 90vh)',
+          borderRadius: '10px',
+          opacity: 1,
+          overflow: 'hidden',
+          padding: 0
+        }}
+      >
+        <div className="organize-dialog-inner relative flex flex-col h-full overflow-hidden bg-white">
+        <DialogHeader className="bg-white text-[#171717] space-y-4 flex-shrink-0" style={{ paddingTop: '15px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '12px', borderBottom: 'none' }}>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-left text-[#171717] font-semibold text-lg">Organize Pins</DialogTitle>
+            <DialogTitle className="text-left text-[#171717] font-semibold text-base sm:text-lg">Organize Pins</DialogTitle>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -454,13 +566,13 @@ export function OrganizePinsDialog({
           
           {/* Search Input with Move and Delete buttons */}
           <div className="flex items-center gap-2">
-            <div className="relative" style={{ width: "min(380px, 46%)", minWidth: "220px" }}>
+            <div className="relative flex-1 max-w-[380px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9a9a9a]" />
               <input
                 type="text"
-                placeholder="Search pins..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={isMoveMode ? "Search folders..." : "Search pins..."}
+                value={isMoveMode ? searchFolderQuery : searchQuery}
+                onChange={(e) => isMoveMode ? setSearchFolderQuery(e.target.value) : setSearchQuery(e.target.value)}
                 className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
                 style={{
                   height: "36px",
@@ -471,11 +583,18 @@ export function OrganizePinsDialog({
                   paddingTop: "7.5px",
                   paddingBottom: "7.5px",
                   paddingLeft: "40px",
-                  paddingRight: searchQuery ? "60px" : "20px",
+                  paddingRight: (isMoveMode ? searchFolderQuery : searchQuery) ? "60px" : "20px",
                   gap: "8px"
                 }}
               />
-              {searchQuery && (
+              {isMoveMode && searchFolderQuery && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
+                  {folders.filter(folder => 
+                    folder.name.toLowerCase().includes(searchFolderQuery.toLowerCase())
+                  ).length} results
+                </div>
+              )}
+              {!isMoveMode && searchQuery && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
                   {selectedFolderPins.filter(pin => 
                     pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -484,58 +603,204 @@ export function OrganizePinsDialog({
                 </div>
               )}
             </div>
-            <div className={`flex items-center gap-2 ${!isMoveMode || selectedPinIds.length === 0 ? 'ml-auto' : ''}`}>
-              {!isMoveMode ? (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setIsMoveMode(true)}
-                  className="rounded-lg border-[#d4d4d4] text-[#171717] hover:bg-[#2c2c2c] hover:text-white h-9 px-3 text-sm"
-                >
-                  <Move className="h-4 w-4 mr-1.5"/>
-                  Move pins to folder
-                </Button>
-              ) : (
-                <>
-                  <Button 
-                    variant="default"
-                    size="sm" 
-                    className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] h-9 px-3 text-sm"
-                  >
-                    <Move className="h-4 w-4 mr-1.5"/>
-                    Move pins to folder {selectedPinIds.length > 0 && `(${selectedPinIds.length})`}
-                  </Button>
-                  {selectedPinIds.length > 0 && (
-                    <>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={handleBulkDelete}
-                        className="rounded-lg text-red-600 hover:bg-[#fee2e2] hover:text-red-600 h-9 w-9"
-                        title="Delete selected pins"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={handleCancelMove}
-                        className="rounded-lg border border-[#d4d4d4] text-[#1e1e1e] hover:bg-[#f5f5f5] hover:text-[#1e1e1e] h-9 px-3 text-sm"
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
           </div>
+          
+          {/* Horizontal divider below search */}
+          <div style={{ width: '589px', height: '1px', background: '#E5E5E5', opacity: 1, marginTop: '12px' }} />
         </DialogHeader>
         
         {/* folder column padding */}
-        <div className="flex-1 flex overflow-hidden py-4 px-4 min-h-0" style={{ gap: "15px" }}>
+        <div className="flex-1 flex overflow-hidden px-4 min-h-0" style={{ gap: "12px", width: '100%', backgroundColor: '#FFFFFF', paddingTop: '16px' }}>
+          
+          {/* Move Mode - Show only folder selection column */}
+          {isMoveMode ? (
+            <div 
+              className="flex flex-col bg-[#F5F5F5] flex-shrink-0" 
+              style={{ 
+                width: '592px',
+                height: '100%',
+                maxHeight: '531px',
+                borderRadius: '10px',
+                gap: '16px',
+                paddingTop: '12px',
+                paddingRight: '16px',
+                paddingBottom: '12px',
+                paddingLeft: '16px'
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col gap-1">
+                  <h3 
+                    style={{
+                      width: '94px',
+                      height: '20px',
+                      fontFamily: 'Geist, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      lineHeight: '140%',
+                      letterSpacing: '0%',
+                      color: '#171717',
+                      opacity: 1
+                    }}
+                  >
+                    Select folders
+                  </h3>
+                  <p 
+                    style={{
+                      width: '265px',
+                      height: '17px',
+                      fontFamily: 'Geist, sans-serif',
+                      fontWeight: 400,
+                      fontSize: '12px',
+                      lineHeight: '140%',
+                      letterSpacing: '0%',
+                      color: '#666666',
+                      opacity: 1
+                    }}
+                  >
+                    Select the folder you want to move the pins to.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setIsCreatingFolder(true)}
+                  style={{
+                    width: '126.25px',
+                    height: '36px',
+                    minHeight: '36px',
+                    borderRadius: '8px',
+                    backgroundColor: '#171717',
+                    color: '#FFFFFF',
+                    fontFamily: 'Geist, sans-serif',
+                    fontWeight: 400,
+                    fontSize: '14px',
+                    paddingTop: '7.5px',
+                    paddingBottom: '7.5px',
+                    paddingLeft: '12px',
+                    paddingRight: '12px',
+                    gap: '8px'
+                  }}
+                  className="hover:bg-[#000000] flex items-center justify-center"
+                >
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  New Folder
+                </Button>
+              </div>
+              <div 
+                className="flex-1 overflow-y-auto custom-scrollbar"
+                style={{ maxHeight: 'calc(100% - 80px)' }}
+              >
+                <div className="space-y-2 pr-2">
+                  {folders
+                    .filter(folder => 
+                      !searchFolderQuery.trim() || 
+                      folder.name.toLowerCase().includes(searchFolderQuery.toLowerCase())
+                    )
+                    .map(folder => (
+                    <div
+                      key={folder.id}
+                      onClick={() => {
+                        setSelectedMoveFolder(folder.id);
+                      }}
+                      className="cursor-pointer transition-colors"
+                      style={{
+                        width: '560px',
+                        height: '41px',
+                        minHeight: '32px',
+                        borderRadius: '6px',
+                        gap: '8px',
+                        paddingTop: '5.5px',
+                        paddingRight: '8px',
+                        paddingBottom: '5.5px',
+                        paddingLeft: '8px',
+                        backgroundColor: '#F5F5F5',
+                        border: selectedMoveFolder === folder.id ? '1px solid #171717' : '1px solid transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#E6E6E6';
+                        if (selectedMoveFolder !== folder.id) {
+                          e.currentTarget.style.border = '1px solid #D4D4D4';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#F5F5F5';
+                        if (selectedMoveFolder !== folder.id) {
+                          e.currentTarget.style.border = '1px solid transparent';
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {folder.id === 'unorganized' ? <Unlink className="h-4 w-4 text-[#666666] flex-shrink-0" /> : <Folder className="h-4 w-4 text-[#666666] flex-shrink-0" />}
+                        <span className="text-sm text-[#171717] truncate" title={folder.name}>
+                          {folder.name.length > 30 ? `${folder.name.substring(0, 30)}...` : folder.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-[#f0f0f0] text-[#171717] text-xs px-2 py-0.5 rounded-full">
+                          {pinsByFolder[folder.id]?.length || 0}
+                        </Badge>
+                        {folder.id !== 'unorganized' && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded hover:bg-[#e5e5e5]"
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                }}
+                              >
+                                <MoreVertical className="h-4 w-4 text-[#666666]" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-[120px] bg-white border border-[#e6e6e6] z-[70]"
+                            >
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                handleRenameFolder(folder.id);
+                              }} className="text-[#171717] hover:bg-[#E5E5E5] cursor-pointer">
+                                <Edit className="mr-2 h-4 w-4" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFolder(folder.id);
+                              }} className="text-red-600 hover:bg-[#ffecec] cursor-pointer">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Left Section (Folders) */}
-          <div className="flex flex-col bg-[#F5F5F5] flex-shrink-0" style={{ width: "min(380px, 46%)", minWidth: "220px", height: "541px", maxHeight: "100%", borderRadius: "10px", padding: "12px 12px 12px 20px", gap: "12px" }}>
+          <div 
+            className="flex flex-col bg-[#F5F5F5] flex-shrink-0 overflow-hidden" 
+            style={{ 
+              width: '300px',
+              height: '100%',
+              maxHeight: '531px',
+              borderRadius: '10px',
+              paddingTop: '12px',
+              paddingRight: '16px',
+              paddingBottom: '12px',
+              paddingLeft: '16px',
+              gap: '16px',
+              opacity: 1
+            }}
+          >
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-sm font-semibold text-[#171717]">Folders</h3>
               {folders.length > 1 && (
@@ -551,16 +816,25 @@ export function OrganizePinsDialog({
               )}
             </div>
             
-                <ScrollArea className="flex-1 scrollbar-light-grey">
-              <div className="space-y-1">
+                <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100% - 60px)' }}>
+              <div className="space-y-1 pr-2">
                 {folders.map(folder => (
                   <div
                     key={folder.id}
-                    className={`w-full flex items-center justify-between p-3 sm:p-2 rounded-lg text-sm cursor-pointer transition-colors duration-150 ${
-                      selectedFolderIds.includes(folder.id) ? 'bg-white border border-[#e6e6e6] shadow-sm' : 
-                      isMoveMode && selectedPinIds.length > 0 ? 'bg-white hover:bg-[#e8e8e8] border border-transparent' :
-                      'bg-white hover:bg-[#fbfbfb] border border-transparent'
+                    className={`w-full flex items-center justify-between rounded-lg text-sm cursor-pointer transition-colors duration-150 ${
+                      'bg-[#F5F5F5] hover:bg-[#e8e8e8] border border-transparent hover:border-[#D4D4D4]'
                     }`}
+                    style={{
+                      height: '41px',
+                      minHeight: '32px',
+                      borderRadius: '6px',
+                      paddingTop: '5.5px',
+                      paddingRight: '8px',
+                      paddingBottom: '5.5px',
+                      paddingLeft: '8px',
+                      gap: '8px',
+                      opacity: 1
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if ((e as React.KeyboardEvent).ctrlKey || (e as React.KeyboardEvent).metaKey || (e as React.KeyboardEvent).shiftKey) { setSelectedFolderIds(prev => prev.includes(folder.id) ? prev.filter(id => id !== folder.id) : [...prev, folder.id]); } else { setSelectedFolderIds([folder.id]); } } }}
@@ -619,62 +893,178 @@ export function OrganizePinsDialog({
                     </div>
                   </div>
                 ))}
+                
+                {/* Empty state - show when only Unorganized Pins exists */}
+                {folders.length === 1 && (
+                  <div 
+                    className="flex flex-col items-center justify-center mt-4"
+                    style={{
+                      width: '100%',
+                      height: '186px',
+                      borderRadius: '8px',
+                      borderWidth: '1px',
+                      borderColor: '#E5E5E5',
+                      padding: '8px',
+                      gap: '8px',
+                      opacity: 1,
+                      fontFamily: 'Geist'
+                    }}
+                  >
+                    <h4 
+                      style={{
+                        width: '236px',
+                        fontFamily: 'Geist, sans-serif',
+                        fontWeight: 500,
+                        fontSize: '16px',
+                        lineHeight: '150%',
+                        letterSpacing: '0%',
+                        opacity: 1,
+                        color: '#000000',
+                        textAlign: 'center',
+                        margin: 0
+                      }}
+                    >
+                      No Project/Folder
+                    </h4>
+                    <p 
+                      style={{
+                        width: '236px',
+                        fontFamily: 'Geist, sans-serif',
+                        fontWeight: 400,
+                        fontSize: '14px',
+                        lineHeight: '150%',
+                        letterSpacing: '0.5%',
+                        opacity: 1,
+                        color: '#666666',
+                        textAlign: 'center',
+                        margin: 0
+                      }}
+                    >
+                      Create your first folder and organise your pins according to projects.
+                    </p>
+                    <Button 
+                      onClick={handleCreateFolder}
+                      className="bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]"
+                      style={{
+                        width: '126.25px',
+                        height: '36px',
+                        minHeight: '36px',
+                        borderRadius: '8px',
+                        gap: '8px',
+                        paddingTop: '7.5px',
+                        paddingRight: '4px',
+                        paddingBottom: '7.5px',
+                        paddingLeft: '4px',
+                        opacity: 1,
+                        fontFamily: 'Geist, sans-serif',
+                        fontWeight: 400,
+                        fontSize: '14px'
+                      }}
+                    >
+                      + New Folder
+                    </Button>
+                  </div>
+                )}
               </div>
-            </ScrollArea>
-            
-            {folders.length === 1 && (
-              <div className="pt-4">
-                <Button 
-                  onClick={handleCreateFolder}
-                  className="w-full bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] rounded-lg"
-                >
-                  New folder
-                </Button>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Right Section (Selected Folder Pins) */}
-          <div className="flex-1 flex flex-col bg-white" style={{ borderRadius: "10px", padding: "8px 20px 8px 8px" }}>
-            <div className="pb-3 flex items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold text-[#171717] truncate flex-shrink-0">
-                {folders.find(f => f.id === selectedFolderIds[0])?.name || "Unorganised pins"}
-              </h3>
-            </div>
-            
-            {isMoveMode && selectedFolderPins.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  checked={selectedPinIds.length === selectedFolderPins.length}
-                  onCheckedChange={handleSelectAll}
-                  className="rounded-[4px] border-[#1e1e1e] h-4 w-4"
-                />
-                <span className="text-sm text-[#666666]">Select All</span>
-              </div>
-            )}
-            
-            <ScrollArea className="flex-1 scrollbar-grey">
-              <div className="space-y-2 pb-24 pr-4">
-                {selectedFolderPins.length > 0 ? (
-                  selectedFolderPins
-                    .filter(pin => 
-                      !searchQuery || 
-                      pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-                    )
+          <div className="flex-1 flex flex-col bg-white overflow-hidden" style={{ borderRadius: "10px", padding: "8px" }}>
+            <div className="flex" style={{ gap: '10px', opacity: 1 }}>
+              <div className="flex flex-col" style={{ width: '261px', height: '541px', gap: '5px', opacity: 1 }}>
+                <div className="flex items-center justify-between" style={{ width: '100%', minHeight: '32px', paddingBottom: '12px', gap: '16px', opacity: 1 }}>
+                  <h3 className="text-xs font-semibold text-[#171717] truncate flex-shrink-0">
+                    {folders.find(f => f.id === selectedFolderIds[0])?.name || "Unorganised pins"}
+                  </h3>
+                  
+                  {selectedFolderPins.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={selectedPinIds.length === selectedFolderPins.length}
+                        onCheckedChange={handleSelectAll}
+                        style={{
+                          width: '14px',
+                          height: '14px',
+                          minWidth: '14px',
+                          minHeight: '14px',
+                          borderRadius: '4px',
+                          borderWidth: '1px',
+                          opacity: 1,
+                          background: '#FFFFFF',
+                          border: '1px solid #D4D4D4',
+                          boxShadow: '0px 1px 2px 0px #0000000D'
+                        }}
+                        className="flex-shrink-0"
+                      />
+                      <span 
+                        style={{ 
+                          width: '46px', 
+                          height: '20px', 
+                          opacity: 1,
+                          fontFamily: 'Inter',
+                          fontWeight: 400,
+                          fontSize: '10px',
+                          lineHeight: '130%',
+                          letterSpacing: '1.5%',
+                          color: '#0A0A0A',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        Select all
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                <div 
+                  ref={scrollContainerRef}
+                  className="flex-1 overflow-y-auto" 
+                  style={{ 
+                    width: '261px', 
+                    scrollbarWidth: 'none', 
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                >
+                  <style jsx>{`
+                    div::-webkit-scrollbar {
+                      display: none;
+                    }
+                  `}</style>
+                  <div className="space-y-2 flex flex-col items-center" style={{ width: '100%', paddingBottom: '100px' }}>
+                  {selectedFolderPins.length > 0 ? (
+                    selectedFolderPins
+                      .filter(pin => 
+                        !searchQuery || 
+                        pin.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        pin.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+                      )
                     .map(pin => {
                     const chatBoard = chatBoards.find(board => board.id === pin.chatId);
                     const isSelected = selectedPinIds.includes(pin.id);
                     return (
-                      <div key={pin.id} className="flex items-center gap-2">
-                        {isMoveMode && (
-                          <Checkbox 
-                            checked={isSelected}
-                            onCheckedChange={() => handleTogglePinSelection(pin.id)}
-                            className="rounded-[4px] border-[#1e1e1e] h-4 w-4"
-                          />
-                        )}
-                        <div className="flex-1">
+                      <div key={pin.id} className="flex items-start gap-2" style={{ maxWidth: '100%', width: 'min(263px, 100%)' }}>
+                        <Checkbox 
+                          checked={isSelected}
+                          onCheckedChange={() => handleTogglePinSelection(pin.id)}
+                          style={{
+                            width: '14px',
+                            height: '14px',
+                            minWidth: '14px',
+                            minHeight: '14px',
+                            borderRadius: '4px',
+                            borderWidth: '1px',
+                            opacity: 1,
+                            background: '#FFFFFF',
+                            border: '1px solid #D4D4D4',
+                            boxShadow: '0px 1px 2px 0px #0000000D',
+                            marginTop: '1px'
+                          }}
+                          className="flex-shrink-0"
+                        />
+                        <div style={{ width: '235px', flexShrink: 0 }}>
                           <PinItem
                             pin={pin}
                             onUpdatePin={handlePinUpdate}
@@ -682,6 +1072,27 @@ export function OrganizePinsDialog({
                             onDeletePin={handleDeletePin}
                             chatName={chatBoard?.name}
                             compact={true}
+                            inOrganizeDialog={true}
+                            isSelected={isSelected}
+                            folders={folders}
+                            onMovePin={(pinId, folderId) => {
+                              // Move pin to the specified folder
+                              const updatedPin = { ...pin, folderId: folderId || undefined };
+                              handlePinUpdate(updatedPin);
+                            }}
+                            onCreateFolder={onCreateFolder ? async (name: string) => {
+                              const result = await onCreateFolder(name);
+                              return result;
+                            } : undefined}
+                            onDuplicatePin={(pinToDuplicate) => {
+                              // Duplicate the pin
+                              const duplicatedPin = {
+                                ...pinToDuplicate,
+                                id: `${pinToDuplicate.id}-copy-${Date.now()}`,
+                                time: new Date(),
+                              };
+                              handlePinUpdate(duplicatedPin);
+                            }}
                           />
                         </div>
                       </div>
@@ -692,23 +1103,174 @@ export function OrganizePinsDialog({
                     <p className="text-sm">No pins in this folder</p>
                   </div>
                 )}
+                  </div>
+                </div>
               </div>
-            </ScrollArea>
+              
+              {/* Custom Scrollbar - Hidden */}
+              <div 
+                className="relative flex-shrink-0" 
+                style={{ 
+                  width: '6px', 
+                  height: '541px',
+                  opacity: 0,
+                  display: 'none'
+                }}
+              >
+                <div 
+                  ref={scrollThumbRef}
+                  style={{
+                    width: '6px',
+                    height: '48px',
+                    borderRadius: '4px',
+                    background: '#E5E5E5',
+                    opacity: 0,
+                    position: 'absolute',
+                    top: `${scrollThumbTop}px`,
+                    transition: 'top 0.1s ease-out',
+                    display: 'none'
+                  }}
+                />
+              </div>
+            </div>
           </div>
+          </>
+          )}
         </div>
 
-        <DialogFooter className="justify-end gap-2 bg-white pt-4 pb-4 px-6 z-20 mt-auto">
-          <Button 
-            variant="ghost" 
-            onClick={onClose} 
-            className="rounded-lg border border-[#d4d4d4] text-[#1e1e1e] hover:bg-[#f5f5f5] hover:text-[#1e1e1e] pl-4 pr-4 py-2 min-w-[92px] z-30"
-          >
-            Cancel
-          </Button>
-          <Button onClick={onClose} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f] pl-4 pr-4 py-2 min-w-[92px] z-30">
-            Done
-          </Button>
+        <DialogFooter className="flex justify-end items-center bg-white z-20 flex-shrink-0" style={{ width: '100%', padding: '10px', gap: '8px', opacity: 1 }}>
+          {isMoveMode ? (
+            <>
+              {/* Go Back and Move Pins buttons in Move Mode */}
+              <Button 
+                onClick={handleCancelMove}
+                style={{
+                  width: '108px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '7.5px',
+                  paddingRight: '4px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '4px',
+                  gap: '8px',
+                  opacity: 1,
+                  backgroundColor: '#E5E5E5',
+                  color: '#171717',
+                  flexShrink: 0,
+                  cursor: 'pointer'
+                }}
+                className="font-medium text-sm hover:bg-[#D4D4D4]"
+              >
+                Go Back
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (selectedMoveFolder) {
+                    handleConfirmMove(selectedMoveFolder);
+                  }
+                }}
+                disabled={!selectedMoveFolder}
+                style={{
+                  width: '108px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '7.5px',
+                  paddingRight: '4px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '4px',
+                  gap: '8px',
+                  opacity: 1,
+                  backgroundColor: !selectedMoveFolder ? 'rgba(23, 23, 23, 0.3)' : '#171717',
+                  flexShrink: 0,
+                  cursor: !selectedMoveFolder ? 'not-allowed' : 'pointer'
+                }}
+                className={`text-white font-medium text-sm ${selectedMoveFolder ? 'hover:bg-[#000000]' : ''}`}
+              >
+                Move Pins
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Delete and Move buttons in normal mode */}
+              <Button 
+                onClick={handleDeletePins}
+                disabled={selectedPinIds.length === 0}
+                style={{
+                  width: '108px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '7.5px',
+                  paddingRight: '4px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '4px',
+                  gap: '8px',
+                  opacity: 1,
+                  backgroundColor: selectedPinIds.length === 0 ? 'rgba(220, 38, 38, 0.3)' : '#DC2626',
+                  flexShrink: 0,
+                  cursor: selectedPinIds.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+                className={`text-white font-medium text-sm ${selectedPinIds.length > 0 ? 'hover:bg-[#B91C1C]' : ''}`}
+              >
+                Delete Pins
+              </Button>
+              <Button 
+                onClick={handleMoveClick}
+                disabled={selectedPinIds.length === 0}
+                style={{
+                  width: '108px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '7.5px',
+                  paddingRight: '4px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '4px',
+                  gap: '8px',
+                  opacity: 1,
+                  backgroundColor: selectedPinIds.length === 0 ? 'rgba(23, 23, 23, 0.3)' : '#171717',
+                  flexShrink: 0,
+                  cursor: selectedPinIds.length === 0 ? 'not-allowed' : 'pointer'
+                }}
+                className={`text-white font-medium text-sm ${selectedPinIds.length > 0 ? 'hover:bg-[#000000]' : ''}`}
+              >
+                Move Pins
+              </Button>
+            </>
+          )}
         </DialogFooter>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
+            <div className="absolute inset-0 bg-black/20" onClick={() => setShowDeleteConfirm(false)} style={{ zIndex: 9998 }} />
+            <div className="relative w-[420px] bg-white rounded-md p-6 shadow-md" style={{ zIndex: 10000 }} onClick={(e) => e.stopPropagation()}>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-[#171717]">Delete Pins</h3>
+                <p className="text-sm text-[#666666] mt-2">
+                  Are you sure you want to delete {selectedPinIds.length} pin{selectedPinIds.length > 1 ? 's' : ''}? This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-[#171717] border-[#E5E5E5]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmDeletePins}
+                  className="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Folder Creation Inline Modal (centered inside Organize dialog) */}
         {isCreatingFolder && (
@@ -782,5 +1344,6 @@ export function OrganizePinsDialog({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
