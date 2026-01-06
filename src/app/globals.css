@@ -900,9 +900,13 @@
   }
 
   .dialog-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1e1e1e;
+    font-family: 'Clash Grotesk Variable', sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 120%;
+    letter-spacing: -0.02em;
+    color: var(--general-foreground, #0A0A0A);
   }
 
   .search-filters-row {
