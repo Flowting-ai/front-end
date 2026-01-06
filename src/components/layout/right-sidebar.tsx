@@ -1,6 +1,14 @@
 
 "use client";
 
+// ?pinboard=empty - for empty state
+// ?pinboard=filled - for filled state
+
+// Sources:
+// Query param: add ?pinboard=empty or ?pinboard=filled to the URL.
+// LocalStorage: set localStorage.setItem('pinboardDevState', 'empty') or 'auto'.
+// DevTools helper: window.__setPinboardDevState('empty') or 'auto'.
+
 import { useState, useMemo, useContext, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +130,58 @@ export function RightSidebar({
   className,
   onInsertToChat,
 }: RightSidebarProps) {
+  /**
+   * Dev-only Pinboard state toggle
+   * - Allows developers to switch between empty and filled states without UI controls.
+   * - Usage (development only):
+   *   • Query param: ?pinboard=empty | ?pinboard=filled
+   *   • DevTools: localStorage.setItem('pinboardDevState', 'empty' | 'auto')
+   *   • DevTools helper: window.__setPinboardDevState('empty' | 'auto')
+   */
+  const [forceEmptyPinboard, setForceEmptyPinboard] = useState<boolean>(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (!isDev) {
+      setForceEmptyPinboard(false);
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const param = params.get('pinboard');
+    if (param === 'empty') {
+      setForceEmptyPinboard(true);
+    } else if (param === 'filled') {
+      setForceEmptyPinboard(false);
+    } else {
+      const stored = window.localStorage.getItem('pinboardDevState');
+      setForceEmptyPinboard(stored === 'empty');
+    }
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'pinboardDevState') {
+        setForceEmptyPinboard(e.newValue === 'empty');
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    // Provide a small helper for DevTools convenience
+    (window as any).__setPinboardDevState = (state: 'empty' | 'auto') => {
+      window.localStorage.setItem('pinboardDevState', state === 'empty' ? 'empty' : 'auto');
+      setForceEmptyPinboard(state === 'empty');
+      // eslint-disable-next-line no-console
+      console.log('Pinboard dev state set to', state);
+    };
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      try {
+        delete (window as any).__setPinboardDevState;
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
   const [filterMode, setFilterMode] = useState<FilterMode>("current-chat"); //
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
@@ -827,51 +887,57 @@ export function RightSidebar({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="space-y-2.5 pt-2 pb-24 flex flex-col items-center" style={{ paddingLeft: '21.5px', paddingRight: '21.5px' }}>
-          {sortedAndFilteredPins.length > 0 ? (
-            sortedAndFilteredPins.map((pin) => {
+        {(sortedAndFilteredPins.length > 0 && !forceEmptyPinboard) ? (
+          <div className="space-y-2.5 pt-2 pb-24 flex flex-col items-center" style={{ paddingLeft: '21.5px', paddingRight: '21.5px' }}>
+            {sortedAndFilteredPins.map((pin) => {
               const chatBoard = chatBoards.find((board) => board.id.toString() === pin.chatId);
               return (
-            <PinItem
-              key={pin.id}
-              pin={pin}
-              onUpdatePin={handleUpdatePin}
-              onRemoveTag={handleRemoveTag}
-              onDeletePin={handleDeletePin}
-              chatName={chatBoard?.name}
-              onInsertToChat={handleInsertPin}
-              onGoToChat={handleGoToChat}
-              folders={pinFolders}
-              onDuplicatePin={handleDuplicatePin}
-              onMovePin={handleMovePin}
-              onCreateFolder={handleCreateFolder}
-            />
-          );
-        })
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[#dcdcdc] px-6 py-8 text-center text-sm text-[#5a5a5a]">
-              <Pin className="h-8 w-8 text-[#1e1e1e]" />
+                <PinItem
+                  key={pin.id}
+                  pin={pin}
+                  onUpdatePin={handleUpdatePin}
+                  onRemoveTag={handleRemoveTag}
+                  onDeletePin={handleDeletePin}
+                  chatName={chatBoard?.name}
+                  onInsertToChat={handleInsertPin}
+                  onGoToChat={handleGoToChat}
+                  folders={pinFolders}
+                  onDuplicatePin={handleDuplicatePin}
+                  onMovePin={handleMovePin}
+                  onCreateFolder={handleCreateFolder}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center" style={{ paddingLeft: '21.5px', paddingRight: '21.5px' }}>
+            <div className="flex flex-col items-center gap-2 w-[231px] h-[200px] text-center text-sm text-[#5a5a5a]">
+              {/* Pin Icon Dimensions in right-sidebar */}
+              <Pin className="h-20 w-16 text-[#ABABAB]" />
               <p className="text-base font-semibold text-[#1e1e1e]">No pins yet</p>
               <p className="text-sm text-[#5a5a5a]">
                 Pin useful answers or references from your chats to keep them handy for later.
               </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <div className="pinboard-footer">
+        {/* Organise pins button CTA*/}
         <Button
           size="sm"
-          className="h-9 w-full justify-center gap-2 rounded-full bg-[#f1f1f1] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none"
+          className="h-9 w-full justify-center gap-2 rounded-[7px] bg-[#f1f1f1] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none"
           onClick={() => setIsOrganizeDialogOpen(true)}
         >
           <FolderPlus className="h-4 w-4" />
           Organize Pins
         </Button>
+
+        {/* Export Pins button CTA */}
         <Button
           variant="outline"
           className={cn(
-            "h-9 w-full rounded-full border-[#d0d0d0] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none hover:text-[#1e1e1e] transition-opacity",
+            "h-9 w-full rounded-[7px] border-[#d0d0d0] text-sm font-medium text-[#1e1e1e] shadow-none hover:bg-[#e7e7e7] hover:shadow-none hover:text-[#1e1e1e] transition-opacity",
             sortedAndFilteredPins.length === 0 && "opacity-30"
           )}
           disabled={sortedAndFilteredPins.length === 0}

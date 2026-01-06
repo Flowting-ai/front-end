@@ -1276,30 +1276,83 @@ export function OrganizePinsDialog({
         {isCreatingFolder && (
         <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 9999 }}>
           <div className="absolute inset-0 bg-black/20" onClick={() => setIsCreatingFolder(false)} style={{ zIndex: 9998 }} />
-          <div className="relative w-[420px] bg-white rounded-md p-6 shadow-md" style={{ zIndex: 10000 }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="relative bg-white shadow-md"
+            style={{
+              zIndex: 10000,
+              width: '300px',
+              height: '134px',
+              borderRadius: '6px',
+              border: '1px solid #E5E5E5',
+              padding: '8px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-2">
-              <h3 className="text-lg font-semibold text-[#171717]">Create New Folder</h3>
+              <h3 className="text-sm font-medium text-[#171717]">Create New Folder</h3>
             </div>
-            <div className="py-2">
+            <div className="py-1">
               <Input
                 ref={createInputRef}
                 placeholder="Folder name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && newFolderName.trim()) {
                     handleConfirmCreateFolder();
+                  }
+                  if (e.key === 'Escape') {
+                    setIsCreatingFolder(false);
                   }
                 }}
                 className="text-[#171717]"
+                style={{
+                  width: '268px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  border: '1px solid #E5E5E5',
+                  paddingTop: '7.5px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '3px',
+                  paddingRight: '3px'
+                }}
                 autoFocus
               />
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="ghost" onClick={() => setIsCreatingFolder(false)} className="rounded-lg text-[#1e1e1e] hover:bg-[#f0f0f0] hover:text-[#1e1e1e]">
+            <div className="flex justify-end" style={{ gap: '8px', paddingTop: '8px' }}>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreatingFolder(false)}
+                className="bg-white border border-[#E5E5E5] text-[#171717] hover:bg-[#F5F5F5]"
+                style={{
+                  width: '70px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '5.5px',
+                  paddingBottom: '5.5px',
+                  paddingLeft: '3px',
+                  paddingRight: '3px'
+                }}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleConfirmCreateFolder} className="rounded-lg bg-[#2c2c2c] text-white hover:bg-[#1f1f1f]">
+              <Button
+                onClick={handleConfirmCreateFolder}
+                className="bg-[#1e1e1e] text-white hover:bg-[#2c2c2c]"
+                style={{
+                  width: '102px',
+                  height: '36px',
+                  minHeight: '36px',
+                  borderRadius: '8px',
+                  paddingTop: '7.5px',
+                  paddingBottom: '7.5px',
+                  paddingLeft: '4px',
+                  paddingRight: '4px'
+                }}
+                disabled={!newFolderName.trim()}
+              >
                 Create
               </Button>
             </div>

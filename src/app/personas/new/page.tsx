@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Upload, Info, User, ChevronDown } from "lucide-react";
+import { Upload, Info, User, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-form.module.css";
@@ -134,7 +134,7 @@ export default function NewPersonaPage() {
               <Avatar className={styles.avatar}>
                 <AvatarImage src={avatarUrl || undefined} alt="" />
                 <AvatarFallback className={styles.avatarFallback}>
-                  <User className="h-8 w-8" />
+                  <img src="/avatars/personaAvatarPlaceHolder.svg" alt="" className={styles.avatarPlaceholder} />
                 </AvatarFallback>
               </Avatar>
               <div className={styles.uploadButtonWrapper}>
@@ -150,7 +150,7 @@ export default function NewPersonaPage() {
                   className={styles.uploadButton}
                   onClick={() => document.getElementById("avatar-upload")?.click()}
                 >
-                  Upload this photo
+                  Choose Avatar
                 </Button>
               </div>
             </div>
@@ -176,7 +176,9 @@ export default function NewPersonaPage() {
                 <Label htmlFor="multilingual" className={styles.label}>
                   Language
                 </Label>
-                <Info className={styles.infoIcon} />
+                <span className={styles.infoIconWrap}>
+                  <Info className={styles.infoIcon} />
+                </span>
               </div>
 
               <div className={styles.multilingualToggle}>
@@ -271,13 +273,19 @@ export default function NewPersonaPage() {
               onClick={handleBack}
               className={styles.backButton}
             >
-              &lt; Back
+              <span className={styles.backChevronBox}>
+                <ChevronLeft size={16} className={styles.backChevron} strokeWidth={1.5} />
+              </span>
+              <span className={styles.buttonText}>Back</span>
             </Button>
             <Button
               onClick={handleContinue}
               className={styles.continueButton}
             >
-              Continue &gt;
+              <span className={styles.buttonTextPrimary}>Continue</span>
+              <span className={styles.continueChevronBox}>
+                <ChevronRight size={16} className={styles.continueChevron} strokeWidth={1.5} />
+              </span>
             </Button>
           </div>
         </div>

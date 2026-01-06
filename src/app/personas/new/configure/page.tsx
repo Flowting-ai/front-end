@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from "react";
+import { useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import AppLayout from "@/components/layout/app-layout";
@@ -99,6 +100,23 @@ function PersonaConfigurePageContent() {
     enhance,
     reset: resetEnhancement,
   } = useEnhancement();
+
+  // Track scroll state for showing scrollbar when content is scrolled
+  const textareaContentRef = useRef<HTMLDivElement | null>(null);
+  const [isTextareaScrolled, setIsTextareaScrolled] = useState(false);
+  useEffect(() => {
+    const el = textareaContentRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setIsTextareaScrolled(el.scrollTop > 0);
+    };
+    // Initialize state based on current position
+    onScroll();
+    el.addEventListener('scroll', onScroll);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   const {
     currentStep,
@@ -368,6 +386,7 @@ function PersonaConfigurePageContent() {
 
   return (
     <AppLayout>
+      <>
       {isChatMode ? (
         // Chat Mode View
         <div className="flex flex-col h-full items-center py-4">
@@ -461,9 +480,18 @@ function PersonaConfigurePageContent() {
       <div className={styles.container}>
         <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
           <div className={styles.contentWrapper}>
-            {/* Header Row with Persona Name and Actions */}
+            {/* Header Row with Back and Actions */}
             <div className={styles.headerRow}>
-              <h2 className={styles.personaNameTitle}>{personaName}</h2>
+              <div className={styles.headerLeft}>
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className={styles.backButton}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+              </div>
               <div className={styles.headerActions}>
                 {/* <Button
                   variant="outline"
@@ -489,21 +517,20 @@ function PersonaConfigurePageContent() {
                     </>
                   ) : (
                     <>
-                      {isPersonaReady ? (
-                        <Rocket className="h-4 w-4" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                      Finish building
+                      <Rocket className="h-4 w-4" />
+                      <span className={styles.saveButtonText}>Finish building</span>
                     </>
                   )}
                 </Button>
               </div>
             </div>
 
+
             <div className={styles.mainContent}>
               {/* Left Panel - Configuration */}
               <div className={styles.leftPanel}>
+                {/* Persona Name Row (aligns with chat column start) */}
+                <h2 className={styles.personaNameTitle}>{personaName}</h2>
                 {/* Model Selector */}
                 <div className={styles.fieldGroup}>
                   <div className="flex items-center gap-2">
@@ -557,12 +584,22 @@ function PersonaConfigurePageContent() {
 
                 {/* System Instruction */}
                 <div className={styles.fieldGroup}>
-                  <Label htmlFor="system-instruction" className={styles.label}>
-                    System Instruction
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="system-instruction" className={styles.label}>
+                      System Instruction
+                    </Label>
+                    <Info className="h-4 w-4 text-[#000000]" />
+                  </div>
                   <div className={cn(styles.textareaWrapper, chatStyles.customScrollbar)}>
                     <div className={styles.textareaContainer}>
-                      <div className={cn(styles.textareaContentWrapper, chatStyles.customScrollbar)}>
+                      <div
+                        ref={textareaContentRef}
+                        className={cn(
+                          styles.textareaContentWrapper,
+                          isTextareaScrolled && styles.textareaScrolled,
+                          chatStyles.customScrollbar
+                        )}
+                      >
                         <Textarea
                           id="system-instruction"
                           value={currentInstruction}
@@ -725,7 +762,7 @@ function PersonaConfigurePageContent() {
                               disabled={!canUndo}
                               className={styles.iconButton}
                             >
-                              <Undo2 className="h-4 w-4" />
+                              <Undo2 size={18} strokeWidth={1.5} className={styles.undoIcon} />
                             </Button>
                             <Button
                               variant="outline"
@@ -734,7 +771,7 @@ function PersonaConfigurePageContent() {
                               disabled={!canRedo}
                               className={styles.iconButton}
                             >
-                              <Redo2 className="h-4 w-4" />
+                              <Redo2 size={18} strokeWidth={1.5} className={styles.redoIcon} />
                             </Button>
                           </div>
                           <Button
@@ -761,7 +798,6 @@ function PersonaConfigurePageContent() {
                                 onClick={handleEditManually}
                                 className={styles.editManualButton}
                               >
-                                <Pencil className="h-4 w-4" />
                                 Edit Prompt Text Manually
                               </Button>
                               <Button
@@ -785,15 +821,11 @@ function PersonaConfigurePageContent() {
                     <Label className={styles.label}>
                       Creativity level (Temperature)
                     </Label>
-                    <span className={styles.temperatureValue}>
+                    <span className={cn(styles.temperatureValue, styles.sliderLabel)}>
                       {temperature[0].toFixed(1)}
                     </span>
                   </div>
                   <div className={styles.sliderWrapper}>
-                    <div className={styles.sliderLabels}>
-                      <span className={styles.sliderLabel}>Least creative</span>
-                      <span className={styles.sliderLabel}>Most creative</span>
-                    </div>
                     <Slider
                       value={temperature}
                       onValueChange={setTemperature}
@@ -802,6 +834,16 @@ function PersonaConfigurePageContent() {
                       step={TEMPERATURE_STEP}
                       className={styles.slider}
                     />
+                    <div className={cn(styles.sliderLabels, styles.sliderLabelsStacked)}>
+                      <div className={styles.sliderLabelGroup}>
+                        <span className={styles.sliderLabel}>0</span>
+                        <span className={styles.sliderLabel}>(Least creative)</span>
+                      </div>
+                      <div className={cn(styles.sliderLabelGroup, styles.sliderLabelGroupRight)}>
+                        <span className={styles.sliderLabel}>1</span>
+                        <span className={styles.sliderLabel}>(Most creative)</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -902,15 +944,6 @@ function PersonaConfigurePageContent() {
                     </div>
                   )}
                   
-                  {/* Back Button */}
-                  <Button
-                    variant="outline"
-                    onClick={handleBack}
-                    className={styles.backButton}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </Button>
                 </div>
               </div>
 
@@ -994,6 +1027,7 @@ function PersonaConfigurePageContent() {
                     }
                   />
                 </div>
+
               </div>
             </div>
           </div>
@@ -1378,6 +1412,7 @@ function PersonaConfigurePageContent() {
           </div>
         </DialogContent>
       </Dialog>
+      </>
     </AppLayout>
   );
 }

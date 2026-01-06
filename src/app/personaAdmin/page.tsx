@@ -35,6 +35,9 @@ import {
   Trash2,
   TrendingUp,
 } from "lucide-react";
+import userAvatar from "@/avatars/userAvatar.png";
+import userAvatar2 from "@/avatars/userAvatar2.png";
+import userAvatar3 from "@/avatars/userAvatar3.png";
 
 // Mock data
 const MOCK_PERSONAS: Persona[] = [
@@ -417,15 +420,17 @@ export default function PersonaAdminPage() {
                   <div className="flex h-full w-full flex-col items-center justify-center gap-6">
                     {/* Avatar Stack */}
                     <div className="flex -space-x-2" style={{ width: '126px', height: '40px' }}>
-                      {[1, 2, 3].map((index) => (
+                      {["/avatars/avatar1.svg", "/avatars/avatar2.svg", "/avatars/avatar3.svg"].map((src, index) => (
                         <div
-                          key={index}
-                          className="relative h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-purple-400 to-pink-400 shadow-md"
+                          key={`${src}-${index}`}
+                          className="relative h-10 w-10 rounded-full border-2 border-white shadow-md overflow-hidden"
                           style={{ zIndex: 4 - index }}
                         >
-                          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-white">
-                            {index === 1 ? 'P' : index === 2 ? 'A' : 'I'}
-                          </div>
+                          <img
+                            src={src}
+                            alt="Persona avatar"
+                            className="h-full w-full rounded-full object-cover"
+                          />
                         </div>
                       ))}
                     </div>
@@ -473,7 +478,10 @@ export default function PersonaAdminPage() {
                       <p className="text-[32px] font-normal leading-[120%] text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 400 }}>
                         {(totalTokens / 1000000).toFixed(1) + "M"}
                       </p>
-                      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--colors-gray-500,#6b7280)]">
+                      <span
+                        className="text-xs font-normal align-middle text-[var(--colors-gray-500,#6b7280)]"
+                        style={{ fontFamily: 'Inter', fontWeight: 400, lineHeight: '154%', letterSpacing: '0%' }}
+                      >
                         Tokens
                       </span>
                     </div>
@@ -501,37 +509,30 @@ export default function PersonaAdminPage() {
                       <p className="text-[32px] font-normal leading-[120%] text-[var(--colors-gray-900,#0f172a)]" style={{ fontFamily: 'Inter', fontWeight: 400 }}>
                         {activeConsumers}
                       </p>
-                      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--colors-gray-500,#6b7280)]">
+                      <span
+                        className="text-xs font-normal align-middle text-[var(--colors-gray-500,#6b7280)]"
+                        style={{ fontFamily: 'Inter', fontWeight: 400, lineHeight: '154%', letterSpacing: '0%' }}
+                      >
                         Users
                       </span>
                     </div>
                   </div>
                   {/* Avatar Stack */}
                   <div className="absolute bottom-[14px] left-[14px] flex -space-x-2">
-                    {personas
-                      .filter(p => p.status === 'active')
-                      .flatMap(p => p.consumers.filter(c => c.status === 'active'))
-                      .slice(0, 4)
-                      .map((consumer, index) => (
-                        <div
-                          key={consumer.id}
-                          className="h-8 w-8 rounded-full border-2 border-white shadow-md"
-                          style={{ zIndex: 4 - index, opacity: 1 }}
-                        >
-                          {consumer.avatar ? (
-                            <img 
-                              src={consumer.avatar} 
-                              alt={consumer.name}
-                              className="h-full w-full rounded-full object-cover"
-                              style={{ opacity: 1 }}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-indigo-400 text-xs font-semibold text-white">
-                              {consumer.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    {[userAvatar2, userAvatar, userAvatar3].map((src, index) => (
+                      <div
+                        key={index}
+                        className="h-8 w-8 rounded-full border-2 border-white shadow-md overflow-hidden"
+                        style={{ zIndex: 4 - index, opacity: 1 }}
+                      >
+                        <img 
+                          src={(src as any).src ?? (src as unknown as string)} 
+                          alt="User avatar"
+                          className="h-full w-full rounded-full object-cover"
+                          style={{ opacity: 1 }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </StatCard>
@@ -543,15 +544,13 @@ export default function PersonaAdminPage() {
                 <div className="flex h-full w-full flex-col items-center justify-center gap-6">
                   {/* Avatar Stack */}
                   <div className="relative top-4 left-2 flex -space-x-2" style={{ width: '126px', height: '40px' }}>
-                    {MOCK_PERSONAS.slice(0, 3).map((persona, index) => (
+                    {["/avatars/avatar1.svg", "/avatars/avatar2.svg", "/avatars/avatar3.svg"].map((src, index) => (
                       <div
-                        key={persona.id}
-                        className="relative h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-purple-400 to-pink-400 shadow-md"
+                        key={`${src}-${index}`}
+                        className="relative h-10 w-10 rounded-full border-2 border-white shadow-md overflow-hidden"
                         style={{ zIndex: 3 - index }}
                       >
-                        <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-white">
-                          {persona.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </div>
+                        <img src={src} alt="Persona avatar" className="h-full w-full rounded-full object-cover" />
                       </div>
                     ))}
                   </div>

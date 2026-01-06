@@ -22,6 +22,9 @@ import {
   Play, 
   Trash2 
 } from "lucide-react";
+import userAvatar from "@/avatars/userAvatar.png";
+import userAvatar2 from "@/avatars/userAvatar2.png";
+import userAvatar3 from "@/avatars/userAvatar3.png";
 
 // Shared types
 export interface Consumer {
@@ -265,9 +268,38 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                   {formatTokens(tokensUsed)}
                 </span>
               ) : (
-                <span className="text-[10px] sm:text-[11px] md:text-[12px] font-medium leading-[150%] tracking-[0.015em] text-[var(--colors-gray-900,#0f172a)] text-center" style={{ fontFamily: 'Geist', fontWeight: 500 }}>
-                  {formatTokens(tokensUsed)}
-                </span>
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    width: '86px',
+                    height: '24px',
+                    minHeight: '24px',
+                    borderRadius: '9999px',
+                    paddingTop: '3px',
+                    paddingRight: '2px',
+                    paddingBottom: '3px',
+                    paddingLeft: '2px',
+                    gap: '6px',
+                    opacity: 1,
+                    background: '#EEF2FF',
+                  }}
+                >
+                  <span
+                    className="text-center align-middle"
+                    style={{
+                      fontFamily: 'var(--font-geist)',
+                      fontWeight: 500,
+                      fontStyle: 'normal',
+                      fontSize: '12px',
+                      lineHeight: '150%',
+                      letterSpacing: '0.015em',
+                      whiteSpace: 'nowrap',
+                      color: '#4F46E7',
+                    }}
+                  >
+                    {formatTokens(tokensUsed)}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -278,29 +310,78 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
               isPersona ? "h-[55px]" : "h-[48px]"
             )}>
               {isPersona && personaProps && (
-                <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                <div className="flex items-center relative">
                   <div className="flex -space-x-1 sm:-space-x-1.5 md:-space-x-2">
-                    {personaProps.consumers.slice(0, 3).map((consumer) => (
+                    {personaProps.consumers.slice(0, 3).map((consumer, index) => {
+                      const stack = [userAvatar2, userAvatar, userAvatar3];
+                      const img = stack[index % stack.length] as any;
+                      const src = img?.src ?? (img as unknown as string);
+                      return (
                       <Avatar
                         key={consumer.id}
                         className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
                       >
-                        <AvatarImage src={consumer.avatar} alt={consumer.name} />
+                        <AvatarImage src={src} alt={consumer.name} />
                         <AvatarFallback className="text-[8px] sm:text-[9px] md:text-[10px]">
                           {consumer.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                    ))}
+                      );
+                    })}
                   </div>
                   {personaProps.consumersCount > 3 && (
-                    <span className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">
-                      +{personaProps.consumersCount - 3}
-                    </span>
+                    <div
+                      className="flex items-center justify-center shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
+                      style={{
+                        width: '60px',
+                        height: '32px',
+                        minHeight: '24px',
+                        borderRadius: 'var(--sds-size-radius-400)',
+                        paddingTop: '3px',
+                        paddingRight: '2px',
+                        paddingBottom: '3px',
+                        paddingLeft: '2px',
+                        gap: '6px',
+                        opacity: 1,
+                        background: 'var(--general-secondary, #F5F5F5)',
+                        marginLeft: '-8px',
+                        zIndex: 5
+                      }}
+                    >
+                      <span
+                        className="text-center align-middle"
+                        style={{
+                          fontFamily: 'var(--font-geist)',
+                          fontWeight: 500,
+                          fontStyle: 'normal',
+                          fontSize: '12px',
+                          lineHeight: '150%',
+                          letterSpacing: '0.015em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        +{personaProps.consumersCount - 3} users
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
               {isConsumer && consumerProps && (
-                <span className="text-[10px] sm:text-[11px] md:text-xs text-[var(--colors-gray-500,#6b7280)] truncate px-1">
+                <span
+                  className="truncate px-1"
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontStyle: 'normal',
+                    fontSize: '10px',
+                    lineHeight: '140%',
+                    letterSpacing: '0',
+                    textTransform: 'capitalize',
+                    color: 'var(--Text-Default-Secondary, #757575)',
+                    verticalAlign: 'middle',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {consumerProps.email}
                 </span>
               )}
@@ -312,21 +393,101 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
               "flex items-center justify-center flex-shrink-0",
               isPersona ? "h-[55px]" : "h-[48px]"
             )}>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full font-semibold capitalize whitespace-nowrap",
-                  "text-[9px] sm:text-[10px] md:text-xs",
-                  "px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1",
-                  "gap-0.5 sm:gap-1 md:gap-1.5",
-                  statusStyles[status]
-                )}
-              >
-                {status === "active" && (
-                  <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-[#166534] flex-shrink-0"></span>
-                )}
-                <span className="hidden sm:inline">{status}</span>
-                <span className="inline sm:hidden">{status.charAt(0).toUpperCase()}</span>
-              </span>
+              {status === "active" ? (
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    width: '67px',
+                    height: '24px',
+                    minHeight: '24px',
+                    borderRadius: '9999px',
+                    paddingTop: '3px',
+                    paddingRight: '2px',
+                    paddingBottom: '3px',
+                    paddingLeft: '2px',
+                    gap: '6px',
+                    opacity: 1,
+                    background: 'var(--Background-Positive-Secondary, #CFF7D3)'
+                  }}
+                >
+                  <span
+                    className="flex-shrink-0 rounded-full"
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      background: 'var(--Background-Positive-Default, #14AE5C)'
+                    }}
+                  />
+                  <span
+                    className="text-center align-middle"
+                    style={{
+                      fontFamily: 'var(--font-geist)',
+                      fontWeight: 500,
+                      fontStyle: 'normal',
+                      fontSize: '12px',
+                      lineHeight: '150%',
+                      letterSpacing: '0.015em',
+                      whiteSpace: 'nowrap',
+                      color: 'var(--Background-Positive-Default, #14AE5C)'
+                    }}
+                  >
+                    Active
+                  </span>
+                </div>
+              ) : status === "paused" ? (
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    width: '67px',
+                    height: '24px',
+                    minHeight: '24px',
+                    borderRadius: '9999px',
+                    paddingTop: '3px',
+                    paddingRight: '2px',
+                    paddingBottom: '3px',
+                    paddingLeft: '2px',
+                    gap: '4px',
+                    opacity: 1,
+                    background: 'var(--Background-Warning-Secondary, #FEF3C7)'
+                  }}
+                >
+                  <Pause
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      color: 'var(--Background-Warning-Default, #B45309)'
+                    }}
+                  />
+                  <span
+                    className="text-center align-middle"
+                    style={{
+                      fontFamily: 'var(--font-geist)',
+                      fontWeight: 500,
+                      fontStyle: 'normal',
+                      fontSize: '12px',
+                      lineHeight: '150%',
+                      letterSpacing: '0.015em',
+                      whiteSpace: 'nowrap',
+                      color: 'var(--Background-Warning-Default, #B45309)'
+                    }}
+                  >
+                    Paused
+                  </span>
+                </div>
+              ) : (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full font-semibold whitespace-nowrap",
+                    "text-[9px] sm:text-[10px] md:text-xs",
+                    "px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1",
+                    "gap-0.5 sm:gap-1 md:gap-1.5",
+                    statusStyles[status]
+                  )}
+                >
+                  <span className="hidden sm:inline">{status}</span>
+                  <span className="inline sm:hidden">{status.charAt(0).toUpperCase()}</span>
+                </span>
+              )}
             </div>
 
             {/* Last Activity Column */}

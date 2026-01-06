@@ -89,8 +89,11 @@ export const PinItem = ({
     const [editingCommentIndex, setEditingCommentIndex] = useState<number | null>(null);
     const [editCommentInput, setEditCommentInput] = useState('');
     const [moveFolderSearch, setMoveFolderSearch] = useState('');
+    const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
     const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const createFolderInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
     
     const MAX_TAG_LINES = 2;
@@ -149,6 +152,13 @@ export const PinItem = ({
     useEffect(() => {
         setComments(pin.comments || []);
     }, [pin.comments]);
+
+    useEffect(() => {
+        if (showCreateFolderDialog && createFolderInputRef.current) {
+            // slight delay to ensure element is rendered
+            setTimeout(() => createFolderInputRef.current?.focus(), 0);
+        }
+    }, [showCreateFolderDialog]);
 
     const handleTagKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter' && tagInput.trim()) {
@@ -316,13 +326,13 @@ export const PinItem = ({
             onInsertToChat(bodyContent, pin);
         }
     };
-
+// pin card layout and texture
         return (
             <Card 
-                className="border bg-white overflow-hidden" 
+                className="border bg-[#F5F5F5] overflow-hidden" 
                 style={inOrganizeDialog ? {
                     width: '235px',
-                    minHeight: 'auto',
+                    height: '114px',
                     borderRadius: '8px',
                     opacity: 1,
                     overflow: 'hidden',
@@ -375,7 +385,7 @@ export const PinItem = ({
                                 <div title={pin.title ?? pin.text}>
                                     <p
                                         className="text-[#1e1e1e] overflow-hidden"
-                                        style={isTitleExpanded && !inOrganizeDialog ? { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%' } : { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%', display: '-webkit-box', WebkitLineClamp: inOrganizeDialog ? 1 : 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        style={isTitleExpanded && !inOrganizeDialog ? { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%' } : { fontFamily: 'Inter', fontWeight: 500, fontSize: '16px', lineHeight: '140%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden', textOverflow: 'ellipsis' }}
                                     >
                                         {pin.title ?? pin.text}
                                     </p>
@@ -489,117 +499,153 @@ export const PinItem = ({
                                 {/*Submenu content for Move dropdown under pincards*/}
                                 <DropdownMenuSubContent 
                                     className="border border-[#e6e6e6] bg-white p-2 text-[#171717]"
-                                    style={{ width: `${dropdownWidth}px` }}
+                                    style={{ width: showCreateFolderDialog ? '300px' : `${dropdownWidth}px` }}
                                 >
-                                    <div className="relative mb-2">
-                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search ..."
-                                            className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+                                    {showCreateFolderDialog ? (
+                                        <div
+                                            className="flex flex-col"
                                             style={{
-                                                height: "36px",
-                                                minHeight: "36px",
-                                                borderRadius: "8px",
-                                                border: "1px solid #E5E5E5",
-                                                backgroundColor: "#FFFFFF",
-                                                paddingTop: "7.5px",
-                                                paddingBottom: "7.5px",
-                                                paddingLeft: "40px",
-                                                paddingRight: "20px",
-                                                gap: "8px"
+                                                width: '300px',
+                                                height: '134px',
+                                                gap: '12px',
+                                                opacity: 1,
+                                                borderRadius: '6px',
+                                                border: '1px solid #E5E5E5',
+                                                padding: '8px',
+                                                backgroundColor: '#FFFFFF'
                                             }}
-                                            value={moveFolderSearch}
-                                            onChange={(event) => setMoveFolderSearch(event.target.value)}
-                                            onClick={(event) => event.preventDefault()}
-                                            onKeyDown={(event) => {
-                                                if (event.key === 'Enter' && moveFolderSearch.trim() && filteredFolders.length === 0) {
-                                                    event.preventDefault();
-                                                    handleCreateAndMove();
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <ScrollArea className="max-h-48">
-                                        <div className="space-y-1" role="menu">
-                                            {/* New Folder option - always show at top */}
-                                            <DropdownMenuItem
-                                                className="cursor-pointer font-medium"
-                                                style={{
-                                                    width: '100%',
-                                                    height: '32px',
-                                                    minHeight: '32px',
-                                                    borderRadius: '6px',
-                                                    gap: '8px',
-                                                    paddingTop: '5.5px',
-                                                    paddingRight: '2px',
-                                                    paddingBottom: '5.5px',
-                                                    paddingLeft: '2px',
-                                                    color: '#171717'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
-                                                    e.currentTarget.style.color = '#0A0A0A';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                                    e.currentTarget.style.color = '#171717';
-                                                }}
-                                                onSelect={() => {
-                                                    setMoveFolderSearch('');
-                                                    if (onCreateFolder) {
-                                                        // Trigger folder creation flow
-                                                        const folderName = prompt('Enter new folder name:');
-                                                        if (folderName?.trim()) {
-                                                            onCreateFolder(folderName.trim()).then((newFolder) => {
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="text-sm font-medium text-[#171717]">Create New Folder</div>
+                                            <input
+                                                ref={createFolderInputRef}
+                                                type="text"
+                                                placeholder="Folder name"
+                                                value={newFolderName}
+                                                onChange={(e) => setNewFolderName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && newFolderName.trim()) {
+                                                        e.preventDefault();
+                                                        if (onCreateFolder) {
+                                                            onCreateFolder(newFolderName.trim()).then((newFolder) => {
                                                                 if (onMovePin) {
                                                                     onMovePin(pin.id, newFolder.id);
                                                                 }
+                                                                setNewFolderName('');
+                                                                setShowCreateFolderDialog(false);
+                                                                toast({ title: `Created ${newFolder.name}` });
+                                                            }).catch(() => {
+                                                                toast({ title: 'Failed to create folder', variant: 'destructive' });
                                                             });
                                                         }
                                                     }
+                                                    if (e.key === 'Escape') {
+                                                        setShowCreateFolderDialog(false);
+                                                        setNewFolderName('');
+                                                    }
                                                 }}
-                                            >
-                                                <FolderPlus className="mr-2 h-3.5 w-3.5" />
-                                                New Folder
-                                            </DropdownMenuItem>
-                                            
-                                            {/* Show Unorganized only if pin is not already in Unorganized */}
-                                            {pin.folderId && (
-                                                <DropdownMenuItem
-                                                    className="cursor-pointer"
+                                                className="text-sm text-black placeholder:text-[#9a9a9a] focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+                                                style={{
+                                                    width: '268px',
+                                                    height: '36px',
+                                                    minHeight: '36px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #E5E5E5',
+                                                    backgroundColor: '#FFFFFF',
+                                                    paddingTop: '7.5px',
+                                                    paddingBottom: '7.5px',
+                                                    paddingLeft: '3px',
+                                                    paddingRight: '3px',
+                                                    gap: '8px'
+                                                }}
+                                            />
+                                            <div className="flex items-center" style={{ gap: '8px' }}>
+                                                <Button
+                                                    onClick={() => {
+                                                        if (!newFolderName.trim() || !onCreateFolder) return;
+                                                        onCreateFolder(newFolderName.trim()).then((newFolder) => {
+                                                            if (onMovePin) {
+                                                                onMovePin(pin.id, newFolder.id);
+                                                            }
+                                                            setNewFolderName('');
+                                                            setShowCreateFolderDialog(false);
+                                                            toast({ title: `Created ${newFolder.name}` });
+                                                        }).catch(() => {
+                                                            toast({ title: 'Failed to create folder', variant: 'destructive' });
+                                                        });
+                                                    }}
+                                                    className="bg-[#1e1e1e] text-white hover:bg-[#2c2c2c]"
                                                     style={{
-                                                        width: '100%',
-                                                        height: '32px',
-                                                        minHeight: '32px',
-                                                        borderRadius: '6px',
-                                                        gap: '8px',
-                                                        paddingTop: '5.5px',
-                                                        paddingRight: '2px',
-                                                        paddingBottom: '5.5px',
-                                                        paddingLeft: '2px',
-                                                        color: '#171717'
+                                                        width: '102px',
+                                                        height: '36px',
+                                                        minHeight: '36px',
+                                                        borderRadius: '8px',
+                                                        paddingTop: '7.5px',
+                                                        paddingBottom: '7.5px',
+                                                        paddingLeft: '4px',
+                                                        paddingRight: '4px',
+                                                        gap: '8px'
                                                     }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.backgroundColor = '#D9D9D9';
-                                                        e.currentTarget.style.color = '#0A0A0A';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                                        e.currentTarget.style.color = '#171717';
-                                                    }}
-                                                    onSelect={() => handleMoveToFolder(null, 'Unorganized')}
+                                                    disabled={!newFolderName.trim()}
                                                 >
-                                                    Unorganized
-                                                </DropdownMenuItem>
-                                            )}
-                                            
-                                            {/* Show filtered folders */}
-                                            {filteredFolders.length > 0 ? (
-                                                filteredFolders.map((folder) => (
+                                                    Create
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => { setShowCreateFolderDialog(false); setNewFolderName(''); }}
+                                                    className="bg-white border border-[#E5E5E5] text-[#171717] hover:bg-[#F5F5F5]"
+                                                    style={{
+                                                        width: '70px',
+                                                        height: '36px',
+                                                        minHeight: '36px',
+                                                        borderRadius: '8px',
+                                                        paddingTop: '5.5px',
+                                                        paddingBottom: '5.5px',
+                                                        paddingLeft: '3px',
+                                                        paddingRight: '3px',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="relative mb-2">
+                                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search ..."
+                                                    className="w-full text-sm text-black placeholder:text-black focus:outline-none focus:ring-1 focus:ring-[#2c2c2c]"
+                                                    style={{
+                                                        height: "36px",
+                                                        minHeight: "36px",
+                                                        borderRadius: "8px",
+                                                        border: "1px solid #E5E5E5",
+                                                        backgroundColor: "#FFFFFF",
+                                                        paddingTop: "7.5px",
+                                                        paddingBottom: "7.5px",
+                                                        paddingLeft: "40px",
+                                                        paddingRight: "20px",
+                                                        gap: "8px"
+                                                    }}
+                                                    value={moveFolderSearch}
+                                                    onChange={(event) => setMoveFolderSearch(event.target.value)}
+                                                    onClick={(event) => event.preventDefault()}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' && moveFolderSearch.trim() && filteredFolders.length === 0) {
+                                                            event.preventDefault();
+                                                            handleCreateAndMove();
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <ScrollArea className="max-h-48">
+                                                <div className="space-y-1" role="menu">
+                                                    {/* New Folder option - always show at top */}
                                                     <DropdownMenuItem
-                                                        key={folder.id}
-                                                        className="cursor-pointer"
+                                                        className="cursor-pointer font-medium"
                                                         style={{
                                                             width: '100%',
                                                             height: '32px',
@@ -620,33 +666,101 @@ export const PinItem = ({
                                                             e.currentTarget.style.backgroundColor = 'transparent';
                                                             e.currentTarget.style.color = '#171717';
                                                         }}
-                                                        onSelect={() => handleMoveToFolder(folder.id, folder.name)}
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                            setMoveFolderSearch('');
+                                                            setShowCreateFolderDialog(true);
+                                                        }}
                                                     >
-                                                        {folder.name}
+                                                        <FolderPlus className="mr-2 h-3.5 w-3.5" />
+                                                        New Folder
                                                     </DropdownMenuItem>
-                                                ))
-                                            ) : moveFolderSearch.trim() && filteredFolders.length === 0 ? (
-                                                <DropdownMenuItem 
-                                                    disabled 
-                                                    className="cursor-not-allowed"
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '32px',
-                                                        minHeight: '32px',
-                                                        borderRadius: '6px',
-                                                        gap: '8px',
-                                                        paddingTop: '5.5px',
-                                                        paddingRight: '2px',
-                                                        paddingBottom: '5.5px',
-                                                        paddingLeft: '2px',
-                                                        color: '#9a9a9a'
-                                                    }}
-                                                >
-                                                    No matching folders
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                        </div>
-                                    </ScrollArea>
+                                                    
+                                                    {/* Show Unorganized only if pin is not already in Unorganized */}
+                                                    {pin.folderId && (
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer"
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '32px',
+                                                                minHeight: '32px',
+                                                                borderRadius: '6px',
+                                                                gap: '8px',
+                                                                paddingTop: '5.5px',
+                                                                paddingRight: '2px',
+                                                                paddingBottom: '5.5px',
+                                                                paddingLeft: '2px',
+                                                                color: '#171717'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                                                e.currentTarget.style.color = '#0A0A0A';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                                e.currentTarget.style.color = '#171717';
+                                                            }}
+                                                            onSelect={() => handleMoveToFolder(null, 'Unorganized')}
+                                                        >
+                                                            Unorganized
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    
+                                                    {/* Show filtered folders */}
+                                                    {filteredFolders.length > 0 ? (
+                                                        filteredFolders.map((folder) => (
+                                                            <DropdownMenuItem
+                                                                key={folder.id}
+                                                                className="cursor-pointer"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    height: '32px',
+                                                                    minHeight: '32px',
+                                                                    borderRadius: '6px',
+                                                                    gap: '8px',
+                                                                    paddingTop: '5.5px',
+                                                                    paddingRight: '2px',
+                                                                    paddingBottom: '5.5px',
+                                                                    paddingLeft: '2px',
+                                                                    color: '#171717'
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = '#D9D9D9';
+                                                                    e.currentTarget.style.color = '#0A0A0A';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                    e.currentTarget.style.color = '#171717';
+                                                                }}
+                                                                onSelect={() => handleMoveToFolder(folder.id, folder.name)}
+                                                            >
+                                                                {folder.name}
+                                                            </DropdownMenuItem>
+                                                        ))
+                                                    ) : moveFolderSearch.trim() && filteredFolders.length === 0 ? (
+                                                        <DropdownMenuItem 
+                                                            disabled 
+                                                            className="cursor-not-allowed"
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '32px',
+                                                                minHeight: '32px',
+                                                                borderRadius: '6px',
+                                                                gap: '8px',
+                                                                paddingTop: '5.5px',
+                                                                paddingRight: '2px',
+                                                                paddingBottom: '5.5px',
+                                                                paddingLeft: '2px',
+                                                                color: '#9a9a9a'
+                                                            }}
+                                                        >
+                                                            No matching folders
+                                                        </DropdownMenuItem>
+                                                    ) : null}
+                                                </div>
+                                            </ScrollArea>
+                                        </>
+                                    )}
                                 </DropdownMenuSubContent>
                             </DropdownMenuSub>
                             <DropdownMenuItem 

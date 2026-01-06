@@ -18,6 +18,7 @@ interface PersonaSummary {
   description: string;
   thumbnail: string;
   isEditing?: boolean;
+  temperature?: number;
 }
 
 interface TemplateSummary {
@@ -27,6 +28,7 @@ interface TemplateSummary {
   thumbnail: string;
   category: string;
   author: string;
+  temperature?: number;
 }
 
 const resolveImage = (id: string, fallback: string) => {
@@ -34,8 +36,31 @@ const resolveImage = (id: string, fallback: string) => {
   return match?.imageUrl ?? fallback;
 };
 
-// Temporarily empty to show empty state - replace with actual data from backend
-const PERSONAS: PersonaSummary[] = [];
+// Seed with three personas to show filled state
+const PERSONAS: PersonaSummary[] = [
+  {
+    id: "1",
+    name: "Marketing Assistant",
+    description: "Helps with content creation and strategy",
+    thumbnail: "/personas/persona1.png",
+    isEditing: true,
+    // temperature not set yet
+  },
+  {
+    id: "2",
+    name: "Product Strategist",
+    description: "Turns customer feedback into feature roadmaps",
+    thumbnail: "/personas/persona1.png",
+    temperature: 0.3,
+  },
+  {
+    id: "3",
+    name: "Support Specialist",
+    description: "Drafts empathetic responses and help center updates",
+    thumbnail: "/personas/persona1.png",
+    temperature: 0.6,
+  },
+];
 
 // Example personas for reference (not displayed):
 // const PERSONAS: PersonaSummary[] = [
@@ -67,7 +92,8 @@ const TEMPLATE_LIBRARY: TemplateSummary[] = [
     description: "Synthesizes sources into evidence-backed briefs",
     thumbnail: "/personas/persona1.png",
     category: "Assistant",
-    author: "More D.",
+    author: "",
+    temperature: 0.3,
   },
   {
     id: "t2",
@@ -75,7 +101,8 @@ const TEMPLATE_LIBRARY: TemplateSummary[] = [
     description: "Highlights risky changes and missing tests",
     thumbnail: "/personas/persona1.png",
     category: "Assistant",
-    author: "More D.",
+    author: "",
+    temperature: 0.3,
   },
   {
     id: "t3",
@@ -83,7 +110,8 @@ const TEMPLATE_LIBRARY: TemplateSummary[] = [
     description: "Turns spreadsheets into actionable dashboards",
     thumbnail: "/personas/persona1.png",
     category: "Researcher",
-    author: "More D.",
+    author: "",
+    temperature: 0.3,
   },
   {
     id: "t4",
@@ -91,7 +119,8 @@ const TEMPLATE_LIBRARY: TemplateSummary[] = [
     description: "Drafts copy in your brand voice across channels",
     thumbnail: "/personas/persona1.png",
     category: "Creator",
-    author: "More D.",
+    author: "",
+    temperature: 0.3,
   },
 ];
 
@@ -194,52 +223,22 @@ function PersonasPageContent() {
                 </div>
               </div>
               
-              <div className="flex flex-col items-center justify-center py-6 px-4 sm:py-8 sm:px-6">
-                <div className="flex flex-col items-center gap-4 sm:gap-6">
-                  {/* Avatar Stack */}
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((index) => (
-                      <div
-                        key={index}
-                        className="relative h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 border-white shadow-md overflow-hidden"
-                        style={{ zIndex: 4 - index }}
-                      >
-                        <img
-                          src="/personas/persona1.png"
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
+              <div className={styles.emptyCardWrap}>
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyAvatarStack}>
+                    {["/avatars/avatar1.svg", "/avatars/avatar2.svg", "/avatars/avatar3.svg"].map((src, index) => (
+                      <div key={index} className={styles.emptyAvatar}>
+                        <img src={src} alt="" />
                       </div>
                     ))}
                   </div>
-                  
-                  <div className="flex flex-col items-center gap-2 sm:gap-3 text-center">
-                    <h2 className="text-xl sm:text-2xl font-semibold text-[#0A0A0A]">Create Your First Persona</h2>
-                    <p className="text-sm text-[#666666] max-w-md px-4">
-                      Start by creating a custom AI agent tailored to your specific needs and workflows
-                    </p>
-                  </div>
-                  
-                  {/* Create Persona Button */}
-                  <Button
-                    className="flex items-center justify-center text-sm font-medium bg-[#171717] text-white hover:bg-black"
-                    style={{
-                      width: '140.25px',
-                      height: '36px',
-                      minHeight: '36px',
-                      borderRadius: '8px',
-                      paddingTop: '7.5px',
-                      paddingRight: '4px',
-                      paddingBottom: '7.5px',
-                      paddingLeft: '4px',
-                      gap: '8px',
-                      opacity: 1
-                    }}
+                  <button
+                    type="button"
+                    className={styles.createPersonaButton}
                     onClick={() => router.push("/personas/new")}
                   >
-                    <Plus className="h-4 w-4" />
-                    New persona
-                  </Button>
+                    Create New Persona
+                  </button>
                 </div>
               </div>
             </section>
@@ -280,10 +279,11 @@ function PersonasPageContent() {
                         value="all"
                         className={cn(
                           styles.filterButton,
+                          styles.filterButtonAll,
                           filterCategory === "all" && styles.filterButtonActive
                         )}
                       >
-                        <Circle className={styles.filterIcon} />
+                        <Circle className={styles.filterIcon} strokeWidth={1.5} />
                         All
                       </TabsPrimitive.Trigger>
                       <TabsPrimitive.Trigger
@@ -293,7 +293,7 @@ function PersonasPageContent() {
                           filterCategory === "saved" && styles.filterButtonActive
                         )}
                       >
-                        <Bookmark className={styles.filterIcon} />
+                        <Bookmark className={styles.filterIconBookmark} strokeWidth={1.5} />
                         Saved
                       </TabsPrimitive.Trigger>
                     </TabsPrimitive.List>
@@ -302,7 +302,7 @@ function PersonasPageContent() {
               </div>
 
               {/* Template Category Filter Bar */}
-              <div className={cn("mt-4 sm:mt-6 flex justify-start overflow-x-auto pb-2", styles.categoryScrollbar)}>
+              <div className={cn("flex justify-start overflow-x-auto", styles.categoryScrollbar)}>
                 <div
                   className="flex-shrink-0"
                   style={{
@@ -326,11 +326,12 @@ function PersonasPageContent() {
                       <TabsPrimitive.Trigger
                         value="all"
                         className={cn(
-                          "flex items-center justify-center px-2 sm:px-2.5 py-1 rounded-[10px] transition-all text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap",
+                          "flex items-center justify-center px-2 sm:px-2.5 py-1 rounded-[10px] transition-all cursor-pointer whitespace-nowrap",
+                          styles.categoryTrigger,
                           "hover:bg-white/50",
                           templateCategory === "all"
                             ? "bg-white border border-[#E5E5E5] text-[#171717]"
-                            : "bg-transparent text-[#A3A3A3]"
+                            : "bg-transparent text-[#171717]"
                         )}
                         style={{
                           height: '29px',
@@ -350,11 +351,12 @@ function PersonasPageContent() {
                             key={category}
                             value={category}
                             className={cn(
-                              "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-[10px] transition-all text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap",
+                              "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-[10px] transition-all cursor-pointer whitespace-nowrap",
+                              styles.categoryTrigger,
                               "hover:bg-white/50",
                               templateCategory === category
                                 ? "bg-white border border-[#E5E5E5] text-[#171717]"
-                                : "bg-transparent text-[#A3A3A3]"
+                                : "bg-transparent text-[#171717]"
                             )}
                             style={{
                               height: '29px',
@@ -362,9 +364,7 @@ function PersonasPageContent() {
                             }}
                           >
                             {category}
-                            <span className="px-1 sm:px-1.5 py-0.5 rounded-sm bg-[#E5E5E5] text-[10px] sm:text-xs font-medium text-[#666666]">
-                              {categoryCount}
-                            </span>
+                            <span className={styles.countBadge}>{categoryCount}</span>
                           </TabsPrimitive.Trigger>
                         );
                       })}
@@ -393,12 +393,21 @@ function PersonasPageContent() {
                                   <h4 className={styles.cardTitle}>{template.name}</h4>
                                   <p className={styles.cardDescription}>{template.description}</p>
                                 </div>
+                                <button
+                                  type="button"
+                                  className={styles.iconButton}
+                                  aria-label={`Open actions for ${template.name}`}
+                                >
+                                  <MoreVertical className="h-4 w-4 text-[#666666]" />
+                                </button>
                               </div>
                               <div className={styles.templateFooter}>
-                                <div className={styles.authorTag}>
-                                  <div className={styles.authorAvatar} aria-hidden />
-                                  <span className={styles.authorName}>{template.author}</span>
-                                </div>
+                                <span
+                                  className={styles.temperatureBadge}
+                                  title="Persona Temperature"
+                                >
+                                  {`T: ${typeof template.temperature === 'number' ? template.temperature : 0.3}`}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleSaved(template.id)}
@@ -409,7 +418,7 @@ function PersonasPageContent() {
                                 >
                                   <Bookmark
                                     className={cn(
-                                      "h-4 w-4",
+                                      styles.templateBookmarkIcon,
                                       isSaved
                                         ? "fill-[#171717] text-[#171717]"
                                         : "text-[#666666]"
@@ -425,7 +434,7 @@ function PersonasPageContent() {
                   </div>
                 ))
               ) : (
-                <div className={styles.emptyState}>No templates match your filters.</div>
+                <div className={styles.emptyState}>You have no saved templates yet. Please save a template to get started.</div>
               )}
             </section>
           </>
@@ -497,27 +506,40 @@ function PersonasPageContent() {
                         <MoreVertical className="h-4 w-4 text-[#666666]" />
                       </button>
                     </div>
-                    {persona.isEditing ? (
-                      <Button
-                        className="flex items-center justify-center text-sm font-medium bg-[#171717] text-white hover:bg-black"
-                        style={{
-                          width: '140.25px',
-                          height: '36px',
-                          minHeight: '36px',
-                          borderRadius: '8px',
-                          paddingTop: '7.5px',
-                          paddingRight: '4px',
-                          paddingBottom: '7.5px',
-                          paddingLeft: '4px',
-                          gap: '8px',
-                          opacity: 1,
-                          alignSelf: 'flex-start'
-                        }}
-                        onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}
-                      >
-                        Continue building
-                      </Button>
-                    ) : null}
+                    <div className={styles.templateFooter}>
+                      {typeof persona.temperature === 'number' ? (
+                        <span
+                          className={styles.temperatureBadge}
+                          title="Persona Temperature"
+                        >
+                          {`T: ${persona.temperature}`}
+                        </span>
+                      ) : null}
+                      {persona.isEditing ? (
+                        <Button
+                          className="flex items-center justify-center text-sm font-medium"
+                          style={{
+                            width: '140.25px',
+                            height: '36px',
+                            minHeight: '36px',
+                            borderRadius: '8px',
+                            paddingTop: '7.5px',
+                            paddingRight: '4px',
+                            paddingBottom: '7.5px',
+                            paddingLeft: '4px',
+                            gap: '8px',
+                            opacity: 1,
+                            background: '#FFFFFF1A',
+                            border: '1px solid #D4D4D4',
+                            boxShadow: '0px 1px 2px 0px #0000000D',
+                            color: '#0A0A0A'
+                          }}
+                          onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}
+                        >
+                          Continue building
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ))
@@ -584,7 +606,7 @@ function PersonasPageContent() {
           </div>
 
           {/* Template Category Filter Bar */}
-          <div className={cn("mt-4 sm:mt-6 flex justify-start overflow-x-auto pb-2", styles.categoryScrollbar)}>
+          <div className={cn("flex justify-start overflow-x-auto", styles.categoryScrollbar)}>
             <div
               className="flex-shrink-0"
               style={{
@@ -675,12 +697,21 @@ function PersonasPageContent() {
                               <h4 className={styles.cardTitle}>{template.name}</h4>
                               <p className={styles.cardDescription}>{template.description}</p>
                             </div>
+                            <button
+                              type="button"
+                              className={styles.iconButton}
+                              aria-label={`Open actions for ${template.name}`}
+                            >
+                              <MoreVertical className="h-4 w-4 text-[#666666]" />
+                            </button>
                           </div>
                           <div className={styles.templateFooter}>
-                            <div className={styles.authorTag}>
-                              <div className={styles.authorAvatar} aria-hidden />
-                              <span className={styles.authorName}>{template.author}</span>
-                            </div>
+                            <span
+                              className={styles.temperatureBadge}
+                              title="Persona Temperature"
+                            >
+                              {`T: ${typeof template.temperature === 'number' ? template.temperature : 0.3}`}
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleToggleSaved(template.id)}
@@ -691,7 +722,7 @@ function PersonasPageContent() {
                             >
                               <Bookmark
                                 className={cn(
-                                  "h-4 w-4",
+                                  styles.templateBookmarkIcon,
                                   isSaved
                                     ? "fill-[#171717] text-[#171717]"
                                     : "text-[#666666]"
@@ -707,7 +738,7 @@ function PersonasPageContent() {
               </div>
             ))
           ) : (
-            <div className={styles.emptyState}>No templates match your filters.</div>
+            <div className={styles.emptyState}>You have no saved templates yet. Please save a template to get started.</div>
           )}
         </section>
         </>

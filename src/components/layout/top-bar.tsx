@@ -43,7 +43,20 @@ export function Topbar({
             onModelSelect={onModelSelect}
           />
           <div className="flex items-center gap-3">
-            <TokenTracker />
+
+            {/* Token count visual (progress bar + percentage) */}
+            {/* <TokenTracker /> */}
+
+{/* commenting out this feature since we dont want the userr to be pestered or worried about their token exhaustion haha */}
+            {/* * Token Count Visual: 
+            * - Rendered via the `TokenTracker` component in the header’s right-side group.
+            * - `TokenTracker` reads `usagePercent`, `stats`, and `isLoading` from `useTokenUsage()`.
+            * - Displays label + percentage, a progress bar whose fill width = `usagePercent`, and used/budget text.
+            * - Upgrade CTA (`Upgrade Plan`) appears when `usagePercent >= 80`.
+            *
+            * Data source: values provided by `TokenProvider` in src/context/token-context.tsx.
+              */}
+            
             {showUpgradePlan ? (
               <Button
                 variant="secondary"
@@ -62,7 +75,7 @@ export function Topbar({
           {!user && (
             <Link href="/auth/login">
               <Button
-                className="flex h-[38px] min-h-[32px] items-center justify-center gap-2 rounded-full bg-[#1E1E1E] px-1.5 py-[8.5px] text-sm font-medium text-white hover:bg-[#2E2E2E]"
+                className="flex h-[38px] min-h-[32px] items-center justify-center gap-2 rounded-[7px] bg-[#1E1E1E] px-1.5 py-[8.5px] text-sm font-medium text-white hover:bg-[#2E2E2E]"
                 style={{ width: '126.25px' }}
               >
                 <UserRoundPen className="h-4 w-4" />

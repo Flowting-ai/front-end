@@ -35,13 +35,13 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
         ref={ref}
         role="region"
         className={cn(
-          "w-full max-w-full border border-[var(--general-border,#e5e5e5)] bg-[var(--general-input,#ffffff)] px-[1px] py-4 text-[var(--colors-gray-700,#374151)] shadow-[0_8px_15px_rgba(0,0,0,0.05)]",
+          "w-full max-w-full border border-[var(--general-border,#e5e5e5)] bg-[var(--general-input,#ffffff)] px-[1px] py-0 text-[var(--colors-gray-700,#374151)] shadow-[0_8px_15px_rgba(0,0,0,0.05)]",
           "!rounded-[16px]",
           className
         )}
         {...rest}
       >
-        <div className="flex flex-col gap-[15px] rounded-[14px] bg-white p-4">
+        <div className="flex flex-col gap-[12px] rounded-[14px] bg-white px-4 pt-[14px] pb-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-[24px] font-semibold leading-[28.8px] tracking-[-0.03em] text-[var(--colors-gray-900,#0f172a)]">
               Command Center
@@ -52,7 +52,19 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--general-border,#e5e5e5)] bg-white px-4 py-2 text-sm font-medium text-[var(--colors-gray-700,#374151)] hover:bg-gray-100 hover:text-black"
+                  className="inline-flex items-center rounded-[8px] text-sm font-medium text-[var(--colors-gray-700,#374151)] hover:text-black"
+                  style={{
+                    width: '128.25px',
+                    height: '36px',
+                    minHeight: '36px',
+                    gap: '8px',
+                    borderRadius: '8px',
+                    paddingTop: '7.5px',
+                    paddingRight: '4px',
+                    paddingBottom: '7.5px',
+                    paddingLeft: '4px',
+                    background: 'var(--unofficial-ghost-hover, #0000000D)'
+                  }}
                 >
                   {currentStatusLabel}
                   <ChevronDown className="h-4 w-4" />
@@ -78,7 +90,7 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
             Real-time observation of intelligence infrastructure.
           </p>
         </div>
-        {children && <div className="mt-4 px-4 pb-2">{children}</div>}
+        {children && <div className="mt-[14px] px-4 pb-2">{children}</div>}
       </Card>
     );
   }

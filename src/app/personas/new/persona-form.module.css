@@ -1,3 +1,11 @@
+.continueChevronBox {
+  width: 16px;
+  height: 16px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .container {
   display: flex;
   flex-direction: column;
@@ -24,7 +32,7 @@
   min-height: auto;
   display: flex;
   flex-direction: column;
-  gap: 44px;
+  gap: 24px; /* reduce gap below subtitle to 24px */
   background-color: #ffffff;
   padding-bottom: 20px;
 }
@@ -34,29 +42,35 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: 8px;
+  gap: 4px; /* reduce spacing between title and subtitle */
 }
 
 .title {
+  font-family: 'Clash Grotesk Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 24px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #0A0A0A;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 140%;
+  letter-spacing: 0;
+  color: #000000;
   margin: 0;
 }
 
 .subtitle {
-  font-size: 14px;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1.4;
-  color: #666666;
+  font-style: normal;
+  line-height: 140%;
+  letter-spacing: 0;
+  color: #000000;
   margin: 0;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px; /* 24px gap between sections, including below avatar */
   flex: 1;
   min-height: 0;
 }
@@ -64,12 +78,16 @@
 .avatarSection {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px; /* exact spacing between avatar and button */
 }
 
 .avatar {
-  width: 80px;
-  height: 80px;
+  width: 81px;
+  height: 81px;
+  position: relative;
+  left: 0.17px;
+  opacity: 1;
+  transform: rotate(0deg);
   flex-shrink: 0;
   border: 1px solid #E5E5E5;
   background-color: #F5F5F5;
@@ -86,6 +104,16 @@
   border-radius: 50%;
 }
 
+.avatarPlaceholder {
+  width: 81px;
+  height: 81px;
+  position: relative;
+  left: 0.17px;
+  opacity: 1;
+  transform: rotate(0deg);
+  object-fit: contain;
+}
+
 .uploadButtonWrapper {
   flex: 1;
   min-width: 0;
@@ -100,16 +128,18 @@
   padding: 0 16px;
   font-size: 14px;
   font-weight: 500;
-  border: 1px solid #E5E5E5;
-  color: #0A0A0A;
-  background-color: #FFFFFF;
+  border: 1px solid var(--unofficial-border-3, #D4D4D4) !important;
+  color: #0A0A0A !important;
+  background-color: var(--unofficial-outline, #FFFFFF1A) !important;
+  box-shadow: 0px 1px 2px -1px #0000001A, 0px 1px 3px 0px #0000001A !important;
   border-radius: 8px;
   white-space: nowrap;
 }
 
 .uploadButton:hover {
-  background-color: #F5F5F5;
-  border-color: #D4D4D4;
+  background-color: var(--unofficial-outline, #FFFFFF1A) !important;
+  border-color: var(--unofficial-border-3, #D4D4D4) !important;
+  box-shadow: 0px 1px 2px -1px #0000001A, 0px 1px 3px 0px #0000001A !important;
 }
 
 .fieldGroup {
@@ -130,13 +160,27 @@
   align-items: center;
   gap: 6px;
 }
+.infoIconWrap {
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 2px; /* 2px padding on all sides */
+  position: relative;
+  opacity: 1;
+  transform: rotate(0deg);
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
 
 .infoIcon {
   width: 16px;
   height: 16px;
-  color: #666666;
+  color: #000000;
   cursor: help;
   flex-shrink: 0;
+  opacity: 1;
+  transform: rotate(0deg);
 }
 
 .input {
@@ -205,9 +249,9 @@
   padding: 0 12px;
   display: flex;
   align-items: center;
-  border: 1px solid #E5E5E5;
+  border: 1px solid var(--unofficial-border-3, #D4D4D4);
   border-radius: 8px;
-  background-color: #F5F5F5;
+  background-color: var(--general-input, #FFFFFF);
 }
 
 .languageDisplayText {
@@ -361,7 +405,7 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;
-  color: #DC2626;
+  color: #D97757;
   margin: 0;
 }
 
@@ -376,15 +420,31 @@
 }
 
 .backButton {
-  height: 40px;
-  padding: 0 20px;
-  font-size: 14px;
-  font-weight: 500;
-  border: 1px solid #E5E5E5;
-  color: #0A0A0A;
-  background-color: #FFFFFF;
+  width: 87.25px;
+  height: 36px;
+  min-height: 36px;
   border-radius: 8px;
+  border: 1px solid var(--unofficial-border-3, #D4D4D4);
+  background-color: var(--unofficial-outline, #FFFFFF1A);
+  box-shadow: 0px 1px 2px -1px #0000001A, 0px 1px 3px 0px #0000001A;
+  padding-top: 7.5px;
+  padding-right: 4px;
+  padding-bottom: 7.5px;
+  padding-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px; /* exact gap between chevron box and text */
   white-space: nowrap;
+  position: relative; /* allow absolute chevron inside button */
+}
+.backChevronBox {
+  width: 16px;
+  height: 16px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .backButton:hover {
@@ -393,15 +453,67 @@
 }
 
 .continueButton {
-  height: 40px;
-  padding: 0 20px;
-  font-size: 14px;
-  font-weight: 500;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
   background-color: #171717;
   color: #FFFFFF;
-  border-radius: 8px;
   border: none;
+  padding-top: 7.5px;
+  padding-right: 4px;
+  padding-bottom: 7.5px;
+  padding-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px; /* match back button spacing between icon and text */
   white-space: nowrap;
+  position: relative; /* replicate back button positioning behavior */
+}
+.backChevron {
+  width: 16px !important;
+  height: 16px !important;
+  position: static; /* centered by the box's inline-flex */
+  top: 0;
+  left: 0;
+  display: block;
+  opacity: 1;
+  transform: rotate(0deg);
+  color: #000000;
+}
+
+.continueChevron {
+  width: 16px !important;
+  height: 16px !important;
+  position: static;
+  display: block;
+  opacity: 1;
+  transform: rotate(0deg);
+  color: var(--general-primary-foreground, #FAFAFA);
+}
+.buttonTextPrimary {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 150%;
+  letter-spacing: 0.005em; /* 0.5% */
+  text-align: center;
+  vertical-align: middle;
+  color: var(--general-primary-foreground, #FAFAFA);
+  padding: 4px; /* add 4px padding around the text */
+}
+
+.buttonText {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 150%;
+  letter-spacing: 0.005em; /* 0.5% */
+  text-align: center;
+  vertical-align: middle;
+  color: #0A0A0A;
 }
 
 .continueButton:hover {

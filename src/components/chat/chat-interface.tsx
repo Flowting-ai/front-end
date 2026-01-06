@@ -1202,10 +1202,10 @@ export function ChatInterface({
   };
 
   return (
-    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-[#F5F5F5]">
+    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-[var(--Background-Default-Default,#FFFFFF)]">
       {/* Empty state: centered prompt box */}
       {displayMessages.length === 0 ? (
-        <section className="flex flex-1 items-center justify-center bg-[#F5F5F5] px-4 py-8">
+        <section className="flex flex-1 items-center justify-center bg-[var(--Background-Default-Default,#FFFFFF)] px-4 py-8">
           {customEmptyState || <InitialPrompts userName={user?.name ?? user?.email ?? null} />}
         </section>
       ) : (
@@ -1215,7 +1215,7 @@ export function ChatInterface({
           onScroll={handleScroll}
         >
           <div className="mx-auto w-full max-w-[756px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
-            <div className="rounded-[32px] border border-transparent bg-[#F5F5F5] p-6 shadow-none">
+            <div className="rounded-[32px] border border-transparent bg-[var(--Background-Default-Default,#FFFFFF)] p-6 shadow-none">
               <div className="space-y-3">
                 {displayMessages.map((msg) => {
                   const refMsg = msg.referencedMessageId
@@ -1299,7 +1299,7 @@ export function ChatInterface({
       )}
 
       {/* Chat Input Footer */}
-      <footer className="shrink-0 bg-[#F5F5F5] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
+      <footer className="shrink-0 bg-[var(--Background-Default-Default,#FFFFFF)] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
         <div className="relative mx-auto w-full max-w-[756px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
