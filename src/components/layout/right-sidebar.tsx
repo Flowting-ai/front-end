@@ -169,7 +169,7 @@ export function RightSidebar({
     (window as any).__setPinboardDevState = (state: 'empty' | 'auto') => {
       window.localStorage.setItem('pinboardDevState', state === 'empty' ? 'empty' : 'auto');
       setForceEmptyPinboard(state === 'empty');
-      // eslint-disable-next-line no-console
+       
       console.log('Pinboard dev state set to', state);
     };
 

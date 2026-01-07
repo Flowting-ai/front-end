@@ -5,6 +5,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 
@@ -54,10 +55,12 @@ export function ModelSwitchConfirmationDialog({
           {/* Current Model */}
           <div className="flex items-center gap-3 rounded-lg border border-[#e6e6e6] bg-[#fafafa] px-4 py-3">
             <div className="flex-shrink-0">
-              <img
+              <Image
                 src={getModelIcon(currentModel.companyName, currentModel.modelName)}
                 alt={currentModel.companyName}
-                className="h-8 w-8 rounded"
+                width={32}
+                height={32}
+                className="rounded"
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -91,10 +94,12 @@ export function ModelSwitchConfirmationDialog({
           {/* New Model */}
           <div className="flex items-center gap-3 rounded-lg border border-[#e6e6e6] bg-white px-4 py-3">
             <div className="flex-shrink-0">
-              <img
+              <Image
                 src={getModelIcon(newModel.companyName, newModel.modelName)}
                 alt={newModel.companyName}
-                className="h-8 w-8 rounded"
+                width={32}
+                height={32}
+                className="rounded"
               />
             </div>
             <div className="flex-1 min-w-0">

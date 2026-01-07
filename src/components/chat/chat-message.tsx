@@ -1,12 +1,12 @@
-
 "use client";
+
+import Image from "next/image";
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Pin, Copy, Pencil, Trash2, Check, X, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Textarea } from "../ui/textarea";
-import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
@@ -705,11 +705,14 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                 );
               })}
               {message.imageUrl && (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <img
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 relative">
+                  <Image
                     src={message.imageUrl}
                     alt={message.imageAlt || message.content || "Generated image"}
-                    className="w-full h-auto object-contain bg-white"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 756px"
+                    className="object-contain bg-white"
+                    unoptimized
                   />
                 </div>
               )}

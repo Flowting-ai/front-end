@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { fetchTokenStats, type TokenStats } from "@/lib/api/tokens";
 import { fetchCurrentUser } from "@/lib/api/user";
+import type { AuthUser } from "@/context/auth-context";
 import { useAuth } from "@/context/auth-context";
 
 interface TokenContextValue {
@@ -35,7 +36,9 @@ export function TokenProvider({ children }: { children: ReactNode }) {
           });
           // Hydrate missing profile fields into auth context if we don't have them.
           if (user === null || Object.keys(user).length === 0) {
-            setUser(profile);
+            // Casting to AuthUser: profile shape comes from backend and may include extra fields,
+            // which AuthUser accepts via its index signature. This keeps Auth context hydrated.
+            setUser(profile as unknown as AuthUser);
           }
           return;
         }

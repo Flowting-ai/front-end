@@ -3,7 +3,7 @@
  * Production-ready with proper validation and error handling
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { AIModel } from '@/types/ai-model';
 import { MODELS } from '../constants';

@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { ModelSwitchDialog } from "@/components/chat/model-switch-dialog";
+import type { AIModel } from "@/types/ai-model";
 
 // Mock model and chatBoards for preview
-const mockModel = {
+const mockModel: AIModel = {
   modelName: "GPT-4 Turbo",
   companyName: "OpenAI",
   modelType: "paid",

@@ -3,7 +3,10 @@
 import type { ReactNode } from "react";
 import { Button } from "../ui/button";
 import { ModelSelector } from "../chat/model-selector";
-import { TokenTracker } from "../chat/token-tracker";
+// Note (2026-01): Removed TokenTracker import because the token-usage UI
+// is intentionally disabled to avoid distracting users. If you need it back,
+// re-enable the JSX block below and import from "../chat/token-tracker".
+// import { TokenTracker } from "../chat/token-tracker";
 import type { AIModel } from "@/types/ai-model";
 import { useTokenUsage } from "@/context/token-context";
 import { useAuth } from "@/context/auth-context";

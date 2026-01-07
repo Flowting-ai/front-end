@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MessageSquare, MoreVertical, Pause, Play, Trash2 } from "lucide-react";
+import { MoreVertical, Pause, Play, Trash2 } from "lucide-react";
 
 export interface Consumer {
   id: string;

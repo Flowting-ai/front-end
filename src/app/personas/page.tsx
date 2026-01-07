@@ -1,3 +1,4 @@
+import Image from "next/image";
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -7,9 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./personas.module.css";
-import { Bookmark, Circle, MoreVertical, Plus, Search, Users, Lightbulb, Palette } from "lucide-react";
+import { Bookmark, Circle, MoreVertical, Plus, Search } from "lucide-react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 
 interface PersonaSummary {
@@ -31,10 +31,7 @@ interface TemplateSummary {
   temperature?: number;
 }
 
-const resolveImage = (id: string, fallback: string) => {
-  const match = PlaceHolderImages.find((item) => item.id === id);
-  return match?.imageUrl ?? fallback;
-};
+// Removed unused resolveImage helper (was not referenced in this file)
 
 // Seed with three personas to show filled state
 const PERSONAS: PersonaSummary[] = [
@@ -210,7 +207,7 @@ function PersonasPageContent() {
 
   return (
     <div className={styles.personasShell}>
-      <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
+      <div className={cn(styles.scrollContainer, "customScrollbar")}>
         {/* Empty State - Show when user has no personas */}
         {PERSONAS.length === 0 ? (
           <>
@@ -228,7 +225,7 @@ function PersonasPageContent() {
                   <div className={styles.emptyAvatarStack}>
                     {["/avatars/avatar1.svg", "/avatars/avatar2.svg", "/avatars/avatar3.svg"].map((src, index) => (
                       <div key={index} className={styles.emptyAvatar}>
-                        <img src={src} alt="" />
+                        <Image src={src} alt="" width={40} height={40} />
                       </div>
                     ))}
                   </div>
@@ -382,10 +379,13 @@ function PersonasPageContent() {
                         const isSaved = savedTemplates.has(template.id);
                         return (
                           <div key={template.id} className={styles.templateCard}>
-                            <img
+                            <Image
                               src={template.thumbnail}
-                              alt=""
+                              alt={template.name}
+                              width={80}
+                              height={80}
                               className={styles.templateImage}
+                              unoptimized
                             />
                             <div className={styles.templateContent}>
                               <div className={styles.templateCardHeader}>
@@ -487,10 +487,13 @@ function PersonasPageContent() {
             {filteredPersonas.length > 0 ? (
               filteredPersonas.map((persona) => (
                 <div key={persona.id} className={styles.personaCard}>
-                  <img
+                  <Image
                     src={persona.thumbnail}
-                    alt=""
+                    alt={persona.name}
+                    width={80}
+                    height={80}
                     className={styles.personaImage}
+                    unoptimized
                   />
                   <div className={styles.personaContent}>
                     <div className={styles.personaCardHeader}>
@@ -686,10 +689,13 @@ function PersonasPageContent() {
                     const isSaved = savedTemplates.has(template.id);
                     return (
                       <div key={template.id} className={styles.templateCard}>
-                        <img
+                        <Image
                           src={template.thumbnail}
-                          alt=""
+                          alt={template.name}
+                          width={80}
+                          height={80}
                           className={styles.templateImage}
+                          unoptimized
                         />
                         <div className={styles.templateContent}>
                           <div className={styles.templateCardHeader}>

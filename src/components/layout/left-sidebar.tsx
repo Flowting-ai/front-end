@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  ChevronsLeft,
   Settings,
   LogOut,
   Layers,
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "../ui/button";
@@ -188,9 +187,11 @@ export function LeftSidebar({
                     router.push("/");
                   }}
                 >
-                  <img
+                  <Image
                     src="/icons/chatboard.svg"
                     alt="Chat board"
+                    width={20}
+                    height={20}
                     className="h-5 w-5 filter brightness-0"
                   />
                 </Button>
@@ -343,9 +344,11 @@ export function LeftSidebar({
               }}
             >
               <span className="sidebar-primary-action-icon" style={{ marginLeft: '15px' }}>
-                <img 
+                <Image 
                   src="/icons/chatboard.svg" 
                   alt="Chat board"
+                  width={20}
+                  height={20}
                   style={{ filter: isOnChatBoard && !isOnPersonaPage ? 'brightness(0) invert(1)' : 'brightness(0)' }}
                 />
               </span>

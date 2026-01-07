@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -10,12 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Info, Bookmark, Loader2, X, Circle, FileSearch2, BookImage, Video } from "lucide-react";
+import { Search, Info, Bookmark, Loader2, Circle, FileSearch2, BookImage, Video } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 // Using Radix primitives directly for tight style control
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import {
   Tooltip,
@@ -333,10 +333,13 @@ export function ModelSelectorDialog({ open, onOpenChange, onModelSelect }: Model
                       onMouseLeave={() => setHoveredModel(null)}
                     >
                       <div className="model-info">
-                        <img
+                        {/* Use next/image for icon optimization */}
+                        <Image
                           src={getModelIcon(model.companyName, model.modelName)}
                           alt={`${model.companyName || model.modelName} logo`}
                           className="model-logo"
+                          width={20}
+                          height={20}
                         />
                         <span className="model-name">
                           {model.modelName}

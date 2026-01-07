@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect, useContext, useMemo } from "react";
-import chatStyles from "./chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   Send,
-  Trash2,
   X,
   Loader2,
   Plus,
@@ -33,7 +30,6 @@ import type { PinType } from "../layout/right-sidebar";
 import type { AIModel } from "@/types/ai-model";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayoutContext } from "../layout/app-layout";
-import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1210,7 +1206,7 @@ export function ChatInterface({
         </section>
       ) : (
         <div
-          className={`relative flex-1 min-h-0 overflow-y-auto ${chatStyles.customScrollbar}`}
+          className={"relative flex-1 min-h-0 overflow-y-auto customScrollbar"}
           ref={scrollViewportRef}
           onScroll={handleScroll}
         >
@@ -1425,6 +1421,7 @@ export function ChatInterface({
                         className="group relative flex-shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
                         style={{ width: '60px', height: '60px', padding: '1.08px' }}
                       >
+                        {/* Intentionally using <img> here: attachment previews often use blob: URLs from URL.createObjectURL, which next/image does not support reliably. */}
                         <img 
                           src={attachment.url} 
                           alt={attachment.name}

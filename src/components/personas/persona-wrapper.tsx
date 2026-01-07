@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Pause, Trash2 } from "lucide-react";
-import { UnifiedRow, Persona, Consumer } from "./unified-row";
+import { UnifiedRow, Persona } from "./unified-row";
 
 export interface PersonaWrapperProps {
   persona: Persona;

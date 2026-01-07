@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getModelIcon } from "@/lib/model-icons";
-import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-configure.module.css";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import type { Message } from "@/components/chat/chat-message";
@@ -44,9 +43,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 
 // Import hooks and utilities
@@ -478,7 +474,7 @@ function PersonaConfigurePageContent() {
       ) : (
         // Edit Mode View
       <div className={styles.container}>
-        <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
+        <div className={cn(styles.scrollContainer, "customScrollbar")}>
           <div className={styles.contentWrapper}>
             {/* Header Row with Back and Actions */}
             <div className={styles.headerRow}>
@@ -590,14 +586,14 @@ function PersonaConfigurePageContent() {
                     </Label>
                     <Info className="h-4 w-4 text-[#000000]" />
                   </div>
-                  <div className={cn(styles.textareaWrapper, chatStyles.customScrollbar)}>
+                  <div className={cn(styles.textareaWrapper, "customScrollbar")}>
                     <div className={styles.textareaContainer}>
                       <div
                         ref={textareaContentRef}
                         className={cn(
                           styles.textareaContentWrapper,
                           isTextareaScrolled && styles.textareaScrolled,
-                          chatStyles.customScrollbar
+                          "customScrollbar"
                         )}
                       >
                         <Textarea

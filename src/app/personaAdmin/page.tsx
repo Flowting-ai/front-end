@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
-import chatStyles from "@/components/chat/chat-interface.module.css";
 import {
   Table,
   TableBody,
@@ -28,8 +27,6 @@ import { PersonaWrapper } from "@/components/personas/persona-wrapper";
 import { Persona } from "@/components/personas/unified-row";
 import { CommandCenter } from "@/components/personas/command-center";
 import {
-  BarChart3,
-  Users,
   Plus,
   Pause,
   Trash2,
@@ -376,16 +373,48 @@ export default function PersonaAdminPage() {
 
   return (
     <AppLayout>
-      <div className={`${chatStyles.customScrollbar} h-full w-full overflow-y-auto`}>
+      <div className={`customScrollbar h-full w-full overflow-y-auto`}>
         <div className="mx-auto flex w-full max-w-[1200px] justify-center px-4 py-6 md:px-8 md:py-8">
           <div className="flex w-full max-w-[1005px] flex-col gap-[33px]">
             {/* Header */}
             <div className="flex flex-col gap-4 text-[var(--colors-gray-900,#0f172a)] md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-1 text-[var(--colors-gray-900,#0f172a)]">
-                <h1 className="font-display text-[24px] font-normal leading-[33.6px] text-[var(--colors-gray-900,#0f172a)]">
+              <div className="flex flex-col text-[var(--colors-gray-900,#0f172a)]" style={{gap: 0}}>
+                <h1
+                  style={{
+                    width: 159,
+                    height: 34,
+                    transform: 'rotate(0deg)',
+                    opacity: 1,
+                    fontFamily: 'Clash Grotesk Variable',
+                    fontWeight: 400,
+                    fontStyle: 'normal',
+                    fontSize: 24,
+                    lineHeight: '140%',
+                    letterSpacing: 0,
+                    color: '#000',
+                    margin: 0,
+                    padding: 0
+                  }}
+                >
                   Your Personas
                 </h1>
-                <p className="text-[12px] leading-[16.8px] text-[var(--colors-gray-600,#4b5563)]">
+                <p
+                  style={{
+                    width: 159,
+                    height: 17,
+                    transform: 'rotate(0deg)',
+                    opacity: 1,
+                    fontFamily: 'Geist',
+                    fontWeight: 400,
+                    fontStyle: 'normal',
+                    fontSize: 12,
+                    lineHeight: '140%',
+                    letterSpacing: 0,
+                    color: '#000',
+                    margin: 0,
+                    padding: 0
+                  }}
+                >
                   Manage your custom agents.
                 </p>
               </div>
@@ -594,7 +623,7 @@ export default function PersonaAdminPage() {
               className="w-full"
             >
               <div className="mx-auto flex w-full md:max-w-[1200px] lg:max-w-[1400px] flex-col overflow-x-auto md:overflow-x-visible">
-                <div className={`w-fit md:w-full ${chatStyles.customScrollbar}`}>
+                <div className={"w-fit md:w-full customScrollbar"}>
                   <Table className="w-fit md:w-full border-collapse">
                     <TableHeader>
                       <TableRow className="!border-0 border-none h-9 rounded-[8px] border border-[#E5E5E5] bg-[#F5F5F5] hover:bg-[#F5F5F5]">

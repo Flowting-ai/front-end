@@ -1,3 +1,7 @@
+/* Styles for the hero/empty-state in chat initial prompts.
+ * Used by Frame1171275887 (see frame-1171275887.tsx) which is imported by initial-prompts.tsx.
+ * Keep in sync with the branded typography used in the empty-state.
+ */
 .frameParent {
   position: relative;
   width: 100%;

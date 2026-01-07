@@ -25,6 +25,7 @@ import { ChevronDown, MessageSquare } from "lucide-react";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 import { MODELS_ENDPOINT } from "@/lib/config";
+import Image from "next/image";
 
 interface ModelSwitchDialogProps {
   open: boolean;
@@ -151,9 +152,11 @@ export function ModelSwitchDialog({
                   >
                     {selectedModel ? (
                       <div className="flex items-center gap-2">
-                        <img
+                        <Image
                           src={getModelIcon(selectedModel.companyName)}
-                          alt=""
+                          alt={`${selectedModel.companyName || "Model"} logo`}
+                          width={20}
+                          height={20}
                           className="model-logo"
                         />
                         <span className="text-[#171717] text-sm">
@@ -179,9 +182,11 @@ export function ModelSwitchDialog({
                           onClick={() => setSelectedModel(model)}
                           className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
                         >
-                          <img
+                          <Image
                             src={getModelIcon(model.companyName)}
-                            alt=""
+                            alt={`${model.companyName} logo`}
+                            width={20}
+                            height={20}
                             className="model-logo"
                           />
                           <div className="flex-1">

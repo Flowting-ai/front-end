@@ -1,5 +1,4 @@
 "use client";
-import type { ReactNode } from "react";
 import React, {
   useState,
   createContext,
@@ -15,7 +14,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { Message } from "../chat/chat-message";
 import { useRouter, usePathname } from "next/navigation";
 import {

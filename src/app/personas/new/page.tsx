@@ -1,3 +1,4 @@
+import Image from "next/image";
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -9,9 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Upload, Info, User, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Info, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-form.module.css";
 import { LANGUAGES, DEFAULT_LANGUAGE, DEFAULT_PERSONA_NAME } from "./constants";
 
@@ -119,7 +119,7 @@ export default function NewPersonaPage() {
   return (
     <AppLayout>
       <div className={styles.container}>
-        <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
+        <div className={cn(styles.scrollContainer, "customScrollbar")}>
           <div className={styles.formWrapper}>
           <div className={styles.header}>
             <h1 className={styles.title}>Persona basics</h1>
@@ -134,7 +134,7 @@ export default function NewPersonaPage() {
               <Avatar className={styles.avatar}>
                 <AvatarImage src={avatarUrl || undefined} alt="" />
                 <AvatarFallback className={styles.avatarFallback}>
-                  <img src="/avatars/personaAvatarPlaceHolder.svg" alt="" className={styles.avatarPlaceholder} />
+                  <Image src="/avatars/personaAvatarPlaceHolder.svg" alt="" width={40} height={40} className={styles.avatarPlaceholder} />
                 </AvatarFallback>
               </Avatar>
               <div className={styles.uploadButtonWrapper}>

@@ -1,4 +1,8 @@
 "use client";
+// Purpose: Branded hero/empty-state block shown above initial prompts.
+// Usage: Imported by initial prompts and rendered by `ChatInterface` when there are no messages.
+// Keep: This is actively used. Only remove if replacing the initial prompts UX.
+// Where used: see `src/components/chat/initial-prompts.tsx` and `src/components/chat/chat-interface.tsx`.
 
 import Image from "next/image";
 import type { NextPage } from "next";

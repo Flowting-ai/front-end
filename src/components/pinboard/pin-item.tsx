@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Pin, X, MoreVertical, Trash2, Edit, MessageSquareText, Tag, ArrowUp, Info, Copy, FolderInput, Search, ChevronRight, FolderPlus } from "lucide-react";
+import { X, MoreVertical, Trash2, Edit, MessageSquareText, Tag, ArrowUp, Copy, FolderInput, Search, FolderPlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";

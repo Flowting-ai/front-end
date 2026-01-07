@@ -2,10 +2,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { ModelSelectorDialog } from "./model-selector-dialog";
 import { ModelSwitchConfirmationDialog } from "./model-switch-confirmation-dialog";
-import { Button } from "../ui/button";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 
@@ -50,12 +50,15 @@ export function ModelSelector({ selectedModel, onModelSelect }: ModelSelectorPro
       >
         {selectedModel && (
           <span className="model-selector-icon">
-            <img
+            {/* Using next/image for optimized icon rendering (LCP, caching). */}
+            <Image
               src={getModelIcon(
                 selectedModel?.companyName,
                 selectedModel?.modelName
               )}
               alt="Model icon"
+              width={20}
+              height={20}
             />
           </span>
         )}

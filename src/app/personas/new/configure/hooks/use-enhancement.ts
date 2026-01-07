@@ -4,9 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { API_BASE_URL } from '@/lib/config';
 import { MOCK_ENHANCED_RESPONSE } from '../constants';
-import { REFINEMENT_STEPS } from '../types';
 
 interface UseEnhancementReturn {
   isEnhancing: boolean;
