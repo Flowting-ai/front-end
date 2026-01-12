@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, type JSX } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Pin, Copy, Pencil, Trash2, Check, X, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
