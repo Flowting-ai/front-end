@@ -173,7 +173,7 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
       resolvedStarred !== undefined
         ? resolvedStarred
         : Boolean(chat.is_starred ?? chat.isStarred ?? false),
-    pinCount: chat.pin_count ?? chat.pinCount ?? metadata?.pinCount ?? 0,
+    pinCount: metadata?.pinCount ?? chat.pin_count ?? chat.pinCount ?? 0,
     metadata,
   };
 };
@@ -595,7 +595,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
         csrfTokenRef.current = freshToken;
         setCsrfToken(freshToken);
       }
-      const normalized = backendChats.map(normalizeChatBoard);
+      const normalizedWithSort = backendChats.map((chat) => {
+        const board = normalizeChatBoard(chat);
+        const timestamp = Date.parse(
+          chat.updated_at || chat.created_at || ""
+        );
+        return {
+          board,
+          sortTime: Number.isNaN(timestamp) ? 0 : timestamp,
+          isStarred: board.isStarred,
+        };
+      });
+      const normalized = normalizedWithSort
+        .sort((a, b) => {
+          if (a.isStarred !== b.isStarred) {
+            return a.isStarred ? -1 : 1;
+          }
+          if (a.sortTime !== b.sortTime) {
+            return b.sortTime - a.sortTime;
+          }
+          return a.board.name.localeCompare(b.board.name);
+        })
+        .map((entry) => entry.board);
       let combinedBoards: ChatBoard[] = normalized;
       setChatBoards_((prev) => {
         const tempBoards = prev.filter(
@@ -918,7 +939,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
         setChatBoards_((prevBoards) =>
           prevBoards.map((board) =>
             board.id === chatId
-              ? { ...board, pinCount: (board.pinCount || 0) + 1 }
+              ? {
+                  ...board,
+                  pinCount: (board.pinCount || 0) + 1,
+                  metadata: {
+                    ...board.metadata,
+                    pinCount: (board.pinCount || 0) + 1,
+                  },
+                }
               : board
           )
         );
@@ -956,6 +984,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
               ? {
                   ...board,
                   pinCount: Math.max(0, (board.pinCount || 1) - 1),
+                  metadata: {
+                    ...board.metadata,
+                    pinCount: Math.max(0, (board.pinCount || 1) - 1),
+                  },
                 }
               : board
           )
