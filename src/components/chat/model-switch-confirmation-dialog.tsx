@@ -54,7 +54,8 @@ export function ModelSwitchConfirmationDialog({
               <img
                 src={getModelIcon(
                   currentModel.companyName,
-                  currentModel.modelName
+                  currentModel.modelName,
+                  currentModel.sdkLibrary
                 )}
                 alt={currentModel.companyName}
                 className="h-8 w-8 rounded"
@@ -94,7 +95,11 @@ export function ModelSwitchConfirmationDialog({
           <div className="flex items-center gap-3 rounded-lg border border-[#e6e6e6] bg-white px-4 py-3">
             <div className="flex-shrink-0">
               <img
-                src={getModelIcon(newModel.companyName, newModel.modelName)}
+                src={getModelIcon(
+                  newModel.companyName,
+                  newModel.modelName,
+                  newModel.sdkLibrary
+                )}
                 alt={newModel.companyName}
                 className="h-8 w-8 rounded"
               />

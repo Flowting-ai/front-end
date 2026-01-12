@@ -77,6 +77,7 @@ interface EnsureChatOptions {
   firstMessage: string;
   selectedModel?: AIModel | null;
   pinIds?: string[];
+  useFramework?: boolean;
 }
 
 interface EnsureChatResult {
@@ -100,6 +101,8 @@ interface AppLayoutContextType {
   ) => Promise<EnsureChatResult | null>;
   selectedModel: AIModel | null;
   setSelectedModel: React.Dispatch<React.SetStateAction<AIModel | null>>;
+  useFramework: boolean;
+  setUseFramework: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -386,6 +389,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     useState<RightSidebarPanel | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  const [useFramework, setUseFramework] = useState(true);
 
   const [pins, setPins_] = useState<PinType[]>([]);
   const [pinsChatId, setPinsChatId] = useState<string | null>(null);
@@ -969,6 +973,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       firstMessage,
       selectedModel,
       pinIds,
+      useFramework,
     }: EnsureChatOptions): Promise<EnsureChatResult | null> => {
       const currentActiveId = activeChatId;
       const isTempChat = currentActiveId?.startsWith("temp-") ?? false;
@@ -980,11 +985,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
         firstMessage,
         model: selectedModel
           ? {
+              modelId: selectedModel.modelId ?? selectedModel.id,
               companyName: selectedModel.companyName,
               modelName: selectedModel.modelName,
               version: selectedModel.version,
             }
           : null,
+        useFramework: Boolean(useFramework),
         user,
         pinIds,
       };
@@ -1129,6 +1136,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     ensureChatOnServer,
     selectedModel,
     setSelectedModel,
+    useFramework,
+    setUseFramework,
   };
 
   const pageContentProps = {
@@ -1137,6 +1146,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     messages: activeChatId ? chatHistory[activeChatId] || [] : [],
     setMessages: setMessagesForActiveChat,
     selectedModel: selectedModel,
+    useFramework,
     setIsRightSidebarVisible,
     isRightSidebarVisible,
   };
@@ -1183,6 +1193,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Topbar
               selectedModel={selectedModel}
               onModelSelect={setSelectedModel}
+              useFramework={useFramework}
+              onFrameworkChange={setUseFramework}
             >
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -1278,6 +1290,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <Topbar
             selectedModel={selectedModel}
             onModelSelect={setSelectedModel}
+            useFramework={useFramework}
+            onFrameworkChange={setUseFramework}
           />
           <div className="chat-layout-main-wrapper">
             <div className="chat-layout-content-panel">

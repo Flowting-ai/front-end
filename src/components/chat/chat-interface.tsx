@@ -81,6 +81,7 @@ interface ChatInterfaceProps {
     chatIdOverride?: string
   ) => void;
   selectedModel?: AIModel | null;
+  useFramework?: boolean;
   hidePersonaButton?: boolean;
   customEmptyState?: React.ReactNode;
   disableInput?: boolean;
@@ -101,6 +102,7 @@ export function ChatInterface({
   messages = [],
   setMessages = () => {},
   selectedModel = null,
+  useFramework = false,
   hidePersonaButton = false,
   customEmptyState,
   disableInput = false,
@@ -164,7 +166,8 @@ export function ChatInterface({
       return {
         avatarUrl: getModelIcon(
           modelOverride.companyName,
-          modelOverride.modelName
+          modelOverride.modelName,
+          modelOverride.sdkLibrary
         ),
         avatarHint: hintParts.join(" ").trim(),
       };
@@ -264,9 +267,9 @@ export function ChatInterface({
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadSourceUrl, setUploadSourceUrl] = useState("");
-  const composerPlaceholder = selectedModel
+  const composerPlaceholder = selectedModel || useFramework
     ? "Let's Play..."
-    : "Choose a model to start chatting";
+    : "Choose a model or framework to start chatting";
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -354,11 +357,13 @@ export function ChatInterface({
         chatId,
         model: modelForRequest
           ? {
+              modelId: modelForRequest.modelId ?? modelForRequest.id,
               companyName: modelForRequest.companyName,
               modelName: modelForRequest.modelName,
               version: modelForRequest.version,
             }
           : null,
+        useFramework: Boolean(useFramework),
         user: user
           ? {
               id: user.id ?? null,
@@ -555,10 +560,10 @@ export function ChatInterface({
 
   const handleSend = async (content: string, messageIdToUpdate?: string) => {
     const trimmedContent = content.trim();
-    if (!selectedModel) {
+    if (!selectedModel && !useFramework) {
       toast({
-        title: "Select a model",
-        description: "Choose a model before sending a message.",
+        title: "Select a model or framework",
+        description: "Choose a model or enable the framework before sending.",
         variant: "destructive",
       });
       return;
@@ -586,6 +591,7 @@ export function ChatInterface({
           firstMessage: trimmedContent,
           selectedModel: activeModel,
           pinIds: pinIdsToSend,
+          useFramework,
         });
         chatId = ensured?.chatId ?? null;
         isTempChat = chatId?.startsWith("temp-");
@@ -952,10 +958,10 @@ export function ChatInterface({
     const regen = override ?? regenerationState;
     if (!regen) return;
     const trimmedPrompt = (override?.prompt ?? regeneratePrompt).trim();
-    if (!selectedModel) {
+    if (!selectedModel && !useFramework) {
       toast({
-        title: "Select a model",
-        description: "Choose a model before regenerating a response.",
+        title: "Select a model or framework",
+        description: "Choose a model or enable the framework before regenerating.",
         variant: "destructive",
       });
       setRegenerationState(null);
@@ -1612,15 +1618,17 @@ export function ChatInterface({
                         <Button
                           type="button"
                           onClick={() => handleSend(input)}
-                          disabled={!selectedModel || disableInput}
+                          disabled={(!selectedModel && !useFramework) || disableInput}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                         >
                           <Send className="h-[18px] w-[18px]" />
                         </Button>
                       </TooltipTrigger>
-                      {(!selectedModel || disableInput) && (
+                      {((!selectedModel && !useFramework) || disableInput) && (
                         <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
-                          {disableInput ? "Save to test first to enable chat" : "Please select a model to start the conversation"}
+                          {disableInput
+                            ? "Save to test first to enable chat"
+                            : "Please select a model or framework to start the conversation"}
                         </TooltipContent>
                       )}
                     </Tooltip>

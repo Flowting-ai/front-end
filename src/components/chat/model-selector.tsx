@@ -12,12 +12,16 @@ import Image from "next/image";
 
 interface ModelSelectorProps {
   selectedModel: AIModel | null;
-  onModelSelect: (model: AIModel) => void;
+  useFramework: boolean;
+  onModelSelect: (model: AIModel | null) => void;
+  onFrameworkChange: (useFramework: boolean) => void;
 }
 
 export function ModelSelector({
   selectedModel,
   onModelSelect,
+  useFramework,
+  onFrameworkChange,
 }: ModelSelectorProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
@@ -31,6 +35,7 @@ export function ModelSelector({
       setIsConfirmationOpen(true);
     } else {
       // No current model or same model selected, proceed directly
+      onFrameworkChange(false);
       onModelSelect(model);
       setIsDialogOpen(false);
     }
@@ -38,9 +43,17 @@ export function ModelSelector({
 
   const handleConfirmSwitch = () => {
     if (pendingModel) {
+      onFrameworkChange(false);
       onModelSelect(pendingModel);
       setPendingModel(null);
     }
+  };
+
+  const handleFrameworkSelect = () => {
+    onFrameworkChange(true);
+    onModelSelect(null);
+    setPendingModel(null);
+    setIsDialogOpen(false);
   };
 
   return (
@@ -52,19 +65,26 @@ export function ModelSelector({
         aria-haspopup="dialog"
         aria-expanded={isDialogOpen}
       >
-        {selectedModel && (
+        {selectedModel && !useFramework && (
           <span className="w-5 h-5 bg-[rgba(255, 255, 255, 0.95)] rounded-[50%] shrink-0 inline-flex items-center justify-center p-0.5">
             <Image
               src={getModelIcon(
                 selectedModel?.companyName,
-                selectedModel?.modelName
+                selectedModel?.modelName,
+                selectedModel?.sdkLibrary
               )}
               alt="Model icon"
+              width={16}
+              height={16}
             />
           </span>
         )}
         <span className="model-selector-label font-inter font-[400] text-[14px] whitespace-nowrap">
-          {selectedModel ? selectedModel.modelName : "Select model"}
+          {useFramework
+            ? "Flowting AI Framework"
+            : selectedModel
+            ? selectedModel.modelName
+            : "Select model"}
         </span>
         <ChevronDown className="w-[16px] h-[16px] text-[white] shrink-0" strokeWidth={2} />
       </button>
@@ -72,6 +92,8 @@ export function ModelSelector({
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onModelSelect={handleModelSelect}
+        onFrameworkSelect={handleFrameworkSelect}
+        useFramework={useFramework}
       />
       {/* <ModelSwitchDialog
         open={isDialogOpen}

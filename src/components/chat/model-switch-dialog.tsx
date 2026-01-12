@@ -26,6 +26,7 @@ import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 import { MODELS_ENDPOINT } from "@/lib/config";
+import { normalizeModels } from "@/lib/ai-models";
 
 interface ModelSwitchDialogProps {
   open: boolean;
@@ -86,7 +87,8 @@ export function ModelSwitchDialog({
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.status}`);
         }
-        const raw: AIModel[] = await response.json();
+        const data = await response.json();
+        const raw = normalizeModels(data);
         setModels(raw);
         sessionStorage.setItem("aiModels", JSON.stringify(raw));
       } catch (error) {
@@ -211,7 +213,11 @@ export function ModelSwitchDialog({
                     {selectedModel ? (
                       <div className="flex items-center gap-2">
                         <Image
-                          src={getModelIcon(selectedModel.companyName)}
+                          src={getModelIcon(
+                            selectedModel.companyName,
+                            selectedModel.modelName,
+                            selectedModel.sdkLibrary
+                          )}
                           alt=""
                           width={20}
                           height={20}
@@ -250,7 +256,11 @@ export function ModelSwitchDialog({
                           className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
                         >
                           <Image
-                            src={getModelIcon(model.companyName)}
+                            src={getModelIcon(
+                              model.companyName,
+                              model.modelName,
+                              model.sdkLibrary
+                            )}
                             alt=""
                             width={20}
                             height={20}

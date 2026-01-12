@@ -36,12 +36,15 @@ import {
 import type { AIModel } from "@/types/ai-model";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelIcon } from "@/lib/model-icons";
+import { normalizeModels } from "@/lib/ai-models";
 import Image from "next/image";
 
 interface ModelSelectorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onModelSelect: (model: AIModel) => void;
+  onFrameworkSelect: () => void;
+  useFramework: boolean;
 }
 
 type ModelCategory = "text" | "image" | "video" | "all";
@@ -50,6 +53,8 @@ export function ModelSelectorDialog({
   open,
   onOpenChange,
   onModelSelect,
+  onFrameworkSelect,
+  useFramework,
 }: ModelSelectorDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,60 +69,6 @@ export function ModelSelectorDialog({
   const [hoveredModel, setHoveredModel] = useState<string | null>(null);
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
-
-  // Dummy models fallback used when the backend returns no models or fetch fails.
-  // These are purely for local/dev/demo purposes and won't replace real backend data when available.
-  const DUMMY_MODELS: AIModel[] = [
-    {
-      companyName: "OpenAI",
-      modelName: "ChatGPT",
-      modelType: "paid",
-      inputLimit: 8192,
-      outputLimit: 8192,
-    },
-    {
-      companyName: "OpenAI",
-      modelName: "ChatGPT (Free)",
-      modelType: "free",
-      inputLimit: 4096,
-      outputLimit: 2048,
-    },
-    {
-      companyName: "xAI",
-      modelName: "Grok 1",
-      modelType: "free",
-      inputLimit: 16384,
-      outputLimit: 4096,
-    },
-    {
-      companyName: "Anthropic",
-      modelName: "Claude 2",
-      modelType: "paid",
-      inputLimit: 90000,
-      outputLimit: 8192,
-    },
-    {
-      companyName: "Mistral",
-      modelName: "Mistral-Instruct",
-      modelType: "paid",
-      inputLimit: 32768,
-      outputLimit: 8192,
-    },
-    {
-      companyName: "Imagify",
-      modelName: "ImageMaster",
-      modelType: "paid",
-      inputLimit: 1024,
-      outputLimit: 1024,
-    },
-    {
-      companyName: "VidAI",
-      modelName: "VideoGen",
-      modelType: "paid",
-      inputLimit: 0,
-      outputLimit: 0,
-    },
-  ];
 
   useEffect(() => {
     if (!open) return;
@@ -153,26 +104,29 @@ export function ModelSelectorDialog({
             `Backend not available: ${response.status} ${response.statusText}`
           );
         } else {
-          raw = await response.json();
+          const data = await response.json();
+          raw = normalizeModels(data);
           console.log("Raw models from backend:", raw);
         }
       } catch (fetchError) {
         console.warn("Failed to fetch models from backend:", fetchError);
       }
 
-      // If backend returned no models or fetch failed, use the dummy fallback so UI stays populated
-      if (!raw || raw.length === 0) {
-        raw = DUMMY_MODELS;
-        console.log("Using dummy models fallback:", raw);
-      }
-
       setModels(raw);
-      sessionStorage.setItem("aiModels", JSON.stringify(raw));
+      if (raw.length > 0) {
+        sessionStorage.setItem("aiModels", JSON.stringify(raw));
+      }
       setIsLoading(false);
     };
 
     fetchModels();
   }, [open, models.length]);
+
+  useEffect(() => {
+    if (open) {
+      setFrameworkSelected(useFramework);
+    }
+  }, [open, useFramework]);
 
   const toggleBookmark = (modelName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -202,15 +156,13 @@ export function ModelSelectorDialog({
 
     if (!matchesSearch) return false;
 
-    // Filter by category (assuming we categorize based on model name or type)
-    // This is a placeholder - adjust based on your actual data structure
     if (category !== "all") {
-      const modelCategory = model.modelName.toLowerCase().includes("image")
-        ? "image"
-        : model.modelName.toLowerCase().includes("video")
-        ? "video"
-        : "text";
-      if (modelCategory !== category) return false;
+      const modalities = (model.inputModalities || []).map((item) =>
+        item.toLowerCase()
+      );
+      if (category === "text" && !modalities.includes("text")) return false;
+      if (category === "image" && !modalities.includes("image")) return false;
+      if (category === "video" && !modalities.includes("video")) return false;
     }
 
     return true;
@@ -225,10 +177,14 @@ export function ModelSelectorDialog({
     return 0;
   });
 
-  // Prefer sorted/filter results, but fall back to DUMMY_MODELS when no models are available
-  const modelsToDisplay = sortedModels.length > 0 ? sortedModels : DUMMY_MODELS;
+  const modelsToDisplay = sortedModels;
 
   const handleSelectModel = () => {
+    if (frameworkSelected) {
+      onFrameworkSelect();
+      onOpenChange(false);
+      return;
+    }
     if (selectedModel) {
       onModelSelect(selectedModel);
       onOpenChange(false);
@@ -466,13 +422,20 @@ export function ModelSelectorDialog({
                         borderColor: isSelected ? "#1E1E1E" : "transparent",
                         backgroundColor: isHovered ? "#F5F5F5" : "transparent",
                       }}
-                      onClick={() => setSelectedModel(model)}
+                      onClick={() => {
+                        setSelectedModel(model);
+                        setFrameworkSelected(false);
+                      }}
                       onMouseEnter={() => setHoveredModel(model.modelName)}
                       onMouseLeave={() => setHoveredModel(null)}
                     >
                       <div className="model-info">
                         <Image
-                          src={getModelIcon(model.companyName, model.modelName)}
+                          src={getModelIcon(
+                            model.companyName,
+                            model.modelName,
+                            model.sdkLibrary
+                          )}
                           alt={`${model.companyName || model.modelName} logo`}
                           className="model-logo"
                           width={20}
@@ -549,9 +512,11 @@ export function ModelSelectorDialog({
           </Button>
           <Button
             onClick={handleSelectModel}
-            disabled={!selectedModel}
+            disabled={!frameworkSelected && !selectedModel}
             className={`cursor-pointer ${
-              selectedModel ? " text-white bg-[#1E1E1E] hover:bg-black" : ""
+              frameworkSelected || selectedModel
+                ? " text-white bg-[#1E1E1E] hover:bg-black"
+                : ""
             }`}
             style={{ transition: "background-color 300ms ease" }}
           >

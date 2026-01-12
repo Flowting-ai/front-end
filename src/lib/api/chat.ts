@@ -136,7 +136,10 @@ export async function fetchChatMessages(
 export interface CreateChatPayload {
   title?: string;
   firstMessage: string;
-  model?: Pick<AIModel, "companyName" | "modelName" | "version"> | null;
+  model?:
+    | Pick<AIModel, "companyName" | "modelName" | "version" | "modelId" | "id">
+    | null;
+  useFramework?: boolean;
   user?: AuthUser | null;
   pinIds?: string[];
 }

@@ -327,7 +327,7 @@ export function LeftSidebar({
           {/* 1. Logo + ToggleIcon */}
           <div className="w-full h-[56px] px-4">
             <div className="w-full h-full border-b border-main-border flex items-center justify-between">
-              <div className="max-h-[56px] h-full flex items-center gap-2">
+              <div className="min-h-[56px] h-[56px] flex items-center gap-2">
                 <Image
                   src="/icons/logo.png"
                   width={23}

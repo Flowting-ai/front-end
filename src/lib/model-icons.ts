@@ -9,21 +9,39 @@ const ICON_BY_KEYWORD: Record<string, string> = {
   gemini: "/gemini.svg",
   mistral: "/mistral.svg",
   mixtral: "/mistral.svg",
+  meta: "/meta.svg",
+  llama: "/meta.svg",
+  moonshot: "/kimi.svg",
+  "moonshotai": "/kimi.svg",
+  kimi: "/kimi.svg",
   qwen: "/Qwen.svg",
 };
 
 export const getModelIcon = (
   companyName?: string | null,
-  modelName?: string | null
+  modelName?: string | null,
+  providerHint?: string | null
 ) => {
-  const haystack = `${companyName || ""} ${modelName || ""}`
-    .toLowerCase()
-    .trim();
-  if (!haystack) return DEFAULT_MODEL_ICON;
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const keywords = Object.keys(ICON_BY_KEYWORD);
+  const candidates = [
+    companyName || "",
+    modelName || "",
+    providerHint || "",
+    `${companyName || ""} ${modelName || ""}`.trim(),
+  ].filter(Boolean);
 
-  const match = Object.keys(ICON_BY_KEYWORD).find((key) =>
-    haystack.includes(key)
-  );
+  if (candidates.length === 0) return DEFAULT_MODEL_ICON;
+
+  const match = keywords.find((key) => {
+    const normalizedKey = normalize(key);
+    return candidates.some((candidate) => {
+      const raw = candidate.toLowerCase();
+      const normalized = normalize(candidate);
+      return raw.includes(key) || normalized.includes(normalizedKey);
+    });
+  });
 
   if (match) {
     return ICON_BY_KEYWORD[match];

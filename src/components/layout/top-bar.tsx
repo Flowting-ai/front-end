@@ -13,13 +13,17 @@ import Link from "next/link";
 interface TopbarProps {
   children?: ReactNode;
   selectedModel: AIModel | null;
-  onModelSelect: (model: AIModel) => void;
+  useFramework: boolean;
+  onModelSelect: (model: AIModel | null) => void;
+  onFrameworkChange: (useFramework: boolean) => void;
 }
 
 export function Topbar({
   children,
   selectedModel,
   onModelSelect,
+  useFramework,
+  onFrameworkChange,
 }: TopbarProps) {
   const { usagePercent, isLoading } = useTokenUsage();
   const { user } = useAuth();
@@ -41,6 +45,8 @@ export function Topbar({
           <ModelSelector
             selectedModel={selectedModel}
             onModelSelect={onModelSelect}
+            useFramework={useFramework}
+            onFrameworkChange={onFrameworkChange}
           />
           <div className="flex items-center gap-3">
             {/* Token count visual (progress bar + percentage) */}

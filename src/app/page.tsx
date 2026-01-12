@@ -20,6 +20,7 @@ interface ChatPageProps {
       chatIdOverride?: string
     ) => void;
     selectedModel?: AIModel | null;
+    useFramework?: boolean;
 }
 
 function ChatPageContent({
@@ -30,6 +31,7 @@ function ChatPageContent({
   messages,
   setMessages,
   selectedModel,
+  useFramework,
 }: ChatPageProps) {
 
   return (
@@ -40,6 +42,7 @@ function ChatPageContent({
           messages={messages}
           setMessages={setMessages}
           selectedModel={selectedModel}
+          useFramework={useFramework}
         />
       </div>
   );
