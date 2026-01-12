@@ -583,7 +583,9 @@ export function ChatInterface({
     let initialAiResponse: string | null = null;
     let initialAiMessageId: string | null = null;
 
-    if (!chatId && layoutContext?.ensureChatOnServer) {
+    const isTempChatId = chatId?.startsWith("temp-") ?? false;
+
+    if ((!chatId || isTempChatId) && layoutContext?.ensureChatOnServer) {
       try {
         const ensured = await layoutContext.ensureChatOnServer({
           firstMessage: trimmedContent,
@@ -606,7 +608,7 @@ export function ChatInterface({
       }
     }
 
-    if (!chatId) {
+    if (!chatId || chatId.startsWith("temp-")) {
       toast({
         title: "Chat unavailable",
         description: "We couldn't determine which chat to use.",
