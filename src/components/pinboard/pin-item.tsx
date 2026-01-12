@@ -348,7 +348,7 @@ export const PinItem = ({
     return content.replace(/\s+/g, " ").trim();
   };
 
-  const bodyContent = cleanContent(pin.formattedContent ?? pin.text);
+  const bodyContent = pin.formattedContent ?? pin.text;
   // If the pin has a title that repeats at the start of the content, strip it for previews
 
   const handleInsertToChat = () => {
