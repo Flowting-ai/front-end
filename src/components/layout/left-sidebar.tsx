@@ -80,7 +80,7 @@ export function LeftSidebar({
   const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, clearAuth } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
 
   const userFirstName = (() => {
@@ -134,7 +134,7 @@ export function LeftSidebar({
   }, [boardsToDisplay, normalizedSearch]);
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+    clearAuth();
     router.push("/auth/login");
   };
 
@@ -317,7 +317,7 @@ export function LeftSidebar({
                     <HelpCircle className="h-4 w-4 text-lsb-text" />
                     Help
                   </DropdownMenuItem>
-                  {!user ? (
+                  {user ? (
                     <DropdownMenuItem
                       onClick={handleLogout}
                       className="flex items-center gap-2 rounded-md text-lsb-text"
