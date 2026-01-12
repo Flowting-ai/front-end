@@ -241,7 +241,10 @@ export function ChatInterface({
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
   const qwenAvatarUrl = "/Qwen.svg";
-  const resolveModelAvatar = (modelOverride?: AIModel | null): MessageAvatar => {
+  const resolveModelAvatar = (
+    modelOverride?: AIModel | null,
+    useFramework?: boolean
+  ): MessageAvatar => {
     if (modelOverride) {
       const hintParts = [modelOverride.modelName, modelOverride.companyName].filter(Boolean);
       return {
@@ -251,6 +254,12 @@ export function ChatInterface({
           modelOverride.sdkLibrary
         ),
         avatarHint: hintParts.join(" ").trim(),
+      };
+    }
+    if (useFramework) {
+      return {
+        avatarUrl: "/icons/logo.png",
+        avatarHint: "Flowting AI Framework",
       };
     }
     return {
@@ -573,7 +582,7 @@ export function ChatInterface({
     setIsResponding(true);
 
     const activeModel = selectedModel;
-    const requestAvatar = resolveModelAvatar(activeModel);
+    const requestAvatar = resolveModelAvatar(activeModel, resolvedUseFramework);
 
     // Capture the referenced message ID and mentioned pin IDs before clearing
     const refMessageId = referencedMessage?.chatMessageId || referencedMessage?.id || null;
@@ -868,7 +877,7 @@ export function ChatInterface({
     }
 
     setIsGeneratingImage(true);
-    const requestAvatar = resolveModelAvatar(selectedModel);
+    const requestAvatar = resolveModelAvatar(selectedModel, resolvedUseFramework);
     const imageMessageId = `img-${Date.now()}`;
 
     // Optimistic placeholder while the image is generating
@@ -1107,7 +1116,7 @@ export function ChatInterface({
     setIsResponding(true);
     setIsRegeneratingResponse(true);
 
-    const avatar = resolveModelAvatar(selectedModel);
+    const avatar = resolveModelAvatar(selectedModel, resolvedUseFramework);
 
     setMessages(
       (prev = []) =>

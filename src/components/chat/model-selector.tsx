@@ -65,7 +65,11 @@ export function ModelSelector({
         aria-haspopup="dialog"
         aria-expanded={isDialogOpen}
       >
-        {selectedModel && !useFramework && (
+        {useFramework ? (
+          <span className="w-5 h-5 bg-[rgba(255, 255, 255, 0.95)] rounded-[50%] shrink-0 inline-flex items-center justify-center p-0.5">
+            <Image src="/icons/logo.png" alt="Flowting AI" width={16} height={16} />
+          </span>
+        ) : selectedModel ? (
           <span className="w-5 h-5 bg-[rgba(255, 255, 255, 0.95)] rounded-[50%] shrink-0 inline-flex items-center justify-center p-0.5">
             <Image
               src={getModelIcon(
@@ -78,7 +82,7 @@ export function ModelSelector({
               height={16}
             />
           </span>
-        )}
+        ) : null}
         <span className="model-selector-label font-inter font-[400] text-[14px] whitespace-nowrap">
           {useFramework
             ? "Flowting AI Framework"
