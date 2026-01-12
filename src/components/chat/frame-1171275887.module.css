@@ -25,6 +25,8 @@
   width: 100%;
   height: auto;
   object-fit: contain;
+  width: 82px;
+  height: 82px;
 }
 
 .frameItem {

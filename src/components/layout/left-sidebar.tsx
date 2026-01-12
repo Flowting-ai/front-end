@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ChevronsLeft,
   Settings,
@@ -114,6 +114,24 @@ export function LeftSidebar({
     const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
     return haystack.includes(normalizedSearch);
   });
+
+  // Development-only: ensure at least 20 items so overflow-y-auto can be tested locally.
+  const boardsToDisplayAugmented = useMemo(() => {
+    const target = 20;
+    if (process.env.NODE_ENV !== "development") return boardsToDisplay;
+    if (normalizedSearch) return boardsToDisplay;
+    const out = boardsToDisplay.slice();
+    for (let i = out.length; i < target; i++) {
+      out.push({
+        id: `dev-${i}`,
+        name: `Test Chat ${i + 1}`,
+        time: `${i + 1}m`,
+        isStarred: false,
+        pinCount: Math.floor(Math.random() * 5),
+      });
+    }
+    return out;
+  }, [boardsToDisplay, normalizedSearch]);
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
@@ -427,10 +445,10 @@ export function LeftSidebar({
           </div>
 
           {/* 3. Chat */}
-          <div className="flex-1 w-full flex flex-col">
-            <div className="px-4 pt-2.5 pb-3 flex-1 flex flex-col overflow-y-auto">
+          <div className="flex-1 w-full flex flex-col min-h-0">
+            <div className="px-4 pt-2.5 pb-3 flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Section header - accordion trigger style */}
-              <div className="flex h-[31px] w-full items-center gap-2 rounded-[8px] flex-shrink-0">
+              <div className="flex h-[31px] w-full items-center gap-2 rounded-[8px] shrink-0">
                 <span className="flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
                   Recent Chat boards
                 </span>
@@ -461,9 +479,9 @@ export function LeftSidebar({
                 </div>
               </div>
 
-              {boardsToDisplay.length > 0 ? (
-                <div className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-hidden">
-                  {boardsToDisplay.map((board) => {
+              {boardsToDisplayAugmented.length > 0 ? (
+                <div className="mt-4 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-hidden">
+                  {boardsToDisplayAugmented.map((board) => {
                     const isActive = activeChatId === board.id;
                     const pinTotal =
                       board.metadata?.pinCount ?? board.pinCount ?? 0;
@@ -546,7 +564,7 @@ export function LeftSidebar({
           </div>
 
           {/* 4. User Footer */}
-          <div className="w-full h-[59px] border-t border-main-border px-4 py-2">
+          <div className="w-full min-h-[59px] h-[59px] border-t border-main-border px-4 py-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
