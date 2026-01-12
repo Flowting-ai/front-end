@@ -1,14 +1,32 @@
-
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { Pin, Copy, Pencil, Trash2, Check, X, CornerDownRight, RefreshCw, Eye, EyeOff, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  Pin,
+  Copy,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  CornerDownRight,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  ThumbsUp,
+  ThumbsDown,
+} from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import Image from "next/image";
 
 type ContentSegment =
   | { type: "text"; value: string }
@@ -128,7 +146,11 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     if (!trimmed) {
       flushList();
       nodes.push(
-        <span key={`${keyPrefix}-gap-${index}`} className="block h-2" aria-hidden="true" />
+        <span
+          key={`${keyPrefix}-gap-${index}`}
+          className="block h-2"
+          aria-hidden="true"
+        />
       );
       continue;
     }
@@ -166,7 +188,10 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
 
       const tableKey = `${keyPrefix}-table-${nodes.length}`;
       nodes.push(
-        <div key={tableKey} className="overflow-x-auto rounded-2xl border border-slate-200">
+        <div
+          key={tableKey}
+          className="overflow-x-auto rounded-2xl border border-slate-200"
+        >
           <table className="w-full border-collapse text-sm">
             <thead className="bg-slate-50/70 text-slate-700">
               <tr>
@@ -175,14 +200,20 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
                     key={`${tableKey}-header-${cellIndex}`}
                     className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
                   >
-                    {renderInlineContent(cell, `${tableKey}-header-${cellIndex}`)}
+                    {renderInlineContent(
+                      cell,
+                      `${tableKey}-header-${cellIndex}`
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {bodyRows.map((row, rowIndex) => (
-                <tr key={`${tableKey}-row-${rowIndex}`} className="odd:bg-white even:bg-slate-50/50">
+                <tr
+                  key={`${tableKey}-row-${rowIndex}`}
+                  className="odd:bg-white even:bg-slate-50/50"
+                >
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
@@ -227,32 +258,35 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
 };
 
 // Custom hook for typewriter effect
-const useTypewriter = (text: string, speed: number = 50, enabled: boolean = true) => {
-    const [displayText, setDisplayText] = useState('');
-  
-    useEffect(() => {
-      if (!enabled || !text) {
-        setDisplayText(text || '');
-        return;
-      }
-  
-      let i = 0;
-      setDisplayText(''); // Reset on new text
-      const intervalId = setInterval(() => {
-        if (i < text.length) {
-          setDisplayText(prev => prev + text.charAt(i));
-          i++;
-        } else {
-          clearInterval(intervalId);
-        }
-      }, speed);
-  
-      return () => clearInterval(intervalId);
-    }, [text, speed, enabled]);
-  
-    return displayText;
-  };
+const useTypewriter = (
+  text: string,
+  speed: number = 50,
+  enabled: boolean = true
+) => {
+  const [displayText, setDisplayText] = useState("");
 
+  useEffect(() => {
+    if (!enabled || !text) {
+      setDisplayText(text || "");
+      return;
+    }
+
+    let i = 0;
+    setDisplayText(""); // Reset on new text
+    const intervalId = setInterval(() => {
+      if (i < text.length) {
+        setDisplayText((prev) => prev + text.charAt(i));
+        i++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, speed);
+
+    return () => clearInterval(intervalId);
+  }, [text, speed, enabled]);
+
+  return displayText;
+};
 
 export interface Message {
   id: string;
@@ -296,13 +330,26 @@ interface ChatMessageProps {
   isNewMessage: boolean;
 }
 
-export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy, onDelete, onResubmit, onReference, onRegenerate, onReact, referencedMessage, isNewMessage }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  isPinned,
+  taggedPins = [],
+  onPin,
+  onCopy,
+  onDelete,
+  onResubmit,
+  onReference,
+  onRegenerate,
+  onReact,
+  referencedMessage,
+  isNewMessage,
+}: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showThinking, setShowThinking] = useState(false);
-  
+
   // Faster typewriter effect (~1500 WPM) to keep bot replies snappy.
   const typewriterSpeed = 7;
   const displayedContent = useTypewriter(
@@ -315,37 +362,38 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     if (isEditing && textareaRef.current) {
       const textarea = textareaRef.current;
       textarea.focus();
-      
+
       // Auto-resize logic for height and width
       const adjustSize = () => {
         // Calculate width based on content first
-        const span = document.createElement('span');
-        span.style.cssText = 'position: absolute; visibility: hidden; white-space: pre; font-size: 14px; font-family: inherit; line-height: 1.5;';
+        const span = document.createElement("span");
+        span.style.cssText =
+          "position: absolute; visibility: hidden; white-space: pre; font-size: 14px; font-family: inherit; line-height: 1.5;";
         span.textContent = textarea.value || textarea.placeholder;
         document.body.appendChild(span);
         const textWidth = span.offsetWidth;
         document.body.removeChild(span);
-        
+
         // If text is less than one line (less than 550px), shrink width
         // Otherwise, keep at 550px max width
         if (textWidth < 550) {
           textarea.style.width = `${Math.max(textWidth + 40, 100)}px`;
         } else {
-          textarea.style.width = '550px';
+          textarea.style.width = "550px";
         }
-        
+
         // Then reset height to get accurate scrollHeight
-        textarea.style.height = '0px';
+        textarea.style.height = "0px";
         const newHeight = textarea.scrollHeight;
         textarea.style.height = `${newHeight}px`;
       };
-      
+
       adjustSize();
-      textarea.addEventListener('input', adjustSize);
+      textarea.addEventListener("input", adjustSize);
 
       return () => {
         if (textarea) {
-            textarea.removeEventListener('input', adjustSize);
+          textarea.removeEventListener("input", adjustSize);
         }
       };
     }
@@ -353,17 +401,17 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
   useEffect(() => {
     setShowThinking(false);
   }, [message.id, message.thinkingContent]);
-  
+
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
     setIsEditing(false);
-  }
+  };
 
   const handleCancelEdit = () => {
     setEditedContent(message.content);
     setIsEditing(false);
   };
-  
+
   const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -380,87 +428,155 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
     [contentToDisplay]
   );
 
-  const actionButtonClasses = "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
+  const actionButtonClasses =
+    "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
 
   const UserActions = ({ className }: { className?: string } = {}) => (
     <TooltipProvider>
-      <div className={cn("inline-flex items-center gap-1", className)}>
+      <div className={cn("bg-transparent inline-flex items-center gap-1"
+        // , className
+        )}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}><Copy className="h-4 w-4" /></Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={actionButtonClasses}
+              onClick={() => onCopy(message.content)}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
           </TooltipTrigger>
-          <TooltipContent><p>Copy</p></TooltipContent>
+          <TooltipContent>
+            <p>Copy</p>
+          </TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => setIsEditing(true)}><Pencil className="h-4 w-4" /></Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={actionButtonClasses}
+              onClick={() => setIsEditing(true)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
           </TooltipTrigger>
-          <TooltipContent><p>Edit</p></TooltipContent>
+          <TooltipContent>
+            <p>Edit</p>
+          </TooltipContent>
         </Tooltip>
-        
+
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}><Trash2 className="h-4 w-4" /></Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={actionButtonClasses}
+              onClick={() => onDelete(message)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </TooltipTrigger>
-          <TooltipContent><p>Delete</p></TooltipContent>
+          <TooltipContent>
+            <p>Delete</p>
+          </TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>
-  )
+  );
 
   const AiActions = ({ className }: { className?: string } = {}) => (
     <TooltipProvider>
-      <div className={cn("inline-flex items-center gap-1 w-full justify-between", className)}>
+      <div
+        className={cn(
+          "bg-transparent inline-flex items-center gap-1 w-full justify-between"
+          // ,className
+        )}
+      >
         <div className="inline-flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className={actionButtonClasses}
+                className={cn(
+                  actionButtonClasses,
+                  isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]"
+                )}
                 onClick={() => onPin(message)}
                 aria-pressed={isPinned}
               >
-                <Pin className={cn("h-4 w-4 stroke-2", isPinned ? "fill-black text-black" : "fill-none text-[#4A4A4A]")} />
+                <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>{isPinned ? "Unpin" : "Pin"} message</p></TooltipContent>
+            <TooltipContent>
+              <p>{isPinned ? "Unpin" : "Pin"} message</p>
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onCopy(message.content)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={actionButtonClasses}
+                onClick={() => onCopy(message.content)}
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>Copy</p></TooltipContent>
+            <TooltipContent>
+              <p>Copy</p>
+            </TooltipContent>
           </Tooltip>
           {onRegenerate && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onRegenerate(message)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={actionButtonClasses}
+                  onClick={() => onRegenerate(message)}
+                >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent><p>Regenerate</p></TooltipContent>
+              <TooltipContent>
+                <p>Regenerate</p>
+              </TooltipContent>
             </Tooltip>
           )}
           {onReference && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onReference(message)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={actionButtonClasses}
+                  onClick={() => onReference(message)}
+                >
                   <CornerDownRight className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent><p>Reply to this message</p></TooltipContent>
+              <TooltipContent>
+                <p>Reply to this message</p>
+              </TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={actionButtonClasses} onClick={() => onDelete(message)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={actionButtonClasses}
+                onClick={() => onDelete(message)}
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>Delete</p></TooltipContent>
+            <TooltipContent>
+              <p>Delete</p>
+            </TooltipContent>
           </Tooltip>
           {onReact && (
             <Tooltip>
@@ -468,7 +584,11 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={actionButtonClasses}
+                  className={cn(
+                    actionButtonClasses,
+                    message.metadata?.userReaction === "like" &&
+                      "bg-[#E4E4E7] text-[#111827]"
+                  )}
                   onClick={() =>
                     onReact(
                       message,
@@ -477,10 +597,12 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                   }
                   aria-pressed={message.metadata?.userReaction === "like"}
                 >
-                  <ThumbsUp className={cn("h-4 w-4 stroke-2", message.metadata?.userReaction === "like" ? "fill-black text-black" : "fill-none text-[#111827]")} />
+                  <ThumbsUp className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent><p>Good response</p></TooltipContent>
+              <TooltipContent>
+                <p>Good response</p>
+              </TooltipContent>
             </Tooltip>
           )}
           {onReact && (
@@ -489,36 +611,32 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={actionButtonClasses}
+                  className={cn(
+                    actionButtonClasses,
+                    message.metadata?.userReaction === "dislike" &&
+                      "bg-[#E4E4E7] text-[#111827]"
+                  )}
                   onClick={() =>
                     onReact(
                       message,
-                      message.metadata?.userReaction === "dislike" ? null : "dislike"
+                      message.metadata?.userReaction === "dislike"
+                        ? null
+                        : "dislike"
                     )
                   }
                   aria-pressed={message.metadata?.userReaction === "dislike"}
                 >
-                  <ThumbsDown className={cn("h-4 w-4 stroke-2", message.metadata?.userReaction === "dislike" ? "fill-black text-black" : "fill-none text-[#111827]")} />
+                  <ThumbsDown className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent><p>Needs improvement</p></TooltipContent>
+              <TooltipContent>
+                <p>Needs improvement</p>
+              </TooltipContent>
             </Tooltip>
           )}
         </div>
         {message.metadata?.modelName && (
-          <span
-            className="text-xs font-medium pr-[5px]"
-            style={{
-              background: '#F5F5F5',
-              border: '1px solid #E5E5E5',
-              borderRadius: '8px',
-              padding: '2px 8px',
-              color: '#222',
-              display: 'inline-block',
-              marginLeft: '4px',
-              marginTop: '2px',
-            }}
-          >
+          <span className="text-xs text-[#8a8a8a] font-medium pr-[5px]">
             {message.metadata.modelName}
           </span>
         )}
@@ -537,7 +655,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
       ))}
       <span>Thinking…</span>
     </div>
-  )
+  );
 
   const extractInitials = (value: string, fallback: string) => {
     const cleaned = value.replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -551,12 +669,15 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
       const hint = message.avatarHint || "User";
       return extractInitials(hint, "US");
     }
-    const hint = message.avatarHint || message.metadata?.modelName || message.metadata?.providerName || "AI";
+    const hint =
+      message.avatarHint ||
+      message.metadata?.modelName ||
+      message.metadata?.providerName ||
+      "AI";
     return extractInitials(hint, "AI");
   })();
 
-  // Remove user avatar/logo from chat interface
-  const AvatarComponent = !isUser ? (
+  const AvatarComponent = !isUser && (
     <Avatar
       className={cn(
         "h-9 w-9 text-xs font-semibold",
@@ -566,7 +687,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
       {message.avatarUrl && (
         <AvatarImage
           src={message.avatarUrl}
-          alt="AI"
+          alt={"AI"}
           data-ai-hint={message.avatarHint}
         />
       )}
@@ -574,11 +695,14 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
         {fallbackText}
       </AvatarFallback>
     </Avatar>
-  ) : null;
-
-  const renderActions = (className?: string) => (
-    isUser ? <UserActions className={className} /> : <AiActions className={className} />
   );
+
+  const renderActions = (className?: string) =>
+    isUser ? (
+      <UserActions className={className} />
+    ) : (
+      <AiActions className={className} />
+    );
 
   return (
     <div className="group/message w-full">
@@ -588,8 +712,8 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
           isUser ? "flex-row-reverse" : "flex-row"
         )}
       >
-        {/* Only show avatar for AI, not for user */}
-        {AvatarComponent && <div className="mt-1 shrink-0">{AvatarComponent}</div>}
+        {/* Only show avatar for AI, not user */}
+        {!isUser && <div className="mt-1 shrink-0">{AvatarComponent}</div>}
         <div
           className={cn(
             "flex flex-1 flex-col gap-2",
@@ -603,20 +727,35 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
             )}
           >
             <div
-              className={cn( //user chat input area input field box
-                "group/bubble chat-message-bubble relative px-4 py-2 leading-relaxed overflow-wrap break-words overflow-hidden rounded-2xl",
+              className={cn(
+                "group/bubble chat-message-bubble relative",
                 isUser
-                  ? "chat-message-bubble--user bg-[#F7F7F8] text-[#111827] border border-[#E4E4E7]"
-                  : "chat-message-bubble--ai bg-[#F7F7F8] text-[#111827]"
+                  ? "chat-message-bubble--user bg-white text-[#111827] border border-[#E4E4E7] px-4 py-2"
+                  : "chat-message-bubble--ai bg-white text-[#111827] px-6 py-5"
               )}
-              style={{ borderRadius: '1rem' }}
+              style={
+                isUser
+                  ? {
+                      borderTopLeftRadius: "25px", // Radius/400
+                      borderTopRightRadius: "12px", // Radius/200
+                      borderBottomRightRadius: "25px", // Radius/400
+                      borderBottomLeftRadius: "25px", // Radius/400
+                      paddingTop: "8px",
+                      paddingBottom: "8px",
+                      paddingLeft: "16px",
+                      paddingRight: "16px",
+                    }
+                  : {}
+              }
             >
               {message.referencedMessageId && referencedMessage && (
                 <div className="mb-3 border-b border-slate-200 pb-3">
                   <div className="flex items-start gap-2 text-xs">
                     <CornerDownRight className="mt-0.5 h-3 w-3 flex-shrink-0 text-slate-400" />
                     <div className="min-w-0 flex-1">
-                      <p className="mb-0.5 font-semibold text-slate-500">Replying to:</p>
+                      <p className="mb-0.5 font-semibold text-slate-500">
+                        Replying to:
+                      </p>
                       <p className="text-slate-600 line-clamp-2 italic">
                         {referencedMessage.content}
                       </p>
@@ -624,14 +763,16 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                   </div>
                 </div>
               )}
-              {message.thinkingContent && ( //show reasoning toggle for AI messages
-                <div className="mb-3 rounded-2xl border border border-[#D4D4D8] bg-[#F2F2F2F2] px-3 py-2 text-xs text-[#44404D]">
+              {message.thinkingContent && (
+                <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   <button
                     type="button"
                     className="flex w-full items-center justify-between text-left font-semibold"
                     onClick={() => setShowThinking((prev) => !prev)}
                   >
-                    <span>{showThinking ? "Hide reasoning" : "Show reasoning"}</span>
+                    <span>
+                      {showThinking ? "Hide reasoning" : "Show reasoning"}
+                    </span>
                     {showThinking ? (
                       <EyeOff className="h-3.5 w-3.5" />
                     ) : (
@@ -639,7 +780,7 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                     )}
                   </button>
                   {showThinking && (
-                    <pre className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-[#000000]">
+                    <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
                       {message.thinkingContent}
                     </pre>
                   )}
@@ -647,19 +788,33 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
               )}
 
               {isEditing && isUser ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Textarea
                     ref={textareaRef}
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
                     onKeyDown={handleEditKeyDown}
-                    className="min-h-[1.5em] resize-none overflow-hidden border-0 bg-transparent text-sm text-[#171717] ring-0 shadow-none focus-visible:ring-0 mb-1"
-                    style={{ width: 'auto', maxWidth: '100%' }}
+                    className="min-h-[1.5em] resize-none overflow-hidden border-0 bg-transparent text-sm text-[#171717] ring-0 shadow-none focus-visible:ring-0"
+                    style={{ width: "auto", maxWidth: "100%" }}
                     rows={1}
                   />
-                  <div className="flex justify-end gap-1 mt-0">
-                    <Button size="icon" variant="ghost" onClick={handleSaveAndResubmit} className="h-7 w-7"><Check className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" onClick={handleCancelEdit} className="h-7 w-7"><X className="h-4 w-4" /></Button>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleSaveAndResubmit}
+                      className="h-7 w-7"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleCancelEdit}
+                      className="h-7 w-7"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ) : message.isLoading ? (
@@ -667,54 +822,68 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
               ) : (
                 <div className="flex flex-col gap-4 text-sm">
                   {contentSegments.length === 0 && (
-                    <p className="whitespace-pre-wrap leading-relaxed">{contentToDisplay}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {contentToDisplay}
+                    </p>
                   )}
                   {contentSegments.map((segment, index) => {
-                if (segment.type === "code") {
-                  return (
-                    // Changed code block styles for better readability - code block
-                    <div key={`code-${message.id}-${index}`} className="relative rounded-2xl bg-gray-100 text-black">
-                      <div className="absolute right-3 top-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-black/70">
-                        {segment.language && (
-                          <span>{segment.language}</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onCopy(segment.value)} // copy button in code block
-                          className="inline-flex items-center gap-1 rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-medium text-black transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                    if (segment.type === "code") {
+                      return (
+                        <div
+                          key={`code-${message.id}-${index}`}
+                          className="relative rounded-2xl bg-[#f9f9f9] text-[#222]"
                         >
-                          <Copy className="h-3 w-3" />
-                          Copy
-                        </button>
+                          <div className="absolute right-3 top-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">
+                            {segment.language && (
+                              <span>{segment.language}</span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => onCopy(segment.value)}
+                              className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                            >
+                              <Copy className="h-3 w-3" />
+                              Copy
+                            </button>
+                          </div>
+                          <pre className="overflow-x-auto rounded-2xl bg-transparent p-4 text-xs leading-relaxed">
+                            <code>{segment.value.trimEnd()}</code>
+                          </pre>
+                        </div>
+                      );
+                    }
+
+                    if (!segment.value) {
+                      return <br key={`text-${message.id}-${index}`} />;
+                    }
+
+                    return (
+                      <div
+                        key={`text-${message.id}-${index}`}
+                        className="space-y-2"
+                      >
+                        {renderTextContent(
+                          segment.value,
+                          `text-${message.id}-${index}`
+                        )}
                       </div>
-                      <pre className="overflow-x-auto rounded-2xl bg-transparent p-4 text-xs leading-relaxed">
-                        <code>{segment.value.trimEnd()}</code>
-                      </pre>
+                    );
+                  })}
+                  {message.imageUrl && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      <Image
+                        src={message.imageUrl}
+                        alt={
+                          message.imageAlt ||
+                          message.content ||
+                          "Generated image"
+                        }
+                        className="w-full h-auto object-contain bg-white"
+                      />
                     </div>
-                  );
-                }
-
-                if (!segment.value) {
-                  return <br key={`text-${message.id}-${index}`} />;
-                }
-
-                return (
-                  <div key={`text-${message.id}-${index}`} className="space-y-2">
-                    {renderTextContent(segment.value, `text-${message.id}-${index}`)}
-                  </div>
-                );
-              })}
-              {message.imageUrl && (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <img
-                    src={message.imageUrl}
-                    alt={message.imageAlt || message.content || "Generated image"}
-                    className="w-full h-auto object-contain bg-white"
-                  />
+                  )}
                 </div>
               )}
-            </div>
-          )}
             </div>
             <div
               className={cn(
@@ -722,13 +891,16 @@ export function ChatMessage({ message, isPinned, taggedPins = [], onPin, onCopy,
                 isUser ? "justify-end" : "justify-start"
               )}
             >
-              {renderActions("flex items-center gap-1 rounded-full bg-[#F5F5F5]/80 px-1.5 py-1 text-xs backdrop-blur-sm")}
+              {renderActions(
+                "flex items-center gap-1 rounded-full bg-[#F5F5F5]/80 px-1.5 py-1 text-xs backdrop-blur-sm"
+              )}
             </div>
           </div>
-          {taggedPins.length > 0 && (
+          {/* Show tagged pins above user chat bubble only */}
+          {isUser && taggedPins.length > 0 && (
             <div
               className={cn(
-                "flex flex-wrap gap-2",
+                "mb-1 flex flex-wrap gap-2",
                 isUser ? "justify-end" : "justify-start"
               )}
             >
