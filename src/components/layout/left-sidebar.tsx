@@ -49,7 +49,7 @@ interface LeftSidebarProps {
   setRenamingChatId: (id: string | null) => void;
   renamingText: string;
   setRenamingText: (text: string) => void;
-  renameInputRef: React.RefObject<HTMLInputElement>;
+  renameInputRef: React.RefObject<HTMLInputElement | null>;
   handleDeleteClick: (board: ChatBoard) => void;
   onRenameConfirm: () => void;
   onRenameCancel: () => void;
