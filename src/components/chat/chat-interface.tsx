@@ -1,11 +1,7 @@
 "use client";
 
-import { toast } from "sonner"
 import { useState, useRef, useEffect, useContext, useMemo } from "react";
-import chatStyles from "./chat-interface.module.css";
 import { Button } from "@/components/ui/button";
-
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -21,6 +17,7 @@ import {
   ChevronLeft,
   ChevronDown,
   FileText,
+  Image as ImageIcon,
   UserPlus,
   Paperclip,
   ScanText,
@@ -70,7 +67,71 @@ import {
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
 import { uploadDocument } from "@/lib/api/documents";
+import { generateImage } from "@/lib/api/images";
 import { addReaction, removeReaction } from "@/lib/api/messages";
+
+const FALLBACK_MESSAGES: Message[] = [
+  {
+    id: "layout-demo-user-1",
+    sender: "user",
+    content:
+      "Morning! I need you to synthesize the last sprint's experimentation metrics into something story-driven for the exec readout. Call out the lifts we saw on the onboarding flows and highlight anything that might spook finance about burn. Give me specific numbers so I can copy them straight into the deck.",
+    metadata: {
+      createdAt: "2024-06-10T14:18:00Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-1",
+    sender: "ai",
+    content:
+      "Absolutely. Over the last seven days, blended win rate rose 6.2% while latency decreased 14.3%, so we are finally under the two-second mark across the board. The onboarding control lost to the variation on activation, but only by 0.7%, so I would call that statistically neutral. I can group the highlights into a narrative around faster answers, cleaner guardrails, and a clear finance-friendly cost reduction if that helps with your slides.",
+    metadata: {
+      modelName: "Qwen 2.5 72B",
+      providerName: "Alibaba Cloud",
+      createdAt: "2024-06-10T14:18:12Z",
+    },
+  },
+  {
+    id: "layout-demo-user-2",
+    sender: "user",
+    content:
+      "Perfect. While you are at it, audit the finance summarizer persona because the PMs keep pinging me about volatility in the valuation scenarios. I want at least two concrete transcripts we can use as pull quotes, plus a short list of gaps that need follow-up work this sprint. Prioritize anything that would land poorly in front of the CFO.",
+    metadata: {
+      createdAt: "2024-06-10T14:19:05Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-2",
+    sender: "ai",
+    content:
+      "On it. Finance summarizer accuracy dipped 3.5%, almost entirely on long-horizon equity dilution cases where the prompt failed to pin the vesting schedule. I pulled two transcripts showing the issue and added inline annotations so you can drop screenshots into the deck. To stabilize it, we either expand the conditioning window by 15% or ship the pending retrieval rules; I penciled both options into the action plan.",
+    metadata: {
+      modelName: "Claude 3 Opus",
+      providerName: "Anthropic",
+      createdAt: "2024-06-10T14:19:34Z",
+    },
+  },
+  {
+    id: "layout-demo-user-3",
+    sender: "user",
+    content:
+      "Great, thanks. Last piece: draft a forward-looking blurb that sets expectations for the multi-model routing pilot kicking off next week. I need language that balances optimism with a clear ask for headcount so we can actually run the vendor comparison. Think of it like the closer slide before the appendix.",
+    metadata: {
+      createdAt: "2024-06-10T14:20:11Z",
+    },
+  },
+  {
+    id: "layout-demo-ai-3",
+    sender: "ai",
+    content:
+      "Done. The closer slide now tees up the routing pilot as the fastest path to lower response times without sacrificing domain accuracy, ending with a specific ask for one additional applied scientist and a shared infra block. I also left a note suggesting an appendix table that compares vendor SLAs and token pricing so you can defend the investment if procurement raises eyebrows. Ready for any final polish whenever you are.",
+    metadata: {
+      modelName: "Gemini 1.5 Pro",
+      providerName: "Google",
+      createdAt: "2024-06-10T14:20:38Z",
+    },
+  },
+];
 
 interface ChatInterfaceProps {
   onPinMessage?: (pin: PinType) => Promise<void> | void;
@@ -80,11 +141,15 @@ interface ChatInterfaceProps {
     messages: Message[] | ((prev: Message[]) => Message[]),
     chatIdOverride?: string
   ) => void;
+<<<<<<< HEAD
   selectedModel?: AIModel | null;
   hidePersonaButton?: boolean;
   customEmptyState?: React.ReactNode;
   disableInput?: boolean;
   hideAttachButton?: boolean;
+=======
+  selectedModel?: AIModel | null; // Currently selected AI model
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
 }
 
 type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
@@ -101,14 +166,15 @@ export function ChatInterface({
   messages = [],
   setMessages = () => {},
   selectedModel = null,
+<<<<<<< HEAD
   hidePersonaButton = false,
   customEmptyState,
   disableInput = false,
   hideAttachButton = false,
+=======
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  // For pin mention dropdown keyboard navigation
-  const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [referencedMessage, setReferencedMessage] = useState<Message | null>(null);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
@@ -118,7 +184,49 @@ export function ChatInterface({
   const [showLeftScrollButton, setShowLeftScrollButton] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
-  const PIN_INSERT_EVENT = "pin-insert-to-chat";
+  
+  // Temporary test attachments - remove later
+  // useEffect(() => {
+  //   // Add initial attachments with uploading state
+  //   setAttachments([
+  //     {id: '1', type: 'pdf', name: 'Project_Requirements_Document.pdf', url: '/test.pdf', isUploading: true, uploadProgress: 0},
+  //     {id: '2', type: 'pdf', name: 'Technical_Specifications.pdf', url: '/test2.pdf'},
+  //     {id: '3', type: 'image', name: 'Screenshot.png', url: 'https://picsum.photos/200/200?random=1', isUploading: true, uploadProgress: 0},
+  //     {id: '4', type: 'image', name: 'Chart.jpg', url: 'https://picsum.photos/200/200?random=2'},
+  //     {id: '5', type: 'pdf', name: 'Meeting_Notes.pdf', url: '/test3.pdf'},
+  //     {id: '6', type: 'image', name: 'Diagram.png', url: 'https://picsum.photos/200/200?random=3'},
+  //     {id: '7', type: 'pdf', name: 'API_Documentation.pdf', url: '/test4.pdf'},
+  //     {id: '8', type: 'image', name: 'Mockup.jpg', url: 'https://picsum.photos/200/200?random=4'},
+  //     {id: '9', type: 'pdf', name: 'User_Research_Report.pdf', url: '/test5.pdf'},
+  //     {id: '10', type: 'image', name: 'Wireframe.png', url: 'https://picsum.photos/200/200?random=5'},
+  //     {id: '11', type: 'pdf', name: 'Sprint_Planning.pdf', url: '/test6.pdf'},
+  //     {id: '12', type: 'image', name: 'Analytics.jpg', url: 'https://picsum.photos/200/200?random=6'},
+  //     {id: '13', type: 'pdf', name: 'Architecture_Design.pdf', url: '/test7.pdf'},
+  //     {id: '14', type: 'image', name: 'Prototype.png', url: 'https://picsum.photos/200/200?random=7'},
+  //   ]);
+    
+  //   // Simulate upload progress for first PDF and first image
+  //   const interval = setInterval(() => {
+  //     setAttachments(prev => prev.map(att => {
+  //       if ((att.id === '1' || att.id === '3') && att.isUploading) {
+  //         const newProgress = (att.uploadProgress || 0) + 10;
+  //         if (newProgress >= 100) {
+  //           return { ...att, isUploading: false, uploadProgress: 100 };
+  //         }
+  //         return { ...att, uploadProgress: newProgress };
+  //       }
+  //       return att;
+  //     }));
+  //   }, 300);
+    
+  //   // Force scroll button to show for testing
+  //   setTimeout(() => setShowScrollButton(true), 100);
+    
+  //   // Cleanup interval after upload completes
+  //   setTimeout(() => clearInterval(interval), 3500);
+    
+  //   return () => clearInterval(interval);
+  // }, []);
   
   // Close attach menu when clicking outside
   useEffect(() => {
@@ -132,24 +240,6 @@ export function ChatInterface({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showAttachMenu]);
-
-  useEffect(() => {
-    const handlePinInsert = (event: Event) => {
-      const custom = event as CustomEvent<{ text?: string }>;
-      const text = custom.detail?.text;
-      if (!text) return;
-      setInput((prev) => (prev ? `${prev}\n${text}` : text));
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener(PIN_INSERT_EVENT, handlePinInsert as EventListener);
-      return () => {
-        window.removeEventListener(PIN_INSERT_EVENT, handlePinInsert as EventListener);
-      };
-    }
-  }, []);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -164,8 +254,7 @@ export function ChatInterface({
       return {
         avatarUrl: getModelIcon(
           modelOverride.companyName,
-          modelOverride.modelName,
-          modelOverride.sdkLibrary
+          modelOverride.modelName
         ),
         avatarHint: hintParts.join(" ").trim(),
       };
@@ -175,7 +264,6 @@ export function ChatInterface({
       avatarHint: defaultAiAvatar?.imageHint ?? "AI model",
     };
   };
-
   const resolveAvatarFromMetadata = (message: Message): MessageAvatar | null => {
     if (message.sender !== "ai") return null;
     const provider = message.metadata?.providerName || null;
@@ -220,7 +308,6 @@ export function ChatInterface({
       );
     } catch (error) {
       console.error("Reaction failed", error);
-      
       toast({
         title: "Reaction failed",
         description:
@@ -237,7 +324,9 @@ export function ChatInterface({
   const { toast } = useToast();
   const [isResponding, setIsResponding] = useState(false);
   const layoutContext = useContext(AppLayoutContext);
-  const displayMessages = messages;
+  const isUsingFallbackMessages =
+    messages.length === 0 && !layoutContext?.activeChatId;
+  const displayMessages = isUsingFallbackMessages ? FALLBACK_MESSAGES : messages;
   const { user, csrfToken } = useAuth();
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
   const resolvedUseFramework = layoutContext?.useFramework ?? false;
@@ -266,9 +355,16 @@ export function ChatInterface({
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadSourceUrl, setUploadSourceUrl] = useState("");
+<<<<<<< HEAD
   const composerPlaceholder = selectedModel || resolvedUseFramework
+=======
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const composerPlaceholder = selectedModel
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
     ? "Let's Play..."
-    : "Choose a model or framework to start chatting";
+    : "Choose a model to start chatting";
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -288,13 +384,6 @@ export function ChatInterface({
 
   // Get available pins
   const availablePins = layoutContext?.pins || [];
-
-  // Reset highlighted index when dropdown opens or availablePins changes
-  useEffect(() => {
-    if (showPinDropdown && availablePins.length > 0) {
-      setHighlightedPinIndex(0);
-    }
-  }, [showPinDropdown, availablePins.length]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -317,14 +406,6 @@ export function ChatInterface({
       viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages, isScrolledToBottom]);
-
-  // Show scroll-to-bottom button when not at bottom
-  const handleScrollToBottom = () => {
-    const viewport = scrollViewportRef.current;
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  };
 
   const fetchAiResponse = async (
     userMessage: string,
@@ -356,13 +437,15 @@ export function ChatInterface({
         chatId,
         model: modelForRequest
           ? {
-              modelId: modelForRequest.modelId ?? modelForRequest.id,
               companyName: modelForRequest.companyName,
               modelName: modelForRequest.modelName,
               version: modelForRequest.version,
             }
           : null,
+<<<<<<< HEAD
         useFramework: Boolean(resolvedUseFramework),
+=======
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
         user: user
           ? {
               id: user.id ?? null,
@@ -412,74 +495,8 @@ export function ChatInterface({
 
       const data = await response.json();
 
-      const messageText =
-        typeof data.message === "string"
-          ? data.message
-          : typeof data.response === "string"
-          ? data.response
-          : typeof data.message?.response === "string"
-          ? data.message.response
-          : typeof data.message?.content === "string"
-          ? data.message.content
-          : typeof data.message?.message === "string"
-          ? data.message.message
-          : "";
-
-      const messageMeta =
-        (data.metadata && typeof data.metadata === "object" ? data.metadata : null) ||
-        (data.message?.metadata && typeof data.message.metadata === "object"
-          ? data.message.metadata
-          : null);
-
-      const resolvedMessageId =
-        data.messageId ??
-        data.message_id ??
-        (data.message?.message_id ?? data.message?.id) ??
-        null;
-
-      const metadata: Message["metadata"] | undefined = messageMeta
-        ? {
-            modelName:
-              (messageMeta as { modelName?: string }).modelName ??
-              (messageMeta as { model_name?: string }).model_name,
-            providerName:
-              (messageMeta as { providerName?: string }).providerName ??
-              (messageMeta as { provider_name?: string }).provider_name,
-            inputTokens:
-              (messageMeta as { inputTokens?: number }).inputTokens ??
-              (messageMeta as { input_tokens?: number }).input_tokens,
-            outputTokens:
-              (messageMeta as { outputTokens?: number }).outputTokens ??
-              (messageMeta as { output_tokens?: number }).output_tokens,
-            createdAt:
-              (messageMeta as { createdAt?: string }).createdAt ??
-              (messageMeta as { created_at?: string }).created_at,
-            documentId:
-              (messageMeta as { documentId?: string | null }).documentId ??
-              (messageMeta as { document_id?: string | null }).document_id ??
-              null,
-            documentUrl:
-              (messageMeta as { documentUrl?: string | null }).documentUrl ??
-              (messageMeta as { document_url?: string | null }).document_url ??
-              null,
-            llmModelId:
-              (messageMeta as { llmModelId?: string | number | null }).llmModelId ??
-              (messageMeta as { llm_model_id?: string | number | null }).llm_model_id ??
-              null,
-            pinIds: Array.isArray((messageMeta as { pinIds?: unknown[] }).pinIds)
-              ? ((messageMeta as { pinIds: unknown[] }).pinIds as unknown[]).map(String)
-              : Array.isArray((messageMeta as { pin_ids?: unknown[] }).pin_ids)
-              ? ((messageMeta as { pin_ids: unknown[] }).pin_ids as unknown[]).map(String)
-              : undefined,
-            userReaction:
-              (messageMeta as { userReaction?: string | null }).userReaction ??
-              (messageMeta as { user_reaction?: string | null }).user_reaction ??
-              null,
-          }
-        : undefined;
-
       const sanitized = extractThinkingContent(
-        messageText || "API didn't respond"
+        data.message || "API didn't respond"
       );
 
       const aiResponse: Message = {
@@ -491,12 +508,15 @@ export function ChatInterface({
         thinkingContent: sanitized.thinkingText,
         avatarUrl: avatarForRequest.avatarUrl,
         avatarHint: avatarForRequest.avatarHint,
-        chatMessageId:
-          resolvedMessageId !== null && resolvedMessageId !== undefined
-            ? String(resolvedMessageId)
-            : undefined,
+        chatMessageId: data.messageId ?? undefined,
         referencedMessageId: referencedMessageId ?? null,
-        metadata,
+        metadata: data.metadata ? {
+          modelName: data.metadata.modelName,
+          providerName: data.metadata.providerName,
+          inputTokens: data.metadata.inputTokens,
+          outputTokens: data.metadata.outputTokens,
+          createdAt: data.metadata.createdAt,
+        } : undefined,
       };
 
       setMessages(
@@ -505,19 +525,13 @@ export function ChatInterface({
             if (msg.id === loadingMessageId) {
               return {
                 ...aiResponse,
-                chatMessageId:
-                  resolvedMessageId !== null && resolvedMessageId !== undefined
-                    ? String(resolvedMessageId)
-                    : aiResponse.chatMessageId,
+                chatMessageId: data.messageId ?? aiResponse.chatMessageId,
               };
             }
             if (userMessageId && msg.id === userMessageId) {
               return {
                 ...msg,
-                chatMessageId:
-                  resolvedMessageId !== null && resolvedMessageId !== undefined
-                    ? String(resolvedMessageId)
-                    : msg.chatMessageId,
+                chatMessageId: data.messageId ?? msg.chatMessageId,
               };
             }
             return msg;
@@ -559,10 +573,14 @@ export function ChatInterface({
 
   const handleSend = async (content: string, messageIdToUpdate?: string) => {
     const trimmedContent = content.trim();
+<<<<<<< HEAD
     if (!selectedModel && !resolvedUseFramework) {
+=======
+    if (!selectedModel) {
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
       toast({
-        title: "Select a model or framework",
-        description: "Choose a model or enable the framework before sending.",
+        title: "Select a model",
+        description: "Choose a model before sending a message.",
         variant: "destructive",
       });
       return;
@@ -580,23 +598,21 @@ export function ChatInterface({
     let chatId = layoutContext?.activeChatId ?? null;
     let initialAiResponse: string | null = null;
     let initialAiMessageId: string | null = null;
-    let initialAiMetadata: Message["metadata"] | undefined;
 
-    let isTempChat = chatId?.startsWith("temp-");
-
-    if ((!chatId || isTempChat) && layoutContext?.ensureChatOnServer) {
+    if (!chatId && layoutContext?.ensureChatOnServer) {
       try {
         const ensured = await layoutContext.ensureChatOnServer({
           firstMessage: trimmedContent,
           selectedModel: activeModel,
+<<<<<<< HEAD
           pinIds: pinIdsToSend,
           useFramework: resolvedUseFramework,
+=======
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
         });
         chatId = ensured?.chatId ?? null;
-        isTempChat = chatId?.startsWith("temp-");
         initialAiResponse = ensured?.initialResponse ?? null;
         initialAiMessageId = ensured?.initialMessageId ?? null;
-        initialAiMetadata = ensured?.initialMetadata ?? undefined;
       } catch (error) {
         console.error("Failed to create chat", error);
         toast({
@@ -609,7 +625,7 @@ export function ChatInterface({
       }
     }
 
-    if (!chatId || isTempChat) {
+    if (!chatId) {
       toast({
         title: "Chat unavailable",
         description: "We couldn't determine which chat to use.",
@@ -706,7 +722,6 @@ export function ChatInterface({
           avatarUrl: requestAvatar.avatarUrl,
           avatarHint: requestAvatar.avatarHint,
           chatMessageId: initialAiMessageId ?? undefined,
-          metadata: initialAiMetadata,
           referencedMessageId: refMessageId,
         };
         setMessages(
@@ -837,6 +852,119 @@ export function ChatInterface({
     }
   };
 
+  const handleOpenImageDialog = () => {
+    if (!layoutContext?.activeChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before generating an image.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsImageDialogOpen(true);
+  };
+
+  const handleGenerateImage = async () => {
+    const targetChatId = layoutContext?.activeChatId;
+    const trimmedPrompt = imagePrompt.trim();
+    if (!targetChatId) {
+      toast({
+        title: "Open or start a chat",
+        description: "Select a chat before generating an image.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!trimmedPrompt) {
+      toast({
+        title: "Enter a prompt",
+        description: "Add a short description for the image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    const requestAvatar = resolveModelAvatar(selectedModel);
+    const imageMessageId = `img-${Date.now()}`;
+
+    // Optimistic placeholder while the image is generating
+    setMessages(
+      (prev = []) => [
+        ...prev,
+        {
+          id: imageMessageId,
+          sender: "ai",
+          content: `Generating image: ${trimmedPrompt}`,
+          avatarUrl: requestAvatar.avatarUrl,
+          avatarHint: requestAvatar.avatarHint,
+          isLoading: true,
+        },
+      ],
+      targetChatId
+    );
+
+    try {
+      const { imageUrl } = await generateImage({
+        prompt: trimmedPrompt,
+        chatId: targetChatId,
+        csrfToken,
+      });
+
+      setMessages(
+        (prev = []) =>
+          prev.map((msg) =>
+            msg.id === imageMessageId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  content: trimmedPrompt,
+                  imageUrl,
+                }
+              : msg
+          ),
+        targetChatId
+      );
+      toast({
+        title: "Image ready",
+        description: "Added to the conversation.",
+      });
+      setIsImageDialogOpen(false);
+      setImagePrompt("");
+    } catch (error) {
+      console.error("Image generation failed", error);
+      setMessages(
+        (prev = []) =>
+          prev.map((msg) =>
+            msg.id === imageMessageId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  content:
+                    error instanceof Error
+                      ? error.message
+                      : "Unable to generate image.",
+                }
+              : msg
+          ),
+        targetChatId
+      );
+      toast({
+        title: "Image generation failed",
+        description:
+          error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleReference = (message: Message) => {
+    setReferencedMessage(message);
+    textareaRef.current?.focus();
+  };
+
   const handleClearReference = () => {
     setReferencedMessage(null);
   };
@@ -942,13 +1070,9 @@ export function ChatInterface({
       aiMessage,
       userMessage: linkedUser,
     });
-    handleConfirmRegenerate({
-      aiMessage,
-      userMessage: linkedUser,
-      prompt: linkedUser.content,
-    });
   };
 
+<<<<<<< HEAD
   const handleConfirmRegenerate = (override?: {
     aiMessage: Message;
     userMessage: Message;
@@ -958,13 +1082,23 @@ export function ChatInterface({
     if (!regen) return;
     const trimmedPrompt = (override?.prompt ?? regeneratePrompt).trim();
     if (!selectedModel && !resolvedUseFramework) {
+=======
+  const handleCancelRegenerate = () => {
+    if (isRegeneratingResponse) return;
+    setRegenerationState(null);
+    setRegeneratePrompt("");
+  };
+
+  const handleConfirmRegenerate = () => {
+    if (!regenerationState) return;
+    const trimmedPrompt = regeneratePrompt.trim();
+    if (!selectedModel) {
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
       toast({
-        title: "Select a model or framework",
-        description: "Choose a model or enable the framework before regenerating.",
+        title: "Select a model",
+        description: "Choose a model before regenerating a response.",
         variant: "destructive",
       });
-      setRegenerationState(null);
-      setRegeneratePrompt("");
       return;
     }
     if (trimmedPrompt === "") {
@@ -973,8 +1107,6 @@ export function ChatInterface({
         description: "Update the prompt before regenerating.",
         variant: "destructive",
       });
-      setRegenerationState(null);
-      setRegeneratePrompt("");
       return;
     }
     const chatId = layoutContext?.activeChatId;
@@ -984,15 +1116,13 @@ export function ChatInterface({
         description: "Pick a chat before regenerating a response.",
         variant: "destructive",
       });
-      setRegenerationState(null);
-      setRegeneratePrompt("");
       return;
     }
 
     const backendAiMessageId =
-      regen.aiMessage.chatMessageId ?? regen.aiMessage.id;
+      regenerationState.aiMessage.chatMessageId ?? regenerationState.aiMessage.id;
     const backendUserMessageId =
-      regen.userMessage.chatMessageId ?? regen.userMessage.id;
+      regenerationState.userMessage.chatMessageId ?? regenerationState.userMessage.id;
 
     if (!backendAiMessageId || !backendUserMessageId) {
       toast({
@@ -1000,8 +1130,6 @@ export function ChatInterface({
         description: "We could not determine which messages to regenerate.",
         variant: "destructive",
       });
-      setRegenerationState(null);
-      setRegeneratePrompt("");
       return;
     }
 
@@ -1013,26 +1141,26 @@ export function ChatInterface({
     setMessages(
       (prev = []) =>
         prev.map((msg) => {
-          if (msg.id === regen.userMessage.id) {
+          if (msg.id === regenerationState.userMessage.id) {
             return { ...msg, content: trimmedPrompt };
           }
-          if (msg.id === regen.aiMessage.id) {
+          if (msg.id === regenerationState.aiMessage.id) {
             return { ...msg, content: "", isLoading: true, thinkingContent: null };
           }
           return msg;
         }),
       chatId
     );
-    setLastMessageId(regen.aiMessage.id);
+    setLastMessageId(regenerationState.aiMessage.id);
 
     fetchAiResponse(
       trimmedPrompt,
-      regen.aiMessage.id,
+      regenerationState.aiMessage.id,
       chatId,
-      regen.userMessage.id,
+      regenerationState.userMessage.id,
       selectedModel,
       avatar,
-      regen.userMessage.referencedMessageId ?? null,
+      regenerationState.userMessage.referencedMessageId ?? null,
       backendAiMessageId,
       backendUserMessageId
     )
@@ -1209,20 +1337,20 @@ export function ChatInterface({
   };
 
   return (
-    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-[var(--Background-Default-Default,#FFFFFF)]">
+    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-white">
       {/* Empty state: centered prompt box */}
       {displayMessages.length === 0 ? (
-        <section className="flex flex-1 items-center justify-center bg-[var(--Background-Default-Default,#FFFFFF)] px-4 py-8">
-          {customEmptyState || <InitialPrompts userName={user?.name ?? user?.email ?? null} />}
+        <section className="flex flex-1 items-center justify-center bg-white px-4 py-8">
+          <InitialPrompts userName={user?.name ?? user?.email ?? null} />
         </section>
       ) : (
         <div
-          className={`relative flex-1 min-h-0 overflow-y-auto ${chatStyles.customScrollbar}`}
+          className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden"
           ref={scrollViewportRef}
           onScroll={handleScroll}
         >
-          <div className="mx-auto w-full max-w-[756px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
-            <div className="rounded-[32px] border border-transparent bg-[var(--Background-Default-Default,#FFFFFF)] p-6 shadow-none">
+          <div className="mx-auto w-full max-w-[1280px] space-y-3 px-4 py-4 sm:px-8 lg:px-10">
+            <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none">
               <div className="space-y-3">
                 {displayMessages.map((msg) => {
                   const refMsg = msg.referencedMessageId
@@ -1271,6 +1399,7 @@ export function ChatInterface({
                     onRegenerate={
                       msg.sender === "ai" ? handleRegenerateRequest : undefined
                     }
+                    onReference={msg.sender === "ai" ? handleReference : undefined}
                     onReact={msg.sender === "ai" ? handleReact : undefined}
                     referencedMessage={refMsg}
                     isNewMessage={msg.id === lastMessageId}
@@ -1284,53 +1413,25 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Scroll to bottom button - floating above the chat input */}
-      {!isScrolledToBottom && (
-        <div className="relative pointer-events-none" style={{ height: 0 }}>
-          <button
-            type="button"
-            onClick={handleScrollToBottom}
-            className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors h-10 w-10"
-            aria-label="Scroll to bottom"
-            style={{ bottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', pointerEvents: 'auto', zIndex: 30 }}
-          >
-            {/* Down arrow with vertical line icon, perfectly centered */}
-            <span className="flex items-center justify-center h-full w-full">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-                <line x1="12" y1="5" x2="12" y2="17" />
-                <polyline points="6 13 12 19 18 13" />
-              </svg>
-            </span>
-          </button>
-        </div>
-      )}
-
       {/* Chat Input Footer */}
-      <footer className="shrink-0 bg-[var(--Background-Default-Default,#FFFFFF)] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
-        <div className="relative mx-auto w-full max-w-[756px]">
+      <footer className="shrink-0 bg-white px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
+        <div className="relative mx-auto w-full max-w-[1280px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
               ref={dropdownRef}
               className="absolute bottom-full left-0 right-0 z-50 mb-3 max-h-64 overflow-y-auto rounded-2xl border border-[#D9D9D9] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
-              style={{ maxWidth: 500, minWidth: 220, left: 0, right: 'auto' }}
             >
-              <div className="border-b border-[#F0F0F0] bg-[#F9F9F9] px-4 py-3 text-left text-xs font-semibold text-[#555555] rounded-t-2xl">
+              <div className="border-b border-[#F0F0F0] bg-[#F9F9F9] px-4 py-3 text-left text-xs font-semibold text-[#555555]">
                 Select a pin to mention
               </div>
-              {availablePins.map((pin, idx) => (
+              {availablePins.map((pin) => (
                 <button
                   key={pin.id}
                   type="button"
                   onClick={() => handleSelectPin(pin)}
-                  className={
-                    `w-full border-b border-[#F5F5F5] px-4 py-2 text-left text-[13px] rounded-none last:rounded-b-2xl transition-colors ` +
-                    (idx === highlightedPinIndex
-                      ? 'bg-[#d2d2d2] text-black font-semibold shadow-inner'
-                      : 'hover:bg-[#d2d2d2] text-black')
-                  }
-                  style={{ borderRadius: idx === highlightedPinIndex ? 16 : 0 }}
+                  className="w-full border-b border-[#F5F5F5] px-4 py-3 text-left text-sm hover:bg-[#F8F8F8]"
                 >
-                  <p className="truncate font-medium text-inherit text-black text-[13px]">
+                  <p className="truncate font-medium text-[#1E1E1E]">
                     {pin.text.slice(0, 60) || "Untitled Pin"}
                   </p>
                   {pin.tags && pin.tags.length > 0 && (
@@ -1338,7 +1439,7 @@ export function ChatInterface({
                       {pin.tags.slice(0, 3).map((tag, i) => (
                         <span
                           key={i}
-                          className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#767676]"
+                          className="rounded-full bg-white px-2 py-0.5 text-[11px] text-[#767676]"
                         >
                           {tag}
                         </span>
@@ -1370,7 +1471,7 @@ export function ChatInterface({
                 {mentionedPins.map((mp) => (
                   <div
                     key={mp.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F5] px-3 py-1 text-sm text-[#1E1E1E]"
+                    className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-[#1E1E1E]"
                   >
                     <span>@{mp.label}</span>
                     <button
@@ -1409,7 +1510,7 @@ export function ChatInterface({
                             style={{ width: `${attachment.uploadProgress || 0}%` }}
                           />
                         )}
-                        <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                        <div className="flex h-full w-12 items-center justify-center rounded-lg bg-white">
                           <FileText className="h-5 w-5 text-[#666666]" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1421,7 +1522,7 @@ export function ChatInterface({
                         <button
                           type="button"
                           onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
-                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-white shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-3 w-3 text-[#666666]" />
                         </button>
@@ -1457,7 +1558,7 @@ export function ChatInterface({
                         <button
                           type="button"
                           onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
-                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                          className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-white shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-3 w-3 text-[#666666]" />
                         </button>
@@ -1474,7 +1575,7 @@ export function ChatInterface({
                       }
                     }}
                     //left caret for attached files
-                    className="absolute left-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors"
+                    className="absolute left-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-white transition-colors"
                   >
                     <ChevronLeft className="h-4 w-4 text-[#666666]" />
                   </button>
@@ -1488,7 +1589,7 @@ export function ChatInterface({
                       }
                     }}
                     //right caret for attached files
-                    className="absolute right-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors"
+                    className="absolute right-3 top-1/2 translate-y-[-25%] flex h-8 w-8 items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-white transition-colors"
                   >
                     <ChevronRight className="h-4 w-4 text-[#666666]" />
                   </button>
@@ -1504,23 +1605,10 @@ export function ChatInterface({
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => {
-                    if (showPinDropdown && availablePins.length > 0) {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setHighlightedPinIndex((prev) => (prev + 1) % availablePins.length);
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setHighlightedPinIndex((prev) => (prev - 1 + availablePins.length) % availablePins.length);
-                      } else if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSelectPin(availablePins[highlightedPinIndex]);
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        setShowPinDropdown(false);
-                      }
-                      return;
-                    }
-                    if (
+                    if (e.key === "Escape" && showPinDropdown) {
+                      e.preventDefault();
+                      setShowPinDropdown(false);
+                    } else if (
                       e.key === "Enter" &&
                       !e.shiftKey &&
                       !isResponding &&
@@ -1530,24 +1618,23 @@ export function ChatInterface({
                       handleSend(input);
                     }
                   }}
-                  placeholder={disableInput ? "Save to start chatting..." : "Ask your persona .... "}
-                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey"
+                  placeholder="Ask anything... Hit '@' to add in a pin"
+                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={1}
-                  disabled={isResponding || disableInput}
+                  disabled={isResponding}
                 />
               </div>
 
               {/* Action buttons row */}
               <div className="flex items-center gap-3">
-                {!hideAttachButton && (
-                  <div className="relative" ref={attachMenuRef}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowAttachMenu(!showAttachMenu)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
-                    >
-                      <Plus className="h-5 w-5 text-[#555555]" />
-                    </Button>
+                <div className="relative" ref={attachMenuRef}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white p-0 hover:bg-white hover:border-[#D9D9D9]"
+                  >
+                    <Plus className="h-5 w-5 text-[#555555]" />
+                  </Button>
                   
                   {showAttachMenu && (
                     <div 
@@ -1559,7 +1646,7 @@ export function ChatInterface({
                           handleOpenUploadDialog();
                           setShowAttachMenu(false);
                         }}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-white whitespace-nowrap"
                       >
                         <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
                         <span>Attach Files</span>
@@ -1569,7 +1656,7 @@ export function ChatInterface({
                           toast({ title: "Attach Context", description: "Coming soon!" });
                           setShowAttachMenu(false);
                         }}
-                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                        className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-white whitespace-nowrap"
                       >
                         <ScanText className="h-3.5 w-3.5 text-[#666666]" />
                         <span>Attach Context</span>
@@ -1577,27 +1664,24 @@ export function ChatInterface({
                     </div>
                   )}
                 </div>
-                )}
                 
-                {!hidePersonaButton && (
-                  <Button
-                    variant="ghost"
-                    disabled
-                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
-                    title="Choose Persona (Coming Soon)"
-                  >
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
-                      <UserPlus className="h-3 w-3" />
-                    </div>
-                    <span>Choose Persona</span>
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  disabled
+                  className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
+                  title="Choose Persona (Coming Soon)"
+                >
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
+                    <UserPlus className="h-3 w-3" />
+                  </div>
+                  <span>Choose Persona</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
-                <span className="text-sm font-medium text-[#888888]">
+                {/* <span className="text-sm font-medium text-[#888888]">
                   {isTokenUsageLoading ? "--" : `${usagePercent}%`}
-                </span>
+                </span> */}
                 {isResponding ? (
                   <Button
                     type="button"
@@ -1617,17 +1701,23 @@ export function ChatInterface({
                         <Button
                           type="button"
                           onClick={() => handleSend(input)}
+<<<<<<< HEAD
                           disabled={(!selectedModel && !resolvedUseFramework) || disableInput}
+=======
+                          disabled={!selectedModel}
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                         >
                           <Send className="h-[18px] w-[18px]" />
                         </Button>
                       </TooltipTrigger>
+<<<<<<< HEAD
                       {((!selectedModel && !resolvedUseFramework) || disableInput) && (
+=======
+                      {!selectedModel && (
+>>>>>>> aa5a84cde5cf95aadc52a65cb76a2b72844afa7a
                         <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
-                          {disableInput
-                            ? "Save to test first to enable chat"
-                            : "Please select a model or framework to start the conversation"}
+                          Please select a model to start the conversation
                         </TooltipContent>
                       )}
                     </Tooltip>
@@ -1725,6 +1815,103 @@ export function ChatInterface({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={isImageDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !isGeneratingImage) {
+            setIsImageDialogOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="rounded-[25px]">
+          <DialogHeader>
+            <DialogTitle>Generate image</DialogTitle>
+            <DialogDescription>
+              Send an image generation request tied to this chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="image-prompt">Prompt</Label>
+              <Textarea
+                id="image-prompt"
+                rows={3}
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder="e.g., astronaut riding a horse"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="rounded-[25px]"
+              onClick={() => setIsImageDialogOpen(false)}
+              disabled={isGeneratingImage}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-[25px]"
+              onClick={handleGenerateImage}
+              disabled={isGeneratingImage}
+            >
+              {isGeneratingImage && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isGeneratingImage ? "Generating..." : "Generate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!regenerationState}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelRegenerate();
+          }
+        }}
+      >
+        <DialogContent className="rounded-[25px]">
+          <DialogHeader>
+            <DialogTitle>Regenerate response</DialogTitle>
+            <DialogDescription>
+              Adjust the original prompt and the assistant will respond again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              Prompt
+            </label>
+            <Textarea
+              value={regeneratePrompt}
+              onChange={(e) => setRegeneratePrompt(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              className="rounded-[25px]"
+              onClick={handleCancelRegenerate}
+              disabled={isRegeneratingResponse}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-[25px]"
+              onClick={handleConfirmRegenerate}
+              disabled={
+                isRegeneratingResponse || regeneratePrompt.trim() === ""
+              }
+            >
+              {isRegeneratingResponse ? "Regenerating..." : "Regenerate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={isChatDeleteDialogOpen}
         onOpenChange={(open) => {
@@ -1743,18 +1930,18 @@ export function ChatInterface({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-white"
               onClick={() => setIsChatDeleteDialogOpen(false)}
               disabled={isDeletingChat}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-white"
               onClick={handleConfirmChatDelete}
               disabled={isDeletingChat}
             >
-              {isDeletingChat ? "Deleting..." : "Delete chat"}
+              {isDeletingChat ? "Deleting…" : "Delete chat"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1785,7 +1972,7 @@ export function ChatInterface({
               if (pinnedMessages.length > 0) {
                 return (
                   <div className="font-semibold text-red-600 mt-2 text-sm">
-                    Warning: {pinnedMessages.length} pinned message(s) will be affected.
+                    ⚠️ {pinnedMessages.length} pinned message(s) will be affected.
                   </div>
                 );
               }
@@ -1794,13 +1981,13 @@ export function ChatInterface({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-white"
               onClick={() => setMessageToDelete(null)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-white"
               onClick={confirmDelete}
             >
               Delete
