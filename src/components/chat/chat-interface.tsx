@@ -81,7 +81,6 @@ interface ChatInterfaceProps {
     chatIdOverride?: string
   ) => void;
   selectedModel?: AIModel | null;
-  useFramework?: boolean;
   hidePersonaButton?: boolean;
   customEmptyState?: React.ReactNode;
   disableInput?: boolean;
@@ -102,7 +101,6 @@ export function ChatInterface({
   messages = [],
   setMessages = () => {},
   selectedModel = null,
-  useFramework = false,
   hidePersonaButton = false,
   customEmptyState,
   disableInput = false,
@@ -242,6 +240,7 @@ export function ChatInterface({
   const displayMessages = messages;
   const { user, csrfToken } = useAuth();
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
+  const resolvedUseFramework = layoutContext?.useFramework ?? false;
   const pinsById = useMemo(() => {
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
@@ -267,7 +266,7 @@ export function ChatInterface({
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadSourceUrl, setUploadSourceUrl] = useState("");
-  const composerPlaceholder = selectedModel || useFramework
+  const composerPlaceholder = selectedModel || resolvedUseFramework
     ? "Let's Play..."
     : "Choose a model or framework to start chatting";
 
@@ -363,7 +362,7 @@ export function ChatInterface({
               version: modelForRequest.version,
             }
           : null,
-        useFramework: Boolean(useFramework),
+        useFramework: Boolean(resolvedUseFramework),
         user: user
           ? {
               id: user.id ?? null,
@@ -560,7 +559,7 @@ export function ChatInterface({
 
   const handleSend = async (content: string, messageIdToUpdate?: string) => {
     const trimmedContent = content.trim();
-    if (!selectedModel && !useFramework) {
+    if (!selectedModel && !resolvedUseFramework) {
       toast({
         title: "Select a model or framework",
         description: "Choose a model or enable the framework before sending.",
@@ -591,7 +590,7 @@ export function ChatInterface({
           firstMessage: trimmedContent,
           selectedModel: activeModel,
           pinIds: pinIdsToSend,
-          useFramework,
+          useFramework: resolvedUseFramework,
         });
         chatId = ensured?.chatId ?? null;
         isTempChat = chatId?.startsWith("temp-");
@@ -958,7 +957,7 @@ export function ChatInterface({
     const regen = override ?? regenerationState;
     if (!regen) return;
     const trimmedPrompt = (override?.prompt ?? regeneratePrompt).trim();
-    if (!selectedModel && !useFramework) {
+    if (!selectedModel && !resolvedUseFramework) {
       toast({
         title: "Select a model or framework",
         description: "Choose a model or enable the framework before regenerating.",
@@ -1618,13 +1617,13 @@ export function ChatInterface({
                         <Button
                           type="button"
                           onClick={() => handleSend(input)}
-                          disabled={(!selectedModel && !useFramework) || disableInput}
+                          disabled={(!selectedModel && !resolvedUseFramework) || disableInput}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                         >
                           <Send className="h-[18px] w-[18px]" />
                         </Button>
                       </TooltipTrigger>
-                      {((!selectedModel && !useFramework) || disableInput) && (
+                      {((!selectedModel && !resolvedUseFramework) || disableInput) && (
                         <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
                           {disableInput
                             ? "Save to test first to enable chat"

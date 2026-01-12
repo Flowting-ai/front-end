@@ -1146,7 +1146,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     messages: activeChatId ? chatHistory[activeChatId] || [] : [],
     setMessages: setMessagesForActiveChat,
     selectedModel: selectedModel,
-    useFramework,
     setIsRightSidebarVisible,
     isRightSidebarVisible,
   };
