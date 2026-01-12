@@ -1,25 +1,55 @@
-import {NextResponse} from 'next/server';
-import {chat} from '@/ai/flows/chat';
+import { NextResponse } from "next/server";
+
+const resolveBackendBaseUrl = () => {
+  const raw =
+    process.env.NEXT_PUBLIC_HOST_URL ??
+    process.env.NEXT_PUBLIC_BACKEND_URL ??
+    "";
+  if (!raw) return "";
+  return raw.startsWith("http") ? raw : `http://${raw}`;
+};
 
 export async function POST(req: Request) {
-  try {
-    const {prompt} = await req.json();
-
-    if (!prompt) {
-      return NextResponse.json(
-        {response: 'Prompt is required.'},
-        {status: 400}
-      );
-    }
-
-    const response = await chat(prompt);
-
-    return NextResponse.json({response});
-  } catch (error) {
-    console.error('Chat API Error:', error);
+  const baseUrl = resolveBackendBaseUrl();
+  if (!baseUrl) {
     return NextResponse.json(
-      {response: "Sorry, I'm having trouble responding right now."},
-      {status: 500}
+      { response: "Backend URL is not configured." },
+      { status: 500 }
+    );
+  }
+
+  const targetUrl = new URL("/chat/", baseUrl);
+  const incomingHeaders = new Headers(req.headers);
+  const csrfToken =
+    incomingHeaders.get("x-csrftoken") || incomingHeaders.get("X-CSRFToken");
+
+  try {
+    const payload = await req.json();
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        ...(incomingHeaders.get("cookie")
+          ? { cookie: incomingHeaders.get("cookie") as string }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const body = await response.text();
+    return new NextResponse(body, {
+      status: response.status,
+      headers: {
+        "Content-Type":
+          response.headers.get("content-type") ?? "application/json",
+      },
+    });
+  } catch (error) {
+    console.error("Chat API Error:", error);
+    return NextResponse.json(
+      { response: "Sorry, I'm having trouble responding right now." },
+      { status: 500 }
     );
   }
 }
