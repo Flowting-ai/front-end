@@ -1,4 +1,4 @@
-import LeftSidebar from "@/components/layout/left-sidebar";
+import { LeftSidebar } from "@/components/layout/left-sidebar";
 
 export default function PersonaAdmin() {
   return <div> 
