@@ -3,10 +3,13 @@
 // Inspired by react-hot-toast library
 import * as React from "react"
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+type ToastActionElement = React.ReactNode
+type ToastProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+type ToastVariant = "default" | "destructive"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 3333 // Match toast duration for instant removal
@@ -16,6 +19,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  variant?: ToastVariant
 }
 
 const actionTypes = {
