@@ -428,7 +428,7 @@ export function LeftSidebar({
 
           {/* 3. Chat */}
           <div className="flex-1 w-full flex flex-col">
-            <div className="px-4 pt-2.5 pb-3 flex-1 flex flex-col overflow-hidden">
+            <div className="px-4 pt-2.5 pb-3 flex-1 flex flex-col overflow-y-auto">
               {/* Section header - accordion trigger style */}
               <div className="flex h-[31px] w-full items-center gap-2 rounded-[8px] flex-shrink-0">
                 <span className="flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
