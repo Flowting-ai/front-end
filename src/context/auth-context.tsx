@@ -14,7 +14,13 @@ export interface AuthUser {
   id?: string | number | null;
   email?: string | null;
   name?: string | null;
-  [key: string]: unknown;
+  username?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  phoneNumber?: string | null;
+  planName?: string | null;
+  availableTokens?: number | null;
+  totalTokensUsed?: number | null;
 }
 
 interface AuthContextValue {

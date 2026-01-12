@@ -810,7 +810,6 @@ export function RightSidebar({
                             key={tag}
                             className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0]"
                             checked={selectedTags.includes(tag)}
-                            indicatorRight
                             onCheckedChange={() => handleTagToggle(tag)}
                             onSelect={(event) => event.preventDefault()}
                           >
@@ -847,7 +846,6 @@ export function RightSidebar({
                             key={folder.id}
                             className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0]"
                             checked={selectedFolders.includes(folder.id)}
-                            indicatorRight
                             onCheckedChange={() => handleFolderToggle(folder.id)}
                             onSelect={(event) => event.preventDefault()}
                           >

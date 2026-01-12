@@ -35,7 +35,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
           });
           // Hydrate missing profile fields into auth context if we don't have them.
           if (user === null || Object.keys(user).length === 0) {
-            setUser(profile);
+            setUser(profile as unknown as Parameters<typeof setUser>[0]);
           }
           return;
         }

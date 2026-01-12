@@ -21,7 +21,7 @@ export interface ChatHistoryItemProps {
   onRenameChange?: (value: string) => void;
   onRenameSubmit?: () => void;
   onRenameCancel?: () => void;
-  renameInputRef?: RefObject<HTMLInputElement>;
+  renameInputRef?: RefObject<HTMLInputElement | null>;
   isRenamePending?: boolean;
   isStarPending?: boolean;
 }
