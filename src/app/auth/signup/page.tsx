@@ -13,7 +13,7 @@ import { GoogleLogo } from "@/components/icons/google-logo";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setCsrfToken, csrfToken, setUser } = useAuth();
+  const { setCsrfToken, csrfToken } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -77,17 +77,10 @@ export default function SignupPage() {
         setError(data?.error || "Unable to create account. Please try again.");
         return;
       }
-      if (data?.user) {
-        setUser(data.user);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("isLoggedIn", "true");
-        }
-      }
-
       setSuccessMessage(
-        "Signup successful! Welcome onboard, redirecting you to the application."
+        "Signup successful! Redirecting you to login."
       );
-      setTimeout(() => router.replace("/"), 1500);
+      setTimeout(() => router.replace("/auth/login"), 1500);
     } catch (err) {
       console.error("Signup failed", err);
       setError("Unexpected error. Please try again.");
