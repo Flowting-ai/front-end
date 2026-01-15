@@ -45,22 +45,6 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setError(null);
 
-    // Test credentials bypass for development
-    if (identifier === "admin@gmail.com" && password === "admintesting@4321") {
-      const testUser = {
-        id: "test-user-1",
-        email: "admin@gmail.com",
-        username: "Admin User",
-      };
-      setUser(testUser);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("isLoggedIn", "true");
-      }
-      router.replace("/");
-      setIsSubmitting(false);
-      return;
-    }
-
     const payload =
       identifier.includes("@")
         ? { email: identifier.trim(), username: "", password }
@@ -89,7 +73,7 @@ export default function LoginPage() {
           localStorage.setItem("isLoggedIn", "true");
         }
       }
-      router.replace("/");
+      router.replace("/chat");
     } catch (submitError) {
       console.error("Login failed", submitError);
       setError("Unexpected error. Please try again.");
@@ -121,12 +105,12 @@ export default function LoginPage() {
           {/* Email Field */}
           <div className="flex flex-col" style={{ gap: '8px' }}>
             <Label htmlFor="identifier" className="text-sm font-medium text-[#1E1E1E]">
-              Email address
+              Email or username
             </Label>
             <Input
               id="identifier"
-              type="email"
-              placeholder="Email address"
+              type="text"
+              placeholder="Email or username"
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
               className="rounded-lg border border-black bg-[#F5F5F5] text-[#1E1E1E]"

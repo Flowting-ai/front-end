@@ -1100,7 +1100,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       setChatHistory((prev) =>
         prev[existingTemp.id] ? prev : { ...prev, [existingTemp.id]: [] }
       );
-      router.push("/");
+      router.push("/chat");
       return;
     }
 
@@ -1129,7 +1129,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     });
     setChatHistory((prev) => ({ ...prev, [tempId]: [] }));
     setActiveChatId(tempId);
-    router.push("/");
+    router.push("/chat");
   };
 
   const isRightSidebarVisible =

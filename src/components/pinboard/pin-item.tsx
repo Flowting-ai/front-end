@@ -330,7 +330,7 @@ export const PinItem = ({
     if (pin.chatId) searchParams.set("chatId", String(pin.chatId));
     if (pin.messageId) searchParams.set("messageId", String(pin.messageId));
     const suffix = searchParams.toString();
-    const target = suffix ? `/?${suffix}` : "/";
+    const target = suffix ? `/chat?${suffix}` : "/chat";
     router.push(target);
   };
 

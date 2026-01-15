@@ -101,7 +101,7 @@ export function LeftSidebar({
   })();
 
   // Determine if user is on chat board route
-  const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
+  const isOnChatBoard = pathname?.startsWith("/chat");
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
 
   // Determine if user is on persona pages
@@ -208,7 +208,7 @@ export function LeftSidebar({
                     // if (isOnChatBoard) {
                     //   onAddChat();
                     // }
-                    router.push("/");
+                    router.push("/chat");
                   }}
                 >
                   <Image
@@ -380,7 +380,7 @@ export function LeftSidebar({
                 if (isOnChatBoard) {
                   onAddChat();
                 }
-                router.push("/");
+                router.push("/chat");
               }}
               className={cn(
                 "group cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
@@ -492,7 +492,7 @@ export function LeftSidebar({
                         onRenameCancel();
                       }
                       setActiveChatId(board.id);
-                      router.push("/");
+                      router.push("/chat");
                     };
 
                     const handleToggleStar = () => {
