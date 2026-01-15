@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   ChevronsLeft,
   Settings,
@@ -115,23 +115,6 @@ export function LeftSidebar({
     return haystack.includes(normalizedSearch);
   });
 
-  // Development-only: ensure at least 20 items so overflow-y-auto can be tested locally.
-  const boardsToDisplayAugmented = useMemo(() => {
-    const target = 20;
-    if (process.env.NODE_ENV !== "development") return boardsToDisplay;
-    if (normalizedSearch) return boardsToDisplay;
-    const out = boardsToDisplay.slice();
-    for (let i = out.length; i < target; i++) {
-      out.push({
-        id: `dev-${i}`,
-        name: `Test Chat ${i + 1}`,
-        time: `${i + 1}m`,
-        isStarred: false,
-        pinCount: Math.floor(Math.random() * 5),
-      });
-    }
-    return out;
-  }, [boardsToDisplay, normalizedSearch]);
 
   const handleLogout = () => {
     clearAuth();
@@ -479,9 +462,9 @@ export function LeftSidebar({
                 </div>
               </div>
 
-              {boardsToDisplayAugmented.length > 0 ? (
+              {boardsToDisplay.length > 0 ? (
                 <div className="mt-4 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-hidden">
-                  {boardsToDisplayAugmented.map((board) => {
+                  {boardsToDisplay.map((board) => {
                     const isActive = activeChatId === board.id;
                     const pinTotal =
                       board.metadata?.pinCount ?? board.pinCount ?? 0;
@@ -597,7 +580,7 @@ export function LeftSidebar({
                   </Avatar>
                   <div className="flex flex-col justify-center">
                     <span className="font-[400] font-inter text-[14px] text-lsb-text whitespace-nowrap">
-                      {user ? `${userFirstName}` : "Avnish Poonia"}
+                      {user ? `${userFirstName}` : "Guest"}
                     </span>
                   </div>
                 </button>
@@ -638,7 +621,7 @@ export function LeftSidebar({
                   <HelpCircle className="h-4 w-4 text-lsb-text" />
                   Help
                 </DropdownMenuItem>
-                {!user ? (
+                {user ? (
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="flex items-center gap-2 rounded-md text-lsb-text"
