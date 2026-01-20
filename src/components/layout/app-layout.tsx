@@ -11,6 +11,7 @@ import { LeftSidebar } from "./left-sidebar";
 import { RightSidebar, type PinType } from "./right-sidebar";
 import { RightSidebarCollapsed } from "./right-sidebar-collapsed";
 import { Topbar } from "./top-bar";
+import CompareModelsPage from "../compare/compare-models";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Button } from "../ui/button";
@@ -28,6 +29,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/context/auth-context";
 import type { AIModel } from "@/types/ai-model";
 import {
@@ -45,7 +52,7 @@ import {
   type BackendPin,
 } from "@/lib/api/pins";
 import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { extractThinkingContent } from "@/lib/thinking";
 
 interface AppLayoutProps {
@@ -384,9 +391,15 @@ const backendPinToLegacy = (
 const PINS_CACHE_KEY = "chat-pins-cache";
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('leftSidebarCollapsed') === 'true';
+    }
+    return false;
+  });
   const [activeRightSidebarPanel, setActiveRightSidebarPanel] =
     useState<RightSidebarPanel | null>(null);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [useFramework, setUseFramework] = useState(true);
@@ -396,6 +409,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
   const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
+
+  // Persist left sidebar collapsed state
+  useEffect(() => {
+    localStorage.setItem('leftSidebarCollapsed', isLeftSidebarCollapsed.toString());
+  }, [isLeftSidebarCollapsed]);
 
   // Wrapper for setActiveChatId that moves the selected chat to the top
   const setActiveChatId = useCallback(
@@ -441,7 +459,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
-  const { toast } = useToast();
 
   // Helper to save pins to localStorage
   const savePinsToCache = useCallback((chatId: string, pinsData: PinType[]) => {
@@ -535,8 +552,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       if (chatId.startsWith("temp-")) {
         removeChatLocally(chatId);
         setChatToDelete(null);
-        toast({
-          title: "Chat deleted",
+        toast("Chat deleted", {
           description: "This chat board has been removed.",
         });
         return;
@@ -556,17 +572,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
       removeChatLocally(chatId);
       setChatToDelete(null);
       await loadChatBoards();
-      toast({
-        title: "Chat deleted",
+      toast("Chat deleted", {
         description: "This chat board has been removed.",
       });
     } catch (error) {
       console.error("Failed to delete chat board", error);
-      toast({
-        title: "Delete failed",
+      toast.error("Delete failed", {
         description:
           error instanceof Error ? error.message : "Unable to delete chat.",
-        variant: "destructive",
       });
     } finally {
       setIsDeletingChatBoard(false);
@@ -657,10 +670,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const targetId = renamingChatId;
     const nextName = renamingText.trim();
     if (!nextName) {
-      toast({
-        title: "Name required",
+      toast.error("Name required", {
         description: "Enter a chat name before saving.",
-        variant: "destructive",
       });
       return;
     }
@@ -684,8 +695,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )
       );
       handleRenameCancel();
-      toast({
-        title: "Chat renamed",
+      toast("Chat renamed", {
         description: "Name updated successfully.",
       });
       return;
@@ -715,8 +725,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       await loadChatBoards();
       handleRenameCancel();
-      toast({
-        title: "Chat renamed",
+      toast("Chat renamed", {
         description: "Name updated successfully.",
       });
     } catch (error) {
@@ -727,11 +736,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         )
       );
       setRenamingText(previousName);
-      toast({
-        title: "Rename failed",
+      toast.error("Rename failed", {
         description:
           error instanceof Error ? error.message : "Unable to rename chat.",
-        variant: "destructive",
       });
     } finally {
       setIsRenamingChatBoard(false);
@@ -758,8 +765,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             item.id === chatId ? { ...item, isStarred: nextValue } : item
           )
         );
-        toast({
-          title: nextValue ? "Chat starred" : "Star removed",
+        toast(nextValue ? "Chat starred" : "Star removed", {
           description: nextValue
             ? "Added to your favorites."
             : "Removed from favorites.",
@@ -808,8 +814,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           // Best-effort; ignore JSON parse issues for non-JSON responses.
         }
 
-        toast({
-          title: nextValue ? "Chat starred" : "Star removed",
+        toast(nextValue ? "Chat starred" : "Star removed", {
           description: nextValue
             ? "Added to your favorites."
             : "Removed from favorites.",
@@ -821,17 +826,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
             item.id === chatId ? { ...item, isStarred: !nextValue } : item
           )
         );
-        toast({
-          title: "Star update failed",
+        toast.error("Star update failed", {
           description:
             error instanceof Error ? error.message : "Unable to update star.",
-          variant: "destructive",
         });
       } finally {
         setStarUpdatingChatId(null);
       }
     },
-    [toast]
+    []
   );
 
   const loadMessagesForChat = useCallback(async (chatId: string) => {
@@ -952,8 +955,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         );
         // Open the right sidebar and show toast
         setActiveRightSidebarPanel("pinboard");
-        toast({
-          title: "Pinned!",
+        toast("Pinned!", {
           description: "Response has been pinned to your pinboard.",
         });
       } catch (error) {
@@ -961,7 +963,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, setPins, toast]
+    [activeChatId, setPins]
   );
 
   const handleUnpinMessage = useCallback(
@@ -1254,7 +1256,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <p>
                   Are you sure you want to delete{" "}
                   <span className="font-semibold text-[#171717]">
-                    "{chatToDelete?.name}"
+                    &quot;{chatToDelete?.name}&quot;
                   </span>
                   ?
                 </p>
@@ -1327,7 +1329,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="chat-layout-main-wrapper">
             <div className="chat-layout-content-panel">
               <main className="chat-layout-main">
-                <div className="chat-layout-window chat-layout-window--max960">
+                {/* chat-layout-window--max960 */}
+                <div className={cn("chat-layout-window", isPersonasRoute ? "max-w-full" : "max-w-[960px]")}>
                   {pageContent}
                 </div>
               </main>
@@ -1346,6 +1349,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 <RightSidebarCollapsed
                   activePanel={activeRightSidebarPanel}
                   onSelect={handleRightSidebarSelect}
+                  isCompareActive={isCompareModalOpen}
+                  onCompareClick={() => setIsCompareModalOpen(!isCompareModalOpen)}
                   className="order2"
                 />
               </div>
@@ -1383,6 +1388,24 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={isCompareModalOpen} onOpenChange={setIsCompareModalOpen}>
+        <DialogContent
+          className="flex items-center justify-center overflow-y-auto px-0"
+          style={{
+            width: 'auto',
+            height: 'auto',
+            maxHeight: '100vh',
+            maxWidth: '1030px',
+            minWidth: '1006px',
+            overflowY: "hidden",
+          }}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>Compare Models</DialogTitle>
+          </DialogHeader>
+          <CompareModelsPage />
+        </DialogContent>
+      </Dialog>
     </AppLayoutContext.Provider>
   );
 }

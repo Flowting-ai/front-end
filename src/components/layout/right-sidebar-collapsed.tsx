@@ -8,6 +8,8 @@ import type { RightSidebarPanel } from "./app-layout";
 interface RightSidebarCollapsedProps {
   activePanel: RightSidebarPanel | null;
   onSelect: (panel: RightSidebarPanel) => void;
+  isCompareActive: boolean;
+  onCompareClick: () => void;
   className?: string;
 }
 
@@ -43,45 +45,52 @@ const BUTTONS: CollapsedButtonConfig[] = [
     label: "Compare",
     helperLabel: "Models",
     icon: GitCompare,
-    disabled: true,
+    disabled: false,
   },
 ];
 
 export function RightSidebarCollapsed({
   activePanel,
   onSelect,
+  isCompareActive,
+  onCompareClick,
   className,
 }: RightSidebarCollapsedProps) {
   return (
-    <aside className={cn("w-[62px] h-full bg-white border-l border-main-border shrink-0 flex flex-col items-center justify-center")}>
+    <aside className={cn("w-[65px] h-full bg-white border-l border-main-border shrink-0 flex flex-col items-center justify-center")}>
       <div className="w-full h-full flex flex-col items-center gap-7 pt-5.5 px-1.5">
         {BUTTONS.map(({ panel, label, icon: Icon, helperLabel, disabled }) => {
-          const isActive = activePanel === panel;
+          const isComparePanel = panel === "compare";
+          const isActive = isComparePanel ? isCompareActive : activePanel === panel;
+          const handleClick = isComparePanel
+            ? onCompareClick
+            : () => !disabled && onSelect(panel);
           return (
             <Button
               key={panel}
               variant="ghost"
               className={cn(
-                "sidebar-collapsed-button cursor-pointer text-[#1E1E1E]",
+                "sidebar-collapsed-button w-[55px] cursor-pointer text-[#1E1E1E]",
+                helperLabel ? "min-h-[64px] " : "min-h-[50px]",
                 disabled
                   ? disabled
                   : isActive
-                  ? "sidebar-collapsed-button--active text-white hover:text-white bg-[#1E1E1E] hover:bg-black transition-all duration-300"
-                  : "sidebar-collapsed-button--inactive"
+                  ? "sidebar-collapsed-button--active text-white hover:text-white bg-[#1E1E1E] hover:bg-black border-2 border-[#1E1E1E] transition-all duration-300"
+                  : "sidebar-collapsed-button--inactive border-2 border-transparent"
               )}
-              onClick={() => !disabled && onSelect(panel)}
+              onClick={handleClick}
               aria-pressed={isActive}
               disabled={disabled}
             >
               <Icon strokeWidth={1.4} className="size-[28px] shrink-0 pt-1 " />
-              <span className="font-[600] text-center text-[11px]">
+              <span className="font-semibold text-center text-[11px]">
                 {label}
-                {/* {helperLabel ? (
+                {helperLabel ? (
                   <>
                     <br />
                     {helperLabel}
                   </>
-                ) : null} */}
+                ) : null}
               </span>
             </Button>
           );

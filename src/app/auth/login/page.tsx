@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { LOGIN_ENDPOINT } from "@/lib/config";
 import { GoogleLogo } from "@/components/icons/google-logo";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -61,10 +62,9 @@ export default function LoginPage() {
       return;
     }
 
-    const payload =
-      identifier.includes("@")
-        ? { email: identifier.trim(), username: "", password }
-        : { username: identifier.trim(), email: "", password };
+    const payload = identifier.includes("@")
+      ? { email: identifier.trim(), username: "", password }
+      : { username: identifier.trim(), email: "", password };
 
     try {
       const response = await fetch(LOGIN_ENDPOINT, {
@@ -99,135 +99,163 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
-      <div 
-        className="bg-white flex flex-col" 
-        style={{ 
-          width: '625px', 
-          height: '800px', 
-          minWidth: '320px', 
-          padding: '48px',
-          gap: '24px'
-        }}
-      >
-        {/* Header */}
-        <div className="flex flex-col" style={{ gap: '8px' }}>
-          <h1 className="text-3xl font-semibold text-[#1E1E1E]">Log in</h1>
-          <p className="text-sm text-[#666666]">Welcome back! Please enter your details.</p>
-        </div>
+    <main className="relative min-h-screen w-full bg-[#F5F5F5] flex items-center justify-center">
+      {/* Logo */}
+      <div className="scale-100 absolute top-[48px] left-[53px] min-w-[340] w-[340] min-h-[82] h-[82] flex items-center gap-5">
+        <Image
+          src="/icons/logo.png"
+          width={82}
+          height={82}
+          alt="Auth Logo Clumped"
+          className="w-[82px] h-[82px] object-contain"
+        />
+        <h1 className="font-clash font-normal text-[54px]">FlowtingAi</h1>
+      </div>
 
-        {/* Form */}
-        <form className="flex flex-col flex-1" style={{ gap: '24px' }} onSubmit={handleSubmit}>
-          {/* Email Field */}
-          <div className="flex flex-col" style={{ gap: '8px' }}>
-            <Label htmlFor="identifier" className="text-sm font-medium text-[#1E1E1E]">
-              Email address
-            </Label>
-            <Input
-              id="identifier"
-              type="email"
-              placeholder="Email address"
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
-              className="rounded-lg border border-black bg-[#F5F5F5] text-[#1E1E1E]"
-              style={{ 
-                width: '100%', 
-                height: '40px',
-                padding: '8px 12px'
-              }}
-              required
-            />
+      {/* Left */}
+      <div className="w-1/2 h-full flex items-center justify-center">
+        <Image
+          src="/icons/AuthLogoClump.svg"
+          width={500}
+          height={500}
+          alt="Auth Logo Clumped"
+          className="w-[500] h-[500] object-contain"
+        />
+      </div>
+
+      {/* Right */}
+      <div className="w-1/2 h-full flex items-center justify-center">
+        <div className="min-w-[320px] w-[625px] h-[472px] bg-white border border-main-border rounded-lg flex flex-col gap-6 p-6">
+          {/* Header */}
+          <div className="w-[540px] flex flex-col gap-2">
+            <h1 className="font-poppins font-medium text-3xl text-[#333333]">
+              Welcome back to Flowting AI
+            </h1>
+            <p className="font-inter text-[16px] text-sm text-[#1E1E1E]">
+              <span className="font-bold">Log in</span> to orchestrate
+              workflows, manage personas, and run
+              <br />
+              automations in real time.
+            </p>
           </div>
 
-          {/* Password Field */}
-          <div className="flex flex-col" style={{ gap: '8px' }}>
-            <Label htmlFor="password" className="text-sm font-medium text-[#1E1E1E]">
-              Password
-            </Label>
-            <div style={{ position: 'relative', width: '100%' }}>
+          {/* Form */}
+          <form
+            className="flex flex-col flex-1 gap-6"
+            onSubmit={handleSubmit}
+          >
+            {/* Google Button */}
+            <Button
+              type="button"
+              variant="outline"
+              className="cursor-pointer w-full h-[48px] text-[#1E1E1E] bg-[#E3E3E3] hover:bg-[#1E1E1E] hover:text-[#E3E3E3] border border-[#767676] rounded-[8px] flex items-center justify-center gap-3 transition-all duration-300"
+            >
+              <Image
+                src="/googleLogo.svg"
+                width={24}
+                height={24}
+                alt="Google Logo"
+                className="h-6 w-6 object-contain"
+              />
+              <span className="font-inter font-normal text-[16px]">
+                Sign In with Google
+              </span>
+            </Button>
+
+            {/* Email Field */}
+            <div className="flex flex-col gap-2">
+              <Label
+                htmlFor="identifier"
+                className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+              >
+                Email address
+              </Label>
               <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="rounded-lg border border-black bg-[#F5F5F5] text-[#1E1E1E] pr-10"
-                style={{ 
-                  width: '100%', 
-                  height: '40px',
-                  padding: '8px 12px'
-                }}
+                id="identifier"
+                type="email"
+                placeholder="Email address"
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
+                className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
                 required
               />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPassword((v) => !v)}
-                style={{
-                  position: 'absolute',
-                  right: 10,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  margin: 0,
-                  cursor: 'pointer',
-                  color: '#888',
-                  height: 24,
-                  width: 24,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
-          </div>
 
-          {/* Error Message */}
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+            {/* Password Field */}
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <Label
+                htmlFor="password"
+                className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+              >
+                Password
+              </Label>
+              <div style={{ position: "relative", width: "100%" }}>
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                  required
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    margin: 0,
+                    cursor: "pointer",
+                    color: "#888",
+                    height: 24,
+                    width: 24,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
 
-          {/* Login Button */}
-          <Button
-            type="submit"
-            className="w-full bg-[#1E1E1E] text-white hover:bg-[#0F0F0F] rounded-lg"
-            style={{ height: '48px' }}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Signing in..." : "Log in"}
-          </Button>
+            {/* Error Message */}
+            {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {/* Google Button */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full bg-white text-[#1E1E1E] hover:bg-[#F5F5F5] hover:text-[#1E1E1E] border border-[#767676] rounded-lg flex items-center justify-center gap-3"
-            style={{ 
-              height: '48px',
-              paddingLeft: '215px',
-              paddingRight: '215px'
-            }}
-          >
-            <GoogleLogo className="h-5 w-5" />
-            <span>Log in with Google</span>
-          </Button>
+            <div className="flex items-center gap-6">
+              {/* Login Button */}
+              <Button
+                type="submit"
+                className="cursor-pointer min-w-[70px] w-[70px] h-[40px] font-inter font-normal text-[16px] text-[#F5F5F5] bg-[#2C2C2C] hover:bg-[#0F0F0F] rounded-[8px] transition-all duration-300"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Signing in..." : "Log in"}
+              </Button>
 
-          {/* Footer Link - moved directly under Google login */}
-          <p className="text-center text-sm text-[#666666] mt-2">
-            Don't have an account?{" "}
-            <Link href="/auth/signup" className="text-[#1E1E1E] font-medium hover:underline">
-              Sign up
-            </Link>
-          </p>
+              {/* Sign Up Link */}
+              <p className="font-poppins font-normal text-[16px]">
+                Don&apos;t have an account?{" "}
+                <Link
+                  href="/auth/signup"
+                  className="font-poppins font-normal underline underline-offset-2 text-[16px]"
+                >
+                  Sign Up
+                </Link>
+              </p>
+            </div>
 
-          {/* Spacer */}
-          <div className="flex-1" />
-        </form>
+            {/* Spacer */}
+            <div className="flex-1" />
+          </form>
+        </div>
       </div>
     </main>
   );

@@ -1,0 +1,230 @@
+.container {
+  width: 1006px;
+  height: 880px;
+  border-radius: 10px;
+  border: 1px solid #D9D9D9;
+  background: black;
+  opacity: 1;
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  height: 64px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: none;
+}
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+.closeBtn {
+  background: none;
+  border: none;
+  color: #6B7280;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.instruction {
+  height: 32px;
+  padding: 0 20px 12px 20px;
+  font-size: 13px;
+  color: #6B7280;
+  display: flex;
+  align-items: center;
+}
+.selectedModels {
+  height: 120px;
+  padding: 0 20px 16px 20px;
+  display: flex;
+  gap: 12px;
+}
+.modelSlot {
+  width: 300px;
+  height: 90px;
+  border: 1px dashed #D1D5DB;
+  border-radius: 8px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #9CA3AF;
+  position: relative;
+}
+.emptySlot {
+  color: #9CA3AF;
+  font-size: 12px;
+}
+.modelCardSelected {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  background: #F9FAFB;
+  border-radius: 8px;
+  padding: 0 12px;
+  position: relative;
+  text-overflow: ellipsis;
+}
+.modelInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 10px;
+}
+.modelName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+.modelMeta {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+.removeBtn {
+  background: none;
+  border: none;
+  color: #6B7280;
+  cursor: pointer;
+  padding: 2px;
+}
+.divider {
+  border-bottom: 1px dashed #E5E7EB;
+  margin-bottom: 12px;
+  width: 100%;
+}
+.sectionHeader {
+  padding: 0 20px 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.filterRow {
+  height: 32px;
+  padding: 0 20px 12px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.filterPill {
+  height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: transparent;
+  color: #6B7280;
+  border: none;
+  cursor: pointer;
+}
+.filterPillSelected {
+  height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #EEF2FF;
+  color: #4F46E5;
+  border: none;
+  cursor: pointer;
+}
+.modelsGrid {
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-height: 470px;
+  overflow-y: auto;
+}
+.modelCard {
+  width: 470px;
+  height: 120px;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  background: #fff;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.modelCard:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.modelCardSelectedGrid {
+  composes: modelCard;
+  background: #F3F4F6;
+  border: 1.5px solid #6366F1;
+}
+.modelCardDisabled {
+  composes: modelCard;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.modelIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.modelContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.modelDesc {
+  font-size: 12px;
+  color: #6B7280;
+  max-height: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.footer {
+  height: 56px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #E5E7EB;
+}
+.footerText {
+  font-size: 12px;
+  color: #6B7280;
+}
+.primaryBtn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: #E5E7EB;
+  color: #9CA3AF;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.primaryBtn:enabled {
+  background: #4F46E5;
+  color: #fff;
+}
+.primaryBtn:disabled {
+  background: #E5E7EB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}

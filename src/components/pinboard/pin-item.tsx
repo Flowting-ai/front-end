@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import type { PinType } from "../layout/right-sidebar";
 import {
@@ -104,7 +104,6 @@ export const PinItem = ({
   const [newFolderName, setNewFolderName] = useState("");
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const createFolderInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const MAX_TAG_LINES = 2;
   const ESTIMATED_TAGS_PER_LINE = 4;
@@ -194,10 +193,8 @@ export const PinItem = ({
 
       // Check if adding would exceed 2 lines (approximate)
       if (tags.length >= MAX_TAG_LINES * ESTIMATED_TAGS_PER_LINE) {
-        toast({
-          title: "Cannot add more tags",
+        toast.error("Cannot add more tags", {
           description: "Maximum tag limit reached (2 lines)",
-          variant: "destructive",
         });
         return;
       }
@@ -208,7 +205,7 @@ export const PinItem = ({
       const updatedPin = { ...pin, tags: newTags };
       onUpdatePin(updatedPin);
       setTagInput("");
-      toast({ title: "Tag added!" });
+      toast("Tag added!");
     }
   };
 
@@ -229,7 +226,7 @@ export const PinItem = ({
       };
       onUpdatePin(updatedPin);
       setIsEditingTitle(false);
-      toast({ title: "Title updated!" });
+      toast("Title updated!");
     } else {
       // If empty, cancel edit and restore original
       setTitleInput(pin.title ?? pin.text);
@@ -253,7 +250,7 @@ export const PinItem = ({
   const handleDeletePin = () => {
     if (onDeletePin) {
       onDeletePin(pin.id);
-      toast({ title: "Pin deleted" });
+      toast("Pin deleted");
     }
   };
 
@@ -262,7 +259,7 @@ export const PinItem = ({
       const updatedComments = [...comments, commentInput.trim()];
       setComments(updatedComments);
       onUpdatePin({ ...pin, comments: updatedComments });
-      toast({ title: "Comment added!" });
+      toast("Comment added!");
       setCommentInput("");
       setShowComments(false);
     }
@@ -279,7 +276,7 @@ export const PinItem = ({
       updatedComments[editingCommentIndex] = editCommentInput.trim();
       setComments(updatedComments);
       onUpdatePin({ ...pin, comments: updatedComments });
-      toast({ title: "Comment updated!" });
+      toast("Comment updated!");
       setEditingCommentIndex(null);
       setEditCommentInput("");
     }
@@ -293,14 +290,14 @@ export const PinItem = ({
   const handleDuplicatePin = () => {
     if (onDuplicatePin) {
       onDuplicatePin(pin);
-      toast({ title: "Pin duplicated!" });
+      toast("Pin duplicated!");
     }
   };
 
   const handleMoveToFolder = (folderId: string | null, folderName: string) => {
     if (onMovePin) {
       onMovePin(pin.id, folderId);
-      toast({ title: `Moved to ${folderName}` });
+      toast(`Moved to ${folderName}`);
       setMoveFolderSearch("");
     }
   };
@@ -311,11 +308,11 @@ export const PinItem = ({
     try {
       const newFolder = await onCreateFolder(moveFolderSearch.trim());
       onMovePin(pin.id, newFolder.id);
-      toast({ title: `Created folder and moved to ${newFolder.name}` });
+      toast(`Created folder and moved to ${newFolder.name}`);
       setMoveFolderSearch("");
     } catch (error) {
       console.error("Failed to create folder", error);
-      toast({ title: "Failed to create folder", variant: "destructive" });
+      toast.error("Failed to create folder");
     }
   };
 
@@ -617,13 +614,10 @@ export const PinItem = ({
                                   }
                                   setNewFolderName("");
                                   setShowCreateFolderDialog(false);
-                                  toast({ title: `Created ${newFolder.name}` });
+                                  toast(`Created ${newFolder.name}`);
                                 })
                                 .catch(() => {
-                                  toast({
-                                    title: "Failed to create folder",
-                                    variant: "destructive",
-                                  });
+                                  toast.error("Failed to create folder");
                                 });
                             }
                           }
@@ -659,13 +653,10 @@ export const PinItem = ({
                                 }
                                 setNewFolderName("");
                                 setShowCreateFolderDialog(false);
-                                toast({ title: `Created ${newFolder.name}` });
+                                toast(`Created ${newFolder.name}`);
                               })
                               .catch(() => {
-                                toast({
-                                  title: "Failed to create folder",
-                                  variant: "destructive",
-                                });
+                                toast.error("Failed to create folder");
                               });
                           }}
                           className="bg-[#1e1e1e] text-white hover:bg-[#2c2c2c]"
@@ -1226,7 +1217,7 @@ export const PinItem = ({
                                 ...pin,
                                 comments: updatedComments,
                               });
-                              toast({ title: "Comment deleted" });
+                              toast("Comment deleted");
                             }}
                             className="rounded hover:bg-[#E5E5E5] p-1"
                           >

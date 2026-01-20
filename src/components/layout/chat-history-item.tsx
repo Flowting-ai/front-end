@@ -63,7 +63,7 @@ export function ChatHistoryItem({
       onClick={isRenaming ? undefined : onSelect}
       onKeyDown={isRenaming ? undefined : handleKeyDown}
       className={cn(
-        "flex h-8 w-[210px] items-center justify-between rounded-[6px] px-2.5 text-[13px] text-black transition-colors",
+        "flex h-8 w-full items-center justify-between rounded-[6px] pl-2.5 pr-1 text-[13px] text-black transition-colors",
         isRenaming ? "cursor-default" : "cursor-pointer select-none",
         isSelected ? "bg-[#E5E5E5]" : "bg-transparent hover:bg-[#F1F1F1]"
       )}
@@ -93,7 +93,7 @@ export function ChatHistoryItem({
           <div className="flex items-center gap-1">
             <button
               type="submit"
-              className="flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2C2C2C] text-white transition-colors hover:bg-[#1F1F1F] disabled:bg-[#A8A8A8]"
+              className="cursor-pointer flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#2C2C2C] text-white transition-colors hover:bg-[#1F1F1F] disabled:bg-[#A8A8A8]"
               disabled={isRenamePending || !renameValue?.trim()}
               aria-label="Save chat name"
             >
@@ -105,7 +105,7 @@ export function ChatHistoryItem({
             </button>
             <button
               type="button"
-              className="flex h-[26px] w-[26px] items-center justify-center rounded-[4px] border border-[#D9D9D9] bg-white text-[#5B5B5B] transition-colors hover:bg-[#F4F4F4]"
+              className="cursor-pointer flex h-[26px] w-[26px] items-center justify-center rounded-[4px] border border-[#D9D9D9] bg-white text-[#5B5B5B] transition-colors hover:bg-[#F4F4F4]"
               onClick={(event) => {
                 event.stopPropagation();
                 onRenameCancel?.();
@@ -145,7 +145,7 @@ export function ChatHistoryItem({
                   onToggleStar();
                 }}
                 className={cn(
-                  "flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors",
+                  "cursor-pointer flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors",
                   isStarred && "text-[#F5C04E]",
                   (isRenaming || isStarPending) && "pointer-events-none opacity-40"
                 )}
@@ -172,7 +172,7 @@ export function ChatHistoryItem({
               type="button"
               onClick={(event) => event.stopPropagation()}
               className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors hover:bg-[#E5E5E5]",
+                "cursor-pointer flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors hover:bg-[#E5E5E5]",
                 (isRenaming || isRenamePending) && "pointer-events-none opacity-40"
               )}
               aria-label="Chat options"

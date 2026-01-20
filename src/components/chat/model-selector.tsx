@@ -66,11 +66,11 @@ export function ModelSelector({
         aria-expanded={isDialogOpen}
       >
         {useFramework ? (
-          <span className="w-5 h-5 bg-[rgba(255, 255, 255, 0.95)] rounded-[50%] shrink-0 inline-flex items-center justify-center p-0.5">
+          <span className="mix-blend-difference w-5 h-5 bg-white/5 rounded-full shrink-0 inline-flex items-center justify-center p-0.5">
             <Image src="/icons/logo.png" alt="Flowting AI" width={16} height={16} />
           </span>
         ) : selectedModel ? (
-          <span className="w-5 h-5 bg-[rgba(255, 255, 255, 0.95)] rounded-[50%] shrink-0 inline-flex items-center justify-center p-0.5">
+          <span className="mix-blend-difference w-5 h-5 bg-white/5 rounded-full shrink-0 inline-flex items-center justify-center p-0.5">
             <Image
               src={getModelIcon(
                 selectedModel?.companyName,

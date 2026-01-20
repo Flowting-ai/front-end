@@ -13,6 +13,8 @@ import {
   User,
   PanelLeft,
   BotMessageSquare,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -82,6 +84,7 @@ export function LeftSidebar({
   const pathname = usePathname();
   const { user, clearAuth } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
 
   const userFirstName = (() => {
     const fromName = user?.name?.trim();
@@ -143,7 +146,7 @@ export function LeftSidebar({
 
   // Logo component (expanded)
   const brandMark = (
-    <div className="relative flex h-[30.341px] w-[30.341px] flex-shrink-0 items-center justify-center">
+    <div className="relative flex h-[30.341px] w-[30.341px] shrink-0 items-center justify-center">
       <Image
         src="/icons/logo.png"
         alt="FlowtingAi Logo"
@@ -203,11 +206,11 @@ export function LeftSidebar({
                   variant="ghost"
                   size="icon"
                   aria-label={isOnChatBoard ? "New Chat Board" : "Chat Board"}
-                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-[#D9D9D9] hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
+                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => {
-                    // if (isOnChatBoard) {
-                    //   onAddChat();
-                    // }
+                    if (isOnChatBoard) {
+                      onAddChat();
+                    }
                     router.push("/");
                   }}
                 >
@@ -233,17 +236,16 @@ export function LeftSidebar({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                disabled
                   variant="ghost"
                   size="icon"
                   aria-label="Personas"
-                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-[#D9D9D9] hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
+                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => router.push("/personaAdmin")}
                 >
                   <Layers
                     className={cn(
                       "h-5 w-5",
-                      isOnPersonaPage ? "text-white" : "text-[#303030]"
+                      isOnPersonaPage ? "text-[#303030]" : "text-[#303030]"
                     )}
                   />
                 </Button>
@@ -262,7 +264,7 @@ export function LeftSidebar({
               variant="ghost"
               size="icon"
               aria-label="AI Automation"
-              className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-[#D9D9D9] hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
+              className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
               disabled
             >
               <Bot className="h-5 w-5 text-[#303030]" />
@@ -405,7 +407,6 @@ export function LeftSidebar({
 
             {/* Personas */}
             <Button
-            disabled
               onClick={() => router.push("/personaAdmin")}
               className={cn(
                 "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
@@ -445,120 +446,120 @@ export function LeftSidebar({
           </div>
 
           {/* 3. Chat */}
-          <div className="flex-1 w-full flex flex-col min-h-0">
-            <div className="px-4 pt-2.5 pb-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="font-inter flex-1 w-full flex flex-col min-h-0">
+            <div className="px-4 pb-4.5 flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Section header - accordion trigger style */}
-              <div className="flex h-[31px] w-full items-center gap-2 rounded-[8px] shrink-0">
-                <span className="flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
+              <div className="flex h-[31px] w-full items-center gap-2 shrink-0">
+                <p className="px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
                   Recent Chat boards
-                </span>
-                <div className="h-4 w-4 opacity-30">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M4 10L8 6L12 10"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
+                </p>
+                <button
+                  onClick={() => setIsChatBoardsExpanded(!isChatBoardsExpanded)}
+                  className="cursor-pointer h-4 w-4 text-[#737373] hover:text-black flex items-center justify-center"
+                >
+                  {isChatBoardsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
               </div>
 
-              <div className="mt-2 flex-shrink-0">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search chats"
-                    className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
-                    type="search"
-                    aria-label="Search chats"
-                  />
-                </div>
-              </div>
-
-              {boardsToDisplayAugmented.length > 0 ? (
-                <div className="mt-4 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-hidden">
-                  {boardsToDisplayAugmented.map((board) => {
-                    const isActive = activeChatId === board.id;
-                    const pinTotal =
-                      board.metadata?.pinCount ?? board.pinCount ?? 0;
-                    const isRenamingBoard = renamingChatId === board.id;
-
-                    const handleSelect = () => {
-                      if (renamingChatId) {
-                        onRenameCancel();
-                      }
-                      setActiveChatId(board.id);
-                      router.push("/");
-                    };
-
-                    const handleToggleStar = () => {
-                      void onToggleStar(board);
-                    };
-
-                    const handleRename = () => {
-                      if (isRenamingPending) return;
-                      setRenamingChatId(board.id);
-                      setRenamingText(board.name);
-                      requestAnimationFrame(() => {
-                        renameInputRef.current?.focus();
-                      });
-                    };
-
-                    const handleDelete = () => {
-                      handleDeleteClick(board);
-                    };
-
-                    const handleRenameSubmit = () => {
-                      const trimmed = renamingText.trim();
-                      if (!trimmed) return;
-                      void onRenameConfirm();
-                    };
-
-                    return (
-                      <ChatHistoryItem
-                        key={board.id}
-                        title={board.name}
-                        isSelected={isActive}
-                        isStarred={Boolean(board.isStarred)}
-                        pinnedCount={pinTotal}
-                        onSelect={handleSelect}
-                        onToggleStar={handleToggleStar}
-                        onRename={handleRename}
-                        onDelete={handleDelete}
-                        isRenaming={isRenamingBoard}
-                        renameValue={isRenamingBoard ? renamingText : undefined}
-                        onRenameChange={
-                          isRenamingBoard
-                            ? (value) => {
-                                setRenamingText(value);
-                              }
-                            : undefined
-                        }
-                        onRenameSubmit={
-                          isRenamingBoard ? handleRenameSubmit : undefined
-                        }
-                        onRenameCancel={
-                          isRenamingBoard ? onRenameCancel : undefined
-                        }
-                        renameInputRef={
-                          isRenamingBoard ? renameInputRef : undefined
-                        }
-                        isRenamePending={
-                          isRenamingBoard ? isRenamingPending : false
-                        }
-                        isStarPending={starUpdatingChatId === board.id}
+              {isChatBoardsExpanded && (
+                <>
+                  <div className="mt-2 shrink-0">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
+                      <Input
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        placeholder="Search chats"
+                        className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+                        type="search"
+                        aria-label="Search chats"
                       />
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
-                  <p>No chats found.</p>
-                </div>
+                    </div>
+                  </div>
+
+                  {boardsToDisplayAugmented.length > 0 ? (
+                    <div id="recent-chat-boards" className="mt-4 flex-1 min-h-0 space-y-2 overflow-y-auto scrollbar-hidden snap-y snap-mandatory max-h-[448px] transition-all duration-500">
+                      {boardsToDisplayAugmented.map((board) => {
+                        const isActive = activeChatId === board.id;
+                        const pinTotal =
+                          board.metadata?.pinCount ?? board.pinCount ?? 0;
+                        const isRenamingBoard = renamingChatId === board.id;
+
+                        const handleSelect = () => {
+                          if (renamingChatId) {
+                            onRenameCancel();
+                          }
+                          setActiveChatId(board.id);
+                          router.push("/");
+                        };
+
+                        const handleToggleStar = () => {
+                          void onToggleStar(board);
+                        };
+
+                        const handleRename = () => {
+                          if (isRenamingPending) return;
+                          setRenamingChatId(board.id);
+                          setRenamingText(board.name);
+                          requestAnimationFrame(() => {
+                            renameInputRef.current?.focus();
+                          });
+                        };
+
+                        const handleDelete = () => {
+                          handleDeleteClick(board);
+                        };
+
+                        const handleRenameSubmit = () => {
+                          const trimmed = renamingText.trim();
+                          if (!trimmed) return;
+                          void onRenameConfirm();
+                        };
+
+                        return (
+                          <div key={board.id} className="snap-start">
+                            <ChatHistoryItem
+                              title={board.name}
+                              isSelected={isActive}
+                              isStarred={Boolean(board.isStarred)}
+                              pinnedCount={pinTotal}
+                              onSelect={handleSelect}
+                              onToggleStar={handleToggleStar}
+                              onRename={handleRename}
+                              onDelete={handleDelete}
+                              isRenaming={isRenamingBoard}
+                              renameValue={isRenamingBoard ? renamingText : undefined}
+                              onRenameChange={
+                                isRenamingBoard
+                                  ? (value) => {
+                                      setRenamingText(value);
+                                    }
+                                  : undefined
+                              }
+                              onRenameSubmit={
+                                isRenamingBoard ? handleRenameSubmit : undefined
+                              }
+                              onRenameCancel={
+                                isRenamingBoard ? onRenameCancel : undefined
+                              }
+                              renameInputRef={
+                                isRenamingBoard ? renameInputRef : undefined
+                              }
+                              isRenamePending={
+                                isRenamingBoard ? isRenamingPending : false
+                              }
+                              isStarPending={starUpdatingChatId === board.id}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                      <p>No chats found.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -608,7 +609,7 @@ export function LeftSidebar({
                 className="bg-white border-[#E5E5E5] rounded-lg p-1.5"
                 style={{ width: "222px", gap: "8px" }}
               >
-                {/* {!user && ( */}
+                {user && (
                 <DropdownMenuItem
                   disabled
                   className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
@@ -616,7 +617,7 @@ export function LeftSidebar({
                   <User className="h-4 w-4 text-lsb-text" />
                   Profile
                 </DropdownMenuItem>
-                {/* )} */}
+                )}
                 <DropdownMenuItem
                   disabled
                   className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
@@ -638,7 +639,7 @@ export function LeftSidebar({
                   <HelpCircle className="h-4 w-4 text-lsb-text" />
                   Help
                 </DropdownMenuItem>
-                {!user ? (
+                {user ? (
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="flex items-center gap-2 rounded-md text-lsb-text"

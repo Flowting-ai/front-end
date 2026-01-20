@@ -42,7 +42,7 @@ import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
 import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
 import { useAuth } from "@/context/auth-context";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   createPin,
   createPinFolder,
@@ -194,7 +194,6 @@ export function RightSidebar({
   const layoutContext = useContext(AppLayoutContext);
   const activeChatId = layoutContext?.activeChatId;
   const { csrfToken } = useAuth();
-  const { toast } = useToast();
 
   const pinsToDisplay = pins;
 
@@ -486,13 +485,12 @@ export function RightSidebar({
         window.dispatchEvent(
           new CustomEvent(PIN_INSERT_EVENT, { detail: { text, pin } })
         );
-        toast({
-          title: "Inserted into prompt",
+        toast("Inserted into prompt", {
           description: "Pin content moved to the chat input.",
         });
       }
     },
-    [onInsertToChat, toast]
+    [onInsertToChat]
   );
 
   const sortedAndFilteredPins = useMemo(() => {
@@ -554,23 +552,20 @@ export function RightSidebar({
   const handleGoToChat = useCallback(
     (pin: PinType) => {
       if (!pin.chatId) {
-        toast({
-          title: "Chat not found",
+        toast.error("Chat not found", {
           description: "This pin is not linked to a chat.",
-          variant: "destructive",
         });
         return;
       }
       layoutContext?.setActiveChatId(String(pin.chatId));
       setIsOrganizeDialogOpen(false);
     },
-    [layoutContext, toast]
+    [layoutContext]
   );
 
   const exportPinsToPdf = useCallback(() => {
     if (sortedAndFilteredPins.length === 0) {
-      toast({
-        title: "No pins to export",
+      toast("No pins to export", {
         description: "Add or select pins before exporting.",
       });
       return;
@@ -626,10 +621,8 @@ export function RightSidebar({
 
     const printWindow = window.open("", "_blank", "width=900,height=1200");
     if (!printWindow) {
-      toast({
-        title: "Popup blocked",
+      toast.error("Popup blocked", {
         description: "Allow popups to export pins.",
-        variant: "destructive",
       });
       return;
     }

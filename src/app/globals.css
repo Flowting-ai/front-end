@@ -1,5 +1,6 @@
-/* Google Fonts - Geist | Inter */
+/* Google Fonts - [ Geist | Inter ], Poppins */
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -17,6 +18,7 @@
   --font-clash: 'Clash Grotesk Variable', 'Clash Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --font-geist: "Geist", sans-serif;
   --font-inter: "Inter", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
 
   /* Main */
   --color-main-border: #D9D9D9;
@@ -829,7 +831,7 @@
   } */
 
   .sidebar-collapsed-button{
-    @apply w-[50px] min-h-[50px] h-full text-[#1E1E1E] border border-transparent rounded-[7px] flex flex-col items-center justify-center transition-all duration-300;
+    @apply text-[#1E1E1E] rounded-[7px] flex flex-col items-center justify-center transition-all duration-300;
   }
 
   /* .sidebar-collapsed-button--active {
@@ -1251,4 +1253,94 @@
 }
 .scrollbar-custom-grey::-webkit-scrollbar-thumb:hover {
   background: #D4D4D4 !important;
+}
+
+/* Custom scrollbar for recent chatboards */
+.scrollbar-custom-rcb {
+  scrollbar-color: #E5E5E5 transparent !important;
+}
+.scrollbar-custom-rcb::-webkit-scrollbar {
+  width: 2px !important;
+  height: auto !important;
+}
+.scrollbar-custom-rcb::-webkit-scrollbar-track {
+  background: transparent !important;
+  margin: 1px 0 !important;
+}
+.scrollbar-custom-rcb::-webkit-scrollbar-thumb {
+  background: #E5E5E5 !important;
+  border-radius: 4px !important;
+  min-height: 4px !important;
+  opacity: 1 !important;
+}
+.scrollbar-custom-rcb::-webkit-scrollbar-thumb:hover {
+  background: #D4D4D4 !important;
+}
+
+/* Sonner Toast Styles */
+.sonner-toast-title {
+  font-family: var(--font-geist);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 150%;
+  color: #171717;
+}
+
+.sonner-toast-description {
+  font-family: var(--font-geist);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  letter-spacing: 0.5%;
+  color: #737373;
+}
+
+.sonner-close {
+  width: 24px;
+  height: 24px;
+  background: #B3B3B3;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.sonner-close svg {
+  width: 8px;
+  height: 8px;
+  color: white;
+}
+
+.sonner-toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: #D4D4D4;
+  border-radius: 0 0 8px 8px;
+}
+
+.sonner-toast::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 8px;
+  background: #0A0A0A;
+  width: 0%;
+  animation: progress linear forwards;
+  animation-duration: calc(attr(data-duration number) / 1000 * 1s);
+  border-radius: 0 0 8px 8px;
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }
