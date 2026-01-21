@@ -1255,7 +1255,7 @@ export function ChatInterface({
       )}
 
       {/* Chat Input Footer */}
-      <footer className="shrink-0 bg-[var(--Background-Default-Default,#FFFFFF)] px-4 pb-0.5 pt-0 sm:px-8 lg:px-10">
+      <footer className="shrink-0 bg-[var(--Background-Default-Default,#FFFFFF)] px-2 pb-0.5 pt-0">
         <div className="relative mx-auto w-full max-w-[756px]">
           {showPinDropdown && availablePins.length > 0 && (
             <div
@@ -1591,7 +1591,7 @@ export function ChatInterface({
                         description: "Voice input feature coming soon!",
                       });
                     }}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
+                    className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full bg-zinc-300 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                     title="Voice input"
                   >
                     {/* mic icon button  */}

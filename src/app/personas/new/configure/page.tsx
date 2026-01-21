@@ -448,7 +448,7 @@ function PersonaConfigurePageContent() {
                 hideAttachButton={true}
                 customEmptyState={
                   <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="relative w-[145px] h-[146px]">
+                    <div className="relative w-[146px] h-[146px]">
                       <div
                         className="absolute top-1/2 left-1/2 -translate-1/2"
                         style={{
@@ -472,6 +472,7 @@ function PersonaConfigurePageContent() {
                           alt="Persona"
                           width={81}
                           height={81}
+                          className="rounded-full border-2 border-main-border"
                           style={{
                             width: "100%",
                             height: "100%",
@@ -483,7 +484,7 @@ function PersonaConfigurePageContent() {
                       {Array.from({ length: 7 }).map((_, index) => {
                         const angle = (index / 7) * 360;
                         const radian = (angle * Math.PI) / 180;
-                        const radius = 60;
+                        const radius = 54;
                         const x = Math.cos(radian) * radius;
                         const y = Math.sin(radian) * radius;
                         return (
@@ -587,9 +588,7 @@ function PersonaConfigurePageContent() {
                                     <span>{selectedModelData.label}</span>
                                   </div>
                                 ) : (
-                                  <span
-                                    className={cn(styles.placeholderText)}
-                                  >
+                                  <span className={cn(styles.placeholderText)}>
                                     Select Model
                                   </span>
                                 )}
@@ -1116,10 +1115,9 @@ function PersonaConfigurePageContent() {
                         disableInput={!isTesting}
                         hideAttachButton={true}
                         customEmptyState={
-                          <div className="flex flex-col items-center justify-center gap-6">
+                          <div className="flex flex-col items-center justify-center gap-2">
                             <div
-                              className="relative"
-                              style={{ width: "181px", height: "181px" }}
+                              className="relative w-[146px] h-[146px]"
                             >
                               <div
                                 style={{
@@ -1159,15 +1157,17 @@ function PersonaConfigurePageContent() {
                               </div>
                               {Array.from({ length: 7 }).map((_, index) => {
                                 const angle = (index / 7) * 360;
-                                const radius = 60;
+                                const radius = 54;
                                 return (
                                   <div
                                     key={index}
                                     className={cn(
                                       "-rotate-90 absolute top-1/2 left-1/2 -translate-1/2 h-2 w-2 rounded-full transition-colors duration-300",
                                       index < progressSteps
-                                        ? "bg-green-500"
-                                        : "border border-gray-300 bg-transparent",
+                                        ? "bg-[#009951]"
+                                        : index === progressSteps && progressSteps < 7
+                                        ? "border border-[#009951] bg-transparent"
+                                        : "bg-transparent",
                                     )}
                                     style={{
                                       transform: `rotate(${angle}deg) translateX(${radius}px) rotate(-${angle}deg)`,
@@ -1175,6 +1175,15 @@ function PersonaConfigurePageContent() {
                                   />
                                 );
                               })}
+                            </div>
+
+                            <div className="text-center mb-2">
+                              <p className={cn("font-clash font-medium text-[29px]", isPersonaReady ? "text-[#1E1E1E]" : "text-zinc-300")}>
+                                {personaName}
+                              </p>
+                              <p className={cn("max-w-[240px] w-[240px] font-normal text-center text-[14px] mt-1", isPersonaReady ? "text-[#333333]" : "text-zinc-300")}>
+                                Start chatting to test your persona
+                              </p>
                             </div>
 
                             <Button
@@ -1255,13 +1264,15 @@ function PersonaConfigurePageContent() {
                   marginBottom: "16px",
                 }}
               >
-                <img
+                <Image
                   src={
                     avatarUrl ||
                     uploadedFiles.find((f) => f.type === "image")?.url ||
                     "/personas/persona1.png"
                   }
                   alt="Persona"
+                  width={82}
+                  height={82}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -1273,6 +1284,7 @@ function PersonaConfigurePageContent() {
 
               {/* Success Message */}
               <h2
+              className="w-[304px]"
                 style={{
                   fontFamily: "Clash Grotesk Variable",
                   fontWeight: 500,
@@ -1284,11 +1296,11 @@ function PersonaConfigurePageContent() {
                   marginBottom: "8px",
                 }}
               >
-                Persona '{personaName}' has been created!
+                Persona &apos;{personaName}&apos; has been created!
               </h2>
 
               <p
-                className="text-center text-sm"
+                className="w-[368px] text-center text-sm"
                 style={{
                   color: "#666666",
                   maxWidth: "400px",
@@ -1296,12 +1308,12 @@ function PersonaConfigurePageContent() {
                   marginBottom: "24px",
                 }}
               >
-                '{personaName}' was created and added to your manager page. Try
+                &apos;{personaName}&apos; was created and added to your manager page. Try
                 chatting with your persona or share it with your team.
               </p>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 w-full px-4">
+              <div className="flex items-center justify-center gap-3 w-full px-4">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1311,7 +1323,7 @@ function PersonaConfigurePageContent() {
                   style={{
                     color: "#0A0A0A",
                   }}
-                  className="flex-1 h-11 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] hover:text-[#0A0A0A] font-medium"
+                  className="w-[108px] h-11 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] hover:text-[#0A0A0A] font-medium"
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Share
@@ -1321,7 +1333,7 @@ function PersonaConfigurePageContent() {
                     setShowSuccessDialog(false);
                     setIsChatMode(true);
                   }}
-                  className="flex-1 h-11 rounded-lg bg-[#171717] hover:bg-[#000000] text-white font-medium"
+                  className="w-[138px] h-11 rounded-lg bg-[#171717] hover:bg-[#000000] text-white font-medium"
                 >
                   Start Chat
                 </Button>

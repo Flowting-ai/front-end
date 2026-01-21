@@ -21,6 +21,22 @@ import {
 } from "lucide-react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PersonaSummary {
   id: string;
@@ -47,7 +63,7 @@ const resolveImage = (id: string, fallback: string) => {
 };
 
 // Seed with three personas to show filled state
-const PERSONAS: PersonaSummary[] = [
+const INITIAL_PERSONAS: PersonaSummary[] = [
   {
     id: "1",
     name: "Marketing Assistant",
@@ -142,6 +158,9 @@ function PersonasPageContent() {
   const [templateCategory, setTemplateCategory] = useState<string>("all");
   const [savedTemplates, setSavedTemplates] = useState<Set<string>>(new Set());
   const [userPersonas, setUserPersonas] = useState<PersonaSummary[]>([]);
+  const [personas, setPersonas] = useState<PersonaSummary[]>(INITIAL_PERSONAS);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [personaToDelete, setPersonaToDelete] = useState<PersonaSummary | null>(null);
 
   // Load user personas from localStorage on mount
   useEffect(() => {
@@ -166,14 +185,14 @@ function PersonasPageContent() {
 
   const filteredPersonas = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    const allPersonas = [...PERSONAS, ...userPersonas];
+    const allPersonas = [...personas, ...userPersonas];
     if (!query) return allPersonas;
     return allPersonas.filter(
       (persona) =>
         persona.name.toLowerCase().includes(query) ||
         persona.description.toLowerCase().includes(query)
     );
-  }, [searchTerm, userPersonas]);
+  }, [searchTerm, userPersonas, personas]);
 
   const filteredTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
@@ -224,12 +243,28 @@ function PersonasPageContent() {
     });
   };
 
+  const handleDeletePersona = (personaId: string) => {
+    // Remove from personas (demo)
+    setPersonas(prev => prev.filter(p => p.id !== personaId));
+    // Remove from userPersonas
+    setUserPersonas(prev => {
+      const updated = prev.filter(p => p.id !== personaId);
+      sessionStorage.setItem("userPersonas", JSON.stringify(updated.map(p => ({
+        id: p.id,
+        name: p.name,
+        systemInstruction: p.description,
+        avatar: p.thumbnail,
+      }))));
+      return updated;
+    });
+  };
+
   return (
     <div className={styles.personasShell}>
       <div className={cn(styles.scrollContainer, chatStyles.customScrollbar)}>
         {/* Empty State - Show when user has no personas */}
         {/* PERSONAS.length === 0 */}
-        {PERSONAS.length === 0 ? (
+        {INITIAL_PERSONAS.length === 0 ? (
           <>
             {/* Your Personas Section with Empty State */}
             <section className={styles.section}>
@@ -583,13 +618,28 @@ function PersonasPageContent() {
                               {persona.description}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            className={styles.iconButton}
-                            aria-label={`Open actions for ${persona.name}`}
-                          >
-                            <MoreVertical className="h-4 w-4 text-[#666666]" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className={styles.iconButton}
+                                aria-label={`Open actions for ${persona.name}`}
+                              >
+                                <MoreVertical className="h-4 w-4 text-[#666666]" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}>
+                                Edit configuration
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setPersonaToDelete(persona);
+                                setDeleteDialogOpen(true);
+                              }}>
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <div className={styles.templateFooter}>
                           {typeof persona.temperature === "number" ? (
@@ -862,6 +912,28 @@ function PersonasPageContent() {
           </>
         )}
       </div>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Persona</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{personaToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (personaToDelete) {
+                handleDeletePersona(personaToDelete.id);
+              }
+              setDeleteDialogOpen(false);
+              setPersonaToDelete(null);
+            }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
