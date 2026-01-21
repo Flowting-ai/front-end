@@ -1,6 +1,6 @@
 "use client";
 
-const DEFAULT_API_BASE_URL = "https://1jellyfish-app-7brqd.ondigitalocean.app";
+const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 // Normalize the base to avoid accidental double slashes when the env var ends with "/".
 export const API_BASE_URL = (
@@ -20,6 +20,7 @@ const PATHS = {
   tokens: "/tokens/",
   chats: "/chats/",
   chat: "/chat/",
+  chatTurn: "/chat/turn/",
   chatDetail: (chatId: string | number) => `/chats/${chatId}/`,
   chatStar: (chatId: string | number) => `/chats/${chatId}/star/`,
   chatMessages: (chatId: string | number) => `/chats/${chatId}/messages/`,
@@ -36,9 +37,14 @@ const PATHS = {
   pinFolderDetail: (folderId: string | number) => `/pin-folders/${folderId}/`,
   pinFolderIds: "/pin-folders/ids/",
   models: "/get_models",
+  modelTest: "/models/test/",
   documents: "/documents/",
   documentsSearch: "/documents/search/",
   imageGeneration: "/generate-image/",
+  personas: "/personas/",
+  personaDetail: (personaId: string | number) => `/personas/${personaId}/`,
+  personaAnalyze: "/personas/analyze/",
+  personaTest: "/personas/test/",
 } as const;
 
 export const CSRF_INIT_ENDPOINT = withBase(PATHS.csrfInit);
@@ -48,11 +54,13 @@ export const USER_ENDPOINT = withBase(PATHS.user);
 export const TOKENS_ENDPOINT = withBase(PATHS.tokens);
 export const CHATS_ENDPOINT = withBase(PATHS.chats);
 export const CHAT_COMPLETION_ENDPOINT = withBase(PATHS.chat);
+export const CHAT_TURN_ENDPOINT = withBase(PATHS.chatTurn);
 export const CHAT_DETAIL_ENDPOINT = (chatId: string | number) =>
   withBase(PATHS.chatDetail(chatId));
 export const CHAT_STAR_ENDPOINT = (chatId: string | number) =>
   withBase(PATHS.chatStar(chatId));
 export const MODELS_ENDPOINT = withBase(PATHS.models);
+export const MODEL_TEST_ENDPOINT = withBase(PATHS.modelTest);
 export const CHAT_MESSAGES_ENDPOINT = (chatId: string | number) =>
   withBase(PATHS.chatMessages(chatId));
 export const DELETE_MESSAGE_ENDPOINT = (
@@ -79,5 +87,10 @@ export const PIN_FOLDER_IDS_ENDPOINT = withBase(PATHS.pinFolderIds);
 export const DOCUMENTS_ENDPOINT = withBase(PATHS.documents);
 export const DOCUMENT_SEARCH_ENDPOINT = withBase(PATHS.documentsSearch);
 export const IMAGE_GENERATION_ENDPOINT = withBase(PATHS.imageGeneration);
+export const PERSONAS_ENDPOINT = withBase(PATHS.personas);
+export const PERSONA_DETAIL_ENDPOINT = (personaId: string | number) =>
+  withBase(PATHS.personaDetail(personaId));
+export const PERSONA_ANALYZE_ENDPOINT = withBase(PATHS.personaAnalyze);
+export const PERSONA_TEST_ENDPOINT = withBase(PATHS.personaTest);
 
 export const allTags = ["Finance Research", "Product Analysis Q4", "Marketing Strategy"];

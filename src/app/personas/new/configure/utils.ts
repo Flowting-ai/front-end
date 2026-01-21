@@ -58,6 +58,7 @@ export function createFileObject(file: File): UploadedFile {
     type: getFileType(file.type),
     name: file.name,
     url: URL.createObjectURL(file),
+    file,
     isUploading: true,
     uploadProgress: 0,
   };
@@ -77,5 +78,29 @@ export function formatDuplicateFileMessage(duplicateFiles: string[]): {
       ? `A file named "${duplicateFiles[0]}" already exists. Please upload a different file or remove the existing one first.`
       : `The following files already exist: ${duplicateFiles.join(', ')}. Please upload different files or remove the existing ones first.`,
   };
+}
+
+/**
+ * Converts a data URL to a File object
+ */
+export function dataUrlToFile(dataUrl: string, filename: string = 'avatar.png'): File | null {
+  try {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) return null;
+
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+
+    return new File([u8arr], filename, { type: mime });
+  } catch {
+    return null;
+  }
 }
 

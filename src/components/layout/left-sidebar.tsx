@@ -130,7 +130,7 @@ export function LeftSidebar({
         name: `Test Chat ${i + 1}`,
         time: `${i + 1}m`,
         isStarred: false,
-        pinCount: Math.floor(Math.random() * 5),
+        pinCount: 0,
       });
     }
     return out;
@@ -582,7 +582,7 @@ export function LeftSidebar({
                             parts.length > 1 ? parts[parts.length - 1][0] : "";
                           return (first + last).toUpperCase();
                         }
-                        if (user?.email) {
+                        if (user?.email) { 
                           const [first, last] = user.email
                             .split("@")[0]
                             .split(".");

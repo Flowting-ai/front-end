@@ -7,6 +7,7 @@ export interface UploadedFile {
   type: 'pdf' | 'image';
   name: string;
   url: string;
+  file: File;
   isUploading?: boolean;
   uploadProgress?: number;
 }

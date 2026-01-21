@@ -8,26 +8,49 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { SIGNUP_ENDPOINT } from "@/lib/config";
+import { CSRF_INIT_ENDPOINT, SIGNUP_ENDPOINT } from "@/lib/config";
 import { GoogleLogo } from "@/components/icons/google-logo";
 import Image from "next/image";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setCsrfToken, csrfToken, setUser } = useAuth();
+  const { setCsrfToken, csrfToken } = useAuth();
+  type SignupSuccess = {
+    message?: string;
+    csrfToken?: string;
+    csrf_token?: string;
+    user?: {
+      id?: string | number;
+      username?: string | null;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      phoneNumber?: string | null;
+    };
+  };
+  type SignupError = { error?: string; detail?: string };
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
-  // const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCsrfToken = async () => {
+      try {
+        await fetch(CSRF_INIT_ENDPOINT, {
+          method: "GET",
+          credentials: "include",
+        });
+      } catch (err) {
+        console.warn("CSRF init failed for signup", err);
+      }
       try {
         const response = await fetch(SIGNUP_ENDPOINT, {
           method: "GET",
@@ -66,28 +89,33 @@ export default function SignupPage() {
           ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
         body: JSON.stringify({
-          username: `${firstName.trim()} ${lastName.trim()}`,
+          username:
+            `${firstName.trim()} ${lastName.trim()}`.trim() ||
+            email.trim(),
           email: email.trim(),
           password,
+          firstName: firstName.trim() || null,
+          lastName: lastName.trim() || null,
+          phoneNumber: phoneNumber.trim() || null,
         }),
       });
 
-      const data = await response.json();
+      const data: SignupSuccess & SignupError = await response.json();
       if (!response.ok) {
-        setError(data?.error || "Unable to create account. Please try again.");
+        setError(data?.error || data?.detail || "Unable to create account. Please try again.");
         return;
       }
-      if (data?.user) {
-        setUser(data.user);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("isLoggedIn", "true");
-        }
+
+      const freshToken = data?.csrfToken || data?.csrf_token;
+      if (freshToken) {
+        setCsrfToken(freshToken);
       }
 
       setSuccessMessage(
-        "Signup successful! Welcome onboard, redirecting you to the application.",
+        data?.message ||
+          "Signup successful! Please sign in to continue."
       );
-      setTimeout(() => router.replace("/"), 1500);
+      setTimeout(() => router.replace("/auth/login"), 1000);
     } catch (err) {
       console.error("Signup failed", err);
       setError("Unexpected error. Please try again.");
@@ -192,6 +220,24 @@ export default function SignupPage() {
               />
             </div>
 
+            {/* Phone Field (optional) */}
+            <div className="flex flex-col" style={{ gap: "8px" }}>
+              <Label
+                htmlFor="phoneNumber"
+                className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+              >
+                Phone number (optional)
+              </Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                placeholder="Phone number"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+              />
+            </div>
+
             {/* Password Field */}
             <div className="flex flex-col" style={{ gap: "8px" }}>
               <Label
@@ -249,7 +295,7 @@ export default function SignupPage() {
               <div style={{ position: "relative", width: "100%" }}>
                 <Input
                   id="confirmPassword"
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
@@ -277,9 +323,11 @@ export default function SignupPage() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>

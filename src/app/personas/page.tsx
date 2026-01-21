@@ -37,6 +37,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/context/auth-context";
+import {
+  fetchPersonas,
+  deletePersona as deletePersonaApi,
+  type PersonaStatus,
+} from "@/lib/api/personas";
 
 interface PersonaSummary {
   id: string;
@@ -158,30 +164,36 @@ function PersonasPageContent() {
   const [templateCategory, setTemplateCategory] = useState<string>("all");
   const [savedTemplates, setSavedTemplates] = useState<Set<string>>(new Set());
   const [userPersonas, setUserPersonas] = useState<PersonaSummary[]>([]);
-  const [personas, setPersonas] = useState<PersonaSummary[]>(INITIAL_PERSONAS);
+  const [personas, setPersonas] = useState<PersonaSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [statusFilterValue] = useState<PersonaStatus>("test");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personaToDelete, setPersonaToDelete] = useState<PersonaSummary | null>(null);
+  const { csrfToken } = useAuth();
 
-  // Load user personas from localStorage on mount
+  // Load personas from backend
   useEffect(() => {
-    const savedPersonas = sessionStorage.getItem("userPersonas");
-    if (savedPersonas) {
+    const load = async () => {
+      setIsLoading(true);
       try {
-        const personas = JSON.parse(savedPersonas);
-        setUserPersonas(
-          personas.map((p: any) => ({
+        const list = await fetchPersonas(statusFilterValue, csrfToken);
+        setPersonas(
+          list.map((p) => ({
             id: p.id,
             name: p.name,
-            description:
-              p.systemInstruction?.substring(0, 100) || "No description",
-            thumbnail: p.avatar || "/icons/personas/persona1.png",
+            description: p.prompt?.slice(0, 140) || "No description",
+            thumbnail: p.imageUrl || "/icons/personas/persona1.png",
+            temperature: undefined,
           }))
         );
       } catch (error) {
         console.error("Failed to load personas:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, []);
+    };
+    load();
+  }, [csrfToken, statusFilterValue]);
 
   const filteredPersonas = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -243,20 +255,14 @@ function PersonasPageContent() {
     });
   };
 
-  const handleDeletePersona = (personaId: string) => {
-    // Remove from personas (demo)
-    setPersonas(prev => prev.filter(p => p.id !== personaId));
-    // Remove from userPersonas
-    setUserPersonas(prev => {
-      const updated = prev.filter(p => p.id !== personaId);
-      sessionStorage.setItem("userPersonas", JSON.stringify(updated.map(p => ({
-        id: p.id,
-        name: p.name,
-        systemInstruction: p.description,
-        avatar: p.thumbnail,
-      }))));
-      return updated;
-    });
+  const handleDeletePersona = async (personaId: string) => {
+    try {
+      await deletePersonaApi(personaId, csrfToken);
+      setPersonas((prev) => prev.filter((p) => p.id !== personaId));
+      setUserPersonas((prev) => prev.filter((p) => p.id !== personaId));
+    } catch (error) {
+      console.error("Failed to delete persona:", error);
+    }
   };
 
   return (

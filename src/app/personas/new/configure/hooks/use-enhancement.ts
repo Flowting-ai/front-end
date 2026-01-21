@@ -4,15 +4,13 @@
 
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { API_BASE_URL } from '@/lib/config';
-import { MOCK_ENHANCED_RESPONSE } from '../constants';
-import { REFINEMENT_STEPS } from '../types';
+import { analyzePersona, type PersonaAnalyzeResponse } from "@/lib/api/personas";
 
 interface UseEnhancementReturn {
   isEnhancing: boolean;
   hasEnhancedContent: boolean;
   originalInstruction: string;
-  enhance: (currentInstruction: string) => Promise<string>;
+  enhance: (currentInstruction: string, csrfToken?: string | null) => Promise<PersonaAnalyzeResponse>;
   reset: () => void;
 }
 
@@ -22,28 +20,15 @@ export function useEnhancement(): UseEnhancementReturn {
   const [originalInstruction, setOriginalInstruction] = useState('');
 
   const enhance = useCallback(
-    async (currentInstruction: string): Promise<string> => {
+    async (
+      currentInstruction: string,
+      csrfToken?: string | null
+    ): Promise<PersonaAnalyzeResponse> => {
       setIsEnhancing(true);
       setOriginalInstruction(currentInstruction);
 
       try {
-        // TODO: Replace with actual API call
-        // const csrfToken = readCookie('csrftoken');
-        // const response = await fetch(`${API_BASE_URL}/api/personas/enhance-instruction/`, {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //     'X-CSRFToken': csrfToken || '',
-        //   },
-        //   body: JSON.stringify({ instruction: currentInstruction }),
-        // });
-        // if (!response.ok) throw new Error('Enhancement failed');
-        // const data = await response.json();
-        // return data.enhanced_instruction;
-
-        // Mock implementation
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const enhanced = MOCK_ENHANCED_RESPONSE;
+        const enhanced = await analyzePersona(currentInstruction, csrfToken);
         setHasEnhancedContent(true);
         return enhanced;
       } catch (error) {

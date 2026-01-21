@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect } from "react";
 import styles from "./compareModels.module.css";
 import {
@@ -15,69 +15,43 @@ import {
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import type { AIModel } from "@/types/ai-model";
+import { MODELS_ENDPOINT, MODEL_TEST_ENDPOINT } from "@/lib/config";
+import { normalizeModels } from "@/lib/ai-models";
+import { getModelIcon } from "@/lib/model-icons";
+import { apiFetch } from "@/lib/api/client";
+import { useAuth } from "@/context/auth-context";
 
-const AVAILABLE_MODELS = [
-  {
-    id: "gpt-5.1",
-    name: "OpenAI / GPT-5.1 Thinking",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Premium model / Context 400,000 millions token",
-    iconBg: "#EEF2FF",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-  {
-    id: "claude-3",
-    name: "Anthropic / Claude 3",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Premium model / Context 200,000 millions token",
-    iconBg: "#F0FDF4",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-  {
-    id: "llama-3",
-    name: "Meta / Llama 3",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Open model / Context 128,000 millions token",
-    iconBg: "#F3F4F6",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-  {
-    id: "gemini-pro",
-    name: "Google / Gemini Pro",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Premium model / Context 100,000 millions token",
-    iconBg: "#F5F3FF",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-  {
-    id: "mistral-8x",
-    name: "Mistral / 8x",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Premium model / Context 64,000 millions token",
-    iconBg: "#F0F9FF",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-  {
-    id: "command-r",
-    name: "Cohere / Command R",
-    description:
-      "An upgraded version of GPT-5 that adapts thinking time more precisely to the question to spend more time on complex questions and respond more quickly to simpler tasks.",
-    meta: "Premium model / Context 32,000 millions token",
-    iconBg: "#FEF3C7",
-    icon: "/icons/logo.png",
-    type: "text",
-  },
-];
+// Transform AIModel to compare model format
+interface CompareModel {
+  id: string;
+  name: string;
+  description: string;
+  meta: string;
+  iconBg: string;
+  icon: string;
+  type: string;
+}
+
+const transformModelForCompare = (model: AIModel): CompareModel => {
+  const provider = model.provider || "";
+  const modelName = model.modelName || model.name || "Unknown Model";
+
+  // Format name: only include provider if it's not empty/unknown
+  const displayName = provider && provider.toLowerCase() !== "unknown"
+    ? `${provider} / ${modelName}`
+    : modelName;
+
+  return {
+    id: String(model.modelId || model.id || modelName),
+    name: displayName,
+    description: model.description || modelName,
+    meta: `${model.category || "Standard"} model / Context ${model.contextLength?.toLocaleString() || "N/A"} tokens`,
+    iconBg: model.iconBg || "#F3F4F6",
+    icon: getModelIcon(model.provider, model.modelName || model.name, model.provider),
+    type: model.category?.toLowerCase() || "text",
+  };
+};
 
 const CATEGORY_OPTIONS = [
   {
@@ -109,6 +83,35 @@ export default function CompareModelsPage() {
   const [showResults, setShowResults] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [containerHeight, setContainerHeight] = useState(882);
+  const [models, setModels] = useState<CompareModel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [testResponses, setTestResponses] = useState<Record<string, string>>({});
+  const [isTesting, setIsTesting] = useState(false);
+  const [streamingModels, setStreamingModels] = useState<Set<string>>(new Set());
+  const { csrfToken } = useAuth();
+
+  // Fetch models from backend
+  useEffect(() => {
+    const fetchModels = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(MODELS_ENDPOINT, {
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error("Failed to fetch models");
+        const data = await response.json();
+        const normalizedModels = normalizeModels(data);
+        const compareModels = normalizedModels.map(transformModelForCompare);
+        setModels(compareModels);
+      } catch (error) {
+        console.error("Error fetching models:", error);
+        setModels([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -121,10 +124,10 @@ export default function CompareModelsPage() {
 
   const filteredModels =
     category === "all"
-      ? AVAILABLE_MODELS
-      : AVAILABLE_MODELS.filter((m) => m.type === category);
+      ? models
+      : models.filter((m) => m.type === category);
 
-  const handleSelect = (model: (typeof AVAILABLE_MODELS)[0]) => {
+  const handleSelect = (model: CompareModel) => {
     if (selectedModels.length < 3 && !selectedModels.includes(model.id)) {
       setSelectedModels([...selectedModels, model.id]);
     }
@@ -132,6 +135,147 @@ export default function CompareModelsPage() {
 
   const handleRemove = (id: string) => {
     setSelectedModels(selectedModels.filter((mid) => mid !== id));
+  };
+
+  const handleTestModels = async () => {
+    if (!prompt.trim() || selectedModels.length === 0 || isTesting) return;
+
+    setIsTesting(true);
+    setTestResponses({}); // Clear previous responses
+    setStreamingModels(new Set()); // Clear streaming state
+
+    try {
+      // Convert selectedModels (string IDs) to numeric modelIds
+      const modelIds = selectedModels
+        .map((id) => {
+          const model = models.find((m) => m.id === id);
+          return model ? parseInt(id, 10) : null;
+        })
+        .filter((id): id is number => id !== null && !isNaN(id));
+
+      if (modelIds.length === 0) {
+        throw new Error("No valid model IDs found");
+      }
+
+      const response = await apiFetch(
+        MODEL_TEST_ENDPOINT,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            modelIds,
+            message: prompt,
+          }),
+        },
+        csrfToken
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to test models: ${response.status}`);
+      }
+
+      // Handle SSE streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const streamingResponses: Record<string, string> = {};
+
+      // Initialize empty responses for each model
+      selectedModels.forEach((stringId) => {
+        streamingResponses[stringId] = "";
+      });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let currentEventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEventType = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const modelIdStr = String(data.modelId);
+
+              switch (currentEventType) {
+                case "metadata":
+                  // Model metadata received
+                  console.log(`Model ${modelIdStr} metadata:`, data);
+                  break;
+
+                case "start":
+                  // Model started generating
+                  streamingResponses[modelIdStr] = "";
+                  setStreamingModels((prev) => new Set(prev).add(modelIdStr));
+                  setTestResponses({ ...streamingResponses });
+                  break;
+
+                case "chunk":
+                  // Append streaming chunk
+                  if (data.delta) {
+                    streamingResponses[modelIdStr] =
+                      (streamingResponses[modelIdStr] || "") + data.delta;
+                    setTestResponses({ ...streamingResponses });
+                  }
+                  break;
+
+                case "end":
+                  // Model finished streaming
+                  setStreamingModels((prev) => {
+                    const next = new Set(prev);
+                    next.delete(modelIdStr);
+                    return next;
+                  });
+                  console.log(`Model ${modelIdStr} finished streaming`);
+                  break;
+
+                case "done":
+                  // Final response with token usage
+                  streamingResponses[modelIdStr] = data.response || streamingResponses[modelIdStr];
+                  setTestResponses({ ...streamingResponses });
+                  console.log(`Model ${modelIdStr} tokens:`, {
+                    input: data.inputTokens,
+                    output: data.outputTokens,
+                  });
+                  break;
+
+                case "error":
+                  // Handle error for specific model
+                  streamingResponses[modelIdStr] = `Error: ${data.error || "Unknown error"}`;
+                  setTestResponses({ ...streamingResponses });
+                  break;
+
+                case "complete":
+                  // All models completed
+                  console.log("All models completed");
+                  break;
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete data
+              console.warn("Failed to parse SSE data:", e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error testing models:", error);
+      // Set error message for all models
+      const errorResponses: Record<string, string> = {};
+      selectedModels.forEach((modelId) => {
+        errorResponses[modelId] = "Error: Failed to get response";
+      });
+      setTestResponses(errorResponses);
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   // Main render
@@ -152,7 +296,7 @@ export default function CompareModelsPage() {
     const fixedHeight = containerHeight;
     const columnHeight = fixedHeight - (headerHeight + footerHeight + verticalPadding);
     const modelsToShow = selectedModels
-      .map((id) => AVAILABLE_MODELS.find((m) => m.id === id))
+      .map((id) => models.find((m) => m.id === id))
       .filter(Boolean);
     return (
       <div
@@ -294,29 +438,79 @@ export default function CompareModelsPage() {
                   ✓ Select this model
                 </button>
               </div>
-              {/* Empty State (Main Body) */}
+              {/* Main Body - Response or Empty State */}
               <div
                 style={{
                   flex: 1,
                   display: "flex",
                   flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  alignItems: testResponses[model.id] ? "flex-start" : "center",
+                  justifyContent: testResponses[model.id] ? "flex-start" : "center",
                   minHeight: 0,
                   overflowY: "auto",
+                  padding: testResponses[model.id] ? "12px" : "0",
                 }}
               >
-                <Sparkles size={48} color="#D1D5DB" />
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "#9CA3AF",
-                    textAlign: "center",
-                    marginTop: 8,
-                  }}
-                >
-                  Run a prompt to see {model.name}'s answer here.
-                </div>
+                {streamingModels.has(model.id) ? (
+                  // Currently streaming
+                  <div
+                    style={{
+                      fontSize: 13,
+                      lineHeight: "1.6",
+                      color: "#171717",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      width: "100%",
+                    }}
+                  >
+                    {testResponses[model.id] || ""}
+                    <span className={styles.streamingCursor} />
+                  </div>
+                ) : isTesting && !testResponses[model.id] ? (
+                  // Waiting to start
+                  <>
+                    <Sparkles size={48} color="#D1D5DB" className="animate-pulse" />
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#9CA3AF",
+                        textAlign: "center",
+                        marginTop: 8,
+                      }}
+                    >
+                      Waiting to generate...
+                    </div>
+                  </>
+                ) : testResponses[model.id] ? (
+                  // Response complete
+                  <div
+                    style={{
+                      fontSize: 13,
+                      lineHeight: "1.6",
+                      color: "#171717",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      width: "100%",
+                    }}
+                  >
+                    {testResponses[model.id]}
+                  </div>
+                ) : (
+                  // Empty state
+                  <>
+                    <Sparkles size={48} color="#D1D5DB" />
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#9CA3AF",
+                        textAlign: "center",
+                        marginTop: 8,
+                      }}
+                    >
+                      Run a prompt to see {model.name}'s answer here.
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -355,7 +549,14 @@ export default function CompareModelsPage() {
               type="text"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleTestModels();
+                }
+              }}
               placeholder="Test prompt, anything can go here."
+              disabled={isTesting}
               style={{
                 height: 36,
                 borderRadius: 999,
@@ -366,20 +567,24 @@ export default function CompareModelsPage() {
                 outline: "none",
                 marginRight: 12,
                 background: "#fff",
+                opacity: isTesting ? 0.6 : 1,
               }}
             />
             <button
+              onClick={handleTestModels}
+              disabled={!prompt.trim() || isTesting}
               style={{
                 width: 40,
                 height: 40,
                 borderRadius: "50%",
-                background: "#111827",
+                background: !prompt.trim() || isTesting ? "#9CA3AF" : "#111827",
                 color: "#fff",
                 border: "none",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                cursor: "pointer",
+                cursor: !prompt.trim() || isTesting ? "not-allowed" : "pointer",
+                transition: "background 0.2s",
               }}
               aria-label="Send"
             >
@@ -460,7 +665,7 @@ export default function CompareModelsPage() {
       <div className={styles.selectedModels}>
         {[0, 1, 2].map((i) => {
           const modelId = selectedModels[i];
-          const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+          const model = models.find((m) => m.id === modelId);
           return (
             <div key={i} className={styles.modelSlot}>
               {model ? (
@@ -606,16 +811,43 @@ export default function CompareModelsPage() {
             maxHeight: "100%",
           }}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 16,
-              rowGap: 16,
-              columnGap: 16,
-            }}
-          >
-            {filteredModels.map((model) => {
+          {isLoading ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "400px",
+                fontSize: "14px",
+                color: "#6B7280",
+              }}
+            >
+              Loading models...
+            </div>
+          ) : filteredModels.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "400px",
+                fontSize: "14px",
+                color: "#6B7280",
+              }}
+            >
+              No models available
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+                rowGap: 16,
+                columnGap: 16,
+              }}
+            >
+              {filteredModels.map((model) => {
               const isSelected = selectedModels.includes(model.id);
               const isDisabled = selectedModels.length >= 3 && !isSelected;
               return (
@@ -692,13 +924,21 @@ export default function CompareModelsPage() {
                         fontWeight: 600,
                       }}
                     >
-                      <span style={{ color: "#9CA3AF" }}>
-                        {model.name.split(" / ")[0]}
-                      </span>
-                      <span style={{ color: "#111827" }}>
-                        {" "}
-                        / {model.name.split(" / ")[1]}
-                      </span>
+                      {model.name.includes(" / ") ? (
+                        <>
+                          <span style={{ color: "#9CA3AF" }}>
+                            {model.name.split(" / ")[0]}
+                          </span>
+                          <span style={{ color: "#111827" }}>
+                            {" "}
+                            / {model.name.split(" / ")[1]}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: "#111827" }}>
+                          {model.name}
+                        </span>
+                      )}
                     </div>
                     <div
                       style={{
@@ -726,19 +966,28 @@ export default function CompareModelsPage() {
                         fontFamily: "Inter, sans-serif",
                       }}
                     >
-                      <span style={{ color: "#111827" }}>
-                        {model.meta.split(" / ")[0]}
-                      </span>
-                      <span style={{ color: "#9CA3AF" }}>
-                        {" "}
-                        / {model.meta.split(" / ")[1]}
-                      </span>
+                      {model.meta.includes(" / ") ? (
+                        <>
+                          <span style={{ color: "#111827" }}>
+                            {model.meta.split(" / ")[0]}
+                          </span>
+                          <span style={{ color: "#9CA3AF" }}>
+                            {" "}
+                            / {model.meta.split(" / ")[1]}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: "#111827" }}>
+                          {model.meta}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
       </div>
       {/* Footer */}

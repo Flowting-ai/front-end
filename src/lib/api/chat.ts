@@ -136,9 +136,11 @@ export async function fetchChatMessages(
 export interface CreateChatPayload {
   title?: string;
   firstMessage: string;
+  message?: string;
   model?:
     | Pick<AIModel, "companyName" | "modelName" | "version" | "modelId" | "id">
     | null;
+  modelId?: number | string | null;
   useFramework?: boolean;
   user?: AuthUser | null;
   pinIds?: string[];
@@ -157,11 +159,19 @@ export async function createChat(
   payload: CreateChatPayload,
   csrfToken?: string | null
 ): Promise<CreateChatResult> {
+  const modelId =
+    payload.modelId ??
+    payload.model?.modelId ??
+    (payload.model?.id !== undefined ? payload.model.id : null);
   const response = await apiFetch(
     "/chats/",
     {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        message: payload.firstMessage,
+        modelId,
+      }),
     },
     csrfToken
   );

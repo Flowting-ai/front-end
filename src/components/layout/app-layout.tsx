@@ -409,6 +409,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
   const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
+  const pathname = usePathname();
+  const router = useRouter();
 
   // Persist left sidebar collapsed state
   useEffect(() => {
@@ -453,12 +455,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
   );
 
   const isMobile = useIsMobile();
-  const router = useRouter();
-  const pathname = usePathname();
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
+
+  // Guard: redirect to login if not authenticated and not on auth pages
+  useEffect(() => {
+    const isAuthRoute =
+      pathname?.startsWith("/auth/login") ||
+      pathname?.startsWith("/auth/signup");
+    if (isAuthRoute) return;
+
+    const hasUser = Boolean(user);
+    const hasStoredLogin =
+      typeof window !== "undefined" &&
+      localStorage.getItem("isLoggedIn") === "true";
+
+    if (!hasUser && !hasStoredLogin) {
+      router.replace("/auth/login");
+    }
+  }, [pathname, router, user]);
 
   // Helper to save pins to localStorage
   const savePinsToCache = useCallback((chatId: string, pinsData: PinType[]) => {

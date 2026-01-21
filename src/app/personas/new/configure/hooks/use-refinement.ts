@@ -19,6 +19,9 @@ interface UseRefinementReturn {
   suggestedDonts: string[];
   dosSkipped: boolean;
   setCurrentStep: (step: number) => void;
+  setSelectedToneDirect: (tone: string | null) => void;
+  setSuggestedDos: (values: string[]) => void;
+  setSuggestedDonts: (values: string[]) => void;
   setDosText: (value: string) => void;
   setDontsText: (value: string) => void;
   handleToneSelect: (tone: string) => void;
@@ -46,11 +49,14 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
   // Fetch suggested Dos and Don'ts when step >= 2
   useEffect(() => {
     if (hasEnhancedContent && currentStep >= REFINEMENT_STEPS.DOS) {
-      // TODO: Replace with actual API call
-      setSuggestedDos(MOCK_SUGGESTED_DOS);
-      setSuggestedDonts(MOCK_SUGGESTED_DONTS);
+      if (suggestedDos.length === 0) {
+        setSuggestedDos(MOCK_SUGGESTED_DOS);
+      }
+      if (suggestedDonts.length === 0) {
+        setSuggestedDonts(MOCK_SUGGESTED_DONTS);
+      }
     }
-  }, [hasEnhancedContent, currentStep]);
+  }, [hasEnhancedContent, currentStep, suggestedDos.length, suggestedDonts.length]);
 
   // Reset when enhancement is cleared
   useEffect(() => {
@@ -151,6 +157,9 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
     handleDontsToggle,
     handleSkip,
     reset,
+    setSelectedToneDirect: setSelectedTone,
+    setSuggestedDos,
+    setSuggestedDonts,
   };
 }
 

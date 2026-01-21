@@ -8,13 +8,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { LOGIN_ENDPOINT } from "@/lib/config";
+import { CSRF_INIT_ENDPOINT, LOGIN_ENDPOINT } from "@/lib/config";
 import { GoogleLogo } from "@/components/icons/google-logo";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
   const { setUser, csrfToken, setCsrfToken } = useAuth();
+  type LoginSuccess = {
+    message?: string;
+    csrfToken?: string;
+    csrf_token?: string;
+    user?: {
+      id?: string | number;
+      username?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+      phoneNumber?: string | null;
+    };
+  };
+  type LoginError = { error?: string; detail?: string };
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +37,14 @@ export default function LoginPage() {
 
   useEffect(() => {
     const fetchCsrfToken = async () => {
+      try {
+        await fetch(CSRF_INIT_ENDPOINT, {
+          method: "GET",
+          credentials: "include",
+        });
+      } catch (fetchError) {
+        console.warn("CSRF init failed", fetchError);
+      }
       try {
         const response = await fetch(LOGIN_ENDPOINT, {
           method: "GET",
@@ -63,8 +85,8 @@ export default function LoginPage() {
     }
 
     const payload = identifier.includes("@")
-      ? { email: identifier.trim(), username: "", password }
-      : { username: identifier.trim(), email: "", password };
+      ? { email: identifier.trim(), password }
+      : { username: identifier.trim(), password };
 
     try {
       const response = await fetch(LOGIN_ENDPOINT, {
@@ -77,10 +99,15 @@ export default function LoginPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data: LoginSuccess & LoginError = await response.json();
       if (!response.ok) {
-        setError(data?.error || "Unable to login. Please try again.");
+        setError(data?.error || data?.detail || "Unable to login. Please try again.");
         return;
+      }
+
+      const freshToken = data?.csrfToken || data?.csrf_token;
+      if (freshToken) {
+        setCsrfToken(freshToken);
       }
 
       if (data?.user) {

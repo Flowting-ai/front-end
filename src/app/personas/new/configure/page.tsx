@@ -57,7 +57,6 @@ import { useRefinement } from "./hooks/use-refinement";
 import { useInstructionHistory } from "./hooks/use-instruction-history";
 import { useEnhancement } from "./hooks/use-enhancement";
 import {
-  MODELS,
   TONE_OPTIONS,
   DEFAULT_TEMPERATURE,
   MIN_TEMPERATURE,
@@ -65,8 +64,12 @@ import {
   TEMPERATURE_STEP,
   ACCEPTED_FILE_TYPES,
 } from "./constants";
-import { createPreviewModel } from "./utils";
+import { normalizeModels } from "@/lib/ai-models";
+import { MODELS_ENDPOINT } from "@/lib/config";
 import { REFINEMENT_STEPS } from "./types";
+import { dataUrlToFile } from "./utils";
+import { createPersona, fetchPersonaById, PERSONA_TEST_STREAM_ENDPOINT } from "@/lib/api/personas";
+import { useAuth } from "@/context/auth-context";
 
 function PersonaConfigurePageContent() {
   const router = useRouter();
@@ -85,6 +88,10 @@ function PersonaConfigurePageContent() {
   const [shareEmail, setShareEmail] = useState("");
   const [createdPersonaId, setCreatedPersonaId] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
+  const [testStreamMessage, setTestStreamMessage] = useState("");
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const { csrfToken } = useAuth();
 
   // Custom hooks
   const { uploadedFiles, handleFileUpload, removeFile } = useFileUpload();
@@ -128,8 +135,12 @@ function PersonaConfigurePageContent() {
     selectedDonts,
     suggestedDos,
     suggestedDonts,
+    setCurrentStep,
     setDosText,
     setDontsText,
+    setSelectedToneDirect,
+    setSuggestedDos,
+    setSuggestedDonts,
     handleToneSelect,
     handleCustomToneChange,
     handleCustomToneSubmit,
@@ -209,6 +220,7 @@ function PersonaConfigurePageContent() {
   useEffect(() => {
     const nameParam = searchParams.get("name");
     const personaIdParam = searchParams.get("personaId");
+    const chatModeParam = searchParams.get("chatMode");
 
     // Load avatar from sessionStorage
     const savedAvatar = sessionStorage.getItem("personaAvatar");
@@ -220,30 +232,96 @@ function PersonaConfigurePageContent() {
       setPersonaName(nameParam);
     }
 
+    // Enable chat mode if chatMode=true is in URL
+    if (chatModeParam === "true") {
+      setIsChatMode(true);
+      setIsTesting(true);
+    }
+
     // Load existing persona data if personaId is provided
     if (personaIdParam) {
-      // TODO: Fetch persona data from backend using personaIdParam
-      // For now, we'll use mock data. Replace with actual API call:
-      // const personaData = await fetchPersonaById(personaIdParam);
+      setCreatedPersonaId(personaIdParam);
 
-      // Example of how to populate fields with existing data:
-      // setPersonaName(personaData.name);
-      // setSelectedModel(personaData.model);
-      // setTemperature([personaData.temperature]);
-      // setInstruction(personaData.instructions);
-      // setUploadedFiles(personaData.files);
+      const loadPersonaData = async () => {
+        try {
+          const personaData = await fetchPersonaById(personaIdParam, csrfToken);
 
-      console.log("Loading persona for edit:", personaIdParam);
-      // Once backend is connected, load the persona data here
+          // Populate fields with existing data
+          setPersonaName(personaData.name);
+          setInstruction(personaData.prompt);
+
+          // Set model if available
+          if (personaData.modelId) {
+            setSelectedModel(String(personaData.modelId));
+          }
+
+          // Set avatar if available
+          if (personaData.imageUrl) {
+            setAvatarUrl(personaData.imageUrl);
+          }
+
+          console.log("Loaded persona:", personaData);
+        } catch (error) {
+          console.error("Failed to load persona:", error);
+          toast.error("Failed to load persona data");
+        }
+      };
+
+      loadPersonaData();
     }
-  }, [searchParams]);
+  }, [searchParams, csrfToken]);
+
+  // Load models from backend (reuse chat model list)
+  useEffect(() => {
+    const loadModels = async () => {
+      // Try cache first
+      const cached = sessionStorage.getItem("aiModels");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as AIModel[];
+          setModels(parsed);
+        } catch {
+          // ignore parse errors
+        }
+      }
+
+      if (models.length > 0) return;
+
+      setIsLoadingModels(true);
+      try {
+        const response = await fetch(MODELS_ENDPOINT, {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const normalized = normalizeModels(data);
+          setModels(normalized);
+          sessionStorage.setItem("aiModels", JSON.stringify(normalized));
+        } else {
+          console.warn("Failed to fetch models for persona configure", response.status);
+        }
+      } catch (error) {
+        console.warn("Error fetching models for persona configure", error);
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+
+    loadModels();
+  }, [models.length]);
+
+  const resolvedSelectedModel = useMemo<AIModel | null>(() => {
+    if (!selectedModel) return null;
+    const match = models.find(
+      (m) =>
+        String(m.modelId ?? m.id ?? m.modelName) === selectedModel ||
+        `${m.companyName}: ${m.modelName}` === selectedModel
+    );
+    return match || null;
+  }, [models, selectedModel]);
 
   // Update preview model when a model is selected
-  const previewModel = useMemo<AIModel | null>(() => {
-    if (!selectedModel) return null;
-    const model = MODELS.find((m) => m.value === selectedModel);
-    return model ? createPreviewModel(model) : null;
-  }, [selectedModel]);
+  const previewModel = resolvedSelectedModel;
 
   // Handle instruction changes
   const handleInstructionChange = (value: string) => {
@@ -257,8 +335,24 @@ function PersonaConfigurePageContent() {
   // Handle enhancement
   const handleEnhance = async () => {
     try {
-      const enhanced = await enhance(currentInstruction);
-      setInstruction(enhanced);
+      const analysis = await enhance(currentInstruction, csrfToken);
+
+      if (analysis.summary) {
+        setInstruction(analysis.summary);
+      }
+      if (analysis.tone) {
+        setSelectedToneDirect(analysis.tone);
+        setCurrentStep(REFINEMENT_STEPS.DOS);
+      }
+      if (analysis.dos && analysis.dos.length > 0) {
+        setSuggestedDos(analysis.dos);
+        setDosText(analysis.dos.join(", "));
+        setCurrentStep(REFINEMENT_STEPS.DONTS);
+      }
+      if (analysis.donts && analysis.donts.length > 0) {
+        setSuggestedDonts(analysis.donts);
+        setDontsText(analysis.donts.join(", "));
+      }
     } catch (error) {
       // Error is already handled in the hook
       console.error("Enhancement failed:", error);
@@ -334,49 +428,28 @@ function PersonaConfigurePageContent() {
 
     setIsSaving(true);
     try {
-      // TODO: Replace with actual API endpoint
-      const personaData = {
-        name: personaName,
-        model: selectedModel,
-        systemInstruction: currentInstruction,
-        temperature: temperature[0],
-        knowledgeFiles: uploadedFiles.map((f) => ({
-          id: f.id,
-          name: f.name,
-          url: f.url,
-          type: f.type,
-        })),
-        tone: selectedTone,
-        dos: [...selectedDos, dosText].filter(Boolean),
-        donts: [...selectedDonts, dontsText].filter(Boolean),
-        avatar: avatarUrl,
+      // Get image file: prefer uploaded file, fallback to avatar from sessionStorage
+      let imageFile = uploadedFiles.find((f) => f.type === "image")?.file;
+
+      // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
+      if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
+        imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
+      }
+
+      const personaPayload = {
+        name: personaName.trim(),
+        prompt: currentInstruction.trim(),
+        modelId:
+          resolvedSelectedModel?.modelId ??
+          resolvedSelectedModel?.id ??
+          (Number.isFinite(Number(selectedModel)) ? Number(selectedModel) : null),
+        status: "test" as const,
+        image: imageFile,
       };
 
-      // Example API call - replace with your actual endpoint
-      // const response = await fetch('/api/personas', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(personaData),
-      // });
-      //
-      // if (!response.ok) throw new Error('Failed to save persona');
+      const created = await createPersona(personaPayload, csrfToken);
 
-      console.log("Saving persona to backend:", personaData);
-
-      // Store persona temporarily in sessionStorage for display on personas page
-      const existingPersonas = JSON.parse(
-        sessionStorage.getItem("userPersonas") || "[]",
-      );
-      const newPersonaId = Date.now().toString();
-      existingPersonas.push({
-        id: newPersonaId,
-        ...personaData,
-        createdAt: new Date().toISOString(),
-      });
-      sessionStorage.setItem("userPersonas", JSON.stringify(existingPersonas));
-
-      // Save the persona ID and show success dialog
-      setCreatedPersonaId(newPersonaId);
+      setCreatedPersonaId(created.id);
       setShowSuccessDialog(true);
     } catch (error) {
       console.error("Failed to save persona:", error);
@@ -389,13 +462,19 @@ function PersonaConfigurePageContent() {
   };
 
   const handleBack = () => {
-    router.push("/personas/new");
+    // If editing an existing persona (has personaId) or in chat mode, go back to personaAdmin
+    const personaId = searchParams.get("personaId");
+    const chatMode = searchParams.get("chatMode");
+
+    if (personaId || chatMode === "true" || isChatMode) {
+      router.push("/personaAdmin");
+    } else {
+      router.push("/personas/new");
+    }
   };
 
   // Get selected model for display
-  const selectedModelData = useMemo(() => {
-    return MODELS.find((m) => m.value === selectedModel);
-  }, [selectedModel]);
+  const selectedModelData = resolvedSelectedModel;
 
   return (
     <AppLayout>
@@ -407,11 +486,19 @@ function PersonaConfigurePageContent() {
             {/* Top Action Bar */}
             <div className="max-w-[1072px] w-full flex items-center justify-between mb-4">
               <Button
-                onClick={() => setIsChatMode(false)}
+                onClick={() => {
+                  // If coming from personaAdmin (has personaId), go back to dashboard
+                  const personaId = searchParams.get("personaId");
+                  if (personaId) {
+                    router.push("/personaAdmin");
+                  } else {
+                    setIsChatMode(false);
+                  }
+                }}
                 className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Back to Edit
+                {searchParams.get("personaId") ? "Back to Dashboard" : "Back to Edit"}
               </Button>
 
               <Button
@@ -565,6 +652,7 @@ function PersonaConfigurePageContent() {
                       <Select
                         value={selectedModel}
                         onValueChange={setSelectedModel}
+                        disabled={isLoadingModels}
                       >
                         <SelectTrigger
                           id="model"
@@ -577,19 +665,19 @@ function PersonaConfigurePageContent() {
                                   <div className="px-2 flex items-center gap-2">
                                     <Image
                                       src={getModelIcon(
-                                        selectedModelData.company,
-                                        selectedModelData.label,
+                                        selectedModelData.companyName,
+                                        selectedModelData.modelName,
                                       )}
-                                      alt={selectedModelData.company}
+                                      alt={selectedModelData.companyName || "Model icon"}
                                       width={20}
                                       height={20}
                                       className={styles.modelIcon}
                                     />
-                                    <span>{selectedModelData.label}</span>
+                                    <span>{selectedModelData.modelName}</span>
                                   </div>
                                 ) : (
                                   <span className={cn(styles.placeholderText)}>
-                                    Select Model
+                                    {isLoadingModels ? "Loading models..." : "Select Model"}
                                   </span>
                                 )}
                               </div>
@@ -597,25 +685,37 @@ function PersonaConfigurePageContent() {
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent className={styles.selectContent}>
-                          {MODELS.map((model) => (
-                            <SelectItem
-                              key={model.value}
-                              value={model.value}
-                              className={styles.selectItem}
-                            >
-                              <div className={styles.modelOption}>
-                                <Image
-                                  src={getModelIcon(model.company, model.label)}
-                                  alt={model.company}
-                                  width={20}
-                                  height={20}
-                                  className={styles.modelOptionIcon}
-                                />
-                                <span>{model.label}</span>
-                              </div>
-                              {/* <Info className="h-4 w-4 mr-[1px]" /> */}
-                            </SelectItem>
-                          ))}
+                          {models.length === 0 && (
+                            <div className="px-3 py-2 text-sm text-[#6B7280]">
+                              {isLoadingModels ? "Loading..." : "No models available"}
+                            </div>
+                          )}
+                          {models.map((model) => {
+                            const value = String(
+                              model.modelId ?? model.id ?? model.modelName
+                            );
+                            return (
+                              <SelectItem
+                                key={value}
+                                value={value}
+                                className={styles.selectItem}
+                              >
+                                <div className={styles.modelOption}>
+                                  <Image
+                                    src={getModelIcon(
+                                      model.companyName,
+                                      model.modelName
+                                    )}
+                                    alt={model.companyName || "Model"}
+                                    width={20}
+                                    height={20}
+                                    className={styles.modelOptionIcon}
+                                  />
+                                  <span>{model.modelName}</span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1114,6 +1214,21 @@ function PersonaConfigurePageContent() {
                         hidePersonaButton={true}
                         disableInput={!isTesting}
                         hideAttachButton={true}
+                        personaTestConfig={
+                          (isTesting || isChatMode)
+                            ? {
+                                personaId: createdPersonaId ?? undefined,
+                                prompt: currentInstruction,
+                                modelId:
+                                  previewModel?.modelId ??
+                                  previewModel?.id ??
+                                  (Number.isFinite(Number(selectedModel))
+                                    ? Number(selectedModel)
+                                    : null),
+                              }
+                            : undefined
+                        }
+                        // For persona test: do not share chat history with other boards
                         customEmptyState={
                           <div className="flex flex-col items-center justify-center gap-2">
                             <div
@@ -1331,11 +1446,11 @@ function PersonaConfigurePageContent() {
                 <Button
                   onClick={() => {
                     setShowSuccessDialog(false);
-                    setIsChatMode(true);
+                    router.push("/personaAdmin");
                   }}
                   className="w-[138px] h-11 rounded-lg bg-[#171717] hover:bg-[#000000] text-white font-medium"
                 >
-                  Start Chat
+                  Go to Personas
                 </Button>
               </div>
             </div>

@@ -63,6 +63,9 @@ import { useAuth } from "@/context/auth-context";
 import { useTokenUsage } from "@/context/token-context";
 import {
   CHAT_COMPLETION_ENDPOINT,
+  CHATS_ENDPOINT,
+  CHAT_TURN_ENDPOINT,
+  PERSONA_TEST_ENDPOINT,
   CHAT_DETAIL_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
@@ -85,6 +88,11 @@ interface ChatInterfaceProps {
   customEmptyState?: React.ReactNode;
   disableInput?: boolean;
   hideAttachButton?: boolean;
+  personaTestConfig?: {
+    personaId?: string;
+    prompt?: string;
+    modelId?: number | string | null;
+  };
 }
 
 type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
@@ -105,6 +113,7 @@ export function ChatInterface({
   customEmptyState,
   disableInput = false,
   hideAttachButton = false,
+  personaTestConfig,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   // For pin mention dropdown keyboard navigation
@@ -263,6 +272,7 @@ export function ChatInterface({
   const composerPlaceholder = selectedModel
     ? "Let's Play..."
     : "Choose a model to start chatting";
+  const messageBufferRef = useRef<Message[]>([]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -323,14 +333,15 @@ export function ChatInterface({
   const fetchAiResponse = async (
     userMessage: string,
     loadingMessageId: string,
-    chatId: string,
+    chatId: string | null,
     userMessageId: string | undefined,
     modelForRequest: AIModel | null,
     avatarForRequest: MessageAvatar,
     referencedMessageId?: string | null,
     regenerateMessageId?: string | null,
     userMessageBackendId?: string | null,
-    pinIds?: string[]
+    pinIds?: string[],
+    personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>
   ) => {
     try {
       if (!modelForRequest) {
@@ -345,16 +356,23 @@ export function ChatInterface({
         headers["X-CSRFToken"] = token;
       }
 
+      const isPersonaTest = Boolean(personaTestConfig);
+      const isExistingChat = Boolean(
+        !isPersonaTest && chatId && !chatId.startsWith("temp-")
+      );
+      const endpoint = isPersonaTest
+        ? PERSONA_TEST_ENDPOINT
+        : isExistingChat
+        ? CHAT_TURN_ENDPOINT
+        : CHATS_ENDPOINT;
+
       const payload: Record<string, unknown> = {
-        prompt: userMessage,
-        chatId,
-        model: modelForRequest
-          ? {
-              companyName: modelForRequest.companyName,
-              modelName: modelForRequest.modelName,
-              version: modelForRequest.version,
-            }
-          : null,
+        message: userMessage,
+        modelId:
+          modelForRequest?.modelId ??
+          modelForRequest?.id ??
+          (personaTestConfig?.modelId ?? null),
+        useFramework: layoutContext?.useFramework ?? false,
         user: user
           ? {
               id: user.id ?? null,
@@ -364,6 +382,18 @@ export function ChatInterface({
           : null,
       };
 
+      if (isExistingChat && chatId) {
+        payload.chatId = chatId;
+      }
+      if (isPersonaTest && personaTestConfig?.personaId) {
+        payload.personaId = personaTestConfig.personaId;
+      }
+      if (isPersonaTest && personaTestConfig?.prompt) {
+        payload.prompt = personaTestConfig.prompt;
+      }
+      if (isPersonaTest && personaChatHistory) {
+        payload.chatHistory = personaChatHistory;
+      }
       if (referencedMessageId) {
         payload.referencedMessageId = referencedMessageId;
       }
@@ -377,146 +407,219 @@ export function ChatInterface({
         payload.pinIds = pinIds;
       }
 
-      const response = await fetch(CHAT_COMPLETION_ENDPOINT, {
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers,
+        headers: {
+          ...headers,
+          Accept: "text/event-stream",
+        },
         credentials: "include",
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         const errorText = await response.text();
-        console.error("Backend error body:", errorText);
-        let parsedMessage = "API request failed";
-        try {
-          const parsed = JSON.parse(errorText);
-          parsedMessage =
-            parsed?.detail ??
-            parsed?.message ??
-            parsed?.error ??
-            errorText ??
-            parsedMessage;
-        } catch {
-          parsedMessage = errorText || parsedMessage;
-        }
-        throw new Error(parsedMessage);
+        throw new Error(errorText || "API request failed");
       }
 
-      const data = await response.json();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantContent = "";
+      let streamMetadata: Record<string, unknown> | null = null;
+      let streamFinished = false;
+      let currentChatId = chatId;
 
-      const messageText =
-        typeof data.message === "string"
-          ? data.message
-          : typeof data.response === "string"
-          ? data.response
-          : typeof data.message?.response === "string"
-          ? data.message.response
-          : typeof data.message?.content === "string"
-          ? data.message.content
-          : typeof data.message?.message === "string"
-          ? data.message.message
-          : "";
-
-      const messageMeta =
-        (data.metadata && typeof data.metadata === "object" ? data.metadata : null) ||
-        (data.message?.metadata && typeof data.message.metadata === "object"
-          ? data.message.metadata
-          : null);
-
-      const resolvedMessageId =
-        data.messageId ??
-        data.message_id ??
-        (data.message?.message_id ?? data.message?.id) ??
-        null;
-
-      const metadata: Message["metadata"] | undefined = messageMeta
-        ? {
-            modelName:
-              (messageMeta as { modelName?: string }).modelName ??
-              (messageMeta as { model_name?: string }).model_name,
-            providerName:
-              (messageMeta as { providerName?: string }).providerName ??
-              (messageMeta as { provider_name?: string }).provider_name,
-            inputTokens:
-              (messageMeta as { inputTokens?: number }).inputTokens ??
-              (messageMeta as { input_tokens?: number }).input_tokens,
-            outputTokens:
-              (messageMeta as { outputTokens?: number }).outputTokens ??
-              (messageMeta as { output_tokens?: number }).output_tokens,
-            createdAt:
-              (messageMeta as { createdAt?: string }).createdAt ??
-              (messageMeta as { created_at?: string }).created_at,
-            documentId:
-              (messageMeta as { documentId?: string | null }).documentId ??
-              (messageMeta as { document_id?: string | null }).document_id ??
-              null,
-            documentUrl:
-              (messageMeta as { documentUrl?: string | null }).documentUrl ??
-              (messageMeta as { document_url?: string | null }).document_url ??
-              null,
-            llmModelId:
-              (messageMeta as { llmModelId?: string | number | null }).llmModelId ??
-              (messageMeta as { llm_model_id?: string | number | null }).llm_model_id ??
-              null,
-            pinIds: Array.isArray((messageMeta as { pinIds?: unknown[] }).pinIds)
-              ? ((messageMeta as { pinIds: unknown[] }).pinIds as unknown[]).map(String)
-              : Array.isArray((messageMeta as { pin_ids?: unknown[] }).pin_ids)
-              ? ((messageMeta as { pin_ids: unknown[] }).pin_ids as unknown[]).map(String)
-              : undefined,
-            userReaction:
-              (messageMeta as { userReaction?: string | null }).userReaction ??
-              (messageMeta as { user_reaction?: string | null }).user_reaction ??
-              null,
-          }
-        : undefined;
-
-      const sanitized = extractThinkingContent(
-        messageText || "API didn't respond"
-      );
-
-      const aiResponse: Message = {
-        id: loadingMessageId,
-        sender: "ai",
-        content:
-          sanitized.visibleText ||
-          (sanitized.thinkingText ? "" : "API didn't respond"),
-        thinkingContent: sanitized.thinkingText,
-        avatarUrl: avatarForRequest.avatarUrl,
-        avatarHint: avatarForRequest.avatarHint,
-        chatMessageId:
-          resolvedMessageId !== null && resolvedMessageId !== undefined
-            ? String(resolvedMessageId)
-            : undefined,
-        referencedMessageId: referencedMessageId ?? null,
-        metadata,
+      const updateAiMessage = (fields: Partial<Message>) => {
+        setMessages(
+          (prev = []) => {
+            const next = prev.map((msg) =>
+              msg.id === loadingMessageId ? { ...msg, ...fields } : msg
+            );
+            messageBufferRef.current = next;
+            return next;
+          },
+          currentChatId ?? undefined
+        );
       };
 
-      setMessages(
-        (prev = []) =>
-          prev.map((msg) => {
-            if (msg.id === loadingMessageId) {
-              return {
-                ...aiResponse,
-                chatMessageId:
-                  resolvedMessageId !== null && resolvedMessageId !== undefined
-                    ? String(resolvedMessageId)
-                    : aiResponse.chatMessageId,
-              };
+      const reader = response.body.getReader();
+      const processChunk = (value: Uint8Array) => {
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const eventChunk of events) {
+          const lines = eventChunk.split("\n");
+          let eventName = "";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) {
+              eventName = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              dataStr += line.slice(5).trim();
             }
-            if (userMessageId && msg.id === userMessageId) {
-              return {
-                ...msg,
-                chatMessageId:
-                  resolvedMessageId !== null && resolvedMessageId !== undefined
-                    ? String(resolvedMessageId)
-                    : msg.chatMessageId,
-              };
+          }
+          if (!dataStr) continue;
+          let parsed: any;
+          try {
+            parsed = JSON.parse(dataStr);
+          } catch (err) {
+            console.warn("Failed to parse SSE data", err, dataStr);
+            continue;
+          }
+
+          if (eventName === "metadata") {
+            streamMetadata = parsed;
+            if (!isPersonaTest && parsed.chat_id && layoutContext?.setActiveChatId) {
+              const resolved = String(parsed.chat_id);
+              currentChatId = resolved;
+              layoutContext.setActiveChatId(resolved);
+              // Re-sync buffered messages to the resolved chat id
+              if (messageBufferRef.current.length > 0) {
+                setMessages(messageBufferRef.current, resolved);
+              }
             }
-            return msg;
-          }),
-        chatId
-      );
-      setLastMessageId(loadingMessageId);
+            continue;
+          }
+
+          if (eventName === "chunk") {
+            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+            assistantContent += delta;
+            const sanitized = extractThinkingContent(assistantContent);
+            updateAiMessage({
+              content: sanitized.visibleText || "",
+              thinkingContent: sanitized.thinkingText,
+              // Flip off loading state once the first chunk arrives so UI shows streaming text.
+              isLoading: false,
+            });
+            continue;
+          }
+
+          if (eventName === "done") {
+            const messageText =
+              typeof parsed.response === "string"
+                ? parsed.response
+                : assistantContent;
+            const messageMeta =
+              parsed.metadata && typeof parsed.metadata === "object"
+                ? parsed.metadata
+                : null;
+            const resolvedMessageId =
+              parsed.message_id ?? parsed.messageId ?? null;
+
+            const metadata: Message["metadata"] | undefined = messageMeta
+              ? {
+                  modelName:
+                    (messageMeta as { modelName?: string }).modelName ??
+                    (messageMeta as { model_name?: string }).model_name,
+                  providerName:
+                    (messageMeta as { providerName?: string }).providerName ??
+                    (messageMeta as { provider_name?: string }).provider_name,
+                  inputTokens:
+                    (messageMeta as { inputTokens?: number }).inputTokens ??
+                    (messageMeta as { input_tokens?: number }).input_tokens,
+                  outputTokens:
+                    (messageMeta as { outputTokens?: number }).outputTokens ??
+                    (messageMeta as { output_tokens?: number }).output_tokens,
+                  createdAt:
+                    (messageMeta as { createdAt?: string }).createdAt ??
+                    (messageMeta as { created_at?: string }).created_at,
+                  llmModelId:
+                    (messageMeta as { llmModelId?: string | number | null })
+                      .llmModelId ??
+                    (messageMeta as { llm_model_id?: string | number | null })
+                      .llm_model_id ??
+                    null,
+                  pinIds: Array.isArray(
+                    (messageMeta as { pinIds?: unknown[] }).pinIds
+                  )
+                    ? ((messageMeta as { pinIds: unknown[] }).pinIds as unknown[]).map(
+                        String
+                      )
+                    : Array.isArray(
+                        (messageMeta as { pin_ids?: unknown[] }).pin_ids
+                      )
+                    ? ((messageMeta as { pin_ids: unknown[] }).pin_ids as unknown[]).map(
+                        String
+                      )
+                    : undefined,
+                  userReaction:
+                    (messageMeta as { userReaction?: string | null }).userReaction ??
+                    (messageMeta as { user_reaction?: string | null }).user_reaction ??
+                    null,
+                  documentId:
+                    (messageMeta as { documentId?: string | null }).documentId ??
+                    (messageMeta as { document_id?: string | null }).document_id ??
+                    null,
+                  documentUrl:
+                    (messageMeta as { documentUrl?: string | null }).documentUrl ??
+                    (messageMeta as { document_url?: string | null }).document_url ??
+                    null,
+                }
+              : undefined;
+
+            const sanitized = extractThinkingContent(
+              messageText || assistantContent || "API didn't respond"
+            );
+
+            updateAiMessage({
+              content:
+                sanitized.visibleText ||
+                (sanitized.thinkingText ? "" : "API didn't respond"),
+              thinkingContent: sanitized.thinkingText,
+              chatMessageId:
+                resolvedMessageId !== null && resolvedMessageId !== undefined
+                  ? String(resolvedMessageId)
+                  : undefined,
+              metadata,
+              isLoading: false,
+            });
+
+            if (!isPersonaTest && parsed.chat_id && layoutContext?.setActiveChatId) {
+              const resolved = String(parsed.chat_id);
+              currentChatId = resolved;
+              layoutContext.setActiveChatId(resolved);
+              if (messageBufferRef.current.length > 0) {
+                setMessages(messageBufferRef.current, resolved);
+              }
+            }
+
+            setLastMessageId(loadingMessageId);
+            setIsResponding(false);
+            streamFinished = true;
+          }
+
+          if (eventName === "error") {
+            const errorMessage =
+              typeof parsed.error === "string"
+                ? parsed.error
+                : "Unexpected error from model";
+            updateAiMessage({
+              content: errorMessage,
+              thinkingContent: null,
+              isLoading: false,
+            });
+            setIsResponding(false);
+            streamFinished = true;
+          }
+        }
+      };
+
+      // Read the stream
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done || streamFinished) break;
+        if (value) processChunk(value);
+      }
+
+      // If stream ended without a done/error event, treat as interrupted
+      if (!streamFinished) {
+        updateAiMessage({
+          content: "Generation interrupted. Please retry.",
+          thinkingContent: null,
+          isLoading: false,
+        });
+        setIsResponding(false);
+      }
     } catch (error) {
       console.error("Error fetching AI response:", error);
 
@@ -536,20 +639,19 @@ export function ChatInterface({
       setMessages(
         (prev = []) =>
           prev.map((msg) => (msg.id === loadingMessageId ? errorResponse : msg)),
-        chatId
+        chatId ?? undefined
       );
 
       toast.error("Unable to reach model", {
         description: errorMessage,
       });
-    } finally {
       setIsResponding(false);
     }
   };
 
   const handleSend = async (content: string, messageIdToUpdate?: string) => {
     const trimmedContent = content.trim();
-    if (!selectedModel) {
+    if (!selectedModel && !personaTestConfig) {
       toast.error("Select a model", {
         description: "Choose a model before sending a message.",
       });
@@ -560,47 +662,25 @@ export function ChatInterface({
 
     const activeModel = selectedModel;
     const requestAvatar = resolveModelAvatar(activeModel);
+    const personaHistory = personaTestConfig
+      ? (messages || [])
+          .filter(
+            (m) =>
+              (m.sender === "user" || m.sender === "ai") &&
+              typeof m.content === "string" &&
+              m.content.trim().length > 0
+          )
+          .map((m) => ({
+            role: m.sender === "user" ? ("user" as const) : ("assistant" as const),
+            content: m.content,
+          }))
+      : undefined;
 
     // Capture the referenced message ID and mentioned pin IDs before clearing
     const refMessageId = referencedMessage?.chatMessageId || referencedMessage?.id || null;
     const pinIdsToSend = mentionedPins.map(mp => mp.id);
 
-    let chatId = layoutContext?.activeChatId ?? null;
-    let initialAiResponse: string | null = null;
-    let initialAiMessageId: string | null = null;
-    let initialAiMetadata: Message["metadata"] | undefined;
-
-    let isTempChat = chatId?.startsWith("temp-");
-
-    if ((!chatId || isTempChat) && layoutContext?.ensureChatOnServer) {
-      try {
-        const ensured = await layoutContext.ensureChatOnServer({
-          firstMessage: trimmedContent,
-          selectedModel: activeModel,
-          pinIds: pinIdsToSend,
-        });
-        chatId = ensured?.chatId ?? null;
-        isTempChat = chatId?.startsWith("temp-");
-        initialAiResponse = ensured?.initialResponse ?? null;
-        initialAiMessageId = ensured?.initialMessageId ?? null;
-        initialAiMetadata = ensured?.initialMetadata ?? undefined;
-      } catch (error) {
-        console.error("Failed to create chat", error);
-        toast.error("Unable to start chat", {
-          description: "Please try again in a moment.",
-        });
-        setIsResponding(false);
-        return;
-      }
-    }
-
-    if (!chatId || isTempChat) {
-      toast.error("Chat unavailable", {
-        description: "We couldn't determine which chat to use.",
-      });
-      setIsResponding(false);
-      return;
-    }
+    let chatId = personaTestConfig ? "persona-test" : layoutContext?.activeChatId ?? null;
 
     if (messageIdToUpdate) {
       // This is an edit and resubmit
@@ -627,7 +707,9 @@ export function ChatInterface({
         avatarHint: requestAvatar.avatarHint,
       };
 
-      setMessages([...updatedMessages, loadingMessage], chatId);
+      const nextList = [...updatedMessages, loadingMessage];
+      messageBufferRef.current = nextList;
+      setMessages(nextList, chatId ?? undefined);
       const backendUserMessageId =
         updatedMessages[userMessageIndex].chatMessageId ?? null;
       fetchAiResponse(
@@ -640,7 +722,8 @@ export function ChatInterface({
         refMessageId,
         undefined,
         backendUserMessageId,
-        pinIdsToSend
+        pinIdsToSend,
+        personaHistory
       );
       // Clear reference and mentions after sending
       setReferencedMessage(null);
@@ -653,6 +736,12 @@ export function ChatInterface({
           : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const userMessageId = `${turnId}-user`;
       const assistantMessageId = `${turnId}-assistant`;
+
+      // If we don't have a chat id yet, use a temp so UI state works until metadata returns
+      if (!chatId) {
+        chatId = `temp-${Date.now()}`;
+        layoutContext?.setActiveChatId?.(chatId);
+      }
 
       const userMessage: Message = {
         id: userMessageId,
@@ -672,45 +761,15 @@ export function ChatInterface({
       };
 
       setMessages(
-        (prev = []) => [...prev, userMessage, loadingMessage],
+        (prev = []) => {
+          const next = [...prev, userMessage, loadingMessage];
+          messageBufferRef.current = next;
+          return next;
+        },
         chatId
       );
       setInput("");
       setIsScrolledToBottom(true);
-      if (initialAiResponse !== null) {
-        const initialSanitized = extractThinkingContent(initialAiResponse);
-        const aiResponse: Message = {
-          id: loadingMessage.id,
-          sender: "ai",
-          content:
-            initialSanitized.visibleText ||
-            (initialSanitized.thinkingText ? "" : initialAiResponse),
-          thinkingContent: initialSanitized.thinkingText,
-          avatarUrl: requestAvatar.avatarUrl,
-          avatarHint: requestAvatar.avatarHint,
-          chatMessageId: initialAiMessageId ?? undefined,
-          metadata: initialAiMetadata,
-          referencedMessageId: refMessageId,
-        };
-        setMessages(
-          (prev = []) =>
-            prev.map((msg) => {
-              if (msg.id === loadingMessage.id) {
-                return aiResponse;
-              }
-              if (msg.id === userMessage.id && initialAiMessageId) {
-                return { ...msg, chatMessageId: initialAiMessageId };
-              }
-              return msg;
-            }),
-          chatId
-        );
-        setLastMessageId(loadingMessage.id);
-        setIsResponding(false);
-        // Clear reference after sending
-        setReferencedMessage(null);
-        return;
-      }
       fetchAiResponse(
         trimmedContent,
         loadingMessage.id,
@@ -721,7 +780,8 @@ export function ChatInterface({
         refMessageId,
         undefined,
         userMessage.chatMessageId ?? null,
-        pinIdsToSend
+        pinIdsToSend,
+        personaHistory
       );
       // Clear reference and mentions after sending
       setReferencedMessage(null);
@@ -761,10 +821,8 @@ export function ChatInterface({
 
   const handleOpenUploadDialog = () => {
     if (!layoutContext?.activeChatId) {
-      toast({
-        title: "Open or start a chat",
+      toast.error("Open or start a chat", {
         description: "Select a chat before uploading a document.",
-        variant: "destructive",
       });
       return;
     }
@@ -1586,8 +1644,7 @@ export function ChatInterface({
                     type="button"
                     onClick={() => {
                       // TODO: Implement voice input logic
-                      toast({
-                        title: "Voice input",
+                      toast.info("Voice input", {
                         description: "Voice input feature coming soon!",
                       });
                     }}

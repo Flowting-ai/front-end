@@ -30,13 +30,15 @@ export const getModelIcon = (
     modelName || "",
     providerHint || "",
     `${companyName || ""} ${modelName || ""}`.trim(),
-  ].filter(Boolean);
+  ].filter((v): v is string => typeof v === 'string' && v.length > 0);
 
   if (candidates.length === 0) return DEFAULT_MODEL_ICON;
 
   const match = keywords.find((key) => {
     const normalizedKey = normalize(key);
     return candidates.some((candidate) => {
+      // Ensure candidate is a string
+      if (typeof candidate !== 'string') return false;
       const raw = candidate.toLowerCase();
       const normalized = normalize(candidate);
       return raw.includes(key) || normalized.includes(normalizedKey);

@@ -17,6 +17,7 @@ export interface PersonaWrapperProps {
   onResume?: () => void;
   onDelete?: () => void;
   onModifyConfig?: () => void;
+  onChat?: () => void;
   onSelectAllConsumers?: () => void;
   onPauseAllConsumers?: () => void;
   onDeleteAllConsumers?: () => void;
@@ -34,6 +35,7 @@ export const PersonaWrapper = React.forwardRef<HTMLTableRowElement, PersonaWrapp
       onResume,
       onDelete,
       onModifyConfig,
+      onChat,
       onSelectAllConsumers,
       onPauseAllConsumers,
       onDeleteAllConsumers,
@@ -93,6 +95,7 @@ export const PersonaWrapper = React.forwardRef<HTMLTableRowElement, PersonaWrapp
           onResume={onResume}
           onDelete={onDelete}
           onModifyConfig={onModifyConfig}
+          onChat={onChat}
           selectedConsumerIds={selectedConsumerIds}
           onToggleConsumer={onToggleConsumer}
           onSelectAllConsumers={onSelectAllConsumers}

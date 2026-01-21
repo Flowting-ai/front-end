@@ -40,8 +40,15 @@ import userAvatar from "@/avatars/userAvatar.png"
 import userAvatar2 from "@/avatars/userAvatar2.png"
 import userAvatar3 from "@/avatars/userAvatar3.png"
 import Image from "next/image";
+import { useAuth } from "@/context/auth-context";
+import {
+  fetchPersonas,
+  deletePersona as deletePersonaApi,
+  type BackendPersona,
+} from "@/lib/api/personas";
 
-// Mock data
+// Mock data (kept for reference/development only - NOT used in production)
+// The actual data is fetched from the backend API in the useEffect hook
 const MOCK_PERSONAS: Persona[] = [
   {
     id: "1",
@@ -177,7 +184,9 @@ const MOCK_PERSONAS: Persona[] = [
 
 export default function PersonaAdminPage() {
   const router = useRouter();
-  const [personas, setPersonas] = React.useState<Persona[]>(MOCK_PERSONAS);
+  const { csrfToken } = useAuth();
+  const [personas, setPersonas] = React.useState<Persona[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [expandedPersonaIds, setExpandedPersonaIds] = React.useState<string[]>(
     []
   );
@@ -196,6 +205,40 @@ export default function PersonaAdminPage() {
     description: "",
     onConfirm: () => {},
   });
+
+  // Fetch personas from backend
+  React.useEffect(() => {
+    const loadPersonas = async () => {
+      setIsLoading(true);
+      try {
+        const backendPersonas = await fetchPersonas(undefined, csrfToken);
+
+        // Transform backend data to match frontend Persona interface
+        const transformedPersonas: Persona[] = backendPersonas.map((bp) => ({
+          id: bp.id,
+          name: bp.name,
+          description: bp.prompt?.slice(0, 100) || "No description",
+          avatar: bp.imageUrl || "/personas/persona1.png",
+          status: bp.status === "completed" ? "active" : "paused",
+          tokensUsed: 0, // TODO: Backend doesn't provide this yet
+          consumersCount: 0, // TODO: Backend doesn't provide this yet
+          consumers: [], // TODO: Backend doesn't provide this yet
+          createdAt: bp.createdAt,
+          lastActivity: bp.updatedAt,
+          version: "v1.0",
+        }));
+
+        setPersonas(transformedPersonas);
+      } catch (error) {
+        console.error("Failed to load personas:", error);
+        // Optionally show error toast to user
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPersonas();
+  }, [csrfToken]);
 
   // Calculate stats
   const totalTokens = React.useMemo(() => {
@@ -333,9 +376,16 @@ export default function PersonaAdminPage() {
       open: true,
       title: "Delete Persona",
       description: `Are you sure you want to delete "${persona.name}"? This action cannot be undone and will affect ${persona.consumersCount} consumer(s).`,
-      onConfirm: () => {
-        setPersonas((prev) => prev.filter((p) => p.id !== personaId));
-        setDeleteDialog({ ...deleteDialog, open: false });
+      onConfirm: async () => {
+        try {
+          await deletePersonaApi(personaId, csrfToken);
+          setPersonas((prev) => prev.filter((p) => p.id !== personaId));
+          setDeleteDialog({ ...deleteDialog, open: false });
+        } catch (error) {
+          console.error("Failed to delete persona:", error);
+          // Optionally show error toast to user
+          setDeleteDialog({ ...deleteDialog, open: false });
+        }
       },
     });
   };
@@ -404,9 +454,19 @@ export default function PersonaAdminPage() {
               </p>
             </div>
 
-            {/* Empty State */}
-            {/* personas.length === 0 */}
-            {personas.length === 0 ? (
+            {/* Loading State */}
+            {isLoading ? (
+              <div className="font-inter border border-main-border rounded-[16px] shadow-xl shadow-zinc-100 flex flex-col items-center justify-center gap-8 py-16">
+                <div className="text-center flex flex-col items-center gap-3">
+                  <h2 className="font-semibold text-[32px] text-[#0A0A0A]">
+                    Loading Personas...
+                  </h2>
+                  <p className="text-[16px] text-[#4b5563]">
+                    Please wait while we fetch your personas.
+                  </p>
+                </div>
+              </div>
+            ) : /* Empty State */ personas.length === 0 ? (
               <div className="font-inter border border-main-border rounded-[16px] shadow-xl shadow-zinc-100 flex flex-col items-center justify-center gap-8 py-16">
                 <div className="text-center flex flex-col items-center gap-3">
                   <h2 className="font-semibold text-[32px] text-[#0A0A0A]">
@@ -671,6 +731,11 @@ export default function PersonaAdminPage() {
                                 onModifyConfig={() =>
                                   router.push(
                                     `/personas/new/configure?personaId=${persona.id}`
+                                  )
+                                }
+                                onChat={() =>
+                                  router.push(
+                                    `/personas/new/configure?personaId=${persona.id}&chatMode=true`
                                   )
                                 }
                                 onSelectAllConsumers={() =>

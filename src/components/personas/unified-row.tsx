@@ -73,6 +73,7 @@ interface PersonaRowProps extends BaseRowProps {
   expanded?: boolean;
   onToggleExpand?: () => void;
   onModifyConfig?: () => void;
+  onChat?: () => void;
   selectedConsumerIds?: string[];
   onToggleConsumer?: (consumerId: string) => void;
   onSelectAllConsumers?: () => void;
@@ -509,11 +510,14 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      personaProps?.onChat?.();
+                    }}
                     className="cursor-pointer h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 rounded-[6px] bg-[var(--general-secondary,#F5F5F5)] text-[#111827] hover:bg-[#E5E7EB] hover:text-black"
                   >
                     <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-                    <span className="sr-only">Message {name}</span>
+                    <span className="sr-only">Chat with {name}</span>
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

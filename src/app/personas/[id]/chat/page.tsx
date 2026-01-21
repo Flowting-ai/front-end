@@ -53,9 +53,9 @@ export default function PersonaChatPage() {
     <div className="min-h-screen bg-white p-3 sm:p-4 md:p-6 lg:p-8 xl:p-12">
       {/* Top Bar */}
       <div className="flex items-center justify-between mb-3 sm:mb-4 max-w-[1072px] mx-auto px-2 sm:px-0">
-        {/* Back to Edit Button */}
+        {/* Back to Dashboard Button */}
         <Button
-          onClick={() => router.push(`/personas/new/configure?id=${params.id}`)}
+          onClick={() => router.push(`/personaAdmin`)}
           className="flex items-center justify-center font-medium text-xs sm:text-sm"
           style={{
             minWidth: 'auto',
@@ -73,7 +73,7 @@ export default function PersonaChatPage() {
           }}
         >
           <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden xs:inline">Back to Edit</span>
+          <span className="hidden xs:inline">Back to Dashboard</span>
           <span className="xs:hidden">Back</span>
         </Button>
 
