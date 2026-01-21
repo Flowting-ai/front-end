@@ -530,9 +530,21 @@ function PersonaConfigurePageContent() {
               }}
             >
               <ChatInterface
+                messages={chatMessages}
+                setMessages={setChatMessages}
                 selectedModel={previewModel}
                 hidePersonaButton={true}
                 hideAttachButton={true}
+                personaTestConfig={{
+                  personaId: createdPersonaId ?? undefined,
+                  prompt: currentInstruction,
+                  modelId:
+                    previewModel?.modelId ??
+                    previewModel?.id ??
+                    (Number.isFinite(Number(selectedModel))
+                      ? Number(selectedModel)
+                      : null),
+                }}
                 customEmptyState={
                   <div className="flex flex-col items-center justify-center gap-4">
                     <div className="relative w-[146px] h-[146px]">
