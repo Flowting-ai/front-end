@@ -34,22 +34,41 @@ interface CompareModel {
 }
 
 const transformModelForCompare = (model: AIModel): CompareModel => {
-  const provider = model.provider || "";
-  const modelName = model.modelName || model.name || "Unknown Model";
+  const provider = model.companyName || "Unknown";
+  const modelName = model.modelName || "Unknown Model";
 
   // Format name: only include provider if it's not empty/unknown
-  const displayName = provider && provider.toLowerCase() !== "unknown"
-    ? `${provider} / ${modelName}`
-    : modelName;
+  const displayName =
+    provider && provider.toLowerCase() !== "unknown"
+      ? `${provider} / ${modelName}`
+      : modelName;
+
+  const normalizeModality = (value: string) => value.trim().toLowerCase();
+  const modalities = [
+    ...(model.outputModalities ?? []),
+    ...(model.inputModalities ?? []),
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .map(normalizeModality);
+
+  const type = modalities.includes("video")
+    ? "video"
+    : modalities.includes("image")
+    ? "image"
+    : "text";
+
+  const inputLimit = model.inputLimit ?? 0;
+  const outputLimit = model.outputLimit ?? 0;
+  const planLabel = model.planType || model.callType || model.modelType;
 
   return {
     id: String(model.modelId || model.id || modelName),
     name: displayName,
-    description: model.description || modelName,
-    meta: `${model.category || "Standard"} model / Context ${model.contextLength?.toLocaleString() || "N/A"} tokens`,
-    iconBg: model.iconBg || "#F3F4F6",
-    icon: getModelIcon(model.provider, model.modelName || model.name, model.provider),
-    type: model.category?.toLowerCase() || "text",
+    description: model.version ? `Version ${model.version}` : modelName,
+    meta: `${planLabel || "Standard"} / In ${inputLimit.toLocaleString()} · Out ${outputLimit.toLocaleString()}`,
+    iconBg: "#F3F4F6",
+    icon: getModelIcon(model.companyName, model.modelName, model.companyName),
+    type,
   };
 };
 
@@ -297,7 +316,7 @@ export default function CompareModelsPage() {
     const columnHeight = fixedHeight - (headerHeight + footerHeight + verticalPadding);
     const modelsToShow = selectedModels
       .map((id) => models.find((m) => m.id === id))
-      .filter(Boolean);
+      .filter((candidate): candidate is CompareModel => Boolean(candidate));
     return (
       <div
         style={{
