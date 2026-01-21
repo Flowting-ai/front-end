@@ -269,9 +269,9 @@ export function ChatInterface({
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadSourceUrl, setUploadSourceUrl] = useState("");
-  const composerPlaceholder = selectedModel
+  const composerPlaceholder = selectedModel || layoutContext?.useFramework
     ? "Let's Play..."
-    : "Choose a model to start chatting";
+    : "Choose a model or enable framework to start chatting";
   const messageBufferRef = useRef<Message[]>([]);
 
   useEffect(() => {
@@ -651,9 +651,11 @@ export function ChatInterface({
 
   const handleSend = async (content: string, messageIdToUpdate?: string) => {
     const trimmedContent = content.trim();
-    if (!selectedModel && !personaTestConfig) {
-      toast.error("Select a model", {
-        description: "Choose a model before sending a message.",
+    // Allow sending if: model selected OR framework enabled OR persona test
+    const canSend = selectedModel || layoutContext?.useFramework || personaTestConfig;
+    if (!canSend) {
+      toast.error("Select a model or enable framework", {
+        description: "Choose a model or enable framework mode before sending a message.",
       });
       return;
     }
@@ -982,9 +984,11 @@ export function ChatInterface({
     const regen = override ?? regenerationState;
     if (!regen) return;
     const trimmedPrompt = (override?.prompt ?? regeneratePrompt).trim();
-    if (!selectedModel) {
-      toast.error("Select a model", {
-        description: "Choose a model before regenerating a response.",
+    // Allow regenerating if: model selected OR framework enabled
+    const canRegenerate = selectedModel || layoutContext?.useFramework;
+    if (!canRegenerate) {
+      toast.error("Select a model or enable framework", {
+        description: "Choose a model or enable framework mode before regenerating a response.",
       });
       setRegenerationState(null);
       setRegeneratePrompt("");
