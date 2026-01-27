@@ -1,0 +1,34 @@
+{
+  "placeholderImages": [
+    {
+      "id": "user-avatar",
+      "description": "Avatar for the user",
+      "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjIxODcyNzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "ai-avatar",
+      "description": "Avatar for the AI assistant",
+      "imageUrl": "https://images.unsplash.com/photo-1601132359864-c974e79890ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxyb2JvdCUyMHRlY2hub2xvZ3l8ZW58MHx8fHwxNzYyMTM3NjMwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "robot technology"
+    },
+    {
+      "id": "asha-avatar",
+      "description": "Avatar for Asha persona",
+      "imageUrl": "https://images.unsplash.com/photo-1573496527892-904f897eb744?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHByb2Zlc3Npb25hbHxlbnwwfHx8fDE3NjMwNTQzOTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman professional"
+    },
+    {
+      "id": "codementor-avatar",
+      "description": "Avatar for CodeMentor persona",
+      "imageUrl": "https://images.unsplash.com/photo-1603575448878-868a20723f5d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtYW4lMjBkZXZlbG9wZXJ8ZW58MHx8fHwxNzYzMTA1Njg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man developer"
+    },
+    {
+      "id": "luna-avatar",
+      "description": "Avatar for Luna persona",
+      "imageUrl": "https://images.unsplash.com/photo-1612237372447-633d5ced1be1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3b21hbiUyMGNyZWF0aXZlfGVufDB8fHx8MTc2MzAwMTYzMXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman creative"
+    }
+  ]
+}

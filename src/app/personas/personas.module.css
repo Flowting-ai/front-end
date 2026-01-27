@@ -1,0 +1,711 @@
+.personasShell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+.scrollContainer {
+  flex: 1;
+  padding: 16px 16px 32px 16px;
+  /* Let the outer layout handle scrolling so the scrollbar is at screen edge */
+  overflow: visible;
+  background-color: #ffffff;
+}
+
+@media (min-width: 640px) {
+  .scrollContainer {
+    padding: 24px 24px 40px 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scrollContainer {
+    padding: 32px 40px 48px 40px;
+  }
+}
+
+/* Use the full-width content panel as the scroll container on personas route */
+:global(.chat-layout-content-panel) {
+  overflow-y: auto !important;
+  /* Hidden by default; visible on hover */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+:global(.chat-layout-content-panel:hover) {
+  scrollbar-color: #e0e0e0 #f5f5f5;
+}
+
+/* Avoid clipping by the nested main container on this route */
+:global(.chat-layout-main) {
+  overflow: visible !important;
+}
+
+/* WebKit scrollbar styling to match chat */
+:global(.chat-layout-content-panel::-webkit-scrollbar) {
+  width: 10px;
+  background: transparent;
+}
+
+:global(.chat-layout-content-panel::-webkit-scrollbar-thumb) {
+  background: transparent;
+  border-radius: 8px;
+}
+
+:global(.chat-layout-content-panel::-webkit-scrollbar-track) {
+  background: transparent;
+  border-radius: 8px;
+}
+
+:global(.chat-layout-content-panel:hover::-webkit-scrollbar) {
+  background: #f5f5f5;
+}
+
+:global(.chat-layout-content-panel:hover::-webkit-scrollbar-track) {
+  background: #f5f5f5;
+}
+
+:global(.chat-layout-content-panel:hover::-webkit-scrollbar-thumb) {
+  background: #e0e0e0;
+}
+
+.section {
+  max-width: 100%;
+  margin: 0 auto 32px auto;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .section {
+    max-width: 640px;
+    margin: 0 auto 40px auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .section {
+    max-width: 812px; /* 2 * 400 + 12 gap = 812 */
+  }
+}
+
+@media (min-width: 1024px) {
+  .section {
+    max-width: 812px; /* keep edges flush with exact grid width */
+    margin: 0 auto 48px auto;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-family: 'Clash Grotesk Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 140%;
+  letter-spacing: 0%;
+  color: #0A0A0A;
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .sectionTitle {
+    font-size: 22px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .sectionTitle {
+    font-size: 24px;
+  }
+}
+
+.sectionSubtitle {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #666666;
+  margin: 4px 0 0 0;
+}
+
+@media (min-width: 640px) {
+  .sectionSubtitle {
+    font-size: 14px;
+  }
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 640px) {
+  .actionsRow {
+    gap: 16px;
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .actionsRow {
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
+}
+
+.actionsSpacer {
+  flex: 1;
+  min-width: 12px;
+}
+
+.actionButton {
+  margin-left: auto;
+}
+
+.searchField {
+  position: relative;
+  width: 100%;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .searchField {
+    width: 239px;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #9F9F9F;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 36px;
+  padding-left: 36px;
+  border-radius: 8px;
+}
+
+@media (min-width: 640px) {
+  .searchInput {
+    width: 239px;
+  }
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  justify-items: center;
+}
+
+@media (min-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 400px);
+    gap: 12px;
+    justify-content: start; /* exact 12px gap, left/right flush via section width */
+    justify-items: start;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 400px);
+    gap: 12px;
+    justify-content: space-between;
+    justify-items: start;
+  }
+}
+
+.personaCard,
+.templateCard {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 400px;
+  height: 148px;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #E5E5E5;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  flex-direction: row;
+}
+
+@media (min-width: 768px) {
+  .personaCard,
+  .templateCard {
+    width: 400px;
+    max-width: 400px;
+  }
+}
+
+.personaCard:hover,
+.templateCard:hover {
+  border-color: #D4D4D4;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+
+.personaImage {
+  width: 148px;
+  height: 148px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.personaContent {
+  flex: 1;
+  padding: 14px; /* match template content spacing */
+  border-left: 1px solid #D9D9D9; /* match template left divider */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.personaCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.templateCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.templateImage {
+  width: 148px;
+  height: 148px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.templateContent {
+  flex: 1;
+  padding: 14px; /* exact padding on all sides */
+  border-left: 1px solid #D9D9D9; /* interior divider to the image */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #0A0A0A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardDescription {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  transition: background-color 120ms ease;
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background-color: #FFFFFF;
+}
+
+.templateFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.authorTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.authorAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E5E5E5, #FFFFFF);
+}
+
+.authorName {
+  font-size: 12px;
+  color: #666666;
+}
+
+/* Bookmark icon in template card footer (next to temperature) */
+.templateBookmarkIcon {
+  width: 24px !important;
+  height: 22px !important;
+  display: block;
+  position: relative;
+  top: 0;
+  left: 0;
+  opacity: 1;
+  transform: rotate(0deg);
+  stroke-width: 1.5;
+  flex: 0 0 auto;
+}
+
+/* Temperature badge replacing author tag on template cards */
+.temperatureBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 24px;
+  min-height: 24px;
+  padding: 3px 2px;
+  border-radius: 8px;
+  border: 1px solid var(--general-border, #E5E5E5);
+  gap: 6px;
+  background: var(--unofficial-outline, #FFFFFF1A);
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500; /*  temperature text */
+  font-style: normal;
+  font-size: 12px;
+  line-height: 150%;
+  letter-spacing: 0.015em; /* ~1.5% */
+  text-align: center;
+  vertical-align: middle;
+  color: var(--general-foreground, #0A0A0A);
+}
+
+.filterTabs {
+  flex-shrink: 0;
+  margin-left: auto; /* ensure All/Saved aligns to right edge */
+}
+
+.filterList {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 149px;
+  height: 35px;
+  padding: 3px;
+  border-radius: 10px;
+  background-color: var(--general-accent, #F5F5F5);
+}
+
+.filterButton {
+  flex: 1;
+  height: 29px;
+  min-height: 29px;
+  min-width: 29px;
+  padding: 1px 2px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 150%;
+  letter-spacing: 0.005em; /* 0.5% */
+  vertical-align: middle;
+  color: #171717;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Fixed width for the "All" tab */
+.filterButtonAll {
+  flex: 0 0 60px;
+  width: 60px;
+}
+
+.filterButtonActive {
+  background-color: var(--general-background, #FFFFFF);
+  border: 1px solid #E5E5E5;
+  box-shadow: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+}
+
+.filterIcon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Category - All/Saved - Saved bookmark icon */
+.filterIconBookmark {
+  width: 18px !important;
+  height: 18px !important;
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* Category count badge */
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 50%;
+  background: #D4D4D4;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 16px; /* Match badge height for perfect centering */
+  letter-spacing: 0.015em; /* ~1.5% */
+  text-align: center;
+  vertical-align: middle;
+  color: #0A0A0A;
+}
+
+/* Category selector tab text (All, Assistant, Creator, etc.) */
+.categoryTrigger {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 150%;
+  letter-spacing: 0.005em; /* 0.5% */
+  vertical-align: middle;
+}
+
+.continueButton {
+  align-self: flex-start;
+}
+
+.categoryBlock {
+  margin-top: 24px;
+  margin-bottom: 0;
+}
+
+.categoryTitle {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0A0A0A;
+}
+
+.emptyState {
+  padding: 24px;
+  border: 1px dashed #E5E5E5;
+  border-radius: 12px;
+  color: #666666;
+  font-size: 14px;
+  text-align: center;
+  margin-top: 12px; /* add gap from category selector above */
+}
+
+@media (min-width: 1024px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 400px);
+    gap: 12px;
+    justify-content: start; /* maintain exact gap with fixed section width */
+    justify-items: start;
+  }
+}
+
+@media (max-width: 1024px) {
+  .scrollContainer {
+    padding: 28px 24px 40px 24px;
+  }
+
+  .section {
+    margin-bottom: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .scrollContainer {
+    padding: 24px 16px 32px 16px;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actionsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .searchField {
+    width: 100%;
+  }
+
+  .searchInput {
+    width: 100%;
+  }
+
+  .actionButton {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .cardsGrid {
+    justify-content: center;
+  }
+
+  .personaCard,
+  .templateCard {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .filterTabs {
+    width: 100%;
+  }
+
+  .filterList {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .personaCard,
+  .templateCard {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .sectionTitle {
+    font-size: 20px;
+  }
+
+  .sectionSubtitle {
+    font-size: 13px;
+  }
+}
+
+/* Custom scrollbar for category filter bar */
+.categoryScrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #E5E5E5 transparent;
+}
+
+.categoryScrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.categoryScrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.categoryScrollbar::-webkit-scrollbar-thumb {
+  background-color: #E5E5E5;
+  border-radius: 10px;
+}
+
+.categoryScrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #D4D4D4;
+}
+
+/* Empty state simple card */
+.emptyCardWrap {
+  display: flex;
+  justify-content: flex-start;
+  align-items: stretch;
+  padding-top: 16px;
+}
+
+.emptyCard {
+  width: 193px;
+  height: 148px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 23px;
+  padding: 11px 13px;
+  border-radius: 16px;
+  border: 1px solid var(--general-border, #E5E5E5);
+  box-shadow: 0px 8px 15px 0px rgba(0, 0, 0, 0.05);
+  background: #FFFFFF;
+}
+
+.emptyAvatarStack {
+  width: 126px;
+  height: 40px;
+  display: inline-flex;
+  gap: 1.5px;
+}
+
+.emptyAvatar {
+  width: 41px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.emptyAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.createPersonaButton {
+  width: 167px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  padding: 9.5px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--general-primary, #171717);
+  color: var(--Text-Brand-On-Brand, #F5F5F5);
+}

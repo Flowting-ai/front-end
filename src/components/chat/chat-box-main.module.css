@@ -1,0 +1,172 @@
+.chatBoxMain {
+  width: 100%;
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 18px;
+  background-color: #fff;
+  border: 1px solid #e5e5e5;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  gap: 12px;
+  text-align: left;
+  font-size: 14px;
+  color: #b3b3b3;
+  font-family: "Inter", sans-serif;
+}
+
+.placeholder {
+  width: 100%;
+  line-height: 129%;
+}
+
+.frameParent {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  color: #0a0a0a;
+  font-family: "Geist", sans-serif;
+}
+
+.iconButtonParent {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.iconButton {
+  border-radius: 9999px;
+  background-color: #fff;
+  border: 1px solid #d9d9d9;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.textMessageLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button {
+  height: 32px;
+  width: 93px;
+  border-radius: 16px;
+  background-color: #fff;
+  border: 1px solid #767676;
+  box-sizing: border-box;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.selectCombobox {
+  height: 34px;
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 9px;
+  background-color: #fff;
+  border: 1px solid #d4d4d4;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 5.5px 8px;
+  gap: 6px;
+  min-height: 32px;
+}
+
+.selectLeftDecoration {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.selectAnItem {
+  letter-spacing: 0.01em;
+  line-height: 150%;
+  font-size: 13px;
+}
+
+.selectComboboxRightDecora {
+  height: 16px;
+  width: 16px;
+  position: relative;
+}
+
+.iconChevronDown {
+  position: absolute;
+  inset: 0;
+}
+
+.buttonSecondary {
+  height: 32px;
+  width: 113px;
+  border-radius: 16px;
+  background-color: #fff;
+  border: 1px solid #767676;
+  box-sizing: border-box;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.badgeParent {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.badge {
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0);
+  padding: 3px 8px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label {
+  letter-spacing: 0.02em;
+  line-height: 150%;
+  font-weight: 500;
+}
+
+.divider {
+  height: 28px;
+  width: 2px;
+  background-color: #e5e5e5;
+}
+
+.iconButtonDark {
+  border-radius: 9999px;
+  background-color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.iconMicWrapper {
+  height: 16.3px;
+  width: 16.3px;
+  position: relative;
+}
