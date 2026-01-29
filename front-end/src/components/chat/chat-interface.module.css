@@ -1,0 +1,19 @@
+/* Custom light grey scrollbar for chat viewport */
+.customScrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 #f5f5f5;
+}
+
+/* Chrome, Edge, Safari */
+.customScrollbar::-webkit-scrollbar {
+  width: 10px;
+  background: #f5f5f5;
+}
+.customScrollbar::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 8px;
+}
+.customScrollbar::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 8px;
+}
