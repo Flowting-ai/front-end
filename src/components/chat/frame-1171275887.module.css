@@ -1,0 +1,62 @@
+.frameParent {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-size: 28px;
+  color: #1e1e1e;
+  font-family: "Clash Grotesk Variable", "Inter", sans-serif;
+  gap: 48px;
+  padding: 32px 16px;
+  /* border: 4px solid red; */
+}
+
+.frameGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Styles for the logo image in chat-interface */
+.frameChild {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  width: 82px;
+  height: 82px;
+}
+
+.frameItem {
+  height: 37px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -60px;
+}
+
+.whatWouldYouLikeToExploreParent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.whatWouldYou {
+  line-height: 129%;
+}
+
+.whatWouldYou span {
+  font-weight: 600;
+}
+
+.yourIntelligentAssistant {
+  width: 326px;
+  font-size: 14px;
+  line-height: 129%;
+  font-family: "Inter", sans-serif;
+  color: #333;
+}
