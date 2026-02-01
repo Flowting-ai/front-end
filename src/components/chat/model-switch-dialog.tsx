@@ -21,9 +21,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, MessageSquare, CircleCheckBig } from "lucide-react";
+import { ChevronDown, MessageSquare, CircleCheckBig, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
+import type { PinType } from "@/components/layout/right-sidebar";
 import { getModelIcon } from "@/lib/model-icons";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
@@ -32,14 +33,17 @@ interface ModelSwitchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentModel: AIModel | null;
+  pendingModel?: AIModel | null;
   onModelSwitch: (config: ModelSwitchConfig) => void;
+  onFrameworkSelect?: () => void;
   chatBoards?: Array<{ id: string; name: string }>;
+  pins?: PinType[];
 }
 
 export interface ModelSwitchConfig {
   model: AIModel;
   chatMemory: number;
-  includePins: string[]; // Array of chat IDs
+  includePins: string[]; // Array of pin IDs
   includeFiles: boolean;
 }
 
@@ -47,8 +51,11 @@ export function ModelSwitchDialog({
   open,
   onOpenChange,
   currentModel,
+  pendingModel,
   onModelSwitch,
+  onFrameworkSelect,
   chatBoards = [],
+  pins = [],
 }: ModelSwitchDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +65,8 @@ export function ModelSwitchDialog({
   const [showFree, setShowFree] = useState(true);
   const [showPaid, setShowPaid] = useState(true);
   const [chatMemory, setChatMemory] = useState(50);
-  const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
+  const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
@@ -105,12 +113,16 @@ export function ModelSwitchDialog({
   // Reset when dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedModel(currentModel);
+      const modelToSelect = pendingModel || currentModel;
+      setSelectedModel(modelToSelect);
+      // If no model is selected, default to framework
+      setFrameworkSelected(!modelToSelect);
       setChatMemory(50);
-      setSelectedChats([]);
+      setSelectedPinIds([]);
+      setExpandedChatIds([]);
       setIncludeFiles(false);
     }
-  }, [open, currentModel]);
+  }, [open, currentModel, pendingModel]);
 
   const filteredModels = models.filter((model) => {
     if (!showFree && model.modelType === "free") return false;
@@ -119,24 +131,65 @@ export function ModelSwitchDialog({
   });
 
   const handleSelect = () => {
+    if (frameworkSelected && onFrameworkSelect) {
+      onFrameworkSelect();
+      onOpenChange(false);
+      return;
+    }
+
     if (!selectedModel) return;
 
     onModelSwitch({
       model: selectedModel,
       chatMemory,
-      includePins: selectedChats,
+      includePins: selectedPinIds,
       includeFiles,
     });
 
     onOpenChange(false);
   };
 
+  // Group pins by chat
+  const pinsByChat = pins.reduce((acc, pin) => {
+    const chatId = pin.chatId || pin.sourceChatId || 'unknown';
+    if (!acc[chatId]) {
+      acc[chatId] = [];
+    }
+    acc[chatId].push(pin);
+    return acc;
+  }, {} as Record<string, PinType[]>);
+
+  // Filter to only show chats with pins
+  const chatsWithPins = chatBoards.filter(chat => pinsByChat[chat.id]?.length > 0);
+
   const handleToggleChat = (chatId: string) => {
-    setSelectedChats((prev) =>
-      prev.includes(chatId)
-        ? prev.filter((id) => id !== chatId)
+    setExpandedChatIds(prev => 
+      prev.includes(chatId) 
+        ? prev.filter(id => id !== chatId)
         : [...prev, chatId]
     );
+  };
+
+  const handleTogglePin = (pinId: string) => {
+    setSelectedPinIds(prev =>
+      prev.includes(pinId)
+        ? prev.filter(id => id !== pinId)
+        : [...prev, pinId]
+    );
+  };
+
+  const handleToggleAllPinsInChat = (chatId: string) => {
+    const chatPins = pinsByChat[chatId] || [];
+    const chatPinIds = chatPins.map(p => p.id);
+    const allSelected = chatPinIds.every(id => selectedPinIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all pins in this chat
+      setSelectedPinIds(prev => prev.filter(id => !chatPinIds.includes(id)));
+    } else {
+      // Select all pins in this chat
+      setSelectedPinIds(prev => [...new Set([...prev, ...chatPinIds])]);
+    }
   };
 
   return (
@@ -166,7 +219,12 @@ export function ModelSwitchDialog({
                 className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] rounded-[7px] flex transition-all duration-300 h-[116px] items-start border ${
                   frameworkSelected ? "border-[#0A0A0A]" : "border-[#E6E6E6]"
                 }`}
-                onClick={() => setFrameworkSelected((s) => !s)}
+                onClick={() => {
+                  setFrameworkSelected((s) => !s);
+                  if (!frameworkSelected) {
+                    setSelectedModel(null);
+                  }
+                }}
                 aria-pressed={frameworkSelected}
               >
                 <div className="p-3">
@@ -252,7 +310,10 @@ export function ModelSwitchDialog({
                       filteredModels.map((model) => (
                         <DropdownMenuItem
                           key={`${model.companyName}-${model.modelName}`}
-                          onClick={() => setSelectedModel(model)}
+                          onClick={() => {
+                            setSelectedModel(model);
+                            setFrameworkSelected(false);
+                          }}
                           className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
                         >
                           <Image
@@ -373,10 +434,10 @@ export function ModelSwitchDialog({
                     <div className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4 text-[#8a8a8a]" />
                       <span className="text-[#171717] text-sm">
-                        {selectedChats.length === 0
-                          ? "Filter by chats"
-                          : `${selectedChats.length} chat${
-                              selectedChats.length === 1 ? "" : "s"
+                        {selectedPinIds.length === 0
+                          ? "Filter by pins"
+                          : `${selectedPinIds.length} pin${
+                              selectedPinIds.length === 1 ? "" : "s"
                             } selected`}
                       </span>
                     </div>
@@ -384,31 +445,92 @@ export function ModelSwitchDialog({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  align="start"
-                  className="w-[300px] border border-[#e6e6e6] bg-white p-2"
+                  align="end"
+                  side="right"
+                  className="w-[300px] border border-[#e6e6e6] bg-white p-2 overflow-x-hidden"
                 >
-                  <ScrollArea className="max-h-[200px]">
-                    {chatBoards.length === 0 ? (
+                  <ScrollArea className="max-h-[300px]">
+                    {chatsWithPins.length === 0 ? (
                       <div className="py-4 text-center text-[#8a8a8a] text-sm">
-                        No chats available
+                        No pins available
                       </div>
                     ) : (
-                      chatBoards.map((chat) => (
-                        <div
-                          key={chat.id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5f5f5] rounded-md cursor-pointer"
-                          onClick={() => handleToggleChat(chat.id)}
-                        >
-                          <Checkbox
-                            checked={selectedChats.includes(chat.id)}
-                            onCheckedChange={() => handleToggleChat(chat.id)}
-                            className="h-4 w-4 rounded border-[#d4d4d4]"
-                          />
-                          <span className="text-sm text-[#171717]">
-                            {chat.name}
-                          </span>
-                        </div>
-                      ))
+                      chatsWithPins.map((chat) => {
+                        const chatPins = pinsByChat[chat.id] || [];
+                        const isExpanded = expandedChatIds.includes(chat.id);
+                        const chatPinIds = chatPins.map(p => p.id);
+                        const allPinsSelected = chatPinIds.length > 0 && chatPinIds.every(id => selectedPinIds.includes(id));
+                        const somePinsSelected = chatPinIds.some(id => selectedPinIds.includes(id)) && !allPinsSelected;
+                        const displayName = chat.name.length > 25 ? `${chat.name.slice(0, 25)}...` : chat.name;
+                        
+                        return (
+                          <div key={chat.id} className="mb-1">
+                            {/* Chat Header */}
+                            <div className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5f5f5] rounded-md">
+                              <button
+                                onClick={() => handleToggleChat(chat.id)}
+                                className="flex items-center gap-1.5 flex-1 text-left min-w-0 overflow-hidden"
+                              >
+                                <ChevronRight 
+                                  className={`h-3.5 w-3.5 shrink-0 text-[#8a8a8a] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                />
+                                <span className="text-sm text-[#171717] font-medium">
+                                  {displayName}
+                                </span>
+                              </button>
+                              <span className="shrink-0 flex items-center justify-center min-w-[20px] h-[20px] text-[10px] font-medium text-white bg-[#8a8a8a] rounded-full px-1.5">
+                                {chatPins.length}
+                              </span>
+                              <Checkbox
+                                checked={allPinsSelected}
+                                onCheckedChange={() => handleToggleAllPinsInChat(chat.id)}
+                                className={`h-4 w-4 shrink-0 rounded border-[#d4d4d4] ${somePinsSelected ? 'data-[state=checked]:bg-[#8a8a8a]' : ''}`}
+                              />
+                            </div>
+                            
+                            {/* Nested Pins */}
+                            {isExpanded && (
+                              <div className="ml-6 space-y-1">
+                                {chatPins.map((pin) => (
+                                  <div
+                                    key={pin.id}
+                                    className="flex items-start gap-2 px-3 py-2 hover:bg-[#f5f5f5] rounded-md cursor-pointer"
+                                    onClick={() => handleTogglePin(pin.id)}
+                                  >
+                                    <Checkbox
+                                      checked={selectedPinIds.includes(pin.id)}
+                                      onCheckedChange={() => handleTogglePin(pin.id)}
+                                      className="h-4 w-4 rounded border-[#d4d4d4] mt-0.5 shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-[#171717] line-clamp-2">
+                                        {pin.text || pin.title || pin.formattedContent || 'Untitled pin'}
+                                      </p>
+                                      {pin.tags && pin.tags.length > 0 && (
+                                        <div className="flex gap-1 mt-1 flex-wrap">
+                                          {pin.tags.slice(0, 2).map((tag, idx) => (
+                                            <span
+                                              key={idx}
+                                              className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-1.5 py-0.5 rounded"
+                                            >
+                                              {tag}
+                                            </span>
+                                          ))}
+                                          {pin.tags.length > 2 && (
+                                            <span className="text-xs text-[#8a8a8a]">
+                                              +{pin.tags.length - 2}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </ScrollArea>
                 </DropdownMenuContent>
@@ -446,7 +568,7 @@ export function ModelSwitchDialog({
             </Button>
             <Button
               onClick={handleSelect}
-              disabled={!selectedModel}
+              disabled={!frameworkSelected && !selectedModel}
               className="cursor-pointer h-[32px] rounded-[10px] px-4 bg-[#171717] text-white hover:bg-[#171717] disabled:bg-[#d4d4d4] disabled:text-[#8a8a8a]"
             >
               <p>Select</p>

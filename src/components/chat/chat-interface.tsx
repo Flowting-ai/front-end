@@ -1549,7 +1549,7 @@ export function ChatInterface({
                     }
                   }}
                   placeholder={disableInput ? "Save to start chatting..." : "Ask your persona .... "}
-                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey"
+                  className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey shadow-none!"
                   rows={1}
                   disabled={isResponding || disableInput}
                 />
@@ -1613,9 +1613,9 @@ export function ChatInterface({
                 )}
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
-                <span className="text-sm font-medium text-[#888888]">
+                {/* <span className="text-sm font-medium text-[#888888]">
                   {isTokenUsageLoading ? "--" : `${usagePercent}%`}
-                </span>
+                </span> */}
                 {isResponding ? (
                   <Button
                     type="button"

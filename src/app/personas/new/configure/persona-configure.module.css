@@ -1557,7 +1557,7 @@
 }
 
 .backButton {
-  width: 87.25px;
+  width: auto;
   height: 36px;
   min-height: 36px;
   padding-top: 7.5px;

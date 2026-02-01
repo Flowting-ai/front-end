@@ -608,7 +608,11 @@ function PersonasPageContent() {
               <div className={styles.cardsGrid}>
                 {filteredPersonas.length > 0 ? (
                   filteredPersonas.map((persona) => (
-                    <div key={persona.id} className={styles.personaCard}>
+                    <div 
+                      key={persona.id} 
+                      className={cn(styles.personaCard, "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]")}
+                      onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}&chatMode=true`)}
+                    >
                       <Image
                         src={persona.thumbnail}
                         alt="persona"
@@ -630,15 +634,20 @@ function PersonasPageContent() {
                                 type="button"
                                 className={styles.iconButton}
                                 aria-label={`Open actions for ${persona.name}`}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <MoreVertical className="h-4 w-4 text-[#666666]" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}>
+                            <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/personas/new/configure?personaId=${persona.id}`);
+                              }}>
                                 Edit configuration
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
                                 setPersonaToDelete(persona);
                                 setDeleteDialogOpen(true);
                               }}>
@@ -672,11 +681,12 @@ function PersonasPageContent() {
                                 boxShadow: "0px 1px 2px 0px #0000000D",
                                 color: "#0A0A0A",
                               }}
-                              onClick={() =>
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 router.push(
                                   `/personas/new/configure?personaId=${persona.id}`
-                                )
-                              }
+                                );
+                              }}
                             >
                               Continue building
                             </Button>
@@ -686,7 +696,40 @@ function PersonasPageContent() {
                     </div>
                   ))
                 ) : (
-                  <div className={styles.emptyState}>No personas found.</div>
+                  <div className={styles.emptyCard}>
+                    {/* Avatar Stack */}
+                    <div
+                      className="relative top-4 left-2 flex -space-x-2"
+                      style={{ width: "126px", height: "40px" }}
+                    >
+                      {[
+                        "/avatars/avatar3.svg",
+                        "/avatars/avatar2.svg",
+                        "/avatars/avatar1.svg",
+                      ].map((src, index) => (
+                        <div
+                          key={`${src}-${index}`}
+                          className="relative h-10 w-10 rounded-full border border-white overflow-hidden"
+                          style={{ zIndex: 3 + index }}
+                        >
+                          <Image
+                            src={src}
+                            alt="Persona avatar"
+                            width={41}
+                            height={40}
+                            className="h-full w-full rounded-full object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className={cn(styles.createPersonaButton, "cursor-pointer font-geist font-medium text-[14px]")}
+                      onClick={() => router.push("/personas/new")}
+                    >
+                      Create New Persona
+                    </button>
+                  </div>
                 )}
               </div>
             </section>

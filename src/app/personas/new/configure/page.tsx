@@ -91,6 +91,7 @@ function PersonaConfigurePageContent() {
   const [testStreamMessage, setTestStreamMessage] = useState("");
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [hasFinishedBuilding, setHasFinishedBuilding] = useState(false);
   const { csrfToken } = useAuth();
 
   // Custom hooks
@@ -450,6 +451,7 @@ function PersonaConfigurePageContent() {
       const created = await createPersona(personaPayload, csrfToken);
 
       setCreatedPersonaId(created.id);
+      setHasFinishedBuilding(true);
       setShowSuccessDialog(true);
     } catch (error) {
       console.error("Failed to save persona:", error);
@@ -466,7 +468,7 @@ function PersonaConfigurePageContent() {
     const personaId = searchParams.get("personaId");
     const chatMode = searchParams.get("chatMode");
 
-    if (personaId || chatMode === "true" || isChatMode) {
+    if (hasFinishedBuilding || personaId || chatMode === "true" || isChatMode) {
       router.push("/personaAdmin");
     } else {
       router.push("/personas/new");
@@ -632,11 +634,11 @@ function PersonaConfigurePageContent() {
                       <div className={styles.headerLeft}>
                         <Button
                           variant="outline"
-                          onClick={handleBack}
+                          onClick={() => router.push(hasFinishedBuilding ? "/personas" : "/personas/new")}
                           className={styles.backButton}
                         >
                           <ArrowLeft className="h-4 w-4" />
-                          Back
+                          {hasFinishedBuilding ? "Go to home" : "Back"}
                         </Button>
                       </div>
                       <div className={styles.headerActions}>

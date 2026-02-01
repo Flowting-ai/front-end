@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { ModelSelector } from "../chat/model-selector";
 import { TokenTracker } from "../chat/token-tracker";
 import type { AIModel } from "@/types/ai-model";
+import type { PinType } from "./right-sidebar";
 import { useTokenUsage } from "@/context/token-context";
 import { useAuth } from "@/context/auth-context";
 import { UserRoundPen, UserRoundPlus } from "lucide-react";
@@ -18,6 +19,9 @@ interface TopbarProps {
   onModelSelect: (model: AIModel | null) => void;
   onFrameworkChange: (useFramework: boolean) => void;
   chatBoards?: Array<{ id: string; name: string }>;
+  activeChatId?: string | null;
+  hasMessages?: boolean;
+  pins?: PinType[];
 }
 
 export function Topbar({
@@ -27,6 +31,9 @@ export function Topbar({
   useFramework,
   onFrameworkChange,
   chatBoards = [],
+  activeChatId,
+  hasMessages = false,
+  pins = [],
 }: TopbarProps) {
   const { usagePercent, isLoading } = useTokenUsage();
   const { user } = useAuth();
@@ -57,6 +64,9 @@ export function Topbar({
               useFramework={useFramework}
               onFrameworkChange={onFrameworkChange}
               chatBoards={chatBoards}
+              activeChatId={activeChatId}
+              hasMessages={hasMessages}
+              pins={pins}
             />
           )}
           {(isHomePage || isPersonaAdminPage || isPersonasPage) && (
@@ -69,6 +79,15 @@ export function Topbar({
                   Upgrade Plan
                 </Button>
               ) : null}
+              {isPersonasPage && (
+                <Button
+                  variant="outline"
+                  className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-lg border-main-border"
+                  onClick={() => window.location.href = '/personaAdmin'}
+                >
+                  Go to Command Center
+                </Button>
+              )}
             </div>
           )}
         </div>

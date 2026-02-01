@@ -1285,6 +1285,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
               useFramework={useFramework}
               onFrameworkChange={setUseFramework}
               chatBoards={chatBoards}
+              activeChatId={activeChatId}
+              hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
+              pins={pins}
             >
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -1383,6 +1386,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             useFramework={useFramework}
             onFrameworkChange={setUseFramework}
             chatBoards={chatBoards}
+            activeChatId={activeChatId}
+            hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
+            pins={pins}
           />
           <div className="chat-layout-main-wrapper">
             <div className="chat-layout-content-panel">
