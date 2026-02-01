@@ -550,7 +550,7 @@ export default function PersonaAdminPage() {
                         </div>
                         <button className="cursor-pointer absolute bottom-[14px] left-[14px] inline-flex h-[26px] min-h-[24px] w-[161px] items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E5E5] bg-white px-2 py-[3px] text-xs font-medium text-black transition-colors hover:bg-gray-100">
                           <TrendingUp className="h-3 w-3" />
-                          +12.4% vs last period
+                          +0% vs last period
                         </button>
                       </div>
                       <div className="absolute top-3.5 right-3.5 w-[34px] h-[34px] border border-main-border rounded-[8px] flex items-center justify-center">

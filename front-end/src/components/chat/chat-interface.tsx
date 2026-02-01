@@ -1613,9 +1613,9 @@ export function ChatInterface({
                 )}
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
-                <span className="text-sm font-medium text-[#888888]">
+                {/* <span className="text-sm font-medium text-[#888888]">
                   {isTokenUsageLoading ? "--" : `${usagePercent}%`}
-                </span>
+                </span> */}
                 {isResponding ? (
                   <Button
                     type="button"
