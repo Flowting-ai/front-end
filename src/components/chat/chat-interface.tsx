@@ -31,7 +31,7 @@ import { ReferenceBanner } from "./reference-banner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { PinType } from "../layout/right-sidebar";
 import type { AIModel } from "@/types/ai-model";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast-helper";
 import { AppLayoutContext } from "../layout/app-layout";
 import { cn } from "@/lib/utils";
 import {

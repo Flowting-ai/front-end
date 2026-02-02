@@ -53,7 +53,7 @@ import {
   type BackendPin,
 } from "@/lib/api/pins";
 import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast-helper";
 import { extractThinkingContent } from "@/lib/thinking";
 
 interface AppLayoutProps {

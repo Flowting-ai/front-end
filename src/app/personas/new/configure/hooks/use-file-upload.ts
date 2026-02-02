@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import type { UploadedFile } from '../types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast-helper';
 import {
   isDuplicateFile,
   createFileObject,

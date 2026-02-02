@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, Share2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast-helper';
 import { ChatInterface } from '@/components/chat/chat-interface';
 
 interface PersonaData {

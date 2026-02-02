@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast-helper";
 import { formatDistanceToNow } from "date-fns";
 import type { PinType } from "../layout/right-sidebar";
 import {

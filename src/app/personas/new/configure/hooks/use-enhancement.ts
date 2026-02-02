@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast-helper';
 import { analyzePersona, type PersonaAnalyzeResponse } from "@/lib/api/personas";
 
 interface UseEnhancementReturn {

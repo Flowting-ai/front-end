@@ -42,7 +42,7 @@ import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
 import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
 import { useAuth } from "@/context/auth-context";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast-helper";
 import {
   createPin,
   createPinFolder,

@@ -1521,3 +1521,62 @@
     background: rgba(5, 80, 174, 0.08);
   }
 }
+
+/* React Toastify Custom Styles */
+.Toastify__toast {
+  font-family: var(--font-geist);
+  min-height: 98px;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #E5E5E5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.Toastify__toast-container {
+  width: 318px;
+}
+
+.Toastify__toast-body {
+  padding: 0;
+  margin: 0;
+}
+
+/* Toast Title Styling */
+.toast-title {
+  font-family: Geist, var(--font-geist), sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 150%;
+  letter-spacing: 0%;
+  color: #171717;
+  margin-bottom: 4px;
+}
+
+/* Toast Description Styling */
+.toast-description {
+  font-family: Geist, var(--font-geist), sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 150%;
+  letter-spacing: 0.5%;
+  color: #737373;
+}
+
+/* Progress Bar Colors - All Black */
+.Toastify__progress-bar,
+.Toastify__toast--error .Toastify__progress-bar,
+.Toastify__toast--success .Toastify__progress-bar,
+.Toastify__toast--default .Toastify__progress-bar,
+.Toastify__toast--info .Toastify__progress-bar,
+.Toastify__toast--warning .Toastify__progress-bar {
+  background: #0A0A0A !important;
+}
+
+/* Dark mode adjustments */
+.dark .toast-title {
+  color: #f5f5f5;
+}
+
+.dark .toast-description {
+  color: #a3a3a3;
+}

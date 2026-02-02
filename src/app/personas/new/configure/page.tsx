@@ -42,7 +42,7 @@ import styles from "./persona-configure.module.css";
 import { ChatInterface } from "@/components/chat/chat-interface";
 import type { Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast-helper";
 import {
   Dialog,
   DialogContent,
