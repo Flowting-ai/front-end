@@ -1,17 +1,59 @@
 import type { NextConfig } from "next";
 
+const DEFAULT_BACKEND_URL = "https://jellyfish-app-7brqd.ondigitalocean.app";
+
+const getBackendUrl = () => {
+  const raw =
+    process.env.NEXT_PUBLIC_BACKEND_URL ??
+    process.env.NEXT_PUBLIC_HOST_URL ??
+    DEFAULT_BACKEND_URL;
+
+  try {
+    return new URL(raw);
+  } catch {
+    return new URL(DEFAULT_BACKEND_URL);
+  }
+};
+
+const backendUrl = getBackendUrl();
+const backendOrigin = backendUrl.origin;
+const backendWsOrigin = `${
+  backendUrl.protocol === "https:" ? "wss" : "ws"
+}://${backendUrl.host}`;
+
+const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] =
+  [
+    {
+      protocol: backendUrl.protocol.replace(":", "") as "http" | "https",
+      hostname: backendUrl.hostname,
+      ...(backendUrl.port ? { port: backendUrl.port } : {}),
+      pathname: "/media/**",
+    },
+  ];
+
+const cspDirectives = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: ${backendOrigin}`,
+  "font-src 'self' data:",
+  `connect-src 'self' ${backendOrigin} ${backendWsOrigin}`,
+  "media-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+];
+
+if (process.env.NODE_ENV === "production") {
+  cspDirectives.push("upgrade-insecure-requests");
+}
+
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   images: {
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '8000',
-        pathname: '/media/**',
-      },
-    ],
+    remotePatterns: backendRemotePattern,
   },
   async headers() {
     return [
@@ -48,20 +90,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: http://localhost:8000",
-              "font-src 'self' data:",
-              "connect-src 'self' http://localhost:8000 ws://localhost:8000",
-              "media-src 'self'",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "frame-ancestors 'self'",
-              "upgrade-insecure-requests"
-            ].join('; ')
+            value: cspDirectives.join('; ')
           }
         ],
       },
