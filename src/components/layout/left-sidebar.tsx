@@ -87,6 +87,13 @@ export function LeftSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
 
+  // Collapse chat boards when on persona admin page
+  React.useEffect(() => {
+    if (pathname?.startsWith("/personaAdmin")) {
+      setIsChatBoardsExpanded(false);
+    }
+  }, [pathname]);
+
   const userFirstName = (() => {
     const fromName = user?.name?.trim();
     if (fromName) {

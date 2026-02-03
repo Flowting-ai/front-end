@@ -497,6 +497,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
+  const hasFetchedChats = useRef(false);
 
   // Guard: redirect to login if not authenticated and not on auth pages
   useEffect(() => {
@@ -626,7 +627,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       removeChatLocally(chatId);
       setChatToDelete(null);
-      await loadChatBoards();
+      await loadChatBoards(true); // Force reload after delete
       toast("Chat deleted", {
         description: "This chat board has been removed.",
       });
@@ -651,14 +652,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
     renameInputRef.current?.blur();
   }, [resetRenameState, renameInputRef]);
 
-  const loadChatBoards = useCallback(async () => {
+  const loadChatBoards = useCallback(async (force = false) => {
     if (!user) {
       console.log("[loadChatBoards] Skipped: No user logged in");
+      return;
+    }
+    // Skip if already fetched unless force reload
+    if (hasFetchedChats.current && !force) {
+      console.log("[loadChatBoards] Skipped: Already fetched. Use force=true to reload.");
       return;
     }
     try {
       const { chats: backendChats, csrfToken: freshToken } =
         await fetchChatBoards(csrfTokenRef.current);
+      hasFetchedChats.current = true;
       if (freshToken && freshToken !== csrfTokenRef.current) {
         csrfTokenRef.current = freshToken;
         setCsrfToken(freshToken);
@@ -716,9 +723,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [setCsrfToken, user]);
 
+  // Load chat boards only once when user is authenticated
   useEffect(() => {
-    loadChatBoards();
-  }, [loadChatBoards]);
+    if (user && !hasFetchedChats.current) {
+      loadChatBoards();
+    }
+  }, [user, loadChatBoards]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;

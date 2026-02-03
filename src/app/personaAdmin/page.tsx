@@ -49,7 +49,7 @@ import {
   type BackendPersona,
   type PersonaStatus,
 } from "@/lib/api/personas";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 
 // Mock data (kept for reference/development only - NOT used in production)
 // The actual data is fetched from the backend API in the useEffect hook
@@ -189,6 +189,8 @@ const MOCK_PERSONAS: Persona[] = [
 export default function PersonaAdminPage() {
   const router = useRouter();
   const { csrfToken } = useAuth();
+  const hasFetchedPersonas = React.useRef(false);
+  const csrfTokenRef = React.useRef(csrfToken);
   const [personas, setPersonas] = React.useState<Persona[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [expandedPersonaIds, setExpandedPersonaIds] = React.useState<string[]>(
@@ -211,12 +213,22 @@ export default function PersonaAdminPage() {
   });
   const [tokenUsage, setTokenUsage] = React.useState(0);
 
+  // Keep csrfTokenRef in sync
+  React.useEffect(() => {
+    csrfTokenRef.current = csrfToken;
+  }, [csrfToken]);
+
   // Fetch personas from backend
   React.useEffect(() => {
     const loadPersonas = async () => {
+      // Skip if already fetched
+      if (hasFetchedPersonas.current) {
+        return;
+      }
       setIsLoading(true);
       try {
-        const backendPersonas = await fetchPersonas(undefined, csrfToken);
+        const backendPersonas = await fetchPersonas(undefined, csrfTokenRef.current);
+        hasFetchedPersonas.current = true;
 
         // Transform backend data to match frontend Persona interface
         // Map backend status ("test" | "completed") to frontend status ("active" | "paused" | "inactive")
@@ -233,7 +245,7 @@ export default function PersonaAdminPage() {
           consumersCount: 0, // TODO: Backend doesn't provide this yet
           consumers: [], // TODO: Backend doesn't provide this yet
           createdAt: bp.createdAt,
-          lastActivity: bp.updatedAt,
+          lastActivity: formatRelativeTime(bp.updatedAt),
           version: "v1.0",
         }));
 
@@ -247,7 +259,7 @@ export default function PersonaAdminPage() {
     };
 
     loadPersonas();
-  }, [csrfToken]);
+  }, []); // Empty deps - only load once on mount
 
   // Calculate stats
   const totalTokens = React.useMemo(() => {
@@ -391,7 +403,7 @@ export default function PersonaAdminPage() {
 
     // Persist to backend
     try {
-      await updatePersona(personaId, { status: newBackendStatus }, csrfToken);
+      await updatePersona(personaId, { status: newBackendStatus }, csrfTokenRef.current);
     } catch (error) {
       console.error("Failed to update persona status:", error);
       // Revert optimistic update on error
@@ -414,7 +426,7 @@ export default function PersonaAdminPage() {
       description: `Are you sure you want to delete "${persona.name}"? This action cannot be undone and will affect ${persona.consumersCount} consumer(s).`,
       onConfirm: async () => {
         try {
-          await deletePersonaApi(personaId, csrfToken);
+          await deletePersonaApi(personaId, csrfTokenRef.current);
           setPersonas((prev) => prev.filter((p) => p.id !== personaId));
           setDeleteDialog({ ...deleteDialog, open: false });
         } catch (error) {

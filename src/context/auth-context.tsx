@@ -100,7 +100,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [sessionStorage.removeItem(CSRF_STORAGE_KEY);
+  }, [csrfToken]);
+
+  const clearAuth = useCallback(() => {
+    setUser(null);
+    setCsrfToken(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(USER_STORAGE_KEY);
+      localStorage.removeItem(CSRF_STORAGE_KEY);
+      sessionStorage.removeItem(CSRF_STORAGE_KEY);
       localStorage.removeItem("isLoggedIn");
       
       // Clear CSRF cookie
@@ -109,14 +117,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Silently fail
       }
-
-  const clearAuth = useCallback(() => {
-    setUser(null);
-    setCsrfToken(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(USER_STORAGE_KEY);
-      localStorage.removeItem(CSRF_STORAGE_KEY);
-      localStorage.removeItem("isLoggedIn");
     }
   }, []);
 
