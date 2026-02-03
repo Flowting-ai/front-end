@@ -74,7 +74,6 @@ import {
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
 import { uploadDocument } from "@/lib/api/documents";
-import { addReaction, removeReaction } from "@/lib/api/messages";
 import Image from "next/image";
 
 interface ChatInterfaceProps {
@@ -200,45 +199,6 @@ export function ChatInterface({
       avatarHint: hintParts.join(" ").trim() || undefined,
     };
   };
-
-  const handleReact = async (message: Message, reaction: string | null) => {
-    if (message.sender !== "ai") return;
-    const chatId = layoutContext?.activeChatId;
-    const messageId = message.chatMessageId || message.id;
-    if (!chatId || !messageId) return;
-
-    const current = message.metadata?.userReaction || null;
-    const isRemoving = reaction === null || current === reaction;
-
-    try {
-      if (isRemoving) {
-        await removeReaction({ chatId, messageId, csrfToken });
-      } else {
-        await addReaction({ chatId, messageId, reaction: reaction as any, csrfToken });
-      }
-
-      setMessages((prev = []) =>
-        prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                metadata: {
-                  ...m.metadata,
-                  userReaction: isRemoving ? null : reaction,
-                },
-              }
-            : m
-        ),
-        chatId
-      );
-    } catch (error) {
-      console.error("Reaction failed", error);
-      toast.error("Reaction failed", {
-        description:
-          error instanceof Error ? error.message : "Unable to update reaction.",
-      });
-    }
-  };
   const isMobile = useIsMobile();
   // Prevent hydration mismatch: don't render until isMobile is known
   if (typeof isMobile === "undefined") {
@@ -249,6 +209,42 @@ export function ChatInterface({
   const displayMessages = messages;
   const { user, csrfToken } = useAuth();
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
+
+  const handleReact = (message: Message, reaction: string | null) => {
+    if (message.sender !== "ai") return;
+
+    const chatId = layoutContext?.activeChatId ?? undefined;
+    const current = message.metadata?.userReaction || null;
+    const nextReaction = reaction === null || current === reaction ? null : reaction;
+
+    setMessages(
+      (prev = []) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                metadata: {
+                  ...m.metadata,
+                  userReaction: nextReaction,
+                },
+              }
+            : m
+        ),
+      chatId
+    );
+
+    if (nextReaction === "like") {
+      toast.success("Message liked");
+      return;
+    }
+
+    if (nextReaction === "dislike") {
+      toast.success("Message disliked");
+      return;
+    }
+
+    toast.info("Reaction removed");
+  };
   const pinsById = useMemo(() => {
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
