@@ -112,6 +112,9 @@ interface AppLayoutContextType {
   setSelectedModel: React.Dispatch<React.SetStateAction<AIModel | null>>;
   useFramework: boolean;
   setUseFramework: React.Dispatch<React.SetStateAction<boolean>>;
+  // Selected pins from model switch dialog to include with next message
+  selectedPinIdsForNextMessage: string[];
+  setSelectedPinIdsForNextMessage: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -206,12 +209,20 @@ const extractMetadata = (msg: BackendMessage) => {
   return {
     modelName:
       (msg as { model_name?: string }).model_name ??
+      (msg as { modelName?: string }).modelName ??
+      (msg as { llm_model_name?: string }).llm_model_name ??
       (meta as { modelName?: string }).modelName ??
-      (meta as { model_name?: string }).model_name,
+      (meta as { model_name?: string }).model_name ??
+      (meta as { llm_model_name?: string }).llm_model_name,
     providerName:
       (msg as { provider_name?: string }).provider_name ??
+      (msg as { providerName?: string }).providerName ??
+      (msg as { company_name?: string }).company_name ??
+      (msg as { companyName?: string }).companyName ??
       (meta as { providerName?: string }).providerName ??
-      (meta as { provider_name?: string }).provider_name,
+      (meta as { provider_name?: string }).provider_name ??
+      (meta as { companyName?: string }).companyName ??
+      (meta as { company_name?: string }).company_name,
     llmModelId:
       (msg as { llm_model_id?: string | number | null }).llm_model_id ??
       (meta as { llmModelId?: string | number | null }).llmModelId ??
@@ -405,6 +416,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [useFramework, setUseFramework] = useState(true);
+  const [selectedPinIdsForNextMessage, setSelectedPinIdsForNextMessage] = useState<string[]>([]);
   const [pendingModelFromCompare, setPendingModelFromCompare] = useState<AIModel | null>(null);
   const [isModelSwitchConfirmOpen, setIsModelSwitchConfirmOpen] = useState(false);
 
@@ -1238,6 +1250,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     useFramework,
     setUseFramework,
     moveChatToTop,
+    selectedPinIdsForNextMessage,
+    setSelectedPinIdsForNextMessage,
   };
 
   const pageContentProps = {
@@ -1298,6 +1312,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               activeChatId={activeChatId}
               hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
               pins={pins}
+              onPinsSelect={setSelectedPinIdsForNextMessage}
             >
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
@@ -1399,6 +1414,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             activeChatId={activeChatId}
             hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
             pins={pins}
+            onPinsSelect={setSelectedPinIdsForNextMessage}
           />
           <div className="chat-layout-main-wrapper">
             <div className="chat-layout-content-panel">

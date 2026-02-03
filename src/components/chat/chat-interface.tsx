@@ -124,7 +124,7 @@ export function ChatInterface({
   const [referencedMessage, setReferencedMessage] = useState<Message | null>(null);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [showPinDropdown, setShowPinDropdown] = useState(false);
-  const [attachments, setAttachments] = useState<Array<{id: string; type: 'pdf' | 'image'; name: string; url: string; isUploading?: boolean; uploadProgress?: number}>>([]);
+  const [attachments, setAttachments] = useState<Array<{id: string; type: 'pdf' | 'image'; name: string; url: string; file: File; isUploading?: boolean; uploadProgress?: number}>>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showLeftScrollButton, setShowLeftScrollButton] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -168,6 +168,7 @@ export function ChatInterface({
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
   const qwenAvatarUrl = "/Qwen.svg";
@@ -288,11 +289,16 @@ export function ChatInterface({
     }
   }, [input]);
 
-  // Clear reference and mentions when switching chats
+  // Clear reference, mentions, and attachments when switching chats
   useEffect(() => {
     setReferencedMessage(null);
     setMentionedPins([]);
     setShowPinDropdown(false);
+    // Cleanup attachment URLs and clear attachments
+    setAttachments((prev) => {
+      prev.forEach((a) => URL.revokeObjectURL(a.url));
+      return [];
+    });
   }, [layoutContext?.activeChatId]);
 
   // Get available pins
@@ -347,20 +353,15 @@ export function ChatInterface({
     userMessageBackendId?: string | null,
     pinIds?: string[],
     personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>,
-    replyToMessageId?: string | null
+    replyToMessageId?: string | null,
+    file?: File | null
   ) => {
     try {
       if (!modelForRequest) {
         console.warn("No model selected  backend may need to use a default.");
       }
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
       const token = getCsrfToken();
-      if (token) {
-        headers["X-CSRFToken"] = token;
-      }
 
       const isPersonaTest = Boolean(personaTestConfig);
       const isExistingChat = Boolean(
@@ -372,58 +373,102 @@ export function ChatInterface({
         ? CHAT_TURN_ENDPOINT
         : CHATS_ENDPOINT;
 
-      const payload: Record<string, unknown> = {
-        message: userMessage,
-        modelId:
-          modelForRequest?.modelId ??
-          modelForRequest?.id ??
-          (personaTestConfig?.modelId ?? null),
-        useFramework: layoutContext?.useFramework ?? false,
-        user: user
-          ? {
-              id: user.id ?? null,
-              email: user.email ?? null,
-              name: user.name ?? null,
-            }
-          : null,
+      const modelId = modelForRequest?.modelId ??
+        modelForRequest?.id ??
+        (personaTestConfig?.modelId ?? null);
+
+      // Build request body - use FormData when file is present, JSON otherwise
+      let body: FormData | string;
+      const headers: Record<string, string> = {
+        Accept: "text/event-stream",
       };
 
-      if (isExistingChat && chatId) {
-        payload.chatId = chatId;
+      if (file && !isPersonaTest) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        formData.append("message", userMessage);
+        if (modelId !== null && modelId !== undefined) {
+          formData.append("modelId", String(modelId));
+        }
+        formData.append("useFramework", String(layoutContext?.useFramework ?? false));
+        if (user) {
+          formData.append("user", JSON.stringify({
+            id: user.id ?? null,
+            email: user.email ?? null,
+            name: user.name ?? null,
+          }));
+        }
+        if (isExistingChat && chatId) {
+          formData.append("chatId", chatId);
+        }
+        if (referencedMessageId) {
+          formData.append("referencedMessageId", referencedMessageId);
+        }
+        if (regenerateMessageId) {
+          formData.append("regenerateMessageId", regenerateMessageId);
+        }
+        if (userMessageBackendId) {
+          formData.append("userMessageId", userMessageBackendId);
+        }
+        if (pinIds && pinIds.length > 0) {
+          formData.append("pinIds", JSON.stringify(pinIds));
+        }
+        formData.append("file", file);
+        body = formData;
+        // Don't set Content-Type header - browser sets it with boundary for FormData
+      } else {
+        // Use JSON when no file
+        const payload: Record<string, unknown> = {
+          message: userMessage,
+          modelId,
+          useFramework: layoutContext?.useFramework ?? false,
+          user: user
+            ? {
+                id: user.id ?? null,
+                email: user.email ?? null,
+                name: user.name ?? null,
+              }
+            : null,
+        };
+
+        if (isExistingChat && chatId) {
+          payload.chatId = chatId;
+        }
+        if (isPersonaTest && personaTestConfig?.personaId) {
+          payload.personaId = personaTestConfig.personaId;
+        }
+        if (isPersonaTest && personaTestConfig?.prompt) {
+          payload.prompt = personaTestConfig.prompt;
+        }
+        if (isPersonaTest && personaChatHistory) {
+          payload.chatHistory = personaChatHistory;
+        }
+        if (referencedMessageId) {
+          payload.referencedMessageId = referencedMessageId;
+        }
+        if (regenerateMessageId) {
+          payload.regenerateMessageId = regenerateMessageId;
+        }
+        if (userMessageBackendId) {
+          payload.userMessageId = userMessageBackendId;
+        }
+        if (pinIds && pinIds.length > 0) {
+          payload.pinIds = pinIds;
+        }
+
+        body = JSON.stringify(payload);
+        headers["Content-Type"] = "application/json";
       }
-      if (isPersonaTest && personaTestConfig?.personaId) {
-        payload.personaId = personaTestConfig.personaId;
-      }
-      if (isPersonaTest && personaTestConfig?.prompt) {
-        payload.prompt = personaTestConfig.prompt;
-      }
-      if (isPersonaTest && personaChatHistory) {
-        payload.chatHistory = personaChatHistory;
-      }
-      if (referencedMessageId) {
-        payload.referencedMessageId = referencedMessageId;
-      }
-      if (regenerateMessageId) {
-        payload.regenerateMessageId = regenerateMessageId;
-      }
-      if (replyToMessageId) {
-        payload.replyToMessageId = replyToMessageId;
-      }
-      if (userMessageBackendId) {
-        payload.userMessageId = userMessageBackendId;
-      }
-      if (pinIds && pinIds.length > 0) {
-        payload.pinIds = pinIds;
+
+      if (token) {
+        headers["X-CSRFToken"] = token;
       }
 
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          ...headers,
-          Accept: "text/event-stream",
-        },
+        headers,
         credentials: "include",
-        body: JSON.stringify(payload),
+        body,
       });
 
       if (!response.ok || !response.body) {
@@ -486,6 +531,18 @@ export function ChatInterface({
               if (messageBufferRef.current.length > 0) {
                 setMessages(messageBufferRef.current, resolved);
               }
+            }
+
+            // Update chat title if provided by backend (works for both new and existing chats)
+            const chatTitle = parsed.title || parsed.chat_title;
+            if (!isPersonaTest && chatTitle && currentChatId && layoutContext?.setChatBoards) {
+              layoutContext.setChatBoards((prev) =>
+                prev.map((board) =>
+                  board.id === currentChatId
+                    ? { ...board, name: String(chatTitle) }
+                    : board
+                )
+              );
             }
             continue;
           }
@@ -592,6 +649,18 @@ export function ChatInterface({
               }
             }
 
+            // Update chat title if provided in done event (works for both new and existing chats)
+            const doneTitle = parsed.title || parsed.chat_title;
+            if (!isPersonaTest && doneTitle && currentChatId && layoutContext?.setChatBoards) {
+              layoutContext.setChatBoards((prev) =>
+                prev.map((board) =>
+                  board.id === currentChatId
+                    ? { ...board, name: String(doneTitle) }
+                    : board
+                )
+              );
+            }
+
             // Move chat to top when message is successfully sent
             if (!isPersonaTest && currentChatId && layoutContext?.moveChatToTop) {
               layoutContext.moveChatToTop(currentChatId);
@@ -694,9 +763,25 @@ export function ChatInterface({
 
     // Capture the referenced message ID and mentioned pin IDs before clearing
     const refMessageId = referencedMessage?.chatMessageId || referencedMessage?.id || null;
-    const pinIdsToSend = mentionedPins.map(mp => mp.id);
+    // Merge mentioned pins with pins selected from model switch dialog
+    const contextPinIds = layoutContext?.selectedPinIdsForNextMessage || [];
+    const mentionedPinIds = mentionedPins.map(mp => mp.id);
+    const pinIdsToSend = [...new Set([...mentionedPinIds, ...contextPinIds])];
     const replyToMsgId = replyToMessage?.chatMessageId || replyToMessage?.id || null;
     const replyToContent = replyToMessage?.content || null;
+
+    // Extract file from first attachment (backend supports one file per request)
+    const fileToUpload = attachments.length > 0 ? attachments[0].file : null;
+
+    // File size validation (10MB limit)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    if (fileToUpload && fileToUpload.size > MAX_FILE_SIZE) {
+      toast.error("File too large", {
+        description: "Maximum file size is 50MB. Please choose a smaller file.",
+      });
+      setIsResponding(false);
+      return;
+    }
 
     let chatId = personaTestConfig ? "persona-test" : layoutContext?.activeChatId ?? null;
 
@@ -747,12 +832,17 @@ export function ChatInterface({
         backendUserMessageId,
         pinIdsToSend,
         personaHistory,
-        replyToMsgId
+        replyToMsgId,
+        fileToUpload
       );
-      // Clear reference, mentions, and reply after sending
+      // Clear reference, mentions, reply, attachments, and context pins after sending
       setReferencedMessage(null);
       setMentionedPins([]);
       setReplyToMessage(null);
+      layoutContext?.setSelectedPinIdsForNextMessage?.([]);
+      // Cleanup attachment URLs and clear attachments
+      attachments.forEach((a) => URL.revokeObjectURL(a.url));
+      setAttachments([]);
     } else {
       // This is a new message
       const turnId =
@@ -811,12 +901,17 @@ export function ChatInterface({
         userMessage.chatMessageId ?? null,
         pinIdsToSend,
         personaHistory,
-        replyToMsgId
+        replyToMsgId,
+        fileToUpload
       );
-      // Clear reference, mentions, and reply after sending
+      // Clear reference, mentions, reply, attachments, and context pins after sending
       setReferencedMessage(null);
       setMentionedPins([]);
       setReplyToMessage(null);
+      layoutContext?.setSelectedPinIdsForNextMessage?.([]);
+      // Cleanup attachment URLs and clear attachments
+      attachments.forEach((a) => URL.revokeObjectURL(a.url));
+      setAttachments([]);
     }
   };
 
@@ -848,6 +943,62 @@ export function ChatInterface({
 
   const handleRemoveMention = (pinId: string) => {
     setMentionedPins(prev => prev.filter(mp => mp.id !== pinId));
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File too large", {
+        description: "Maximum file size is 50MB. Please choose a smaller file.",
+      });
+      // Reset the input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // Determine file type
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+
+    if (!isPdf && !isImage) {
+      toast.error("Unsupported file type", {
+        description: "Please upload a PDF or image file.",
+      });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    const attachmentId = crypto.randomUUID();
+    const objectUrl = URL.createObjectURL(file);
+
+    setAttachments((prev) => [
+      ...prev,
+      {
+        id: attachmentId,
+        type: isPdf ? "pdf" : "image",
+        name: file.name,
+        url: objectUrl,
+        file: file,
+      },
+    ]);
+
+    // Reset the input so the same file can be selected again if removed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleOpenUploadDialog = () => {
@@ -1470,7 +1621,10 @@ export function ChatInterface({
                         </div>
                         <button
                           type="button"
-                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          onClick={() => {
+                            URL.revokeObjectURL(attachment.url);
+                            setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+                          }}
                           className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-3 w-3 text-[#666666]" />
@@ -1483,7 +1637,7 @@ export function ChatInterface({
                         style={{ width: '60px', height: '60px', padding: '1.08px' }}
                       >
                         <Image
-                          src={attachment.url} 
+                          src={attachment.url}
                           alt={attachment.name}
                           width={0}
                           height={0}
@@ -1508,7 +1662,10 @@ export function ChatInterface({
                         )}
                         <button
                           type="button"
-                          onClick={() => setAttachments(prev => prev.filter(a => a.id !== attachment.id))}
+                          onClick={() => {
+                            URL.revokeObjectURL(attachment.url);
+                            setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+                          }}
                           className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-3 w-3 text-[#666666]" />
@@ -1612,6 +1769,14 @@ export function ChatInterface({
               <div className="flex items-center gap-3">
                 {!hideAttachButton && (
                   <div className="relative" ref={attachMenuRef}>
+                    {/* Hidden file input - must be outside conditional to persist in DOM */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,application/pdf,image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                     <Button
                       variant="ghost"
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -1619,15 +1784,15 @@ export function ChatInterface({
                     >
                       <Plus className="h-5 w-5 text-[#555555]" />
                     </Button>
-                  
+
                   {showAttachMenu && (
-                    <div 
+                    <div
                       className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
                       style={{ width: '160px' }}
                     >
                       <button
                         onClick={() => {
-                          handleOpenUploadDialog();
+                          handleAttachClick();
                           setShowAttachMenu(false);
                         }}
                         className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"

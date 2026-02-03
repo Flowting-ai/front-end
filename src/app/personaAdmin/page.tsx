@@ -50,6 +50,18 @@ import {
   type PersonaStatus,
 } from "@/lib/api/personas";
 import { cn, formatRelativeTime } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
+
+// Helper to construct full avatar URL from relative or absolute paths
+const getFullAvatarUrl = (url: string | null | undefined): string | null => {
+  if (!url || url.trim() === "") return null;
+  // Already a full URL (http/https) or data URL
+  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  // Relative path - prepend backend URL
+  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
 
 // Mock data (kept for reference/development only - NOT used in production)
 // The actual data is fetched from the backend API in the useEffect hook
@@ -236,7 +248,7 @@ export default function PersonaAdminPage() {
           id: bp.id,
           name: bp.name,
           description: bp.prompt?.slice(0, 100) || "No description",
-          avatar: bp.imageUrl || "/personas/persona1.png",
+          avatar: getFullAvatarUrl(bp.imageUrl) || "/personas/persona1.png",
           // Dynamic status mapping:
           // - "test" (newly created) → "active" (default for new personas)
           // - "completed" (user has set) → "paused" (user explicitly paused it)

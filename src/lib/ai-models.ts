@@ -20,6 +20,7 @@ type BackendModel = {
   inputModalities?: string[];
   outputModalities?: string[];
   version?: string;
+  description?: string;
 };
 
 const normalizeModelType = (planType?: string, callType?: string) => {
@@ -49,6 +50,7 @@ const normalizeModel = (model: BackendModel): AIModel => ({
   inputLimit: toNumber(model.inputLimit, 0),
   outputLimit: toNumber(model.outputLimit, 0),
   version: model.version,
+  description: model.description,
   planType: model.planType ?? model.plan,
   callType: model.callType,
   providerId: model.providerId,

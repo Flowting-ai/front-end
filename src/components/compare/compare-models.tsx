@@ -67,7 +67,7 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
   return {
     id: String(model.modelId || model.id || modelName),
     name: displayName,
-    description: model.version ? `Version ${model.version}` : modelName,
+    description: model.description || (model.version ? `Version ${model.version}` : modelName),
     meta: `${planLabel || "Standard"} / In ${inputLimit.toLocaleString()} · Out ${outputLimit.toLocaleString()}`,
     iconBg: "#F3F4F6",
     icon: getModelIcon(model.companyName, model.modelName, model.companyName),

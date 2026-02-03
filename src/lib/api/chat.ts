@@ -38,7 +38,12 @@ export interface BackendMessage {
   prompt?: string;
   response?: string;
   model_name?: string;
+  modelName?: string;
+  llm_model_name?: string;
   provider_name?: string;
+  providerName?: string;
+  company_name?: string;
+  companyName?: string;
   input_tokens?: number;
   output_tokens?: number;
   metadata?: Record<string, unknown>;
@@ -144,6 +149,7 @@ export interface CreateChatPayload {
   useFramework?: boolean;
   user?: AuthUser | null;
   pinIds?: string[];
+  file?: File | null;
 }
 
 export interface CreateChatResult {
@@ -163,15 +169,48 @@ export async function createChat(
     payload.modelId ??
     payload.model?.modelId ??
     (payload.model?.id !== undefined ? payload.model.id : null);
+
+  let body: FormData | string;
+  let headers: Record<string, string> | undefined;
+
+  if (payload.file) {
+    // Use FormData when uploading a file
+    const formData = new FormData();
+    formData.append("message", payload.firstMessage);
+    if (modelId !== null && modelId !== undefined) {
+      formData.append("modelId", String(modelId));
+    }
+    if (payload.useFramework !== undefined) {
+      formData.append("useFramework", String(payload.useFramework));
+    }
+    if (payload.user) {
+      formData.append("user", JSON.stringify(payload.user));
+    }
+    if (payload.pinIds && payload.pinIds.length > 0) {
+      formData.append("pinIds", JSON.stringify(payload.pinIds));
+    }
+    if (payload.title) {
+      formData.append("title", payload.title);
+    }
+    formData.append("file", payload.file);
+    body = formData;
+    // Don't set Content-Type - browser sets it with boundary for FormData
+  } else {
+    // Use JSON when no file
+    body = JSON.stringify({
+      ...payload,
+      message: payload.firstMessage,
+      modelId,
+    });
+    headers = { "Content-Type": "application/json" };
+  }
+
   const response = await apiFetch(
     "/chats/",
     {
       method: "POST",
-      body: JSON.stringify({
-        ...payload,
-        message: payload.firstMessage,
-        modelId,
-      }),
+      body,
+      headers,
     },
     csrfToken
   );
@@ -218,4 +257,28 @@ export async function createChat(
         : null,
     message: messagePayload,
   };
+}
+
+export async function renameChat(
+  chatId: string,
+  newTitle: string,
+  csrfToken?: string | null
+): Promise<BackendChat> {
+  const response = await apiFetch(
+    `/chats/${chatId}/rename/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ title: newTitle }),
+      headers: { "Content-Type": "application/json" },
+    },
+    csrfToken
+  );
+
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || "Failed to rename chat");
+  }
+
+  const data = await response.json();
+  return (data?.chat ?? data) as BackendChat;
 }

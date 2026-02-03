@@ -666,9 +666,9 @@ export function ChatMessage({
             </Tooltip>
           )}
         </div>
-        {message.metadata?.modelName && (
-          <span className="text-xs text-[#8a8a8a] font-medium pr-[5px]">
-            {message.metadata.modelName}
+        {(message.metadata?.modelName || message.metadata?.providerName) && (
+          <span className="text-xs text-[#6B7280] font-medium pr-[5px]">
+            {message.metadata.modelName || message.metadata.providerName}
           </span>
         )}
       </div>
@@ -750,8 +750,13 @@ export function ChatMessage({
         )}
       >
         {/* Only show avatar for AI, not user */}
-        <div className="max-w-12.5 w-full flex items-center justify-center">
+        <div className="max-w-12.5 w-full flex flex-col items-center justify-start gap-1">
           {!isUser && <div className="mt-4 shrink-0">{AvatarComponent}</div>}
+          {!isUser && (
+            <span className="text-[10px] text-[#8a8a8a] font-medium text-center max-w-[50px] truncate" title={message.metadata?.modelName || message.metadata?.providerName || message.avatarHint}>
+              {message.metadata?.modelName || message.metadata?.providerName || ""}
+            </span>
+          )}
         </div>
 
         <div

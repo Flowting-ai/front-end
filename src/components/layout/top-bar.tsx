@@ -18,6 +18,7 @@ interface TopbarProps {
   useFramework: boolean;
   onModelSelect: (model: AIModel | null) => void;
   onFrameworkChange: (useFramework: boolean) => void;
+  onPinsSelect?: (pinIds: string[]) => void;
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
   hasMessages?: boolean;
@@ -30,6 +31,7 @@ export function Topbar({
   onModelSelect,
   useFramework,
   onFrameworkChange,
+  onPinsSelect,
   chatBoards = [],
   activeChatId,
   hasMessages = false,
@@ -63,6 +65,7 @@ export function Topbar({
               onModelSelect={onModelSelect}
               useFramework={useFramework}
               onFrameworkChange={onFrameworkChange}
+              onPinsSelect={onPinsSelect}
               chatBoards={chatBoards}
               activeChatId={activeChatId}
               hasMessages={hasMessages}
@@ -94,11 +97,7 @@ export function Topbar({
 
         <div className="flex shrink-0 items-center gap-3">
           {/* Right side content */}
-          {isHomePage && user && (
-            <span className="text-[14px] text-[#1E1E1E] hidden md:inline-block">
-              Hi, {firstName}
-            </span>
-          )}
+       
           {isHomePage && !user && (
             <Link href="/auth/login">
               <Button

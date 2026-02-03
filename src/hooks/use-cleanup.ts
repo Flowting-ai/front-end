@@ -180,7 +180,7 @@ export function useDebouncedState<T>(
 ): [T, T, (value: T) => void] {
   const [value, setValue] = React.useState<T>(initialValue);
   const [debouncedValue, setDebouncedValue] = React.useState<T>(initialValue);
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
   useEffect(() => {
     timerRef.current = setTimeout(() => {

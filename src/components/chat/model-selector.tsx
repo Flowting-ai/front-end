@@ -14,6 +14,7 @@ interface ModelSelectorProps {
   useFramework: boolean;
   onModelSelect: (model: AIModel | null) => void;
   onFrameworkChange: (useFramework: boolean) => void;
+  onPinsSelect?: (pinIds: string[]) => void;
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
   hasMessages?: boolean;
@@ -25,6 +26,7 @@ export function ModelSelector({
   onModelSelect,
   useFramework,
   onFrameworkChange,
+  onPinsSelect,
   chatBoards = [],
   activeChatId,
   hasMessages = false,
@@ -102,7 +104,10 @@ export function ModelSelector({
   const handleModelSwitch = (config: ModelSwitchConfig) => {
     onFrameworkChange(false);
     onModelSelect(config.model);
-    // TODO: Handle additional config like chatMemory, includePins, includeFiles if needed
+    // Pass selected pins to be included with next message
+    if (config.includePins && config.includePins.length > 0 && onPinsSelect) {
+      onPinsSelect(config.includePins);
+    }
   };
 
   const handleFrameworkSelect = () => {

@@ -49,11 +49,12 @@ export interface TestPersonaInput {
 }
 
 export interface PersonaAnalyzeResponse {
+  prompt?: string;
   tone?: string;
   tone_description?: string;
   dos?: string[];
   donts?: string[];
-  summary?: string;
+  summary?: string; // deprecated, use prompt
   suggestions?: string[];
   error?: string;
 }

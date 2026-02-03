@@ -70,6 +70,26 @@ import { REFINEMENT_STEPS } from "./types";
 import { dataUrlToFile } from "./utils";
 import { createPersona, fetchPersonaById, PERSONA_TEST_STREAM_ENDPOINT } from "@/lib/api/personas";
 import { useAuth } from "@/context/auth-context";
+import { API_BASE_URL } from "@/lib/config";
+
+// Helper to construct full avatar URL from relative or absolute paths
+const getFullAvatarUrl = (url: string | null | undefined): string | null => {
+  if (!url || url.trim() === "") return null;
+  // Already a full URL (http/https) or data URL
+  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  // Relative path - prepend backend URL
+  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
+// Check if URL should use unoptimized mode (data URLs, blob URLs, or external URLs)
+const shouldUseUnoptimized = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  const fullUrl = getFullAvatarUrl(url);
+  if (!fullUrl) return false;
+  return fullUrl.startsWith("data:") || fullUrl.startsWith("blob:") || fullUrl.startsWith("http");
+};
 
 function PersonaConfigurePageContent() {
   const router = useRouter();
@@ -338,21 +358,26 @@ function PersonaConfigurePageContent() {
     try {
       const analysis = await enhance(currentInstruction, csrfToken);
 
-      if (analysis.summary) {
-        setInstruction(analysis.summary);
+      // Replace the prompt with the enhanced version
+      const enhancedPrompt = analysis.prompt || analysis.summary;
+      if (enhancedPrompt) {
+        setInstruction(enhancedPrompt);
       }
+
+      // Set tone if provided
       if (analysis.tone) {
         setSelectedToneDirect(analysis.tone);
-        setCurrentStep(REFINEMENT_STEPS.DOS);
       }
+
+      // Set dos suggestions - user will select from these
       if (analysis.dos && analysis.dos.length > 0) {
         setSuggestedDos(analysis.dos);
-        setDosText(analysis.dos.join(", "));
-        setCurrentStep(REFINEMENT_STEPS.DONTS);
+        setCurrentStep(REFINEMENT_STEPS.DOS);
       }
+
+      // Set donts suggestions - user will select from these
       if (analysis.donts && analysis.donts.length > 0) {
         setSuggestedDonts(analysis.donts);
-        setDontsText(analysis.donts.join(", "));
       }
     } catch (error) {
       // Error is already handled in the hook
@@ -453,11 +478,43 @@ function PersonaConfigurePageContent() {
       setCreatedPersonaId(created.id);
       setHasFinishedBuilding(true);
       setShowSuccessDialog(true);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to save persona:", error);
-      toast.error("Error", {
-        description: "Failed to save persona. Please try again.",
-      });
+
+      let errorMessage = "Failed to save persona. Please try again.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+
+      // Try to parse JSON error response
+      try {
+        const parsed = JSON.parse(errorMessage);
+        if (parsed.name || parsed.detail || parsed.message) {
+          errorMessage = parsed.name?.[0] || parsed.detail || parsed.message || errorMessage;
+        }
+      } catch {
+        // Not JSON, use as-is
+      }
+
+      const lowerError = errorMessage.toLowerCase();
+
+      // Check for duplicate name error
+      if (lowerError.includes("name") &&
+          (lowerError.includes("exist") ||
+           lowerError.includes("duplicate") ||
+           lowerError.includes("already") ||
+           lowerError.includes("unique"))) {
+        toast.error("Name Already Exists", {
+          description: `A persona with the name "${personaName}" already exists. Please choose a different name.`,
+        });
+      } else {
+        toast.error("Error", {
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -565,7 +622,7 @@ function PersonaConfigurePageContent() {
                       >
                         <Image
                           src={
-                            avatarUrl ||
+                            getFullAvatarUrl(avatarUrl) ||
                             uploadedFiles.find((f) => f.type === "image")
                               ?.url ||
                             "/avatars/personaAvatarPlaceHolder.svg"
@@ -573,6 +630,7 @@ function PersonaConfigurePageContent() {
                           alt="Persona"
                           width={81}
                           height={81}
+                          unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                           className="rounded-full border-2 border-main-border"
                           style={{
                             width: "100%",
@@ -1194,7 +1252,11 @@ function PersonaConfigurePageContent() {
                     {/* Header Row with Back and Actions - Right */}
                     <div className="w-full min-h-[36px] flex items-center justify-end mb-4 bg-white">
                       <Button
-                        onClick={handleFinishBuilding}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleFinishBuilding();
+                        }}
                         disabled={!isPersonaReady || isSaving}
                         className={cn(
                           styles.saveButton,
@@ -1266,7 +1328,7 @@ function PersonaConfigurePageContent() {
                               >
                                 <Image
                                   src={
-                                    avatarUrl ||
+                                    getFullAvatarUrl(avatarUrl) ||
                                     uploadedFiles.find(
                                       (f) => f.type === "image",
                                     )?.url ||
@@ -1275,6 +1337,7 @@ function PersonaConfigurePageContent() {
                                   alt="Persona"
                                   width={82}
                                   height={82}
+                                  unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                                   className="rounded-full border-2 border-main-border"
                                   style={{
                                     width: "100%",
@@ -1395,13 +1458,14 @@ function PersonaConfigurePageContent() {
               >
                 <Image
                   src={
-                    avatarUrl ||
+                    getFullAvatarUrl(avatarUrl) ||
                     uploadedFiles.find((f) => f.type === "image")?.url ||
                     "/personas/persona1.png"
                   }
                   alt="Persona"
                   width={82}
                   height={82}
+                  unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -1570,10 +1634,11 @@ function PersonaConfigurePageContent() {
                       }}
                     >
                       <Image
-                        src={avatarUrl || "/personas/persona1.png"}
+                        src={getFullAvatarUrl(avatarUrl) || "/personas/persona1.png"}
                         alt="User"
                         width={40}
                         height={40}
+                        unoptimized={shouldUseUnoptimized(avatarUrl)}
                         style={{
                           width: "100%",
                           height: "100%",

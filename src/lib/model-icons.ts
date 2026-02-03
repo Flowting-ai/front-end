@@ -15,6 +15,10 @@ const ICON_BY_KEYWORD: Record<string, string> = {
   "moonshotai": "/kimi.svg",
   kimi: "/kimi.svg",
   qwen: "/Qwen.svg",
+  deepseek: "/deepseek.svg",
+  grok: "/grok.svg",
+  "x-ai": "/grok.svg",
+  xai: "/grok.svg",
 };
 
 export const getModelIcon = (
