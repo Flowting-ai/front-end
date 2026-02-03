@@ -1472,6 +1472,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           open={isModelSwitchConfirmOpen}
           onOpenChange={setIsModelSwitchConfirmOpen}
           currentModel={selectedModel}
+          //selecting the same model chosen from compare models page by the user
+          pendingModel={pendingModelFromCompare}
           onModelSwitch={handleConfirmModelSwitch}
           chatBoards={chatBoards}
         />

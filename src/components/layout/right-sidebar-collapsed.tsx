@@ -35,12 +35,12 @@ const BUTTONS: CollapsedButtonConfig[] = [
     icon: GitCompare,
     disabled: false,
   },
-    {
-    panel: "personas",
-    label: "Persona",
-    icon: UserPlus,
-    disabled: true,
-  },
+  //   {
+  //   panel: "personas",
+  //   label: "Persona",
+  //   icon: UserPlus,
+  //   disabled: true,
+  // },
   {
     panel: "files",
     label: "Files",

@@ -18,6 +18,7 @@ import {
   EyeOff,
   ThumbsUp,
   ThumbsDown,
+  Reply,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
@@ -314,6 +315,8 @@ export interface Message {
     documentUrl?: string | null;
     pinIds?: string[];
     userReaction?: string | null;
+    replyToMessageId?: string | null;
+    replyToContent?: string | null;
   };
 }
 
@@ -327,9 +330,11 @@ interface ChatMessageProps {
   onResubmit: (newContent: string, messageId: string) => void;
   onReference?: (message: Message) => void;
   onRegenerate?: (message: Message) => void;
+  onReply?: (message: Message) => void;
   onReact?: (message: Message, reaction: string | null) => void;
   referencedMessage?: Message | null;
   isNewMessage: boolean;
+  isResponding?: boolean;
 }
 
 export function ChatMessage({
@@ -342,9 +347,11 @@ export function ChatMessage({
   onResubmit,
   onReference,
   onRegenerate,
+  onReply,
   onReact,
   referencedMessage,
   isNewMessage,
+  isResponding,
 }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
@@ -553,6 +560,23 @@ export function ChatMessage({
               </TooltipContent>
             </Tooltip>
           )}
+          {onReply && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={actionButtonClasses}
+                  onClick={() => onReply(message)}
+                >
+                  <Reply className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reply</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {onReference && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -704,12 +728,18 @@ export function ChatMessage({
     </Avatar>
   );
 
-  const renderActions = (className?: string) =>
-    isUser ? (
+  const renderActions = (className?: string) => {
+    // Don't show actions for AI messages that are still loading/streaming
+    if (!isUser && (message.isLoading || isResponding)) {
+      return null;
+    }
+    
+    return isUser ? (
       <UserActions className={className} />
     ) : (
       <AiActions className={className} />
     );
+  };
 
   return (
     <div className="group/message w-full">
@@ -744,6 +774,20 @@ export function ChatMessage({
                   : "chat-message-bubble--ai bg-white text-[#111827] px-6 py-5",
               )}
             >
+              {/* Reply indicator for user messages */}
+              {isUser && message.metadata?.replyToMessageId && message.metadata?.replyToContent && (
+                <div className="mb-2 flex items-start gap-2 px-2 py-1.5 bg-[#F5F5F5] rounded-lg border border-[#E5E5E5]">
+                  <Reply className="mt-0.5 h-3 w-3 shrink-0 text-[#666666]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-0.5 text-xs font-medium text-[#666666]">
+                      Replying to AI
+                    </p>
+                    <p className="text-xs text-[#8a8a8a] line-clamp-1">
+                      {message.metadata.replyToContent.slice(0, 80)}{message.metadata.replyToContent.length > 80 ? '...' : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
               {message.referencedMessageId && referencedMessage && (
                 <div className="mb-3 border-b border-slate-200 pb-3">
                   <div className="flex items-start gap-2 text-xs">

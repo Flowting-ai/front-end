@@ -177,7 +177,7 @@ export default function CompareModelsPage({
   };
 
   const handleTestModels = async () => {
-    if (!prompt.trim() || selectedModels.length === 0 || isTesting) return;
+    if (!prompt.trim() || selectedModels.length < 2 || isTesting) return;
 
     setIsTesting(true);
     setTestResponses({}); // Clear previous responses
@@ -1108,14 +1108,14 @@ export default function CompareModelsPage({
           disabled={selectedModels.length === 0}
           style={{
             background:
-              selectedModels.length > 0
+              selectedModels.length >= 2
                 ? "var(--general-primary, #171717)"
                 : "var(--general-primary, #171717)",
-            color: selectedModels.length > 0 ? "#fff" : "#9CA3AF",
-            cursor: selectedModels.length > 0 ? "pointer" : "not-allowed",
+            color: selectedModels.length >= 2 ? "#fff" : "#9CA3AF",
+            cursor: selectedModels.length >= 2 ? "pointer" : "not-allowed",
             transition: "background 0.2s, color 0.2s",
           }}
-          onClick={() => selectedModels.length > 0 && setShowResults(true)}
+          onClick={() => selectedModels.length >= 2 && setShowResults(true)}
         >
           Test models
           <ArrowRight strokeWidth={2.5} size={14} />

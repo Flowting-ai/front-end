@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import type { PinType } from "../layout/right-sidebar";
 import { formatTimestamp } from '@/lib/utils';
+import { renderInlineMarkdown, formatPinTitle } from '@/lib/markdown-utils';
 import { allTags as initialTags } from '@/lib/config';
 
 interface OrganizePinItemProps {
@@ -78,7 +79,7 @@ export const OrganizePinItem = ({ pin, chatName, onUpdate, isSelected, onSelecti
                         className="mr-3 mt-1 rounded-lg text-black"
                     />
                     <div className="flex-1">
-                        <p className="text-sm text-foreground/90 pr-2 break-words">{pin.text}</p>
+                        <p className="text-sm text-foreground/90 pr-2 break-words">{renderInlineMarkdown(formatPinTitle(pin.text))}</p>
                         <div className="mt-2">
                             <div className="flex items-center gap-1.5 flex-wrap">
                                 <Popover>

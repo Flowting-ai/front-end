@@ -40,6 +40,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRouter } from "next/navigation";
+import { renderInlineMarkdown, formatPinTitle, stripMarkdown } from "@/lib/markdown-utils";
 
 interface PinItemProps {
   pin: PinType;
@@ -350,7 +351,8 @@ export const PinItem = ({
 
   const handleInsertToChat = () => {
     if (onInsertToChat) {
-      onInsertToChat(bodyContent, pin);
+      // Strip markdown symbols to ensure clean plain text insertion
+      onInsertToChat(stripMarkdown(bodyContent), pin);
     }
   };
   // pin card layout and texture
@@ -429,7 +431,7 @@ export const PinItem = ({
               </div>
             ) : (
               <div className="overflow-hidden">
-                <div title={pin.title ?? pin.text}>
+                <div title={formatPinTitle(pin.title ?? pin.text)}>
                   <p
                     className="text-[#1e1e1e] overflow-hidden"
                     style={
@@ -453,7 +455,7 @@ export const PinItem = ({
                           } as React.CSSProperties)
                     }
                   >
-                    {pin.title ?? pin.text}
+                    {renderInlineMarkdown(formatPinTitle(pin.title ?? pin.text))}
                   </p>
                 </div>
                 {!inOrganizeDialog &&

@@ -28,6 +28,7 @@ import type { PinType } from "@/components/layout/right-sidebar";
 import { getModelIcon } from "@/lib/model-icons";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
+import { renderInlineMarkdown, formatPinTitle } from "@/lib/markdown-utils";
 
 interface ModelSwitchDialogProps {
   open: boolean;
@@ -60,11 +61,12 @@ export function ModelSwitchDialog({
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(
-    currentModel
+    pendingModel || currentModel
   );
   const [showFree, setShowFree] = useState(true);
   const [showPaid, setShowPaid] = useState(true);
-  const [chatMemory, setChatMemory] = useState(50);
+  // Chat memory slider value - default set to 0
+  const [chatMemory, setChatMemory] = useState(0);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
@@ -117,7 +119,7 @@ export function ModelSwitchDialog({
       setSelectedModel(modelToSelect);
       // If no model is selected, default to framework
       setFrameworkSelected(!modelToSelect);
-      setChatMemory(50);
+      setChatMemory(0);
       setSelectedPinIds([]);
       setExpandedChatIds([]);
       setIncludeFiles(false);
@@ -504,7 +506,7 @@ export function ModelSwitchDialog({
                                     />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm text-[#171717] line-clamp-2">
-                                        {pin.text || pin.title || pin.formattedContent || 'Untitled pin'}
+                                        {renderInlineMarkdown(formatPinTitle(pin.text || pin.title || pin.formattedContent || 'Untitled pin'))}
                                       </p>
                                       {pin.tags && pin.tags.length > 0 && (
                                         <div className="flex gap-1 mt-1 flex-wrap">

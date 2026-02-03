@@ -23,6 +23,7 @@ import {
   UserPlus,
   Paperclip,
   ScanText,
+  Reply,
 } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -34,6 +35,7 @@ import type { AIModel } from "@/types/ai-model";
 import { toast } from "@/lib/toast-helper";
 import { AppLayoutContext } from "../layout/app-layout";
 import { cn } from "@/lib/utils";
+import { renderInlineMarkdown, formatPinTitle, stripMarkdown } from "@/lib/markdown-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,7 +149,9 @@ export function ChatInterface({
       const custom = event as CustomEvent<{ text?: string }>;
       const text = custom.detail?.text;
       if (!text) return;
-      setInput((prev) => (prev ? `${prev}\n${text}` : text));
+      // Strip any remaining markdown symbols for clean insertion
+      const cleanText = stripMarkdown(text);
+      setInput((prev) => (prev ? `${prev}\n${cleanText}` : cleanText));
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
@@ -263,6 +267,7 @@ export function ChatInterface({
   } | null>(null);
   const [regeneratePrompt, setRegeneratePrompt] = useState("");
   const [isRegeneratingResponse, setIsRegeneratingResponse] = useState(false);
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [isChatDeleteDialogOpen, setIsChatDeleteDialogOpen] = useState(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -341,7 +346,8 @@ export function ChatInterface({
     regenerateMessageId?: string | null,
     userMessageBackendId?: string | null,
     pinIds?: string[],
-    personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>
+    personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+    replyToMessageId?: string | null
   ) => {
     try {
       if (!modelForRequest) {
@@ -399,6 +405,9 @@ export function ChatInterface({
       }
       if (regenerateMessageId) {
         payload.regenerateMessageId = regenerateMessageId;
+      }
+      if (replyToMessageId) {
+        payload.replyToMessageId = replyToMessageId;
       }
       if (userMessageBackendId) {
         payload.userMessageId = userMessageBackendId;
@@ -686,6 +695,8 @@ export function ChatInterface({
     // Capture the referenced message ID and mentioned pin IDs before clearing
     const refMessageId = referencedMessage?.chatMessageId || referencedMessage?.id || null;
     const pinIdsToSend = mentionedPins.map(mp => mp.id);
+    const replyToMsgId = replyToMessage?.chatMessageId || replyToMessage?.id || null;
+    const replyToContent = replyToMessage?.content || null;
 
     let chatId = personaTestConfig ? "persona-test" : layoutContext?.activeChatId ?? null;
 
@@ -703,6 +714,11 @@ export function ChatInterface({
       updatedMessages[userMessageIndex] = {
         ...updatedMessages[userMessageIndex],
         content: trimmedContent,
+        metadata: {
+          ...updatedMessages[userMessageIndex].metadata,
+          replyToMessageId: replyToMsgId,
+          replyToContent: replyToContent,
+        },
       };
 
       const loadingMessage: Message = {
@@ -730,11 +746,13 @@ export function ChatInterface({
         undefined,
         backendUserMessageId,
         pinIdsToSend,
-        personaHistory
+        personaHistory,
+        replyToMsgId
       );
-      // Clear reference and mentions after sending
+      // Clear reference, mentions, and reply after sending
       setReferencedMessage(null);
       setMentionedPins([]);
+      setReplyToMessage(null);
     } else {
       // This is a new message
       const turnId =
@@ -756,6 +774,10 @@ export function ChatInterface({
         content: trimmedContent,
         avatarUrl: userAvatar?.imageUrl,
         avatarHint: userAvatar?.imageHint,
+        metadata: {
+          replyToMessageId: replyToMsgId,
+          replyToContent: replyToContent,
+        },
       };
 
       const loadingMessage: Message = {
@@ -788,11 +810,13 @@ export function ChatInterface({
         undefined,
         userMessage.chatMessageId ?? null,
         pinIdsToSend,
-        personaHistory
+        personaHistory,
+        replyToMsgId
       );
-      // Clear reference and mentions after sending
+      // Clear reference, mentions, and reply after sending
       setReferencedMessage(null);
       setMentionedPins([]);
+      setReplyToMessage(null);
     }
   };
 
@@ -807,7 +831,7 @@ export function ChatInterface({
   };
 
   const handleSelectPin = (pin: PinType) => {
-    const pinLabel = pin.text.slice(0, 50) || pin.id;
+    const pinLabel = stripMarkdown(pin.text).slice(0, 50) || pin.id;
 
     // Remove the trailing @ from input
     const newInput = input.slice(0, -1);
@@ -911,7 +935,9 @@ export function ChatInterface({
       if (isPinned) {
         if (onUnpinMessage) {
           await onUnpinMessage(identifier);
-          toast("Unpinned from board!");
+          toast("Unpinned from pinboard", {
+        description: "Response has been unpinned from the pinboard.",
+      });
         }
       } else {
         if (onPinMessage) {
@@ -925,7 +951,6 @@ export function ChatInterface({
             time: new Date(),
           };
           await onPinMessage(newPin);
-          toast("Pinned to board!");
         }
       }
     } catch (error) {
@@ -939,6 +964,13 @@ export function ChatInterface({
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
     toast("Copied to clipboard!");
+  };
+
+  const handleReply = (message: Message) => {
+    setReplyToMessage(message);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   const handleDeleteRequest = (message: Message) => {
@@ -1252,7 +1284,7 @@ export function ChatInterface({
                       .map((id) => {
                         const pin = pinsById.get(id);
                         return pin
-                          ? { id, label: pin.text.slice(0, 80) || id }
+                          ? { id, label: stripMarkdown(pin.text).slice(0, 80) || id }
                           : { id, label: id };
                       })
                       .filter(Boolean) || [];
@@ -1287,10 +1319,12 @@ export function ChatInterface({
                     onRegenerate={
                       msg.sender === "ai" ? handleRegenerateRequest : undefined
                     }
+                    onReply={msg.sender === "ai" ? handleReply : undefined}
                     onReact={msg.sender === "ai" ? handleReact : undefined}
                     referencedMessage={refMsg}
                     isNewMessage={msg.id === lastMessageId}
                     taggedPins={taggedPins}
+                    isResponding={isResponding}
                   />
                 );
               })}
@@ -1347,7 +1381,7 @@ export function ChatInterface({
                   style={{ borderRadius: idx === highlightedPinIndex ? 16 : 0 }}
                 >
                   <p className="truncate font-medium text-inherit text-black text-[13px]">
-                    {pin.text.slice(0, 60) || "Untitled Pin"}
+                    {renderInlineMarkdown(formatPinTitle(pin.text.slice(0, 60) || "Untitled Pin"))}
                   </p>
                   {pin.tags && pin.tags.length > 0 && (
                     <div className="mt-1 flex gap-1">
@@ -1515,6 +1549,25 @@ export function ChatInterface({
             )}
 
             <div className="flex flex-col gap-1.5 px-5 py-4">
+              {/* Reply indicator */}
+              {replyToMessage && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#F5F5F5] rounded-lg border border-[#E5E5E5]">
+                  <Reply className="h-4 w-4 text-[#666666]" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-[#666666] font-medium">Replying to {replyToMessage.sender === 'ai' ? 'AI' : 'You'}</span>
+                    <p className="text-xs text-[#8a8a8a] truncate">
+                      {replyToMessage.content.slice(0, 80)}{replyToMessage.content.length > 80 ? '...' : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyToMessage(null)}
+                    className="p-1 hover:bg-[#E5E5E5] rounded transition-colors"
+                  >
+                    <X className="h-4 w-4 text-[#666666]" />
+                  </button>
+                </div>
+              )}
               {/* Text input area */}
               <div className="w-full">
                 <Textarea

@@ -26,6 +26,7 @@ import {
   MessagesSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { stripMarkdown } from "@/lib/markdown-utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -479,11 +480,13 @@ export function RightSidebar({
 
   const handleInsertPin = useCallback(
     async (text: string, pin: PinType) => {
+      // Strip markdown symbols to ensure clean plain text insertion
+      const cleanText = stripMarkdown(text);
       if (onInsertToChat) {
-        onInsertToChat(text, pin);
+        onInsertToChat(cleanText, pin);
       } else if (typeof window !== "undefined") {
         window.dispatchEvent(
-          new CustomEvent(PIN_INSERT_EVENT, { detail: { text, pin } })
+          new CustomEvent(PIN_INSERT_EVENT, { detail: { text: cleanText, pin } })
         );
         toast("Inserted into prompt", {
           description: "Pin content moved to the chat input.",
@@ -588,10 +591,10 @@ export function RightSidebar({
             : "";
         return `
           <div style="padding:12px 14px; border:1px solid #e1e1e1; border-radius:10px; margin-bottom:10px;">
-            <div style="font-weight:600; font-size:14px; color:#111; margin-bottom:4px;">${
+            <div style="font-weight:600; font-size:14px; color:#111; margin-bottom:4px;">${stripMarkdown(
               pin.title || pin.text
-            }</div>
-            <div style="font-size:12px; color:#222; white-space:pre-wrap;">${pin.text}</div>
+            )}</div>
+            <div style="font-size:12px; color:#222; white-space:pre-wrap;">${stripMarkdown(pin.text)}</div>
             ${tags}
             ${comments}
           </div>

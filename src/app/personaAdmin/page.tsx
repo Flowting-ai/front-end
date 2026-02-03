@@ -45,7 +45,9 @@ import { useAuth } from "@/context/auth-context";
 import {
   fetchPersonas,
   deletePersona as deletePersonaApi,
+  updatePersona,
   type BackendPersona,
+  type PersonaStatus,
 } from "@/lib/api/personas";
 import { cn } from "@/lib/utils";
 
@@ -217,12 +219,16 @@ export default function PersonaAdminPage() {
         const backendPersonas = await fetchPersonas(undefined, csrfToken);
 
         // Transform backend data to match frontend Persona interface
+        // Map backend status ("test" | "completed") to frontend status ("active" | "paused" | "inactive")
         const transformedPersonas: Persona[] = backendPersonas.map((bp) => ({
           id: bp.id,
           name: bp.name,
           description: bp.prompt?.slice(0, 100) || "No description",
           avatar: bp.imageUrl || "/personas/persona1.png",
-          status: bp.status === "completed" ? "active" : "paused",
+          // Dynamic status mapping:
+          // - "test" (newly created) → "active" (default for new personas)
+          // - "completed" (user has set) → "paused" (user explicitly paused it)
+          status: bp.status === "completed" ? "paused" : "active",
           tokensUsed: 0, // TODO: Backend doesn't provide this yet
           consumersCount: 0, // TODO: Backend doesn't provide this yet
           consumers: [], // TODO: Backend doesn't provide this yet
@@ -361,14 +367,41 @@ export default function PersonaAdminPage() {
     });
   };
 
-  const handlePausePersona = (personaId: string) => {
+  const handlePausePersona = async (personaId: string) => {
+    // Find current persona to determine new status
+    const persona = personas.find((p) => p.id === personaId);
+    if (!persona) return;
+
+    // Calculate new frontend status
+    const newFrontendStatus: "active" | "paused" =
+      persona.status === "active" ? "paused" : "active";
+
+    // Map frontend status to backend status
+    // - "active" → "test" (active/default state)
+    // - "paused" → "completed" (user explicitly paused)
+    const newBackendStatus: PersonaStatus =
+      newFrontendStatus === "active" ? "test" : "completed";
+
+    // Optimistically update UI
     setPersonas((prev) =>
       prev.map((p) =>
-        p.id === personaId
-          ? { ...p, status: p.status === "active" ? "paused" : "active" }
-          : p,
+        p.id === personaId ? { ...p, status: newFrontendStatus } : p,
       ),
     );
+
+    // Persist to backend
+    try {
+      await updatePersona(personaId, { status: newBackendStatus }, csrfToken);
+    } catch (error) {
+      console.error("Failed to update persona status:", error);
+      // Revert optimistic update on error
+      setPersonas((prev) =>
+        prev.map((p) =>
+          p.id === personaId ? { ...p, status: persona.status } : p,
+        ),
+      );
+      // Optionally show error toast
+    }
   };
 
   const handleDeletePersona = (personaId: string) => {
