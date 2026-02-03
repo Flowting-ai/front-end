@@ -629,18 +629,24 @@ export function RightSidebar({
       });
       return;
     }
-    printWindow.document.open();
-    printWindow.document.write(docHtml);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    setTimeout(() => {
-      try {
-        printWindow.close();
-      } catch {
-        /* ignore */
-      }
-    }, 300);
+    
+    // Secure alternative to document.write: use blob and iframe
+    const blob = new Blob([docHtml], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+    printWindow.location.href = blobUrl;
+    
+    printWindow.addEventListener('load', () => {
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(() => {
+        try {
+          URL.revokeObjectURL(blobUrl);
+          printWindow.close();
+        } catch {
+          /* ignore */
+        }
+      }, 300);
+    });
   }, [sortedAndFilteredPins, toast]);
 
   const getFilterLabel = () => {

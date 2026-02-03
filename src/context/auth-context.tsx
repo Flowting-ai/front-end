@@ -44,15 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     try {
       const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      const storedToken = localStorage.getItem(CSRF_STORAGE_KEY);
+      // Try sessionStorage first (new secure approach), fallback to localStorage for migration
+      const storedToken = sessionStorage.getItem(CSRF_STORAGE_KEY) || 
+                         localStorage.getItem(CSRF_STORAGE_KEY);
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
       if (storedToken) {
         setCsrfToken(storedToken);
+        // Migrate from localStorage to sessionStorage
+        if (localStorage.getItem(CSRF_STORAGE_KEY)) {
+          localStorage.removeItem(CSRF_STORAGE_KEY);
+        }
       }
     } catch (error) {
-      console.error("Failed to hydrate auth state", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Failed to hydrate auth state", error);
+      }
     }
   }, []);
 
@@ -68,24 +76,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (csrfToken) {
-      localStorage.setItem(CSRF_STORAGE_KEY, csrfToken);
+      // Store CSRF token in sessionStorage instead of localStorage for better security
+      // sessionStorage is cleared when the tab is closed
+      sessionStorage.setItem(CSRF_STORAGE_KEY, csrfToken);
       try {
         // Mirror token into a cookie so Django's CSRF check sees both header + cookie in cross-site calls.
         document.cookie = `csrftoken=${encodeURIComponent(
           csrfToken
         )}; path=/; SameSite=None; Secure`;
       } catch (error) {
-        console.warn("Failed to set CSRF cookie", error);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("Failed to set CSRF cookie", error);
+        }
       }
     } else {
-      localStorage.removeItem(CSRF_STORAGE_KEY);
+      sessionStorage.removeItem(CSRF_STORAGE_KEY);
+      localStorage.removeItem(CSRF_STORAGE_KEY); // Clean up old localStorage entries
       try {
         document.cookie = "csrftoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
       } catch (error) {
-        console.warn("Failed to clear CSRF cookie", error);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("Failed to clear CSRF cookie", error);
+        }
       }
     }
-  }, [csrfToken]);
+  }, [sessionStorage.removeItem(CSRF_STORAGE_KEY);
+      localStorage.removeItem("isLoggedIn");
+      
+      // Clear CSRF cookie
+      try {
+        document.cookie = "csrftoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure";
+      } catch {
+        // Silently fail
+      }
 
   const clearAuth = useCallback(() => {
     setUser(null);
