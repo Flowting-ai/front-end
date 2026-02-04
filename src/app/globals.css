@@ -283,6 +283,20 @@
   }
 }
 
+/* Fade in animation for workflow node hover actions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-in forwards;
+}
+
 @layer components {
   /*Complete Chat layout Main */
   .chat-layout-shell--full {

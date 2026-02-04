@@ -249,7 +249,34 @@ export function LeftSidebar({
               </TooltipContent>
             </Tooltip>
 
-            {/* Button 3 */}
+            {/* Button 3 - Workflows */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Workflows"
+                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
+                  onClick={() => router.push("/workflows")}
+                >
+                  <BotMessageSquare
+                    className={cn(
+                      "h-5 w-5",
+                      pathname?.startsWith("/workflows") ? "text-[#303030]" : "text-[#303030]"
+                    )}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                sideOffset={8}
+                className="pointer-events-none px-2 py-1 text-xs font-medium"
+              >
+                Workflows
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Button 4 */}
             <Button
               variant="ghost"
               size="icon"
@@ -414,10 +441,11 @@ export function LeftSidebar({
 
             {/* Workflows */}
             <Button
-              disabled
-              onClick={() => {}}
+              onClick={() => router.push("/workflows")}
               className={cn(
-                "cursor-events-none max-h-[210px] w-full min-h-[41px] h-full text-lsb-button-text bg-transparent flex items-center justify-start px-4"
+                "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                pathname?.startsWith("/workflows") &&
+                  "text-lsb-button-active-text bg-lsb-button-active-bg"
               )}
             >
               <div className="w-auto h-full flex items-center justify-center">
@@ -425,9 +453,6 @@ export function LeftSidebar({
               </div>
               <p className="h-full font-[400] text-[13px] flex items-center gap-2">
                 Workflow
-                <span className="text-[8px] border border-main-border rounded px-[4] py-0">
-                  Coming Soon
-                </span>
               </p>
             </Button>
 
