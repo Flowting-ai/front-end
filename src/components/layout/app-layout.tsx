@@ -383,7 +383,7 @@ const backendPinToLegacy = (
     resolvedTitle;
   return {
     id: pin.id,
-    text: resolvedTitle,
+    text: resolvedText, // Full content, not just title
     title: resolvedTitle,
     tags: pin.tags ?? fallback?.tags ?? [],
     notes: fallback?.notes ?? "",

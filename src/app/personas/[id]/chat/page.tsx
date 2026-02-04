@@ -109,6 +109,7 @@ export default function PersonaChatPage() {
           width: '100%',
           maxWidth: '1072px',
           height: 'calc(100vh - 100px)',
+          maxHeight: '90vh',
           borderRadius: '20px',
           padding: '8px',
           borderWidth: '1px',

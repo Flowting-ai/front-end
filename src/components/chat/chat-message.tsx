@@ -729,8 +729,9 @@ export function ChatMessage({
   );
 
   const renderActions = (className?: string) => {
-    // Don't show actions for AI messages that are still loading/streaming
-    if (!isUser && (message.isLoading || isResponding)) {
+    // Hide action icons ONLY for AI messages that are currently being generated
+    // All completed messages (previous responses) keep their action icons visible
+    if (!isUser && message.isLoading) {
       return null;
     }
     

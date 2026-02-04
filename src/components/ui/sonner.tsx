@@ -1,6 +1,6 @@
 "use client"
 
-import { ToastContainer } from "react-toastify"
+import { ToastContainer, Slide } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import { useTheme } from "next-themes"
 
@@ -21,6 +21,10 @@ const Toaster = () => {
       pauseOnHover
       theme={resolvedTheme as "light" | "dark"}
       className="font-geist"
+      transition={Slide}
+      style={{
+        '--toastify-animation-duration': '500ms',
+      } as React.CSSProperties}
     />
   )
 }

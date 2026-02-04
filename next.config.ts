@@ -31,13 +31,26 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
     },
   ];
 
+// Build CSP connect-src with backend origins
+const connectSrcOrigins = [backendOrigin, backendWsOrigin];
+
+// In development, also allow localhost connections
+if (process.env.NODE_ENV === "development") {
+  connectSrcOrigins.push(
+    "http://localhost:8000",
+    "ws://localhost:8000",
+    "http://localhost:*",
+    "ws://localhost:*"
+  );
+}
+
 const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${backendOrigin}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${backendOrigin} ${backendWsOrigin}`,
+  `connect-src 'self' ${connectSrcOrigins.join(" ")}`,
   "media-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",

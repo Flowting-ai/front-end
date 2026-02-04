@@ -431,7 +431,7 @@ export const PinItem = ({
               </div>
             ) : (
               <div className="overflow-hidden">
-                <div title={formatPinTitle(pin.title ?? pin.text)}>
+                <div title={bodyContent}>
                   <p
                     className="text-[#1e1e1e] overflow-hidden"
                     style={
@@ -441,6 +441,7 @@ export const PinItem = ({
                             fontWeight: 500,
                             fontSize: "16px",
                             lineHeight: "140%",
+                            whiteSpace: "pre-wrap",
                           }
                         : ({
                             fontFamily: "Inter",
@@ -455,12 +456,11 @@ export const PinItem = ({
                           } as React.CSSProperties)
                     }
                   >
-                    {renderInlineMarkdown(formatPinTitle(pin.title ?? pin.text))}
+                    {renderInlineMarkdown(isTitleExpanded ? bodyContent : formatPinTitle(pin.title ?? pin.text))}
                   </p>
                 </div>
                 {!inOrganizeDialog &&
-                ((pin.title && pin.title.length > TRUNCATE_TITLE_LEN) ||
-                  (!pin.title && pin.text.length > TRUNCATE_TITLE_LEN)) ? (
+                bodyContent && bodyContent.length > TRUNCATE_TITLE_LEN ? (
                   <button
                     className="text-xs text-[#3b82f6] mt-1 p-0"
                     onClick={() => setIsTitleExpanded((prev) => !prev)}
