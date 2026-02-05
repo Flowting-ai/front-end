@@ -42,7 +42,7 @@ function CustomNode({ data, selected, id: nodeId }: NodeProps<WorkflowNodeData>)
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Clicking edit will select the node, triggering inspector to open
+    // Clicking edit willllll select the noooooode, triggering the inspector to open
     // This is handled by the parent component
   };
 

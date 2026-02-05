@@ -36,6 +36,8 @@ import { toast } from "@/lib/toast-helper";
 import { AppLayoutContext } from "../layout/app-layout";
 import { cn } from "@/lib/utils";
 import { renderInlineMarkdown, formatPinTitle, stripMarkdown } from "@/lib/markdown-utils";
+import { fetchPersonas as fetchPersonasApi } from "@/lib/api/personas";
+import { API_BASE_URL } from "@/lib/config";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -127,7 +129,12 @@ export function ChatInterface({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showLeftScrollButton, setShowLeftScrollButton] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showPersonaDropdown, setShowPersonaDropdown] = useState(false);
+  const [highlightedPersonaIndex, setHighlightedPersonaIndex] = useState(0);
+  const [selectedPersona, setSelectedPersona] = useState<any>(null);
+  const [activePersonas, setActivePersonas] = useState<any[]>([]);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const personaDropdownRef = useRef<HTMLDivElement>(null);
   const PIN_INSERT_EVENT = "pin-insert-to-chat";
   
   // Close attach menu when clicking outside
@@ -142,6 +149,33 @@ export function ChatInterface({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showAttachMenu]);
+
+  // Close persona dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (personaDropdownRef.current && !personaDropdownRef.current.contains(event.target as Node)) {
+        setShowPersonaDropdown(false);
+      }
+    };
+    if (showPersonaDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showPersonaDropdown]);
+
+  // Reset highlighted persona index when dropdown opens
+  useEffect(() => {
+    if (showPersonaDropdown && activePersonas.length > 0) {
+      setHighlightedPersonaIndex(-1); // -1 means no highlight by default
+      // Auto-focus dropdown for keyboard navigation
+      if (personaDropdownRef.current) {
+        const dropdown = personaDropdownRef.current.querySelector('[role="listbox"]') as HTMLElement;
+        if (dropdown) {
+          dropdown.focus();
+        }
+      }
+    }
+  }, [showPersonaDropdown, activePersonas.length]);
 
   useEffect(() => {
     const handlePinInsert = (event: Event) => {
@@ -285,6 +319,35 @@ export function ChatInterface({
     }
   }, [input]);
 
+  // Fetch active personas
+  useEffect(() => {
+    const loadPersonas = async () => {
+      try {
+        const backendPersonas = await fetchPersonasApi(undefined, csrfToken);
+        // Transform backend personas to match the dropdown format
+        // Status mapping: "test" → active, "completed" → paused (but we only want active)
+        const activeOnly = backendPersonas
+          .filter((bp) => bp.status === "test") // Only show "test" personas as active
+          .map((bp) => ({
+            id: bp.id,
+            name: bp.name,
+            avatar: bp.imageUrl ? 
+              (bp.imageUrl.startsWith("http") || bp.imageUrl.startsWith("data:") || bp.imageUrl.startsWith("blob:") 
+                ? bp.imageUrl 
+                : `${API_BASE_URL}${bp.imageUrl.startsWith("/") ? "" : "/"}${bp.imageUrl}`)
+              : null,
+            prompt: bp.prompt,
+            modelId: bp.modelId,
+            status: "active",
+          }));
+        setActivePersonas(activeOnly);
+      } catch (error) {
+        console.error('Failed to fetch personas:', error);
+      }
+    };
+    loadPersonas();
+  }, [csrfToken]);
+
   // Clear reference, mentions, and attachments when switching chats
   useEffect(() => {
     setReferencedMessage(null);
@@ -296,6 +359,24 @@ export function ChatInterface({
       return [];
     });
   }, [layoutContext?.activeChatId]);
+
+  // Check if attachment area is scrollable and show carets accordingly
+  useEffect(() => {
+    const checkScrollability = () => {
+      if (attachmentScrollRef.current) {
+        const el = attachmentScrollRef.current;
+        const isScrollable = el.scrollWidth > el.clientWidth;
+        setShowScrollButton(isScrollable && el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+        setShowLeftScrollButton(el.scrollLeft > 10);
+      }
+    };
+
+    // Check immediately and after a short delay to ensure layout is complete
+    checkScrollability();
+    const timer = setTimeout(checkScrollability, 100);
+
+    return () => clearTimeout(timer);
+  }, [attachments]);
 
   // Get available pins
   const availablePins = layoutContext?.pins || [];
@@ -350,7 +431,7 @@ export function ChatInterface({
     pinIds?: string[],
     personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>,
     replyToMessageId?: string | null,
-    file?: File | null
+    files?: File[]
   ) => {
     try {
       if (!modelForRequest) {
@@ -379,7 +460,7 @@ export function ChatInterface({
         Accept: "text/event-stream",
       };
 
-      if (file && !isPersonaTest) {
+      if (files && files.length > 0 && !isPersonaTest) {
         // Use FormData for file uploads
         const formData = new FormData();
         formData.append("message", userMessage);
@@ -409,7 +490,10 @@ export function ChatInterface({
         if (pinIds && pinIds.length > 0) {
           formData.append("pinIds", JSON.stringify(pinIds));
         }
-        formData.append("file", file);
+        // Append all files
+        files.forEach((file) => {
+          formData.append("files", file);
+        });
         body = formData;
         // Don't set Content-Type header - browser sets it with boundary for FormData
       } else {
@@ -766,14 +850,15 @@ export function ChatInterface({
     const replyToMsgId = replyToMessage?.chatMessageId || replyToMessage?.id || null;
     const replyToContent = replyToMessage?.content || null;
 
-    // Extract file from first attachment (backend supports one file per request)
-    const fileToUpload = attachments.length > 0 ? attachments[0].file : null;
+    // Extract all files from attachments
+    const filesToUpload = attachments.map(a => a.file);
 
-    // File size validation (10MB limit)
+    // File size validation (50MB limit per file)
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-    if (fileToUpload && fileToUpload.size > MAX_FILE_SIZE) {
+    const oversizedFiles = filesToUpload.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
       toast.error("File too large", {
-        description: "Maximum file size is 50MB. Please choose a smaller file.",
+        description: `${oversizedFiles[0].name} exceeds 50MB limit.`,
       });
       setIsResponding(false);
       return;
@@ -829,7 +914,7 @@ export function ChatInterface({
         pinIdsToSend,
         personaHistory,
         replyToMsgId,
-        fileToUpload
+        filesToUpload
       );
       // Clear reference, mentions, reply, attachments, and context pins after sending
       setReferencedMessage(null);
@@ -863,6 +948,12 @@ export function ChatInterface({
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
+          attachments: attachments.length > 0 ? attachments.map(a => ({
+            id: a.id,
+            type: a.type,
+            name: a.name,
+            url: a.url,
+          })) : undefined,
         },
       };
 
@@ -898,7 +989,7 @@ export function ChatInterface({
         pinIdsToSend,
         personaHistory,
         replyToMsgId,
-        fileToUpload
+        filesToUpload
       );
       // Clear reference, mentions, reply, attachments, and context pins after sending
       setReferencedMessage(null);
@@ -941,53 +1032,114 @@ export function ChatInterface({
     setMentionedPins(prev => prev.filter(mp => mp.id !== pinId));
   };
 
+  const handleSelectPersona = (persona: any) => {
+    setSelectedPersona(persona);
+    setShowPersonaDropdown(false);
+    toast.success(`Persona selected: ${persona.name}`);
+  };
+
+  const handleAddNewPersona = () => {
+    setShowPersonaDropdown(false);
+    // Navigate to persona creation - adjust URL as needed
+    window.location.href = '/personas/new';
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    const filesToAdd: Array<{id: string; type: 'pdf' | 'image'; name: string; url: string; file: File; isUploading: boolean; uploadProgress: number}> = [];
 
-    if (file.size > MAX_FILE_SIZE) {
-      toast.error("File too large", {
-        description: "Maximum file size is 50MB. Please choose a smaller file.",
-      });
-      // Reset the input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+    // Process each selected file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Check for duplicate file name
+      const isDuplicate = attachments.some(a => a.name === file.name) || filesToAdd.some(f => f.name === file.name);
+      if (isDuplicate) {
+        toast.error(`${file.name} already added`, {
+          description: "This file is already in your attachments.",
+        });
+        continue;
       }
-      return;
-    }
 
-    // Determine file type
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    const isImage = file.type.startsWith("image/");
-
-    if (!isPdf && !isImage) {
-      toast.error("Unsupported file type", {
-        description: "Please upload a PDF or image file.",
-      });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} is too large`, {
+          description: "Maximum file size is 50MB per file.",
+        });
+        continue;
       }
-      return;
-    }
 
-    const attachmentId = crypto.randomUUID();
-    const objectUrl = URL.createObjectURL(file);
+      // Determine file type
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const isImage = file.type.startsWith("image/");
 
-    setAttachments((prev) => [
-      ...prev,
-      {
+      if (!isPdf && !isImage) {
+        toast.error(`${file.name} not supported`, {
+          description: "Please upload PDF or image files only.",
+        });
+        continue;
+      }
+
+      const attachmentId = crypto.randomUUID();
+      const objectUrl = URL.createObjectURL(file);
+
+      filesToAdd.push({
         id: attachmentId,
         type: isPdf ? "pdf" : "image",
         name: file.name,
         url: objectUrl,
         file: file,
-      },
-    ]);
+        isUploading: true,
+        uploadProgress: 0,
+      });
+    }
 
-    // Reset the input so the same file can be selected again if removed
+    if (filesToAdd.length === 0) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setAttachments((prev) => [...prev, ...filesToAdd]);
+
+    // Simulate upload progress for each file
+    filesToAdd.forEach((attachment) => {
+      const fileSize = attachment.file.size;
+      // Adjust upload duration based on file size (larger files take longer)
+      const uploadDuration = Math.min(Math.max(fileSize / (1024 * 1024) * 200, 500), 3000);
+      const steps = 20;
+      const stepDuration = uploadDuration / steps;
+
+      let currentProgress = 0;
+      const interval = setInterval(() => {
+        currentProgress += 100 / steps;
+        if (currentProgress >= 100) {
+          currentProgress = 100;
+          clearInterval(interval);
+          // Mark as uploaded
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === attachment.id
+                ? { ...a, isUploading: false, uploadProgress: 100 }
+                : a
+            )
+          );
+        } else {
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === attachment.id
+                ? { ...a, uploadProgress: Math.round(currentProgress) }
+                : a
+            )
+          );
+        }
+      }, stepDuration);
+    });
+
+    // Reset the input so the same files can be selected again if removed
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1454,25 +1606,64 @@ export function ChatInterface({
                         }
                       : msg;
 
+                  const messageAttachments = msg.sender === "user" && msg.metadata?.attachments;
+
                 return (
-                  <ChatMessage
-                    key={msg.id}
-                    message={enrichedMessage}
-                    isPinned={isMessagePinned(msg)}
-                    onPin={handlePin}
-                    onCopy={handleCopy}
-                    onDelete={handleDeleteRequest}
-                    onResubmit={handleSend}
-                    onRegenerate={
-                      msg.sender === "ai" ? handleRegenerateRequest : undefined
-                    }
-                    onReply={msg.sender === "ai" ? handleReply : undefined}
-                    onReact={msg.sender === "ai" ? handleReact : undefined}
-                    referencedMessage={refMsg}
-                    isNewMessage={msg.id === lastMessageId}
-                    taggedPins={taggedPins}
-                    isResponding={isResponding}
-                  />
+                  <div key={msg.id} className="flex flex-col gap-2">
+                    {/* Display attachments above user message */}
+                    {messageAttachments && messageAttachments.length > 0 && (
+                      <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
+                        {messageAttachments.map((attachment: any) => (
+                          attachment.type === 'pdf' ? (
+                            <div
+                              key={attachment.id}
+                              className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
+                              style={{ width: '180.3px', height: '60px' }}
+                            >
+                              <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                                <FileText className="h-5 w-5 text-[#666666]" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate text-xs font-medium text-[#1E1E1E]">{attachment.name}</p>
+                                <p className="text-[10px] text-[#888888]">PDF Document</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              key={attachment.id}
+                              className="group relative shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
+                              style={{ width: '60px', height: '60px', padding: '1.08px' }}
+                            >
+                              <Image
+                                src={attachment.url}
+                                alt={attachment.name}
+                                width={0}
+                                height={0}
+                                className="w-full h-full object-cover rounded-[10px]"
+                              />
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    <ChatMessage
+                      message={enrichedMessage}
+                      isPinned={isMessagePinned(msg)}
+                      onPin={handlePin}
+                      onCopy={handleCopy}
+                      onDelete={handleDeleteRequest}
+                      onResubmit={handleSend}
+                      onRegenerate={
+                        msg.sender === "ai" ? handleRegenerateRequest : undefined
+                      }
+                      onReply={msg.sender === "ai" ? handleReply : undefined}
+                      onReact={msg.sender === "ai" ? handleReact : undefined}
+                      referencedMessage={refMsg}
+                      isNewMessage={msg.id === lastMessageId}
+                      taggedPins={taggedPins}
+                      isResponding={isResponding}
+                    />
+                  </div>
                 );
               })}
               </div>
@@ -1770,6 +1961,7 @@ export function ChatInterface({
                       ref={fileInputRef}
                       type="file"
                       accept=".pdf,application/pdf,image/*"
+                      multiple
                       onChange={handleFileSelect}
                       className="hidden"
                     />
@@ -1812,18 +2004,130 @@ export function ChatInterface({
                 )}
                 
                 {!hidePersonaButton && (
-                  <Button
-                    variant="ghost"
-                    disabled
-                    className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3 text-xs font-medium text-[#AAAAAA] opacity-50 cursor-not-allowed"
-                    title="Choose Persona (Coming Soon)"
-                  >
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E5E5E5]">
-                      <UserPlus className="h-3 w-3" />
-                    </div>
-                    <span>Choose Persona</span>
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="relative" ref={personaDropdownRef}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowPersonaDropdown(!showPersonaDropdown)}
+                      className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                      title="Choose Persona"
+                    >
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
+                        <UserPlus className="h-3 w-3" />
+                      </div>
+                      <span>{selectedPersona ? selectedPersona.name : 'Choose Persona'}</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {showPersonaDropdown && (
+                      <div
+                        className="absolute bottom-full left-0 mb-2 rounded-lg border border-[#E5E5E5] bg-white shadow-lg overflow-hidden"
+                        style={{ width: '291px', maxHeight: '181px' }}
+                        role="listbox"
+                        aria-expanded={showPersonaDropdown}
+                        tabIndex={-1}
+                        onKeyDown={(e) => {
+                          if (activePersonas.length === 0) return;
+                          
+                          // Total items = personas + "Add new persona" button
+                          const totalItems = activePersonas.length + 1;
+                          
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setHighlightedPersonaIndex((prev) => {
+                              const next = prev === -1 ? 0 : (prev + 1) % totalItems;
+                              return next;
+                            });
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setHighlightedPersonaIndex((prev) => {
+                              if (prev === -1 || prev === 0) return totalItems - 1;
+                              return prev - 1;
+                            });
+                          } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (highlightedPersonaIndex >= 0 && highlightedPersonaIndex < activePersonas.length) {
+                              handleSelectPersona(activePersonas[highlightedPersonaIndex]);
+                            } else if (highlightedPersonaIndex === activePersonas.length) {
+                              handleAddNewPersona();
+                            }
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setShowPersonaDropdown(false);
+                          }
+                        }}
+                      >
+                        <div
+                          className="max-h-[calc(5*32px)] overflow-y-auto overflow-x-hidden px-[5px] py-1"
+                          style={{ scrollbarWidth: 'thin' }}
+                        >
+                          {activePersonas.length === 0 ? (
+                            <div className="px-2 py-4 text-center text-xs text-[#888888]">
+                              No active personas available
+                            </div>
+                          ) : (
+                            activePersonas.map((persona, idx) => (
+                              <button
+                                key={persona.id}
+                                type="button"
+                                role="option"
+                                aria-selected={selectedPersona?.id === persona.id}
+                                onClick={() => handleSelectPersona(persona)}
+                                onMouseEnter={() => setHighlightedPersonaIndex(idx)}
+                                onMouseLeave={() => setHighlightedPersonaIndex(-1)}
+                                className={
+                                  `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                  (idx === highlightedPersonaIndex && highlightedPersonaIndex >= 0
+                                    ? 'bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium'
+                                    : selectedPersona?.id === persona.id
+                                    ? 'bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium'
+                                    : 'bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]')
+                                }
+                                style={{ width: '280px', minHeight: '32px', paddingRight: '8px' }}
+                              >
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] border border-[#E5E5E5]">
+                                  {persona.avatar ? (
+                                    <img src={persona.avatar} alt={persona.name} className="h-full w-full rounded-full object-cover" />
+                                  ) : (
+                                    <span className="text-[10px] font-medium text-[#666666]">
+                                      {persona.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="flex-1 truncate font-medium pr-0">{persona.name}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+
+                        {activePersonas.length > 0 && (
+                          <>
+                            <div
+                              className="mx-[5px] my-1"
+                              style={{ width: '280px', height: '1px', backgroundColor: 'var(--general-border, #E5E5E5)' }}
+                            />
+                            <div className="px-[5px] pb-1">
+                              <button
+                                type="button"
+                                onClick={handleAddNewPersona}
+                                onMouseEnter={() => setHighlightedPersonaIndex(activePersonas.length)}
+                                onMouseLeave={() => setHighlightedPersonaIndex(-1)}
+                                className={
+                                  `w-full flex items-center gap-2 rounded-[6px] px-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                  (highlightedPersonaIndex === activePersonas.length
+                                    ? 'bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium'
+                                    : 'bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]')
+                                }
+                                style={{ width: '280px', minHeight: '32px', paddingRight: '8px' }}
+                              >
+                                <Plus className="h-4 w-4" />
+                                <span className="font-medium">Add new persona</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
@@ -1846,16 +2150,17 @@ export function ChatInterface({
                   <TooltipProvider>
                     <Tooltip delayDuration={200}>
                       <TooltipTrigger asChild>
+                       {/* enable send button when framework is selected */}
                         <Button
                           type="button"
                           onClick={() => handleSend(input)}
-                          disabled={!selectedModel || disableInput}
+                          disabled={(!selectedModel && !layoutContext?.useFramework) || disableInput}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                         >
                           <Send className="h-[18px] w-[18px]" />
                         </Button>
                       </TooltipTrigger>
-                      {(!selectedModel || disableInput) && (
+                      {((!selectedModel && !layoutContext?.useFramework) || disableInput) && (
                         <TooltipContent side="top" className="bg-[#1E1E1E] text-white px-3 py-2 text-sm">
                           {disableInput ? "Save to test first to enable chat" : "Please select a model to start the conversation"}
                         </TooltipContent>
@@ -1882,7 +2187,7 @@ export function ChatInterface({
               </div>
             </div>
           </div>
-          
+          {/* Footer disclaimer */}
           <div className="mt-1 text-center text-xs text-[#888888]">
             Models can make mistakes. Check important information.
           </div>

@@ -920,7 +920,7 @@ function PersonaConfigurePageContent() {
                                 {currentStep === REFINEMENT_STEPS.DOS && (
                                   <div className={styles.dosDontsSection}>
                                     <h3 className={styles.refinementTitle}>
-                                      Let's refine your persona in 2/4 steps
+                                      Let's refine your persona in 2/3 steps
                                     </h3>
                                     <h4 className={styles.dosDontsTitle}>
                                       Dos (what do you want the persona to
@@ -969,7 +969,7 @@ function PersonaConfigurePageContent() {
                                 {currentStep === REFINEMENT_STEPS.DONTS && (
                                   <div className={styles.dosDontsSection}>
                                     <h3 className={styles.refinementTitle}>
-                                      Let's refine your persona in 3/4 steps
+                                      Let's refine your persona in 3/3 steps
                                     </h3>
                                     <h4 className={styles.dosDontsTitle}>
                                       Don'ts (what should the persona never do?)
@@ -1687,7 +1687,7 @@ function PersonaConfigurePageContent() {
                 </div>
 
                 {/* Mock users - Shared */}
-                {[1, 2, 3].map((i) => (
+                {/* {[1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className="flex items-center justify-between"
@@ -1763,7 +1763,7 @@ function PersonaConfigurePageContent() {
                       Shared
                     </div>
                   </div>
-                ))}
+                ))} */}
               </div>
 
               {/* Action buttons */}

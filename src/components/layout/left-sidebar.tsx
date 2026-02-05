@@ -277,7 +277,7 @@ export function LeftSidebar({
             </Tooltip>
 
             {/* Button 4 */}
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
               aria-label="AI Automation"
@@ -285,7 +285,7 @@ export function LeftSidebar({
               disabled
             >
               <Bot className="h-5 w-5 text-[#303030]" />
-            </Button>
+            </Button> */}
 
             {/* 3. User Footer */}
             <div className="w-full mt-auto flex justify-center">
