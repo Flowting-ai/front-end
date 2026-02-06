@@ -26,28 +26,42 @@ export function AddPersonaDialog({
 }: AddPersonaDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [personas, setPersonas] = useState<Persona[]>(propPersonas);
-  const [isLoading, setIsLoading] = useState(propPersonas.length === 0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (propPersonas.length > 0) {
-      setPersonas(propPersonas);
-      setIsLoading(false);
-      return;
-    }
-
-    const cached = sessionStorage.getItem("allPersonas");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached) as Persona[];
-        setPersonas(parsed);
+    // Always try to fetch fresh data when dialog opens
+    const fetchPersonaData = async () => {
+      setIsLoading(true);
+      
+      // Use provided personas if available
+      if (propPersonas.length > 0) {
+        console.log('Using provided personas:', propPersonas);
+        setPersonas(propPersonas);
         setIsLoading(false);
         return;
-      } catch {}
-    }
+      }
 
-    const fetchPersonas = async () => {
+      // Check sessionStorage cache
+      const cached = sessionStorage.getItem("allPersonas");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as Persona[];
+          console.log('Using cached personas:', parsed);
+          if (parsed.length > 0) {
+            setPersonas(parsed);
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached personas:', e);
+        }
+      }
+
+      // Fetch from API
       try {
+        console.log('Fetching personas from API...');
         const data = await workflowAPI.fetchPersonas();
+        console.log('Fetched personas:', data);
         setPersonas(data);
         if (data.length > 0) {
           sessionStorage.setItem("allPersonas", JSON.stringify(data));
@@ -60,13 +74,14 @@ export function AddPersonaDialog({
       }
     };
 
-    fetchPersonas();
+    fetchPersonaData();
   }, [propPersonas]);
 
   const filteredPersonas = useMemo(() => {
-    return personas.filter((persona) =>
-      persona.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return personas.filter((persona) => {
+      if (!persona || !persona.name) return false;
+      return persona.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
   }, [personas, searchQuery]);
 
   const getInitials = (name: string) => {
@@ -128,8 +143,15 @@ export function AddPersonaDialog({
               <div className="text-sm text-[#757575]">Loading personas...</div>
             </div>
           ) : filteredPersonas.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-[#757575] text-sm">
-              No personas found
+            <div className="flex flex-col items-center justify-center h-full text-[#757575] text-sm gap-2">
+              <div className="font-medium">No personas found</div>
+              {searchQuery ? (
+                <div className="text-xs">Try a different search term</div>
+              ) : personas.length === 0 ? (
+                <div className="text-xs text-center">
+                  Create personas in the Personas page first
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -145,11 +167,23 @@ export function AddPersonaDialog({
                 >
                   {/* Persona Image or Initials */}
                   <div className="flex-shrink-0 mt-0.5">
-                    {persona.image ? (
+                    {persona.image && persona.image !== 'null' && persona.image.trim() !== '' ? (
                       <img
                         src={persona.image}
                         alt={persona.name}
                         className="w-10 h-10 rounded-lg object-cover"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            const fallback = document.createElement('div');
+                            fallback.className = 'w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs';
+                            fallback.textContent = getInitials(persona.name);
+                            parent.appendChild(fallback);
+                          }
+                        }}
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs">

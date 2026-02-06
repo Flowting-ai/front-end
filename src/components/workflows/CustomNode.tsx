@@ -210,16 +210,39 @@ function CustomNode({
           </div>
         )}
 
+        {/* Chat count for chat nodes */}
+        {data.type === 'chat' && data.selectedChats && (data.selectedChats as string[]).length > 0 && (
+          <div className="text-xs text-[#5B5B5B] mt-1">
+            {(data.selectedChats as string[]).length} chat{(data.selectedChats as string[]).length !== 1 ? 's' : ''} attached
+          </div>
+        )}
+
+        {/* Pin count for pin nodes */}
+        {data.type === 'pin' && data.selectedPins && (data.selectedPins as string[]).length > 0 && (
+          <div className="text-xs text-[#5B5B5B] mt-1">
+            {(data.selectedPins as string[]).length} pin{(data.selectedPins as string[]).length !== 1 ? 's' : ''} attached
+          </div>
+        )}
+
         {/* Instructions CTA - Show for all nodes except end node */}
         {data.type !== 'end' && (
           <button 
             onClick={handleInstructionsClick}
-            className="cursor-pointer absolute -bottom-7 left-1/2 -translate-x-1/2 h-[25px] rounded-2xl border border-[#E5E5E5] py-1 px-2 gap-1 shadow-md bg-white flex items-center justify-center text-xs font-medium text-[#1E1E1E] hover:bg-[#E5E5E5] transition-colors whitespace-nowrap z-10"
+            className={`cursor-pointer absolute -bottom-7 left-1/2 -translate-x-1/2 h-[25px] rounded-2xl border py-1 px-2 gap-1 shadow-md bg-white flex items-center justify-center text-xs font-medium hover:bg-[#E5E5E5] transition-colors whitespace-nowrap z-10 ${
+              data.type === 'model' && (!data.instructions || !data.instructions.trim())
+                ? 'border-red-300 text-red-600'
+                : 'border-[#E5E5E5] text-[#1E1E1E]'
+            }`}
           >
             {data.instructions && data.instructions.trim() ? (
               <>
                 <Check size={14} className="text-green-600" />
                 Instructions added
+              </>
+            ) : data.type === 'model' ? (
+              <>
+                <Plus size={14} />
+                Instructions (Required)
               </>
             ) : (
               <>

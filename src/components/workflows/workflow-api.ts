@@ -1,11 +1,9 @@
 import { WorkflowDTO, WorkflowMetadata, ExecutionResult, NodeExecutionResult } from './types';
+import { API_BASE_URL, MODELS_ENDPOINT, PERSONAS_ENDPOINT } from '@/lib/config';
+import { apiFetch } from '@/lib/api/client';
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 const WORKFLOWS_ENDPOINT = `${API_BASE_URL}/workflows`;
-const CHATS_ENDPOINT = `${API_BASE_URL}/chats`;
-const MODELS_ENDPOINT = `${API_BASE_URL}/models`;
-const PERSONAS_ENDPOINT = `${API_BASE_URL}/personas`;
 const PINS_ENDPOINT = `${API_BASE_URL}/pins`;
 
 // Error handling
@@ -32,6 +30,7 @@ const fetchWithTimeout = async (
   try {
     const response = await fetch(url, {
       ...options,
+      credentials: 'include', // Include cookies for authentication
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -214,23 +213,94 @@ export const workflowAPI = {
   // Fetch all chats
   fetchChats: async (): Promise<Array<{ id: string; name: string; pinnedDate?: string }>> => {
     try {
-      const response = await fetchWithTimeout(CHATS_ENDPOINT, { method: 'GET' });
-      const data = await handleResponse<Array<{ id: string; name: string; pinnedDate?: string }>>(response);
-      return data;
+      console.log('Fetching chats from: /chats/');
+      const response = await apiFetch('/chats/', { method: 'GET' });
+      
+      if (!response.ok) {
+        console.error('Chats fetch failed:', response.status, response.statusText);
+        return [];
+      }
+      
+      const rawData = await response.json();
+      console.log('Raw chats data:', rawData);
+      
+      // Handle different response structures
+      const chatList = Array.isArray(rawData) 
+        ? rawData 
+        : Array.isArray(rawData?.results) 
+          ? rawData.results 
+          : Array.isArray(rawData?.chats) 
+            ? rawData.chats 
+            : [];
+      
+      const processedChats = chatList.map((chat: any) => ({
+        id: String(chat.id || chat.chatId || ''),
+        name: chat.name || chat.title || `Chat ${chat.id || ''}`,
+        pinnedDate: chat.pinnedDate || chat.createdAt || chat.updated_at || undefined,
+      }));
+      
+      console.log('Processed chats:', processedChats);
+      return processedChats;
     } catch (error) {
-      console.warn('Failed to fetch chats:', error);
+      console.error('Failed to fetch chats:', error);
       return [];
     }
   },
 
   // Fetch all models
-  fetchModels: async (): Promise<Array<{ id: string; name: string; description?: string; logo?: string }>> => {
+  fetchModels: async (): Promise<Array<{ 
+    id: string; 
+    name: string; 
+    companyName: string; 
+    description?: string; 
+    logo?: string; 
+    modelType?: "free" | "paid"; 
+    sdkLibrary?: string;
+    inputModalities?: string[];
+    outputModalities?: string[];
+    inputLimit?: number;
+    outputLimit?: number;
+  }>> => {
     try {
+      console.log('Fetching models from:', MODELS_ENDPOINT);
       const response = await fetchWithTimeout(MODELS_ENDPOINT, { method: 'GET' });
-      const data = await handleResponse<Array<{ id: string; name: string; description?: string; logo?: string }>>(response);
-      return data;
+      
+      if (!response.ok) {
+        console.error('Models fetch failed:', response.status, response.statusText);
+        return [];
+      }
+      
+      const rawData = await response.json();
+      console.log('Raw models data:', rawData);
+      
+      // Normalize backend model structure
+      const modelList = Array.isArray(rawData) 
+        ? rawData 
+        : Array.isArray(rawData?.results) 
+          ? rawData.results 
+          : Array.isArray(rawData?.models) 
+            ? rawData.models 
+            : [];
+      
+      const processedModels = modelList.map((model: any) => ({
+        id: String(model.id || model.modelId || ''),
+        modelId: String(model.modelId || model.id || ''),
+        name: model.modelName || model.name || 'Unknown Model',
+        companyName: model.companyName || model.providerName || model.provider || 'Unknown',
+        description: model.description || '',
+        logo: model.logo || '',
+        modelType: (model.modelType || model.planType?.toLowerCase().includes('free') ? 'free' : 'paid') as "free" | "paid",
+        sdkLibrary: model.sdkLibrary || '',
+        inputModalities: model.inputModalities || [],
+        outputModalities: model.outputModalities || [],
+        inputLimit: typeof model.inputLimit === 'number' ? model.inputLimit : 0,
+        outputLimit: typeof model.outputLimit === 'number' ? model.outputLimit : 0,
+      }));
+      
+      console.log('Processed models:', processedModels);
+      return processedModels;
     } catch (error) {
-      console.warn('Failed to fetch models:', error);
+      console.error('Failed to fetch models:', error);
       return [];
     }
   },
@@ -238,23 +308,85 @@ export const workflowAPI = {
   // Fetch all personas
   fetchPersonas: async (): Promise<Array<{ id: string; name: string; description?: string; image?: string }>> => {
     try {
+      console.log('Fetching personas from:', PERSONAS_ENDPOINT);
       const response = await fetchWithTimeout(PERSONAS_ENDPOINT, { method: 'GET' });
-      const data = await handleResponse<Array<{ id: string; name: string; description?: string; image?: string }>>(response);
-      return data;
+      
+      if (!response.ok) {
+        console.error('Personas fetch failed:', response.status, response.statusText);
+        return [];
+      }
+      
+      const rawData = await response.json();
+      console.log('Raw personas data:', rawData);
+      
+      // Handle backend persona structure
+      const personaList = Array.isArray(rawData) ? rawData : [];
+      
+      const processedPersonas = personaList.map((persona: any) => ({
+        id: String(persona.id),
+        name: persona.name || 'Untitled Persona',
+        description: persona.prompt?.slice(0, 140) || '',
+        image: persona.imageUrl ? 
+          (persona.imageUrl.startsWith('http') || persona.imageUrl.startsWith('data:') || persona.imageUrl.startsWith('blob:') 
+            ? persona.imageUrl 
+            : `${API_BASE_URL}${persona.imageUrl.startsWith('/') ? '' : '/'}${persona.imageUrl}`
+          ) : null,
+      }));
+      
+      console.log('Processed personas:', processedPersonas);
+      return processedPersonas;
     } catch (error) {
-      console.warn('Failed to fetch personas:', error);
+      console.error('Failed to fetch personas:', error);
       return [];
     }
   },
 
   // Fetch all pins
-  fetchPins: async (): Promise<Array<{ id: string; name: string; pinnedDate?: string }>> => {
+  fetchPins: async (): Promise<Array<{ 
+    id: string; 
+    name: string; 
+    title?: string;
+    text?: string;
+    content?: string;
+    tags?: string[];
+    folderId?: string;
+    folderName?: string;
+    chatId?: string;
+    created_at?: string;
+    pinnedDate?: string;
+  }>> => {
     try {
+      console.log('Fetching pins from:', PINS_ENDPOINT);
       const response = await fetchWithTimeout(PINS_ENDPOINT, { method: 'GET' });
-      const data = await handleResponse<Array<{ id: string; name: string; pinnedDate?: string }>>(response);
-      return data;
+      
+      if (!response.ok) {
+        console.error('Pins fetch failed:', response.status, response.statusText);
+        return [];
+      }
+      
+      const rawData = await response.json();
+      console.log('Raw pins data:', rawData);
+      
+      const pinList = Array.isArray(rawData) ? rawData : [];
+      
+      const processedPins = pinList.map((pin: any) => ({
+        id: String(pin.id),
+        name: pin.title || pin.content || 'Untitled Pin',
+        title: pin.title || pin.content || 'Untitled Pin',
+        text: pin.content || pin.title || '',
+        content: pin.content || '',
+        tags: pin.tags || [],
+        folderId: pin.folderId || pin.folder_id || undefined,
+        folderName: pin.folderName || undefined,
+        chatId: pin.chat || pin.sourceChatId || undefined,
+        created_at: pin.created_at || undefined,
+        pinnedDate: pin.created_at || undefined,
+      }));
+      
+      console.log('Processed pins:', processedPins);
+      return processedPins;
     } catch (error) {
-      console.warn('Failed to fetch pins:', error);
+      console.error('Failed to fetch pins:', error);
       return [];
     }
   },

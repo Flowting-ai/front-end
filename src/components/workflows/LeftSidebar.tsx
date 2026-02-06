@@ -36,9 +36,10 @@ const nodeItems = [
 
 interface LeftSidebarProps {
   onDragStart: (event: React.DragEvent, nodeType: NodeType) => void;
+  onNodeClick?: (nodeType: NodeType) => void;
 }
 
-export default function LeftSidebar({ onDragStart }: LeftSidebarProps) {
+export default function LeftSidebar({ onDragStart, onNodeClick }: LeftSidebarProps) {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   return (
@@ -62,9 +63,10 @@ export default function LeftSidebar({ onDragStart }: LeftSidebarProps) {
                   key={node.type}
                   draggable
                   onDragStart={(e) => onDragStart(e, node.type)}
+                  onClick={() => onNodeClick?.(node.type)}
                   onMouseEnter={() => setHoveredNode(nodeKey)}
                   onMouseLeave={() => setHoveredNode(null)}
-                  className={`cursor-grab active:cursor-grabbing rounded-lg flex items-center justify-between transition-all pl-2 pr-4 py-1 ${
+                  className={`cursor-pointer active:cursor-grabbing rounded-lg flex items-center justify-between transition-all pl-2 pr-4 py-1 ${
                     isHovered ? "bg-[#F5F5F5]" : "bg-transparent"
                   }`}
                 >

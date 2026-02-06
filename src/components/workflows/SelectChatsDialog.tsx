@@ -48,28 +48,42 @@ export function SelectChatsDialog({
   const [localSelectedIds, setLocalSelectedIds] =
     useState<string[]>(selectedChatIds);
   const [chats, setChats] = useState<Chat[]>(propChats);
-  const [isLoading, setIsLoading] = useState(propChats.length === 0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (propChats.length > 0) {
-      setChats(propChats);
-      setIsLoading(false);
-      return;
-    }
-
-    const cached = sessionStorage.getItem("allChats");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached) as Chat[];
-        setChats(parsed);
+    // Always try to fetch fresh data when dialog opens
+    const fetchChatData = async () => {
+      setIsLoading(true);
+      
+      // Use provided chats if available
+      if (propChats.length > 0) {
+        console.log('Using provided chats:', propChats);
+        setChats(propChats);
         setIsLoading(false);
         return;
-      } catch {}
-    }
+      }
 
-    const fetchChats = async () => {
+      // Check sessionStorage cache
+      const cached = sessionStorage.getItem("allChats");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as Chat[];
+          console.log('Using cached chats:', parsed);
+          if (parsed.length > 0) {
+            setChats(parsed);
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached chats:', e);
+        }
+      }
+
+      // Fetch from API
       try {
+        console.log('Fetching chats from API...');
         const data = await workflowAPI.fetchChats();
+        console.log('Fetched chats:', data);
         setChats(data);
         if (data.length > 0) {
           sessionStorage.setItem("allChats", JSON.stringify(data));
@@ -82,13 +96,14 @@ export function SelectChatsDialog({
       }
     };
 
-    fetchChats();
+    fetchChatData();
   }, [propChats]);
 
   const filteredChats = useMemo(() => {
-    return chats.filter((chat) =>
-      chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return chats.filter((chat) => {
+      if (!chat || !chat.name) return false;
+      return chat.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
   }, [chats, searchQuery]);
 
   const handleToggleChat = (chatId: string) => {
@@ -144,8 +159,15 @@ export function SelectChatsDialog({
               <div className="text-sm text-[#757575]">Loading chats...</div>
             </div>
           ) : filteredChats.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-[#757575] text-sm">
-              No chats found
+            <div className="flex flex-col items-center justify-center h-full text-[#757575] text-sm gap-2">
+              <div className="font-medium">No chats found</div>
+              {searchQuery ? (
+                <div className="text-xs">Try a different search term</div>
+              ) : chats.length === 0 ? (
+                <div className="text-xs text-center">
+                  Start a conversation to see chats here
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex flex-col gap-0">

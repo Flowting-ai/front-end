@@ -162,20 +162,20 @@ function WorkflowCanvasInner() {
   const [personaNodeId, setPersonaNodeId] = useState<string | null>(null);
   const [showModelInspector, setShowModelInspector] = useState(false);
   const [modelNodeId, setModelNodeId] = useState<string | null>(null);
-  // Sample chat data - replace with actual data from your API
-  const [allChats] = useState<Array<{ id: string; name: string; pinnedDate?: string }>>([]);
-  // Sample pin data - replace with actual data from your API
-  const [allPins] = useState<Array<{ id: string; name: string; pinnedDate?: string }>>([]);
+  // Chat data fetched from API
+  const [allChats, setAllChats] = useState<Array<{ id: string; name: string; pinnedDate?: string }>>([]);
+  // Pin data fetched from API
+  const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[] }>>([]);
   // Sample persona data - replace with actual data from your API
   const [allPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string }>>([]);
   // Sample model data - replace with actual data from your API
-  const [allModels] = useState<Array<{ id: string; name: string; description?: string; logo?: string }>>([]);
+  const [allModels] = useState<Array<{ id: string; modelId?: string; name: string; companyName: string; description?: string; logo?: string; modelType?: string; sdkLibrary?: string }>>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionOrder, setExecutionOrder] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes } =
+  const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
 
   // Memoize node types
@@ -192,6 +192,25 @@ function WorkflowCanvasInner() {
       saveToHistory();
     }
   }, [nodes, setNodes, setEdges]);
+
+  // Fetch chats and pins data on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [chatsData, pinsData] = await Promise.all([
+          workflowAPI.fetchChats(),
+          workflowAPI.fetchPins(),
+        ]);
+        console.log('Fetched chats for workflow:', chatsData);
+        console.log('Fetched pins for workflow:', pinsData);
+        setAllChats(chatsData);
+        setAllPins(pinsData);
+      } catch (error) {
+        console.error('Error fetching chats/pins:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Initialize workflow ID on mount
   useEffect(() => {
@@ -547,37 +566,21 @@ function WorkflowCanvasInner() {
     event.dataTransfer.dropEffect = "move";
   }, []);
 
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      const type = event.dataTransfer.getData("application/reactflow");
-      if (!type || !reactFlowWrapper.current) return;
-
-      const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = {
-        x: event.clientX - reactFlowBounds.left - 120,
-        y: event.clientY - reactFlowBounds.top - 40,
-      };
-
-      addNode(type as NodeType, position);
-    },
-    [nodes, setNodes, saveToHistory],
-  );
-
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
   };
 
   // Add node
-  const addNode = (type: NodeType, position?: { x: number; y: number }) => {
+  const addNode = useCallback((type: NodeType, position?: { x: number; y: number }) => {
+    const defaultName = `${type.charAt(0).toUpperCase() + type.slice(1)} Node`;
     const newNode = {
       id: getId(),
       type: "custom",
       position: position || { x: Math.random() * 400, y: Math.random() * 400 },
       data: {
-        label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+        label: defaultName,
+        name: defaultName,
         type,
         status: "idle",
         description: "",
@@ -592,7 +595,35 @@ function WorkflowCanvasInner() {
     });
     setEdges((eds) => eds.filter((e) => e.source !== 'phantom-node' && e.target !== 'phantom-node'));
     saveToHistory();
-  };
+  }, [setNodes, setEdges, saveToHistory]);
+
+  // Handle click to add node from palette
+  const onNodeClickFromPalette = useCallback((nodeType: NodeType) => {
+    // Add node at center of current viewport
+    const viewport = getViewport();
+    const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+    const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    
+    addNode(nodeType, { x: centerX - 140, y: centerY - 44 });
+  }, [getViewport, addNode]);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type || !reactFlowWrapper.current) return;
+
+      // Use screenToFlowPosition to properly account for zoom and pan
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      addNode(type as NodeType, position);
+    },
+    [screenToFlowPosition, addNode],
+  );
 
   // Node selection
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
@@ -675,9 +706,14 @@ function WorkflowCanvasInner() {
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === nodeId) {
+            // If name is provided, also update label for display
+            const updatedData = data.name 
+              ? { ...data, label: data.name }
+              : data;
+            
             return {
               ...node,
-              data: { ...node.data, ...data },
+              data: { ...node.data, ...updatedData },
             };
           }
           return node;
@@ -1161,7 +1197,7 @@ function WorkflowCanvasInner() {
       </div>
 
       {/* Left Sidebar */}
-      <LeftSidebar onDragStart={onDragStart} />
+      <LeftSidebar onDragStart={onDragStart} onNodeClick={onNodeClickFromPalette} />
 
       {/* Context Menu */}
       {contextMenu && (
