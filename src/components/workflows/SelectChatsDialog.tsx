@@ -12,9 +12,9 @@ interface Chat {
 
 interface SelectChatsDialogProps {
   allChats: Chat[];
-  selectedChatIds: string[];
+  selectedChatId?: string;
   onClose: () => void;
-  onAdd: (chatIds: string[]) => void;
+  onSelect: (chatId: string) => void;
 }
 
 function formatDate(dateString?: string): string {
@@ -40,13 +40,12 @@ function getOrdinalSuffix(num: number): string {
 
 export function SelectChatsDialog({
   allChats: propChats,
-  selectedChatIds,
+  selectedChatId,
   onClose,
-  onAdd,
+  onSelect,
 }: SelectChatsDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [localSelectedIds, setLocalSelectedIds] =
-    useState<string[]>(selectedChatIds);
+  const [localSelectedId, setLocalSelectedId] = useState<string | undefined>(selectedChatId);
   const [chats, setChats] = useState<Chat[]>(propChats);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -107,13 +106,13 @@ export function SelectChatsDialog({
   }, [chats, searchQuery]);
 
   const handleToggleChat = (chatId: string) => {
-    setLocalSelectedIds((prev) =>
-      prev.includes(chatId) ? prev.filter((id) => id !== chatId) : [...prev, chatId]
-    );
+    setLocalSelectedId(chatId);
   };
 
   const handleAdd = () => {
-    onAdd(localSelectedIds);
+    if (localSelectedId) {
+      onSelect(localSelectedId);
+    }
   };
 
   return (
@@ -129,7 +128,7 @@ export function SelectChatsDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-2">
           <h2 className="font-clash font-normal text-[24px] text-[#0A0A0A]">
-            Select Chats
+            Select Chat
           </h2>
           <button
             onClick={onClose}
@@ -179,17 +178,13 @@ export function SelectChatsDialog({
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <input
-                      type="checkbox"
-                      checked={localSelectedIds.includes(chat.id)}
+                      type="radio"
+                      checked={localSelectedId === chat.id}
                       onChange={(e) => {
                         e.stopPropagation();
                         handleToggleChat(chat.id);
                       }}
-                      className={`w-4 h-4 rounded-[4px] cursor-pointer accent-black transition-colors ${
-                        localSelectedIds.includes(chat.id)
-                          ? "bg-black text-white border-black"
-                          : "border border-[#D4D4D4]"
-                      }`}
+                      className="w-4 h-4 cursor-pointer accent-black transition-colors"
                     />
                     <span className="text-sm text-[#0A0A0A] truncate">
                       {chat.name}
@@ -206,7 +201,7 @@ export function SelectChatsDialog({
           )}
         </div>
 
-        {/* Footer - Cancel and Add Buttons */}
+        {/* Footer - Cancel and Select Buttons */}
         <div className="flex items-center justify-end gap-2 px-2 py-1 border-t border-[#E5E5E5]">
           <button
             onClick={onClose}
@@ -216,10 +211,10 @@ export function SelectChatsDialog({
           </button>
           <button
             onClick={handleAdd}
-            disabled={localSelectedIds.length === 0}
+            disabled={!localSelectedId}
             className="cursor-pointer h-8 rounded-[8px] px-4 bg-[#2C2C2C] text-white text-sm font-medium hover:bg-[#1F1F1F] transition-colors disabled:bg-[#D4D4D4] disabled:text-[#757575] disabled:cursor-not-allowed"
           >
-            Add
+            Select
           </button>
         </div>
       </div>

@@ -1207,7 +1207,6 @@ function WorkflowCanvasInner() {
             onUpdate={(data) => handleUpdateChatNode(chatNodeId, data)}
             onDelete={() => handleDeleteNode(chatNodeId)}
             allChats={allChats}
-            allPersonas={allPersonas}
           />
         )}
 

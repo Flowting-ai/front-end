@@ -15,6 +15,7 @@ import {
   BotMessageSquare,
   ChevronUp,
   ChevronDown,
+  GitCompareArrows,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -255,11 +256,17 @@ export function LeftSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Workflows"
+                  aria-label="Flow Builder"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => router.push("/workflows")}
                 >
-                  <BotMessageSquare
+                  {/* <BotMessageSquare
+                    className={cn(
+                      "h-5 w-5",
+                      pathname?.startsWith("/workflows") ? "text-[#303030]" : "text-[#303030]"
+                    )}
+                  /> */}
+                  <GitCompareArrows
                     className={cn(
                       "h-5 w-5",
                       pathname?.startsWith("/workflows") ? "text-[#303030]" : "text-[#303030]"
@@ -272,7 +279,7 @@ export function LeftSidebar({
                 sideOffset={8}
                 className="pointer-events-none px-2 py-1 text-xs font-medium"
               >
-                Workflows
+                Flow Builder
               </TooltipContent>
             </Tooltip>
 
@@ -372,7 +379,7 @@ export function LeftSidebar({
                   alt="Flowting AI Logo"
                 />
                 <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
-                  FlowtingAi
+                  FlowtingAI
                 </h3>
               </div>
               <Tooltip>
@@ -449,10 +456,11 @@ export function LeftSidebar({
               )}
             >
               <div className="w-auto h-full flex items-center justify-center">
-                <BotMessageSquare size={20} strokeWidth={2} />
+                {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
+                <GitCompareArrows size={20} strokeWidth={2}/>
               </div>
               <p className="h-full font-[400] text-[13px] flex items-center gap-2">
-                Workflow
+                Flow Builder
               </p>
             </Button>
 

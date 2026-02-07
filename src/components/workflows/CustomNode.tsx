@@ -297,9 +297,9 @@ function CustomNode({
         )}
 
         {/* Chat count for chat nodes */}
-        {data.type === 'chat' && data.selectedChats && (data.selectedChats as string[]).length > 0 && (
+        {data.type === 'chat' && data.selectedChats && (
           <div className="text-xs text-[#5B5B5B] mt-1">
-            {(data.selectedChats as string[]).length} chat{(data.selectedChats as string[]).length !== 1 ? 's' : ''} attached
+            1 chat attached
           </div>
         )}
 

@@ -16,7 +16,8 @@ const nodeItems = [
   {
     category: "CONTEXT",
     nodes: [
-      { type: "document" as NodeType, label: "Documents", icon: Files },
+      // diabling documents feature for now as it requires additional backend work to support file uploads and management
+      // { type: "document" as NodeType, label: "Documents", icon: Files },
       { type: "chat" as NodeType, label: "Chats", icon: MessagesSquare },
       { type: "pin" as NodeType, label: "Pins", icon: Pin },
     ],

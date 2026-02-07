@@ -36,7 +36,7 @@ export interface WorkflowNodeData {
   isHighlighted?: boolean;
   instructions?: string;
   name?: string; // Node name for inspectors
-  selectedChats?: string[]; // Chat IDs for chat nodes
+  selectedChats?: string; // Chat ID for chat node (single selection)
   selectedPins?: string[]; // Pin IDs for pin nodes
   selectedPersona?: string; // Persona ID for persona nodes
   selectedModel?: string; // Model ID for model nodes
