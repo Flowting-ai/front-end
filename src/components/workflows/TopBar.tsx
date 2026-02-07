@@ -85,7 +85,7 @@ export default function TopBar({
         )}
 
         {/* Reset Workflow Button */}
-        {onReset && (
+        {/* {onReset && (
           <button
             onClick={onReset}
             disabled={isExecuting}
@@ -94,7 +94,7 @@ export default function TopBar({
             <RotateCcw className="w-4 h-4" />
             <span className="text-sm">Reset</span>
           </button>
-        )}
+        )} */}
 
         {/* Test Workflow Button */}
         <button

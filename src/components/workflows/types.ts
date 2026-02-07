@@ -40,6 +40,18 @@ export interface WorkflowNodeData {
   selectedPins?: string[]; // Pin IDs for pin nodes
   selectedPersona?: string; // Persona ID for persona nodes
   selectedModel?: string; // Model ID for model nodes
+  personaData?: { // Full persona data for display
+    name: string;
+    image?: string;
+    description?: string;
+  };
+  modelData?: { // Full model data for display
+    name: string;
+    logo?: string;
+    description?: string;
+    companyName?: string; // For getModelIcon()
+    sdkLibrary?: string; // For getModelIcon()
+  };
   onOpenInstructions?: () => void; // Frontend only
   executionOrder?: number; // Track execution sequence
   processingTime?: number; // Track performance

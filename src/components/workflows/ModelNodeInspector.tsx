@@ -1,15 +1,25 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, ArrowRight } from "lucide-react";
+import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { WorkflowNodeData } from "./types";
 import { SelectModelDialog } from "./SelectModelDialog";
+import { getModelIcon } from "@/lib/model-icons";
 
 interface Model {
   id: string;
   name: string;
+  companyName: string;
   description?: string;
   logo?: string;
+  sdkLibrary?: string;
+  modelType?: "free" | "paid";
+  modelId?: string;
+  inputModalities?: string[];
+  outputModalities?: string[];
+  inputLimit?: number;
+  outputLimit?: number;
 }
 
 interface ModelNodeInspectorProps {
@@ -27,7 +37,7 @@ export function ModelNodeInspector({
   onDelete,
   allModels = [],
 }: ModelNodeInspectorProps) {
-  const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
+  const [nodeName, setNodeName] = useState<string>(nodeData.name || nodeData.modelData?.name || "");
   const [selectedModelId, setSelectedModelId] = useState<string | undefined>(
     nodeData.selectedModel
   );
@@ -35,17 +45,45 @@ export function ModelNodeInspector({
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ name: nodeName, selectedModel: selectedModelId });
+    // Preserve existing modelData if selection hasn't changed
+    const updateData: Partial<WorkflowNodeData> = { 
+      name: nodeName, 
+      selectedModel: selectedModelId 
+    };
+    if (nodeData.modelData && selectedModelId === nodeData.selectedModel) {
+      updateData.modelData = nodeData.modelData;
+    }
+    onUpdate(updateData);
     onClose();
   };
 
   const handleSelectModel = (modelId: string) => {
     setSelectedModelId(modelId);
+    const model = allModels.find((m) => m.id === modelId);
+    if (model) {
+      // Update node immediately with model name and full data
+      setNodeName(model.name);
+      onUpdate({ 
+        name: model.name,
+        selectedModel: modelId,
+        modelData: {
+          name: model.name,
+          logo: model.logo,
+          description: model.description,
+          companyName: model.companyName,
+          sdkLibrary: model.sdkLibrary,
+        }
+      });
+    }
     setShowSelectModelDialog(false);
   };
 
   const handleRemoveModel = () => {
     setSelectedModelId(undefined);
+    onUpdate({ 
+      selectedModel: undefined,
+      modelData: undefined,
+    });
   };
 
   const selectedModel = allModels.find((m) => m.id === selectedModelId);
@@ -121,7 +159,7 @@ export function ModelNodeInspector({
             <span className="text-[#757575]">
               {selectedModelId ? "Change Model" : "Add Model"}
             </span>
-            <ArrowRight className="h-4 w-4 text-[#757575]" />
+            <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>
         </div>
 
@@ -144,17 +182,13 @@ export function ModelNodeInspector({
             <div className="flex items-start gap-3">
               {/* Model Logo/Icon */}
               <div className="shrink-0">
-                {selectedModel.logo ? (
-                  <img
-                    src={selectedModel.logo}
-                    alt={selectedModel.name}
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-linear-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-                    {selectedModel.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
+                <Image
+                  src={getModelIcon(selectedModel.companyName, selectedModel.name, selectedModel.sdkLibrary)}
+                  alt={`${selectedModel.name} logo`}
+                  width={48}
+                  height={48}
+                  className="rounded-lg object-cover"
+                />
               </div>
 
               {/* Model Info */}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, ArrowRight } from "lucide-react";
+import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
 import { WorkflowNodeData } from "./types";
 import { SelectPinsDialog } from "./SelectPinsDialog";
 
@@ -114,7 +114,7 @@ export function PinNodeInspector({
                 ? `${selectedPins.length} pin${selectedPins.length !== 1 ? "s" : ""} selected`
                 : "Select Pins"}
             </span>
-            <ArrowRight className="h-4 w-4 text-[#757575]" />
+            <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>
         </div>
 

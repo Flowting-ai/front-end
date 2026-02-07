@@ -29,6 +29,11 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
       ...(backendUrl.port ? { port: backendUrl.port } : {}),
       pathname: "/media/**",
     },
+    {
+      protocol: "https",
+      hostname: "sfo3.digitaloceanspaces.com",
+      pathname: "/**",
+    },
   ];
 
 // Build CSP connect-src with backend origins
@@ -48,7 +53,7 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${backendOrigin}`,
+  `img-src 'self' data: blob: ${backendOrigin} https://sfo3.digitaloceanspaces.com`,
   "font-src 'self' data:",
   `connect-src 'self' ${connectSrcOrigins.join(" ")}`,
   "media-src 'self'",

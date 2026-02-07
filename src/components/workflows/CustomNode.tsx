@@ -2,6 +2,7 @@
 
 import React, { memo, useState } from "react";
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
+import Image from "next/image";
 import {
   Files,
   MessagesSquare,
@@ -17,6 +18,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { WorkflowNodeData, NodeType } from "./types";
+import { getModelIcon } from "@/lib/model-icons";
 
 let id = 0;
 const getId = () => `node_${id++}`;
@@ -122,6 +124,9 @@ function CustomNode({
     );
   }
 
+  // Context nodes (document, chat, pin) are source-only and cannot receive connections
+  const isContextNode = data.type === 'document' || data.type === 'chat' || data.type === 'pin';
+
   return (
     <div
       className="relative bg-transparent transition-all"
@@ -129,12 +134,14 @@ function CustomNode({
       onMouseLeave={() => setIsHovered(false)}
       style={{ width: '280px' }}
     >
-      {/* Input Handle */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="z-3 w-3! h-3! bg-blue-500! border-2! border-white!"
-      />
+      {/* Input Handle - Disabled for context nodes (document, chat, pin) and start node */}
+      {!isContextNode && data.type !== 'start' && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="z-3 w-3! h-3! bg-blue-500! border-2! border-white!"
+        />
+      )}
 
       {/* Node Type Badge - Top of the card */}
       <div 
@@ -203,6 +210,85 @@ function CustomNode({
           {data.description || `Configure ${data.type} node settings`}
         </p>
 
+        {/* Persona Display - Show selected persona */}
+        {data.type === 'persona' && (
+          data.personaData ? (
+            <div className="flex items-center gap-2 mt-1 p-2 bg-[#F5F5F5] rounded-lg">
+              {data.personaData.image ? (
+                <Image
+                  src={data.personaData.image}
+                  alt={data.personaData.name}
+                  width={32}
+                  height={32}
+                  className="rounded object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+                  {data.personaData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-black truncate">
+                  {data.personaData.name}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-[#9F9F9F] italic mt-1">
+              No persona selected
+            </div>
+          )
+        )}
+
+        {/* Persona Display for Chat Nodes - Same rendering as Persona nodes */}
+        {data.type === 'chat' && data.personaData && (
+          <div className="flex items-center gap-2 mt-1 p-2 bg-[#F5F5F5] rounded-lg">
+            {data.personaData.image ? (
+              <Image
+                src={data.personaData.image}
+                alt={data.personaData.name}
+                width={32}
+                height={32}
+                className="rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+                {data.personaData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-black truncate">
+                {data.personaData.name}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Model Display - Show selected model */}
+        {data.type === 'model' && (
+          data.modelData ? (
+            <div className="flex items-center gap-2 mt-1 p-2 bg-[#F5F5F5] rounded-lg">
+              <Image
+                src={getModelIcon(data.modelData.companyName || '', data.modelData.name, data.modelData.sdkLibrary)}
+                alt={`${data.modelData.name} logo`}
+                width={32}
+                height={32}
+                className="shrink-0 rounded object-cover"
+                style={{ borderRadius: '4px' }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-black truncate">
+                  {data.modelData.name}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-[#9F9F9F] italic mt-1">
+              No model selected
+            </div>
+          )
+        )}
+
         {/* File count for document nodes */}
         {data.type === 'document' && data.files && data.files.length > 0 && (
           <div className="text-xs text-[#5B5B5B] mt-1">
@@ -254,12 +340,14 @@ function CustomNode({
         )}
       </div>
 
-      {/* Output Handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="z-3 w-3! h-3! bg-green-500! border-2! border-white!"
-      />
+      {/* Output Handle - Only for non-end nodes */}
+      {data.type !== 'end' && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="z-3 w-3! h-3! bg-green-500! border-2! border-white!"
+        />
+      )}
     </div>
   );
 }

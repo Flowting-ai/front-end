@@ -317,6 +317,17 @@ export interface Message {
     userReaction?: string | null;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
+    attachments?: Array<{
+      id: string;
+      type: "pdf" | "image";
+      name: string;
+      url: string;
+    }>;
+    mentionedPins?: Array<{
+      id: string;
+      label: string;
+      text?: string;
+    }>;
   };
 }
 

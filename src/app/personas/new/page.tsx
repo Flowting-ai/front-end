@@ -14,12 +14,14 @@ import { cn } from "@/lib/utils";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-form.module.css";
 import { LANGUAGES, DEFAULT_LANGUAGE, DEFAULT_PERSONA_NAME } from "./constants";
+import { compressImage, getDataUrlSize, formatBytes } from "@/lib/image-utils";
 
 export default function NewPersonaPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [isMultilingual, setIsMultilingual] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(
     new Set([DEFAULT_LANGUAGE])
   );
@@ -67,14 +69,49 @@ export default function NewPersonaPage() {
     };
   }, [isLanguageDropdownOpen]);
 
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      console.log("📸 Avatar upload started:", file.name, file.size, "bytes");
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        console.error('❌ Please select an image file');
+        return;
+      }
+
+      setIsCompressing(true);
+      try {
+        // Compress the image to reduce storage size
+        // Max dimensions: 800x800, quality: 0.8
+        console.log("🔄 Compressing image...");
+        const compressedImage = await compressImage(file, 800, 800, 0.8);
+        
+        // Check size after compression
+        const size = getDataUrlSize(compressedImage);
+        console.log(`✅ Compressed image size: ${formatBytes(size)}`);
+        console.log("✅ Compressed preview:", compressedImage.substring(0, 100));
+        
+        // SessionStorage typically has a 5-10MB limit
+        // Warn if still too large (4MB threshold to be safe)
+        if (size > 4 * 1024 * 1024) {
+          console.warn('⚠️ Image is still large after compression. Consider a smaller image.');
+        }
+        
+        setAvatarUrl(compressedImage);
+        console.log("✅ Avatar set in state");
+      } catch (error) {
+        console.error('❌ Failed to compress image:', error);
+        // Fallback to original if compression fails
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          console.log("✅ Using uncompressed image as fallback");
+          setAvatarUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   };
 
@@ -106,7 +143,25 @@ export default function NewPersonaPage() {
     
     // Store avatar in sessionStorage to persist across navigation
     if (avatarUrl) {
-      sessionStorage.setItem('personaAvatar', avatarUrl);
+      try {
+        console.log("✅ Storing avatar in sessionStorage, size:", avatarUrl.length);
+        console.log("✅ Avatar preview:", avatarUrl.substring(0, 100));
+        sessionStorage.setItem('personaAvatar', avatarUrl);
+        console.log("✅ Avatar stored successfully");
+      } catch (error) {
+        // If still exceeds quota, clear old data and try again
+        console.error('❌ Failed to store avatar:', error);
+        try {
+          sessionStorage.clear();
+          sessionStorage.setItem('personaAvatar', avatarUrl);
+          console.log("✅ Avatar stored after clearing storage");
+        } catch (retryError) {
+          console.error('❌ Failed to store avatar even after clearing storage:', retryError);
+          // Continue without avatar in worst case
+        }
+      }
+    } else {
+      console.log("ℹ️ No avatar to store");
     }
     
     router.push(`/personas/new/configure?${params.toString()}`);
@@ -132,7 +187,12 @@ export default function NewPersonaPage() {
             {/* Avatar Upload Section */}
             <div className={styles.avatarSection}>
               <Avatar className={styles.avatar}>
-                <AvatarImage src={avatarUrl || undefined} alt="" />
+                <AvatarImage 
+                  src={avatarUrl || undefined} 
+                  alt=""
+                  onLoad={() => console.log("✅ Avatar image loaded successfully")}
+                  onError={(e) => console.error("❌ Avatar image failed to load:", e)}
+                />
                 <AvatarFallback className={styles.avatarFallback}>
                   <img src="/avatars/personaAvatarPlaceHolder.svg" alt="" className={styles.avatarPlaceholder} />
                 </AvatarFallback>
@@ -144,13 +204,15 @@ export default function NewPersonaPage() {
                   accept="image/*"
                   onChange={handleAvatarUpload}
                   className={styles.hiddenInput}
+                  disabled={isCompressing}
                 />
                 <Button
                   variant="outline"
                   className={cn(styles.uploadButton, "cursor-pointer")}
                   onClick={() => document.getElementById("avatar-upload")?.click()}
+                  disabled={isCompressing}
                 >
-                  Choose Avatar
+                  {isCompressing ? "Compressing..." : "Choose Avatar"}
                 </Button>
               </div>
             </div>

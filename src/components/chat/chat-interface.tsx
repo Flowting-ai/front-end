@@ -23,6 +23,7 @@ import {
   Paperclip,
   ScanText,
   Reply,
+  Globe,
 } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -130,6 +131,7 @@ export function ChatInterface({
   );
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
   const [showPinDropdown, setShowPinDropdown] = useState(false);
+  const [pinSearchQuery, setPinSearchQuery] = useState("");
   const [attachments, setAttachments] = useState<
     Array<{
       id: string;
@@ -148,6 +150,7 @@ export function ChatInterface({
   const [highlightedPersonaIndex, setHighlightedPersonaIndex] = useState(0);
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [activePersonas, setActivePersonas] = useState<any[]>([]);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const personaDropdownRef = useRef<HTMLDivElement>(null);
   const PIN_INSERT_EVENT = "pin-insert-to-chat";
@@ -231,6 +234,8 @@ export function ChatInterface({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const pinDropdownScrollRef = useRef<HTMLDivElement>(null);
+  const pinItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
@@ -395,6 +400,7 @@ export function ChatInterface({
     setReferencedMessage(null);
     setMentionedPins([]);
     setShowPinDropdown(false);
+    setPinSearchQuery("");
     // Cleanup attachment URLs and clear attachments
     setAttachments((prev) => {
       prev.forEach((a) => URL.revokeObjectURL(a.url));
@@ -425,12 +431,103 @@ export function ChatInterface({
   // Get available pins
   const availablePins = layoutContext?.pins || [];
 
-  // Reset highlighted index when dropdown opens or availablePins changes
+  // Filter pins based on search query
+  const filteredPins = useMemo(() => {
+    if (!pinSearchQuery.trim()) {
+      return availablePins;
+    }
+
+    const query = pinSearchQuery.toLowerCase();
+    return availablePins.filter((pin) => {
+      // Match against pin text content
+      const textMatch = stripMarkdown(pin.text).toLowerCase().includes(query);
+      
+      // Match against pin ID
+      const idMatch = pin.id.toLowerCase().includes(query);
+      
+      // Match against tags if available
+      const tagsMatch = pin.tags?.some((tag) => 
+        tag.toLowerCase().includes(query)
+      ) ?? false;
+      
+      return textMatch || idMatch || tagsMatch;
+    });
+  }, [availablePins, pinSearchQuery]);
+
+  // Helper function to highlight matching text
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+    
+    if (index === -1) return text;
+    
+    const before = text.slice(0, index);
+    const match = text.slice(index, index + query.length);
+    const after = text.slice(index + query.length);
+    
+    return (
+      <>
+        {before}
+        <span className="bg-yellow-100 font-medium">{match}</span>
+        {after}
+      </>
+    );
+  };
+
+  // Light aesthetic color palette for pin separators @ highlighted pin rows
+  const lightColorPalette = [
+    "#C7E0F4", // Soft Sky Blue
+    "#BEE7E8", // Muted Aqua
+    "#BFDCE5", // Calm Teal
+    "#C9DDF2", // Dusty Blue
+    "#CFE6D8", // Muted Mint
+    "#D6E8C3", // Soft Olive
+    "#C4E1C1", // Gentle Green
+    "#E1C7E8", // Dusty Lavender
+    "#EBC2D9", // Muted Blush
+    "#D8C6F0", // Soft Periwinkle
+    "#F3E6B3", // Warm Butter
+    "#F6DDBA", // Soft Apricot
+    "#EFD1B8", // Muted Peach
+    "#E1E5EA", // Cool Gray Mist
+    "#E8DED6", // Warm Stone
+    "#DDE3E8", // Soft Slate,
+    "#A9D1F0", //Soft Ocean Blue
+  ];
+
+  // Get consistent color for a pin based on its ID
+  const getPinSeparatorColor = (pinId: string) => {
+    // Simple hash function to get a consistent index from the pin ID
+    let hash = 0;
+    for (let i = 0; i < pinId.length; i++) {
+      hash = pinId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % lightColorPalette.length;
+    return lightColorPalette[index];
+  };
+
+  // Reset highlighted index when dropdown opens or filtered pins change
   useEffect(() => {
-    if (showPinDropdown && availablePins.length > 0) {
+    if (showPinDropdown && filteredPins.length > 0) {
       setHighlightedPinIndex(0);
     }
-  }, [showPinDropdown, availablePins.length]);
+  }, [showPinDropdown, filteredPins.length]);
+
+  // Auto-scroll highlighted pin into view when navigating with keyboard
+  useEffect(() => {
+    if (showPinDropdown && highlightedPinIndex >= 0) {
+      const highlightedElement = pinItemRefs.current.get(highlightedPinIndex);
+      if (highlightedElement && pinDropdownScrollRef.current) {
+        highlightedElement.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    }
+  }, [highlightedPinIndex, showPinDropdown]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -977,6 +1074,17 @@ export function ChatInterface({
           ...updatedMessages[userMessageIndex].metadata,
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
+          mentionedPins:
+            mentionedPins.length > 0
+              ? mentionedPins.map((mp) => {
+                  const pin = pinsById.get(mp.id);
+                  return {
+                    id: mp.id,
+                    label: mp.label,
+                    text: pin?.text || "",
+                  };
+                })
+              : undefined,
         },
       };
 
@@ -1013,6 +1121,7 @@ export function ChatInterface({
       setReferencedMessage(null);
       setMentionedPins([]);
       setReplyToMessage(null);
+      setPinSearchQuery("");
       layoutContext?.setSelectedPinIdsForNextMessage?.([]);
       // Cleanup attachment URLs and clear attachments
       attachments.forEach((a) => URL.revokeObjectURL(a.url));
@@ -1049,6 +1158,17 @@ export function ChatInterface({
                   name: a.name,
                   url: a.url,
                 }))
+              : undefined,
+          mentionedPins:
+            mentionedPins.length > 0
+              ? mentionedPins.map((mp) => {
+                  const pin = pinsById.get(mp.id);
+                  return {
+                    id: mp.id,
+                    label: mp.label,
+                    text: pin?.text || "",
+                  };
+                })
               : undefined,
         },
       };
@@ -1088,6 +1208,7 @@ export function ChatInterface({
       setReferencedMessage(null);
       setMentionedPins([]);
       setReplyToMessage(null);
+      setPinSearchQuery("");
       layoutContext?.setSelectedPinIdsForNextMessage?.([]);
       // Cleanup attachment URLs and clear attachments
       attachments.forEach((a) => URL.revokeObjectURL(a.url));
@@ -1102,14 +1223,43 @@ export function ChatInterface({
     const lastChar = value[value.length - 1];
     if (lastChar === "@") {
       setShowPinDropdown(true);
+      setPinSearchQuery("");
+      return;
+    }
+
+    // If dropdown is open, check for search query after @
+    if (showPinDropdown) {
+      // Find the last @ position
+      const lastAtIndex = value.lastIndexOf("@");
+      if (lastAtIndex !== -1) {
+        // Extract text after @
+        const textAfterAt = value.substring(lastAtIndex + 1);
+        
+        // Check if there's a terminating character (space, punctuation, or newline)
+        const hasTerminator = /[\s,.!?;:\n]/.test(textAfterAt);
+        
+        if (hasTerminator) {
+          // Close dropdown if terminator found
+          setShowPinDropdown(false);
+          setPinSearchQuery("");
+        } else {
+          // Update search query
+          setPinSearchQuery(textAfterAt);
+        }
+      } else {
+        // @ was deleted, close dropdown
+        setShowPinDropdown(false);
+        setPinSearchQuery("");
+      }
     }
   };
 
   const handleSelectPin = (pin: PinType) => {
     const pinLabel = stripMarkdown(pin.text).slice(0, 50) || pin.id;
 
-    // Remove the trailing @ from input
-    const newInput = input.slice(0, -1);
+    // Remove @ and any text after it from input
+    const lastAtIndex = input.lastIndexOf("@");
+    const newInput = lastAtIndex !== -1 ? input.substring(0, lastAtIndex) : input;
     setInput(newInput);
 
     // Add to mentioned pins if not already added
@@ -1118,6 +1268,7 @@ export function ChatInterface({
     }
 
     setShowPinDropdown(false);
+    setPinSearchQuery("");
     textareaRef.current?.focus();
   };
 
@@ -1733,10 +1884,73 @@ export function ChatInterface({
 
                   const messageAttachments =
                     msg.sender === "user" && msg.metadata?.attachments;
+                  const messagePins =
+                    msg.sender === "user" && msg.metadata?.mentionedPins;
 
                   return (
                     <div key={msg.id} className="flex flex-col gap-2">
-                      {/* Display attachments above user message */}
+                      {/* Display pinned message attachments above user message */}
+                      {messagePins && messagePins.length > 0 && (
+                        <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
+                          {messagePins.map((pin: any) => {
+                            const pinText = stripMarkdown(pin.text || pin.label);
+                            const displayText = pinText.length > 80 ? pinText.slice(0, 80) + "..." : pinText;
+                            const pinColor = getPinSeparatorColor(pin.id);
+                            
+                            return (
+                              <div
+                                key={pin.id}
+                                className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden cursor-pointer hover:bg-[#F5F5F5] transition-colors"
+                                style={{ minWidth: "180px", maxWidth: "280px", height: "60px" }}
+                                onClick={() => {
+                                  // Emit event to insert pin content into input
+                                  if (typeof window !== "undefined") {
+                                    window.dispatchEvent(
+                                      new CustomEvent("pin-insert-to-chat", {
+                                        detail: { text: pin.text || pin.label },
+                                      }),
+                                    );
+                                  }
+                                }}
+                              >
+                                <div 
+                                  className="flex h-full w-1 rounded-full shrink-0"
+                                  style={{ backgroundColor: pinColor }}
+                                ></div>
+                                <div className="flex-1 min-w-0 flex items-center gap-2">
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F5F5F5] shrink-0">
+                                    <svg
+                                      width="16"
+                                      height="16"
+                                      viewBox="0 0 16 16"
+                                      fill="none"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        d="M8 2L9.5 6.5L14 8L9.5 9.5L8 14L6.5 9.5L2 8L6.5 6.5L8 2Z"
+                                        fill="#666"
+                                        stroke="#666"
+                                        strokeWidth="1.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="truncate text-xs font-medium text-[#1E1E1E]">
+                                      {displayText}
+                                    </p>
+                                    <p className="text-[10px] text-[#888888]">
+                                      Pinned Message
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Display file attachments above user message */}
                       {messageAttachments && messageAttachments.length > 0 && (
                         <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
                           {messageAttachments.map((attachment: any) =>
@@ -1847,7 +2061,7 @@ export function ChatInterface({
       {/* Chat Input Footer */}
       <footer className="shrink-0 bg-white px-2 pb-0.5 pt-0">
         <div className="relative mx-auto w-full max-w-[756px]">
-          {showPinDropdown && availablePins.length > 0 && (
+          {showPinDropdown && (
             <div
               ref={dropdownRef}
               className={cn(
@@ -1855,51 +2069,98 @@ export function ChatInterface({
               )}
               style={{ maxWidth: 700, minWidth: 220, left: 0, right: "auto" }}
             >
-              {/* <div className="font-geist font-medium text-left text-base text-[#555555] border-b border-main-border px-4 py-2 mb-2">
-                Select a pin to mention
-              </div> */}
-              <div
-                className={cn("max-h-76 overflow-y-auto flex flex-col", chatStyles.customScrollbar)}
-              >
-                {availablePins.map((pin, idx) => (
-                  <button
-                    key={pin.id}
-                    type="button"
-                    onClick={() => handleSelectPin(pin)}
-                    className={
-                      `cursor-pointer w-full border-b border-[#F5F5F5] px-4 py-2 text-left text-[13px] rounded-[16px] transition-colors ` +
-                      (idx === highlightedPinIndex
-                        ? "hover:bg-[#d2d2d2] text-black bg-zinc-300"
-                        : "hover:bg-[#d2d2d2] text-black")
-                    }
+              {filteredPins.length > 0 ? (
+                <>
+                  <div className="font-geist font-medium text-left text-sm text-[#888888] px-4 py-2">
+                    {pinSearchQuery ? `Searching: "${pinSearchQuery}"` : "Select a pin to mention"}
+                  </div>
+                  <div
+                    ref={pinDropdownScrollRef}
+                    className={cn("max-h-76 overflow-y-auto flex flex-col", chatStyles.customScrollbar)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-1 h-full min-h-10 bg-blue-500 rounded-full"></div> 
-                      <div className="flex flex-col">
-                      <p className="truncate font-medium text-inherit text-black text-[13px]">
-                      {renderInlineMarkdown(
-                        formatPinTitle(pin.text.slice(0, 60) || "Untitled Pin"),
-                      )}
-                    </p>
-                    {pin.tags && pin.tags.length > 0 && (
-                      <div className="mt-1 flex gap-1">
-                        {pin.tags.slice(0, 3).map((tag, i) => (
-                          <span
-                            key={i}
-                            className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#767676]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {filteredPins.map((pin, idx) => {
+                      const isHighlighted = idx === highlightedPinIndex;
+                      const pinText = stripMarkdown(pin.text);
+                      const displayText = pinText.length > 80 ? pinText.slice(0, 80) + "..." : pinText;
+                      
+                      return (
+                        <button
+                          key={pin.id}
+                          ref={(el) => {
+                            if (el) {
+                              pinItemRefs.current.set(idx, el);
+                            } else {
+                              pinItemRefs.current.delete(idx);
+                            }
+                          }}
+                          type="button"
+                          onClick={() => handleSelectPin(pin)}
+                          onMouseEnter={() => setHighlightedPinIndex(idx)}
+                          className={
+                            `cursor-pointer w-full border-b border-[#F5F5F5] px-4 py-2 text-left text-[13px] rounded-[16px] transition-colors ` +
+                            (isHighlighted
+                              ? "hover:bg-[#d2d2d2] text-black bg-zinc-300"
+                              : "hover:bg-[#d2d2d2] text-black")
+                          }
+                        >
+                          <div className="flex items-center gap-4">
+                            <div 
+                              className="w-1 h-full min-h-10 rounded-full" 
+                              style={{ backgroundColor: getPinSeparatorColor(pin.id) }}
+                            ></div> 
+                            <div className="flex flex-col">
+                              <p className="truncate font-medium text-inherit text-black text-[13px]">
+                                {pinSearchQuery 
+                                  ? highlightMatch(displayText, pinSearchQuery)
+                                  : renderInlineMarkdown(
+                                      formatPinTitle(displayText || "Untitled Pin"),
+                                    )}
+                              </p>
+                              {pin.tags && pin.tags.length > 0 && (
+                                <div className="mt-1 flex gap-1">
+                                  {pin.tags.slice(0, 3).map((tag, i) => (
+                                    <span
+                                      key={i}
+                                      className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#767676]"
+                                    >
+                                      {pinSearchQuery ? highlightMatch(tag, pinSearchQuery) : tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="px-4 py-8 text-center text-[#888888]">
+                  <div className="mb-2">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="mx-auto opacity-40"
+                    >
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                      <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {pinSearchQuery
+                      ? "No pinned messages match your search."
+                      : "No pinned messages available."}
+                  </div>
+                  {pinSearchQuery && (
+                    <div className="text-xs mt-1">
+                      Try a different search term.
                     </div>
-                    </div>
-                    
-                    
-                  </button>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -2111,25 +2372,26 @@ export function ChatInterface({
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => {
-                    if (showPinDropdown && availablePins.length > 0) {
+                    if (showPinDropdown && filteredPins.length > 0) {
                       if (e.key === "ArrowDown") {
                         e.preventDefault();
                         setHighlightedPinIndex(
-                          (prev) => (prev + 1) % availablePins.length,
+                          (prev) => (prev + 1) % filteredPins.length,
                         );
                       } else if (e.key === "ArrowUp") {
                         e.preventDefault();
                         setHighlightedPinIndex(
                           (prev) =>
-                            (prev - 1 + availablePins.length) %
-                            availablePins.length,
+                            (prev - 1 + filteredPins.length) %
+                            filteredPins.length,
                         );
                       } else if (e.key === "Enter") {
                         e.preventDefault();
-                        handleSelectPin(availablePins[highlightedPinIndex]);
+                        handleSelectPin(filteredPins[highlightedPinIndex]);
                       } else if (e.key === "Escape") {
                         e.preventDefault();
                         setShowPinDropdown(false);
+                        setPinSearchQuery("");
                       }
                       return;
                     }
@@ -2192,15 +2454,36 @@ export function ChatInterface({
                         </button>
                         <button
                           onClick={() => {
-                            toast("Attach Context", {
-                              description: "Coming soon!",
-                            });
+                            setWebSearchEnabled(!webSearchEnabled);
                             setShowAttachMenu(false);
+                            toast(
+                              webSearchEnabled
+                                ? "Web search disabled"
+                                : "Web search enabled",
+                              {
+                                description: webSearchEnabled
+                                  ? "Results will not include web search"
+                                  : "Results will include web search",
+                              },
+                            );
                           }}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border p-2 text-left text-xs font-medium transition-colors hover:bg-[#F5F5F5] whitespace-nowrap",
+                            webSearchEnabled
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-[#E5E5E5] bg-white text-[#1E1E1E]",
+                          )}
                         >
-                          <ScanText className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Context</span>
+                          <Globe
+                            className={cn(
+                              "h-3.5 w-3.5",
+                              webSearchEnabled ? "text-blue-600" : "text-[#666666]",
+                            )}
+                          />
+                          <span>Web Search</span>
+                          {webSearchEnabled && (
+                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600"></div>
+                          )}
                         </button>
                       </div>
                     )}

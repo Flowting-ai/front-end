@@ -2,8 +2,17 @@
 
 import React, { useState } from "react";
 import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { WorkflowNodeData } from "./types";
 import { SelectChatsDialog } from "./SelectChatsDialog";
+import { AddPersonaDialog } from "./AddPersonaDialog";
+
+interface Persona {
+  id: string;
+  name: string;
+  description?: string;
+  image?: string;
+}
 
 interface ChatNodeInspectorProps {
   nodeData: WorkflowNodeData;
@@ -11,6 +20,7 @@ interface ChatNodeInspectorProps {
   onUpdate: (data: Partial<WorkflowNodeData>) => void;
   onDelete: () => void;
   allChats?: Array<{ id: string; name: string; pinnedDate?: string }>;
+  allPersonas?: Persona[];
 }
 
 export function ChatNodeInspector({
@@ -19,16 +29,30 @@ export function ChatNodeInspector({
   onUpdate,
   onDelete,
   allChats = [],
+  allPersonas = [],
 }: ChatNodeInspectorProps) {
-  const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
+  const [nodeName, setNodeName] = useState<string>(nodeData.name || nodeData.personaData?.name || "");
   const [selectedChats, setSelectedChats] = useState<string[]>(
     (nodeData.selectedChats as string[]) || []
   );
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | undefined>(
+    nodeData.selectedPersona
+  );
   const [showSelectChatsDialog, setShowSelectChatsDialog] = useState(false);
+  const [showAddPersonaDialog, setShowAddPersonaDialog] = useState(false);
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ name: nodeName, selectedChats });
+    // Preserve existing personaData if selection hasn't changed
+    const updateData: Partial<WorkflowNodeData> = { 
+      name: nodeName, 
+      selectedChats,
+      selectedPersona: selectedPersonaId 
+    };
+    if (nodeData.personaData && selectedPersonaId === nodeData.selectedPersona) {
+      updateData.personaData = nodeData.personaData;
+    }
+    onUpdate(updateData);
     onClose();
   };
 
@@ -39,6 +63,44 @@ export function ChatNodeInspector({
 
   const handleRemoveChat = (chatId: string) => {
     setSelectedChats((prev) => prev.filter((id) => id !== chatId));
+  };
+
+  const handleSelectPersona = (personaId: string) => {
+    setSelectedPersonaId(personaId);
+    const persona = allPersonas.find((p) => p.id === personaId);
+    if (persona) {
+      // Update node immediately with persona name and data
+      setNodeName(persona.name);
+      onUpdate({ 
+        name: persona.name,
+        selectedPersona: personaId,
+        personaData: {
+          name: persona.name,
+          image: persona.image,
+          description: persona.description,
+        }
+      });
+    }
+    setShowAddPersonaDialog(false);
+  };
+
+  const handleRemovePersona = () => {
+    setSelectedPersonaId(undefined);
+    onUpdate({ 
+      selectedPersona: undefined,
+      personaData: undefined,
+    });
+  };
+
+  const selectedPersona = allPersonas.find((p) => p.id === selectedPersonaId);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -96,6 +158,74 @@ export function ChatNodeInspector({
             placeholder="Enter node name"
           />
         </div>
+
+        {/* Select Persona Section */}
+        <div className="flex flex-col gap-2">
+          <label className="font-geist font-medium text-sm text-[#0A0A0A]">
+            Select Persona
+          </label>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAddPersonaDialog(true);
+            }}
+            className="cursor-pointer w-full h-8 px-3 py-2 rounded-[8px] border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
+          >
+            <span className="text-[#757575]">
+              {selectedPersonaId ? "Change Persona" : "Add Persona"}
+            </span>
+            <ChevronRight className="h-4 w-4 text-[#757575]" />
+          </button>
+        </div>
+
+        {/* Selected Persona Card */}
+        {selectedPersona && (
+          <div className="relative rounded-lg border border-[#E5E5E5] bg-white p-3">
+            {/* X Button - Top Right */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemovePersona();
+              }}
+              className="absolute top-2 right-2 text-[#757575] hover:text-red-600 transition-colors cursor-pointer"
+              aria-label="Remove persona"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Persona Content */}
+            <div className="flex items-start gap-3">
+              {/* Persona Image or Initials */}
+              <div className="flex-shrink-0">
+                {selectedPersona.image ? (
+                  <Image
+                    src={selectedPersona.image}
+                    alt={selectedPersona.name}
+                    width={48}
+                    height={48}
+                    className="rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                    {getInitials(selectedPersona.name)}
+                  </div>
+                )}
+              </div>
+
+              {/* Persona Info */}
+              <div className="flex-1 min-w-0 pr-6">
+                <p className="text-sm font-medium text-black truncate">
+                  {selectedPersona.name}
+                </p>
+                {selectedPersona.description && (
+                  <p className="text-xs text-[#757575] line-clamp-2">
+                    {selectedPersona.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Manage Chats Section */}
         <div className="flex flex-col gap-2">
@@ -166,6 +296,16 @@ export function ChatNodeInspector({
           selectedChatIds={selectedChats}
           onClose={() => setShowSelectChatsDialog(false)}
           onAdd={handleAddChats}
+        />
+      )}
+
+      {/* Add Persona Dialog */}
+      {showAddPersonaDialog && (
+        <AddPersonaDialog
+          allPersonas={allPersonas}
+          selectedPersonaId={selectedPersonaId}
+          onClose={() => setShowAddPersonaDialog(false)}
+          onSelect={handleSelectPersona}
         />
       )}
     </>

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, ArrowRight } from "lucide-react";
+import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { WorkflowNodeData } from "./types";
 import { AddPersonaDialog } from "./AddPersonaDialog";
 
@@ -27,7 +28,7 @@ export function PersonaNodeInspector({
   onDelete,
   allPersonas = [],
 }: PersonaNodeInspectorProps) {
-  const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
+  const [nodeName, setNodeName] = useState<string>(nodeData.name || nodeData.personaData?.name || "");
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | undefined>(
     nodeData.selectedPersona
   );
@@ -35,17 +36,43 @@ export function PersonaNodeInspector({
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ name: nodeName, selectedPersona: selectedPersonaId });
+    // Preserve existing personaData if selection hasn't changed
+    const updateData: Partial<WorkflowNodeData> = { 
+      name: nodeName, 
+      selectedPersona: selectedPersonaId 
+    };
+    if (nodeData.personaData && selectedPersonaId === nodeData.selectedPersona) {
+      updateData.personaData = nodeData.personaData;
+    }
+    onUpdate(updateData);
     onClose();
   };
 
   const handleSelectPersona = (personaId: string) => {
     setSelectedPersonaId(personaId);
+    const persona = allPersonas.find((p) => p.id === personaId);
+    if (persona) {
+      // Update node immediately with persona name and data
+      setNodeName(persona.name);
+      onUpdate({ 
+        name: persona.name,
+        selectedPersona: personaId,
+        personaData: {
+          name: persona.name,
+          image: persona.image,
+          description: persona.description,
+        }
+      });
+    }
     setShowAddPersonaDialog(false);
   };
 
   const handleRemovePersona = () => {
     setSelectedPersonaId(undefined);
+    onUpdate({ 
+      selectedPersona: undefined,
+      personaData: undefined,
+    });
   };
 
   const selectedPersona = allPersonas.find((p) => p.id === selectedPersonaId);
@@ -130,7 +157,7 @@ export function PersonaNodeInspector({
             <span className="text-[#757575]">
               {selectedPersonaId ? "Change Persona" : "Add Persona"}
             </span>
-            <ArrowRight className="h-4 w-4 text-[#757575]" />
+            <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>
         </div>
 
@@ -154,10 +181,12 @@ export function PersonaNodeInspector({
               {/* Persona Image or Initials */}
               <div className="flex-shrink-0">
                 {selectedPersona.image ? (
-                  <img
+                  <Image
                     src={selectedPersona.image}
                     alt={selectedPersona.name}
-                    className="w-12 h-12 rounded-lg object-cover"
+                    width={48}
+                    height={48}
+                    className="rounded-lg object-cover"
                   />
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm">

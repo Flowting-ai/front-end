@@ -82,6 +82,19 @@ export const validateWorkflow = (
     errors.push('Workflow contains cycles');
   }
 
+  // Check for direct Start → End connection
+  const startNode = nodes.find(n => n.data.type === 'start');
+  const endNode = nodes.find(n => n.data.type === 'end');
+  
+  if (startNode && endNode) {
+    const directConnection = edges.some(
+      edge => edge.source === startNode.id && edge.target === endNode.id
+    );
+    if (directConnection) {
+      errors.push('Cannot connect Start directly to End. Add intermediate nodes.');
+    }
+  }
+
   // Check for disconnected nodes
   const connectedNodes = new Set<string>();
   edges.forEach(edge => {
@@ -89,7 +102,6 @@ export const validateWorkflow = (
     connectedNodes.add(edge.target);
   });
 
-  const startNode = nodes.find(n => n.data.type === 'start');
   if (startNode && !connectedNodes.has(startNode.id) && nodes.length > 1) {
     errors.push('Start node is not connected');
   }
@@ -107,20 +119,80 @@ export const getNodeCategory = (nodeType: string): 'context' | 'reasoning' | 'co
   return 'control';
 };
 
-// Validate connection
+// Validate connection with cycle detection
 export const isValidConnection = (
   sourceType: string,
-  targetType: string
+  targetType: string,
+  nodes?: WorkflowNode[],
+  edges?: WorkflowEdge[],
+  sourceId?: string | null,
+  targetId?: string | null
 ): boolean => {
   const sourceCategory = getNodeCategory(sourceType);
   const targetCategory = getNodeCategory(targetType);
 
-  // Reasoning nodes cannot connect TO context nodes
-  if (sourceCategory === 'reasoning' && targetCategory === 'context') {
+  // Disallow direct Start → End connection
+  if (sourceType === 'start' && targetType === 'end') {
     return false;
   }
 
+  // Disallow End → Start connection (if End somehow has outgoing handles)
+  if (sourceType === 'end' && targetType === 'start') {
+    return false;
+  }
+
+  // Context nodes (document, chat, pin) are source-only - cannot receive connections
+  if (targetCategory === 'context') {
+    return false;
+  }
+
+  // Prevent cycles in persona/model connections
+  // If connecting model -> persona, check if it would create a cycle
+  if (nodes && edges && sourceId && targetId) {
+    if (sourceType === 'model' && targetType === 'persona') {
+      // Check if there's already a path from the target persona back to this model
+      if (hasPath(targetId, sourceId, edges)) {
+        return false; // Would create a cycle
+      }
+    }
+    
+    // Similarly for persona -> model, though this is generally allowed
+    // But we still prevent it if it would create a cycle
+    if (sourceType === 'persona' && targetType === 'model') {
+      if (hasPath(targetId, sourceId, edges)) {
+        return false; // Would create a cycle
+      }
+    }
+  }
+
   return true;
+};
+
+// Helper function to check if there's a path from node A to node B
+const hasPath = (
+  startId: string,
+  endId: string,
+  edges: WorkflowEdge[]
+): boolean => {
+  const visited = new Set<string>();
+  const queue: string[] = [startId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === endId) return true;
+    if (visited.has(current)) continue;
+    
+    visited.add(current);
+    
+    // Find all outgoing edges from current node
+    edges.forEach(edge => {
+      if (edge.source === current && !visited.has(edge.target)) {
+        queue.push(edge.target);
+      }
+    });
+  }
+
+  return false;
 };
 
 // Calculate workflow metrics

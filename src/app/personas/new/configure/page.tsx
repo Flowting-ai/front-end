@@ -243,10 +243,20 @@ function PersonaConfigurePageContent() {
     const personaIdParam = searchParams.get("personaId");
     const chatModeParam = searchParams.get("chatMode");
 
-    // Load avatar from sessionStorage
-    const savedAvatar = sessionStorage.getItem("personaAvatar");
-    if (savedAvatar) {
-      setAvatarUrl(savedAvatar);
+    // Load avatar from sessionStorage (only for new personas, not when editing)
+    if (!searchParams.get("personaId")) {
+      try {
+        const savedAvatar = sessionStorage.getItem("personaAvatar");
+        if (savedAvatar) {
+          console.log("✅ Loaded avatar from sessionStorage, size:", savedAvatar.length, "bytes");
+          console.log("✅ Avatar preview:", savedAvatar.substring(0, 100));
+          setAvatarUrl(savedAvatar);
+        } else {
+          console.log("ℹ️ No avatar in sessionStorage");
+        }
+      } catch (error) {
+        console.error('❌ Failed to load avatar from sessionStorage:', error);
+      }
     }
 
     if (nameParam) {
@@ -276,9 +286,14 @@ function PersonaConfigurePageContent() {
             setSelectedModel(String(personaData.modelId));
           }
 
-          // Set avatar if available
+          // Set avatar if available (only when editing existing persona)
           if (personaData.imageUrl) {
+            console.log("✅ Loading existing persona avatar:", personaData.imageUrl);
+            const fullUrl = getFullAvatarUrl(personaData.imageUrl);
+            console.log("✅ Full avatar URL:", fullUrl);
             setAvatarUrl(personaData.imageUrl);
+          } else {
+            console.log("ℹ️ No avatar for existing persona");
           }
 
           console.log("Loaded persona:", personaData);
@@ -459,8 +474,17 @@ function PersonaConfigurePageContent() {
 
       // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
       if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
+        console.log("✅ Converting data URL to file for persona avatar");
+        console.log("✅ Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
+        if (imageFile) {
+          console.log("✅ Converted to file:", imageFile.name, imageFile.size, "bytes, type:", imageFile.type);
+        } else {
+          console.error("❌ Failed to convert data URL to file");
+        }
       }
+
+      console.log("💾 Saving persona with image:", imageFile ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})` : "no image");
 
       const personaPayload = {
         name: personaName.trim(),
@@ -474,6 +498,19 @@ function PersonaConfigurePageContent() {
       };
 
       const created = await createPersona(personaPayload, csrfToken);
+
+      console.log("✅ Persona created successfully!");
+      console.log("✅ Persona ID:", created.id);
+      console.log("✅ Persona imageUrl:", created.imageUrl);
+      console.log("✅ Full imageUrl:", getFullAvatarUrl(created.imageUrl));
+
+      // Clean up avatar from sessionStorage after successful creation
+      try {
+        sessionStorage.removeItem('personaAvatar');
+        console.log("Cleaned up avatar from sessionStorage");
+      } catch (error) {
+        console.error('Failed to clean up sessionStorage:', error);
+      }
 
       setCreatedPersonaId(created.id);
       setHasFinishedBuilding(true);
@@ -617,17 +654,15 @@ function PersonaConfigurePageContent() {
                           backgroundColor: "#FFFFFF",
                         }}
                       >
-                        <Image
-                          src={
-                            getFullAvatarUrl(avatarUrl) ||
-                            uploadedFiles.find((f) => f.type === "image")
-                              ?.url ||
-                            "/avatars/personaAvatarPlaceHolder.svg"
-                          }
+                        <img
+                          src={(() => {
+                            const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                            const resolvedAvatar = getFullAvatarUrl(avatarUrl);
+                            const finalSrc = uploadedImage || resolvedAvatar || "/avatars/personaAvatarPlaceHolder.svg";
+                            console.log("🖼️ Avatar display - uploaded:", !!uploadedImage, "avatar:", !!resolvedAvatar, "final:", finalSrc.substring(0, 100));
+                            return finalSrc;
+                          })()}
                           alt="Persona"
-                          width={81}
-                          height={81}
-                          unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                           className="rounded-full border-2 border-main-border"
                           style={{
                             width: "100%",
@@ -1323,18 +1358,14 @@ function PersonaConfigurePageContent() {
                                   backgroundColor: "#f5f5f5",
                                 }}
                               >
-                                <Image
-                                  src={
-                                    getFullAvatarUrl(avatarUrl) ||
-                                    uploadedFiles.find(
-                                      (f) => f.type === "image",
-                                    )?.url ||
-                                    "/avatars/personaAvatarPlaceHolder.svg"
-                                  }
+                                <img
+                                  src={(() => {
+                                    const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                                    const resolvedAvatar = getFullAvatarUrl(avatarUrl);
+                                    const finalSrc = uploadedImage || resolvedAvatar || "/avatars/personaAvatarPlaceHolder.svg";
+                                    return finalSrc;
+                                  })()}
                                   alt="Persona"
-                                  width={82}
-                                  height={82}
-                                  unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                                   className="rounded-full border-2 border-main-border"
                                   style={{
                                     width: "100%",
@@ -1453,16 +1484,14 @@ function PersonaConfigurePageContent() {
                   marginBottom: "16px",
                 }}
               >
-                <Image
-                  src={
-                    getFullAvatarUrl(avatarUrl) ||
-                    uploadedFiles.find((f) => f.type === "image")?.url ||
-                    "/personas/persona1.png"
-                  }
+                <img
+                  src={(() => {
+                    const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                    const resolvedAvatar = getFullAvatarUrl(avatarUrl);
+                    const finalSrc = uploadedImage || resolvedAvatar || "/personas/persona1.png";
+                    return finalSrc;
+                  })()}
                   alt="Persona"
-                  width={82}
-                  height={82}
-                  unoptimized={shouldUseUnoptimized(avatarUrl) || !!uploadedFiles.find((f) => f.type === "image")?.url?.startsWith("blob:")}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -1630,12 +1659,14 @@ function PersonaConfigurePageContent() {
                         overflow: "hidden",
                       }}
                     >
-                      <Image
-                        src={getFullAvatarUrl(avatarUrl) || "/personas/persona1.png"}
+                      <img
+                        src={(() => {
+                          const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                          const resolvedAvatar = getFullAvatarUrl(avatarUrl);
+                          const finalSrc = uploadedImage || resolvedAvatar || "/personas/persona1.png";
+                          return finalSrc;
+                        })()}
                         alt="User"
-                        width={40}
-                        height={40}
-                        unoptimized={shouldUseUnoptimized(avatarUrl)}
                         style={{
                           width: "100%",
                           height: "100%",

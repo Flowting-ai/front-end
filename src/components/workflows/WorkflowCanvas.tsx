@@ -25,10 +25,12 @@ import { ChatNodeInspector } from "./ChatNodeInspector";
 import { PinNodeInspector } from "./PinNodeInspector";
 import { PersonaNodeInspector } from "./PersonaNodeInspector";
 import { ModelNodeInspector } from "./ModelNodeInspector";
+import { EdgeDetailsDialog } from "./EdgeDetailsDialog";
 import ContextMenu from "./ContextMenu";
 import UtilitySection from "./UtilitySection";
 import Footer from "./Footer";
 import CustomNode from "./CustomNode";
+import CustomEdge from "./CustomEdge";
 import {
   WorkflowNode,
   WorkflowEdge,
@@ -162,14 +164,16 @@ function WorkflowCanvasInner() {
   const [personaNodeId, setPersonaNodeId] = useState<string | null>(null);
   const [showModelInspector, setShowModelInspector] = useState(false);
   const [modelNodeId, setModelNodeId] = useState<string | null>(null);
+  const [showEdgeDetails, setShowEdgeDetails] = useState(false);
+  const [selectedEdgeForDetails, setSelectedEdgeForDetails] = useState<Edge | null>(null);
   // Chat data fetched from API
   const [allChats, setAllChats] = useState<Array<{ id: string; name: string; pinnedDate?: string }>>([]);
   // Pin data fetched from API
   const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[] }>>([]);
-  // Sample persona data - replace with actual data from your API
-  const [allPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string }>>([]);
-  // Sample model data - replace with actual data from your API
-  const [allModels] = useState<Array<{ id: string; modelId?: string; name: string; companyName: string; description?: string; logo?: string; modelType?: string; sdkLibrary?: string }>>([]);
+  // Persona data fetched from API
+  const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string }>>([]);
+  // Model data fetched from API
+  const [allModels, setAllModels] = useState<Array<{ id: string; modelId?: string; name: string; companyName: string; description?: string; logo?: string; modelType?: string; sdkLibrary?: string }>>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionOrder, setExecutionOrder] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
@@ -178,8 +182,41 @@ function WorkflowCanvasInner() {
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
 
+  // Save to history with pruning (needed early for other callbacks)
+  const saveToHistory = useCallback(() => {
+    const newHistory = pruneHistory(
+      [...history.slice(0, historyIndex + 1), { nodes: [...nodes], edges: [...edges] }],
+      50
+    );
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [nodes, edges, history, historyIndex]);
+
+  // Delete edges (needed early for edgeTypes)
+  const handleDeleteEdges = useCallback(
+    (edgeIds: string[]) => {
+      setEdges((eds) => eds.filter((e) => !edgeIds.includes(e.id)));
+      setSelectedEdges([]);
+      setShowEdgeDetails(false);
+      setSelectedEdgeForDetails(null);
+      saveToHistory();
+    },
+    [setEdges, saveToHistory],
+  );
+
   // Memoize node types
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
+  
+  // Memoize edge types
+  const edgeTypes = useMemo(() => ({ 
+    default: (props: any) => (
+      <CustomEdge 
+        {...props} 
+        selected={selectedEdges.includes(props.id)}
+        onDelete={(edgeId: string) => handleDeleteEdges([edgeId])}
+      />
+    )
+  }), [selectedEdges, handleDeleteEdges]);
 
   // Remove phantom automatically if a real node exists (e.g., load or other state change)
   useEffect(() => {
@@ -193,20 +230,26 @@ function WorkflowCanvasInner() {
     }
   }, [nodes, setNodes, setEdges]);
 
-  // Fetch chats and pins data on mount
+  // Fetch chats, pins, personas, and models data on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [chatsData, pinsData] = await Promise.all([
+        const [chatsData, pinsData, personasData, modelsData] = await Promise.all([
           workflowAPI.fetchChats(),
           workflowAPI.fetchPins(),
+          workflowAPI.fetchPersonas(),
+          workflowAPI.fetchModels(),
         ]);
         console.log('Fetched chats for workflow:', chatsData);
         console.log('Fetched pins for workflow:', pinsData);
+        console.log('Fetched personas for workflow:', personasData);
+        console.log('Fetched models for workflow:', modelsData);
         setAllChats(chatsData);
         setAllPins(pinsData);
+        setAllPersonas(personasData);
+        setAllModels(modelsData);
       } catch (error) {
-        console.error('Error fetching chats/pins:', error);
+        console.error('Error fetching workflow data:', error);
       }
     };
     fetchData();
@@ -385,16 +428,6 @@ function WorkflowCanvasInner() {
     setExecutionOrder([]);
   }, [setNodes]);
 
-  // Save to history with pruning
-  const saveToHistory = useCallback(() => {
-    const newHistory = pruneHistory(
-      [...history.slice(0, historyIndex + 1), { nodes: [...nodes], edges: [...edges] }],
-      50
-    );
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [nodes, edges, history, historyIndex]);
-
   // Debounced auto-save to backend
   const autoSaveWorkflow = useMemo(
     () =>
@@ -520,8 +553,15 @@ function WorkflowCanvasInner() {
       const sourceType = (sourceNode.data as WorkflowNodeData).type;
       const targetType = (targetNode.data as WorkflowNodeData).type;
 
-      // Use utility validation
-      if (!validateConnection(sourceType, targetType)) {
+      // Use utility validation with cycle detection
+      if (!validateConnection(sourceType, targetType, nodes, edges, params.source, params.target)) {
+        // Provide specific error messages
+        const targetCategory = ['document', 'chat', 'pin'].includes(targetType) ? 'context' : 'other';
+        if (targetCategory === 'context') {
+          alert(`Invalid connection: Context nodes (${targetType}) cannot receive incoming connections. They are source-only nodes.`);
+        } else {
+          alert(`Invalid connection: This would create a cycle in the workflow. Persona and Model nodes cannot form circular dependencies.`);
+        }
         console.warn(`Invalid connection: ${sourceType} cannot connect to ${targetType}`);
         return;
       }
@@ -529,7 +569,7 @@ function WorkflowCanvasInner() {
       setEdges((eds) => addEdge(params, eds));
       saveToHistory();
     },
-    [nodes, setEdges, saveToHistory],
+    [nodes, edges, setEdges, saveToHistory],
   );
 
   // Real-time connection validation for visual feedback
@@ -543,9 +583,9 @@ function WorkflowCanvasInner() {
       const sourceType = (sourceNode.data as WorkflowNodeData).type;
       const targetType = (targetNode.data as WorkflowNodeData).type;
 
-      return validateConnection(sourceType, targetType);
+      return validateConnection(sourceType, targetType, nodes, edges, connection.source, connection.target);
     },
-    [nodes],
+    [nodes, edges],
   );
 
   // Edge click handler
@@ -553,11 +593,22 @@ function WorkflowCanvasInner() {
     _event.stopPropagation();
     setSelectedEdges([edge.id]);
     setSelectedNode(null);
+    // Show edge details dialog
+    setSelectedEdgeForDetails(edge);
+    setShowEdgeDetails(true);
     // Close any open panels
     setShowInstructions(false);
     setShowDocumentInspector(false);
+    setShowChatInspector(false);
+    setShowPinInspector(false);
+    setShowPersonaInspector(false);
+    setShowModelInspector(false);
     setCurrentInstructionsNodeId(null);
     setDocumentNodeId(null);
+    setChatNodeId(null);
+    setPinNodeId(null);
+    setPersonaNodeId(null);
+    setModelNodeId(null);
   }, []);
 
   // Drag and drop from palette
@@ -678,6 +729,8 @@ function WorkflowCanvasInner() {
     setModelNodeId(null);
     setShowInstructions(false);
     setCurrentInstructionsNodeId(null);
+    setShowEdgeDetails(false);
+    setSelectedEdgeForDetails(null);
   }, []);
 
   // Node drag handler - Removed auto-duplication to prevent glitches
@@ -802,6 +855,13 @@ function WorkflowCanvasInner() {
   // Duplicate node
   const handleDuplicate = () => {
     if (!selectedNode) return;
+
+    // Prevent duplication of start and end nodes
+    const nodeData = selectedNode.data as WorkflowNodeData;
+    if (nodeData.type === 'start' || nodeData.type === 'end') {
+      alert('Start and End nodes cannot be duplicated. These are unique control nodes required for workflow execution.');
+      return;
+    }
 
     const newNode = {
       ...selectedNode,
@@ -985,16 +1045,6 @@ function WorkflowCanvasInner() {
     handleDeleteNode(selectedNode.id);
   };
 
-  // Delete edges
-  const handleDeleteEdges = useCallback(
-    (edgeIds: string[]) => {
-      setEdges((eds) => eds.filter((e) => !edgeIds.includes(e.id)));
-      setSelectedEdges([]);
-      saveToHistory();
-    },
-    [setEdges, saveToHistory],
-  );
-
   // Delete from inspector
   const handleDeleteFromInspector = () => {
     if (selectedNode) {
@@ -1029,12 +1079,9 @@ function WorkflowCanvasInner() {
           }))}
           edges={edges.map((edge) => ({
             ...edge,
-            style: {
-              ...edge.style,
-              strokeWidth: selectedEdges.includes(edge.id) ? 3 : 2,
-              stroke: selectedEdges.includes(edge.id) ? '#3B82F6' : '#8B8B8B',
-            },
-            animated: selectedEdges.includes(edge.id) ? true : edge.animated,
+            type: 'default',
+            // node line animation
+            animated: !selectedEdges.includes(edge.id),
           }))}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -1050,13 +1097,14 @@ function WorkflowCanvasInner() {
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           snapToGrid={snapToGrid}
           snapGrid={[20, 20]}
           fitView={{ padding: 0.2, minZoom: 0.5, maxZoom: 1.5 }}
           attributionPosition="bottom-right"
           defaultEdgeOptions={{
             style: { strokeWidth: 2, stroke: "#8B8B8B" },
-            animated: true,
+            animated: false,
           }}
         >
           <Background
@@ -1159,6 +1207,7 @@ function WorkflowCanvasInner() {
             onUpdate={(data) => handleUpdateChatNode(chatNodeId, data)}
             onDelete={() => handleDeleteNode(chatNodeId)}
             allChats={allChats}
+            allPersonas={allPersonas}
           />
         )}
 
@@ -1192,6 +1241,21 @@ function WorkflowCanvasInner() {
             onUpdate={(data) => handleUpdateModelNode(modelNodeId, data)}
             onDelete={() => handleDeleteNode(modelNodeId)}
             allModels={allModels}
+          />
+        )}
+
+        {/* Edge Details Dialog - Absolute to Canvas */}
+        {showEdgeDetails && selectedEdgeForDetails && (
+          <EdgeDetailsDialog
+            edge={selectedEdgeForDetails as WorkflowEdge}
+            nodes={nodes as WorkflowNode[]}
+            edges={edges as WorkflowEdge[]}
+            onClose={() => {
+              setShowEdgeDetails(false);
+              setSelectedEdgeForDetails(null);
+              setSelectedEdges([]);
+            }}
+            edgeIndex={edges.findIndex(e => e.id === selectedEdgeForDetails.id)}
           />
         )}
       </div>
