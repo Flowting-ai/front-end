@@ -16,6 +16,7 @@ import {
   ChevronUp,
   ChevronDown,
   GitCompareArrows,
+  Workflow,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -88,9 +89,9 @@ export function LeftSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
 
-  // Collapse chat boards when on persona admin page
+  // Collapse chat boards when on persona admin or workflow admin page
   React.useEffect(() => {
-    if (pathname?.startsWith("/personaAdmin")) {
+    if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
       setIsChatBoardsExpanded(false);
     }
   }, [pathname]);
@@ -258,18 +259,18 @@ export function LeftSidebar({
                   size="icon"
                   aria-label="Flow Builder"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
-                  onClick={() => router.push("/workflows")}
+                  onClick={() => router.push("/workflowAdmin")}
                 >
                   {/* <BotMessageSquare
                     className={cn(
                       "h-5 w-5",
-                      pathname?.startsWith("/workflows") ? "text-[#303030]" : "text-[#303030]"
+                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
                     )}
                   /> */}
-                  <GitCompareArrows
+                  <Workflow
                     className={cn(
                       "h-5 w-5",
-                      pathname?.startsWith("/workflows") ? "text-[#303030]" : "text-[#303030]"
+                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
                     )}
                   />
                 </Button>
@@ -448,16 +449,16 @@ export function LeftSidebar({
 
             {/* Workflows */}
             <Button
-              onClick={() => router.push("/workflows")}
+              onClick={() => router.push("/workflowAdmin")}
               className={cn(
                 "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                pathname?.startsWith("/workflows") &&
+                pathname?.startsWith("/workflowAdmin") &&
                   "text-lsb-button-active-text bg-lsb-button-active-bg"
               )}
             >
               <div className="w-auto h-full flex items-center justify-center">
                 {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
-                <GitCompareArrows size={20} strokeWidth={2}/>
+                <Workflow size={20} strokeWidth={2}/>
               </div>
               <p className="h-full font-[400] text-[13px] flex items-center gap-2">
                 Flow Builder

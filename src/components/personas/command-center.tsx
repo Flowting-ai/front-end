@@ -12,13 +12,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 
+export interface StatusOption {
+  value: string;
+  label: string;
+}
+
 export interface CommandCenterProps extends React.HTMLAttributes<HTMLDivElement> {
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
   children?: React.ReactNode;
+  description?: string;
+  statusOptions?: StatusOption[];
 }
 
-const STATUS_OPTIONS = [
+const DEFAULT_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Personas" },
   { value: "active", label: "Active Personas" },
   { value: "paused", label: "Paused Personas" },
@@ -26,9 +33,10 @@ const STATUS_OPTIONS = [
 ];
 
 export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps>(
-  ({ statusFilter, onStatusFilterChange, children, className, ...rest }, ref) => {
+  ({ statusFilter, onStatusFilterChange, children, description, statusOptions, className, ...rest }, ref) => {
+    const options = statusOptions || DEFAULT_STATUS_OPTIONS;
     const currentStatusLabel =
-      STATUS_OPTIONS.find((option) => option.value === statusFilter)?.label ?? STATUS_OPTIONS[0].label;
+      options.find((option) => option.value === statusFilter)?.label ?? options[0].label;
 
     return (
       <Card
@@ -71,7 +79,7 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] rounded-[8px] bg-white p-1 border-0 shadow-lg">
-                {STATUS_OPTIONS.map((option) => (
+                {options.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onSelect={() => {
@@ -87,7 +95,7 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
           </div>
 
           <p className="font-inter font-normal text-sm leading-[19.6px] text-[#757575]">
-            Real-time observation of intelligence infrastructure.
+            {description || "Real-time observation of intelligence infrastructure."}
           </p>
         </div>
         {children && <div className="mt-[14px] px-0 pb-2">{children}</div>}

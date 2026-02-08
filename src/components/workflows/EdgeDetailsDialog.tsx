@@ -66,6 +66,14 @@ export function EdgeDetailsDialog({
       };
     }
 
+    const sourceCategory = getNodeCategory(sourceType);
+    if (sourceCategory === 'context' && targetType === 'end') {
+      return {
+        title: "Connection is not set up properly",
+        message: `Context nodes (Document, Chat, Pin) cannot connect directly to the End node. They must first flow through reasoning nodes (Persona or Model) to process the context data before reaching the End.`,
+      };
+    }
+
     const targetCategory = getNodeCategory(targetType);
     if (targetCategory === 'context') {
       return {

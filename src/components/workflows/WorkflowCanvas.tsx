@@ -26,6 +26,7 @@ import { PinNodeInspector } from "./PinNodeInspector";
 import { PersonaNodeInspector } from "./PersonaNodeInspector";
 import { ModelNodeInspector } from "./ModelNodeInspector";
 import { EdgeDetailsDialog } from "./EdgeDetailsDialog";
+import { LoadWorkflowDialog } from "./LoadWorkflowDialog";
 import ContextMenu from "./ContextMenu";
 import UtilitySection from "./UtilitySection";
 import Footer from "./Footer";
@@ -142,7 +143,9 @@ function WorkflowCanvasInner() {
     y: number;
   } | null>(null);
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [history, setHistory] = useState<Array<{ nodes: any[]; edges: any[] }>>(
     [],
   );
@@ -178,6 +181,7 @@ function WorkflowCanvasInner() {
   const [executionOrder, setExecutionOrder] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const isInitialMount = useRef(true);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
@@ -432,7 +436,7 @@ function WorkflowCanvasInner() {
   const autoSaveWorkflow = useMemo(
     () =>
       debounce(async (name: string, nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
-        if (!workflowId) return;
+        if (!workflowId || !hasUnsavedChanges) return;
 
         try {
           setIsSaving(true);
@@ -452,22 +456,40 @@ function WorkflowCanvasInner() {
             }
           }
           
-          setLastSaved(new Date());
+          setSaveStatus('Auto saved');
         } catch (error) {
           console.error('Auto-save failed:', error);
         } finally {
           setIsSaving(false);
         }
       }, 2000),
-    [workflowId, getViewport]
+    [workflowId, getViewport, hasUnsavedChanges]
   );
 
-  // Trigger auto-save when nodes or edges change
+  // Track changes and trigger auto-save when nodes or edges change
   useEffect(() => {
+    // Skip initial mount to prevent showing autosave on first load
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
     if (nodes.length > 0 && workflowName) {
+      setHasUnsavedChanges(true);
       autoSaveWorkflow(workflowName, nodes, edges);
     }
   }, [nodes, edges, workflowName, autoSaveWorkflow]);
+
+  // Auto-hide the save status indicator after 3 seconds
+  useEffect(() => {
+    if (saveStatus) {
+      const timer = setTimeout(() => {
+        setSaveStatus(null);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [saveStatus]);
 
   // Undo
   const handleUndo = useCallback(() => {
@@ -804,21 +826,38 @@ function WorkflowCanvasInner() {
   }, [setNodes, setEdges, saveToHistory]);
 
   // Save workflow
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!workflowId) return;
 
-    const workflow = {
-      id: workflowId,
-      name: workflowName,
-      nodes,
-      edges,
-      viewport: getViewport(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      setIsSaving(true);
+      const viewport = getViewport();
+      const workflowDTO = serializeWorkflow(workflowName, nodes, edges, viewport);
 
-    localStorage.setItem("workflow", JSON.stringify(workflow));
-    setLastSaved(new Date());
+      // Save to local storage
+      saveToLocalStorage(workflowId, workflowDTO);
+
+      // Persist to backend if API is available
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        try {
+          await workflowAPI.update(workflowId, workflowDTO);
+          console.log('Workflow saved to backend successfully');
+        } catch (apiError) {
+          console.warn('Backend API not available, using localStorage only:', apiError);
+        }
+      }
+
+      // Mark as saved
+      setHasUnsavedChanges(true); // Keep showing the indicator
+      setSaveStatus('Workflow saved');
+      
+      // Optional: Show a success message
+      console.log('Workflow saved successfully');
+    } catch (error) {
+      console.error('Save failed:', error);
+    } finally {
+      setIsSaving(false);
+    }
   }, [workflowId, nodes, edges, workflowName, getViewport]);
 
   // Load workflow
@@ -835,8 +874,37 @@ function WorkflowCanvasInner() {
       if (workflow.viewport) {
         setViewport(workflow.viewport);
       }
-      setLastSaved(new Date(workflow.updatedAt));
+      // Don't show save status on load
+      setSaveStatus(null);
+      setHasUnsavedChanges(false);
       saveToHistory();
+    }
+  }, [setNodes, setEdges, setViewport, saveToHistory]);
+
+  // Load workflow from API
+  const handleLoadWorkflow = useCallback(async (workflowId: string) => {
+    try {
+      const workflowDTO = await workflowAPI.get(workflowId);
+      
+      // Update canvas with loaded workflow
+      setNodes(workflowDTO.nodes || []);
+      setEdges(workflowDTO.edges || []);
+      setWorkflowName(workflowDTO.name || "Untitled Workflow");
+      setWorkflowId(workflowId);
+      
+      if (workflowDTO.viewport) {
+        setViewport(workflowDTO.viewport);
+      }
+      
+      // Reset save status
+      setSaveStatus(null);
+      setHasUnsavedChanges(false);
+      saveToHistory();
+      
+      console.log('Workflow loaded successfully:', workflowDTO.name);
+    } catch (error) {
+      console.error('Failed to load workflow:', error);
+      alert('Failed to load workflow. Please try again.');
     }
   }, [setNodes, setEdges, setViewport, saveToHistory]);
 
@@ -1062,7 +1130,7 @@ function WorkflowCanvasInner() {
         onShare={handleShare}
         onReset={resetWorkflow}
         isExecuting={isExecuting}
-        lastSaved={lastSaved}
+        saveStatus={saveStatus}
       />
 
       {/* Main Canvas */}
@@ -1291,7 +1359,7 @@ function WorkflowCanvasInner() {
         onFitView={() => fitView({ duration: 300 })}
         onClear={handleClear}
         onSave={handleSave}
-        onLoad={handleLoad}
+        onLoad={() => setShowLoadDialog(true)}
         onZoomIn={() => zoomIn({ duration: 300 })}
         onZoomOut={() => zoomOut({ duration: 300 })}
         onToggleMinimap={() => setShowMinimap(!showMinimap)}
@@ -1302,6 +1370,14 @@ function WorkflowCanvasInner() {
 
       {/* Footer */}
       <Footer nodeCount={nodes.length} connectionCount={edges.length} />
+
+      {/* Load Workflow Dialog */}
+      {showLoadDialog && (
+        <LoadWorkflowDialog
+          onClose={() => setShowLoadDialog(false)}
+          onLoad={handleLoadWorkflow}
+        />
+      )}
     </div>
   );
 }

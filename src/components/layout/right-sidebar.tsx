@@ -131,14 +131,6 @@ export function RightSidebar({
   className,
   onInsertToChat,
 }: RightSidebarProps) {
-  /**
-   * Dev-only Pinboard state toggle
-   * - Allows developers to switch between empty and filled states without UI controls.
-   * - Usage (development only):
-   *   • Query param: ?pinboard=empty | ?pinboard=filled
-   *   • DevTools: localStorage.setItem('pinboardDevState', 'empty' | 'auto')
-   *   • DevTools helper: window.__setPinboardDevState('empty' | 'auto')
-   */
   const [forceEmptyPinboard, setForceEmptyPinboard] = useState<boolean>(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -596,6 +588,9 @@ export function RightSidebar({
     if (typeof window === "undefined") return;
 
     const now = new Date();
+    const filename = `pins-export-${now.toISOString().split('T')[0]}.pdf`;
+
+    // Format pins for HTML display
     const htmlPins = sortedAndFilteredPins
       .map((pin) => {
         const tags = pin.tags.length
@@ -610,7 +605,7 @@ export function RightSidebar({
               )}</div>`
             : "";
         return `
-          <div style="padding:12px 14px; border:1px solid #e1e1e1; border-radius:10px; margin-bottom:10px;">
+          <div style="padding:12px 14px; border:1px solid #e1e1e1; border-radius:10px; margin-bottom:10px; break-inside: avoid;">
             <div style="font-weight:600; font-size:14px; color:#111; margin-bottom:4px;">${stripMarkdown(
               pin.title || pin.text
             )}</div>
@@ -623,18 +618,98 @@ export function RightSidebar({
       .join("");
 
     const docHtml = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Pins Export</title>
+          <title>Pins Export - ${filename}</title>
+          <meta charset="UTF-8">
           <style>
             @page { margin: 18mm; }
-            body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-            .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
-            .container { padding: 16px; }
+            * { box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 0;
+              background: #f5f5f5;
+            }
+            .toolbar {
+              position: sticky;
+              top: 0;
+              background: white;
+              border-bottom: 1px solid #ddd;
+              padding: 12px 20px;
+              display: flex;
+              gap: 10px;
+              align-items: center;
+              z-index: 1000;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .toolbar button {
+              padding: 8px 16px;
+              border: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+            .toolbar button:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            .print-btn {
+              background: #1e1e1e;
+              color: white;
+            }
+            .print-btn:hover {
+              background: #333;
+            }
+            .toolbar-title {
+              margin-left: 10px;
+              font-size: 14px;
+              color: #666;
+              flex: 1;
+            }
+            .meta { 
+              font-size: 12px; 
+              color: #555; 
+              margin-bottom: 16px;
+            }
+            .container { 
+              max-width: 900px;
+              margin: 0 auto;
+              padding: 20px;
+              background: white;
+              min-height: calc(100vh - 60px);
+            }
+            .header {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 8px;
+              color: #111;
+            }
+            @media print {
+              body { background: white; }
+              .toolbar { display: none; }
+              .container { 
+                max-width: 100%;
+                padding: 0;
+                box-shadow: none;
+              }
+            }
           </style>
         </head>
         <body>
+          <div class="toolbar">
+            <button class="print-btn" onclick="window.print()">
+              <span style="margin-right: 6px;">🖨</span> Print
+            </button>
+            <div class="toolbar-title">
+              ${sortedAndFilteredPins.length} pin(s) · ${now.toLocaleString()}
+            </div>
+          </div>
           <div class="container">
+            <div class="header">Pinboard Export</div>
             <div class="meta">Exported ${sortedAndFilteredPins.length} pin(s) · ${now.toLocaleString()}</div>
             ${htmlPins}
           </div>
@@ -642,31 +717,28 @@ export function RightSidebar({
       </html>
     `;
 
-    const printWindow = window.open("", "_blank", "width=900,height=1200");
-    if (!printWindow) {
-      toast.error("Popup blocked", {
-        description: "Allow popups to export pins.",
+    try {
+      const printWindow = window.open("", "_blank", "width=1000,height=800");
+      if (!printWindow) {
+        toast.error("Popup blocked", {
+          description: "Allow popups to export pins.",
+        });
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(docHtml);
+      printWindow.document.close();
+
+      toast("Export window opened", {
+        description: "Use the toolbar to print your pins.",
       });
-      return;
+    } catch (error) {
+      console.error("Failed to open export window", error);
+      toast.error("Export failed", {
+        description: "Unable to open export window.",
+      });
     }
-    
-    // Secure alternative to document.write: use blob and iframe
-    const blob = new Blob([docHtml], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
-    printWindow.location.href = blobUrl;
-    
-    printWindow.addEventListener('load', () => {
-      printWindow.focus();
-      printWindow.print();
-      setTimeout(() => {
-        try {
-          URL.revokeObjectURL(blobUrl);
-          printWindow.close();
-        } catch {
-          /* ignore */
-        }
-      }, 300);
-    });
   }, [sortedAndFilteredPins, toast]);
 
   const getFilterLabel = () => {

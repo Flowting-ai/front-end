@@ -34,7 +34,8 @@ export default function ContextMenu({
           {
             label: 'Add Node',
             submenu: [
-              { label: 'Document', action: () => onAddNode('document' as NodeType) },
+              // Note: Document node type is currently disabled as it requires additional backend work to support file uploads and management
+              // { label: 'Document', action: () => onAddNode('document' as NodeType) },
               { label: 'Chat', action: () => onAddNode('chat' as NodeType) },
               { label: 'Pin', action: () => onAddNode('pin' as NodeType) },
               { label: 'Persona', action: () => onAddNode('persona' as NodeType) },

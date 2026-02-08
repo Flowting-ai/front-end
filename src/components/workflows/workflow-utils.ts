@@ -95,6 +95,22 @@ export const validateWorkflow = (
     }
   }
 
+  // Check for context nodes connecting directly to End node
+  if (endNode) {
+    const contextNodes = nodes.filter(n => 
+      ['document', 'chat', 'pin'].includes(n.data.type as string)
+    );
+    
+    contextNodes.forEach(contextNode => {
+      const directConnection = edges.some(
+        edge => edge.source === contextNode.id && edge.target === endNode.id
+      );
+      if (directConnection) {
+        errors.push(`Cannot connect ${contextNode.data.type} node directly to End. Context nodes must connect through reasoning nodes (persona or model).`);
+      }
+    });
+  }
+
   // Check for disconnected nodes
   const connectedNodes = new Set<string>();
   edges.forEach(edge => {
@@ -138,6 +154,11 @@ export const isValidConnection = (
 
   // Disallow End → Start connection (if End somehow has outgoing handles)
   if (sourceType === 'end' && targetType === 'start') {
+    return false;
+  }
+
+  // Disallow context nodes (document, chat, pin) connecting directly to End node
+  if (sourceCategory === 'context' && targetType === 'end') {
     return false;
   }
 

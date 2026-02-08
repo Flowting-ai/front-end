@@ -11,7 +11,7 @@ interface TopBarProps {
   onShare: () => void;
   onReset?: () => void;
   isExecuting?: boolean;
-  lastSaved: Date | null;
+  saveStatus: string | null; // 'Auto saved' or 'Workflow saved'
 }
 
 export default function TopBar({
@@ -21,7 +21,7 @@ export default function TopBar({
   onShare,
   onReset,
   isExecuting = false,
-  lastSaved,
+  saveStatus,
 }: TopBarProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -48,7 +48,7 @@ export default function TopBar({
       {/* Left Content */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/workflowAdmin')}
           className="text-[#525252] hover:text-[#000] transition-colors"
           aria-label="Go back"
         >
@@ -77,10 +77,14 @@ export default function TopBar({
 
       {/* Right Content */}
       <div className="flex items-center gap-3">
-        {/* Autosave Indicator */}
-        {lastSaved && (
-          <div className="h-5 text-[#00812F] bg-[#D8FDE4] px-1.5 py-1 rounded text-xs flex items-center">
-            Auto saved
+        {/* Save Status Indicator */}
+        {saveStatus && (
+          <div className={`h-5 px-1.5 py-1 rounded text-xs flex items-center ${
+            saveStatus === 'Workflow saved'
+              ? 'text-[#00812F] bg-[#D8FDE4]'
+              : 'text-[#00812F] bg-[#D8FDE4]'
+          }`}>
+            {saveStatus}
           </div>
         )}
 
