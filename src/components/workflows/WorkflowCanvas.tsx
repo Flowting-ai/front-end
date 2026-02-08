@@ -27,6 +27,7 @@ import { PersonaNodeInspector } from "./PersonaNodeInspector";
 import { ModelNodeInspector } from "./ModelNodeInspector";
 import { EdgeDetailsDialog } from "./EdgeDetailsDialog";
 import { LoadWorkflowDialog } from "./LoadWorkflowDialog";
+import { WorkflowChatInterface } from "./WorkflowChatInterface";
 import ContextMenu from "./ContextMenu";
 import UtilitySection from "./UtilitySection";
 import Footer from "./Footer";
@@ -182,6 +183,7 @@ function WorkflowCanvasInner() {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const isInitialMount = useRef(true);
+  const [showWorkflowChat, setShowWorkflowChat] = useState(false);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
@@ -911,6 +913,7 @@ function WorkflowCanvasInner() {
   // Test workflow - Execute the workflow
   const handleTest = () => {
     executeWorkflow();
+    setShowWorkflowChat(true);
   };
 
   // Share workflow
@@ -1377,6 +1380,24 @@ function WorkflowCanvasInner() {
           onClose={() => setShowLoadDialog(false)}
           onLoad={handleLoadWorkflow}
         />
+      )}
+
+      {/* Workflow Chat Interface */}
+      {showWorkflowChat && (
+        <div
+          className="fixed right-0 top-0 bottom-0 z-50 animate-slide-in-right"
+          style={{
+            width: "588px",
+            height: "100vh",
+          }}
+        >
+          <WorkflowChatInterface
+            workflowId={workflowId || "temp"}
+            workflowName={workflowName}
+            onClose={() => setShowWorkflowChat(false)}
+            selectedModel={null}
+          />
+        </div>
       )}
     </div>
   );

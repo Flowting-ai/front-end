@@ -119,7 +119,7 @@ export default function TopBar({
           )}
         </button>
 
-        {/* Share Button */}
+
         <button
           onClick={onShare}
           className="text-[#FAFAFA] bg-[#171717] hover:bg-[#2a2a2a] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
