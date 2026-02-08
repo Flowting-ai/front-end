@@ -25,6 +25,8 @@ interface BackendKnowledgeBaseItem {
   kb_type: "chat" | "pin";
   kb_id: string;
   instruction?: string;
+  position_x?: number;
+  position_y?: number;
 }
 
 interface BackendWorkflowNodePayload {
@@ -72,8 +74,10 @@ interface BackendWorkflowNode {
   model_id?: number | string | null;
   model_name?: string | null;
   persona_id?: string | null;
+  persona_name?: string | null;
   instructions?: string;
   knowledge_bases?: BackendKnowledgeBaseItem[];
+  created_at?: string;
 }
 
 interface BackendWorkflowEdge {
@@ -81,6 +85,16 @@ interface BackendWorkflowEdge {
   source_node_id: string;
   target_node_id: string;
   label?: string;
+  created_at?: string;
+}
+
+interface PreprocessedKnowledgeItem {
+  kb_type: "chat" | "pin";
+  instruction?: string;
+  context?: string;
+  position_x?: number;
+  position_y?: number;
+  node_id?: string;
 }
 
 interface BackendWorkflowDetail {
@@ -92,6 +106,7 @@ interface BackendWorkflowDetail {
   updated_at?: string;
   nodes: BackendWorkflowNode[];
   edges: BackendWorkflowEdge[];
+  preprocessed_knowledge?: Record<string, PreprocessedKnowledgeItem>;
 }
 
 interface BackendWorkflowCreateResponse {
@@ -324,6 +339,8 @@ const toBackendWorkflowPayload = (
     if (!processNodeIds.has(targetNode.id)) continue;
 
     const sourceInstruction = asString(sourceNode.data?.instructions) || "";
+    const sourcePositionX = Number(sourceNode.position?.x ?? 0);
+    const sourcePositionY = Number(sourceNode.position?.y ?? 0);
     const list = knowledgeByTarget.get(targetNode.id) || [];
 
     if (sourceType === "chat") {
@@ -332,6 +349,8 @@ const toBackendWorkflowPayload = (
           kb_type: "chat",
           kb_id: chatId,
           instruction: sourceInstruction,
+          position_x: sourcePositionX,
+          position_y: sourcePositionY,
         });
       }
     }
@@ -342,6 +361,8 @@ const toBackendWorkflowPayload = (
           kb_type: "pin",
           kb_id: pinId,
           instruction: sourceInstruction,
+          position_x: sourcePositionX,
+          position_y: sourcePositionY,
         });
       }
     }
@@ -499,14 +520,27 @@ const toWorkflowMetadata = (
 });
 
 const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
-  const nodes: WorkflowDTO["nodes"] = workflow.nodes.map((node) => {
-    const chatKbIds = (node.knowledge_bases || [])
-      .filter((kb) => kb.kb_type === "chat")
-      .map((kb) => kb.kb_id);
-    const pinKbIds = (node.knowledge_bases || [])
-      .filter((kb) => kb.kb_type === "pin")
-      .map((kb) => kb.kb_id);
+  console.log("[toWorkflowDTO] Input workflow:", {
+    id: workflow.id,
+    name: workflow.name,
+    nodeCount: workflow.nodes.length,
+    edgeCount: workflow.edges.length,
+    hasPreprocessedKb: !!workflow.preprocessed_knowledge,
+  });
 
+  // Build preprocessed knowledge lookup for context data
+  const preprocessedKb = workflow.preprocessed_knowledge || {};
+
+  // Collect all nodes (process nodes + recreated context nodes)
+  const allNodes: WorkflowDTO["nodes"] = [];
+  // Collect all edges (backend edges + edges from context nodes to process nodes)
+  const allEdges: WorkflowDTO["edges"] = [];
+
+  // Track created KB node IDs to avoid duplicates
+  const createdKbNodes = new Map<string, string>(); // kb_id -> node_id
+
+  workflow.nodes.forEach((node) => {
+    // Determine frontend type
     let frontendType: FrontendNodeType = "model";
     if (node.node_type === "start") frontendType = "start";
     else if (node.node_type === "end") frontendType = "end";
@@ -518,9 +552,14 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
         ? "Start"
         : frontendType === "end"
         ? "End"
+        : frontendType === "persona" && node.persona_name
+        ? node.persona_name
+        : frontendType === "model" && node.model_name
+        ? node.model_name
         : node.node_id;
 
-    return {
+    // Create the main node (start/end/process)
+    allNodes.push({
       id: node.node_id,
       type: "custom",
       position: {
@@ -538,35 +577,123 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
         selectedModel: node.model_id ? String(node.model_id) : undefined,
         modelId: node.model_id ? String(node.model_id) : undefined,
         selectedPersona: node.persona_id || undefined,
-        selectedChats: chatKbIds[0],
-        selectedPins: pinKbIds.length ? pinKbIds : undefined,
         modelData: node.model_name
-          ? {
-              name: node.model_name,
-            }
+          ? { name: node.model_name }
+          : undefined,
+        personaData: node.persona_name
+          ? { name: node.persona_name }
           : undefined,
       },
-    };
+    });
+
+    // Recreate chat/pin context nodes from knowledge_bases
+    const knowledgeBases = node.knowledge_bases || [];
+    console.log(`[toWorkflowDTO] Node ${node.node_id} has ${knowledgeBases.length} knowledge_bases:`, knowledgeBases);
+
+    knowledgeBases.forEach((kb, kbIndex) => {
+      // Check if we already created a node for this kb_id
+      if (createdKbNodes.has(kb.kb_id)) {
+        // Just add an edge from existing node to this process node
+        const existingNodeId = createdKbNodes.get(kb.kb_id)!;
+        allEdges.push({
+          id: `e-${existingNodeId}-${node.node_id}`,
+          source: existingNodeId,
+          target: node.node_id,
+          type: "default",
+        });
+        return;
+      }
+
+      // Create a new context node for this KB
+      const kbNodeId = `kb-${kb.kb_type}-${kb.kb_id}`;
+      createdKbNodes.set(kb.kb_id, kbNodeId);
+
+      // Get preprocessed context if available
+      const preprocessed = preprocessedKb[kb.kb_id];
+      const contextText = preprocessed?.context || "";
+
+      if (kb.kb_type === "chat") {
+        // Create chat node
+        console.log(`[toWorkflowDTO] Creating CHAT node: ${kbNodeId} at (${kb.position_x}, ${kb.position_y})`);
+        allNodes.push({
+          id: kbNodeId,
+          type: "custom",
+          position: {
+            x: Number(kb.position_x ?? node.position_x - 200),
+            y: Number(kb.position_y ?? node.position_y + kbIndex * 120),
+          },
+          data: {
+            label: "Chat",
+            name: kbNodeId,
+            description: contextText ? contextText.slice(0, 100) + "..." : "Chat context",
+            type: "chat",
+            status: "idle",
+            config: {},
+            instructions: kb.instruction || "",
+            selectedChats: kb.kb_id,
+          },
+        });
+      } else if (kb.kb_type === "pin") {
+        // Create pin node
+        console.log(`[toWorkflowDTO] Creating PIN node: ${kbNodeId} at (${kb.position_x}, ${kb.position_y})`);
+        allNodes.push({
+          id: kbNodeId,
+          type: "custom",
+          position: {
+            x: Number(kb.position_x ?? node.position_x - 200),
+            y: Number(kb.position_y ?? node.position_y + kbIndex * 120),
+          },
+          data: {
+            label: "Pin",
+            name: kbNodeId,
+            description: contextText ? contextText.slice(0, 100) + "..." : "Pin context",
+            type: "pin",
+            status: "idle",
+            config: {},
+            instructions: kb.instruction || "",
+            selectedPins: [kb.kb_id],
+          },
+        });
+      }
+
+      // Create edge from KB node to process node
+      allEdges.push({
+        id: `e-${kbNodeId}-${node.node_id}`,
+        source: kbNodeId,
+        target: node.node_id,
+        type: "default",
+      });
+    });
   });
 
-  const edges: WorkflowDTO["edges"] = workflow.edges.map((edge, index) => ({
-    id:
-      edge.id ||
-      `e-${edge.source_node_id}-${edge.target_node_id}-${String(index + 1)}`,
-    source: edge.source_node_id,
-    target: edge.target_node_id,
-    type: "default",
-  }));
+  // Add backend edges (between process nodes)
+  workflow.edges.forEach((edge, index) => {
+    allEdges.push({
+      id: edge.id || `e-${edge.source_node_id}-${edge.target_node_id}-${String(index + 1)}`,
+      source: edge.source_node_id,
+      target: edge.target_node_id,
+      type: "default",
+    });
+  });
+
+  // Log final output
+  console.log("[toWorkflowDTO] OUTPUT:", {
+    totalNodes: allNodes.length,
+    nodeTypes: allNodes.map(n => ({ id: n.id, type: n.data.type })),
+    totalEdges: allEdges.length,
+  });
 
   return {
     id: workflow.id,
     name: workflow.name || "Untitled Workflow",
     description: workflow.description || "",
-    nodes,
-    edges,
+    nodes: allNodes,
+    edges: allEdges,
     createdAt: workflow.created_at,
     updatedAt: workflow.updated_at,
     isPublic: false,
+    isActive: workflow.is_active,
+    preprocessedKnowledge: workflow.preprocessed_knowledge,
   };
 };
 

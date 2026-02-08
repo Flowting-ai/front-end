@@ -19,6 +19,8 @@ export interface KnowledgeBaseItem {
   kb_type: 'chat' | 'pin';
   kb_id: string;
   instruction?: string;
+  position_x?: number;
+  position_y?: number;
 }
 
 export interface WorkflowNode {
@@ -235,6 +237,8 @@ export interface BackendNode {
     kb_type: 'chat' | 'pin';
     kb_id: string;
     instruction?: string;
+    position_x?: number;
+    position_y?: number;
   }>;
 }
 
@@ -280,12 +284,14 @@ export const toBackendPayload = (
         backendNode.model_id = node.model_id;
       }
 
-      // Add knowledge bases if present
+      // Add knowledge bases if present (with positions)
       if (node.knowledge_bases.length > 0) {
         backendNode.knowledge_bases = node.knowledge_bases.map(kb => ({
           kb_type: kb.kb_type,
           kb_id: kb.kb_id,
           ...(kb.instruction && { instruction: kb.instruction }),
+          ...(kb.position_x !== undefined && { position_x: kb.position_x }),
+          ...(kb.position_y !== undefined && { position_y: kb.position_y }),
         }));
       }
     }

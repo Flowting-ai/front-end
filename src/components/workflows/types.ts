@@ -52,6 +52,7 @@ export interface WorkflowNodeData {
     companyName?: string; // For getModelIcon()
     sdkLibrary?: string; // For getModelIcon()
   };
+  knowledgeContext?: Record<string, string>; // Preprocessed KB content by kb_id
   onOpenInstructions?: () => void; // Frontend only
   executionOrder?: number; // Track execution sequence
   processingTime?: number; // Track performance
@@ -60,6 +61,16 @@ export interface WorkflowNodeData {
 export type WorkflowNode = Node<WorkflowNodeData>;
 
 export type WorkflowEdge = Edge;
+
+// Preprocessed knowledge base item from backend
+export interface PreprocessedKnowledgeItem {
+  kb_type: 'chat' | 'pin';
+  instruction?: string;
+  context?: string;
+  position_x?: number;
+  position_y?: number;
+  node_id?: string;
+}
 
 // Backend API Types
 export interface WorkflowDTO {
@@ -72,8 +83,10 @@ export interface WorkflowDTO {
   version?: number;
   tags?: string[];
   isPublic?: boolean;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  preprocessedKnowledge?: Record<string, PreprocessedKnowledgeItem>;
 }
 
 // Serialized node for backend (excludes frontend-only props)

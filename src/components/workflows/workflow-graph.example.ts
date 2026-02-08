@@ -33,11 +33,15 @@ const personaNode = createPersonaNode(
       kb_type: 'chat',
       kb_id: 'chat-abc123',
       instruction: 'Use this conversation as context for tone',
+      position_x: 50,
+      position_y: 50,
     },
     {
       kb_type: 'pin',
       kb_id: 'pin-xyz789',
       instruction: 'Reference these brand guidelines',
+      position_x: 50,
+      position_y: 150,
     },
   ]
 );
@@ -50,6 +54,8 @@ const modelNode = createModelNode(
       kb_type: 'chat',
       kb_id: 'chat-def456',
       instruction: 'Use as examples for output format',
+      position_x: 250,
+      position_y: 300,
     },
   ]
 );
