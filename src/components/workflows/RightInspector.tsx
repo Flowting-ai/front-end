@@ -50,8 +50,10 @@ export default function RightInspector({
     if (!files || files.length === 0) return;
 
     const newFiles = Array.from(files).map((file) => ({
+      id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
       size: file.size,
+      type: file.type,
       url: URL.createObjectURL(file),
     }));
 

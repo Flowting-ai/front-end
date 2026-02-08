@@ -4,7 +4,11 @@ import React from 'react';
 import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge } from 'reactflow';
 import { X } from 'lucide-react';
 
-interface CustomEdgeProps extends EdgeProps {
+interface CustomEdgeData {
+  onDeleteEdge?: (edgeIds: string[]) => void;
+}
+
+interface CustomEdgeProps extends EdgeProps<CustomEdgeData> {
   selected?: boolean;
   onDelete?: (edgeId: string) => void;
 }
@@ -17,6 +21,7 @@ export function CustomEdge({
   targetY,
   sourcePosition,
   targetPosition,
+  data,
   style = {},
   markerEnd,
   selected = false,
@@ -31,10 +36,17 @@ export function CustomEdge({
     targetPosition,
   });
 
+  const onDeleteFromData =
+    typeof data?.onDeleteEdge === "function" ? data.onDeleteEdge : undefined;
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onDelete) {
       onDelete(id);
+      return;
+    }
+    if (onDeleteFromData) {
+      onDeleteFromData([id]);
     }
   };
 
@@ -49,7 +61,7 @@ export function CustomEdge({
           stroke: selected ? '#000000' : '#8B8B8B',
         }}
       />
-      {selected && (
+      {selected && (onDelete || onDeleteFromData) && (
         <EdgeLabelRenderer>
           <div
             style={{

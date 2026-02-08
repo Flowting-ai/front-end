@@ -947,6 +947,10 @@ export function ChatMessage({
                           message.content ||
                           "Generated image"
                         }
+                        width={0}
+                        height={0}
+                        sizes="100vw"
+                        unoptimized={message.imageUrl.startsWith("data:")}
                         className="w-full h-auto object-contain bg-white"
                       />
                     </div>

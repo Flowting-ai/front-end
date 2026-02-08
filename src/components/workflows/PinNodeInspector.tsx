@@ -141,8 +141,8 @@ export function PinNodeInspector({
                   </button>
 
                   {/* Pin Title */}
-                  <p className="text-xs font-medium text-black truncate pr-5" title={pin?.title || pin?.name || pinId}>
-                    {pin?.title || pin?.name || pinId}
+                  <p className="text-xs font-medium text-black truncate pr-5" title={pin?.name || pinId}>
+                    {pin?.name || pinId}
                   </p>
                 </div>
               );

@@ -9,13 +9,13 @@ import { getModelIcon } from "@/lib/model-icons";
 
 interface Model {
   id: string;
+  modelId?: string;
   name: string;
   companyName: string;
   description?: string;
   logo?: string;
   sdkLibrary?: string;
   modelType?: "free" | "paid";
-  modelId?: string;
   inputModalities?: string[];
   outputModalities?: string[];
   inputLimit?: number;

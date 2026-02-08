@@ -11,6 +11,8 @@ interface TopBarProps {
   onShare: () => void;
   onReset?: () => void;
   isExecuting?: boolean;
+  canTestWorkflow?: boolean;
+  testDisabledReason?: string;
   saveStatus: string | null; // 'Auto saved' or 'Workflow saved'
 }
 
@@ -21,6 +23,8 @@ export default function TopBar({
   onShare,
   onReset,
   isExecuting = false,
+  canTestWorkflow = true,
+  testDisabledReason,
   saveStatus,
 }: TopBarProps) {
   const router = useRouter();
@@ -42,6 +46,8 @@ export default function TopBar({
       setIsEditing(false);
     }
   };
+
+  const isTestDisabled = isExecuting || !canTestWorkflow;
 
   return (
     <div className="h-14 w-full bg-gradient-to-b from-[#F2F2F2] to-transparent flex items-center justify-between gap-6 px-6 absolute top-0 left-0 right-0 z-50">
@@ -103,7 +109,8 @@ export default function TopBar({
         {/* Test Workflow Button */}
         <button
           onClick={onTest}
-          disabled={isExecuting}
+          disabled={isTestDisabled}
+          title={isTestDisabled ? testDisabledReason || "Configure workflow before testing." : "Run workflow test"}
           className="text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         >
           {isExecuting ? (

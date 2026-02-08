@@ -111,7 +111,7 @@ export default function WorkflowAdminPage() {
         id: wf.id,
         name: wf.name,
         description: wf.description,
-        status: "active" as const, // Default status - can be enhanced later
+        status: wf.isActive ? "active" : "inactive",
         creditUsage: wf.nodeCount * 1000 + wf.edgeCount * 500, // Mock calculation
         consumers: index < 2 ? MOCK_CONSUMERS : MOCK_CONSUMERS.slice(0, 2), // Mock consumers
         consumersCount: index < 2 ? MOCK_CONSUMERS.length : 2, // Mock count

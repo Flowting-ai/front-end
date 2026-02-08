@@ -505,6 +505,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   );
 
   const isMobile = useIsMobile();
+  const isChatRoute = pathname === "/";
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const { user, csrfToken, setCsrfToken } = useAuth();
@@ -1264,8 +1265,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     isRightSidebarVisible,
   };
 
-  // Only pass chat-related props to chat pages, not persona pages
-  const pageContent = isPersonasRoute
+  // Only inject chat props on the main chat route.
+  const pageContent = !isChatRoute || isPersonasRoute
     ? children
     : React.cloneElement(children, {
         key: activeChatId ?? "no-chat",

@@ -48,6 +48,7 @@ const nodeTypeColors = {
   pin: "text-[#B47800] bg-[#FBEEB1] border-[#B47800]/30",
   persona: "text-[#3C6CFF] bg-[#E5EBFD] border-[#3C6CFF]/30",
   model: "text-[#3C6CFF] bg-[#E5EBFD] border-[#3C6CFF]/30",
+  phantom: "text-[#757575] bg-[#F2F2F2] border-[#8B8B8B]/30",
 };
 
 function CustomNode({
@@ -191,7 +192,7 @@ function CustomNode({
             >
               {data.status}
             </span>
-            {data.type !== 'start' && data.type !== 'phantom' && data.type !== 'end' && (
+            {data.type !== 'start' && data.type !== 'end' && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();

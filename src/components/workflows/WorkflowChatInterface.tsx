@@ -4,14 +4,14 @@ import { useState, useRef, useEffect } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Mic, Square, Sparkles } from "lucide-react";
+import { Send, X, Mic, Square } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
-import { renderInlineMarkdown } from "@/lib/markdown-utils";
 import { toast } from "@/lib/toast-helper";
 import Image from "next/image";
+import { workflowAPI } from "./workflow-api";
 
 interface WorkflowChatInterfaceProps {
   workflowId: string;
@@ -22,7 +22,7 @@ interface WorkflowChatInterfaceProps {
 
 export function WorkflowChatInterface({
   workflowId,
-  workflowName,
+  workflowName: _workflowName,
   onClose,
   selectedModel,
 }: WorkflowChatInterfaceProps) {
@@ -85,15 +85,25 @@ export function WorkflowChatInterface({
 
     setDisplayMessages((prev) => [...prev, loadingMessage]);
 
-    // Simulate AI response (replace with actual API call)
     try {
-      // TODO: Integrate with actual workflow execution API
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!workflowId || workflowId === "temp") {
+        throw new Error("Save the workflow first, then run workflow chat.");
+      }
+
+      const result = await workflowAPI.execute(workflowId, {
+        inputText: trimmedContent,
+      });
+      const failed =
+        result.status === "failed" ||
+        result.status === "error" ||
+        Boolean(result.error);
 
       const aiResponse: Message = {
         id: aiMessageId,
         sender: "ai",
-        content: `I received your message: "${trimmedContent}". This is a placeholder response. In production, this would execute the workflow and return real results.`,
+        content: failed
+          ? result.error || "Workflow execution failed."
+          : result.finalOutput || "Workflow executed successfully with no output.",
         avatarUrl: selectedModel
           ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
           : defaultAiAvatar?.imageUrl,
@@ -108,10 +118,14 @@ export function WorkflowChatInterface({
         prev.map((msg) => (msg.id === aiMessageId ? aiResponse : msg))
       );
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Sorry, I encountered an error processing your request.";
       const errorMessage: Message = {
         id: aiMessageId,
         sender: "ai",
-        content: "Sorry, I encountered an error processing your request.",
+        content: message,
         avatarUrl: selectedModel
           ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
           : defaultAiAvatar?.imageUrl,

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import ReactFlow, {
   ReactFlowProvider,
   Background,
@@ -41,12 +42,10 @@ import {
   serializeWorkflow,
 } from "./types";
 import {
-  debounce,
   topologicalSort,
   validateWorkflow,
   getNodeCategory,
   isValidConnection as validateConnection,
-  calculateMetrics,
   saveToLocalStorage,
   pruneHistory,
 } from "./workflow-utils";
@@ -58,6 +57,7 @@ const getId = () => `node_${id++}`;
 
 function WorkflowCanvasInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
   
   // Initialize with start and end nodes
   const initialNodes = [
@@ -183,6 +183,7 @@ function WorkflowCanvasInner() {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const isInitialMount = useRef(true);
+  const hasLoadedQueryWorkflow = useRef(false);
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
@@ -214,15 +215,7 @@ function WorkflowCanvasInner() {
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
   
   // Memoize edge types
-  const edgeTypes = useMemo(() => ({ 
-    default: (props: any) => (
-      <CustomEdge 
-        {...props} 
-        selected={selectedEdges.includes(props.id)}
-        onDelete={(edgeId: string) => handleDeleteEdges([edgeId])}
-      />
-    )
-  }), [selectedEdges, handleDeleteEdges]);
+  const edgeTypes = useMemo(() => ({ default: CustomEdge }), []);
 
   // Remove phantom automatically if a real node exists (e.g., load or other state change)
   useEffect(() => {
@@ -261,13 +254,27 @@ function WorkflowCanvasInner() {
     fetchData();
   }, []);
 
-  // Initialize workflow ID on mount
-  useEffect(() => {
-    if (!workflowId) {
-      const newWorkflowId = `workflow_${Date.now()}`;
-      setWorkflowId(newWorkflowId);
+  const normalizedWorkflowName = workflowName.trim();
+  const hasCustomWorkflowTitle =
+    normalizedWorkflowName.length > 0 &&
+    normalizedWorkflowName.toLowerCase() !== "untitled workflow";
+  const hasConfiguredReasoningModel = nodes.some((node) => {
+    if (node.id === "phantom-node") {
+      return false;
     }
-  }, [workflowId]);
+    const nodeData = node.data as WorkflowNodeData;
+    if (nodeData.type !== "model") {
+      return false;
+    }
+    const selectedModelId = (nodeData.selectedModel || nodeData.modelId || "").toString().trim();
+    return selectedModelId.length > 0;
+  });
+  const canTestWorkflow = hasCustomWorkflowTitle && hasConfiguredReasoningModel;
+  const testWorkflowDisabledReason = !hasCustomWorkflowTitle
+    ? "Rename workflow from 'Untitled Workflow' before testing."
+    : !hasConfiguredReasoningModel
+    ? "Add and configure at least one reasoning model node before testing."
+    : undefined;
 
   // Process individual node based on type
   const processNode = useCallback(async (nodeId: string): Promise<any> => {
@@ -434,53 +441,16 @@ function WorkflowCanvasInner() {
     setExecutionOrder([]);
   }, [setNodes]);
 
-  // Debounced auto-save to backend
-  const autoSaveWorkflow = useMemo(
-    () =>
-      debounce(async (name: string, nodes: WorkflowNode[], edges: WorkflowEdge[]) => {
-        if (!workflowId || !hasUnsavedChanges) return;
-
-        try {
-          setIsSaving(true);
-          const viewport = getViewport();
-          const workflowDTO = serializeWorkflow(name, nodes, edges, viewport);
-
-          // Save to local storage first (for offline support)
-          saveToLocalStorage(workflowId, workflowDTO);
-
-          // Only call backend API if environment variable is set
-          if (process.env.NEXT_PUBLIC_API_URL) {
-            try {
-              await workflowAPI.update(workflowId, workflowDTO);
-            } catch (apiError) {
-              // Silently fail if backend not available - localStorage is the fallback
-              console.warn('Backend API not available, using localStorage only:', apiError);
-            }
-          }
-          
-          setSaveStatus('Auto saved');
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-        } finally {
-          setIsSaving(false);
-        }
-      }, 2000),
-    [workflowId, getViewport, hasUnsavedChanges]
-  );
-
-  // Track changes and trigger auto-save when nodes or edges change
+  // Track unsaved changes (for UI indicator only, no auto-save)
   useEffect(() => {
-    // Skip initial mount to prevent showing autosave on first load
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    
-    if (nodes.length > 0 && workflowName) {
+    if (nodes.length > 0) {
       setHasUnsavedChanges(true);
-      autoSaveWorkflow(workflowName, nodes, edges);
     }
-  }, [nodes, edges, workflowName, autoSaveWorkflow]);
+  }, [nodes, edges]);
 
   // Auto-hide the save status indicator after 3 seconds
   useEffect(() => {
@@ -513,15 +483,6 @@ function WorkflowCanvasInner() {
     }
   }, [history, historyIndex, setNodes, setEdges]);
 
-  // Auto-save every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (nodes.length > 0 || edges.length > 0) {
-        handleSave();
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [nodes, edges]);
 
   // Keyboard event handlers
   useEffect(() => {
@@ -827,38 +788,21 @@ function WorkflowCanvasInner() {
     }
   }, [setNodes, setEdges, saveToHistory]);
 
-  // Save workflow
-  const handleSave = useCallback(async () => {
-    if (!workflowId) return;
-
+  // Save workflow to local storage only (backend is sent on Test click)
+  const handleSave = useCallback(() => {
     try {
-      setIsSaving(true);
       const viewport = getViewport();
       const workflowDTO = serializeWorkflow(workflowName, nodes, edges, viewport);
+      const localDraftId = workflowId || "workflow_draft";
 
-      // Save to local storage
-      saveToLocalStorage(workflowId, workflowDTO);
+      // Save to local storage only
+      saveToLocalStorage(localDraftId, workflowDTO);
 
-      // Persist to backend if API is available
-      if (process.env.NEXT_PUBLIC_API_URL) {
-        try {
-          await workflowAPI.update(workflowId, workflowDTO);
-          console.log('Workflow saved to backend successfully');
-        } catch (apiError) {
-          console.warn('Backend API not available, using localStorage only:', apiError);
-        }
-      }
-
-      // Mark as saved
-      setHasUnsavedChanges(true); // Keep showing the indicator
-      setSaveStatus('Workflow saved');
-      
-      // Optional: Show a success message
-      console.log('Workflow saved successfully');
+      setHasUnsavedChanges(false);
+      setSaveStatus("Draft saved locally");
+      console.log("Workflow saved to local storage");
     } catch (error) {
-      console.error('Save failed:', error);
-    } finally {
-      setIsSaving(false);
+      console.error("Local save failed:", error);
     }
   }, [workflowId, nodes, edges, workflowName, getViewport]);
 
@@ -910,10 +854,87 @@ function WorkflowCanvasInner() {
     }
   }, [setNodes, setEdges, setViewport, saveToHistory]);
 
-  // Test workflow - Execute the workflow
-  const handleTest = () => {
-    executeWorkflow();
-    setShowWorkflowChat(true);
+  // Load workflow/chat mode from URL query params on initial mount.
+  useEffect(() => {
+    if (hasLoadedQueryWorkflow.current) return;
+    hasLoadedQueryWorkflow.current = true;
+
+    const workflowIdFromQuery = searchParams.get("id");
+    const openChatMode = searchParams.get("chatMode") === "true";
+
+    if (workflowIdFromQuery) {
+      handleLoadWorkflow(workflowIdFromQuery).finally(() => {
+        if (openChatMode) {
+          setShowWorkflowChat(true);
+        }
+      });
+      return;
+    }
+
+    if (openChatMode) {
+      setShowWorkflowChat(true);
+    }
+  }, [searchParams, handleLoadWorkflow]);
+
+  // Test workflow - Send graph to backend and execute
+  const handleTest = async () => {
+    // VALIDATION 1: Workflow name is required
+    const trimmedName = workflowName.trim();
+    if (!trimmedName || trimmedName.toLowerCase() === 'untitled workflow') {
+      alert('Workflow name is required. Please rename your workflow before testing.');
+      return;
+    }
+
+    // VALIDATION 2: Must have at least one configured reasoning node
+    if (!canTestWorkflow) {
+      alert(testWorkflowDisabledReason || "Configure workflow before testing.");
+      return;
+    }
+
+    // VALIDATION 3: Validate graph structure
+    const validation = validateWorkflow(nodes, edges);
+    if (!validation.valid) {
+      alert(`Cannot test workflow:\n${validation.errors.join('\n')}`);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveStatus("Sending to backend...");
+
+      // Serialize and send graph to backend
+      const viewport = getViewport();
+      const workflowDTO = serializeWorkflow(trimmedName, nodes, edges, viewport);
+
+      console.log("[handleTest] Sending graph to backend:", {
+        name: trimmedName,
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+      });
+
+      // Send to backend - create or update
+      const saved = await workflowAPI.upsert(workflowId, workflowDTO);
+
+      if (saved.id && saved.id !== workflowId) {
+        setWorkflowId(saved.id);
+      }
+
+      setHasUnsavedChanges(false);
+      setSaveStatus("Saved");
+
+      console.log("[handleTest] Graph sent successfully, workflowId:", saved.id);
+
+      // Execute the workflow
+      executeWorkflow();
+      setShowWorkflowChat(true);
+
+    } catch (error) {
+      console.error("[handleTest] Failed to send graph to backend:", error);
+      alert('Failed to save workflow. Please try again.');
+      setSaveStatus("Save failed");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Share workflow
@@ -1133,6 +1154,8 @@ function WorkflowCanvasInner() {
         onShare={handleShare}
         onReset={resetWorkflow}
         isExecuting={isExecuting}
+        canTestWorkflow={canTestWorkflow}
+        testDisabledReason={testWorkflowDisabledReason}
         saveStatus={saveStatus}
       />
 
@@ -1151,6 +1174,11 @@ function WorkflowCanvasInner() {
           edges={edges.map((edge) => ({
             ...edge,
             type: 'default',
+            selected: selectedEdges.includes(edge.id),
+            data: {
+              ...(edge.data as Record<string, unknown>),
+              onDeleteEdge: handleDeleteEdges,
+            },
             // node line animation
             animated: !selectedEdges.includes(edge.id),
           }))}
@@ -1171,7 +1199,7 @@ function WorkflowCanvasInner() {
           edgeTypes={edgeTypes}
           snapToGrid={snapToGrid}
           snapGrid={[20, 20]}
-          fitView={{ padding: 0.2, minZoom: 0.5, maxZoom: 1.5 }}
+          fitViewOptions={{ padding: 0.2, minZoom: 0.5, maxZoom: 1.5 }}
           attributionPosition="bottom-right"
           defaultEdgeOptions={{
             style: { strokeWidth: 2, stroke: "#8B8B8B" },

@@ -800,6 +800,18 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "image") {
+            const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
+            const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+            if (imageUrl) {
+              updateAiMessage({
+                imageUrl,
+                imageAlt,
+              });
+            }
+            continue;
+          }
+
           if (eventName === "done") {
             const messageText =
               typeof parsed.response === "string"
@@ -875,6 +887,16 @@ export function ChatInterface({
               messageText || assistantContent || "API didn't respond",
             );
 
+            // Extract image data from done event if present
+            const doneImageUrl =
+              Array.isArray(parsed.images) && parsed.images.length > 0
+                ? parsed.images[0]?.url
+                : undefined;
+            const doneImageAlt =
+              Array.isArray(parsed.images) && parsed.images.length > 0
+                ? parsed.images[0]?.alt
+                : undefined;
+
             updateAiMessage({
               content:
                 sanitized.visibleText ||
@@ -886,6 +908,8 @@ export function ChatInterface({
                   : undefined,
               metadata,
               isLoading: false,
+              ...(doneImageUrl && { imageUrl: doneImageUrl }),
+              ...(doneImageAlt && { imageAlt: doneImageAlt }),
             });
 
             if (

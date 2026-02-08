@@ -212,6 +212,7 @@ export function LeftSidebar({
                     width={16}
                     height={16}
                     className="object-contain filter brightness-0"
+                    style={{ height: "auto" }}
                   />
                 </Button>
               </TooltipTrigger>
@@ -425,6 +426,7 @@ export function LeftSidebar({
                   "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
                   isOnChatBoard && !isOnPersonaPage && "invert-100"
                 )}
+                style={{ height: "auto" }}
               />
               {/* <SquarePen size={20} strokeWidth={2} /> */}
               <p className="font-[400] text-[13px]">{chatBoardButtonText}</p>

@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type NodeType = 'start' | 'end' | 'document' | 'chat' | 'pin' | 'persona' | 'model';
+export type NodeType = 'start' | 'end' | 'document' | 'chat' | 'pin' | 'persona' | 'model' | 'phantom';
 
 export type NodeCategory = 'context' | 'reasoning' | 'control';
 
@@ -96,13 +96,17 @@ export interface SerializedEdge {
 
 // Execution result from backend
 export interface ExecutionResult {
-  workflowId: string;
-  executionId: string;
-  status: 'success' | 'error' | 'partial';
-  nodeResults: Record<string, NodeExecutionResult>;
-  startTime: string;
-  endTime: string;
-  totalDuration: number;
+  workflowId?: string;
+  executionId?: string;
+  runId?: string;
+  status: 'success' | 'error' | 'partial' | 'pending' | 'running' | 'completed' | 'failed' | string;
+  finalOutput?: string;
+  totalCost?: number;
+  executionMetadata?: Record<string, any>;
+  nodeResults?: Record<string, NodeExecutionResult>;
+  startTime?: string;
+  endTime?: string;
+  totalDuration?: number;
   error?: string;
 }
 
@@ -127,6 +131,8 @@ export interface WorkflowMetadata {
   updatedAt: string;
   tags?: string[];
   isPublic: boolean;
+  isActive?: boolean;
+  runsCount?: number;
 }
 
 export interface NodePaletteItem {
