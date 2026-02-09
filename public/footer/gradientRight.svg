@@ -1,0 +1,29 @@
+<svg width="676" height="448" viewBox="0 0 676 448" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_nf_5752_38951)" style="mix-blend-mode:hard-light">
+<rect x="739.4" y="215.4" width="316" height="524" rx="28" transform="rotate(90 739.4 215.4)" fill="url(#paint0_radial_5752_38951)" fill-opacity="0.7"/>
+</g>
+<defs>
+<filter id="filter0_nf_5752_38951" x="-9.15527e-05" y="0.000396729" width="954.8" height="746.8" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="2 2" stitchTiles="stitch" numOctaves="3" result="noise" seed="3738" />
+<feColorMatrix in="noise" type="luminanceToAlpha" result="alphaNoise" />
+<feComponentTransfer in="alphaNoise" result="coloredNoise1">
+<feFuncA type="discrete" tableValues="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feFlood flood-color="rgba(0, 0, 0, 0.25)" result="color1Flood" />
+<feComposite operator="in" in2="noise1Clipped" in="color1Flood" result="color1" />
+<feMerge result="effect1_noise_5752_38951">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+<feGaussianBlur stdDeviation="107.7" result="effect2_foregroundBlur_5752_38951"/>
+</filter>
+<radialGradient id="paint0_radial_5752_38951" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(897.4 353.79) rotate(90) scale(460.851 277.918)">
+<stop offset="0.144231" stop-color="#D47E51" stop-opacity="0.3"/>
+<stop offset="0.615385" stop-color="#65848D"/>
+<stop offset="1" stop-color="#5F7887"/>
+</radialGradient>
+</defs>
+</svg>

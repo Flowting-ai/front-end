@@ -1,26 +1,93 @@
+/* Google Fonts - Geist | Inter */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #faf9f8;
   --foreground: #171717;
+  --main-bg: #f5f5f5;
+  --main-border: #d9d9d9;
+}
+
+@theme {
+  --color-main-bg: var(--main-bg, #f5f5f5);
+  --color-main-border: var(--main-border, #d9d9d9);
+
+  /* 1. Define the rotation animation */
+  --animate-border-rotate: border-rotate 6s linear infinite;
+  --animate-border-rotate2: border-rotate 8s linear infinite;
+
+  @keyframes border-rotate {
+    from {
+      --border-angle: 0deg;
+    }
+    to {
+      --border-angle: 360deg;
+    }
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  --font-geist: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --add_Dark_Mode_Colors_Here: black;
+    --it_should_be_a_mirror_of_root: black;
   }
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--foreground) !important;
+  font-family: var(--font-geist-sans);
+}
+
+/* 2. Register the property for smooth interpolation */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* 3. Create a utility for the effect */
+@utility animate-dual-beam {
+  background: 
+    /* The center "mask" (matches your card background) */
+    linear-gradient(var(--color-main-bg), var(--color-main-bg)) padding-box,
+    /* The two beams: one at the start, one at the 180-degree mark */
+      conic-gradient(
+        from var(--border-angle),
+        transparent 0%,
+        var(--color-cyan-400) 5%,
+        /* Beam 1 */ transparent 10%,
+        transparent 50%,
+        var(--color-blue-400) 55%,
+        /* Beam 2 */ transparent 60%
+      )
+      border-box;
+  border: 2px solid transparent;
+}
+@utility animate-dual-beam2 {
+  background: 
+    /* The center "mask" (matches your card background) */
+    linear-gradient(var(--color-main-bg), var(--color-main-bg)) padding-box,
+    /* The two beams: one at the start, one at the 180-degree mark */
+      conic-gradient(
+        from var(--border-angle),
+        transparent 0%,
+        var(--color-blue-300) 5%,
+        /* Beam 1 */ transparent 10%,
+        transparent 50%,
+        var(--color-blue-300) 55%,
+        /* Beam 2 */ transparent 60%
+      )
+      border-box;
+  border: 2px solid transparent;
 }
