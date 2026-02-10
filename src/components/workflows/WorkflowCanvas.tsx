@@ -38,6 +38,7 @@ import {
   WorkflowNode,
   WorkflowEdge,
   NodeType,
+  NodeStatus,
   WorkflowNodeData,
   serializeWorkflow,
 } from "./types";
@@ -937,6 +938,46 @@ function WorkflowCanvasInner() {
     }
   };
 
+  const handleRunStart = useCallback(() => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === "phantom-node") {
+          return node;
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            status: "idle" as NodeStatus,
+            output: undefined,
+          },
+        };
+      }),
+    );
+  }, [setNodes]);
+
+  const handleNodeStatusChange = useCallback(
+    (nodeId: string, status: NodeStatus, output?: string) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id !== nodeId) {
+            return node;
+          }
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              status,
+              ...(output !== undefined ? { output } : {}),
+            },
+          };
+        }),
+      );
+    },
+    [setNodes],
+  );
+
   // Share workflow
   const handleShare = () => {
     alert(
@@ -1424,6 +1465,8 @@ function WorkflowCanvasInner() {
             workflowName={workflowName}
             onClose={() => setShowWorkflowChat(false)}
             selectedModel={null}
+            onRunStart={handleRunStart}
+            onNodeStatusChange={handleNodeStatusChange}
           />
         </div>
       )}

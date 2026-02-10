@@ -1,23 +1,44 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Mic, Square } from "lucide-react";
+import { Send, X, Loader2, Square, Mic } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 import { toast } from "@/lib/toast-helper";
 import Image from "next/image";
-import { workflowAPI } from "./workflow-api";
+import {
+  workflowAPI,
+  type StreamCallbacks,
+  type NodeStartEvent,
+  type ChunkEvent,
+  type NodeEndEvent,
+  type WorkflowCompleteEvent,
+} from "./workflow-api";
+import type { NodeStatus } from "./types";
+
+interface NodeOutput {
+  nodeId: string;
+  nodeName?: string;
+  content: string;
+  isStreaming: boolean;
+  status: NodeStatus;
+  tokens?: number;
+  cost?: number;
+  durationMs?: number;
+}
 
 interface WorkflowChatInterfaceProps {
   workflowId: string;
   workflowName: string;
   onClose: () => void;
   selectedModel?: AIModel | null;
+  onRunStart?: () => void;
+  onNodeStatusChange?: (nodeId: string, status: NodeStatus, output?: string) => void;
 }
 
 export function WorkflowChatInterface({
@@ -25,12 +46,23 @@ export function WorkflowChatInterface({
   workflowName: _workflowName,
   onClose,
   selectedModel,
+  onRunStart,
+  onNodeStatusChange,
 }: WorkflowChatInterfaceProps) {
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
+  const [nodeOutputs, setNodeOutputs] = useState<Map<string, NodeOutput>>(new Map());
+  const [expandedNodeOutputId, setExpandedNodeOutputId] = useState<string | null>(null);
+  const [totalCost, setTotalCost] = useState<number>(0);
+  const abortRef = useRef<(() => void) | null>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Ref to track streaming content without stale closure issues
+  const streamingContentRef = useRef<Map<string, string>>(new Map());
+  // Track nodes already marked as running to avoid repeated expensive canvas updates.
+  const seenRunningNodesRef = useRef<Set<string>>(new Set());
 
   const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
   const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
@@ -70,12 +102,19 @@ export function WorkflowChatInterface({
     setDisplayMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsResponding(true);
+    setNodeOutputs(new Map());
+    setExpandedNodeOutputId(null);
+    setTotalCost(0);
+    setActiveNodeId(null);
+    streamingContentRef.current = new Map(); // Reset streaming content ref
+    seenRunningNodesRef.current = new Set();
+    onRunStart?.();
 
-    // Add loading message
-    const loadingMessage: Message = {
+    // Add streaming message placeholder
+    const streamingMessage: Message = {
       id: aiMessageId,
       sender: "ai",
-      content: "",
+      content: "Starting workflow...",
       isLoading: true,
       avatarUrl: selectedModel
         ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
@@ -83,40 +122,257 @@ export function WorkflowChatInterface({
       avatarHint: selectedModel?.modelName || "AI model",
     };
 
-    setDisplayMessages((prev) => [...prev, loadingMessage]);
+    setDisplayMessages((prev) => [...prev, streamingMessage]);
 
     try {
       if (!workflowId || workflowId === "temp") {
         throw new Error("Save the workflow first, then run workflow chat.");
       }
 
-      const result = await workflowAPI.execute(workflowId, {
-        inputText: trimmedContent,
-      });
-      const failed =
-        result.status === "failed" ||
-        result.status === "error" ||
-        Boolean(result.error);
+      // Streaming callbacks
+      const callbacks: StreamCallbacks = {
+        onWorkflowStart: (event) => {
+          console.log("[Stream] Workflow started:", event.run_id);
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, content: "Workflow running...", isLoading: true }
+                : msg
+            )
+          );
+        },
 
-      const aiResponse: Message = {
-        id: aiMessageId,
-        sender: "ai",
-        content: failed
-          ? result.error || "Workflow execution failed."
-          : result.finalOutput || "Workflow executed successfully with no output.",
-        avatarUrl: selectedModel
-          ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
-          : defaultAiAvatar?.imageUrl,
-        avatarHint: selectedModel?.modelName || "AI model",
-        metadata: {
-          providerName: selectedModel?.companyName,
-          modelName: selectedModel?.modelName,
+        onNodeStart: (event: NodeStartEvent) => {
+          console.log("[Stream] Node started:", event.node_id);
+          setActiveNodeId(event.node_id);
+          setExpandedNodeOutputId(event.node_id);
+          if (!seenRunningNodesRef.current.has(event.node_id)) {
+            seenRunningNodesRef.current.add(event.node_id);
+            onNodeStatusChange?.(event.node_id, "running");
+          }
+          // Initialize streaming content for this node
+          streamingContentRef.current.set(event.node_id, "");
+          setNodeOutputs((prev) => {
+            const next = new Map(prev);
+            next.set(event.node_id, {
+              nodeId: event.node_id,
+              nodeName: event.node_name || event.node_id,
+              content: "",
+              isStreaming: true,
+              status: "running",
+            });
+            return next;
+          });
+
+          // Update message to show active node
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    content: `**${event.node_name || event.node_id}** is thinking...`,
+                    isLoading: true,
+                  }
+                : msg
+            )
+          );
+        },
+
+        onChunk: (event: ChunkEvent) => {
+          const nodeId = event.node_id || "unknown_node";
+          const chunkContent = event.content || "";
+
+          console.log("[Stream] Chunk received:", {
+            node_id: nodeId,
+            content: chunkContent,
+            chunk_index: event.chunk_index,
+          });
+
+          // Some backends emit chunks without node_start; keep the active node in sync.
+          setActiveNodeId(nodeId);
+          setExpandedNodeOutputId(nodeId);
+          if (!seenRunningNodesRef.current.has(nodeId)) {
+            seenRunningNodesRef.current.add(nodeId);
+            onNodeStatusChange?.(nodeId, "running");
+          }
+
+          // Update ref with latest content (avoids stale closure)
+          const currentContent = streamingContentRef.current.get(nodeId) || "";
+          const newContent = currentContent + chunkContent;
+          streamingContentRef.current.set(nodeId, newContent);
+
+          console.log("[Stream] Updated content:", newContent.slice(0, 100) + "...");
+
+          // Append chunk to node output state
+          setNodeOutputs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(nodeId);
+            if (existing) {
+              next.set(nodeId, {
+                ...existing,
+                content: existing.content + chunkContent,
+                isStreaming: true,
+                status: "running",
+              });
+            } else {
+              next.set(nodeId, {
+                nodeId,
+                nodeName: nodeId,
+                content: chunkContent,
+                isStreaming: true,
+                status: "running",
+              });
+            }
+            return next;
+          });
+
+          // Update message with streaming content from ref
+          setDisplayMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) return msg;
+
+              // Use ref for latest content (not stale state)
+              const streamContent = streamingContentRef.current.get(nodeId) || chunkContent;
+
+              return {
+                ...msg,
+                content: streamContent,
+                // Keep streaming visible instead of skeleton placeholders.
+                isLoading: false,
+              };
+            })
+          );
+        },
+
+        onNodeEnd: (event: NodeEndEvent) => {
+          console.log("[Stream] Node ended:", event.node_id, "Cost:", event.cost);
+          setActiveNodeId(null);
+          setNodeOutputs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(event.node_id);
+            const fallbackContent =
+              streamingContentRef.current.get(event.node_id) || "";
+            const finalContent = event.output || fallbackContent;
+            if (existing) {
+              next.set(event.node_id, {
+                ...existing,
+                content: finalContent || existing.content,
+                isStreaming: false,
+                status: "success",
+                tokens: event.tokens_used,
+                cost: event.cost,
+                durationMs: event.duration_ms,
+              });
+            } else {
+              next.set(event.node_id, {
+                nodeId: event.node_id,
+                nodeName: event.node_id,
+                content: finalContent,
+                isStreaming: false,
+                status: "success",
+                tokens: event.tokens_used,
+                cost: event.cost,
+                durationMs: event.duration_ms,
+              });
+            }
+            return next;
+          });
+          seenRunningNodesRef.current.delete(event.node_id);
+          onNodeStatusChange?.(event.node_id, "success", finalContent);
+
+          // Accumulate total cost
+          if (event.cost) {
+            setTotalCost((prev) => prev + event.cost!);
+          }
+        },
+
+        onNodeComplete: (event) => {
+          console.log("[Stream] Node complete (non-LLM):", event.node_id);
+          setNodeOutputs((prev) => {
+            const next = new Map(prev);
+            next.set(event.node_id, {
+              nodeId: event.node_id,
+              nodeName: event.node_id,
+              content: event.output,
+              isStreaming: false,
+              status: "success",
+            });
+            return next;
+          });
+          seenRunningNodesRef.current.delete(event.node_id);
+          onNodeStatusChange?.(event.node_id, "success", event.output);
+        },
+
+        onWorkflowComplete: (event: WorkflowCompleteEvent) => {
+          console.log("[Stream] Workflow complete! Total cost:", event.total_cost);
+
+          const finalMessage: Message = {
+            id: aiMessageId,
+            sender: "ai",
+            content: event.final_output || "Workflow completed successfully.",
+            avatarUrl: selectedModel
+              ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
+              : defaultAiAvatar?.imageUrl,
+            avatarHint: selectedModel?.modelName || "AI model",
+            metadata: {
+              providerName: selectedModel?.companyName,
+              modelName: selectedModel?.modelName,
+            },
+          };
+
+          setDisplayMessages((prev) =>
+            prev.map((msg) => (msg.id === aiMessageId ? finalMessage : msg))
+          );
+          setIsResponding(false);
+          setActiveNodeId(null);
+          abortRef.current = null;
+        },
+
+        onError: (event) => {
+          console.error("[Stream] Error:", event.error);
+          if (event.node_id) {
+            setNodeOutputs((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(event.node_id!);
+              if (existing) {
+                next.set(event.node_id!, {
+                  ...existing,
+                  isStreaming: false,
+                  status: "error",
+                });
+              }
+              return next;
+            });
+            seenRunningNodesRef.current.delete(event.node_id);
+            onNodeStatusChange?.(event.node_id, "error");
+          }
+
+          const errorMessage: Message = {
+            id: aiMessageId,
+            sender: "ai",
+            content: `Error: ${event.error}`,
+            avatarUrl: selectedModel
+              ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
+              : defaultAiAvatar?.imageUrl,
+            avatarHint: selectedModel?.modelName || "AI model",
+          };
+
+          setDisplayMessages((prev) =>
+            prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
+          );
+          setIsResponding(false);
+          setActiveNodeId(null);
+          abortRef.current = null;
         },
       };
 
-      setDisplayMessages((prev) =>
-        prev.map((msg) => (msg.id === aiMessageId ? aiResponse : msg))
+      // Start streaming execution
+      const { abort } = await workflowAPI.executeStream(
+        workflowId,
+        trimmedContent,
+        callbacks
       );
+      abortRef.current = abort;
     } catch (error) {
       const message =
         error instanceof Error
@@ -135,10 +391,22 @@ export function WorkflowChatInterface({
       setDisplayMessages((prev) =>
         prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
       );
-    } finally {
       setIsResponding(false);
     }
   };
+
+  const handleAbort = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current();
+      abortRef.current = null;
+      setIsResponding(false);
+      if (activeNodeId) {
+        onNodeStatusChange?.(activeNodeId, "error");
+      }
+      setActiveNodeId(null);
+      toast("Workflow execution cancelled");
+    }
+  }, [activeNodeId, onNodeStatusChange]);
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
@@ -163,12 +431,40 @@ export function WorkflowChatInterface({
     setInput(value);
   };
 
+  const outputItems = Array.from(nodeOutputs.values());
+  const getOutputStatusClass = (status: NodeStatus) => {
+    if (status === "running") return "bg-blue-100 text-blue-700 border-blue-200";
+    if (status === "success") return "bg-green-100 text-green-700 border-green-200";
+    if (status === "error") return "bg-red-100 text-red-700 border-red-200";
+    return "bg-zinc-100 text-zinc-700 border-zinc-200";
+  };
+  const getCollapsedPreview = (content: string) => {
+    const normalized = content.replace(/\s+/g, " ").trim();
+    if (!normalized) return "No output yet";
+    return normalized.length > 140 ? `${normalized.slice(0, 140)}...` : normalized;
+  };
+
   return (
     <div className="top-[60px] max-h-[calc(100vh-65px)] right-2 relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-white border border-main-border rounded-3xl shadow-lg">
+      {/* Streaming Status Bar */}
+      {isResponding && activeNodeId && (
+        <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2 z-10">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <span className="text-sm text-blue-700">
+            <strong>{nodeOutputs.get(activeNodeId)?.nodeName || activeNodeId}</strong> is processing...
+          </span>
+          {totalCost > 0 && (
+            <span className="ml-auto text-xs text-blue-500">
+              Cost: ${totalCost.toFixed(4)}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <button
           onClick={onClose}
-          className="absolute top-2 right-3.5 z-1 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
+          className="absolute top-2 right-3.5 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
           aria-label="Close chat"
         >
           <X className="h-3 w-3 text-[#666666]" />
@@ -218,6 +514,60 @@ export function WorkflowChatInterface({
                     onReact={undefined}
                   />
                 ))}
+
+                {outputItems.length > 0 && (
+                  <div className="mt-6 rounded-2xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
+                    <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6F6F6F]">
+                      Node Outputs
+                    </div>
+                    <div className="space-y-2">
+                      {outputItems.map((output) => {
+                        const isExpanded = expandedNodeOutputId === output.nodeId;
+                        return (
+                          <div
+                            key={output.nodeId}
+                            className="rounded-xl border border-[#E4E4E4] bg-white"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedNodeOutputId((prev) =>
+                                  prev === output.nodeId ? null : output.nodeId
+                                )
+                              }
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-[#1E1E1E]">
+                                  {output.nodeName || output.nodeId}
+                                </div>
+                                {!isExpanded && (
+                                  <div className="truncate text-xs text-[#6B7280]">
+                                    {getCollapsedPreview(output.content)}
+                                  </div>
+                                )}
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${getOutputStatusClass(
+                                  output.status
+                                )}`}
+                              >
+                                {output.status}
+                              </span>
+                            </button>
+                            {isExpanded && (
+                              <div className="border-t border-[#EFEFEF] px-3 py-2">
+                                <pre className="whitespace-pre-wrap text-xs leading-relaxed text-[#3D3D3D]">
+                                  {output.content || "No output yet"}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -264,12 +614,9 @@ export function WorkflowChatInterface({
                   {isResponding ? (
                     <Button
                       type="button"
-                      onClick={() => {
-                        // TODO: Implement stop generation logic
-                        setIsResponding(false);
-                      }}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
-                      title="Stop generation"
+                      onClick={handleAbort}
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-red-600 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-red-700"
+                      title="Stop workflow execution"
                     >
                       <Square className="h-[18px] w-[18px] fill-white" />
                     </Button>

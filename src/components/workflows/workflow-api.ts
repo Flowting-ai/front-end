@@ -138,6 +138,97 @@ interface BackendWorkflowRunSummary {
   execution_metadata?: Record<string, unknown>;
 }
 
+// =============================================================================
+// STREAMING EXECUTION TYPES
+// =============================================================================
+
+export type StreamEventType =
+  | "workflow_start"
+  | "node_start"
+  | "chunk"
+  | "node_end"
+  | "node_complete"
+  | "workflow_complete"
+  | "error";
+
+export interface StreamEventBase {
+  event: StreamEventType;
+  run_id?: string;
+  timestamp?: string;
+}
+
+export interface WorkflowStartEvent extends StreamEventBase {
+  event: "workflow_start";
+  run_id: string;
+  workflow_id: string;
+  input_text: string;
+}
+
+export interface NodeStartEvent extends StreamEventBase {
+  event: "node_start";
+  node_id: string;
+  node_type: string;
+  node_name?: string;
+}
+
+export interface ChunkEvent extends StreamEventBase {
+  event: "chunk";
+  node_id: string;
+  content: string;
+  chunk_index?: number;
+}
+
+export interface NodeEndEvent extends StreamEventBase {
+  event: "node_end";
+  node_id: string;
+  output: string;
+  tokens_used?: number;
+  cost?: number;
+  duration_ms?: number;
+}
+
+export interface NodeCompleteEvent extends StreamEventBase {
+  event: "node_complete";
+  node_id: string;
+  node_type: string;
+  output: string;
+}
+
+export interface WorkflowCompleteEvent extends StreamEventBase {
+  event: "workflow_complete";
+  run_id: string;
+  final_output: string;
+  total_cost?: number;
+  total_tokens?: number;
+  total_duration_ms?: number;
+}
+
+export interface StreamErrorEvent extends StreamEventBase {
+  event: "error";
+  node_id?: string;
+  error: string;
+  error_code?: string;
+}
+
+export type StreamEvent =
+  | WorkflowStartEvent
+  | NodeStartEvent
+  | ChunkEvent
+  | NodeEndEvent
+  | NodeCompleteEvent
+  | WorkflowCompleteEvent
+  | StreamErrorEvent;
+
+export interface StreamCallbacks {
+  onWorkflowStart?: (event: WorkflowStartEvent) => void;
+  onNodeStart?: (event: NodeStartEvent) => void;
+  onChunk?: (event: ChunkEvent) => void;
+  onNodeEnd?: (event: NodeEndEvent) => void;
+  onNodeComplete?: (event: NodeCompleteEvent) => void;
+  onWorkflowComplete?: (event: WorkflowCompleteEvent) => void;
+  onError?: (event: StreamErrorEvent) => void;
+}
+
 class WorkflowAPIError extends Error {
   constructor(
     message: string,
@@ -253,6 +344,9 @@ const workflowDetailEndpoint = (id: string) =>
 
 const workflowExecuteEndpoint = (id: string) =>
   `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/execute/`;
+
+const workflowExecuteStreamEndpoint = (id: string) =>
+  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/execute/stream/`;
 
 const workflowRunsEndpoint = (id: string) =>
   `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/runs/`;
@@ -936,6 +1030,174 @@ export const workflowAPI = {
     return toExecutionResult(id, data);
   },
 
+  /**
+   * Execute workflow with streaming response (SSE)
+   * Returns an abort controller to cancel the stream
+   */
+  executeStream: async (
+    id: string,
+    inputText: string,
+    callbacks: StreamCallbacks
+  ): Promise<{ abort: () => void }> => {
+    const trimmedInput = inputText.trim();
+
+    if (!trimmedInput) {
+      throw new WorkflowAPIError(
+        "input_text is required to execute a workflow.",
+        400,
+        "INVALID_INPUT"
+      );
+    }
+
+    await ensureCsrfToken();
+
+    const controller = new AbortController();
+
+    // Start streaming in background
+    (async () => {
+      try {
+        const response = await apiFetch(workflowExecuteStreamEndpoint(id), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+          },
+          body: JSON.stringify({ input_text: trimmedInput }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          callbacks.onError?.({
+            event: "error",
+            error: errorText || `HTTP ${response.status}`,
+            error_code: `HTTP_${response.status}`,
+          });
+          return;
+        }
+
+        console.log("[executeStream] Response OK, starting to read stream...");
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          callbacks.onError?.({
+            event: "error",
+            error: "No response body",
+            error_code: "NO_BODY",
+          });
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const processSseLine = (line: string) => {
+          const trimmedLine = line.trim();
+
+          // Skip empty lines and comments
+          if (!trimmedLine || trimmedLine.startsWith(":")) return;
+
+          console.log("[executeStream] Processing line:", trimmedLine.slice(0, 100));
+
+          // Parse "data: {...}" format
+          if (trimmedLine.startsWith("data:")) {
+            const jsonStr = trimmedLine.slice(5).trim();
+            if (!jsonStr) return;
+
+            try {
+              const event = JSON.parse(jsonStr) as Record<string, unknown> & {
+                event?: StreamEventType;
+                type?: StreamEventType;
+              };
+              // Backend may send either "event" or "type".
+              const eventType = event.event ?? event.type;
+              if (!eventType) {
+                return;
+              }
+              console.log("[executeStream] Parsed event:", eventType);
+
+              // Dispatch to appropriate callback
+              switch (eventType) {
+                case "workflow_start":
+                  callbacks.onWorkflowStart?.(event as unknown as WorkflowStartEvent);
+                  break;
+                case "node_start":
+                  callbacks.onNodeStart?.(event as unknown as NodeStartEvent);
+                  break;
+                case "chunk":
+                  callbacks.onChunk?.(event as unknown as ChunkEvent);
+                  break;
+                case "node_end":
+                  callbacks.onNodeEnd?.(event as unknown as NodeEndEvent);
+                  break;
+                case "node_complete":
+                  callbacks.onNodeComplete?.(event as unknown as NodeCompleteEvent);
+                  break;
+                case "workflow_complete":
+                  callbacks.onWorkflowComplete?.(event as unknown as WorkflowCompleteEvent);
+                  break;
+                case "error":
+                  callbacks.onError?.(event as unknown as StreamErrorEvent);
+                  break;
+              }
+            } catch (parseError) {
+              console.warn("[executeStream] Failed to parse SSE event:", jsonStr, parseError);
+            }
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            // Flush any remaining decoded bytes and force trailing line processing.
+            const trailing = decoder.decode();
+            if (trailing) {
+              buffer += trailing;
+            }
+            if (buffer && !buffer.endsWith("\n")) {
+              buffer += "\n";
+            }
+          } else {
+            const chunk = decoder.decode(value, { stream: true });
+            console.log("[executeStream] Raw chunk received:", chunk);
+            buffer += chunk;
+          }
+
+          // Parse SSE events from buffer
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+          console.log("[executeStream] Lines to process:", lines.length);
+
+          for (const line of lines) {
+            processSseLine(line);
+          }
+
+          if (done) {
+            console.log("[executeStream] Stream done");
+            break;
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          console.log("[executeStream] Stream aborted by user");
+          return;
+        }
+
+        callbacks.onError?.({
+          event: "error",
+          error: error instanceof Error ? error.message : "Stream failed",
+          error_code: "STREAM_ERROR",
+        });
+      }
+    })();
+
+    return {
+      abort: () => controller.abort(),
+    };
+  },
+
   getExecutions: async (
     id: string
   ): Promise<{ executions: ExecutionResult[]; total: number }> => {
@@ -1163,3 +1425,17 @@ export const workflowAPI = {
 };
 
 export { WorkflowAPIError };
+
+// Export streaming types
+export type {
+  StreamEventType,
+  StreamEvent,
+  StreamCallbacks,
+  WorkflowStartEvent,
+  NodeStartEvent,
+  ChunkEvent,
+  NodeEndEvent,
+  NodeCompleteEvent,
+  WorkflowCompleteEvent,
+  StreamErrorEvent,
+};
