@@ -317,6 +317,17 @@ export interface Message {
     userReaction?: string | null;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
+    attachments?: Array<{
+      id: string;
+      type: "pdf" | "image";
+      name: string;
+      url: string;
+    }>;
+    mentionedPins?: Array<{
+      id: string;
+      label: string;
+      text?: string;
+    }>;
   };
 }
 
@@ -729,8 +740,9 @@ export function ChatMessage({
   );
 
   const renderActions = (className?: string) => {
-    // Don't show actions for AI messages that are still loading/streaming
-    if (!isUser && (message.isLoading || isResponding)) {
+    // Hide action icons ONLY for AI messages that are currently being generated
+    // All completed messages (previous responses) keep their action icons visible
+    if (!isUser && message.isLoading) {
       return null;
     }
     
@@ -750,7 +762,7 @@ export function ChatMessage({
         )}
       >
         {/* Only show avatar for AI, not user */}
-        <div className="max-w-12.5 w-full flex flex-col items-center justify-start gap-1">
+        <div className="w-auto flex flex-col items-center justify-start gap-1">
           {!isUser && <div className="mt-4 shrink-0">{AvatarComponent}</div>}
           {!isUser && (
             <span className="text-[10px] text-[#8a8a8a] font-medium text-center max-w-[50px] truncate" title={message.metadata?.modelName || message.metadata?.providerName || message.avatarHint}>
@@ -864,8 +876,8 @@ export function ChatMessage({
                 </div>
               ) : message.isLoading ? (
                 <div className="max-w-125 w-125 flex flex-col gap-2">
-                  <div className="bg-zinc-400/50 w-full h-4 animate-pulse rounded-md"></div>
-                  <div className="bg-zinc-400/50 w-4/5 h-4 animate-pulse rounded-md"></div>
+                  <div className="bg-zinc-400/50 w-[300px] h-4 animate-pulse rounded-md"></div>
+                  <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
                 </div>
               ) : (
                 // <LoadingState />
@@ -935,6 +947,10 @@ export function ChatMessage({
                           message.content ||
                           "Generated image"
                         }
+                        width={0}
+                        height={0}
+                        sizes="100vw"
+                        unoptimized={message.imageUrl.startsWith("data:")}
                         className="w-full h-auto object-contain bg-white"
                       />
                     </div>

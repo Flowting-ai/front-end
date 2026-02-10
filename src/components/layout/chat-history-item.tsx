@@ -63,7 +63,7 @@ export function ChatHistoryItem({
       onClick={isRenaming ? undefined : onSelect}
       onKeyDown={isRenaming ? undefined : handleKeyDown}
       className={cn(
-        "flex h-8 w-full items-center justify-between rounded-[6px] text-[13px] text-black transition-colors pr-1",
+        "group flex h-8 w-full items-center justify-between rounded-[6px] text-[13px] text-black transition-colors pr-1",
         isRenaming ? "cursor-default" : "cursor-pointer select-none",
         isSelected ? "bg-[#E5E5E5]" : "bg-transparent hover:bg-[#F1F1F1]"
       )}
@@ -118,7 +118,7 @@ export function ChatHistoryItem({
           </div>
         </form>
       ) : (
-        <span className="flex-1 min-w-0 mr-2 truncate font-normal leading-[18px] pl-2.5">
+        <span className="flex-1 min-w-0 truncate font-normal leading-[18px] pl-2.5 transition-[margin] group-hover:mr-2">
           {title}
         </span>
       )}
@@ -146,9 +146,10 @@ export function ChatHistoryItem({
                     onToggleStar();
                   }}
                   className={cn(
-                    "cursor-pointer flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors",
+                    "cursor-pointer flex items-center justify-center rounded-full text-[#5B5B5B] transition-all overflow-hidden",
                     isStarred && "text-[#F5C04E]",
-                    isStarPending && "pointer-events-none opacity-40"
+                    isStarPending && "pointer-events-none opacity-40",
+                    !isStarPending && (isStarred ? "opacity-100 w-5 h-5" : "opacity-0 w-0 h-5 group-hover:opacity-100 group-hover:w-5")
                   )}
                   aria-pressed={isStarred}
                   aria-label={isStarred ? "Unstar chat" : "Star chat"}
@@ -174,8 +175,9 @@ export function ChatHistoryItem({
               type="button"
               onClick={(event) => event.stopPropagation()}
               className={cn(
-                "cursor-pointer flex h-5 w-5 items-center justify-center rounded-full text-[#5B5B5B] transition-colors hover:bg-[#E5E5E5]",
-                (isRenaming || isRenamePending) && "pointer-events-none opacity-40"
+                "cursor-pointer flex items-center justify-center rounded-full text-[#5B5B5B] transition-all hover:bg-[#E5E5E5] overflow-hidden",
+                (isRenaming || isRenamePending) && "pointer-events-none opacity-40",
+                !(isRenaming || isRenamePending) && "opacity-0 w-0 h-5 group-hover:opacity-100 group-hover:w-5"
               )}
               aria-label="Chat options"
               disabled={isRenamePending || isRenaming}

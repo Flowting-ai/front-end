@@ -283,6 +283,36 @@
   }
 }
 
+/* Fade in animation for workflow node hover actions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-in forwards;
+}
+
+/* Slide in from right animation for workflow chat */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
 @layer components {
   /*Complete Chat layout Main */
   .chat-layout-shell--full {
@@ -1534,6 +1564,23 @@
 
 .Toastify__toast-container {
   width: 318px;
+}
+
+/* Override default animations with smooth ease-in-out */
+.Toastify__slide-enter--bottom-right,
+.Toastify__slide-enter--top-right,
+.Toastify__slide-enter--bottom-left,
+.Toastify__slide-enter--top-left {
+  animation-duration: 500ms !important;
+  animation-timing-function: ease-in-out !important;
+}
+
+.Toastify__slide-exit--bottom-right,
+.Toastify__slide-exit--top-right,
+.Toastify__slide-exit--bottom-left,
+.Toastify__slide-exit--top-left {
+  animation-duration: 500ms !important;
+  animation-timing-function: ease-in-out !important;
 }
 
 .Toastify__toast-body {

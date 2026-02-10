@@ -15,6 +15,8 @@ import {
   BotMessageSquare,
   ChevronUp,
   ChevronDown,
+  GitCompareArrows,
+  Workflow,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -87,9 +89,9 @@ export function LeftSidebar({
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
 
-  // Collapse chat boards when on persona admin page
+  // Collapse chat boards when on persona admin or workflow admin page
   React.useEffect(() => {
-    if (pathname?.startsWith("/personaAdmin")) {
+    if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
       setIsChatBoardsExpanded(false);
     }
   }, [pathname]);
@@ -210,6 +212,7 @@ export function LeftSidebar({
                     width={16}
                     height={16}
                     className="object-contain filter brightness-0"
+                    style={{ height: "auto" }}
                   />
                 </Button>
               </TooltipTrigger>
@@ -249,8 +252,41 @@ export function LeftSidebar({
               </TooltipContent>
             </Tooltip>
 
-            {/* Button 3 */}
-            <Button
+            {/* Button 3 - Workflows */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Flow Builder"
+                  className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
+                  onClick={() => router.push("/workflowAdmin")}
+                >
+                  {/* <BotMessageSquare
+                    className={cn(
+                      "h-5 w-5",
+                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
+                    )}
+                  /> */}
+                  <Workflow
+                    className={cn(
+                      "h-5 w-5",
+                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
+                    )}
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                sideOffset={8}
+                className="pointer-events-none px-2 py-1 text-xs font-medium"
+              >
+                Flow Builder
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Button 4 */}
+            {/* <Button
               variant="ghost"
               size="icon"
               aria-label="AI Automation"
@@ -258,7 +294,7 @@ export function LeftSidebar({
               disabled
             >
               <Bot className="h-5 w-5 text-[#303030]" />
-            </Button>
+            </Button> */}
 
             {/* 3. User Footer */}
             <div className="w-full mt-auto flex justify-center">
@@ -345,7 +381,7 @@ export function LeftSidebar({
                   alt="Flowting AI Logo"
                 />
                 <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
-                  FlowtingAi
+                  FlowtingAI
                 </h3>
               </div>
               <Tooltip>
@@ -390,6 +426,7 @@ export function LeftSidebar({
                   "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
                   isOnChatBoard && !isOnPersonaPage && "invert-100"
                 )}
+                style={{ height: "auto" }}
               />
               {/* <SquarePen size={20} strokeWidth={2} /> */}
               <p className="font-[400] text-[13px]">{chatBoardButtonText}</p>
@@ -414,20 +451,19 @@ export function LeftSidebar({
 
             {/* Workflows */}
             <Button
-              disabled
-              onClick={() => {}}
+              onClick={() => router.push("/workflowAdmin")}
               className={cn(
-                "cursor-events-none max-h-[210px] w-full min-h-[41px] h-full text-lsb-button-text bg-transparent flex items-center justify-start px-4"
+                "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                pathname?.startsWith("/workflowAdmin") &&
+                  "text-lsb-button-active-text bg-lsb-button-active-bg"
               )}
             >
               <div className="w-auto h-full flex items-center justify-center">
-                <BotMessageSquare size={20} strokeWidth={2} />
+                {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
+                <Workflow size={20} strokeWidth={2}/>
               </div>
               <p className="h-full font-[400] text-[13px] flex items-center gap-2">
-                Workflow
-                <span className="text-[8px] border border-main-border rounded px-[4] py-0">
-                  Coming Soon
-                </span>
+                Flow Builder
               </p>
             </Button>
 

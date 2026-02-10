@@ -876,7 +876,7 @@
 
 /* Dos and Don'ts Sections */
 .dosDontsSection {
-  width: 100%;
+  width: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;

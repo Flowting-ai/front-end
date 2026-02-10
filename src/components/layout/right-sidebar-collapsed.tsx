@@ -41,12 +41,12 @@ const BUTTONS: CollapsedButtonConfig[] = [
   //   icon: UserPlus,
   //   disabled: true,
   // },
-  {
-    panel: "files",
-    label: "Files",
-    icon: File,
-    disabled: true,
-  },
+  // {
+  //   panel: "files",
+  //   label: "Files",
+  //   icon: File,
+  //   disabled: true,
+  // },
 ];
 
 export function RightSidebarCollapsed({

@@ -358,7 +358,7 @@ export const PinItem = ({
   // pin card layout and texture
   return (
     <Card
-      className="border bg-[#F5F5F5] overflow-hidden"
+      className="bg-[#F5F5F5] overflow-hidden"
       style={
         inOrganizeDialog
           ? {
@@ -372,9 +372,9 @@ export const PinItem = ({
             }
           : {
               width: "100%",
+              minWidth: "235px",
               minHeight:"auto",
               borderRadius: "8px",
-              marginRight: "6px",
               border: "1px solid #e6e6e6",
               padding: 0,
             }
@@ -431,7 +431,7 @@ export const PinItem = ({
               </div>
             ) : (
               <div className="overflow-hidden">
-                <div title={formatPinTitle(pin.title ?? pin.text)}>
+                <div title={bodyContent}>
                   <p
                     className="text-[#1e1e1e] overflow-hidden"
                     style={
@@ -441,6 +441,7 @@ export const PinItem = ({
                             fontWeight: 500,
                             fontSize: "16px",
                             lineHeight: "140%",
+                            whiteSpace: "pre-wrap",
                           }
                         : ({
                             fontFamily: "Inter",
@@ -455,12 +456,11 @@ export const PinItem = ({
                           } as React.CSSProperties)
                     }
                   >
-                    {renderInlineMarkdown(formatPinTitle(pin.title ?? pin.text))}
+                    {renderInlineMarkdown(isTitleExpanded ? bodyContent : formatPinTitle(pin.title ?? pin.text))}
                   </p>
                 </div>
                 {!inOrganizeDialog &&
-                ((pin.title && pin.title.length > TRUNCATE_TITLE_LEN) ||
-                  (!pin.title && pin.text.length > TRUNCATE_TITLE_LEN)) ? (
+                bodyContent && bodyContent.length > TRUNCATE_TITLE_LEN ? (
                   <button
                     className="text-xs text-[#3b82f6] mt-1 p-0"
                     onClick={() => setIsTitleExpanded((prev) => !prev)}

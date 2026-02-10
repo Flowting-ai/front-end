@@ -190,13 +190,17 @@ function PersonasPageContent() {
       try {
         const list = await fetchPersonas(statusFilterValue, csrfToken);
         setPersonas(
-          list.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.prompt?.slice(0, 140) || "No description",
-            thumbnail: getFullAvatarUrl(p.imageUrl) || "/icons/personas/persona1.png",
-            temperature: undefined,
-          }))
+          list.map((p) => {
+            const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
+            console.log(`Persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
+            return {
+              id: p.id,
+              name: p.name,
+              description: p.prompt?.slice(0, 140) || "No description",
+              thumbnail: thumbnailUrl || "/personas/persona1.png",
+              temperature: undefined,
+            };
+          })
         );
       } catch (error) {
         console.error("Failed to load personas:", error);
@@ -205,6 +209,39 @@ function PersonasPageContent() {
       }
     };
     load();
+  }, [csrfToken, statusFilterValue]);
+
+  // Refresh personas when the component becomes visible (e.g., after navigating back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page is visible, refresh personas
+        const refreshPersonas = async () => {
+          try {
+            const list = await fetchPersonas(statusFilterValue, csrfToken);
+            setPersonas(
+              list.map((p) => {
+                const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
+                console.log(`Refreshed persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
+                return {
+                  id: p.id,
+                  name: p.name,
+                  description: p.prompt?.slice(0, 140) || "No description",
+                  thumbnail: thumbnailUrl || "/personas/persona1.png",
+                  temperature: undefined,
+                };
+              })
+            );
+          } catch (error) {
+            console.error("Failed to refresh personas:", error);
+          }
+        };
+        refreshPersonas();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [csrfToken, statusFilterValue]);
 
   const filteredPersonas = useMemo(() => {
@@ -619,20 +656,29 @@ function PersonasPageContent() {
 
               <div className={styles.cardsGrid}>
                 {filteredPersonas.length > 0 ? (
-                  filteredPersonas.map((persona) => (
-                    <div 
-                      key={persona.id} 
-                      className={cn(styles.personaCard, "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]")}
-                      onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}&chatMode=true`)}
-                    >
-                      <Image
-                        src={persona.thumbnail}
-                        alt="persona"
-                        width={148}
-                        height={148}
-                        unoptimized={persona.thumbnail.startsWith("http")}
-                        className={styles.personaImage}
-                      />
+                  filteredPersonas.map((persona) => {
+                    // Check if image needs unoptimized rendering (external URLs, data URLs, or blob URLs)
+                    const needsUnoptimized = 
+                      persona.thumbnail.startsWith("http") || 
+                      persona.thumbnail.startsWith("data:") || 
+                      persona.thumbnail.startsWith("blob:");
+                    
+                    return (
+                      <div 
+                        key={`${persona.id}-${persona.thumbnail}`} 
+                        className={cn(styles.personaCard, "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]")}
+                        onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}&chatMode=true`)}
+                      >
+                        <img
+                          src={persona.thumbnail}
+                          alt={`${persona.name} avatar`}
+                          className={styles.personaImage}
+                          onError={(e) => {
+                            console.error(`Failed to load image for ${persona.name}:`, persona.thumbnail);
+                            // Fallback to placeholder on error
+                            e.currentTarget.src = "/personas/persona1.png";
+                          }}
+                        />
                       <div className={styles.personaContent}>
                         <div className={styles.personaCardHeader}>
                           <div className={styles.cardBody}>
@@ -707,7 +753,8 @@ function PersonasPageContent() {
                         </div>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className={styles.emptyCard}>
                     {/* Avatar Stack */}

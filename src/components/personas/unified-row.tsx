@@ -510,11 +510,12 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                     type="button"
                     variant="ghost"
                     size="icon"
+                    disabled={status !== "active"}
                     onClick={(event) => {
                       event.stopPropagation();
                       personaProps?.onChat?.();
                     }}
-                    className="cursor-pointer h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 rounded-[6px] bg-[var(--general-secondary,#F5F5F5)] text-[#111827] hover:bg-[#E5E7EB] hover:text-black"
+                    className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 rounded-[6px] bg-[var(--general-secondary,#F5F5F5)] text-[#111827] hover:bg-[#E5E7EB] hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[var(--general-secondary,#F5F5F5)] disabled:hover:text-[#111827]"
                   >
                     <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                     <span className="sr-only">Chat with {name}</span>

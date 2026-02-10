@@ -19,6 +19,7 @@ const ChatBoxMain: NextPage = () => {
               alt="Library"
               width={16}
               height={16}
+              style={{ height: "auto" }}
             />
           </button>
           <div className={styles.textMessageLeft}>
@@ -28,6 +29,7 @@ const ChatBoxMain: NextPage = () => {
                 alt="Library"
                 width={16}
                 height={16}
+                style={{ height: "auto" }}
               />
               <span>Library</span>
             </div>
