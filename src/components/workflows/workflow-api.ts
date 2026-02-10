@@ -1360,21 +1360,41 @@ export const workflowAPI = {
       const personaList = Array.isArray(rawData) ? rawData : [];
 
       return personaList
-        .map((persona: Record<string, unknown>) => ({
-          id: String(persona.id || ""),
-          name: persona.name || "Untitled Persona",
-          description: persona.prompt?.slice(0, 140) || "",
-          modelId: persona.modelId ? String(persona.modelId) : undefined,
-          image: persona.imageUrl
-            ? persona.imageUrl.startsWith("http") ||
-              persona.imageUrl.startsWith("data:") ||
-              persona.imageUrl.startsWith("blob:")
+        .map((persona: Record<string, unknown>) => {
+          const id = String(persona.id || "");
+          const name =
+            typeof persona.name === "string" && persona.name.trim().length > 0
+              ? persona.name
+              : "Untitled Persona";
+          const prompt =
+            typeof persona.prompt === "string" ? persona.prompt : "";
+          const description = prompt.slice(0, 140);
+          const modelId =
+            persona.modelId !== undefined && persona.modelId !== null
+              ? String(persona.modelId)
+              : undefined;
+          const rawImageUrl =
+            typeof persona.imageUrl === "string"
               ? persona.imageUrl
-              : `${API_BASE_URL}${persona.imageUrl.startsWith("/") ? "" : "/"}${
-                  persona.imageUrl
-                }`
-            : undefined,
-        }))
+              : typeof persona.image === "string"
+                ? persona.image
+                : "";
+          const image = rawImageUrl
+            ? rawImageUrl.startsWith("http") ||
+              rawImageUrl.startsWith("data:") ||
+              rawImageUrl.startsWith("blob:")
+              ? rawImageUrl
+              : `${API_BASE_URL}${rawImageUrl.startsWith("/") ? "" : "/"}${rawImageUrl}`
+            : undefined;
+
+          return {
+            id,
+            name,
+            description,
+            modelId,
+            image,
+          };
+        })
         .filter((persona: { id: string }) => Boolean(persona.id));
     } catch {
       return [];
@@ -1404,19 +1424,56 @@ export const workflowAPI = {
       const pinList = Array.isArray(rawData) ? rawData : [];
 
       return pinList
-        .map((pin: Record<string, unknown>) => ({
-          id: String(pin.id || ""),
-          name: pin.title || pin.content || "Untitled Pin",
-          title: pin.title || pin.content || "Untitled Pin",
-          text: pin.content || pin.title || "",
-          content: pin.content || "",
-          tags: pin.tags || [],
-          folderId: pin.folderId || pin.folder_id || undefined,
-          folderName: pin.folderName || undefined,
-          chatId: pin.chat || pin.sourceChatId || undefined,
-          created_at: pin.created_at || undefined,
-          pinnedDate: pin.created_at || undefined,
-        }))
+        .map((pin: Record<string, unknown>) => {
+          const id = String(pin.id || "");
+          const title =
+            typeof pin.title === "string" && pin.title.trim().length > 0
+              ? pin.title
+              : typeof pin.content === "string" && pin.content.trim().length > 0
+                ? pin.content
+                : "Untitled Pin";
+          const content = typeof pin.content === "string" ? pin.content : "";
+          const text =
+            content ||
+            (typeof pin.title === "string" ? pin.title : "") ||
+            "";
+          const tags = Array.isArray(pin.tags)
+            ? pin.tags
+                .filter((tag): tag is string => typeof tag === "string")
+                .map((tag) => tag.trim())
+                .filter(Boolean)
+            : [];
+          const folderId =
+            pin.folderId !== undefined && pin.folderId !== null
+              ? String(pin.folderId)
+              : pin.folder_id !== undefined && pin.folder_id !== null
+                ? String(pin.folder_id)
+                : undefined;
+          const folderName =
+            typeof pin.folderName === "string" ? pin.folderName : undefined;
+          const chatId =
+            pin.chat !== undefined && pin.chat !== null
+              ? String(pin.chat)
+              : pin.sourceChatId !== undefined && pin.sourceChatId !== null
+                ? String(pin.sourceChatId)
+                : undefined;
+          const createdAt =
+            typeof pin.created_at === "string" ? pin.created_at : undefined;
+
+          return {
+            id,
+            name: title,
+            title,
+            text,
+            content,
+            tags,
+            folderId,
+            folderName,
+            chatId,
+            created_at: createdAt,
+            pinnedDate: createdAt,
+          };
+        })
         .filter((pin: { id: string }) => Boolean(pin.id));
     } catch {
       return [];
@@ -1425,17 +1482,3 @@ export const workflowAPI = {
 };
 
 export { WorkflowAPIError };
-
-// Export streaming types
-export type {
-  StreamEventType,
-  StreamEvent,
-  StreamCallbacks,
-  WorkflowStartEvent,
-  NodeStartEvent,
-  ChunkEvent,
-  NodeEndEvent,
-  NodeCompleteEvent,
-  WorkflowCompleteEvent,
-  StreamErrorEvent,
-};

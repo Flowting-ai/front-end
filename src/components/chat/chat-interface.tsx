@@ -713,9 +713,22 @@ export function ChatInterface({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
+      let assistantReasoning = "";
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
       let currentChatId = chatId;
+
+      const mergeReasoningContent = (
+        ...parts: Array<string | null | undefined>
+      ): string | null => {
+        const uniqueParts: string[] = [];
+        for (const part of parts) {
+          const normalized = typeof part === "string" ? part.trim() : "";
+          if (!normalized || uniqueParts.includes(normalized)) continue;
+          uniqueParts.push(normalized);
+        }
+        return uniqueParts.length > 0 ? uniqueParts.join("\n\n") : null;
+      };
 
       const updateAiMessage = (fields: Partial<Message>) => {
         setMessages((prev = []) => {
@@ -749,6 +762,32 @@ export function ChatInterface({
             parsed = JSON.parse(dataStr);
           } catch (err) {
             console.warn("Failed to parse SSE data", err, dataStr);
+            continue;
+          }
+
+          const payloadType =
+            typeof parsed?.type === "string" ? parsed.type : "";
+
+          if (eventName === "reasoning" || payloadType === "reasoning") {
+            const reasoningDelta =
+              typeof parsed.content === "string"
+                ? parsed.content
+                : typeof parsed.reasoning_content === "string"
+                  ? parsed.reasoning_content
+                  : typeof parsed.delta === "string"
+                    ? parsed.delta
+                    : "";
+            if (reasoningDelta) {
+              assistantReasoning += reasoningDelta;
+              const sanitized = extractThinkingContent(assistantContent);
+              updateAiMessage({
+                content: sanitized.visibleText || "",
+                thinkingContent: mergeReasoningContent(
+                  assistantReasoning,
+                  sanitized.thinkingText,
+                ),
+              });
+            }
             continue;
           }
 
@@ -788,12 +827,21 @@ export function ChatInterface({
           }
 
           if (eventName === "chunk") {
-            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+            const delta =
+              typeof parsed.delta === "string"
+                ? parsed.delta
+                : typeof parsed.content === "string" &&
+                    (payloadType === "content" || payloadType === "text")
+                  ? parsed.content
+                  : "";
             assistantContent += delta;
             const sanitized = extractThinkingContent(assistantContent);
             updateAiMessage({
               content: sanitized.visibleText || "",
-              thinkingContent: sanitized.thinkingText,
+              thinkingContent: mergeReasoningContent(
+                assistantReasoning,
+                sanitized.thinkingText,
+              ),
               // Flip off loading state once the first chunk arrives so UI shows streaming text.
               isLoading: false,
             });
@@ -817,6 +865,23 @@ export function ChatInterface({
               typeof parsed.response === "string"
                 ? parsed.response
                 : assistantContent;
+            const doneReasoning =
+              typeof parsed.reasoning === "string"
+                ? parsed.reasoning
+                : typeof parsed.reasoning_content === "string"
+                  ? parsed.reasoning_content
+                  : typeof parsed.thinking === "string"
+                    ? parsed.thinking
+                    : "";
+            if (doneReasoning) {
+              if (!assistantReasoning) {
+                assistantReasoning = doneReasoning;
+              } else if (doneReasoning.includes(assistantReasoning)) {
+                assistantReasoning = doneReasoning;
+              } else if (!assistantReasoning.includes(doneReasoning)) {
+                assistantReasoning = `${assistantReasoning}\n\n${doneReasoning}`;
+              }
+            }
             const messageMeta =
               parsed.metadata && typeof parsed.metadata === "object"
                 ? parsed.metadata
@@ -886,6 +951,10 @@ export function ChatInterface({
             const sanitized = extractThinkingContent(
               messageText || assistantContent || "API didn't respond",
             );
+            const mergedThinkingContent = mergeReasoningContent(
+              assistantReasoning,
+              sanitized.thinkingText,
+            );
 
             // Extract image data from done event if present
             const doneImageUrl =
@@ -900,8 +969,8 @@ export function ChatInterface({
             updateAiMessage({
               content:
                 sanitized.visibleText ||
-                (sanitized.thinkingText ? "" : "API didn't respond"),
-              thinkingContent: sanitized.thinkingText,
+                (mergedThinkingContent ? "" : "API didn't respond"),
+              thinkingContent: mergedThinkingContent,
               chatMessageId:
                 resolvedMessageId !== null && resolvedMessageId !== undefined
                   ? String(resolvedMessageId)

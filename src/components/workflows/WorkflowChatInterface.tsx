@@ -247,12 +247,12 @@ export function WorkflowChatInterface({
         onNodeEnd: (event: NodeEndEvent) => {
           console.log("[Stream] Node ended:", event.node_id, "Cost:", event.cost);
           setActiveNodeId(null);
+          const fallbackContent =
+            streamingContentRef.current.get(event.node_id) || "";
+          const finalContent = event.output || fallbackContent;
           setNodeOutputs((prev) => {
             const next = new Map(prev);
             const existing = next.get(event.node_id);
-            const fallbackContent =
-              streamingContentRef.current.get(event.node_id) || "";
-            const finalContent = event.output || fallbackContent;
             if (existing) {
               next.set(event.node_id, {
                 ...existing,

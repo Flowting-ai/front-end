@@ -1,7 +1,7 @@
 "use client";
 
-//  const DEFAULT_API_BASE_URL = "https://jellyfish-app-7brqd.ondigitalocean.app/";
-const DEFAULT_API_BASE_URL = "http://localhost:8000";
+const DEFAULT_API_BASE_URL =
+  "https://jellyfish-app-7brqd.ondigitalocean.app/";
 
 // Normalize the base to avoid accidental double slashes when the env var ends with "/".
 export const API_BASE_URL = (

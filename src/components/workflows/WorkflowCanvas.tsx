@@ -178,7 +178,18 @@ function WorkflowCanvasInner() {
   // Persona data fetched from API
   const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string }>>([]);
   // Model data fetched from API
-  const [allModels, setAllModels] = useState<Array<{ id: string; modelId?: string; name: string; companyName: string; description?: string; logo?: string; modelType?: string; sdkLibrary?: string }>>([]);
+  const [allModels, setAllModels] = useState<
+    Array<{
+      id: string;
+      modelId?: string;
+      name: string;
+      companyName: string;
+      description?: string;
+      logo?: string;
+      modelType?: "free" | "paid";
+      sdkLibrary?: string;
+    }>
+  >([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionOrder, setExecutionOrder] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
