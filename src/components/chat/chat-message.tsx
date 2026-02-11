@@ -875,7 +875,7 @@ export function ChatMessage({
                   </div>
                 </div>
               ) : message.isLoading ? (
-                <div className="max-w-125 w-125 flex flex-col gap-2">
+                <div className="max-w-125 w-auto flex flex-col gap-2">
                   <div className="bg-zinc-400/50 w-[300px] h-4 animate-pulse rounded-md"></div>
                   <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
                 </div>
