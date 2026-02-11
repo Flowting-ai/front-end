@@ -7,7 +7,7 @@ export default function YourContextSection() {
         {/* Title - large Screen */}
         <div className="hidden lg:flex flex-col gap-2">
           <div className="text-transparent bg-clip-text bg-black">
-            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px]">
+            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px] text-foreground">
               &quot;Your context, always with you.&quot;
             </h3>
           </div>
@@ -18,9 +18,9 @@ export default function YourContextSection() {
 
         <div className="relative w-full h-auto">
           {/* Title - Smaller Screens */}
-          <div className="lg:hidden absolute top-0 flex flex-col gap-2">
+          <div className="lg:hidden absolute top-0 w-full left-1/2 -translate-x-1/2 flex flex-col gap-2">
             <div className="text-transparent bg-clip-text bg-black">
-              <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px]">
+              <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px] text-foreground">
                 &quot;Your context, always with you.&quot;
               </h3>
             </div>
@@ -34,7 +34,7 @@ export default function YourContextSection() {
             {/* Background */}
             <div className="w-100 max-w-100 h-100 max-h-100 bg-linear-to-b from-amber-100/50 via-amber-100 to-blue-300/60 blur-[60px]"></div>
             {/* <Image
-            src="/yourContext/background.svg"
+            src="./yourContext/background.svg"
             alt="Your Context Background"
             width={16}
             height={16}
@@ -42,7 +42,7 @@ export default function YourContextSection() {
           /> */}
             {/* Window */}
             <Image
-              src="/yourContext/window.svg"
+              src="./yourContext/window.svg"
               alt="Window"
               width={16}
               height={16}
@@ -52,14 +52,14 @@ export default function YourContextSection() {
             <div className="z-2 top-10 -translate-x-40 absolute flex items-center justify-center">
               <div className="relative w-full h-full flex items-center justify-center">
                 <Image
-                  src="/yourContext/borderFrame.svg"
+                  src="./yourContext/borderFrame.svg"
                   alt="Border Frame"
                   width={16}
                   height={16}
                   className="w-full max-w-[125px] h-full max-h-[125px] object-contain"
                 />
                 <Image
-                  src="/yourContext/claude.svg"
+                  src="./yourContext/claude.svg"
                   alt="claude"
                   width={16}
                   height={16}
@@ -71,14 +71,14 @@ export default function YourContextSection() {
             <div className="z-2 bottom-30 -translate-x-74 absolute flex items-center justify-center">
               <div className="relative w-full h-full flex items-center justify-center">
                 <Image
-                  src="/yourContext/borderFrame.svg"
+                  src="./yourContext/borderFrame.svg"
                   alt="Border Frame"
                   width={16}
                   height={16}
                   className="w-full max-w-[125px] h-full max-h-[125px] object-contain"
                 />
                 <Image
-                  src="/yourContext/persona.svg"
+                  src="./yourContext/persona.svg"
                   alt="persona"
                   width={16}
                   height={16}
@@ -89,7 +89,7 @@ export default function YourContextSection() {
 
             {/* OpenAI */}
             <Image
-              src="/yourContext/openai.svg"
+              src="./yourContext/openai.svg"
               alt="openai"
               width={16}
               height={16}
@@ -98,7 +98,7 @@ export default function YourContextSection() {
 
             {/* Pins */}
             <Image
-              src="/yourContext/pins.svg"
+              src="./yourContext/pins.svg"
               alt="pins"
               width={16}
               height={16}
@@ -107,7 +107,7 @@ export default function YourContextSection() {
 
             {/* Cursor Pointer */}
             <Image
-              src="/yourContext/cursorPointer.svg"
+              src="./yourContext/cursorPointer.svg"
               alt="Cursor Pointer"
               width={16}
               height={16}
@@ -116,7 +116,7 @@ export default function YourContextSection() {
 
             {/* Connector1 */}
             <Image
-              src="/yourContext/connector1.svg"
+              src="./yourContext/connector1.svg"
               alt="connector1"
               width={16}
               height={16}
@@ -125,7 +125,7 @@ export default function YourContextSection() {
 
             {/* Connector2 */}
             <Image
-              src="/yourContext/connector2.svg"
+              src="./yourContext/connector2.svg"
               alt="connector2"
               width={16}
               height={16}

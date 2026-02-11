@@ -7,7 +7,7 @@ export default function QuoteFlowting() {
         {/* Title */}
         {/* <div className="flex flex-col gap-2">
           <div className="text-transparent bg-clip-text bg-black">
-            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px]">
+            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px] text-foreground">
               For the ones who utilize AI
             </h3>
           </div>
@@ -25,7 +25,7 @@ export default function QuoteFlowting() {
           <div className="w-full min-h-[80vh] lg:min-h-screen h-full flex items-center justify-center gap-6">
             <div className="absolute w-full h-[70vh] bg-linear-to-b from-blue-200 via-amber-100 to-blue-200 rounded-full blur-3xl"></div>
             <Image
-              src="/quoteFlowting/quoteBackground.svg"
+              src="./quoteFlowting/quoteBackground.svg"
               alt="Quote Background"
               width={16}
               height={16}

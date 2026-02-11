@@ -6,7 +6,7 @@ export default function GoBuildSomething() {
       <div className="max-w-7xl mx-auto text-center flex flex-col items-center gap-12 lg:gap-24">
         <div className="flex flex-col gap-2">
           <div className="text-transparent bg-clip-text bg-black">
-            <h3 className="font-medium lg:font-normal leading-[116%] text-xl lg:text-[37px]">
+            <h3 className="font-medium lg:font-normal leading-[116%] text-xl lg:text-[37px] text-foreground">
               Go Build Something.
             </h3>
           </div>
@@ -20,7 +20,7 @@ export default function GoBuildSomething() {
           <div className="w-full h-full flex items-center justify-center">
             <div className="relative lg:hidden flex items-center gap-4">
               <Image
-                src="/goBuildSomething/window.svg"
+                src="./goBuildSomething/window.svg"
                 alt="flowting window"
                 width={700}
                 height={100}
@@ -28,7 +28,7 @@ export default function GoBuildSomething() {
               />
               {/* qwen */}
               <Image
-                src="/goBuildSomething/qwen.svg"
+                src="./goBuildSomething/qwen.svg"
                 alt="flowting window qwen"
                 width={12}
                 height={12}
@@ -36,7 +36,7 @@ export default function GoBuildSomething() {
               />
               {/* meta */}
               <Image
-                src="/goBuildSomething/meta.svg"
+                src="./goBuildSomething/meta.svg"
                 alt="flowting window meta"
                 width={15}
                 height={15}
@@ -44,7 +44,7 @@ export default function GoBuildSomething() {
               />
               {/* gemini */}
               <Image
-                src="/goBuildSomething/gemini.svg"
+                src="./goBuildSomething/gemini.svg"
                 alt="flowting window gemini"
                 width={18}
                 height={18}
@@ -52,7 +52,7 @@ export default function GoBuildSomething() {
               />
               {/* grok */}
               <Image
-                src="/goBuildSomething/grok.svg"
+                src="./goBuildSomething/grok.svg"
                 alt="flowting window grok"
                 width={21}
                 height={21}
@@ -60,7 +60,7 @@ export default function GoBuildSomething() {
               />
               {/* claude */}
               <Image
-                src="/goBuildSomething/claude.svg"
+                src="./goBuildSomething/claude.svg"
                 alt="flowting window claude"
                 width={24}
                 height={24}
@@ -68,7 +68,7 @@ export default function GoBuildSomething() {
               />
               {/* OpenAI */}
               <Image
-                src="/goBuildSomething/openai.svg"
+                src="./goBuildSomething/openai.svg"
                 alt="flowting window openai"
                 width={27}
                 height={27}
@@ -76,7 +76,7 @@ export default function GoBuildSomething() {
               />
               {/* Deepseek */}
               {/* <Image
-                src="/goBuildSomething/deepseek.svg"
+                src="./goBuildSomething/deepseek.svg"
                 alt="flowting window deepseek"
                 width={30}
                 height={30}
@@ -86,7 +86,7 @@ export default function GoBuildSomething() {
 
             {/* Desktop Windows */}
             <Image
-              src="/goBuildSomething/flowtingWindows.svg"
+              src="./goBuildSomething/flowtingWindows.svg"
               alt="flowting windows"
               width={700}
               height={100}

@@ -75,11 +75,11 @@ export default function FeaturesSection() {
   }, []);
 
   return (
-    <section className="w-full my-10 lg:my-40" ref={containerRef}>
+    <section className="w-full mt-0 lg:mt-10 mb-10 lg:mb-40" ref={containerRef}>
       <div className="max-w-7xl mx-auto text-center flex flex-col items-center gap-10 px-4 lg:px-0">
         <div className="flex flex-col gap-2">
           <div className="text-transparent bg-clip-text bg-black">
-            <h3 className="font-medium lg:font-normal leading-[120%] text-balance text-xl lg:text-[37px]">
+            <h3 className="font-medium lg:font-normal leading-[120%] text-balance text-xl lg:text-[37px] text-foreground">
               Practical Features. Measurable Impact.
             </h3>
           </div>
@@ -102,7 +102,7 @@ export default function FeaturesSection() {
               >
                 <div className="-z-1 absolute top-1/2 left-1/2 -translate-1/2 w-1/2 h-1/2 bg-linear-to-b from-blue-200/30 via-blue-100/30 to-blue-200/30 blur-3xl"></div>
                 <h4 className="font-normal text-xl lg:text-[28px]">{feature.title}</h4>
-                <p className="text-[#525252] text-sm lg:text-base leading-relaxed">
+                <p className="text-subtext text-sm lg:text-base leading-relaxed">
                   {feature.description}
                 </p>
                 <div className="lg:hidden w-full h-auto flex items-center justify-center">
@@ -136,7 +136,7 @@ export default function FeaturesSection() {
               {/* Blue Background */}
               <div className="z-0 absolute inset-0 overflow-hidden rounded-3xl">
                 <Image
-                  src="/yourContext/background.svg"
+                  src="./yourContext/background.svg"
                   alt="background"
                   fill
                   className="blur-[10px] w-full h-full object-contain bg-transparent backdrop-blur-[2px] rounded-3xl"

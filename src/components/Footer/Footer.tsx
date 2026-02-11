@@ -157,7 +157,7 @@ export default function Footer() {
 
       {/* BOTTOM */}
       <div className="relative w-full h-auto text-center lg:text-left px-4 lg:px-0 py-10">
-        <div className="max-w-7xl mx-auto text-balance text-sm lg:text-base text-[#666666] flex flex-col-reverse lg:flex-row gap-4">
+        <div className="max-w-7xl mx-auto text-balance text-sm lg:text-base text-subtext flex flex-col-reverse lg:flex-row gap-4">
           <div className="flex-1">
             <p>&copy; {currentYear} FlowtingAI. Made with context.</p>
             <p>
@@ -168,13 +168,13 @@ export default function Footer() {
           {/* Flowting AI Logo */}
           <div className="flex-1 lg:flex-0 flex items-center justify-center gap-4">
             <Image
-              src="/hero/FlowtingLogo.svg"
+              src="./hero/FlowtingLogoSilver.svg"
               alt="Flowting AI Logo"
               width={43}
               height={43}
               className="w-8 h-8 lg:w-10.75 lg:h-10.75"
             />
-            <h3 className="font-normal leading-[120%] text-2xl lg:text-[36px]">
+            <h3 className="font-normal leading-[120%] text-2xl lg:text-[36px] text-subtext">
               FlowtingAI
             </h3>
           </div>

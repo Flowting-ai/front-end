@@ -1,20 +1,78 @@
-/* Google Fonts - Geist | Inter */
+/* ============================================================================
+   IMPORTS
+   ============================================================================ */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
-
 @import "tailwindcss";
 
+/* ============================================================================
+   COLOR TOKENS & CSS CUSTOM PROPERTIES
+   ============================================================================ */
+
+/* Light Mode - Default */
 :root {
+  color-scheme: light;
+
+  /* Semantic Colors */
   --background: #faf9f8;
   --foreground: #171717;
+
+  /* Surface & UI Colors */
   --main-bg: #f5f5f5;
   --main-border: #d9d9d9;
+  --nav-bg: #ffffff;
+  --nav-button-bg: #0a0a0a;
+
+  /* Text Colors */
+  --subtext: #525252;
+
+  /* Animation Control */
+  --border-angle: 0deg;
+}
+
+/* Dark Mode - Class-based approach */
+/* :root[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+
+  --background: #141413;
+  --foreground: #faf9f5;
+
+  --main-bg: #1a1a1a;
+  --main-border: #3a3a3a;
+  --nav-bg: #000000;
+  --nav-button-bg: #ffffff;
+
+  --subtext: #e7e7e7;
+
+  --border-angle: 0deg;
+} */
+
+/* System preference fallback when no explicit theme is set */
+
+/* ============================================================================
+   THEME CONFIGURATION
+   ============================================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-button-bg: var(--nav-button-bg);
+
+  --font-geist: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 @theme {
   --color-main-bg: var(--main-bg, #f5f5f5);
   --color-main-border: var(--main-border, #d9d9d9);
+  --color-subtext: var(--subtext, #525252);
 
-  /* 1. Define the rotation animation */
+  --color-app-bg: #f5f5f5;
+  --color-app-border: #d9d9d9;
+
+  /* Animation Definitions */
   --animate-border-rotate: border-rotate 6s linear infinite;
   --animate-border-rotate2: border-rotate 8s linear infinite;
 
@@ -28,66 +86,75 @@
   }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+/* ============================================================================
+   CUSTOM PROPERTIES REGISTRATION
+   ============================================================================ */
 
-  --font-geist: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --add_Dark_Mode_Colors_Here: black;
-    --it_should_be_a_mirror_of_root: black;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground) !important;
-  font-family: var(--font-geist-sans);
-}
-
-/* 2. Register the property for smooth interpolation */
+/* Register border-angle for smooth interpolation in animations */
 @property --border-angle {
   syntax: "<angle>";
   initial-value: 0deg;
   inherits: false;
 }
 
-/* 3. Create a utility for the effect */
+/* ============================================================================
+   GLOBAL STYLES
+   ============================================================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+
+/* ============================================================================
+   UTILITY CLASSES - ANIMATED BORDERS
+   ============================================================================ */
+
+/* Dual beam animation - Primary style */
 @utility animate-dual-beam {
   background: 
-    /* The center "mask" (matches your card background) */
+    /* Center mask (matches card background) */
     linear-gradient(var(--color-main-bg), var(--color-main-bg)) padding-box,
-    /* The two beams: one at the start, one at the 180-degree mark */
+    /* Two beams: one at start, one at 180-degree mark */
       conic-gradient(
         from var(--border-angle),
-        transparent 0%,
+        white 0%,
         var(--color-cyan-400) 5%,
-        /* Beam 1 */ transparent 10%,
-        transparent 50%,
+        /* Beam 1 */ white 10%,
+        white 50%,
         var(--color-blue-400) 55%,
-        /* Beam 2 */ transparent 60%
+        /* Beam 2 */ white 60%
       )
       border-box;
   border: 2px solid transparent;
+  animation: var(--animate-border-rotate);
 }
+
+/* Dual beam animation - Secondary style */
 @utility animate-dual-beam2 {
   background: 
-    /* The center "mask" (matches your card background) */
+    /* Center mask (matches card background) */
     linear-gradient(var(--color-main-bg), var(--color-main-bg)) padding-box,
-    /* The two beams: one at the start, one at the 180-degree mark */
+    /* Two beams: one at start, one at 180-degree mark */
       conic-gradient(
         from var(--border-angle),
-        transparent 0%,
+        white 0%,
         var(--color-blue-300) 5%,
-        /* Beam 1 */ transparent 10%,
-        transparent 50%,
+        /* Beam 1 */ white 10%,
+        white 50%,
         var(--color-blue-300) 55%,
-        /* Beam 2 */ transparent 60%
+        /* Beam 2 */ white 60%
       )
       border-box;
   border: 2px solid transparent;
+  animation: var(--animate-border-rotate2);
 }

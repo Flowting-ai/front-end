@@ -6,7 +6,7 @@ export default function PersonasSection() {
       <div className="max-w-7xl mx-auto text-center flex flex-col items-center gap-4 lg:gap-10 px-4 lg:px-0">
         <div className="flex flex-col gap-2">
           <div className="text-transparent bg-clip-text bg-black">
-            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px]">
+            <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px] text-foreground">
               Your AI, Your Rules
             </h3>
           </div>
@@ -18,7 +18,7 @@ export default function PersonasSection() {
         {/* Personas */}
         <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Image
-            src="/personas/createPersona.svg"
+            src="./personas/createPersona.svg"
             alt="Create Persona"
             width={16}
             height={16}
@@ -27,7 +27,7 @@ export default function PersonasSection() {
           <div className="w-full max-w-160   h-auto max-h-164 bg-white rounded-3xl shadow flex items-center justify-center p-4 ">
             <div className="relative w-full h-full bg-linear-to-b from-[#CCEAEF] via-amber-100 to-[#CCEAEF] rounded-2xl overflow-hidden">
               <Image
-                src="/personas/persona-skew.svg"
+                src="./personas/persona-skew.svg"
                 alt="persona-skew"
                 width={500}
                 height={500}

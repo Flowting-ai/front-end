@@ -41,8 +41,8 @@ const CARD_CONTENT = [
 export default function ProblemsSection() {
   return (
     <section className="w-full h-auto my-10 lg:my-10 lg:my-40">
-      <div className="max-w-7xl mx-auto text-center flex flex-col items-center justify-center gap-4 lg:gap-12">
-        <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px]">
+      <div className="max-w-7xl mx-auto text-center flex flex-col items-center justify-center gap-4 lg:gap-12 px-4 lg:px-0">
+        <h3 className="font-medium lg:font-normal leading-[120%] text-xl lg:text-[37px] text-foreground text-foreground">
           Do these issues sound familiar?
         </h3>
         <div className="w-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
