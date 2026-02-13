@@ -1171,14 +1171,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const handleAddChat = () => {
     handleRenameCancel();
 
-    // Check if there's already a temp chat
-    const existingTemp = chatBoards.find((board) =>
-      board.id.startsWith("temp-")
+    // Reuse only an empty temp chat; otherwise create a fresh one.
+    const reusableEmptyTemp = chatBoards.find(
+      (board) =>
+        board.id.startsWith("temp-") &&
+        (chatHistory[board.id]?.length ?? 0) === 0
     );
-    if (existingTemp) {
-      setActiveChatId(existingTemp.id);
+    if (reusableEmptyTemp) {
+      setActiveChatId(reusableEmptyTemp.id);
       setChatHistory((prev) =>
-        prev[existingTemp.id] ? prev : { ...prev, [existingTemp.id]: [] }
+        prev[reusableEmptyTemp.id]
+          ? prev
+          : { ...prev, [reusableEmptyTemp.id]: [] }
       );
       router.push("/");
       return;

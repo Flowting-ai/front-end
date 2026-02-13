@@ -718,6 +718,48 @@ export function ChatInterface({
       let streamFinished = false;
       let currentChatId = chatId;
 
+      const syncResolvedChatId = (resolvedId: string, title?: string | null) => {
+        if (isPersonaTest || !layoutContext?.setActiveChatId) return;
+
+        const previousChatId = currentChatId;
+        currentChatId = resolvedId;
+
+        if (
+          previousChatId &&
+          previousChatId !== resolvedId &&
+          previousChatId.startsWith("temp-") &&
+          layoutContext?.setChatBoards
+        ) {
+          layoutContext.setChatBoards((prev) => {
+            const tempIndex = prev.findIndex(
+              (board) => board.id === previousChatId
+            );
+            if (tempIndex === -1) return prev;
+
+            const resolvedIndex = prev.findIndex(
+              (board) => board.id === resolvedId
+            );
+            if (resolvedIndex !== -1) {
+              return prev.filter((board) => board.id !== previousChatId);
+            }
+
+            const next = [...prev];
+            const currentBoard = next[tempIndex];
+            next[tempIndex] = {
+              ...currentBoard,
+              id: resolvedId,
+              name: title?.trim() ? title : currentBoard.name,
+            };
+            return next;
+          });
+        }
+
+        layoutContext.setActiveChatId(resolvedId);
+        if (messageBufferRef.current.length > 0) {
+          setMessages(messageBufferRef.current, resolvedId);
+        }
+      };
+
       const mergeReasoningContent = (
         ...parts: Array<string | null | undefined>
       ): string | null => {
@@ -793,22 +835,17 @@ export function ChatInterface({
 
           if (eventName === "metadata") {
             streamMetadata = parsed;
-            if (
-              !isPersonaTest &&
-              parsed.chat_id &&
-              layoutContext?.setActiveChatId
-            ) {
-              const resolved = String(parsed.chat_id);
-              currentChatId = resolved;
-              layoutContext.setActiveChatId(resolved);
-              // Re-sync buffered messages to the resolved chat id
-              if (messageBufferRef.current.length > 0) {
-                setMessages(messageBufferRef.current, resolved);
-              }
+            const chatTitle =
+              typeof parsed.title === "string"
+                ? parsed.title
+                : typeof parsed.chat_title === "string"
+                ? parsed.chat_title
+                : null;
+            if (parsed.chat_id) {
+              syncResolvedChatId(String(parsed.chat_id), chatTitle);
             }
 
             // Update chat title if provided by backend (works for both new and existing chats)
-            const chatTitle = parsed.title || parsed.chat_title;
             if (
               !isPersonaTest &&
               chatTitle &&
@@ -982,16 +1019,15 @@ export function ChatInterface({
             });
 
             if (
-              !isPersonaTest &&
-              parsed.chat_id &&
-              layoutContext?.setActiveChatId
+              parsed.chat_id
             ) {
-              const resolved = String(parsed.chat_id);
-              currentChatId = resolved;
-              layoutContext.setActiveChatId(resolved);
-              if (messageBufferRef.current.length > 0) {
-                setMessages(messageBufferRef.current, resolved);
-              }
+              const doneTitle =
+                typeof parsed.title === "string"
+                  ? parsed.title
+                  : typeof parsed.chat_title === "string"
+                  ? parsed.chat_title
+                  : null;
+              syncResolvedChatId(String(parsed.chat_id), doneTitle);
             }
 
             // Update chat title if provided in done event (works for both new and existing chats)

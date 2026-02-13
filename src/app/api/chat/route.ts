@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 
+const DEFAULT_BACKEND_URL = "https://jellyfish-app-7brqd.ondigitalocean.app";
+
 const resolveBackendBaseUrl = () => {
   const raw =
     process.env.NEXT_PUBLIC_HOST_URL ??
     process.env.NEXT_PUBLIC_BACKEND_URL ??
-    "";
-  if (!raw) return "";
+    DEFAULT_BACKEND_URL;
   return raw.startsWith("http") ? raw : `http://${raw}`;
 };
 
 export async function POST(req: Request) {
   const baseUrl = resolveBackendBaseUrl();
-  if (!baseUrl) {
-    return NextResponse.json(
-      { response: "Backend URL is not configured." },
-      { status: 500 }
-    );
-  }
 
   const targetUrl = new URL("/chat/", baseUrl);
   const incomingHeaders = new Headers(req.headers);

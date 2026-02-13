@@ -19,6 +19,10 @@ const ICON_BY_KEYWORD: Record<string, string> = {
   grok: "/grok.svg",
   "x-ai": "/grok.svg",
   xai: "/grok.svg",
+  "zai-org": "/zai.svg",
+  "z.ai": "/zai.svg",
+  zhipu: "/zai.svg",
+  glm: "/zai.svg",
 };
 
 export const getModelIcon = (
