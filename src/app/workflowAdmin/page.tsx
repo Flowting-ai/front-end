@@ -74,7 +74,7 @@ const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Workflows" },
   { value: "active", label: "Active Workflows" },
   { value: "paused", label: "Paused Workflows" },
-  { value: "inactive", label: "Inactive Workflows" },
+  // { value: "inactive", label: "Inactive Workflows" },
 ];
 
 export default function WorkflowAdminPage() {
