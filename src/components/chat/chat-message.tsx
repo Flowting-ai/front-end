@@ -368,7 +368,7 @@ export function ChatMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showThinking, setShowThinking] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
 
   // Typewriter effect disabled - displaying content directly
   // const typewriterSpeed = 7;
@@ -421,8 +421,8 @@ export function ChatMessage({
     }
   }, [isEditing, editedContent]);
   useEffect(() => {
-    setShowThinking(false);
-  }, [message.id, message.thinkingContent]);
+    setShowThinking(true);
+  }, [message.id]);
 
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
@@ -821,25 +821,40 @@ export function ChatMessage({
                 </div>
               )}
               {message.thinkingContent && (
-                <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between text-left font-semibold"
-                    onClick={() => setShowThinking((prev) => !prev)}
-                  >
-                    <span>
-                      {showThinking ? "Hide reasoning" : "Show reasoning"}
-                    </span>
-                    {showThinking ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
+                <div className={cn(
+                  "mb-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs text-zinc-600",
+                  isResponding && "border-l-2 border-l-zinc-400 animate-pulse"
+                )}>
+                  <div className="flex w-full items-center justify-between">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 text-left font-semibold text-zinc-500 hover:text-zinc-700 transition-colors"
+                      onClick={() => setShowThinking((prev) => !prev)}
+                    >
+                      {showThinking ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {showThinking ? "Hide reasoning" : "Show reasoning"}
+                      </span>
+                    </button>
+                    {showThinking && (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors"
+                        onClick={() => onCopy(message.thinkingContent ?? "")}
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </button>
                     )}
-                  </button>
+                  </div>
                   {showThinking && (
-                    <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
+                    <div className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-500">
                       {message.thinkingContent}
-                    </pre>
+                    </div>
                   )}
                 </div>
               )}

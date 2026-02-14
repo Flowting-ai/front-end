@@ -828,6 +828,7 @@ export function ChatInterface({
                   assistantReasoning,
                   sanitized.thinkingText,
                 ),
+                isLoading: false,
               });
             }
             continue;
