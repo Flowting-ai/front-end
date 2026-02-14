@@ -1,8 +1,10 @@
 "use client";
 import { usePrismHighlight } from "@/hooks/usePrismHighlight";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import chatStyles from "./chat-interface.module.css";
-import { useState, useRef, useEffect, useMemo, type JSX } from "react";
+import { useState, useRef, useEffect, useCallback, type JSX } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import {
@@ -21,7 +23,6 @@ import {
   Reply,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
-import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   Tooltip,
@@ -31,296 +32,6 @@ import {
 } from "../ui/tooltip";
 import Image from "next/image";
 
-type ContentSegment =
-  | { type: "text"; value: string }
-  | { type: "code"; value: string; language?: string };
-
-const parseContentSegments = (value: string): ContentSegment[] => {
-  if (!value) return [];
-  const segments: ContentSegment[] = [];
-  const codeRegex = /```([\w+-]+)?\s*\n?([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = codeRegex.exec(value)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({
-        type: "text",
-        value: value.slice(lastIndex, match.index),
-      });
-    }
-    segments.push({
-      type: "code",
-      language: match[1]?.trim(),
-      value: match[2] ?? "",
-    });
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < value.length) {
-    segments.push({
-      type: "text",
-      value: value.slice(lastIndex),
-    });
-  }
-
-  return segments;
-};
-
-const headingClassByLevel: Record<number, string> = {
-  1: "text-2xl",
-  2: "text-xl",
-  3: "text-lg",
-  4: "text-base",
-  5: "text-sm",
-  6: "text-xs",
-};
-
-const isTableDivider = (line: string) =>
-  /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line.trim());
-
-const isTableRow = (line: string) => {
-  const trimmed = line.trim();
-  return trimmed.startsWith("|") && trimmed.includes("|", 1);
-};
-
-const parseTableRow = (line: string) => {
-  const cleaned = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return cleaned.split("|").map((cell) => cell.trim());
-};
-
-const renderInlineContent = (text: string, keyPrefix: string) => {
-  // Combined regex for links and bold
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const boldRegex = /(\*\*|__)(.+?)\1/g;
-
-  // First pass: extract all matches with their positions
-  type InlineMatch = {
-    type: "link" | "bold";
-    start: number;
-    end: number;
-    content: string;
-    url?: string;
-  };
-
-  const matches: InlineMatch[] = [];
-
-  // Find all links
-  let match: RegExpExecArray | null;
-  while ((match = linkRegex.exec(text)) !== null) {
-    matches.push({
-      type: "link",
-      start: match.index,
-      end: match.index + match[0].length,
-      content: match[1],
-      url: match[2],
-    });
-  }
-
-  // Find all bold (that don't overlap with links)
-  while ((match = boldRegex.exec(text)) !== null) {
-    const overlaps = matches.some(
-      (m) => match!.index < m.end && match!.index + match![0].length > m.start
-    );
-    if (!overlaps) {
-      matches.push({
-        type: "bold",
-        start: match.index,
-        end: match.index + match[0].length,
-        content: match[2],
-      });
-    }
-  }
-
-  // Sort by position
-  matches.sort((a, b) => a.start - b.start);
-
-  const nodes: Array<string | JSX.Element> = [];
-  let lastIndex = 0;
-
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-
-    // Add text before this match
-    if (m.start > lastIndex) {
-      nodes.push(text.slice(lastIndex, m.start));
-    }
-
-    if (m.type === "link") {
-      nodes.push(
-        <a
-          key={`${keyPrefix}-link-${i}`}
-          href={m.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
-        >
-          {m.content}
-        </a>
-      );
-    } else if (m.type === "bold") {
-      nodes.push(
-        <strong
-          key={`${keyPrefix}-bold-${i}`}
-          className="font-semibold text-[#171717]"
-        >
-          {m.content}
-        </strong>
-      );
-    }
-
-    lastIndex = m.end;
-  }
-
-  // Add remaining text
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  if (nodes.length === 0) {
-    nodes.push(text);
-  }
-
-  return nodes;
-};
-
-const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
-  const nodes: JSX.Element[] = [];
-  const lines = value.replace(/\r/g, "").split("\n");
-  const listBuffer: string[] = [];
-
-  const flushList = () => {
-    if (listBuffer.length === 0) return;
-    const listKey = `${keyPrefix}-list-${nodes.length}`;
-    nodes.push(
-      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#171717]">
-        {listBuffer.map((item, index) => (
-          <li key={`${listKey}-item-${index}`} className="leading-relaxed">
-            {renderInlineContent(item, `${listKey}-item-${index}`)}
-          </li>
-        ))}
-      </ul>,
-    );
-    listBuffer.length = 0;
-  };
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      flushList();
-      nodes.push(
-        <span
-          key={`${keyPrefix}-gap-${index}`}
-          className="block h-2"
-          aria-hidden="true"
-        />,
-      );
-      continue;
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-    if (headingMatch) {
-      flushList();
-      const level = Math.min(headingMatch[1].length, 6);
-      const content = headingMatch[2];
-      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-      nodes.push(
-        <HeadingTag
-          key={`${keyPrefix}-heading-${index}`}
-          className={cn(
-            "font-semibold text-[#171717] tracking-tight",
-            headingClassByLevel[level],
-          )}
-        >
-          {renderInlineContent(content, `${keyPrefix}-heading-${index}`)}
-        </HeadingTag>,
-      );
-      continue;
-    }
-
-    if (isTableRow(line) && isTableDivider(lines[index + 1] ?? "")) {
-      flushList();
-      const headerCells = parseTableRow(line);
-      index += 2; // skip divider line
-      const bodyRows: string[][] = [];
-
-      while (index < lines.length && isTableRow(lines[index])) {
-        bodyRows.push(parseTableRow(lines[index]));
-        index++;
-      }
-
-      const tableKey = `${keyPrefix}-table-${nodes.length}`;
-      nodes.push(
-        <div
-          key={tableKey}
-          className="overflow-x-auto rounded-2xl border border-slate-200"
-        >
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-slate-50/70 text-slate-700">
-              <tr>
-                {headerCells.map((cell, cellIndex) => (
-                  <th
-                    key={`${tableKey}-header-${cellIndex}`}
-                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
-                  >
-                    {renderInlineContent(
-                      cell,
-                      `${tableKey}-header-${cellIndex}`,
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {bodyRows.map((row, rowIndex) => (
-                <tr
-                  key={`${tableKey}-row-${rowIndex}`}
-                  className="odd:bg-white even:bg-slate-50/50"
-                >
-                  {row.map((cell, cellIndex) => (
-                    <td
-                      key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
-                      className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]"
-                    >
-                      {renderInlineContent(
-                        cell,
-                        `${tableKey}-cell-${rowIndex}-${cellIndex}`,
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      );
-
-      index -= 1; // adjust for loop increment
-      continue;
-    }
-
-    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
-    if (listMatch) {
-      listBuffer.push(listMatch[1]);
-      continue;
-    }
-
-    flushList();
-    nodes.push(
-      <p
-        key={`${keyPrefix}-paragraph-${index}`}
-        className="whitespace-pre-wrap leading-relaxed text-[#171717]"
-      >
-        {renderInlineContent(line, `${keyPrefix}-paragraph-${index}`)}
-      </p>,
-    );
-  }
-
-  flushList();
-  return nodes;
-};
 
 // Custom hook for typewriter effect
 const useTypewriter = (
@@ -506,11 +217,9 @@ export function ChatMessage({
     }
   };
 
-  const contentToDisplay = message.content;
-  const contentSegments = useMemo(
-    () => parseContentSegments(contentToDisplay),
-    [contentToDisplay],
-  );
+  const handleCopyCode = useCallback((code: string) => {
+    onCopy(code);
+  }, [onCopy]);
 
   const actionButtonClasses =
     "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
@@ -960,66 +669,135 @@ export function ChatMessage({
                   <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
                 </div>
               ) : (
-                // <LoadingState />
-                <div className="flex flex-col gap-4 text-sm">
-                  {contentSegments.length === 0 && (
-                    <p className="whitespace-pre-wrap leading-relaxed">
-                      {contentToDisplay}
-                    </p>
-                  )}
-                  {contentSegments.map((segment, index) => {
-                    if (segment.type === "code") {
-                      return (
-                        <div
-                          key={`code-${message.id}-${index}`}
-                          className={`relative border border-zinc-100 rounded-2xl bg-[#f9f9f9] py-2 overflow-hidden`}
+                <div className="prose prose-sm max-w-none text-sm text-[#171717]">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Headings
+                      h1: ({ children }) => (
+                        <h1 className="text-2xl font-semibold text-[#171717] tracking-tight mt-4 mb-2">{children}</h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-xl font-semibold text-[#171717] tracking-tight mt-3 mb-2">{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-lg font-semibold text-[#171717] tracking-tight mt-3 mb-1">{children}</h3>
+                      ),
+                      h4: ({ children }) => (
+                        <h4 className="text-base font-semibold text-[#171717] mt-2 mb-1">{children}</h4>
+                      ),
+                      // Paragraphs
+                      p: ({ children }) => (
+                        <p className="leading-relaxed text-[#171717] my-2">{children}</p>
+                      ),
+                      // Links
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
                         >
-                          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70 px-4">
-                            {segment.language && (
-                              <span className="text-black">
-                                {segment.language}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => onCopy(segment.value)}
-                              className="cursor-pointer inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-main-border text-black transition hover:text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-                            >
-                              <Copy className="h-3 w-3" />
-                              Copy
-                            </button>
-                          </div>
-                          <pre
-                            className={`overflow-x-auto rounded-2xl bg-transparent p-4 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}
-                          >
-                            <code
-                              className={`language-${segment.language || "ts"}`}
-                            >
-                              {segment.value.trimEnd()}
-                            </code>
-                          </pre>
+                          {children}
+                        </a>
+                      ),
+                      // Bold
+                      strong: ({ children }) => (
+                        <strong className="font-semibold text-[#171717]">{children}</strong>
+                      ),
+                      // Italic
+                      em: ({ children }) => (
+                        <em className="italic">{children}</em>
+                      ),
+                      // Lists
+                      ul: ({ children }) => (
+                        <ul className="ml-5 list-disc space-y-1 text-[#171717] my-2">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="ml-5 list-decimal space-y-1 text-[#171717] my-2">{children}</ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="leading-relaxed">{children}</li>
+                      ),
+                      // Code blocks
+                      pre: ({ children }) => (
+                        <div className="relative border border-zinc-100 rounded-2xl bg-[#f9f9f9] py-2 overflow-hidden my-3">
+                          {children}
                         </div>
-                      );
-                    }
+                      ),
+                      code: ({ className, children }) => {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const isInline = !className;
+                        const codeContent = String(children).replace(/\n$/, "");
 
-                    if (!segment.value) {
-                      return <br key={`text-${message.id}-${index}`} />;
-                    }
+                        if (isInline) {
+                          return (
+                            <code className="bg-zinc-100 text-zinc-800 px-1.5 py-0.5 rounded text-[13px] font-mono">
+                              {children}
+                            </code>
+                          );
+                        }
 
-                    return (
-                      <div
-                        key={`text-${message.id}-${index}`}
-                        className="space-y-2"
-                      >
-                        {renderTextContent(
-                          segment.value,
-                          `text-${message.id}-${index}`,
-                        )}
-                      </div>
-                    );
-                  })}
+                        return (
+                          <>
+                            <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider px-4 mb-1">
+                              {match && (
+                                <span className="text-black">{match[1]}</span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(codeContent)}
+                                className="cursor-pointer inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-main-border text-black transition hover:text-white hover:bg-black"
+                              >
+                                <Copy className="h-3 w-3" />
+                                Copy
+                              </button>
+                            </div>
+                            <pre className={`overflow-x-auto bg-transparent px-4 pb-2 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}>
+                              <code className={className}>
+                                {codeContent}
+                              </code>
+                            </pre>
+                          </>
+                        );
+                      },
+                      // Tables
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200 my-3">
+                          <table className="w-full border-collapse text-sm">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-slate-50/70 text-slate-700">{children}</thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]">
+                          {children}
+                        </th>
+                      ),
+                      tbody: ({ children }) => <tbody>{children}</tbody>,
+                      tr: ({ children }) => (
+                        <tr className="odd:bg-white even:bg-slate-50/50">{children}</tr>
+                      ),
+                      td: ({ children }) => (
+                        <td className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]">
+                          {children}
+                        </td>
+                      ),
+                      // Blockquotes
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-zinc-300 pl-4 italic text-zinc-600 my-3">
+                          {children}
+                        </blockquote>
+                      ),
+                      // Horizontal rule
+                      hr: () => <hr className="border-zinc-200 my-4" />,
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
                   {message.imageUrl && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 mt-3">
                       <Image
                         src={message.imageUrl}
                         alt={
