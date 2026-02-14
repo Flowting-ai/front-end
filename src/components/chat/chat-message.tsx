@@ -370,13 +370,13 @@ export function ChatMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showThinking, setShowThinking] = useState(true);
 
-  // Typewriter effect disabled - displaying content directly
-  // const typewriterSpeed = 7;
-  // const displayedContent = useTypewriter(
-  //   message.content,
-  //   typewriterSpeed,
-  //   isNewMessage && !isUser && !message.isLoading,
-  // );
+  // Typewriter effect for thinking/reasoning content
+  const thinkingTypewriterSpeed = 5;
+  const displayedThinking = useTypewriter(
+    message.thinkingContent || "",
+    thinkingTypewriterSpeed,
+    isNewMessage && !isUser && isResponding && !!message.thinkingContent,
+  );
 
   usePrismHighlight(message.content);
 
@@ -822,19 +822,19 @@ export function ChatMessage({
               )}
               {message.thinkingContent && (
                 <div className={cn(
-                  "mb-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs text-zinc-600",
-                  isResponding && "border-l-2 border-l-zinc-400 animate-pulse"
+                  "mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/30 px-4 py-3 text-xs",
+                  isResponding && "border-l-2 border-l-zinc-400"
                 )}>
                   <div className="flex w-full items-center justify-between">
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 text-left font-semibold text-zinc-500 hover:text-zinc-700 transition-colors"
+                      className="flex items-center gap-2 text-left font-medium text-zinc-500 hover:text-zinc-700 transition-colors"
                       onClick={() => setShowThinking((prev) => !prev)}
                     >
                       {showThinking ? (
-                        <EyeOff className="h-3.5 w-3.5" />
+                        <EyeOff className="h-4 w-4" />
                       ) : (
-                        <Eye className="h-3.5 w-3.5" />
+                        <Eye className="h-4 w-4" />
                       )}
                       <span>
                         {showThinking ? "Hide reasoning" : "Show reasoning"}
@@ -852,8 +852,11 @@ export function ChatMessage({
                     )}
                   </div>
                   {showThinking && (
-                    <div className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-500">
-                      {message.thinkingContent}
+                    <div className="mt-3 whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-500 italic">
+                      {isNewMessage && isResponding ? displayedThinking : message.thinkingContent}
+                      {isNewMessage && isResponding && displayedThinking.length < (message.thinkingContent?.length || 0) && (
+                        <span className="inline-block w-0.5 h-3.5 ml-0.5 bg-zinc-400 animate-pulse align-middle" />
+                      )}
                     </div>
                   )}
                 </div>
