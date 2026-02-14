@@ -90,27 +90,89 @@ const parseTableRow = (line: string) => {
 };
 
 const renderInlineContent = (text: string, keyPrefix: string) => {
+  // Combined regex for links and bold
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   const boldRegex = /(\*\*|__)(.+?)\1/g;
-  const nodes: Array<string | JSX.Element> = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let boldCount = 0;
 
-  while ((match = boldRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
-    }
-    nodes.push(
-      <strong
-        key={`${keyPrefix}-bold-${boldCount++}`}
-        className="font-semibold text-[#171717]"
-      >
-        {match[2]}
-      </strong>,
-    );
-    lastIndex = match.index + match[0].length;
+  // First pass: extract all matches with their positions
+  type InlineMatch = {
+    type: "link" | "bold";
+    start: number;
+    end: number;
+    content: string;
+    url?: string;
+  };
+
+  const matches: InlineMatch[] = [];
+
+  // Find all links
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(text)) !== null) {
+    matches.push({
+      type: "link",
+      start: match.index,
+      end: match.index + match[0].length,
+      content: match[1],
+      url: match[2],
+    });
   }
 
+  // Find all bold (that don't overlap with links)
+  while ((match = boldRegex.exec(text)) !== null) {
+    const overlaps = matches.some(
+      (m) => match!.index < m.end && match!.index + match![0].length > m.start
+    );
+    if (!overlaps) {
+      matches.push({
+        type: "bold",
+        start: match.index,
+        end: match.index + match[0].length,
+        content: match[2],
+      });
+    }
+  }
+
+  // Sort by position
+  matches.sort((a, b) => a.start - b.start);
+
+  const nodes: Array<string | JSX.Element> = [];
+  let lastIndex = 0;
+
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+
+    // Add text before this match
+    if (m.start > lastIndex) {
+      nodes.push(text.slice(lastIndex, m.start));
+    }
+
+    if (m.type === "link") {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-link-${i}`}
+          href={m.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+        >
+          {m.content}
+        </a>
+      );
+    } else if (m.type === "bold") {
+      nodes.push(
+        <strong
+          key={`${keyPrefix}-bold-${i}`}
+          className="font-semibold text-[#171717]"
+        >
+          {m.content}
+        </strong>
+      );
+    }
+
+    lastIndex = m.end;
+  }
+
+  // Add remaining text
   if (lastIndex < text.length) {
     nodes.push(text.slice(lastIndex));
   }
