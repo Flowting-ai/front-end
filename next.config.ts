@@ -37,7 +37,7 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
   ];
 
 // Build CSP connect-src with backend origins
-const connectSrcOrigins = [backendOrigin, backendWsOrigin];
+const connectSrcOrigins = [backendOrigin, backendWsOrigin, "https://api.flowtingai.com"];
 
 // In development, also allow localhost connections
 if (process.env.NODE_ENV === "development") {
