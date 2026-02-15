@@ -40,7 +40,7 @@ export default function UtilitySection({
     { icon: Maximize, label: 'Fit View', action: onFitView, disabled: false },
     { icon: Map, label: showMinimap ? 'Hide Minimap' : 'Show Minimap', action: onToggleMinimap, disabled: false, active: showMinimap },
     { icon: Save, label: 'Save', action: onSave, disabled: false },
-    { icon: FolderOpen, label: 'Load', action: onLoad, disabled: false },
+    // { icon: FolderOpen, label: 'Load', action: onLoad, disabled: false },
     { icon: Trash2, label: 'Clear', action: onClear, disabled: false },
   ];
 

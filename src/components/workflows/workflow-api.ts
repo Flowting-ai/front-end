@@ -450,7 +450,8 @@ const toBackendWorkflowPayload = (
     }
 
     if (sourceType === "pin") {
-      for (const pinId of asStringArray(sourceNode.data?.selectedPins)) {
+      const pinId = sourceNode.data?.selectedPins;
+      if (pinId && typeof pinId === 'string') {
         list.push({
           kb_type: "pin",
           kb_id: pinId,
@@ -745,7 +746,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
             status: "idle",
             config: {},
             instructions: kb.instruction || "",
-            selectedPins: [kb.kb_id],
+            selectedPins: kb.kb_id,
           },
         });
       }

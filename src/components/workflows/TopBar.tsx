@@ -111,7 +111,7 @@ export default function TopBar({
           onClick={onTest}
           disabled={isTestDisabled}
           title={isTestDisabled ? testDisabledReason || "Configure workflow before testing." : "Run workflow test"}
-          className="text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         >
           {isExecuting ? (
             <>
@@ -126,14 +126,14 @@ export default function TopBar({
           )}
         </button>
 
-
-        <button
+        {/* workflow share feature disabled for the moment until further updates  */}
+        {/* <button
           onClick={onShare}
           className="text-[#FAFAFA] bg-[#171717] hover:bg-[#2a2a2a] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         >
           <Share2 className="w-4 h-4" />
           <span className="text-sm">Share</span>
-        </button>
+        </button> */}
       </div>
     </div>
   );

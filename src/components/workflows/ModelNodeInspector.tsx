@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { WorkflowNodeData } from "./types";
 import { SelectModelDialog } from "./SelectModelDialog";
 import { getModelIcon } from "@/lib/model-icons";
+import { toast } from "@/lib/toast-helper";
 
 interface Model {
   id: string;
@@ -43,6 +44,12 @@ export function ModelNodeInspector({
   );
   const [showSelectModelDialog, setShowSelectModelDialog] = useState(false);
 
+  // Update local state when nodeData changes (switching between nodes)
+  useEffect(() => {
+    setNodeName(nodeData.name || nodeData.modelData?.name || "");
+    setSelectedModelId(nodeData.selectedModel);
+  }, [nodeData]);
+
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     // Preserve existing modelData if selection hasn't changed
@@ -74,6 +81,7 @@ export function ModelNodeInspector({
           sdkLibrary: model.sdkLibrary,
         }
       });
+      toast.success("Model added");
     }
     setShowSelectModelDialog(false);
   };
@@ -84,6 +92,7 @@ export function ModelNodeInspector({
       selectedModel: undefined,
       modelData: undefined,
     });
+    toast.info("Model removed");
   };
 
   const selectedModel = allModels.find((m) => m.id === selectedModelId);

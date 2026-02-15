@@ -1,16 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { WorkflowNodeData } from "./types";
 import { AddPersonaDialog } from "./AddPersonaDialog";
+import { toast } from "@/lib/toast-helper";
 
 interface Persona {
   id: string;
   name: string;
   description?: string;
   image?: string;
+  modelId?: string;
+}
+
+interface Model {
+  id: string;
+  modelId?: string;
+  name: string;
+  companyName: string;
+  description?: string;
+  logo?: string;
 }
 
 interface PersonaNodeInspectorProps {
@@ -19,6 +30,7 @@ interface PersonaNodeInspectorProps {
   onUpdate: (data: Partial<WorkflowNodeData>) => void;
   onDelete: () => void;
   allPersonas?: Persona[];
+  allModels?: Model[];
 }
 
 export function PersonaNodeInspector({
@@ -27,12 +39,19 @@ export function PersonaNodeInspector({
   onUpdate,
   onDelete,
   allPersonas = [],
+  allModels = [],
 }: PersonaNodeInspectorProps) {
   const [nodeName, setNodeName] = useState<string>(nodeData.name || nodeData.personaData?.name || "");
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | undefined>(
     nodeData.selectedPersona
   );
   const [showAddPersonaDialog, setShowAddPersonaDialog] = useState(false);
+
+  // Update local state when nodeData changes (switching between nodes)
+  useEffect(() => {
+    setNodeName(nodeData.name || nodeData.personaData?.name || "");
+    setSelectedPersonaId(nodeData.selectedPersona);
+  }, [nodeData]);
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -52,6 +71,13 @@ export function PersonaNodeInspector({
     setSelectedPersonaId(personaId);
     const persona = allPersonas.find((p) => p.id === personaId);
     if (persona) {
+      // Find the model name if modelId exists
+      let modelName: string | undefined;
+      if (persona.modelId) {
+        const model = allModels.find((m) => m.id === persona.modelId || m.modelId === persona.modelId);
+        modelName = model?.name;
+      }
+      
       // Update node immediately with persona name and data
       setNodeName(persona.name);
       onUpdate({ 
@@ -61,8 +87,11 @@ export function PersonaNodeInspector({
           name: persona.name,
           image: persona.image,
           description: persona.description,
+          modelId: persona.modelId,
+          modelName: modelName,
         }
       });
+      toast.success("Persona added");
     }
     setShowAddPersonaDialog(false);
   };
@@ -73,9 +102,15 @@ export function PersonaNodeInspector({
       selectedPersona: undefined,
       personaData: undefined,
     });
+    toast.info("Persona removed");
   };
 
   const selectedPersona = allPersonas.find((p) => p.id === selectedPersonaId);
+  
+  // Get model name for selected persona
+  const selectedPersonaModelName = selectedPersona?.modelId 
+    ? allModels.find((m) => m.id === selectedPersona.modelId || m.modelId === selectedPersona.modelId)?.name
+    : undefined;
 
   const getInitials = (name: string) => {
     return name
@@ -200,8 +235,13 @@ export function PersonaNodeInspector({
                 <p className="text-sm font-medium text-black truncate">
                   {selectedPersona.name}
                 </p>
+                {selectedPersonaModelName && (
+                  <p className="text-xs text-[#757575] truncate mt-0.5">
+                    Model: {selectedPersonaModelName}
+                  </p>
+                )}
                 {selectedPersona.description && (
-                  <p className="text-xs text-[#757575] truncate">
+                  <p className="text-xs text-[#757575] truncate mt-0.5">
                     {selectedPersona.description}
                   </p>
                 )}
