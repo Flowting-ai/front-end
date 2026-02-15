@@ -9,6 +9,7 @@ interface Persona {
   name: string;
   description?: string;
   image?: string;
+  modelId?: string;
 }
 
 interface AddPersonaDialogProps {

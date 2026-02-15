@@ -32,6 +32,16 @@ import { WorkflowChatInterface } from "./WorkflowChatInterface";
 import ContextMenu from "./ContextMenu";
 import UtilitySection from "./UtilitySection";
 import Footer from "./Footer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import CustomNode from "./CustomNode";
 import CustomEdge from "./CustomEdge";
 import {
@@ -49,6 +59,7 @@ import {
   saveToLocalStorage,
   pruneHistory,
 } from "./workflow-utils";
+import { toast } from "@/lib/toast-helper";
 import { workflowAPI } from "./workflow-api";
 import { X } from "lucide-react";
 
@@ -59,12 +70,12 @@ function WorkflowCanvasInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   
-  // Initialize with start and end nodes
+  // Initialize with start and end nodes - centered positions
   const initialNodes = [
     {
       id: 'start-node',
       type: 'custom',
-      position: { x: 50, y: 200 },
+      position: { x: 200, y: 350 },
       data: {
         label: 'Start',
         type: 'start' as NodeType,
@@ -76,7 +87,7 @@ function WorkflowCanvasInner() {
     {
       id: 'end-node',
       type: 'custom',
-      position: { x: 700, y: 200 },
+      position: { x: 950, y: 350 },
       data: {
         label: 'End',
         type: 'end' as NodeType,
@@ -91,12 +102,12 @@ function WorkflowCanvasInner() {
   const phantomNode = {
     id: 'phantom-node',
     type: 'custom',
-    position: { x: 387, y: 196 },
+    position: { x: 587, y: 351.5},
     draggable: false,
     selectable: false,
     data: {
       label: 'Add a node',
-      description: 'Drag and drop a reasoning node from the top left menu to start.',
+      description: 'Drag and drop a node from the top left menu to start.',
       type: 'phantom' as NodeType,
     } as WorkflowNodeData,
     style: {
@@ -175,7 +186,7 @@ function WorkflowCanvasInner() {
   // Pin data fetched from API
   const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[] }>>([]);
   // Persona data fetched from API
-  const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string }>>([]);
+  const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string; modelId?: string }>>([]);
   // Model data fetched from API
   const [allModels, setAllModels] = useState<Array<{ id: string; modelId?: string; name: string; companyName: string; description?: string; logo?: string; modelType?: string; sdkLibrary?: string }>>([]);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -185,6 +196,7 @@ function WorkflowCanvasInner() {
   const isInitialMount = useRef(true);
   const hasLoadedQueryWorkflow = useRef(false);
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
@@ -253,6 +265,14 @@ function WorkflowCanvasInner() {
     };
     fetchData();
   }, []);
+
+  // Center view on initial mount - Canvas Initial View/zoom can be set here
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fitView({ duration: 300, padding: 0.7 });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [fitView]);
 
   const normalizedWorkflowName = workflowName.trim();
   const hasCustomWorkflowTitle =
@@ -363,14 +383,18 @@ function WorkflowCanvasInner() {
     // Validate workflow structure
     const validation = validateWorkflow(nodes, edges);
     if (!validation.valid) {
-      alert(`Cannot execute workflow:\n${validation.errors.join('\n')}`);
+      toast.error("Cannot execute workflow", {
+        description: validation.errors.join(', ')
+      });
       return;
     }
 
     // Get topological order using utility
     const order = topologicalSort(nodes, edges);
     if (!order) {
-      alert('Cannot execute workflow: Cycle detected or invalid graph structure');
+      toast.error("Cannot execute workflow", {
+        description: "Cycle detected or invalid graph structure"
+      });
       return;
     }
 
@@ -543,9 +567,13 @@ function WorkflowCanvasInner() {
         // Provide specific error messages
         const targetCategory = ['document', 'chat', 'pin'].includes(targetType) ? 'context' : 'other';
         if (targetCategory === 'context') {
-          alert(`Invalid connection: Context nodes (${targetType}) cannot receive incoming connections. They are source-only nodes.`);
+          toast.error("Invalid connection", {
+            description: `Context nodes (${targetType}) cannot receive incoming connections. They are source-only nodes.`
+          });
         } else {
-          alert(`Invalid connection: This would create a cycle in the workflow. Persona and Model nodes cannot form circular dependencies.`);
+          toast.error("Invalid connection", {
+            description: "This would create a cycle in the workflow. Persona and Model nodes cannot form circular dependencies."
+          });
         }
         console.warn(`Invalid connection: ${sourceType} cannot connect to ${targetType}`);
         return;
@@ -609,14 +637,46 @@ function WorkflowCanvasInner() {
 
   // Add node
   const addNode = useCallback((type: NodeType, position?: { x: number; y: number }) => {
-    const defaultName = `${type.charAt(0).toUpperCase() + type.slice(1)} Node`;
+    const baseName = `${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    
+    // Find all existing nodes of the same type
+    const sameTypeNodes = nodes.filter(n => {
+      const nodeData = n.data as WorkflowNodeData;
+      return nodeData.type === type;
+    });
+    
+    // Extract counter numbers from existing node names
+    // Pattern matches: "Model (1)", "Model Node (2)", "Persona (5)", etc.
+    const counterPattern = /\((\d+)\)$/;
+    const existingCounters = sameTypeNodes
+      .map(n => {
+        const label = (n.data as WorkflowNodeData).label || '';
+        const match = label.match(counterPattern);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => num > 0);
+    
+    // Determine the next counter number
+    let nodeName: string;
+    if (sameTypeNodes.length === 0) {
+      // First node of this type - no counter needed
+      nodeName = baseName;
+    } else if (existingCounters.length === 0) {
+      // There are nodes but none have counters yet, so this is the second one
+      nodeName = `${baseName} (1)`;
+    } else {
+      // Find the maximum counter and increment
+      const maxCounter = Math.max(...existingCounters);
+      nodeName = `${baseName} (${maxCounter + 1})`;
+    }
+    
     const newNode = {
       id: getId(),
       type: "custom",
       position: position || { x: Math.random() * 400, y: Math.random() * 400 },
       data: {
-        label: defaultName,
-        name: defaultName,
+        label: nodeName,
+        name: nodeName,
         type,
         status: "idle",
         description: "",
@@ -631,7 +691,7 @@ function WorkflowCanvasInner() {
     });
     setEdges((eds) => eds.filter((e) => e.source !== 'phantom-node' && e.target !== 'phantom-node'));
     saveToHistory();
-  }, [setNodes, setEdges, saveToHistory]);
+  }, [nodes, setNodes, setEdges, saveToHistory]);
 
   // Handle click to add node from palette
   const onNodeClickFromPalette = useCallback((nodeType: NodeType) => {
@@ -779,13 +839,16 @@ function WorkflowCanvasInner() {
 
   // Clear workflow
   const handleClear = useCallback(() => {
-    if (confirm("Are you sure you want to clear the entire workflow?")) {
-      // Reset to initial state with start and end nodes
-      setNodes([...initialNodes, phantomNode]);
-      setEdges(initialEdges);
-      setSelectedNode(null);
-      saveToHistory();
-    }
+    setIsClearDialogOpen(true);
+  }, []);
+
+  const handleConfirmClear = useCallback(() => {
+    // Reset to initial state with start and end nodes
+    setNodes([...initialNodes, phantomNode]);
+    setEdges(initialEdges);
+    setSelectedNode(null);
+    saveToHistory();
+    setIsClearDialogOpen(false);
   }, [setNodes, setEdges, saveToHistory]);
 
   // Save workflow to local storage only (backend is sent on Test click)
@@ -850,7 +913,9 @@ function WorkflowCanvasInner() {
       console.log('Workflow loaded successfully:', workflowDTO.name);
     } catch (error) {
       console.error('Failed to load workflow:', error);
-      alert('Failed to load workflow. Please try again.');
+      toast.error("Failed to load workflow", {
+        description: "Please try again."
+      });
     }
   }, [setNodes, setEdges, setViewport, saveToHistory]);
 
@@ -881,20 +946,26 @@ function WorkflowCanvasInner() {
     // VALIDATION 1: Workflow name is required
     const trimmedName = workflowName.trim();
     if (!trimmedName || trimmedName.toLowerCase() === 'untitled workflow') {
-      alert('Workflow name is required. Please rename your workflow before testing.');
+      toast.error("Workflow name required", {
+        description: "Please rename your workflow before testing."
+      });
       return;
     }
 
     // VALIDATION 2: Must have at least one configured reasoning node
     if (!canTestWorkflow) {
-      alert(testWorkflowDisabledReason || "Configure workflow before testing.");
+      toast.error("Cannot test workflow", {
+        description: testWorkflowDisabledReason || "Configure workflow before testing."
+      });
       return;
     }
 
     // VALIDATION 3: Validate graph structure
     const validation = validateWorkflow(nodes, edges);
     if (!validation.valid) {
-      alert(`Cannot test workflow:\n${validation.errors.join('\n')}`);
+      toast.error("Cannot test workflow", {
+        description: validation.errors.join(', ')
+      });
       return;
     }
 
@@ -930,7 +1001,9 @@ function WorkflowCanvasInner() {
 
     } catch (error) {
       console.error("[handleTest] Failed to send graph to backend:", error);
-      alert('Failed to save workflow. Please try again.');
+      toast.error("Failed to save workflow", {
+        description: "Please try again."
+      });
       setSaveStatus("Save failed");
     } finally {
       setIsSaving(false);
@@ -939,9 +1012,9 @@ function WorkflowCanvasInner() {
 
   // Share workflow
   const handleShare = () => {
-    alert(
-      "Share functionality - This would generate a shareable link or export the workflow",
-    );
+    toast.info("Share functionality", {
+      description: "This would generate a shareable link or export the workflow"
+    });
   };
 
   // Duplicate node
@@ -951,8 +1024,40 @@ function WorkflowCanvasInner() {
     // Prevent duplication of start and end nodes
     const nodeData = selectedNode.data as WorkflowNodeData;
     if (nodeData.type === 'start' || nodeData.type === 'end') {
-      alert('Start and End nodes cannot be duplicated. These are unique control nodes required for workflow execution.');
+      toast.error("Cannot duplicate", {
+        description: "Start and End nodes cannot be duplicated. These are unique control nodes required for workflow execution."
+      });
       return;
+    }
+
+    // Apply counter logic for duplicated node
+    const baseName = `${nodeData.type.charAt(0).toUpperCase() + nodeData.type.slice(1)}`;
+    
+    // Find all existing nodes of the same type
+    const sameTypeNodes = nodes.filter(n => {
+      const nData = n.data as WorkflowNodeData;
+      return nData.type === nodeData.type;
+    });
+    
+    // Extract counter numbers from existing node names
+    const counterPattern = /\((\d+)\)$/;
+    const existingCounters = sameTypeNodes
+      .map(n => {
+        const label = (n.data as WorkflowNodeData).label || '';
+        const match = label.match(counterPattern);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(num => num > 0);
+    
+    // Determine the next counter number
+    let newNodeName: string;
+    if (existingCounters.length === 0) {
+      // No counters exist yet, so this duplicate becomes (1)
+      newNodeName = `${baseName} (1)`;
+    } else {
+      // Find the maximum counter and increment
+      const maxCounter = Math.max(...existingCounters);
+      newNodeName = `${baseName} (${maxCounter + 1})`;
     }
 
     const newNode = {
@@ -963,6 +1068,11 @@ function WorkflowCanvasInner() {
         y: selectedNode.position.y + 50,
       },
       selected: false,
+      data: {
+        ...selectedNode.data,
+        label: newNodeName,
+        name: newNodeName,
+      },
     };
 
     // Remove phantom if present, then add the duplicated node
@@ -1008,6 +1118,7 @@ function WorkflowCanvasInner() {
     setInstructions("");
     if (currentInstructionsNodeId) {
       handleUpdateNode(currentInstructionsNodeId, { instructions: "" });
+      toast.info("Instructions cleared");
     }
   }, [currentInstructionsNodeId, handleUpdateNode]);
 
@@ -1021,6 +1132,7 @@ function WorkflowCanvasInner() {
   const handleSaveAndClose = useCallback(() => {
     if (currentInstructionsNodeId) {
       handleUpdateNode(currentInstructionsNodeId, { instructions });
+      toast.success("Instructions saved");
     }
     handleCloseInstructions();
   }, [currentInstructionsNodeId, instructions, handleUpdateNode, handleCloseInstructions]);
@@ -1087,7 +1199,9 @@ function WorkflowCanvasInner() {
     (nodeId: string) => {
       // Prevent deletion of start and end trigger nodes
       if (nodeId === 'start-node' || nodeId === 'end-node') {
-        alert('Start and End trigger nodes cannot be deleted. They are required for workflow execution.');
+        toast.error("Cannot delete", {
+          description: "Start and End trigger nodes cannot be deleted. They are required for workflow execution."
+        });
         return;
       }
       
@@ -1274,7 +1388,8 @@ function WorkflowCanvasInner() {
               value={instructions}
               onChange={(e) => handleSaveInstructions(e.target.value)}
               onKeyDown={handleTextareaKeyDown}
-              placeholder="Add your instructions here (Press Enter to save and close, Shift+Enter for new line)"
+              placeholder={`Press Enter to save and close, or Shift + Enter to insert a new line.
+Please provide clear, specific, and well-structured instructions to ensure accurate and efficient workflow execution.`}
               className="flex-1 w-full font-geist font-normal text-sm text-[#0A0A0A] border border-[#E5E5E5] rounded-[8px] p-3 placeholder:text-[#9F9F9F] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[180px]"
             />
 
@@ -1328,6 +1443,7 @@ function WorkflowCanvasInner() {
             onUpdate={(data) => handleUpdatePersonaNode(personaNodeId, data)}
             onDelete={() => handleDeleteNode(personaNodeId)}
             allPersonas={allPersonas}
+            allModels={allModels}
           />
         )}
 
@@ -1427,6 +1543,41 @@ function WorkflowCanvasInner() {
           />
         </div>
       )}
+
+      {/* Clear Workflow Confirmation Dialog */}
+      <AlertDialog
+        open={isClearDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsClearDialogOpen(false);
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-black">
+              Clear entire workflow?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[#6B7280]">
+              This action removes all nodes and connections from the canvas. Only Start and End nodes will remain. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              onClick={() => setIsClearDialogOpen(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              onClick={handleConfirmClear}
+            >
+              Clear workflow
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

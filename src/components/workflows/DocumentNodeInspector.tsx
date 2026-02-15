@@ -34,6 +34,12 @@ export function DocumentNodeInspector({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Update local state when nodeData changes (switching between nodes)
+  useEffect(() => {
+    setFiles((nodeData.files as DocumentFile[]) || []);
+    setNodeName(nodeData.name || "");
+  }, [nodeData]);
+
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
 

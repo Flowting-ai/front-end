@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Trash2, ChevronRight } from "lucide-react";
 import { WorkflowNodeData } from "./types";
 import { SelectChatsDialog } from "./SelectChatsDialog";
+import { toast } from "@/lib/toast-helper";
 
 interface ChatNodeInspectorProps {
   nodeData: WorkflowNodeData;
@@ -26,6 +27,14 @@ export function ChatNodeInspector({
   );
   const [showSelectChatsDialog, setShowSelectChatsDialog] = useState(false);
 
+  // Update local state when nodeData changes (switching between nodes)
+  useEffect(() => {
+    setNodeName(nodeData.name || "");
+    setSelectedChat(
+      Array.isArray(nodeData.selectedChats) ? nodeData.selectedChats[0] : (nodeData.selectedChats as string | undefined)
+    );
+  }, [nodeData]);
+
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     onUpdate({ 
@@ -38,10 +47,12 @@ export function ChatNodeInspector({
   const handleSelectChat = (chatId: string) => {
     setSelectedChat(chatId);
     setShowSelectChatsDialog(false);
+    toast.success("Chat attached");
   };
 
   const handleRemoveChat = () => {
     setSelectedChat(undefined);
+    toast.info("Chat removed");
   };
 
   const selectedChatData = allChats.find((c) => c.id === selectedChat);
@@ -115,7 +126,7 @@ export function ChatNodeInspector({
             className="cursor-pointer w-full h-8 px-3 py-2 rounded-[8px] border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
           >
             <span className="text-[#757575]">
-              {selectedChat ? "Change Chat" : "Select Chat"}
+              {selectedChat ? "Change Chat" : "Add Chat"}
             </span>
             <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>

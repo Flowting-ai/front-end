@@ -232,12 +232,20 @@ function CustomNode({
                 <p className="text-xs font-medium text-black truncate">
                   {data.personaData.name}
                 </p>
+                {data.personaData.modelName && (
+                  <p className="text-[10px] text-[#757575] truncate mt-0.5">
+                    {data.personaData.modelName}
+                  </p>
+                )}
               </div>
             </div>
           ) : (
-            <div className="text-xs text-[#9F9F9F] italic mt-1">
+            <div className="flex">
+              <div className="text-xs text-[#9F9F9F] italic mt-1 border rounded-full px-2">
               No persona selected
             </div>
+            </div>
+            
           )
         )}
 
@@ -298,21 +306,44 @@ function CustomNode({
         )}
 
         {/* Chat count for chat nodes */}
-        {data.type === 'chat' && data.selectedChats && (
-          <div className="text-xs text-[#5B5B5B] mt-1">
-            1 chat attached
+        <div className="w-auto flex items-center justify-start">
+          {data.type === 'chat' && data.selectedChats && (
+          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
+            Chat attached
           </div>
         )}
+        </div>
 
-        {/* Pin count for pin nodes */}
-        {data.type === 'pin' && data.selectedPins && (data.selectedPins as string[]).length > 0 && (
-          <div className="text-xs text-[#5B5B5B] mt-1">
-            {(data.selectedPins as string[]).length} pin{(data.selectedPins as string[]).length !== 1 ? 's' : ''} attached
+        {/* empty state for chat nodes with no chat attached */}
+        {/* <div className="w-auto flex items-center justify-start">
+          {data.type === 'chat' && !data.selectedChats && (
+          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5">
+            No Chat attached
           </div>
         )}
+        </div> */}
+        
+        {/* Pin display for pin nodes */}
+        <div className="w-auto flex items-center justify-start">
+          {data.type === 'pin' && data.selectedPins && (
+          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
+            Pin attached
+          </div>
+        )}
+        </div>
 
-        {/* Instructions CTA - Show for all nodes except end node */}
-        {data.type !== 'end' && (
+        {/* empty state for pin nodes with no pins attached */}
+        {/* <div className="w-auto flex items-center justify-start">
+          {data.type === 'pin' && !data.selectedPins && (
+          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5">
+            No Pin attached
+          </div>
+        )}
+        </div> */}
+        
+
+        {/* Instructions CTA - Show only for reasoning nodes (persona, model), not for control or context nodes */}
+        {data.type !== 'start' && data.type !== 'end' && data.type !== 'pin' && data.type !== 'chat' && data.type !== 'document' && (
           <button 
             onClick={handleInstructionsClick}
             className={`cursor-pointer absolute -bottom-7 left-1/2 -translate-x-1/2 h-[25px] rounded-2xl border py-1 px-2 gap-1 shadow-md bg-white flex items-center justify-center text-xs font-medium hover:bg-[#E5E5E5] transition-colors whitespace-nowrap z-10 ${

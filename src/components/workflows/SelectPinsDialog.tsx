@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { X, Search, Tag, Folder, ChevronDown } from "lucide-react";
 import { workflowAPI } from "./workflow-api";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,9 @@ interface Pin {
 
 interface SelectPinsDialogProps {
   allPins: Pin[];
-  selectedPinIds: string[];
+  selectedPinId?: string;
   onClose: () => void;
-  onAdd: (pinIds: string[]) => void;
+  onAdd: (pinId: string) => void;
 }
 
 function formatDate(dateString?: string): string {
@@ -57,13 +58,13 @@ function getOrdinalSuffix(num: number): string {
 
 export function SelectPinsDialog({
   allPins: propPins,
-  selectedPinIds,
+  selectedPinId,
   onClose,
   onAdd,
 }: SelectPinsDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [localSelectedIds, setLocalSelectedIds] =
-    useState<string[]>(selectedPinIds);
+  const [localSelectedId, setLocalSelectedId] =
+    useState<string | undefined>(selectedPinId);
   const [pins, setPins] = useState<Pin[]>(propPins);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -209,14 +210,14 @@ export function SelectPinsDialog({
     return result;
   }, [pins, searchQuery, selectedTags, selectedFolders]);
 
-  const handleTogglePin = (pinId: string) => {
-    setLocalSelectedIds((prev) =>
-      prev.includes(pinId) ? prev.filter((id) => id !== pinId) : [...prev, pinId]
-    );
+  const handleSelectPin = (pinId: string) => {
+    setLocalSelectedId(pinId);
   };
 
   const handleAdd = () => {
-    onAdd(localSelectedIds);
+    if (localSelectedId) {
+      onAdd(localSelectedId);
+    }
   };
 
   return (
@@ -232,7 +233,7 @@ export function SelectPinsDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-2">
           <h2 className="font-clash font-normal text-[24px] text-[#0A0A0A]">
-            Select Pins
+            Select Pin
           </h2>
           <button
             onClick={onClose}
@@ -411,27 +412,25 @@ export function SelectPinsDialog({
               No pins found
             </div>
           ) : (
-            <div className="flex flex-col gap-0">
+            <RadioGroup value={localSelectedId} onValueChange={handleSelectPin}>
               {filteredPins.map((pin) => (
                 <div
                   key={pin.id}
                   className="flex flex-col gap-1 px-2 py-1.5 rounded-lg hover:bg-[#F5F5F5] transition-colors duration-300 group cursor-pointer"
-                  onClick={() => handleTogglePin(pin.id)}
+                  onClick={() => handleSelectPin(pin.id)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={localSelectedIds.includes(pin.id)}
-                          onCheckedChange={(e) => {
-                            handleTogglePin(pin.id);
-                          }}
+                        <RadioGroupItem
+                          value={pin.id}
+                          id={pin.id}
                           onClick={(e) => e.stopPropagation()}
                           className="flex-shrink-0"
                         />
-                        <span className="text-sm font-medium text-[#0A0A0A] truncate">
+                        <label htmlFor={pin.id} className="text-sm font-medium text-[#0A0A0A] truncate cursor-pointer">
                           {pin.title || pin.name}
-                        </span>
+                        </label>
                       </div>
                     </div>
                     {pin.pinnedDate && (
@@ -463,7 +462,7 @@ export function SelectPinsDialog({
                   )}
                 </div>
               ))}
-            </div>
+            </RadioGroup>
           )}
         </div>
 
@@ -477,10 +476,10 @@ export function SelectPinsDialog({
           </button>
           <button
             onClick={handleAdd}
-            disabled={localSelectedIds.length === 0}
+            disabled={!localSelectedId}
             className="cursor-pointer h-8 rounded-lg px-4 bg-[#2C2C2C] text-white text-sm font-medium hover:bg-[#1F1F1F] transition-colors disabled:bg-[#D4D4D4] disabled:text-[#757575] disabled:cursor-not-allowed"
           >
-            Add
+            Select
           </button>
         </div>
       </div>

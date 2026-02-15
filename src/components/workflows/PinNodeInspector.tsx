@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Trash2, ArrowRight, ChevronRight } from "lucide-react";
 import { WorkflowNodeData } from "./types";
 import { SelectPinsDialog } from "./SelectPinsDialog";
+import { toast } from "@/lib/toast-helper";
 
 interface PinNodeInspectorProps {
   nodeData: WorkflowNodeData;
@@ -21,24 +22,32 @@ export function PinNodeInspector({
   allPins = [],
 }: PinNodeInspectorProps) {
   const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
-  const [selectedPins, setSelectedPins] = useState<string[]>(
-    (nodeData.selectedPins as string[]) || []
+  const [selectedPin, setSelectedPin] = useState<string | undefined>(
+    nodeData.selectedPins as string | undefined
   );
   const [showSelectPinsDialog, setShowSelectPinsDialog] = useState(false);
 
+  // Update local state when nodeData changes (switching between nodes)
+  useEffect(() => {
+    setNodeName(nodeData.name || "");
+    setSelectedPin(nodeData.selectedPins as string | undefined);
+  }, [nodeData]);
+
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ name: nodeName, selectedPins });
+    onUpdate({ name: nodeName, selectedPins: selectedPin });
     onClose();
   };
 
-  const handleAddPins = (pinIds: string[]) => {
-    setSelectedPins(pinIds);
+  const handleAddPin = (pinId: string) => {
+    setSelectedPin(pinId);
     setShowSelectPinsDialog(false);
+    toast.success("Pin attached");
   };
 
-  const handleRemovePin = (pinId: string) => {
-    setSelectedPins((prev) => prev.filter((id) => id !== pinId));
+  const handleRemovePin = () => {
+    setSelectedPin(undefined);
+    toast.info("Pin removed");
   };
 
   return (
@@ -97,10 +106,10 @@ export function PinNodeInspector({
           />
         </div>
 
-        {/* Manage Pins Section */}
+        {/* Select Pin Section */}
         <div className="flex flex-col gap-2">
           <label className="font-geist font-medium text-sm text-[#0A0A0A]">
-            Manage Pins
+            Select Pin
           </label>
           <button
             onClick={(e) => {
@@ -110,43 +119,33 @@ export function PinNodeInspector({
             className="cursor-pointer w-full h-8 px-3 py-2 rounded-lg border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
           >
             <span className="text-[#757575]">
-              {selectedPins.length > 0
-                ? `${selectedPins.length} pin${selectedPins.length !== 1 ? "s" : ""} selected`
-                : "Select Pins"}
+              {selectedPin ? "Change Pin" : "Add Pin"}
             </span>
             <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>
         </div>
 
-        {/* Selected Pins Grid */}
-        {selectedPins.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {selectedPins.map((pinId) => {
-              const pin = allPins.find((p) => p.id === pinId);
-              return (
-                <div
-                  key={pinId}
-                  className="relative rounded-lg border border-[#E5E5E5] bg-white p-2"
-                >
-                  {/* X Button - Top Right */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemovePin(pinId);
-                    }}
-                    className="absolute top-1 right-1 text-[#757575] hover:text-red-600 transition-colors cursor-pointer"
-                    aria-label="Remove pin"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+        {/* Selected Pin Display */}
+        {selectedPin && (
+          <div className="flex flex-col gap-2">
+            <div className="relative rounded-lg border border-[#E5E5E5] bg-white p-2">
+              {/* X Button - Top Right */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemovePin();
+                }}
+                className="absolute top-1 right-1 text-[#757575] hover:text-red-600 transition-colors cursor-pointer"
+                aria-label="Remove pin"
+              >
+                <X className="h-4 w-4" />
+              </button>
 
-                  {/* Pin Title */}
-                  <p className="text-xs font-medium text-black truncate pr-5" title={pin?.name || pinId}>
-                    {pin?.name || pinId}
-                  </p>
-                </div>
-              );
-            })}
+              {/* Pin Title */}
+              <p className="text-xs font-medium text-black truncate pr-5" title={allPins.find((p) => p.id === selectedPin)?.name || selectedPin}>
+                {allPins.find((p) => p.id === selectedPin)?.name || selectedPin}
+              </p>
+            </div>
           </div>
         )}
 
@@ -159,13 +158,13 @@ export function PinNodeInspector({
         </button>
       </div>
 
-      {/* Select Pins Dialog */}
+      {/* Select Pin Dialog */}
       {showSelectPinsDialog && (
         <SelectPinsDialog
           allPins={allPins}
-          selectedPinIds={selectedPins}
+          selectedPinId={selectedPin}
           onClose={() => setShowSelectPinsDialog(false)}
-          onAdd={handleAddPins}
+          onAdd={handleAddPin}
         />
       )}
     </>
