@@ -295,17 +295,27 @@ function WorkflowCanvasInner() {
       return false;
     }
     const nodeData = node.data as WorkflowNodeData;
-    if (nodeData.type !== "model") {
-      return false;
+
+    // Check for configured persona node (persona has model built-in)
+    if (nodeData.type === "persona") {
+      const selectedPersonaId = (nodeData.selectedPersona || "").toString().trim();
+      return selectedPersonaId.length > 0;
     }
-    const selectedModelId = (nodeData.selectedModel || nodeData.modelId || "").toString().trim();
-    return selectedModelId.length > 0;
+
+    // Check for configured model node (needs both model and instructions)
+    if (nodeData.type === "model") {
+      const selectedModelId = (nodeData.selectedModel || nodeData.modelId || "").toString().trim();
+      const hasInstruction = (nodeData.instructions || "").toString().trim().length > 0;
+      return selectedModelId.length > 0 && hasInstruction;
+    }
+
+    return false;
   });
   const canTestWorkflow = hasCustomWorkflowTitle && hasConfiguredReasoningModel;
   const testWorkflowDisabledReason = !hasCustomWorkflowTitle
     ? "Rename workflow from 'Untitled Workflow' before testing."
     : !hasConfiguredReasoningModel
-    ? "Add and configure at least one reasoning model node before testing."
+    ? "Add a configured model node (with model and instruction) or persona node before testing."
     : undefined;
 
   // Process individual node based on type
