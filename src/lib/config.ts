@@ -1,14 +1,6 @@
 "use client";
 
-const DEFAULT_API_BASE_URL =
-  "https://api.flowtingai.com/";
-
-// Normalize the base to avoid accidental double slashes when the env var ends with "/".
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_HOST_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  DEFAULT_API_BASE_URL
-).replace(/\/+$/, "");
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API!.replace(/\/+$/, "");
 
 const withBase = (path: string) => `${API_BASE_URL}${path}`;
 

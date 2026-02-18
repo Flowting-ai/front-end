@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 
-const DEFAULT_BACKEND_URL = "https://jellyfish-app-7brqd.ondigitalocean.app";
-
-const resolveBackendBaseUrl = () => {
-  const raw =
-    process.env.NEXT_PUBLIC_HOST_URL ??
-    process.env.NEXT_PUBLIC_BACKEND_URL ??
-    DEFAULT_BACKEND_URL;
-  return raw.startsWith("http") ? raw : `http://${raw}`;
-};
-
 export async function POST(req: Request) {
-  const baseUrl = resolveBackendBaseUrl();
+  const baseUrl = process.env.NEXT_PUBLIC_API!;
 
   const targetUrl = new URL("/chat/", baseUrl);
   const incomingHeaders = new Headers(req.headers);

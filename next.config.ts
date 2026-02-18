@@ -1,21 +1,6 @@
 import type { NextConfig } from "next";
 
-const DEFAULT_BACKEND_URL = "https://jellyfish-app-7brqd.ondigitalocean.app";
-
-const getBackendUrl = () => {
-  const raw =
-    process.env.NEXT_PUBLIC_BACKEND_URL ??
-    process.env.NEXT_PUBLIC_HOST_URL ??
-    DEFAULT_BACKEND_URL;
-
-  try {
-    return new URL(raw);
-  } catch {
-    return new URL(DEFAULT_BACKEND_URL);
-  }
-};
-
-const backendUrl = getBackendUrl();
+const backendUrl = new URL(process.env.NEXT_PUBLIC_API!);
 const backendOrigin = backendUrl.origin;
 const backendWsOrigin = `${
   backendUrl.protocol === "https:" ? "wss" : "ws"
