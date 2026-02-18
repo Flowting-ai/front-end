@@ -421,12 +421,11 @@ export function LeftSidebar({
                 src="/icons/chatboard.svg"
                 alt="chatboard"
                 width={14}
-                height={11}
+                height={14}
                 className={cn(
                   "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
                   isOnChatBoard && !isOnPersonaPage && "invert-100"
                 )}
-                style={{ height: "auto" }}
               />
               {/* <SquarePen size={20} strokeWidth={2} /> */}
               <p className="font-[400] text-[13px]">{chatBoardButtonText}</p>

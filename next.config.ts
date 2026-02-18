@@ -34,6 +34,11 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
       hostname: "sfo3.digitaloceanspaces.com",
       pathname: "/**",
     },
+    {
+      protocol: "https",
+      hostname: "images.unsplash.com",
+      pathname: "/**",
+    },
   ];
 
 // Build CSP connect-src with backend origins
@@ -53,7 +58,7 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${backendOrigin} https://sfo3.digitaloceanspaces.com`,
+  `img-src 'self' data: blob: ${backendOrigin} https://sfo3.digitaloceanspaces.com https://images.unsplash.com`,
   "font-src 'self' data:",
   `connect-src 'self' ${connectSrcOrigins.join(" ")}`,
   "media-src 'self'",

@@ -27,6 +27,10 @@ import {
 } from "lucide-react";
 import { ChatMessage, type Message } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
+import {
+  ClarificationPrompt,
+  type ClarificationData,
+} from "./clarification-prompt";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -151,6 +155,24 @@ export function ChatInterface({
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [activePersonas, setActivePersonas] = useState<any[]>([]);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  // Clarification state - for when backend asks follow-up questions
+  const [clarificationData, setClarificationData] =
+    useState<ClarificationData | null>(null);
+  const [pendingClarification, setPendingClarification] = useState<{
+    userMessage: string;
+    loadingMessageId: string;
+    chatId: string | null;
+    userMessageId: string | undefined;
+    model: typeof selectedModel;
+    avatar: MessageAvatar;
+    refMessageId?: string | null;
+    pinIds?: string[];
+    personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+    replyToMsgId?: string | null;
+    files?: File[];
+  } | null>(null);
+  const [isClarificationSubmitting, setIsClarificationSubmitting] =
+    useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const personaDropdownRef = useRef<HTMLDivElement>(null);
   const PIN_INSERT_EVENT = "pin-insert-to-chat";
@@ -578,6 +600,7 @@ export function ChatInterface({
     personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>,
     replyToMessageId?: string | null,
     files?: File[],
+    clarificationAnswer?: string,
   ) => {
     try {
       if (!modelForRequest) {
@@ -644,6 +667,9 @@ export function ChatInterface({
         if (pinIds && pinIds.length > 0) {
           formData.append("pinIds", JSON.stringify(pinIds));
         }
+        if (clarificationAnswer) {
+          formData.append("clarificationAnswer", clarificationAnswer);
+        }
         // Append all files
         files.forEach((file) => {
           formData.append("files", file);
@@ -688,6 +714,9 @@ export function ChatInterface({
         }
         if (pinIds && pinIds.length > 0) {
           payload.pinIds = pinIds;
+        }
+        if (clarificationAnswer) {
+          payload.clarificationAnswer = clarificationAnswer;
         }
 
         body = JSON.stringify(payload);
@@ -807,6 +836,9 @@ export function ChatInterface({
             continue;
           }
 
+          // Debug logging for SSE events
+          console.log("[SSE Event]", eventName, parsed);
+
           const payloadType =
             typeof parsed?.type === "string" ? parsed.type : "";
 
@@ -860,6 +892,87 @@ export function ChatInterface({
                     : board,
                 ),
               );
+            }
+
+            // Update AI message avatar based on model info from metadata (especially useful for framework mode)
+            const metaModelName =
+              typeof parsed.model_name === "string" ? parsed.model_name : null;
+            const metaProvider =
+              typeof parsed.provider === "string" ? parsed.provider : null;
+            const metaModelId =
+              parsed.model_id !== undefined ? String(parsed.model_id) : null;
+
+            if (metaModelName || metaProvider) {
+              const modelIcon = getModelIcon(metaProvider, metaModelName);
+              if (modelIcon) {
+                updateAiMessage({
+                  avatarUrl: modelIcon,
+                  avatarHint: metaModelName || metaProvider || "AI model",
+                  metadata: {
+                    modelName: metaModelName || undefined,
+                    providerName: metaProvider || undefined,
+                    llmModelId: metaModelId,
+                  },
+                });
+              }
+            }
+            continue;
+          }
+
+          // Handle clarification event - backend is asking for more info
+          if (eventName === "clarification") {
+            const question =
+              typeof parsed.question === "string" ? parsed.question : "";
+            const options = Array.isArray(parsed.options)
+              ? parsed.options.filter(
+                  (opt: unknown): opt is string => typeof opt === "string"
+                )
+              : [];
+            const clarificationChatId =
+              typeof parsed.chat_id === "string" ? parsed.chat_id : "";
+            const clarificationChatTitle =
+              typeof parsed.chat_title === "string"
+                ? parsed.chat_title
+                : undefined;
+
+            if (question && options.length > 0) {
+              // Sync chat ID if provided
+              if (clarificationChatId) {
+                syncResolvedChatId(clarificationChatId, clarificationChatTitle);
+              }
+
+              // Store clarification data and pending request info
+              setClarificationData({
+                question,
+                options,
+                chatId: clarificationChatId || currentChatId || "",
+                chatTitle: clarificationChatTitle,
+              });
+
+              // Store pending request info for when user answers
+              setPendingClarification({
+                userMessage,
+                loadingMessageId,
+                chatId: clarificationChatId || currentChatId,
+                userMessageId,
+                model: modelForRequest,
+                avatar: avatarForRequest,
+                refMessageId: referencedMessageId,
+                pinIds,
+                personaChatHistory,
+                replyToMsgId: replyToMessageId,
+                files,
+              });
+
+              // Remove the loading message since we're waiting for user input
+              setMessages((prev = []) => {
+                const next = prev.filter((msg) => msg.id !== loadingMessageId);
+                messageBufferRef.current = next;
+                return next;
+              }, currentChatId ?? undefined);
+
+              setIsResponding(false);
+              streamFinished = true;
             }
             continue;
           }
@@ -1344,6 +1457,74 @@ export function ChatInterface({
       attachments.forEach((a) => URL.revokeObjectURL(a.url));
       setAttachments([]);
     }
+  };
+
+  // Handle user selecting a clarification option
+  const handleClarificationSelect = async (answer: string) => {
+    if (!pendingClarification || isClarificationSubmitting) return;
+
+    setIsClarificationSubmitting(true);
+
+    const {
+      userMessage,
+      chatId,
+      userMessageId,
+      model,
+      avatar,
+      refMessageId,
+      pinIds,
+      personaChatHistory,
+      replyToMsgId,
+      files,
+    } = pendingClarification;
+
+    // Create a new loading message for the AI response
+    const newLoadingMessageId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const loadingMessage: Message = {
+      id: newLoadingMessageId,
+      sender: "ai",
+      isLoading: true,
+      content: "",
+      avatarUrl: avatar.avatarUrl,
+      avatarHint: avatar.avatarHint,
+    };
+
+    // Add the loading message
+    setMessages((prev = []) => {
+      const next = [...prev, loadingMessage];
+      messageBufferRef.current = next;
+      return next;
+    }, chatId ?? undefined);
+
+    setIsResponding(true);
+
+    // Clear clarification state
+    setClarificationData(null);
+    setPendingClarification(null);
+
+    // Send request with clarification answer
+    await fetchAiResponse(
+      userMessage,
+      newLoadingMessageId,
+      chatId,
+      userMessageId,
+      model,
+      avatar,
+      refMessageId,
+      undefined,
+      undefined,
+      pinIds,
+      personaChatHistory,
+      replyToMsgId,
+      files,
+      answer, // clarificationAnswer
+    );
+
+    setIsClarificationSubmitting(false);
   };
 
   const handleInputChange = (value: string) => {
@@ -2188,6 +2369,19 @@ export function ChatInterface({
         </div>
       )}
 
+      {/* Clarification Prompt - shown when backend needs more info */}
+      {clarificationData && (
+        <div className="shrink-0 bg-white px-2 pt-2 pb-0">
+          <div className="mx-auto w-full max-w-[756px]">
+            <ClarificationPrompt
+              data={clarificationData}
+              onSelect={handleClarificationSelect}
+              isSubmitting={isClarificationSubmitting}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Chat Input Footer */}
       <footer className="shrink-0 bg-white px-2 pb-0.5 pt-0">
         <div className="relative mx-auto w-full max-w-[756px]">
@@ -2538,11 +2732,13 @@ export function ChatInterface({
                   placeholder={
                     disableInput
                       ? "Save to start chatting..."
-                      : "Ask your persona .... "
+                      : clarificationData
+                        ? "Please answer the question above..."
+                        : "Ask your persona .... "
                   }
                   className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey shadow-none!"
                   rows={1}
-                  disabled={isResponding || disableInput}
+                  disabled={isResponding || disableInput || !!clarificationData}
                 />
               </div>
 
@@ -2824,7 +3020,8 @@ export function ChatInterface({
                             disabled={
                               (!selectedModel &&
                                 !layoutContext?.useFramework) ||
-                              disableInput
+                              disableInput ||
+                              !!clarificationData
                             }
                             className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                           >
@@ -2832,14 +3029,17 @@ export function ChatInterface({
                           </Button>
                         </TooltipTrigger>
                         {((!selectedModel && !layoutContext?.useFramework) ||
-                          disableInput) && (
+                          disableInput ||
+                          clarificationData) && (
                           <TooltipContent
                             side="top"
                             className="bg-[#1E1E1E] text-white px-3 py-2 text-sm"
                           >
-                            {disableInput
-                              ? "Save to test first to enable chat"
-                              : "Please select a model to start the conversation"}
+                            {clarificationData
+                              ? "Please answer the clarification question above"
+                              : disableInput
+                                ? "Save to test first to enable chat"
+                                : "Please select a model to start the conversation"}
                           </TooltipContent>
                         )}
                       </Tooltip>
