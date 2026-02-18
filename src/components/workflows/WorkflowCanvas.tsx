@@ -529,45 +529,6 @@ function WorkflowCanvasInner() {
     }
   }, [history, historyIndex, setNodes, setEdges]);
 
-
-  // Keyboard event handlers
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Delete/Backspace - delete selected nodes/edges
-      if (event.key === "Delete" || event.key === "Backspace") {
-        // Don't delete if typing in input
-        if (
-          (event.target as HTMLElement).tagName === "INPUT" ||
-          (event.target as HTMLElement).tagName === "TEXTAREA"
-        ) {
-          return;
-        }
-        event.preventDefault();
-
-        // Delete selected node
-        if (selectedNode) {
-          handleDeleteNode(selectedNode.id);
-        }
-
-        // Delete selected edges
-        if (selectedEdges.length > 0) {
-          handleDeleteEdges(selectedEdges);
-        }
-      }
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      // Reserved for future shortcuts
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [selectedNode, selectedEdges, handleDeleteNode, handleDeleteEdges]);
-
   // Helper function to determine node category
   const getNodeCategoryHelper = useCallback((nodeType: string) => {
     return getNodeCategory(nodeType);
@@ -1305,6 +1266,44 @@ function WorkflowCanvasInner() {
     },
     [selectedNode, setNodes, setEdges, documentNodeId, chatNodeId, pinNodeId, saveToHistory],
   );
+
+  // Keyboard event handlers (must be after handleDeleteNode is defined)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Delete/Backspace - delete selected nodes/edges
+      if (event.key === "Delete" || event.key === "Backspace") {
+        // Don't delete if typing in input
+        if (
+          (event.target as HTMLElement).tagName === "INPUT" ||
+          (event.target as HTMLElement).tagName === "TEXTAREA"
+        ) {
+          return;
+        }
+        event.preventDefault();
+
+        // Delete selected node
+        if (selectedNode) {
+          handleDeleteNode(selectedNode.id);
+        }
+
+        // Delete selected edges
+        if (selectedEdges.length > 0) {
+          handleDeleteEdges(selectedEdges);
+        }
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      // Reserved for future shortcuts
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [selectedNode, selectedEdges, handleDeleteNode, handleDeleteEdges]);
 
   const handleDeleteDocumentNode = useCallback((nodeId: string) => {
     handleDeleteNode(nodeId);
