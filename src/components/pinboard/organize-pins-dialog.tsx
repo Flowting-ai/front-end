@@ -57,76 +57,6 @@ const initialFolders: FolderType[] = [
   { id: "unorganized", name: "Unorganized Pins" },
 ];
 
-const dummyPins: PinType[] = [
-  {
-    id: "dummy-1",
-    text: "Do Androids Dream of Electric Sheep? is a science fiction novel exploring the nature of humanity and empathy through the story of a bounty hunter tracking down rogue androids.",
-    tags: ["Finance", "Tech", "Sci-fi"],
-    time: new Date(Date.now() - 3600000),
-    chatId: "chat-1",
-    notes: "",
-    comments: [],
-  },
-  {
-    id: "dummy-2",
-    text: "Machine learning algorithms can be categorized into supervised, unsupervised, and reinforcement learning approaches, each with distinct use cases and methodologies.",
-    tags: ["AI", "Tech", "Research"],
-    time: new Date(Date.now() - 7200000),
-    chatId: "chat-2",
-    notes: "",
-    comments: [],
-    folderId: "research",
-  },
-  {
-    id: "dummy-3",
-    text: "The Fibonacci sequence is a mathematical pattern where each number is the sum of the two preceding ones, commonly found in nature and used in various applications.",
-    tags: ["Math", "Science"],
-    time: new Date(Date.now() - 86400000),
-    chatId: "chat-1",
-    notes: "",
-    comments: [],
-  },
-  {
-    id: "dummy-4",
-    text: "Project deadline for Q4 deliverables is December 15th. Need to coordinate with design team for final mockups and development resources.",
-    tags: ["Work", "Planning"],
-    time: new Date(Date.now() - 10800000),
-    chatId: "chat-3",
-    notes: "",
-    comments: [],
-    folderId: "work",
-  },
-  {
-    id: "dummy-5",
-    text: "Remember to book vacation flights for summer trip to Japan. Check for cherry blossom season timing and accommodation options in Tokyo and Kyoto.",
-    tags: ["Travel", "Personal"],
-    time: new Date(Date.now() - 14400000),
-    chatId: "chat-4",
-    notes: "",
-    comments: [],
-    folderId: "personal",
-  },
-  {
-    id: "dummy-6",
-    text: "Neural networks use backpropagation to adjust weights during training, optimizing the model's performance on specific tasks through gradient descent.",
-    tags: ["AI", "Deep Learning"],
-    time: new Date(Date.now() - 21600000),
-    chatId: "chat-2",
-    notes: "",
-    comments: [],
-    folderId: "research",
-  },
-  {
-    id: "dummy-7",
-    text: "Review quarterly budget allocations and prepare presentation for stakeholder meeting next week. Focus on cost optimization strategies.",
-    tags: ["Finance", "Work"],
-    time: new Date(Date.now() - 28800000),
-    chatId: "chat-5",
-    notes: "",
-    comments: [],
-    folderId: "work",
-  },
-];
 
 export function OrganizePinsDialog({
   isOpen,
@@ -210,11 +140,10 @@ export function OrganizePinsDialog({
     }
   }, [isEditingFolder]);
 
-  // Use dummy pins if no real pins exist
-  const pinsToDisplay = initialPins.length > 0 ? initialPins : dummyPins;
+  const pinsToDisplay = initialPins;
 
   const pinsByFolder = useMemo(() => {
-    const grouped: Record<string, PinType[]> = {};
+    const grouped: Record<string, PinType[]> = { unorganized: [] };
     folders.forEach((folder) => {
       grouped[folder.id] = [];
     });
@@ -302,14 +231,7 @@ export function OrganizePinsDialog({
   };
 
   const handleDeletePin = (pinId: string) => {
-    if (initialPins.length > 0) {
-      onPinsUpdate(initialPins.filter((p) => p.id !== pinId));
-    } else {
-      // For dummy pins, create new array and replace contents to trigger re-render
-      const remainingPins = dummyPins.filter((p) => p.id !== pinId);
-      dummyPins.length = 0;
-      dummyPins.push(...remainingPins);
-    }
+    onPinsUpdate(initialPins.filter((p) => p.id !== pinId));
   };
 
   const handleCreateFolder = () => {
