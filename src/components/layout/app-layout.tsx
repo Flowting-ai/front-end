@@ -696,9 +696,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
       });
       const normalized = normalizedWithSort
         .sort((a, b) => {
-          if (a.isStarred !== b.isStarred) {
-            return a.isStarred ? -1 : 1;
-          }
           if (a.sortTime !== b.sortTime) {
             return b.sortTime - a.sortTime;
           }
