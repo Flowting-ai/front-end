@@ -566,7 +566,7 @@ function WorkflowCanvasInner() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectedNode, selectedEdges]);
+  }, [selectedNode, selectedEdges, handleDeleteNode, handleDeleteEdges]);
 
   // Helper function to determine node category
   const getNodeCategoryHelper = useCallback((nodeType: string) => {
@@ -875,6 +875,12 @@ function WorkflowCanvasInner() {
 
   // Save workflow to local storage only (backend is sent on Test click)
   const handleSave = useCallback(() => {
+    const trimmedName = workflowName.trim();
+    if (!trimmedName || trimmedName.toLowerCase() === 'untitled workflow') {
+      toast.error("Please enter a workflow name");
+      return;
+    }
+
     try {
       const viewport = getViewport();
       const workflowDTO = serializeWorkflow(workflowName, nodes, edges, viewport);
