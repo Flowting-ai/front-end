@@ -616,6 +616,7 @@ function WorkflowCanvasInner() {
     setShowPinInspector(false);
     setShowPersonaInspector(false);
     setShowModelInspector(false);
+    setShowWorkflowChat(false);
     setCurrentInstructionsNodeId(null);
     setDocumentNodeId(null);
     setChatNodeId(null);
@@ -737,6 +738,7 @@ function WorkflowCanvasInner() {
     setShowPinInspector(false);
     setShowPersonaInspector(false);
     setShowModelInspector(false);
+    setShowWorkflowChat(false);
     
     // Open appropriate inspector based on node type
     if (nodeData.type === 'document') {
@@ -776,6 +778,7 @@ function WorkflowCanvasInner() {
     setCurrentInstructionsNodeId(null);
     setShowEdgeDetails(false);
     setSelectedEdgeForDetails(null);
+    // Note: Don't close workflow chat on pane click - let user explicitly close it
   }, []);
 
   // Node drag handler - Removed auto-duplication to prevent glitches
@@ -930,6 +933,14 @@ function WorkflowCanvasInner() {
     if (workflowIdFromQuery) {
       handleLoadWorkflow(workflowIdFromQuery).finally(() => {
         if (openChatMode) {
+          // Close all dialogs when opening chat
+          setShowInstructions(false);
+          setShowDocumentInspector(false);
+          setShowChatInspector(false);
+          setShowPinInspector(false);
+          setShowPersonaInspector(false);
+          setShowModelInspector(false);
+          setShowEdgeDetails(false);
           setShowWorkflowChat(true);
         }
       });
@@ -937,6 +948,14 @@ function WorkflowCanvasInner() {
     }
 
     if (openChatMode) {
+      // Close all dialogs when opening chat
+      setShowInstructions(false);
+      setShowDocumentInspector(false);
+      setShowChatInspector(false);
+      setShowPinInspector(false);
+      setShowPersonaInspector(false);
+      setShowModelInspector(false);
+      setShowEdgeDetails(false);
       setShowWorkflowChat(true);
     }
   }, [searchParams, handleLoadWorkflow]);
@@ -997,6 +1016,15 @@ function WorkflowCanvasInner() {
 
       // Execute the workflow
       executeWorkflow();
+      
+      // Close all dialogs when opening chat
+      setShowInstructions(false);
+      setShowDocumentInspector(false);
+      setShowChatInspector(false);
+      setShowPinInspector(false);
+      setShowPersonaInspector(false);
+      setShowModelInspector(false);
+      setShowEdgeDetails(false);
       setShowWorkflowChat(true);
 
     } catch (error) {

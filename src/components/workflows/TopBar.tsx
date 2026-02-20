@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Play, Share2, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Share2, RotateCcw, Loader2, FlaskConical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface TopBarProps {
@@ -119,10 +119,29 @@ export default function TopBar({
               <span className="text-sm">Running...</span>
             </>
           ) : (
-            <>
-              <Play className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
+              <FlaskConical className="w-4 h-4" />
               <span className="text-sm">Test Workflow</span>
+            </div>
+          )}
+        </button>
+
+        <button
+          onClick={onTest}
+          disabled={isTestDisabled}
+          title={isTestDisabled ? testDisabledReason || "Configure workflow before testing." : "Run workflow test"}
+          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+        >
+          {isExecuting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Running...</span>
             </>
+          ) : (
+            <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
+              <Play className="w-4 h-4" />
+              <span className="text-sm">Run Workflow</span>
+            </div>
           )}
         </button>
 
