@@ -17,6 +17,7 @@ import {
   ChevronDown,
   GitCompareArrows,
   Workflow,
+  UserRoundPen,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -235,7 +236,7 @@ export function LeftSidebar({
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => router.push("/personaAdmin")}
                 >
-                  <Layers
+                  <UserRoundPen
                     className={cn(
                       "h-5 w-5",
                       isOnPersonaPage ? "text-[#303030]" : "text-[#303030]"
@@ -429,7 +430,7 @@ export function LeftSidebar({
                 style={{ height: "auto" }}
               />
               {/* <SquarePen size={20} strokeWidth={2} /> */}
-              <p className="font-[400] text-[13px]">{chatBoardButtonText}</p>
+              <p className="font-normal text-[13px]">{chatBoardButtonText}</p>
             </Button>
 
             {/* Personas */}
@@ -443,10 +444,10 @@ export function LeftSidebar({
               )}
             >
               <div className="w-auto h-full flex items-center justify-center">
-                <Layers size={20} strokeWidth={2} />
+                <UserRoundPen size={20} strokeWidth={2} />
               </div>
 
-              <p className="font-[400] text-[13px]">Persona</p>
+              <p className="font-normal text-[13px]">AI Assistants</p>
             </Button>
 
             {/* Workflows */}
@@ -462,7 +463,7 @@ export function LeftSidebar({
                 {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
                 <Workflow size={20} strokeWidth={2}/>
               </div>
-              <p className="h-full font-[400] text-[13px] flex items-center gap-2">
+              <p className="h-full font-normal text-[13px] flex items-center gap-2">
                 Flow Builder
               </p>
             </Button>
@@ -623,7 +624,7 @@ export function LeftSidebar({
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col justify-center">
-                    <span className="font-[400] font-inter text-[14px] text-lsb-text whitespace-nowrap">
+                    <span className="font-normal font-inter text-[14px] text-lsb-text whitespace-nowrap">
                       {user ? `${userFirstName}` : "Avnish Poonia"}
                     </span>
                   </div>

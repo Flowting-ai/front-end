@@ -11,6 +11,7 @@ import { useAuth } from "@/context/auth-context";
 import { CSRF_INIT_ENDPOINT, SIGNUP_ENDPOINT } from "@/lib/config";
 import { GoogleLogo } from "@/components/icons/google-logo";
 import Image from "next/image";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -127,52 +128,64 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="relative min-h-screen w-full bg-[#F5F5F5] flex items-center justify-center">
-      {/* Logo */}
-      <div className="scale-100 absolute top-[48px] left-[53px] min-w-[340] w-[340] min-h-[82] h-[82] flex items-center gap-5">
-        <Image
-          src="/icons/logo.png"
-          width={82}
-          height={82}
-          alt="Auth Logo Clumped"
-          className="w-[82px] h-[82px] object-contain"
-        />
-        <h1 className="font-clash font-normal text-[54px]">FlowtingAi</h1>
-      </div>
-
+    <main className="relative min-h-screen w-full bg-white flex items-center justify-center px-4 lg:px-6">
       {/* Left */}
-      <div className="w-1/2 h-full flex items-center justify-center">
-        <Image
-          src="/icons/AuthLogoClump.svg"
-          width={500}
-          height={500}
-          alt="Auth Logo Clumped"
-          className="w-[500] h-[500] object-contain"
-        />
+      <div className="hidden relative w-5/11 h-full max-h-[94vh] rounded-lg lg:flex items-center justify-center overflow-hidden">
+        {/* Background Video */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="z-0 w-full h-full object-cover blur-none aspect-4/5"
+        >
+          <source src={"/blueBg.mp4"} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+
+        {/* Radial Gradient Layer */}
+        <div className="z-1 absolute inset-0 w-full h-full bg-radial from-transparent to-white/20 backdrop-blur-md"></div>
+
+        {/* Logo */}
+        <div className="z-2 scale-100 absolute top-[5%] left-[5%] w-auto h-auto flex items-center gap-3">
+          <Image
+            src="/new-logos/FlowtingLogoBlack.svg"
+            width={45}
+            height={45}
+            alt="Flowting Logo"
+            className="w-10 h-10 object-contain"
+          />
+          <h1 className="font-clash font-normal text-[27px]">FlowtingAI</h1>
+        </div>
+
+        {/* Text */}
+        <h3 className="z-2 absolute bottom-[5%] left-[5%] font-geist font-normal leading-[120%] text-[50px] text-black">
+          Access your <br /> intelligent <br /> workspace
+        </h3>
       </div>
 
       {/* Right */}
-      <div className="w-1/2 h-full flex items-center justify-center">
-        <div className="min-w-[320px] w-[625px] h-auto bg-white border border-main-border rounded-lg flex flex-col gap-6 px-6 pt-6">
+      <div className="w-full md:w-2/3 lg:w-6/11 h-full flex items-center justify-center">
+        <div className="min-w-[320px] w-[625px] h-auto bg-white flex flex-col gap-6 px-6 pt-6">
           {/* Header */}
-          <div className="w-[540px] flex flex-col gap-2">
-            <h1 className="font-poppins font-medium text-3xl text-[#333333]">
-              Access your intelligent workspace
+          <div className="w-full flex flex-col gap-2">
+            <h1 className="form-title">
+              Create an account
             </h1>
-            <p className="font-inter text-[16px] text-sm text-[#1E1E1E]">
+            <p className="form-tagline">
               <span className="font-bold">Sign up</span> to design, connect, and
               automate your AI systems, all in one place.
             </p>
           </div>
 
           {/* Form */}
-          <form className="flex flex-col flex-1 gap-6" onSubmit={handleSubmit}>
+          <form className="form-container" onSubmit={handleSubmit}>
             {/* Name Fields Row */}
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex-1 flex flex-col gap-2">
                 <Label
                   htmlFor="firstName"
-                  className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                  className="form-label"
                 >
                   First name
                 </Label>
@@ -181,14 +194,14 @@ export default function SignupPage() {
                   placeholder="First name"
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
-                  className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                  className="form-input"
                   required
                 />
               </div>
-              <div className="flex flex-col" style={{ gap: "8px", flex: 1 }}>
+              <div className="flex-1 flex flex-col gap-2">
                 <Label
                   htmlFor="lastName"
-                  className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                  className="form-label"
                 >
                   Last name
                 </Label>
@@ -197,17 +210,17 @@ export default function SignupPage() {
                   placeholder="Last name"
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
-                  className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                  className="form-input"
                   required
                 />
               </div>
             </div>
 
             {/* Email Field */}
-            <div className="flex flex-col" style={{ gap: "8px" }}>
+            <div className="flex flex-col gap-2">
               <Label
                 htmlFor="email"
-                className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                className="form-label"
               >
                 Email address
               </Label>
@@ -217,16 +230,16 @@ export default function SignupPage() {
                 placeholder="Email address"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                className="form-input"
                 required
               />
             </div>
 
             {/* Phone Field (optional) */}
-            <div className="flex flex-col" style={{ gap: "8px" }}>
+            <div className="flex flex-col gap-2" >
               <Label
                 htmlFor="phoneNumber"
-                className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                className="form-label"
               >
                 Phone number (optional)
               </Label>
@@ -236,49 +249,33 @@ export default function SignupPage() {
                 placeholder="Phone number"
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
-                className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                className="form-input"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Password Field */}
-              <div className="flex flex-col" style={{ gap: "8px" }}>
+              <div className="flex flex-col gap-2" >
                 <Label
                   htmlFor="password"
-                  className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                  className="form-label"
                 >
                   Password
                 </Label>
-                <div style={{ position: "relative", width: "100%" }}>
+                <div className="relative w-full">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                    className="form-input"
                     required
                   />
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => setShowPassword((v) => !v)}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      margin: 0,
-                      cursor: "pointer",
-                      color: "#888",
-                      height: 24,
-                      width: 24,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
+                    className="form-password-eye-btn"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -289,44 +286,28 @@ export default function SignupPage() {
               </div>
 
               {/* Confirm Password Field */}
-              <div className="flex flex-col" style={{ gap: "8px" }}>
+              <div className="flex flex-col gap-2" >
                 <Label
                   htmlFor="confirmPassword"
-                  className="font-inter font-normal text-[16px] text-[#1E1E1E]"
+                  className="form-label"
                 >
                   Confirm Password
                 </Label>
-                <div style={{ position: "relative", width: "100%" }}>
+                <div className="relative w-full">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm Password"
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
-                    className="w-full h-[40px] font-inter font-normal text-[16px] text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3"
+                    className="form-input"
                     required
                   />
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => setShowConfirmPassword((v) => !v)}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      margin: 0,
-                      cursor: "pointer",
-                      color: "#888",
-                      height: 24,
-                      width: 24,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
+                    className="form-password-eye-btn"
                     aria-label={
                       showConfirmPassword ? "Hide password" : "Show password"
                     }
@@ -343,57 +324,82 @@ export default function SignupPage() {
 
             {/* Error/Success Messages */}
             {/* error */}
-            {error && (
-              <p className="text-sm text-red-600">
-                {error}
-              </p>
-            )}
+            {error && <p className="form-error-message">{error}</p>}
             {successMessage && (
-              <p className="text-sm text-green-600">{successMessage}</p>
+              <p className="form-success-message">{successMessage}</p>
             )}
 
-            <div className="flex items-center gap-6">
+            {/* Terms & Policy | Promotion Checkboxes */}
+            <div className="pointer-events-none flex flex-col gap-3 mb-2">
+              <div className="flex items-center gap-2">
+                <Checkbox disabled className="border border-main-border!" />
+                <p className="text-balance text-sm text-[#1E1E1E]/30">
+                  By creating an account, I agree to our
+                  {" "}
+                  <span>
+                    <Link href="/terms-and-conditions" className="underline underline-offset-2">Terms of use</Link>
+                  </span>
+                  {" "}
+                  and
+                  {" "}
+                  <span>
+                    <Link href="/privacy-policy" className="underline underline-offset-2">Privacy Policy</Link>
+                  </span>
+                </p>
+              </div>
+              <div className="flex items-start justify-start gap-2">
+                <Checkbox disabled className="border border-main-border!" />
+                <p className="w-full text-balance text-sm text-[#1E1E1E]/30 leading-[120%]">
+                  By creating an account, I am also consenting to receive SMS
+                  messages and emails, including product new feature updates,
+                  events, and marketing promotions.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4">
               {/* Sign Up Button */}
               <Button
                 type="submit"
-                className="cursor-pointer min-w-[81px] w-auto h-[40px] font-inter font-normal text-[16px] text-[#F5F5F5] bg-[#2C2C2C] hover:bg-[#0F0F0F] rounded-[8px] transition-all duration-300"
+                className="form-submit-button"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Creating account..." : "Sign up"}
+                {isSubmitting ? "Creating account..." : "Create an account"}
               </Button>
 
               {/* Sign In Link */}
-              <p className="font-poppins font-normal text-[16px]">
+              <p className="font-poppins font-normal text-sm">
                 Already have an account?{" "}
                 <Link
                   href="/auth/login"
-                  className="font-poppins font-normal underline underline-offset-2 text-[16px]"
+                  className="font-poppins font-normal underline underline-offset-2 text-sm"
                 >
                   Log in
                 </Link>
               </p>
             </div>
 
-            {/* Google Button */}
+            {/* Google Button - Disabled */}
             <Button
+              disabled
               type="button"
               variant="outline"
-              className="cursor-pointer w-full h-[48px] text-[#1E1E1E] bg-[#E3E3E3] hover:bg-[#1E1E1E] hover:text-[#E3E3E3] border border-[#767676] rounded-[8px] flex items-center justify-center gap-3 transition-all duration-300"
+              className="form-google-button"
             >
               <Image
                 src="/googleLogo.svg"
                 width={24}
                 height={24}
                 alt="Google Logo"
-                className="h-6 w-6 object-contain"
+                className="h-5 w-5 object-contain"
               />
-              <span className="font-inter font-normal text-[16px]">
+              <span className="font-inter font-semibold text-sm">
                 Sign Up with Google
               </span>
             </Button>
 
             {/* Spacer */}
-            <div className="flex-1" />
+            <div className="flex-1 lg:hidden"></div>
           </form>
         </div>
       </div>

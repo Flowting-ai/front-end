@@ -1,0 +1,30 @@
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#filter0_n_5707_2086)">
+<g clip-path="url(#paint0_diamond_5707_2086_clip_path)" data-figma-skip-parse="true"><g transform="matrix(-0.0388308 0.018992 -0.018992 -0.0388308 31.4517 11.0081)"><rect x="0" y="0" width="846.652" height="548.445" fill="url(#paint0_diamond_5707_2086)" opacity="1" shape-rendering="crispEdges"/><rect x="0" y="0" width="846.652" height="548.445" transform="scale(1 -1)" fill="url(#paint0_diamond_5707_2086)" opacity="1" shape-rendering="crispEdges"/><rect x="0" y="0" width="846.652" height="548.445" transform="scale(-1 1)" fill="url(#paint0_diamond_5707_2086)" opacity="1" shape-rendering="crispEdges"/><rect x="0" y="0" width="846.652" height="548.445" transform="scale(-1)" fill="url(#paint0_diamond_5707_2086)" opacity="1" shape-rendering="crispEdges"/></g></g><path d="M15 0C23.2842 7.98776e-05 30 6.71577 30 15C30 23.2842 23.2842 29.9999 15 30C6.71571 30 0 23.2843 0 15C2.26781e-05 6.71572 6.71572 0 15 0ZM15.0586 18.9453C11.0594 18.9454 7.81738 21.2689 7.81738 24.1348C7.81764 27.0004 11.0595 29.3232 15.0586 29.3232C19.0578 29.3232 22.2995 27.0005 22.2998 24.1348C22.2998 21.2689 19.0579 18.9453 15.0586 18.9453ZM24.21 7.60938C21.4916 7.60938 19.2872 10.6795 19.2871 14.4668C19.2871 18.2542 21.4915 21.3242 24.21 21.3242C26.9283 21.324 29.1318 18.254 29.1318 14.4668C29.1318 10.6797 26.9282 7.60958 24.21 7.60938ZM17.8818 2.95898C14.9965 -0.0217164 9.27807 0.832889 5.11035 4.86719C0.942842 8.90148 -0.0961739 14.5887 2.78906 17.5693C5.67447 20.5496 11.392 19.6953 15.5596 15.6611C19.7272 11.6268 20.7671 5.93966 17.8818 2.95898Z" data-figma-gradient-fill="{&#34;type&#34;:&#34;GRADIENT_DIAMOND&#34;,&#34;stops&#34;:[{&#34;color&#34;:{&#34;r&#34;:0.0,&#34;g&#34;:0.0,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.0},{&#34;color&#34;:{&#34;r&#34;:0.40000000596046448,&#34;g&#34;:0.40000000596046448,&#34;b&#34;:0.40000000596046448,&#34;a&#34;:1.0},&#34;position&#34;:1.0}],&#34;stopsVar&#34;:[{&#34;color&#34;:{&#34;r&#34;:0.0,&#34;g&#34;:0.0,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.0},{&#34;color&#34;:{&#34;r&#34;:0.40000000596046448,&#34;g&#34;:0.40000000596046448,&#34;b&#34;:0.40000000596046448,&#34;a&#34;:1.0},&#34;position&#34;:1.0}],&#34;transform&#34;:{&#34;m00&#34;:-77.661598205566406,&#34;m01&#34;:-37.984027862548828,&#34;m02&#34;:89.274551391601562,&#34;m10&#34;:37.984027862548828,&#34;m11&#34;:-77.661598205566406,&#34;m12&#34;:30.846895217895508},&#34;opacity&#34;:1.0,&#34;blendMode&#34;:&#34;NORMAL&#34;,&#34;visible&#34;:true}"/>
+</g>
+<defs>
+<filter id="filter0_n_5707_2086" x="0" y="0" width="30" height="30" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feTurbulence type="fractalNoise" baseFrequency="20.666662216186523 20.666662216186523" stitchTiles="stitch" numOctaves="3" result="noise" seed="6252" />
+<feComponentTransfer in="noise" result="coloredNoise1">
+<feFuncR type="linear" slope="2" intercept="-0.5" />
+<feFuncG type="linear" slope="2" intercept="-0.5" />
+<feFuncB type="linear" slope="2" intercept="-0.5" />
+<feFuncA type="discrete" tableValues="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "/>
+</feComponentTransfer>
+<feComposite operator="in" in2="shape" in="coloredNoise1" result="noise1Clipped" />
+<feComponentTransfer in="noise1Clipped" result="color1">
+<feFuncA type="table" tableValues="0 0.15" />
+</feComponentTransfer>
+<feMerge result="effect1_noise_5707_2086">
+<feMergeNode in="shape" />
+<feMergeNode in="color1" />
+</feMerge>
+</filter>
+<clipPath id="paint0_diamond_5707_2086_clip_path"><path d="M15 0C23.2842 7.98776e-05 30 6.71577 30 15C30 23.2842 23.2842 29.9999 15 30C6.71571 30 0 23.2843 0 15C2.26781e-05 6.71572 6.71572 0 15 0ZM15.0586 18.9453C11.0594 18.9454 7.81738 21.2689 7.81738 24.1348C7.81764 27.0004 11.0595 29.3232 15.0586 29.3232C19.0578 29.3232 22.2995 27.0005 22.2998 24.1348C22.2998 21.2689 19.0579 18.9453 15.0586 18.9453ZM24.21 7.60938C21.4916 7.60938 19.2872 10.6795 19.2871 14.4668C19.2871 18.2542 21.4915 21.3242 24.21 21.3242C26.9283 21.324 29.1318 18.254 29.1318 14.4668C29.1318 10.6797 26.9282 7.60958 24.21 7.60938ZM17.8818 2.95898C14.9965 -0.0217164 9.27807 0.832889 5.11035 4.86719C0.942842 8.90148 -0.0961739 14.5887 2.78906 17.5693C5.67447 20.5496 11.392 19.6953 15.5596 15.6611C19.7272 11.6268 20.7671 5.93966 17.8818 2.95898Z"/></clipPath><linearGradient id="paint0_diamond_5707_2086" x1="0" y1="0" x2="500" y2="500" gradientUnits="userSpaceOnUse">
+<stop/>
+<stop offset="1" stop-color="#666666"/>
+</linearGradient>
+</defs>
+</svg>
