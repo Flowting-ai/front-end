@@ -542,15 +542,15 @@ export function SelectPinsDialog({
                             onCheckedChange={() => !isDisabled && handleSelectPin(pin.id)}
                             disabled={isDisabled}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex-shrink-0"
+                            className="shrink-0"
                           />
-                          <label className="text-sm font-medium text-[#0A0A0A] truncate cursor-pointer">
+                          <label className="hidden text-sm font-medium text-[#0A0A0A] truncate cursor-pointer">
                             {pin.title || pin.name}
                           </label>
                         </div>
                       </div>
                       {pin.pinnedDate && (
-                        <span className="text-xs text-[#757575] ml-2 whitespace-nowrap flex-shrink-0 hidden group-hover:inline">
+                        <span className="text-xs text-[#757575] ml-2 whitespace-nowrap shrink-0 hidden group-hover:inline">
                           {formatDate(pin.pinnedDate)}
                         </span>
                       )}

@@ -18,7 +18,7 @@ import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Message } from "../chat/chat-message";
+import type { Message, MessageSource } from "../chat/chat-message";
 import { useRouter, usePathname } from "next/navigation";
 import {
   AlertDialog,
@@ -79,7 +79,7 @@ export type ChatBoard = {
 
 type ChatHistory = Record<string, Message[]>;
 
-export type RightSidebarPanel = "pinboard" | "files" | "personas" | "compare";
+export type RightSidebarPanel = "pinboard" | "files" | "personas" | "compare" | "references";
 
 interface EnsureChatOptions {
   firstMessage: string;
@@ -115,6 +115,11 @@ interface AppLayoutContextType {
   // Selected pins from model switch dialog to include with next message
   selectedPinIdsForNextMessage: string[];
   setSelectedPinIdsForNextMessage: React.Dispatch<React.SetStateAction<string[]>>;
+  // References panel (sources/citations from chat)
+  referencesSources: MessageSource[];
+  setReferencesSources: React.Dispatch<React.SetStateAction<MessageSource[]>>;
+  /** Open the right sidebar with the References (Sources) panel. Called from Sources button on AI messages. */
+  openReferencesPanel: () => void;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -417,6 +422,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [useFramework, setUseFramework] = useState(true);
   const [selectedPinIdsForNextMessage, setSelectedPinIdsForNextMessage] = useState<string[]>([]);
+  const [referencesSources, setReferencesSources] = useState<MessageSource[]>([]);
   const [pendingModelFromCompare, setPendingModelFromCompare] = useState<AIModel | null>(null);
   const [isModelSwitchConfirmOpen, setIsModelSwitchConfirmOpen] = useState(false);
 
@@ -1253,6 +1259,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
     moveChatToTop,
     selectedPinIdsForNextMessage,
     setSelectedPinIdsForNextMessage,
+    referencesSources,
+    setReferencesSources,
+    openReferencesPanel: () => {
+      if (!isPersonasRoute) setActiveRightSidebarPanel("references");
+    },
   };
 
   const pageContentProps = {
@@ -1435,6 +1446,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   pins={pins}
                   setPins={setPins}
                   chatBoards={chatBoards}
+                  referencesSources={referencesSources}
                   className="order1"
                 />
                 <RightSidebarCollapsed

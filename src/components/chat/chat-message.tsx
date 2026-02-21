@@ -328,7 +328,84 @@ export interface Message {
       label: string;
       text?: string;
     }>;
+    /** Sources or citations (from backend or parsed from content). Shown in References panel. */
+    sources?: MessageSource[];
   };
+}
+
+/** One source/citation item for the Citations panel */
+export type MessageSource = {
+  /** Name of the article, document, or webpage */
+  title?: string;
+  /** Direct URL to the original material */
+  url: string;
+  /** Short excerpt of the text the AI used (snippet/context) */
+  snippet?: string;
+  /** Human creator or organization behind the content */
+  authorOrPublisher?: string;
+  /** When the content was published or last updated (e.g. "2024-01-15" or "Last updated March 2024") */
+  publicationOrAccessDate?: string;
+  /** How strongly this source supports the claim, 0–100. Shown as relevance/confidence. */
+  relevanceScore?: number;
+  /** Website metadata: image URL (e.g. og:image). Fetched from link when not provided. */
+  imageUrl?: string;
+  /** Website metadata: description (e.g. og:description). Fetched from link when not provided. */
+  description?: string;
+};
+
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
+const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
+
+function SourceFaviconStack({ urls }: { urls: string[] }) {
+  const [failed, setFailed] = useState<Set<number>>(() => new Set());
+  const list = urls.slice(0, 4).filter(Boolean);
+  const markFailed = (i: number) => {
+    setFailed((prev) => new Set(prev).add(i));
+  };
+  if (list.length === 0) {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E4E4E7] text-[10px] font-semibold text-[#525252]">
+        ?
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center -space-x-2">
+      {list.map((url, i) => {
+        const hostname = getHostname(url);
+        const faviconUrl = hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "";
+        const showFallback = !faviconUrl || failed.has(i);
+        return (
+          <span
+            key={`${url}-${i}`}
+            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E4E4E7] border border-main-border text-[10px] font-semibold text-[#525252]"
+            style={{ zIndex: i + 1 }}
+          >
+            {showFallback ? (
+              <span aria-hidden>
+                {hostname ? hostname.charAt(0).toUpperCase() : "?"}
+              </span>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={faviconUrl}
+                alt=""
+                className="w-3 h-3 object-contain"
+                onError={() => markFailed(i)}
+              />
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 interface ChatMessageProps {
@@ -346,6 +423,12 @@ interface ChatMessageProps {
   referencedMessage?: Message | null;
   isNewMessage: boolean;
   isResponding?: boolean;
+  /** When set, show a "Sources" button that opens the references panel. Only for AI messages. */
+  onOpenSources?: () => void;
+  /** Number of sources (1–4) for the Sources button. */
+  sourceCount?: number;
+  /** Source URLs (max 4) for showing domain favicons on the Sources button. */
+  sourceUrls?: string[];
 }
 
 export function ChatMessage({
@@ -363,6 +446,9 @@ export function ChatMessage({
   referencedMessage,
   isNewMessage,
   isResponding,
+  onOpenSources,
+  sourceCount = 0,
+  sourceUrls = [],
 }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
@@ -676,6 +762,23 @@ export function ChatMessage({
               </TooltipContent>
             </Tooltip>
           )}
+          {onOpenSources && sourceCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-1 border-none border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#6B7280] hover:text-[#111827] transition-colors"
+                  onClick={onOpenSources}
+                >
+                  <SourceFaviconStack urls={sourceUrls.slice(0, 4)} />
+                  <span className="text-xs font-medium">Sources</span>
+                </Button>
+              </TooltipTrigger>
+              {/* <TooltipContent>
+                <p>View sources</p>
+              </TooltipContent>  */}
+            </Tooltip>
+          )}
         </div>
         {(message.metadata?.modelName || message.metadata?.providerName) && (
           <span className="text-xs text-[#6B7280] font-medium pr-[5px]">
@@ -938,6 +1041,14 @@ export function ChatMessage({
                       </div>
                     );
                   })}
+                  {(message.isLoading || isResponding) && !message.imageUrl && !isUser && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      <Skeleton
+                        className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"
+                        aria-label="Image generating"
+                      />
+                    </div>
+                  )}
                   {message.imageUrl && (
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                       <Image

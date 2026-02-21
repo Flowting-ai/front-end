@@ -25,7 +25,7 @@ import {
   Reply,
   Globe,
 } from "lucide-react";
-import { ChatMessage, type Message } from "./chat-message";
+import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
@@ -108,6 +108,125 @@ type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
 interface MentionedPin {
   id: string;
   label: string;
+}
+
+/** Normalize backend sources/citations into MessageSource shape */
+function normalizeMessageSources(
+  raw: unknown,
+): Message["metadata"] extends { sources?: infer S } ? S : never {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined as never;
+  const out: MessageSource[] = [];
+  for (const item of raw) {
+    if (item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string") {
+      const o = item as Record<string, unknown>;
+      const url = o.url as string;
+      const title = [o.title, o.name].find((v) => typeof v === "string") as string | undefined;
+      const snippet = typeof o.snippet === "string" ? o.snippet : undefined;
+      const authorOrPublisher = [o.authorOrPublisher, o.author, o.publisher].find((v) => typeof v === "string") as string | undefined;
+      const publicationOrAccessDate = [o.publicationOrAccessDate, o.publicationDate, o.date, o.accessDate, o.publishedDate].find((v) => typeof v === "string") as string | undefined;
+      const relevanceScore = typeof o.relevanceScore === "number" ? o.relevanceScore : typeof o.relevance === "number" ? o.relevance : typeof o.confidence === "number" ? o.confidence : typeof o.score === "number" ? o.score : undefined;
+      const num = relevanceScore != null ? Math.min(100, Math.max(0, Number(relevanceScore))) : undefined;
+      const imageUrl = [o.imageUrl, o.image, o.ogImage].find((v) => typeof v === "string") as string | undefined;
+      const description = [o.description, o.ogDescription].find((v) => typeof v === "string") as string | undefined;
+      out.push({
+        url,
+        title: title || undefined,
+        snippet: snippet || undefined,
+        authorOrPublisher: authorOrPublisher || undefined,
+        publicationOrAccessDate: publicationOrAccessDate || undefined,
+        relevanceScore: num,
+        imageUrl: imageUrl || undefined,
+        description: description || undefined,
+      });
+    }
+  }
+  return (out.length > 0 ? out : undefined) as never;
+}
+
+/** Normalize URL for matching (e.g. when comparing source URL to link in content). */
+function normalizeUrlForMatch(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    u.hash = "";
+    u.search = "";
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.origin}${path}`;
+  } catch {
+    return url.trim();
+  }
+}
+
+/**
+ * Extract titles from markdown links in content: [link text](url).
+ * Returns a map of normalized URL -> title (first occurrence per URL, or longest title if we want to prefer descriptive labels).
+ */
+function extractTitlesFromContentByUrl(content: string): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!content || typeof content !== "string") return map;
+  const linkRegex = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRegex.exec(content)) !== null) {
+    const rawUrl = m[2].trim();
+    const key = normalizeUrlForMatch(rawUrl);
+    const title = m[1].trim();
+    if (!title) continue;
+    // Prefer first occurrence; optionally prefer longer (more descriptive) title
+    const existing = map.get(key);
+    if (!existing || title.length > existing.length) map.set(key, title);
+  }
+  return map;
+}
+
+/** Return number of sources for an AI message (from metadata or parsed from content). */
+function getMessageSourceCount(message: Message): number {
+  if (message.sender !== "ai") return 0;
+  const fromMeta = message.metadata?.sources;
+  if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta.length;
+  }
+  return extractSourcesFromContent(message.content ?? "").length;
+}
+
+/** Return up to 4 source URLs for an AI message (for favicons on Sources button). */
+function getMessageSourceUrls(message: Message): string[] {
+  if (message.sender !== "ai") return [];
+  const fromMeta = message.metadata?.sources;
+  if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta
+      .slice(0, 4)
+      .map((s: { url?: string }) => (s && typeof s.url === "string" ? s.url : ""))
+      .filter(Boolean);
+  }
+  return extractSourcesFromContent(message.content ?? "")
+    .slice(0, 4)
+    .map((s) => s.url);
+}
+
+/** Extract link-like sources from markdown content (e.g. [text](url) or bare URLs) */
+function extractSourcesFromContent(content: string): Array<{ title?: string; url: string }> {
+  if (!content || typeof content !== "string") return [];
+  const seen = new Set<string>();
+  const out: Array<{ title?: string; url: string }> = [];
+  // Markdown links: [text](url)
+  const linkRegex = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRegex.exec(content)) !== null) {
+    const url = m[2].trim();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const title = m[1].trim();
+    out.push({ url, title: title || undefined });
+  }
+  // Bare URLs (http/https) not already captured
+  const urlRegex = /https?:\/\/[^\s)\]">]+/g;
+  while ((m = urlRegex.exec(content)) !== null) {
+    const raw = m[0];
+    const url = raw.replace(/[.)]+$/, ""); // trim trailing punctuation
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url });
+  }
+  return out;
 }
 
 export function ChatInterface({
@@ -285,6 +404,42 @@ export function ChatInterface({
   const layoutContext = useContext(AppLayoutContext);
   const displayMessages = messages;
   const { user, csrfToken } = useAuth();
+
+  // References panel: from last AI message (metadata.sources or links parsed from content).
+  // Prefer source titles extracted from the chat (e.g. [Title](url)) when available; otherwise use generic (API/fetched/hostname).
+  const sourcesForPanel = useMemo((): MessageSource[] => {
+    let lastAi: Message | null = null;
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      if (displayMessages[i].sender === "ai") {
+        lastAi = displayMessages[i];
+        break;
+      }
+    }
+    if (!lastAi) return [];
+    const content = lastAi.content ?? "";
+    const titlesFromChat = extractTitlesFromContentByUrl(content);
+    const fromMeta = lastAi.metadata?.sources;
+    const rawSources: MessageSource[] =
+      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
+    return rawSources.map((s) => {
+      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
+      const title = chatTitle?.trim() || s.title?.trim();
+      return { ...s, title: title || undefined };
+    });
+  }, [displayMessages]);
+
+  // Stable key so we only sync when source content actually changes (avoids loop from new array refs).
+  const sourcesSyncKey = useMemo(
+    () => JSON.stringify(sourcesForPanel.map((s) => ({ url: s.url, title: s.title ?? "" }))),
+    [sourcesForPanel],
+  );
+
+  // Sync references to layout so the right-sidebar References panel can show them.
+  // Depend only on sourcesSyncKey (stable string) so we avoid loops from new array refs or context identity.
+  useEffect(() => {
+    layoutContext?.setReferencesSources(sourcesForPanel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when source content (key) changes
+  }, [sourcesSyncKey]);
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
 
   const handleReact = (message: Message, reaction: string | null) => {
@@ -880,6 +1035,10 @@ export function ChatInterface({
                     (messageMeta as { document_url?: string | null })
                       .document_url ??
                     null,
+                  sources: normalizeMessageSources(
+                    (messageMeta as { sources?: unknown }).sources ??
+                    (messageMeta as { citations?: unknown }).citations,
+                  ),
                 }
               : undefined;
 
@@ -2036,6 +2195,13 @@ export function ChatInterface({
                         isNewMessage={msg.id === lastMessageId}
                         taggedPins={taggedPins}
                         isResponding={isResponding}
+                        onOpenSources={
+                          msg.sender === "ai"
+                            ? layoutContext?.openReferencesPanel
+                            : undefined
+                        }
+                        sourceCount={getMessageSourceCount(msg)}
+                        sourceUrls={getMessageSourceUrls(msg)}
                       />
                     </div>
                   );
