@@ -372,7 +372,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
   };
   if (list.length === 0) {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E4E4E7] text-[10px] font-semibold text-[#525252]">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E4E4E7] border border-main-border text-[10px] font-semibold text-[#525252]">
         ?
       </span>
     );
@@ -386,7 +386,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
         return (
           <span
             key={`${url}-${i}`}
-            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-semibold text-[#525252]"
+            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden bg-[#E4E4E7] border border-main-border rounded-md text-[10px] font-semibold text-[#525252]"
             style={{ zIndex: i + 1 }}
           >
             {showFallback ? (
@@ -398,7 +398,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
               <img
                 src={faviconUrl}
                 alt=""
-                className="w-5 h-5 rounded-sm object-contain"
+                className="w-5 h-5 object-contain"
                 onError={() => markFailed(i)}
               />
             )}
@@ -1042,7 +1042,7 @@ export function ChatMessage({
                       </div>
                     );
                   })}
-                  {(message.isLoading || isResponding) && !message.imageUrl && !isUser && message.metadata?.isImageGeneration && (
+                  {(message.isLoading || isResponding) && !message.imageUrl && !(message.images?.length) && !isUser && message.metadata?.isImageGeneration && (
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                       <Skeleton
                         className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"
@@ -1050,10 +1050,18 @@ export function ChatMessage({
                       />
                     </div>
                   )}
-                  {message.imageUrl && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  {(message.images?.length
+                    ? message.images
+                    : message.imageUrl
+                      ? [{ url: message.imageUrl }]
+                      : []
+                  ).map((img, idx) => (
+                    <div
+                      key={`${message.id ?? "msg"}-img-${idx}`}
+                      className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                    >
                       <Image
-                        src={message.imageUrl}
+                        src={img.url}
                         alt={
                           message.imageAlt ||
                           message.content ||
@@ -1062,11 +1070,11 @@ export function ChatMessage({
                         width={0}
                         height={0}
                         sizes="100vw"
-                        unoptimized={message.imageUrl.startsWith("data:")}
+                        unoptimized={img.url.startsWith("data:")}
                         className="w-full h-auto object-contain bg-white"
                       />
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>

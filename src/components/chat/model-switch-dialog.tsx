@@ -20,9 +20,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import {
   ChevronDown,
+  ChevronUp,
   MessageSquare,
   CircleCheckBig,
   ChevronRight,
@@ -78,6 +80,13 @@ export function ModelSwitchDialog({
   const [includeFiles, setIncludeFiles] = useState(true);
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
+  // Input/Output modality filters (lowercase for matching)
+  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
+  const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
+  const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
+  const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -129,12 +138,33 @@ export function ModelSwitchDialog({
       setSelectedPinIds([]);
       setExpandedChatIds([]);
       setIncludeFiles(false);
+      setInputFilters(new Set());
+      setOutputFilters(new Set());
     }
   }, [open, currentModel, pendingModel]);
 
   const filteredModels = models.filter((model) => {
     if (!showFree && model.modelType === "free") return false;
     if (!showPaid && model.modelType === "paid") return false;
+
+    // Filter by input modalities (if any selected)
+    if (inputFilters.size > 0) {
+      const inputMods = (model.inputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...inputFilters].some((f) => inputMods.includes(f));
+      if (!hasMatch) return false;
+    }
+
+    // Filter by output modalities (if any selected)
+    if (outputFilters.size > 0) {
+      const outputMods = (model.outputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...outputFilters].some((f) => outputMods.includes(f));
+      if (!hasMatch) return false;
+    }
+
     return true;
   });
 
@@ -273,7 +303,7 @@ export function ModelSwitchDialog({
               </button>
             </div>
           </div>
-
+         
           {/* Model Dropdown + Free/Paid checkboxes (compact row) */}
           <div className="flex items-center justify-between gap-3 h-[36px]">
             <div className="flex items-center gap-3">
@@ -397,6 +427,112 @@ export function ModelSwitchDialog({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Input Output Clear */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu
+              open={inputDropdownOpen}
+              onOpenChange={setInputDropdownOpen}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                    inputFilters.size > 0
+                      ? "text-[#FFFFFF] bg-[#000000]"
+                      : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                  }`}
+                >
+                  Input
+                  {inputDropdownOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+                align="start"
+              >
+                {INPUT_OPTIONS.map((opt) => (
+                  <DropdownMenuCheckboxItem
+                    key={opt}
+                    className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                    checked={inputFilters.has(opt)}
+                    onCheckedChange={(checked) => {
+                      setInputFilters((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(opt);
+                        else next.delete(opt);
+                        return next;
+                      });
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu
+              open={outputDropdownOpen}
+              onOpenChange={setOutputDropdownOpen}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                    outputFilters.size > 0
+                      ? "text-[#FFFFFF] bg-[#000000]"
+                      : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                  }`}
+                >
+                  Output
+                  {outputDropdownOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+                align="start"
+              >
+                {OUTPUT_OPTIONS.map((opt) => (
+                  <DropdownMenuCheckboxItem
+                    key={opt}
+                    className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                    checked={outputFilters.has(opt)}
+                    onCheckedChange={(checked) => {
+                      setOutputFilters((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(opt);
+                        else next.delete(opt);
+                        return next;
+                      });
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {(inputFilters.size > 0 || outputFilters.size > 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInputFilters(new Set());
+                  setOutputFilters(new Set());
+                }}
+                className="font-medium text-[12px] text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300 rounded-[8px] transition-all duration-300 px-2.5 py-1.5 cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Chat Memory (split layout) */}

@@ -1,27 +1,37 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Play, Share2, RotateCcw, Loader2, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Play, Share2, Loader2, FlaskConical, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface TopBarProps {
   workflowName: string;
   onNameChange: (name: string) => void;
+  onBack: () => void;
+  onSave: () => void;
   onTest: () => void;
+  onRun: () => void;
   onShare: () => void;
-  onReset?: () => void;
+  workflowId: string | null;
+  hasUnsavedChanges: boolean;
+  isSaving?: boolean;
   isExecuting?: boolean;
   canTestWorkflow?: boolean;
   testDisabledReason?: string;
-  saveStatus: string | null; // 'Auto saved' or 'Workflow saved'
+  saveStatus: string | null;
 }
 
 export default function TopBar({
   workflowName,
   onNameChange,
+  onBack,
+  onSave,
   onTest,
+  onRun,
   onShare,
-  onReset,
+  workflowId,
+  hasUnsavedChanges,
+  isSaving = false,
   isExecuting = false,
   canTestWorkflow = true,
   testDisabledReason,
@@ -47,20 +57,22 @@ export default function TopBar({
     }
   };
 
-  const isTestDisabled = isExecuting || !canTestWorkflow;
+  const canUseTestOrRun = Boolean(workflowId) && canTestWorkflow;
+  const isTestDisabled = isExecuting || !canUseTestOrRun;
+  const isRunDisabled = !canUseTestOrRun;
 
   return (
     <div className="h-14 w-full bg-gradient-to-b from-[#F2F2F2] to-transparent flex items-center justify-between gap-6 px-6 absolute top-0 left-0 right-0 z-50">
       {/* Left Content */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/workflowAdmin')}
+          onClick={onBack}
           className="text-[#525252] hover:text-[#000] transition-colors"
           aria-label="Go back"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        
+
         {isEditing ? (
           <input
             type="text"
@@ -83,34 +95,37 @@ export default function TopBar({
 
       {/* Right Content */}
       <div className="flex items-center gap-3">
-        {/* Save Status Indicator */}
         {saveStatus && (
-          <div className={`h-5 px-1.5 py-1 rounded text-xs flex items-center ${
-            saveStatus === 'Workflow saved'
-              ? 'text-[#00812F] bg-[#D8FDE4]'
-              : 'text-[#00812F] bg-[#D8FDE4]'
-          }`}>
+          <div className="h-5 px-1.5 py-1 rounded text-xs flex items-center text-[#00812F] bg-[#D8FDE4]">
             {saveStatus}
           </div>
         )}
 
-        {/* Reset Workflow Button */}
-        {/* {onReset && (
-          <button
-            onClick={onReset}
-            disabled={isExecuting}
-            className="text-[#404040] bg-transparent hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span className="text-sm">Reset</span>
-          </button>
-        )} */}
+        {/* Save button - disabled until there are unsaved changes */}
+        <button
+          onClick={onSave}
+          disabled={!hasUnsavedChanges || isSaving}
+          title={!workflowId ? "Name and configure workflow first, then save" : hasUnsavedChanges ? "Save workflow" : "No changes to save"}
+          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Saving...</span>
+            </>
+          ) : (
+            <div className={`flex items-center gap-2 rounded-[8px] px-3 py-2 ${hasUnsavedChanges ? "text-black border border-main-border" : "text-gray-400 border border-gray-300"}`}>
+              <Save className="w-4 h-4" />
+              <span className="text-sm">Save</span>
+            </div>
+          )}
+        </button>
 
-        {/* Test Workflow Button */}
+        {/* Test Workflow - opens in-built chat only (no save, no chat persistence), URL becomes ?id=X&chatMode=true */}
         <button
           onClick={onTest}
           disabled={isTestDisabled}
-          title={isTestDisabled ? testDisabledReason || "Configure workflow before testing." : "Run workflow test"}
+          title={isTestDisabled ? testDisabledReason || "Save workflow first, then test." : "Open test chat (in-built)"}
           className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         >
           {isExecuting ? (
@@ -126,33 +141,18 @@ export default function TopBar({
           )}
         </button>
 
+        {/* Run Workflow - navigates to workflow chat page (highlighted in recent workflows board) */}
         <button
-          onClick={onTest}
-          disabled={isTestDisabled}
-          title={isTestDisabled ? testDisabledReason || "Configure workflow before testing." : "Run workflow test"}
+          onClick={onRun}
+          disabled={isRunDisabled}
+          title={isRunDisabled ? testDisabledReason || "Save workflow first." : "Open workflow chat"}
           className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
         >
-          {isExecuting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Running...</span>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
-              <Play className="w-4 h-4" />
-              <span className="text-sm">Run Workflow</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
+            <Play className="w-4 h-4" />
+            <span className="text-sm">Run Workflow</span>
+          </div>
         </button>
-
-        {/* workflow share feature disabled for the moment until further updates  */}
-        {/* <button
-          onClick={onShare}
-          className="text-[#FAFAFA] bg-[#171717] hover:bg-[#2a2a2a] flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-        >
-          <Share2 className="w-4 h-4" />
-          <span className="text-sm">Share</span>
-        </button> */}
       </div>
     </div>
   );

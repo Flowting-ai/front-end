@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ChevronsLeft,
   Settings,
@@ -43,6 +43,8 @@ import type { ChatBoard } from "./app-layout";
 import { useAuth } from "@/context/auth-context";
 import { AppLayoutContext } from "./app-layout";
 import chatStyles from "../chat/chat-interface.module.css";
+import { workflowAPI } from "@/components/workflows/workflow-api";
+import type { WorkflowMetadata } from "@/components/workflows/types";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -134,9 +136,11 @@ export function LeftSidebar({
     return () => clearInterval(timer);
   }, [chatBoards, layoutContext]);
 
-  // Collapse chat boards when on persona admin or workflow admin page
+  // Expand "Recent Workflow chats" when on a workflow chat page so active workflow is visible; collapse on dashboard/persona
   React.useEffect(() => {
-    if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
+    if (pathname?.startsWith("/workflowAdmin/chat")) {
+      setIsChatBoardsExpanded(true);
+    } else if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
       setIsChatBoardsExpanded(false);
     }
   }, [pathname]);
@@ -168,6 +172,40 @@ export function LeftSidebar({
   // Determine if user is on workflow pages
   const isOnWorkflowPage =
     pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+  const isOnWorkflowChatPage = pathname?.startsWith("/workflowAdmin/chat");
+  const activeWorkflowIdFromUrl = pathname?.match(/\/workflowAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+
+  // Fetch workflows for "Recent Workflow chats" when on workflow pages
+  const [workflowList, setWorkflowList] = useState<WorkflowMetadata[]>([]);
+  const [workflowListLoading, setWorkflowListLoading] = useState(false);
+  useEffect(() => {
+    if (!isOnWorkflowPage) return;
+    let cancelled = false;
+    setWorkflowListLoading(true);
+    workflowAPI
+      .list()
+      .then(({ workflows }) => {
+        if (!cancelled) setWorkflowList(workflows);
+      })
+      .catch(() => {
+        if (!cancelled) setWorkflowList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setWorkflowListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnWorkflowPage]);
+
+  const normalizedWorkflowSearch = searchTerm.trim().toLowerCase();
+  const workflowsToDisplay = useMemo(() => {
+    if (!normalizedWorkflowSearch) return workflowList;
+    return workflowList.filter(
+      (wf) =>
+        wf.name.toLowerCase().includes(normalizedWorkflowSearch)
+    );
+  }, [workflowList, normalizedWorkflowSearch]);
 
   // Dynamic button text based on current page
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
@@ -576,7 +614,38 @@ export function LeftSidebar({
                     </div>
                   </div>
 
-                  {boardsToDisplay.length > 0 ? (
+                  {isOnWorkflowChatPage ? (
+                    workflowListLoading ? (
+                      <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading workflows...</div>
+                    ) : workflowsToDisplay.length > 0 ? (
+                      <div id="recent-workflow-chats" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
+                        {workflowsToDisplay.map((wf) => {
+                          const isActive = activeWorkflowIdFromUrl === wf.id;
+                          const handleSelect = () => {
+                            router.push(`/workflowAdmin/chat/${wf.id}`);
+                          };
+                          return (
+                            <div key={wf.id} className="snap-start">
+                              <ChatHistoryItem
+                                title={wf.name}
+                                isSelected={isActive}
+                                isStarred={false}
+                                pinnedCount={0}
+                                onSelect={handleSelect}
+                                onToggleStar={() => {}}
+                                onRename={() => {}}
+                                onDelete={() => {}}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                        <p>No workflows found.</p>
+                      </div>
+                    )
+                  ) : boardsToDisplay.length > 0 ? (
                     <div id="recent-chat-boards" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
                       {boardsToDisplay.map((board) => {
                         const isActive = activeChatId === board.id;

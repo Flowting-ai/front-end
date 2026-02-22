@@ -108,7 +108,7 @@ export function Topbar({
               </Button>
             </Link>
           )}
-          {isPersonaAdminPage && (
+          {/* {isPersonaAdminPage && (
             <Link href="/personas/new">
               <Button
                 className="cursor-pointer w-[173px] h-[38px] font-inter font-[400] text-[14px] text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
@@ -117,7 +117,7 @@ export function Topbar({
                 Create New Persona
               </Button>
             </Link>
-          )}
+          )} */}
         </div>
       </div>
     </header>

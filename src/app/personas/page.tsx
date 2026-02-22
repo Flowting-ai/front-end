@@ -366,7 +366,7 @@ function PersonasPageContent() {
             </section>
 
             {/* Choose from Templates Section */}
-            <section className={styles.section}>
+            {/* <section className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div>
                   <h2 className={styles.sectionTitle}>Choose from templates</h2>
@@ -432,7 +432,7 @@ function PersonasPageContent() {
                 </div>
               </div>
 
-              {/* Template Category Filter Bar */}
+              #Template Category Filter Bar#
               <div
                 className={cn(
                   "flex justify-start overflow-x-auto",
@@ -458,7 +458,7 @@ function PersonasPageContent() {
                     className="w-full"
                   >
                     <TabsPrimitive.List className="flex items-center gap-1 w-full">
-                      {/* All Categories Tab */}
+                      #All Categories Tab#
                       <TabsPrimitive.Trigger
                         value="all"
                         className={cn(
@@ -477,9 +477,9 @@ function PersonasPageContent() {
                         All
                       </TabsPrimitive.Trigger>
 
-                      {/* Dynamic Category Tabs */}
+                      #Dynamic Category Tabs#
                       {templateCategories.map((category) => {
-                        // Count templates in this category
+                        #Count templates in this category#
                         const categoryCount = TEMPLATE_LIBRARY.filter(
                           (t) => t.category === category
                         ).length;
@@ -598,7 +598,7 @@ function PersonasPageContent() {
                   started.
                 </div>
               )}
-            </section>
+            </section> */}
           </>
         ) : (
           /* Regular State - Show when user has personas */
@@ -788,7 +788,7 @@ function PersonasPageContent() {
               </div>
             </section>
 
-            <section className={styles.section}>
+            {/* <section className={styles.section}>
               <div className="flex flex-col">
                 <h1 className="font-clash font-[400] leading-[140%] text-[24px] text-black">
                   Choose from templates
@@ -847,7 +847,7 @@ function PersonasPageContent() {
                 </div>
               </div>
 
-              {/* Template Category Filter Bar */}
+              #Template Category Filter Bar#
               <div
                 className={cn(
                   "flex justify-start overflow-x-auto",
@@ -873,7 +873,7 @@ function PersonasPageContent() {
                     className="w-full"
                   >
                     <TabsPrimitive.List className="flex items-center gap-1 w-full">
-                      {/* All Categories Tab */}
+                      #All Categories Tab#
                       <TabsPrimitive.Trigger
                         value="all"
                         className={cn(
@@ -891,9 +891,9 @@ function PersonasPageContent() {
                         All
                       </TabsPrimitive.Trigger>
 
-                      {/* Dynamic Category Tabs */}
+                      #Dynamic Category Tabs#
                       {templateCategories.map((category) => {
-                        // Count templates in this category
+                        #Count templates in this category#
                         const categoryCount = TEMPLATE_LIBRARY.filter(
                           (t) => t.category === category
                         ).length;
@@ -1011,7 +1011,7 @@ function PersonasPageContent() {
                   started.
                 </div>
               )}
-            </section>
+            </section> */}
           </>
         )}
       </div>
@@ -1020,7 +1020,7 @@ function PersonasPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Persona</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{personaToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{personaToDelete?.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -348,6 +348,8 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
 
   if (hasResponse) {
     const sanitized = extractThinkingContent(entry.response as string);
+    const { images, imageUrl } = getImagesFromBackendMessage(entry);
+
     messages.push({
       id: `${baseId}-response`,
       sender: "ai",
@@ -361,6 +363,8 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       referencedMessageId:
         (entry as { referenced_message_id?: string | null })
           .referenced_message_id ?? null,
+      ...(images && { images }),
+      ...(imageUrl && !images && { imageUrl }),
     });
   }
 
@@ -551,6 +555,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isChatRoute = pathname === "/";
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
+  const isWorkflowChatRoute = pathname?.startsWith("/workflowAdmin/chat");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const hasFetchedChats = useRef(false);
@@ -1290,10 +1295,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const isRightSidebarVisible =
-    !isPersonasRoute && activeRightSidebarPanel !== null;
+    !isPersonasRoute && !isWorkflowChatRoute && activeRightSidebarPanel !== null;
 
   const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
-    if (isPersonasRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => {
@@ -1307,7 +1312,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
-    if (isPersonasRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
@@ -1333,7 +1338,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     referencesSources,
     setReferencesSources,
     openReferencesPanel: () => {
-      if (!isPersonasRoute) setActiveRightSidebarPanel("references");
+      if (!isPersonasRoute && !isWorkflowChatRoute)
+        setActiveRightSidebarPanel("references");
     },
     updateChatTitleWithAnimation,
     getAnimatingTitle,
@@ -1510,7 +1516,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </div>
               </main>
             </div>
-            {!isPersonasRoute && (
+            {!isPersonasRoute && !isWorkflowChatRoute && (
               <div className="hidden h-full lg:flex items-stretch">
                 <RightSidebar
                   isOpen={isRightSidebarVisible}
