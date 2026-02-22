@@ -317,6 +317,7 @@ export interface Message {
     userReaction?: string | null;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
+    isImageGeneration?: boolean;
     attachments?: Array<{
       id: string;
       type: "pdf" | "image";
@@ -377,7 +378,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
     );
   }
   return (
-    <span className="flex items-center -space-x-2">
+    <span className="flex items-center -space-x-1">
       {list.map((url, i) => {
         const hostname = getHostname(url);
         const faviconUrl = hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "";
@@ -385,7 +386,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
         return (
           <span
             key={`${url}-${i}`}
-            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E4E4E7] border border-main-border text-[10px] font-semibold text-[#525252]"
+            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-semibold text-[#525252]"
             style={{ zIndex: i + 1 }}
           >
             {showFallback ? (
@@ -397,7 +398,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
               <img
                 src={faviconUrl}
                 alt=""
-                className="w-3 h-3 object-contain"
+                className="w-5 h-5 rounded-sm object-contain"
                 onError={() => markFailed(i)}
               />
             )}
@@ -767,7 +768,7 @@ export function ChatMessage({
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-1 border-none border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#6B7280] hover:text-[#111827] transition-colors"
+                  className="flex items-center gap-1 border border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#0A0A0A] hover:text-[#111827] transition-colors"
                   onClick={onOpenSources}
                 >
                   <SourceFaviconStack urls={sourceUrls.slice(0, 4)} />
@@ -1041,7 +1042,7 @@ export function ChatMessage({
                       </div>
                     );
                   })}
-                  {(message.isLoading || isResponding) && !message.imageUrl && !isUser && (
+                  {(message.isLoading || isResponding) && !message.imageUrl && !isUser && message.metadata?.isImageGeneration && (
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                       <Skeleton
                         className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"

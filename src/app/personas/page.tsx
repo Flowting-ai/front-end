@@ -6,7 +6,6 @@ import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./personas.module.css";
 import {
@@ -74,11 +73,6 @@ interface TemplateSummary {
   author: string;
   temperature?: number;
 }
-
-const resolveImage = (id: string, fallback: string) => {
-  const match = PlaceHolderImages.find((item) => item.id === id);
-  return match?.imageUrl ?? fallback;
-};
 
 // Seed with three personas to show filled state
 const INITIAL_PERSONAS: PersonaSummary[] = [

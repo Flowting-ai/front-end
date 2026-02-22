@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { PinType } from "../layout/right-sidebar";
@@ -357,9 +356,7 @@ export function ChatInterface({
   const pinItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
-  const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
-  const qwenAvatarUrl = "/Qwen.svg";
+  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
   const resolveModelAvatar = (
     modelOverride?: AIModel | null,
   ): MessageAvatar => {
@@ -376,9 +373,10 @@ export function ChatInterface({
         avatarHint: hintParts.join(" ").trim(),
       };
     }
+    // When no model is selected, use Flowting logo (framework mode)
     return {
-      avatarUrl: defaultAiAvatar?.imageUrl ?? qwenAvatarUrl,
-      avatarHint: defaultAiAvatar?.imageHint ?? "AI model",
+      avatarUrl: flowtingLogoUrl,
+      avatarHint: "Flowting AI Framework",
     };
   };
 
@@ -478,6 +476,30 @@ export function ChatInterface({
 
     toast.info("Reaction removed");
   };
+
+  const handleOpenSources = (message: Message) => {
+    if (message.sender !== "ai" || !layoutContext) return;
+    
+    // Extract sources from the specific message (similar to sourcesForPanel logic)
+    const content = message.content ?? "";
+    const titlesFromChat = extractTitlesFromContentByUrl(content);
+    const fromMeta = message.metadata?.sources;
+    const rawSources: MessageSource[] =
+      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
+    
+    const messageSources = rawSources.map((s) => {
+      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
+      const title = chatTitle?.trim() || s.title?.trim();
+      return { ...s, title: title || undefined };
+    });
+
+    // Update the references sources with this specific message's sources
+    layoutContext.setReferencesSources(messageSources);
+    
+    // Open the references panel
+    layoutContext.openReferencesPanel();
+  };
+
   const pinsById = useMemo(() => {
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
@@ -799,6 +821,9 @@ export function ChatInterface({
         if (pinIds && pinIds.length > 0) {
           formData.append("pinIds", JSON.stringify(pinIds));
         }
+        if (webSearchEnabled) {
+          formData.append("webSearch", "true");
+        }
         // Append all files
         files.forEach((file) => {
           formData.append("files", file);
@@ -843,6 +868,9 @@ export function ChatInterface({
         }
         if (pinIds && pinIds.length > 0) {
           payload.pinIds = pinIds;
+        }
+        if (webSearchEnabled) {
+          payload.webSearch = true;
         }
 
         body = JSON.stringify(payload);
@@ -929,14 +957,11 @@ export function ChatInterface({
               !isPersonaTest &&
               chatTitle &&
               currentChatId &&
-              layoutContext?.setChatBoards
+              layoutContext?.updateChatTitleWithAnimation
             ) {
-              layoutContext.setChatBoards((prev) =>
-                prev.map((board) =>
-                  board.id === currentChatId
-                    ? { ...board, name: String(chatTitle) }
-                    : board,
-                ),
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                String(chatTitle)
               );
             }
             continue;
@@ -1090,14 +1115,11 @@ export function ChatInterface({
               !isPersonaTest &&
               doneTitle &&
               currentChatId &&
-              layoutContext?.setChatBoards
+              layoutContext?.updateChatTitleWithAnimation
             ) {
-              layoutContext.setChatBoards((prev) =>
-                prev.map((board) =>
-                  board.id === currentChatId
-                    ? { ...board, name: String(doneTitle) }
-                    : board,
-                ),
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                String(doneTitle)
               );
             }
 
@@ -1328,8 +1350,8 @@ export function ChatInterface({
         id: userMessageId,
         sender: "user",
         content: trimmedContent,
-        avatarUrl: userAvatar?.imageUrl,
-        avatarHint: userAvatar?.imageHint,
+        avatarUrl: "/personas/userAvatar.png",
+        avatarHint: "User",
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
@@ -2057,11 +2079,11 @@ export function ChatInterface({
                               msg.metadata?.providerName,
                               msg.metadata?.modelName,
                             ) ||
-                            qwenAvatarUrl,
+                            flowtingLogoUrl,
                           avatarHint:
                             msg.avatarHint ||
                             metadataAvatar?.avatarHint ||
-                            "AI model",
+                            "Flowting AI",
                         }
                       : msg;
 
@@ -2197,7 +2219,7 @@ export function ChatInterface({
                         isResponding={isResponding}
                         onOpenSources={
                           msg.sender === "ai"
-                            ? layoutContext?.openReferencesPanel
+                            ? () => handleOpenSources(msg)
                             : undefined
                         }
                         sourceCount={getMessageSourceCount(msg)}
@@ -2680,182 +2702,222 @@ export function ChatInterface({
                   </div>
                 )}
 
-                {!hidePersonaButton && (
-                  <div className="relative" ref={personaDropdownRef}>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setShowPersonaDropdown(!showPersonaDropdown)
-                      }
-                      className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
-                      title="Choose Persona"
-                    >
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
-                        <UserPlus className="h-3 w-3" />
-                      </div>
-                      <span>
-                        {selectedPersona
-                          ? selectedPersona.name
-                          : "Choose Persona"}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Button>
-
-                    {showPersonaDropdown && (
-                      <div
-                        className="absolute bottom-full left-0 mb-2 rounded-lg border border-[#E5E5E5] bg-white shadow-lg overflow-hidden"
-                        style={{ width: "291px", maxHeight: "181px" }}
-                        role="listbox"
-                        aria-expanded={showPersonaDropdown}
-                        tabIndex={-1}
-                        onKeyDown={(e) => {
-                          if (activePersonas.length === 0) return;
-
-                          // Total items = personas + "Add new persona" button
-                          const totalItems = activePersonas.length + 1;
-
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            setHighlightedPersonaIndex((prev) => {
-                              const next =
-                                prev === -1 ? 0 : (prev + 1) % totalItems;
-                              return next;
-                            });
-                          } else if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            setHighlightedPersonaIndex((prev) => {
-                              if (prev === -1 || prev === 0)
-                                return totalItems - 1;
-                              return prev - 1;
-                            });
-                          } else if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (
-                              highlightedPersonaIndex >= 0 &&
-                              highlightedPersonaIndex < activePersonas.length
-                            ) {
-                              handleSelectPersona(
-                                activePersonas[highlightedPersonaIndex],
-                              );
-                            } else if (
-                              highlightedPersonaIndex === activePersonas.length
-                            ) {
-                              handleAddNewPersona();
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            setShowPersonaDropdown(false);
-                          }
-                        }}
+                {/* Persona dropdown and web search indicator */}
+                <div className="flex items-center gap-2">
+                  {!hidePersonaButton && (
+                    <div className="relative" ref={personaDropdownRef}>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          setShowPersonaDropdown(!showPersonaDropdown)
+                        }
+                        className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                        title="Choose Persona"
                       >
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
+                          <UserPlus className="h-3 w-3" />
+                        </div>
+                        <span>
+                          {selectedPersona
+                            ? selectedPersona.name
+                            : "Choose Persona"}
+                        </span>
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+
+                      {showPersonaDropdown && (
                         <div
-                          className="max-h-[calc(5*32px)] overflow-y-auto overflow-x-hidden px-[5px] py-1"
-                          style={{ scrollbarWidth: "thin" }}
+                          className="absolute bottom-full left-0 mb-2 rounded-lg border border-[#E5E5E5] bg-white shadow-lg overflow-hidden"
+                          style={{ width: "291px", maxHeight: "181px" }}
+                          role="listbox"
+                          aria-expanded={showPersonaDropdown}
+                          tabIndex={-1}
+                          onKeyDown={(e) => {
+                            if (activePersonas.length === 0) return;
+
+                            // Total items = personas + "Add new persona" button
+                            const totalItems = activePersonas.length + 1;
+
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setHighlightedPersonaIndex((prev) => {
+                                const next =
+                                  prev === -1 ? 0 : (prev + 1) % totalItems;
+                                return next;
+                              });
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setHighlightedPersonaIndex((prev) => {
+                                if (prev === -1 || prev === 0)
+                                  return totalItems - 1;
+                                return prev - 1;
+                              });
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (
+                                highlightedPersonaIndex >= 0 &&
+                                highlightedPersonaIndex < activePersonas.length
+                              ) {
+                                handleSelectPersona(
+                                  activePersonas[highlightedPersonaIndex],
+                                );
+                              } else if (
+                                highlightedPersonaIndex === activePersonas.length
+                              ) {
+                                handleAddNewPersona();
+                              }
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              setShowPersonaDropdown(false);
+                            }
+                          }}
                         >
-                          {activePersonas.length === 0 ? (
-                            <div className="px-2 py-4 text-center text-xs text-[#888888]">
-                              No active personas available
-                            </div>
-                          ) : (
-                            activePersonas.map((persona, idx) => (
-                              <button
-                                key={persona.id}
-                                type="button"
-                                role="option"
-                                aria-selected={
-                                  selectedPersona?.id === persona.id
-                                }
-                                onClick={() => handleSelectPersona(persona)}
-                                onMouseEnter={() =>
-                                  setHighlightedPersonaIndex(idx)
-                                }
-                                onMouseLeave={() =>
-                                  setHighlightedPersonaIndex(-1)
-                                }
-                                className={
-                                  `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
-                                  (idx === highlightedPersonaIndex &&
-                                  highlightedPersonaIndex >= 0
-                                    ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                    : selectedPersona?.id === persona.id
+                          <div
+                            className="max-h-[calc(5*32px)] overflow-y-auto overflow-x-hidden px-[5px] py-1"
+                            style={{ scrollbarWidth: "thin" }}
+                          >
+                            {activePersonas.length === 0 ? (
+                              <div className="px-2 py-4 text-center text-xs text-[#888888]">
+                                No active personas available
+                              </div>
+                            ) : (
+                              activePersonas.map((persona, idx) => (
+                                <button
+                                  key={persona.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={
+                                    selectedPersona?.id === persona.id
+                                  }
+                                  onClick={() => handleSelectPersona(persona)}
+                                  onMouseEnter={() =>
+                                    setHighlightedPersonaIndex(idx)
+                                  }
+                                  onMouseLeave={() =>
+                                    setHighlightedPersonaIndex(-1)
+                                  }
+                                  className={
+                                    `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                    (idx === highlightedPersonaIndex &&
+                                    highlightedPersonaIndex >= 0
+                                      ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
+                                      : selectedPersona?.id === persona.id
+                                        ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
+                                        : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
+                                  }
+                                  style={{
+                                    width: "280px",
+                                    minHeight: "32px",
+                                    paddingRight: "8px",
+                                  }}
+                                >
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] border border-[#E5E5E5]">
+                                    {persona.avatar ? (
+                                      <img
+                                        src={persona.avatar}
+                                        alt={persona.name}
+                                        className="h-full w-full rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-[10px] font-medium text-[#666666]">
+                                        {persona.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="flex-1 truncate font-medium pr-0">
+                                    {persona.name}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+
+                          {activePersonas.length > 0 && (
+                            <>
+                              <div
+                                className="mx-[5px] my-1"
+                                style={{
+                                  width: "280px",
+                                  height: "1px",
+                                  backgroundColor:
+                                    "var(--general-border, #E5E5E5)",
+                                }}
+                              />
+                              <div className="px-[5px] pb-1">
+                                <button
+                                  type="button"
+                                  onClick={handleAddNewPersona}
+                                  onMouseEnter={() =>
+                                    setHighlightedPersonaIndex(
+                                      activePersonas.length,
+                                    )
+                                  }
+                                  onMouseLeave={() =>
+                                    setHighlightedPersonaIndex(-1)
+                                  }
+                                  className={
+                                    `w-full flex items-center gap-2 rounded-[6px] px-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                    (highlightedPersonaIndex ===
+                                    activePersonas.length
                                       ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
                                       : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
-                                }
-                                style={{
-                                  width: "280px",
-                                  minHeight: "32px",
-                                  paddingRight: "8px",
-                                }}
-                              >
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] border border-[#E5E5E5]">
-                                  {persona.avatar ? (
-                                    <img
-                                      src={persona.avatar}
-                                      alt={persona.name}
-                                      className="h-full w-full rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-[10px] font-medium text-[#666666]">
-                                      {persona.name.charAt(0).toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="flex-1 truncate font-medium pr-0">
-                                  {persona.name}
-                                </span>
-                              </button>
-                            ))
+                                  }
+                                  style={{
+                                    width: "280px",
+                                    minHeight: "32px",
+                                    paddingRight: "8px",
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  <span className="font-medium">
+                                    Add new persona
+                                  </span>
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
-
-                        {activePersonas.length > 0 && (
-                          <>
-                            <div
-                              className="mx-[5px] my-1"
-                              style={{
-                                width: "280px",
-                                height: "1px",
-                                backgroundColor:
-                                  "var(--general-border, #E5E5E5)",
-                              }}
-                            />
-                            <div className="px-[5px] pb-1">
-                              <button
-                                type="button"
-                                onClick={handleAddNewPersona}
-                                onMouseEnter={() =>
-                                  setHighlightedPersonaIndex(
-                                    activePersonas.length,
-                                  )
-                                }
-                                onMouseLeave={() =>
-                                  setHighlightedPersonaIndex(-1)
-                                }
-                                className={
-                                  `w-full flex items-center gap-2 rounded-[6px] px-2 py-[5.5px] text-left text-xs transition-colors ` +
-                                  (highlightedPersonaIndex ===
-                                  activePersonas.length
-                                    ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                    : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
-                                }
-                                style={{
-                                  width: "280px",
-                                  minHeight: "32px",
-                                  paddingRight: "8px",
-                                }}
-                              >
-                                <Plus className="h-4 w-4" />
-                                <span className="font-medium">
-                                  Add new persona
-                                </span>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
+                  {/* Web search indicator button */}
+                  {webSearchEnabled && (
+                    <button
+                      type="button"
+                      aria-label="Disable web search"
+                      onClick={() => setWebSearchEnabled(false)}
+                      style={{
+                        width: "152.5px",
+                        height: "36px",
+                        minHeight: "36px",
+                        borderRadius: "8px",
+                        padding: "7.5px 4px",
+                        gap: "8px",
+                        opacity: 1,
+                        background: "#F0F7FF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: "Geist, sans-serif",
+                        fontWeight: 500,
+                        fontSize: "14px",
+                        lineHeight: "150%",
+                        letterSpacing: "0.5%",
+                        color: "#2563eb",
+                        boxShadow: "none",
+                        border: "none",
+                        marginLeft: "2px"
+                      }}
+                    >
+                      <Globe className="h-4 w-4 mr-2" style={{ color: "#2563eb" }} />
+                      <span style={{ flex: 1, textAlign: "center", color: "#2563eb" }}>Web Search</span>
+                      <X
+                        className="h-4 w-4 ml-2 cursor-pointer"
+                        style={{ color: "#2563eb" }}
+                      />
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
                   {/* <span className="text-sm font-medium text-[#888888]">

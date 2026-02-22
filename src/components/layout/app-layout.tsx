@@ -68,12 +68,15 @@ export type ChatMetadata = {
   starMessageId?: string | number | null;
 };
 
+export type ChatBoardType = "chat" | "persona" | "workflow";
+
 export type ChatBoard = {
   id: string;
   name: string;
   time: string;
   isStarred: boolean;
   pinCount: number;
+  type?: ChatBoardType;
   metadata?: ChatMetadata;
 };
 
@@ -120,6 +123,10 @@ interface AppLayoutContextType {
   setReferencesSources: React.Dispatch<React.SetStateAction<MessageSource[]>>;
   /** Open the right sidebar with the References (Sources) panel. Called from Sources button on AI messages. */
   openReferencesPanel: () => void;
+  /** Update a chat board title with typewriter animation effect */
+  updateChatTitleWithAnimation: (chatId: string, newTitle: string) => void;
+  /** Get the currently animating title for a chat (if any) */
+  getAnimatingTitle: (chatId: string) => { targetTitle: string; timestamp: number } | null;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -155,7 +162,7 @@ const extractChatId = (chat: BackendChat): string => {
   return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
-const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
+const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "chat"): ChatBoard => {
   let metadata =
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
       ? { ...(chat.metadata as ChatMetadata) }
@@ -182,6 +189,11 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
     ? Boolean((metadata as { starred?: unknown }).starred)
     : undefined;
 
+  // Extract type from chat object or use default
+  const chatType = (chat as { type?: ChatBoardType }).type || 
+                   (chat as { chatType?: ChatBoardType }).chatType || 
+                   defaultType;
+
   return {
     id: extractChatId(chat),
     name: chat.title || chat.name || "Untitled Chat",
@@ -191,6 +203,7 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
         ? resolvedStarred
         : Boolean(chat.is_starred ?? chat.isStarred ?? false),
     pinCount: metadata?.pinCount ?? chat.pin_count ?? chat.pinCount ?? 0,
+    type: chatType,
     metadata,
   };
 };
@@ -431,6 +444,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
   const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
+  // Track chat boards with animating titles: chatId -> { targetTitle, timestamp }
+  const [animatingTitles, setAnimatingTitles] = useState<Map<string, { targetTitle: string; timestamp: number }>>(new Map());
   const pathname = usePathname();
   const router = useRouter();
 
@@ -499,6 +514,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return prevBoards;
     });
   }, []);
+
+  // Update chat title with animation - trigger typewriter effect in sidebar
+  const updateChatTitleWithAnimation = useCallback((chatId: string, newTitle: string) => {
+    // First update the actual chat board with the new title immediately
+    setChatBoards_((prev) =>
+      prev.map((board) =>
+        board.id === chatId ? { ...board, name: newTitle } : board
+      )
+    );
+
+    // Then trigger the animation by storing the target title with a timestamp
+    setAnimatingTitles((prev) => {
+      const next = new Map(prev);
+      next.set(chatId, { targetTitle: newTitle, timestamp: Date.now() });
+      return next;
+    });
+  }, []);
+
+  // Get animating title info for a specific chat
+  const getAnimatingTitle = useCallback((chatId: string) => {
+    return animatingTitles.get(chatId) ?? null;
+  }, [animatingTitles]);
 
   const [chatToDelete, setChatToDelete] = useState<ChatBoard | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
@@ -1098,6 +1135,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
       if (currentActiveId && !isTempChat) {
         return { chatId: currentActiveId, initialResponse: null };
       }
+
+      // Preserve the type from the temp chat if it exists
+      const tempChatBoard = currentActiveId 
+        ? chatBoards.find(board => board.id === currentActiveId)
+        : null;
+      const chatType = tempChatBoard?.type || "chat";
+
       const payload = {
         title: firstMessage.slice(0, 60) || "New Chat",
         firstMessage,
@@ -1112,6 +1156,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         useFramework: Boolean(useFramework),
         user,
         pinIds,
+        type: chatType, // Include the type in the payload
       };
       try {
         const {
@@ -1126,7 +1171,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           csrfTokenRef.current = freshToken;
           setCsrfToken(freshToken);
         }
-        const normalized = normalizeChatBoard(created);
+        const normalized = normalizeChatBoard(created, chatType);
         const tempMessages =
           isTempChat && currentActiveId
             ? chatHistory[currentActiveId] ?? []
@@ -1171,22 +1216,38 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, chatHistory, loadPinsForChat, setCsrfToken, user]
+    [activeChatId, chatBoards, chatHistory, loadPinsForChat, setCsrfToken, user]
   );
 
   const handleAddChat = () => {
     handleRenameCancel();
 
-    // Check if there's already a temp chat
+    // Determine the type based on current route
+    const isOnPersonaPage = pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+    const isOnWorkflowPage = pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+    const chatType: ChatBoardType = isOnPersonaPage 
+      ? "persona" 
+      : isOnWorkflowPage 
+      ? "workflow" 
+      : "chat";
+
+    // Check if there's already a temp chat of the same type
     const existingTemp = chatBoards.find((board) =>
-      board.id.startsWith("temp-")
+      board.id.startsWith("temp-") && (board.type || "chat") === chatType
     );
     if (existingTemp) {
       setActiveChatId(existingTemp.id);
       setChatHistory((prev) =>
         prev[existingTemp.id] ? prev : { ...prev, [existingTemp.id]: [] }
       );
-      router.push("/");
+      // Navigate to appropriate route based on type
+      if (chatType === "persona") {
+        router.push("/personas");
+      } else if (chatType === "workflow") {
+        router.push("/workflows");
+      } else {
+        router.push("/");
+      }
       return;
     }
 
@@ -1200,6 +1261,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       time: "Just now",
       isStarred: false,
       pinCount: 0,
+      type: chatType,
       metadata: { messageCount: 0, pinCount: 0 },
     };
 
@@ -1209,13 +1271,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
         "[handleAddChat] Current boards:",
         prev.length,
         "Adding new temp chat:",
-        tempId
+        tempId,
+        "Type:",
+        chatType
       );
       return [placeholder, ...prev];
     });
     setChatHistory((prev) => ({ ...prev, [tempId]: [] }));
     setActiveChatId(tempId);
-    router.push("/");
+    // Navigate to appropriate route based on type
+    if (chatType === "persona") {
+      router.push("/personas");
+    } else if (chatType === "workflow") {
+      router.push("/workflows");
+    } else {
+      router.push("/");
+    }
   };
 
   const isRightSidebarVisible =
@@ -1264,6 +1335,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     openReferencesPanel: () => {
       if (!isPersonasRoute) setActiveRightSidebarPanel("references");
     },
+    updateChatTitleWithAnimation,
+    getAnimatingTitle,
   };
 
   const pageContentProps = {

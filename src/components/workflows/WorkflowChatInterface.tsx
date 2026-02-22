@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, X, Mic, Square } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
 import { toast } from "@/lib/toast-helper";
@@ -31,9 +30,7 @@ export function WorkflowChatInterface({
   const [isResponding, setIsResponding] = useState(false);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
-  const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
+  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -63,8 +60,8 @@ export function WorkflowChatInterface({
       id: userMessageId,
       sender: "user",
       content: trimmedContent,
-      avatarUrl: userAvatar?.imageUrl,
-      avatarHint: userAvatar?.imageHint,
+      avatarUrl: "/personas/userAvatar.png",
+      avatarHint: "User",
     };
 
     setDisplayMessages((prev) => [...prev, userMessage]);
@@ -79,8 +76,8 @@ export function WorkflowChatInterface({
       isLoading: true,
       avatarUrl: selectedModel
         ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
-        : defaultAiAvatar?.imageUrl,
-      avatarHint: selectedModel?.modelName || "AI model",
+        : flowtingLogoUrl,
+      avatarHint: selectedModel?.modelName || "Flowting AI",
     };
 
     setDisplayMessages((prev) => [...prev, loadingMessage]);
@@ -106,8 +103,8 @@ export function WorkflowChatInterface({
           : result.finalOutput || "Workflow executed successfully with no output.",
         avatarUrl: selectedModel
           ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
-          : defaultAiAvatar?.imageUrl,
-        avatarHint: selectedModel?.modelName || "AI model",
+          : flowtingLogoUrl,
+        avatarHint: selectedModel?.modelName || "Flowting AI",
         metadata: {
           providerName: selectedModel?.companyName,
           modelName: selectedModel?.modelName,
@@ -128,8 +125,8 @@ export function WorkflowChatInterface({
         content: message,
         avatarUrl: selectedModel
           ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
-          : defaultAiAvatar?.imageUrl,
-        avatarHint: selectedModel?.modelName || "AI model",
+          : flowtingLogoUrl,
+        avatarHint: selectedModel?.modelName || "Flowting AI",
       };
 
       setDisplayMessages((prev) =>

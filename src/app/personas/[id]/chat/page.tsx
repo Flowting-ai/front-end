@@ -55,7 +55,7 @@ export default function PersonaChatPage() {
       <div className="flex items-center justify-between mb-3 sm:mb-4 max-w-[1072px] mx-auto px-2 sm:px-0">
         {/* Back to Dashboard Button */}
         <Button
-          onClick={() => router.push(`/personaAdmin`)}
+          onClick={() => router.push(`/personas`)}
           className="flex items-center justify-center font-medium text-xs sm:text-sm"
           style={{
             minWidth: 'auto',

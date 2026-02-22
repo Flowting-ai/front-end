@@ -23,7 +23,6 @@ import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from "next/image";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ChatHistoryItem } from "./chat-history-item";
@@ -42,6 +41,7 @@ import {
 } from "../ui/tooltip";
 import type { ChatBoard } from "./app-layout";
 import { useAuth } from "@/context/auth-context";
+import { AppLayoutContext } from "./app-layout";
 import chatStyles from "../chat/chat-interface.module.css";
 
 interface LeftSidebarProps {
@@ -83,12 +83,56 @@ export function LeftSidebar({
   onToggleStar,
   starUpdatingChatId,
 }: LeftSidebarProps) {
-  const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
   const router = useRouter();
   const pathname = usePathname();
   const { user, clearAuth } = useAuth();
+  const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
+  
+  // Track the displayed length of titles that are animating (typewriter effect)
+  const [displayedTitleLengths, setDisplayedTitleLengths] = useState<Map<string, number>>(new Map());
+
+  // Typewriter effect for chat titles
+  React.useEffect(() => {
+    if (!layoutContext?.getAnimatingTitle) return;
+
+    const timer = setInterval(() => {
+      setDisplayedTitleLengths((prev) => {
+        const next = new Map(prev);
+        let hasChanges = false;
+
+        // Check each chat board for animation
+        chatBoards.forEach((board) => {
+          const animInfo = layoutContext.getAnimatingTitle(board.id);
+          if (animInfo) {
+            const currentLength = prev.get(board.id) ?? 0;
+            const targetLength = animInfo.targetTitle.length;
+
+            if (currentLength < targetLength) {
+              // Increment by 1 character (fast typewriter)
+              next.set(board.id, currentLength + 1);
+              hasChanges = true;
+            } else if (currentLength >= targetLength) {
+              // Animation complete, remove from map
+              next.delete(board.id);
+              hasChanges = true;
+            }
+          } else {
+            // No animation for this board, remove if exists
+            if (prev.has(board.id)) {
+              next.delete(board.id);
+              hasChanges = true;
+            }
+          }
+        });
+
+        return hasChanges ? next : prev;
+      });
+    }, 15); // 15ms per character = fast typewriter
+
+    return () => clearInterval(timer);
+  }, [chatBoards, layoutContext]);
 
   // Collapse chat boards when on persona admin or workflow admin page
   React.useEffect(() => {
@@ -116,14 +160,32 @@ export function LeftSidebar({
 
   // Determine if user is on chat board route
   const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
-  const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
 
   // Determine if user is on persona pages
   const isOnPersonaPage =
     pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
 
+  // Determine if user is on workflow pages
+  const isOnWorkflowPage =
+    pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+
+  // Dynamic button text based on current page
+  const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
+
+  // Determine which chat board type to display based on current route
+  const currentBoardType = isOnPersonaPage 
+    ? "persona" 
+    : isOnWorkflowPage 
+    ? "workflow" 
+    : "chat";
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const boardsToDisplay = chatBoards.filter((board) => {
+    // Filter by type - default to "chat" if no type is set (for backward compatibility)
+    const boardType = board.type || "chat";
+    if (boardType !== currentBoardType) return false;
+    
+    // Filter by search term
     if (!normalizedSearch) return true;
     const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
     return haystack.includes(normalizedSearch);
@@ -232,7 +294,7 @@ export function LeftSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Personas"
+                  aria-label="AI Assistants"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => router.push("/personaAdmin")}
                 >
@@ -249,7 +311,7 @@ export function LeftSidebar({
                 sideOffset={8}
                 className="pointer-events-none px-2 py-1 text-xs font-medium"
               >
-                Personas
+                AI Assistants
               </TooltipContent>
             </Tooltip>
 
@@ -272,7 +334,7 @@ export function LeftSidebar({
                   <Workflow
                     className={cn(
                       "h-5 w-5",
-                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
+                      isOnWorkflowPage ? "text-[#303030]" : "text-[#303030]"
                     )}
                   />
                 </Button>
@@ -455,7 +517,7 @@ export function LeftSidebar({
               onClick={() => router.push("/workflowAdmin")}
               className={cn(
                 "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                pathname?.startsWith("/workflowAdmin") &&
+                isOnWorkflowPage &&
                   "text-lsb-button-active-text bg-lsb-button-active-bg"
               )}
             >
@@ -478,7 +540,11 @@ export function LeftSidebar({
               {/* Section header - accordion trigger style */}
               <div className="flex h-[31px] w-full items-center gap-2 shrink-0 px-4">
                 <p className="px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
-                  Recent Chat boards
+                  {isOnPersonaPage 
+                    ? "Recent Persona chats" 
+                    : isOnWorkflowPage 
+                    ? "Recent Workflow chats" 
+                    : "Recent Chat boards"}
                 </p>
                 <button
                   onClick={() => setIsChatBoardsExpanded(!isChatBoardsExpanded)}
@@ -496,7 +562,13 @@ export function LeftSidebar({
                       <Input
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
-                        placeholder="Search chats"
+                        placeholder={
+                          isOnPersonaPage 
+                            ? "Search persona chats" 
+                            : isOnWorkflowPage 
+                            ? "Search workflow chats" 
+                            : "Search chats"
+                        }
                         className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
                         type="search"
                         aria-label="Search chats"
@@ -543,10 +615,21 @@ export function LeftSidebar({
                           void onRenameConfirm();
                         };
 
+                        // Get the display title - use typewriter effect if animating
+                        const displayTitle = (() => {
+                          const displayedLength = displayedTitleLengths.get(board.id);
+                          if (displayedLength !== undefined && displayedLength < board.name.length) {
+                            // Show partial title (typewriter effect)
+                            return board.name.substring(0, displayedLength);
+                          }
+                          // Show full title
+                          return board.name;
+                        })();
+
                         return (
                           <div key={board.id} className="snap-start">
                             <ChatHistoryItem
-                              title={board.name}
+                              title={displayTitle}
                               isSelected={isActive}
                               isStarred={Boolean(board.isStarred)}
                               pinnedCount={pinTotal}
@@ -583,7 +666,13 @@ export function LeftSidebar({
                     </div>
                   ) : (
                     <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
-                      <p>No chats found.</p>
+                      <p>
+                        {isOnPersonaPage 
+                          ? "No persona chats found." 
+                          : isOnWorkflowPage 
+                          ? "No workflow chats found." 
+                          : "No chats found."}
+                      </p>
                     </div>
                   )}
                 </>
