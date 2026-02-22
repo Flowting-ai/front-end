@@ -818,7 +818,7 @@ export default function PersonaAdminPage() {
                                 }
                                 onChat={() =>
                                   router.push(
-                                    `/personas/new/configure?personaId=${persona.id}&chatMode=true`,
+                                    `/personaAdmin/chat/${persona.id}`,
                                   )
                                 }
                                 onSelectAllConsumers={() =>

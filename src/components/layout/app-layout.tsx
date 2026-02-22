@@ -556,6 +556,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const isWorkflowChatRoute = pathname?.startsWith("/workflowAdmin/chat");
+  const isPersonaChatRoute = pathname?.startsWith("/personaAdmin/chat");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const hasFetchedChats = useRef(false);
@@ -1295,10 +1296,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const isRightSidebarVisible =
-    !isPersonasRoute && !isWorkflowChatRoute && activeRightSidebarPanel !== null;
+    !isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && activeRightSidebarPanel !== null;
 
   const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
-    if (isPersonasRoute || isWorkflowChatRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => {
@@ -1312,7 +1313,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
-    if (isPersonasRoute || isWorkflowChatRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
@@ -1338,7 +1339,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     referencesSources,
     setReferencesSources,
     openReferencesPanel: () => {
-      if (!isPersonasRoute && !isWorkflowChatRoute)
+      if (!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute)
         setActiveRightSidebarPanel("references");
     },
     updateChatTitleWithAnimation,
@@ -1516,7 +1517,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </div>
               </main>
             </div>
-            {!isPersonasRoute && !isWorkflowChatRoute && (
+            {!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && (
               <div className="hidden h-full lg:flex items-stretch">
                 <RightSidebar
                   isOpen={isRightSidebarVisible}

@@ -45,6 +45,7 @@ import { AppLayoutContext } from "./app-layout";
 import chatStyles from "../chat/chat-interface.module.css";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowMetadata } from "@/components/workflows/types";
+import { fetchPersonas as fetchPersonasApi, type PersonaStatus } from "@/lib/api/personas";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -136,9 +137,9 @@ export function LeftSidebar({
     return () => clearInterval(timer);
   }, [chatBoards, layoutContext]);
 
-  // Expand "Recent Workflow chats" when on a workflow chat page so active workflow is visible; collapse on dashboard/persona
+  // Expand "Recent chats" when on a chat page (workflow or persona) so active item is visible; collapse on dashboard
   React.useEffect(() => {
-    if (pathname?.startsWith("/workflowAdmin/chat")) {
+    if (pathname?.startsWith("/workflowAdmin/chat") || pathname?.startsWith("/personaAdmin/chat")) {
       setIsChatBoardsExpanded(true);
     } else if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
       setIsChatBoardsExpanded(false);
@@ -175,6 +176,10 @@ export function LeftSidebar({
   const isOnWorkflowChatPage = pathname?.startsWith("/workflowAdmin/chat");
   const activeWorkflowIdFromUrl = pathname?.match(/\/workflowAdmin\/chat\/([^/]+)/)?.[1] ?? null;
 
+  // Determine if user is on persona chat page
+  const isOnPersonaChatPage = pathname?.startsWith("/personaAdmin/chat");
+  const activePersonaIdFromUrl = pathname?.match(/\/personaAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+
   // Fetch workflows for "Recent Workflow chats" when on workflow pages
   const [workflowList, setWorkflowList] = useState<WorkflowMetadata[]>([]);
   const [workflowListLoading, setWorkflowListLoading] = useState(false);
@@ -198,6 +203,37 @@ export function LeftSidebar({
     };
   }, [isOnWorkflowPage]);
 
+  // Fetch personas for "Recent Persona chats" when on persona pages
+  const [personaList, setPersonaList] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
+  const [personaListLoading, setPersonaListLoading] = useState(false);
+  useEffect(() => {
+    if (!isOnPersonaPage) return;
+    let cancelled = false;
+    setPersonaListLoading(true);
+    fetchPersonasApi()
+      .then((personas) => {
+        if (!cancelled) {
+          // Map all personas for recent persona chats
+          const personasList = personas.map((p) => ({
+            id: p.id,
+            name: p.name,
+            isActive: true,
+          }));
+          setPersonaList(personasList);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPersonaList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPersonaListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnPersonaPage]);
+
+
   const normalizedWorkflowSearch = searchTerm.trim().toLowerCase();
   const workflowsToDisplay = useMemo(() => {
     if (!normalizedWorkflowSearch) return workflowList;
@@ -206,6 +242,15 @@ export function LeftSidebar({
         wf.name.toLowerCase().includes(normalizedWorkflowSearch)
     );
   }, [workflowList, normalizedWorkflowSearch]);
+
+  const normalizedPersonaSearch = searchTerm.trim().toLowerCase();
+  const personasToDisplay = useMemo(() => {
+    if (!normalizedPersonaSearch) return personaList;
+    return personaList.filter(
+      (p) =>
+        p.name.toLowerCase().includes(normalizedPersonaSearch)
+    );
+  }, [personaList, normalizedPersonaSearch]);
 
   // Dynamic button text based on current page
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
@@ -643,6 +688,37 @@ export function LeftSidebar({
                     ) : (
                       <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
                         <p>No workflows found.</p>
+                      </div>
+                    )
+                  ) : isOnPersonaChatPage ? (
+                    personaListLoading ? (
+                      <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading personas...</div>
+                    ) : personasToDisplay.length > 0 ? (
+                      <div id="recent-persona-chats" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
+                        {personasToDisplay.map((persona) => {
+                          const isActive = activePersonaIdFromUrl === persona.id;
+                          const handleSelect = () => {
+                            router.push(`/personaAdmin/chat/${persona.id}`);
+                          };
+                          return (
+                            <div key={persona.id} className="snap-start">
+                              <ChatHistoryItem
+                                title={persona.name}
+                                isSelected={isActive}
+                                isStarred={false}
+                                pinnedCount={0}
+                                onSelect={handleSelect}
+                                onToggleStar={() => {}}
+                                onRename={() => {}}
+                                onDelete={() => {}}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                        <p>No personas found.</p>
                       </div>
                     )
                   ) : boardsToDisplay.length > 0 ? (

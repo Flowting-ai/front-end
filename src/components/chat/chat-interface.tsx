@@ -75,10 +75,12 @@ import {
   PERSONA_TEST_ENDPOINT,
   CHAT_DETAIL_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
+  MODELS_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
 import { uploadDocument } from "@/lib/api/documents";
+import { normalizeModels } from "@/lib/ai-models";
 import Image from "next/image";
 
 interface ChatInterfaceProps {
@@ -562,6 +564,8 @@ export function ChatInterface({
               : null,
             prompt: bp.prompt,
             modelId: bp.modelId,
+            modelName: bp.modelName,
+            providerName: bp.providerName,
             status: "active",
           }));
         setActivePersonas(activeOnly);
@@ -1481,10 +1485,37 @@ export function ChatInterface({
     setMentionedPins((prev) => prev.filter((mp) => mp.id !== pinId));
   };
 
-  const handleSelectPersona = (persona: any) => {
+  const handleSelectPersona = async (persona: any) => {
     setSelectedPersona(persona);
     setShowPersonaDropdown(false);
     toast.success(`Persona selected: ${persona.name}`);
+    
+    // If persona has a modelId, fetch models and update the selected model in topbar
+    if (persona.modelId && layoutContext) {
+      try {
+        const response = await fetch(MODELS_ENDPOINT);
+        if (response.ok) {
+          const data = await response.json();
+          const models = normalizeModels(data);
+          
+          // Find the model matching the persona's modelId
+          const matchingModel = models.find(
+            (m) => String(m.id) === String(persona.modelId) || 
+                   String(m.modelId) === String(persona.modelId)
+          );
+          
+          if (matchingModel) {
+            // Update the selected model in the topbar
+            layoutContext.setSelectedModel(matchingModel);
+            layoutContext.setUseFramework(false);
+            toast.info(`Switched to ${matchingModel.modelName}`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch models for persona:", error);
+        // Don't show error toast - persona is still selected, just model wasn't updated
+      }
+    }
   };
 
   const handleAddNewPersona = () => {
@@ -2827,6 +2858,11 @@ export function ChatInterface({
                                   <span className="flex-1 truncate font-medium pr-0">
                                     {persona.name}
                                   </span>
+                                  {(persona.modelName || persona.providerName) && (
+                                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[10px] font-medium text-[#666666] border border-[#E5E5E5]">
+                                      {persona.modelName || persona.providerName}
+                                    </span>
+                                  )}
                                 </button>
                               ))
                             )}

@@ -196,6 +196,7 @@ function WorkflowCanvasInner() {
   const [isSaving, setIsSaving] = useState(false);
   const isInitialMount = useRef(true);
   const hasLoadedQueryWorkflow = useRef(false);
+  const hasJustSaved = useRef(false);
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -471,6 +472,11 @@ function WorkflowCanvasInner() {
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+    // Skip if we just saved - prevents immediate re-flagging as unsaved
+    if (hasJustSaved.current) {
+      hasJustSaved.current = false;
       return;
     }
     if (nodes.length > 0) {
@@ -898,6 +904,7 @@ function WorkflowCanvasInner() {
       if (saved.id && saved.id !== workflowId) {
         setWorkflowId(saved.id);
       }
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       setSaveStatus("Saved");
       return true;
@@ -927,6 +934,7 @@ function WorkflowCanvasInner() {
       }
       // Don't show save status on load
       setSaveStatus(null);
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       saveToHistory();
     }
@@ -949,6 +957,7 @@ function WorkflowCanvasInner() {
       
       // Reset save status
       setSaveStatus(null);
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       saveToHistory();
       

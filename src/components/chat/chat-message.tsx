@@ -607,7 +607,8 @@ export function ChatMessage({
         )}
       >
         <div className="inline-flex items-center gap-1">
-          <Tooltip>
+          {/* Pin button commented out */}
+          {/* <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -625,7 +626,7 @@ export function ChatMessage({
             <TooltipContent>
               <p>{isPinned ? "Unpin" : "Pin"} message</p>
             </TooltipContent>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
