@@ -25,7 +25,7 @@ import {
   Reply,
   Globe,
 } from "lucide-react";
-import { ChatMessage, type Message } from "./chat-message";
+import { ChatMessage, type Message, type Citation, type MemorySearchResult } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
 import {
   ClarificationPrompt,
@@ -586,6 +586,14 @@ export function ChatInterface({
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const fetchAiResponse = async (
     userMessage: string,
     loadingMessageId: string,
@@ -631,8 +639,18 @@ export function ChatInterface({
         Accept: "text/event-stream",
       };
 
-      if (files && files.length > 0 && !isPersonaTest) {
-        // Use FormData for file uploads
+      // Separate image files (base64 in JSON) from PDFs (FormData)
+      const imageFiles = files?.filter((f) => f.type.startsWith("image/")) ?? [];
+      const pdfFiles = files?.filter((f) => !f.type.startsWith("image/")) ?? [];
+
+      // Convert images to base64 data URLs
+      const base64Images =
+        imageFiles.length > 0
+          ? await Promise.all(imageFiles.map(fileToBase64))
+          : [];
+
+      if (pdfFiles.length > 0 && !isPersonaTest) {
+        // Use FormData only when PDFs are present
         const formData = new FormData();
         formData.append("message", userMessage);
         if (modelId !== null && modelId !== undefined) {
@@ -670,14 +688,18 @@ export function ChatInterface({
         if (clarificationAnswer) {
           formData.append("clarificationAnswer", clarificationAnswer);
         }
-        // Append all files
-        files.forEach((file) => {
+        // Append PDFs as file uploads
+        pdfFiles.forEach((file) => {
           formData.append("files", file);
         });
+        // Include images as base64 in FormData
+        if (base64Images.length > 0) {
+          formData.append("images", JSON.stringify(base64Images));
+        }
         body = formData;
         // Don't set Content-Type header - browser sets it with boundary for FormData
       } else {
-        // Use JSON when no file
+        // Use JSON (with images as base64 data URLs when present)
         const payload: Record<string, unknown> = {
           message: userMessage,
           modelId,
@@ -691,6 +713,9 @@ export function ChatInterface({
             : null,
         };
 
+        if (base64Images.length > 0) {
+          payload.images = base64Images;
+        }
         if (isExistingChat && chatId) {
           payload.chatId = chatId;
         }
@@ -745,6 +770,8 @@ export function ChatInterface({
       let assistantReasoning = "";
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
+      const collectedCitations: Citation[] = [];
+      const collectedMemoryResults: MemorySearchResult[] = [];
       let currentChatId = chatId;
 
       const syncResolvedChatId = (resolvedId: string, title?: string | null) => {
@@ -919,6 +946,11 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "start") {
+            // Stream has begun — loading skeleton is already visible
+            continue;
+          }
+
           // Handle clarification event - backend is asking for more info
           if (eventName === "clarification") {
             const question =
@@ -1011,6 +1043,48 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "citation") {
+            const citUrl = typeof parsed.url === "string" ? parsed.url : "";
+            const citTitle = typeof parsed.title === "string" ? parsed.title : "";
+            const citStart = typeof parsed.start_index === "number" ? parsed.start_index : 0;
+            const citEnd = typeof parsed.end_index === "number" ? parsed.end_index : 0;
+            if (citUrl) {
+              collectedCitations.push({ url: citUrl, title: citTitle, startIndex: citStart, endIndex: citEnd });
+              updateAiMessage({
+                citations: [...collectedCitations],
+              });
+            }
+            continue;
+          }
+
+          if (eventName === "tool_result") {
+            const toolName = typeof parsed.name === "string" ? parsed.name : "unknown_tool";
+            const chats = Array.isArray(parsed.chats)
+              ? parsed.chats
+                  .filter(
+                    (c: unknown): c is { chat_id: unknown; title: unknown } =>
+                      typeof c === "object" && c !== null
+                  )
+                  .map((c: { chat_id?: unknown; title?: unknown }) => ({
+                    chatId: String(c.chat_id ?? ""),
+                    title: typeof c.title === "string" ? c.title : "Untitled",
+                  }))
+              : [];
+            if (chats.length > 0) {
+              collectedMemoryResults.push({ name: toolName, chats });
+              updateAiMessage({
+                memoryResults: [...collectedMemoryResults],
+                isLoading: false,
+              });
+            }
+            continue;
+          }
+
+          if (eventName === "end") {
+            // Stream content finished — wait for "done" event to finalize
+            continue;
+          }
+
           if (eventName === "done") {
             const messageText =
               typeof parsed.response === "string"
@@ -1040,6 +1114,33 @@ export function ChatInterface({
             const resolvedMessageId =
               parsed.message_id ?? parsed.messageId ?? null;
 
+            // Extract tokens from top-level done payload (new spec)
+            const tokensInput =
+              typeof parsed.tokens_input === "number" ? parsed.tokens_input : undefined;
+            const tokensOutput =
+              typeof parsed.tokens_output === "number" ? parsed.tokens_output : undefined;
+            const doneCost =
+              typeof parsed.cost === "string" ? parseFloat(parsed.cost)
+              : typeof parsed.cost === "number" ? parsed.cost
+              : undefined;
+            const doneLatencyMs =
+              typeof parsed.latency_ms === "number" ? parsed.latency_ms : undefined;
+
+            // Extract citations from done event (authoritative), fall back to incrementally collected
+            const doneCitations: Citation[] = Array.isArray(parsed.citations)
+              ? parsed.citations
+                  .filter(
+                    (c: unknown): c is { url: string } =>
+                      typeof c === "object" && c !== null && typeof (c as { url?: unknown }).url === "string"
+                  )
+                  .map((c: { url: string; title?: string; start_index?: number; end_index?: number }) => ({
+                    url: c.url,
+                    title: typeof c.title === "string" ? c.title : "",
+                    startIndex: typeof c.start_index === "number" ? c.start_index : 0,
+                    endIndex: typeof c.end_index === "number" ? c.end_index : 0,
+                  }))
+              : collectedCitations;
+
             const metadata: Message["metadata"] | undefined = messageMeta
               ? {
                   modelName:
@@ -1048,12 +1149,8 @@ export function ChatInterface({
                   providerName:
                     (messageMeta as { providerName?: string }).providerName ??
                     (messageMeta as { provider_name?: string }).provider_name,
-                  inputTokens:
-                    (messageMeta as { inputTokens?: number }).inputTokens ??
-                    (messageMeta as { input_tokens?: number }).input_tokens,
-                  outputTokens:
-                    (messageMeta as { outputTokens?: number }).outputTokens ??
-                    (messageMeta as { output_tokens?: number }).output_tokens,
+                  inputTokens: tokensInput,
+                  outputTokens: tokensOutput,
                   createdAt:
                     (messageMeta as { createdAt?: string }).createdAt ??
                     (messageMeta as { created_at?: string }).created_at,
@@ -1096,8 +1193,15 @@ export function ChatInterface({
                     (messageMeta as { document_url?: string | null })
                       .document_url ??
                     null,
+                  cost: doneCost,
+                  latencyMs: doneLatencyMs,
                 }
-              : undefined;
+              : {
+                  inputTokens: tokensInput,
+                  outputTokens: tokensOutput,
+                  cost: doneCost,
+                  latencyMs: doneLatencyMs,
+                };
 
             const sanitized = extractThinkingContent(
               messageText || assistantContent || "API didn't respond",
@@ -1130,6 +1234,8 @@ export function ChatInterface({
               isLoading: false,
               ...(doneImageUrl && { imageUrl: doneImageUrl }),
               ...(doneImageAlt && { imageAlt: doneImageAlt }),
+              ...(doneCitations.length > 0 && { citations: doneCitations }),
+              ...(collectedMemoryResults.length > 0 && { memoryResults: [...collectedMemoryResults] }),
             });
 
             if (

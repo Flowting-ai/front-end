@@ -2,6 +2,11 @@
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API!.replace(/\/+$/, "");
 
+// Debug: log API URL on load
+if (typeof window !== "undefined") {
+  console.log("[Config] API_BASE_URL:", API_BASE_URL);
+}
+
 const withBase = (path: string) => `${API_BASE_URL}${path}`;
 
 // Backend routes (see backend docs in API_DOCUMENTATION.md).

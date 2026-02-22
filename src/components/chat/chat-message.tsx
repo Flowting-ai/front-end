@@ -21,6 +21,12 @@ import {
   ThumbsUp,
   ThumbsDown,
   Reply,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  MessageSquare,
+  ExternalLink,
+  Globe,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -64,6 +70,18 @@ const useTypewriter = (
   return displayText;
 };
 
+export interface Citation {
+  url: string;
+  title: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+export interface MemorySearchResult {
+  name: string;
+  chats: Array<{ chatId: string; title: string }>;
+}
+
 export interface Message {
   id: string;
   sender: "user" | "ai";
@@ -77,6 +95,8 @@ export interface Message {
   thinkingContent?: string | null;
   imageUrl?: string;
   imageAlt?: string;
+  citations?: Citation[];
+  memoryResults?: MemorySearchResult[];
   metadata?: {
     modelName?: string;
     providerName?: string;
@@ -90,6 +110,8 @@ export interface Message {
     userReaction?: string | null;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
+    cost?: number;
+    latencyMs?: number;
     attachments?: Array<{
       id: string;
       type: "pdf" | "image";
@@ -102,6 +124,115 @@ export interface Message {
       text?: string;
     }>;
   };
+}
+
+function MemorySearchSection({ results }: { results: MemorySearchResult[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mb-3 rounded-xl border border-amber-200/60 bg-amber-50/20 px-4 py-3 text-xs">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-left font-medium text-zinc-500 hover:text-zinc-700 transition-colors"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4" />
+          <span>Searched memory</span>
+        </div>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4" />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="mt-3 space-y-3">
+          {results.map((result, idx) => (
+            <div key={idx}>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[11px] font-medium text-zinc-400">
+                  Relevant chats
+                </p>
+                <span className="text-[11px] text-zinc-400">
+                  {result.chats.length} {result.chats.length === 1 ? "result" : "results"}
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {result.chats.map((chat, chatIdx) => (
+                  <li
+                    key={chatIdx}
+                    className="flex items-center gap-2 text-[12px] text-zinc-600 py-1"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    <span className="truncate">{chat.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CitationsList({ citations }: { citations: Citation[] }) {
+  const uniqueCitations = citations.filter(
+    (citation, index, self) =>
+      index === self.findIndex((c) => c.url === citation.url)
+  );
+
+  if (uniqueCitations.length === 0) return null;
+
+  return (
+    <div className="mt-3 border-t border-zinc-100 pt-3">
+      <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+        Sources
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {uniqueCitations.map((citation, idx) => {
+          let faviconUrl: string | null = null;
+          try {
+            const domain = new URL(citation.url).hostname;
+            faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+          } catch {
+            // invalid URL, fall back to Globe icon
+          }
+
+          return (
+            <a
+              key={idx}
+              href={citation.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-[12px] text-blue-600 hover:text-blue-800 transition-colors group"
+            >
+              {faviconUrl ? (
+                <img
+                  src={faviconUrl}
+                  alt=""
+                  width={14}
+                  height={14}
+                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                  onError={(e) => {
+                    // Hide broken favicon, parent still has gap so it looks fine
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <Globe className="h-3.5 w-3.5 shrink-0 text-blue-400 group-hover:text-blue-600" />
+              )}
+              <span className="truncate underline underline-offset-2">
+                {citation.title || citation.url}
+              </span>
+              <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 interface ChatMessageProps {
@@ -633,6 +764,10 @@ export function ChatMessage({
                 </div>
               )}
 
+              {message.memoryResults && message.memoryResults.length > 0 && (
+                <MemorySearchSection results={message.memoryResults} />
+              )}
+
               {isEditing && isUser ? (
                 <div className="space-y-2">
                   <Textarea
@@ -691,16 +826,48 @@ export function ChatMessage({
                         <p className="leading-relaxed text-[#171717] my-2">{children}</p>
                       ),
                       // Links
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
-                        >
-                          {children}
-                        </a>
-                      ),
+                      a: ({ href, children }) => {
+                        let faviconUrl: string | null = null;
+                        let domain = "";
+                        try {
+                          domain = new URL(href || "").hostname;
+                          faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                        } catch {
+                          // invalid URL
+                        }
+
+                        // Check if link text is a bare URL (children equals href)
+                        const childText = Array.isArray(children)
+                          ? children.join("")
+                          : typeof children === "string"
+                            ? children
+                            : "";
+                        const isBareUrl = childText === href && domain;
+
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors group/link"
+                          >
+                            {faviconUrl && (
+                              <img
+                                src={faviconUrl}
+                                alt=""
+                                width={14}
+                                height={14}
+                                className="inline-block h-3.5 w-3.5 rounded-sm shrink-0 align-text-bottom"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            )}
+                            {isBareUrl ? domain : children}
+                            <ExternalLink className="inline-block h-3 w-3 shrink-0 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                          </a>
+                        );
+                      },
                       // Bold
                       strong: ({ children }) => (
                         <strong className="font-semibold text-[#171717]">{children}</strong>
@@ -812,6 +979,9 @@ export function ChatMessage({
                         className="w-full h-auto object-contain bg-white"
                       />
                     </div>
+                  )}
+                  {message.citations && message.citations.length > 0 && (
+                    <CitationsList citations={message.citations} />
                   )}
                 </div>
               )}

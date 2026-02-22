@@ -53,6 +53,20 @@ export interface BackendMessage {
   is_pinned?: boolean;
   pin?: BackendPin | null;
   referenced_message_id?: string | number | null;
+  tokens_input?: number;
+  tokens_output?: number;
+  cost?: number;
+  latency_ms?: number;
+  citations?: Array<{
+    url: string;
+    title: string;
+    start_index?: number;
+    end_index?: number;
+  }>;
+  memory_results?: Array<{
+    name: string;
+    chats: Array<{ chat_id: string | number; title: string }>;
+  }>;
 }
 
 const extractCsrfToken = (data: unknown): string | undefined => {

@@ -229,10 +229,12 @@ const extractMetadata = (msg: BackendMessage) => {
       (meta as { llm_model_id?: string | number | null }).llm_model_id ??
       null,
     inputTokens:
+      (msg as { tokens_input?: number }).tokens_input ??
       (msg as { input_tokens?: number }).input_tokens ??
       (meta as { inputTokens?: number }).inputTokens ??
       (meta as { input_tokens?: number }).input_tokens,
     outputTokens:
+      (msg as { tokens_output?: number }).tokens_output ??
       (msg as { output_tokens?: number }).output_tokens ??
       (meta as { outputTokens?: number }).outputTokens ??
       (meta as { output_tokens?: number }).output_tokens,
@@ -256,6 +258,13 @@ const extractMetadata = (msg: BackendMessage) => {
       (meta as { userReaction?: string | null }).userReaction ??
       (meta as { user_reaction?: string | null }).user_reaction ??
       null,
+    cost:
+      (msg as { cost?: number }).cost ??
+      (meta as { cost?: number }).cost,
+    latencyMs:
+      (msg as { latency_ms?: number }).latency_ms ??
+      (meta as { latencyMs?: number }).latencyMs ??
+      (meta as { latency_ms?: number }).latency_ms,
   };
 };
 
@@ -282,6 +291,27 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     rawId !== null && rawId !== undefined
       ? String(rawId)
       : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const citationsRaw = (msg as { citations?: BackendMessage["citations"] }).citations;
+  const citations = Array.isArray(citationsRaw)
+    ? citationsRaw.map((c) => ({
+        url: c.url,
+        title: c.title,
+        startIndex: c.start_index ?? 0,
+        endIndex: c.end_index ?? 0,
+      }))
+    : undefined;
+
+  const memoryRaw = (msg as { memory_results?: BackendMessage["memory_results"] }).memory_results;
+  const memoryResults = Array.isArray(memoryRaw)
+    ? memoryRaw.map((r) => ({
+        name: r.name,
+        chats: r.chats.map((ch) => ({
+          chatId: String(ch.chat_id),
+          title: ch.title,
+        })),
+      }))
+    : undefined;
+
   return {
     id: resolvedId,
     sender,
@@ -293,6 +323,8 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     referencedMessageId:
       (msg as { referenced_message_id?: string | null })
         .referenced_message_id ?? null,
+    citations,
+    memoryResults,
   };
 };
 
@@ -330,6 +362,28 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
 
   if (hasResponse) {
     const sanitized = extractThinkingContent(entry.response as string);
+
+    const entryCitationsRaw = (entry as { citations?: BackendMessage["citations"] }).citations;
+    const entryCitations = Array.isArray(entryCitationsRaw)
+      ? entryCitationsRaw.map((c) => ({
+          url: c.url,
+          title: c.title,
+          startIndex: c.start_index ?? 0,
+          endIndex: c.end_index ?? 0,
+        }))
+      : undefined;
+
+    const entryMemoryRaw = (entry as { memory_results?: BackendMessage["memory_results"] }).memory_results;
+    const entryMemoryResults = Array.isArray(entryMemoryRaw)
+      ? entryMemoryRaw.map((r) => ({
+          name: r.name,
+          chats: r.chats.map((ch) => ({
+            chatId: String(ch.chat_id),
+            title: ch.title,
+          })),
+        }))
+      : undefined;
+
     messages.push({
       id: `${baseId}-response`,
       sender: "ai",
@@ -343,6 +397,8 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       referencedMessageId:
         (entry as { referenced_message_id?: string | null })
           .referenced_message_id ?? null,
+      citations: entryCitations,
+      memoryResults: entryMemoryResults,
     });
   }
 
