@@ -18,7 +18,7 @@ import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Message } from "../chat/chat-message";
+import type { Message, MessageSource } from "../chat/chat-message";
 import { useRouter, usePathname } from "next/navigation";
 import {
   AlertDialog,
@@ -68,18 +68,21 @@ export type ChatMetadata = {
   starMessageId?: string | number | null;
 };
 
+export type ChatBoardType = "chat" | "persona" | "workflow";
+
 export type ChatBoard = {
   id: string;
   name: string;
   time: string;
   isStarred: boolean;
   pinCount: number;
+  type?: ChatBoardType;
   metadata?: ChatMetadata;
 };
 
 type ChatHistory = Record<string, Message[]>;
 
-export type RightSidebarPanel = "pinboard" | "files" | "personas" | "compare";
+export type RightSidebarPanel = "pinboard" | "files" | "personas" | "compare" | "references";
 
 interface EnsureChatOptions {
   firstMessage: string;
@@ -115,6 +118,15 @@ interface AppLayoutContextType {
   // Selected pins from model switch dialog to include with next message
   selectedPinIdsForNextMessage: string[];
   setSelectedPinIdsForNextMessage: React.Dispatch<React.SetStateAction<string[]>>;
+  // References panel (sources/citations from chat)
+  referencesSources: MessageSource[];
+  setReferencesSources: React.Dispatch<React.SetStateAction<MessageSource[]>>;
+  /** Open the right sidebar with the References (Sources) panel. Called from Sources button on AI messages. */
+  openReferencesPanel: () => void;
+  /** Update a chat board title with typewriter animation effect */
+  updateChatTitleWithAnimation: (chatId: string, newTitle: string) => void;
+  /** Get the currently animating title for a chat (if any) */
+  getAnimatingTitle: (chatId: string) => { targetTitle: string; timestamp: number } | null;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -150,7 +162,7 @@ const extractChatId = (chat: BackendChat): string => {
   return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
-const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
+const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "chat"): ChatBoard => {
   let metadata =
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
       ? { ...(chat.metadata as ChatMetadata) }
@@ -177,6 +189,11 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
     ? Boolean((metadata as { starred?: unknown }).starred)
     : undefined;
 
+  // Extract type from chat object or use default
+  const chatType = (chat as { type?: ChatBoardType }).type || 
+                   (chat as { chatType?: ChatBoardType }).chatType || 
+                   defaultType;
+
   return {
     id: extractChatId(chat),
     name: chat.title || chat.name || "Untitled Chat",
@@ -186,6 +203,7 @@ const normalizeChatBoard = (chat: BackendChat): ChatBoard => {
         ? resolvedStarred
         : Boolean(chat.is_starred ?? chat.isStarred ?? false),
     pinCount: metadata?.pinCount ?? chat.pin_count ?? chat.pinCount ?? 0,
+    type: chatType,
     metadata,
   };
 };
@@ -291,27 +309,6 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     rawId !== null && rawId !== undefined
       ? String(rawId)
       : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const citationsRaw = (msg as { citations?: BackendMessage["citations"] }).citations;
-  const citations = Array.isArray(citationsRaw)
-    ? citationsRaw.map((c) => ({
-        url: c.url,
-        title: c.title,
-        startIndex: c.start_index ?? 0,
-        endIndex: c.end_index ?? 0,
-      }))
-    : undefined;
-
-  const memoryRaw = (msg as { memory_results?: BackendMessage["memory_results"] }).memory_results;
-  const memoryResults = Array.isArray(memoryRaw)
-    ? memoryRaw.map((r) => ({
-        name: r.name,
-        chats: r.chats.map((ch) => ({
-          chatId: String(ch.chat_id),
-          title: ch.title,
-        })),
-      }))
-    : undefined;
-
   return {
     id: resolvedId,
     sender,
@@ -323,9 +320,30 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     referencedMessageId:
       (msg as { referenced_message_id?: string | null })
         .referenced_message_id ?? null,
-    citations,
-    memoryResults,
   };
+};
+
+const getImagesFromBackendMessage = (
+  entry: BackendMessage,
+): { images?: Array<{ url: string; alt?: string }>; imageUrl?: string } => {
+  const raw = (entry as Record<string, unknown>).images;
+  if (Array.isArray(raw) && raw.length > 0) {
+    return {
+      images: raw.map((img: unknown) => {
+        if (typeof img === "string") return { url: img };
+        if (img && typeof img === "object" && "url" in img)
+          return { url: String((img as { url: string }).url), alt: (img as { alt?: string }).alt };
+        return { url: "" };
+      }).filter((img) => img.url),
+    };
+  }
+  const singleUrl =
+    (entry as Record<string, unknown>).image_url ??
+    (entry as Record<string, unknown>).imageUrl;
+  if (typeof singleUrl === "string" && singleUrl) {
+    return { imageUrl: singleUrl };
+  }
+  return {};
 };
 
 const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
@@ -362,27 +380,7 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
 
   if (hasResponse) {
     const sanitized = extractThinkingContent(entry.response as string);
-
-    const entryCitationsRaw = (entry as { citations?: BackendMessage["citations"] }).citations;
-    const entryCitations = Array.isArray(entryCitationsRaw)
-      ? entryCitationsRaw.map((c) => ({
-          url: c.url,
-          title: c.title,
-          startIndex: c.start_index ?? 0,
-          endIndex: c.end_index ?? 0,
-        }))
-      : undefined;
-
-    const entryMemoryRaw = (entry as { memory_results?: BackendMessage["memory_results"] }).memory_results;
-    const entryMemoryResults = Array.isArray(entryMemoryRaw)
-      ? entryMemoryRaw.map((r) => ({
-          name: r.name,
-          chats: r.chats.map((ch) => ({
-            chatId: String(ch.chat_id),
-            title: ch.title,
-          })),
-        }))
-      : undefined;
+    const { images, imageUrl } = getImagesFromBackendMessage(entry);
 
     messages.push({
       id: `${baseId}-response`,
@@ -397,8 +395,8 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       referencedMessageId:
         (entry as { referenced_message_id?: string | null })
           .referenced_message_id ?? null,
-      citations: entryCitations,
-      memoryResults: entryMemoryResults,
+      ...(images && { images }),
+      ...(imageUrl && !images && { imageUrl }),
     });
   }
 
@@ -473,6 +471,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [useFramework, setUseFramework] = useState(true);
   const [selectedPinIdsForNextMessage, setSelectedPinIdsForNextMessage] = useState<string[]>([]);
+  const [referencesSources, setReferencesSources] = useState<MessageSource[]>([]);
   const [pendingModelFromCompare, setPendingModelFromCompare] = useState<AIModel | null>(null);
   const [isModelSwitchConfirmOpen, setIsModelSwitchConfirmOpen] = useState(false);
 
@@ -481,6 +480,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
   const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
+  // Track chat boards with animating titles: chatId -> { targetTitle, timestamp }
+  const [animatingTitles, setAnimatingTitles] = useState<Map<string, { targetTitle: string; timestamp: number }>>(new Map());
   const pathname = usePathname();
   const router = useRouter();
 
@@ -550,6 +551,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
     });
   }, []);
 
+  // Update chat title with animation - trigger typewriter effect in sidebar
+  const updateChatTitleWithAnimation = useCallback((chatId: string, newTitle: string) => {
+    // First update the actual chat board with the new title immediately
+    setChatBoards_((prev) =>
+      prev.map((board) =>
+        board.id === chatId ? { ...board, name: newTitle } : board
+      )
+    );
+
+    // Then trigger the animation by storing the target title with a timestamp
+    setAnimatingTitles((prev) => {
+      const next = new Map(prev);
+      next.set(chatId, { targetTitle: newTitle, timestamp: Date.now() });
+      return next;
+    });
+  }, []);
+
+  // Get animating title info for a specific chat
+  const getAnimatingTitle = useCallback((chatId: string) => {
+    return animatingTitles.get(chatId) ?? null;
+  }, [animatingTitles]);
+
   const [chatToDelete, setChatToDelete] = useState<ChatBoard | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renamingText, setRenamingText] = useState("");
@@ -564,6 +587,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isChatRoute = pathname === "/";
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
+  const isWorkflowChatRoute = pathname?.startsWith("/workflowAdmin/chat");
+  const isPersonaChatRoute = pathname?.startsWith("/personaAdmin/chat");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const hasFetchedChats = useRef(false);
@@ -1145,6 +1170,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
       if (currentActiveId && !isTempChat) {
         return { chatId: currentActiveId, initialResponse: null };
       }
+
+      // Preserve the type from the temp chat if it exists
+      const tempChatBoard = currentActiveId 
+        ? chatBoards.find(board => board.id === currentActiveId)
+        : null;
+      const chatType = tempChatBoard?.type || "chat";
+
       const payload = {
         title: firstMessage.slice(0, 60) || "New Chat",
         firstMessage,
@@ -1159,6 +1191,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         useFramework: Boolean(useFramework),
         user,
         pinIds,
+        type: chatType, // Include the type in the payload
       };
       try {
         const {
@@ -1173,7 +1206,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           csrfTokenRef.current = freshToken;
           setCsrfToken(freshToken);
         }
-        const normalized = normalizeChatBoard(created);
+        const normalized = normalizeChatBoard(created, chatType);
         const tempMessages =
           isTempChat && currentActiveId
             ? chatHistory[currentActiveId] ?? []
@@ -1218,26 +1251,40 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, chatHistory, loadPinsForChat, setCsrfToken, user]
+    [activeChatId, chatBoards, chatHistory, loadPinsForChat, setCsrfToken, user]
   );
 
   const handleAddChat = () => {
     handleRenameCancel();
 
-    // Reuse only an empty temp chat; otherwise create a fresh one.
-    const reusableEmptyTemp = chatBoards.find(
-      (board) =>
-        board.id.startsWith("temp-") &&
-        (chatHistory[board.id]?.length ?? 0) === 0
+    // Determine the type based on current route
+    const isOnPersonaPage = pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+    const isOnWorkflowPage = pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+    const chatType: ChatBoardType = isOnPersonaPage
+      ? "persona"
+      : isOnWorkflowPage
+      ? "workflow"
+      : "chat";
+
+    // Check if there's already a temp chat of the same type
+    const existingTemp = chatBoards.find((board) =>
+      board.id.startsWith("temp-") && (board.type || "chat") === chatType
     );
-    if (reusableEmptyTemp) {
-      setActiveChatId(reusableEmptyTemp.id);
+    if (existingTemp) {
+      setActiveChatId(existingTemp.id);
       setChatHistory((prev) =>
-        prev[reusableEmptyTemp.id]
+        prev[existingTemp.id]
           ? prev
-          : { ...prev, [reusableEmptyTemp.id]: [] }
+          : { ...prev, [existingTemp.id]: [] }
       );
-      router.push("/");
+      // Navigate to appropriate route based on type
+      if (chatType === "persona") {
+        router.push("/personas");
+      } else if (chatType === "workflow") {
+        router.push("/workflows");
+      } else {
+        router.push("/");
+      }
       return;
     }
 
@@ -1251,6 +1298,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       time: "Just now",
       isStarred: false,
       pinCount: 0,
+      type: chatType,
       metadata: { messageCount: 0, pinCount: 0 },
     };
 
@@ -1260,20 +1308,29 @@ export default function AppLayout({ children }: AppLayoutProps) {
         "[handleAddChat] Current boards:",
         prev.length,
         "Adding new temp chat:",
-        tempId
+        tempId,
+        "Type:",
+        chatType
       );
       return [placeholder, ...prev];
     });
     setChatHistory((prev) => ({ ...prev, [tempId]: [] }));
     setActiveChatId(tempId);
-    router.push("/");
+    // Navigate to appropriate route based on type
+    if (chatType === "persona") {
+      router.push("/personas");
+    } else if (chatType === "workflow") {
+      router.push("/workflows");
+    } else {
+      router.push("/");
+    }
   };
 
   const isRightSidebarVisible =
-    !isPersonasRoute && activeRightSidebarPanel !== null;
+    !isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && activeRightSidebarPanel !== null;
 
   const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
-    if (isPersonasRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => {
@@ -1287,7 +1344,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
-    if (isPersonasRoute) {
+    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
       return;
     }
     setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
@@ -1310,6 +1367,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
     moveChatToTop,
     selectedPinIdsForNextMessage,
     setSelectedPinIdsForNextMessage,
+    referencesSources,
+    setReferencesSources,
+    openReferencesPanel: () => {
+      if (!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute)
+        setActiveRightSidebarPanel("references");
+    },
+    updateChatTitleWithAnimation,
+    getAnimatingTitle,
   };
 
   const pageContentProps = {
@@ -1483,7 +1548,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </div>
               </main>
             </div>
-            {!isPersonasRoute && (
+            {!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && (
               <div className="hidden h-full lg:flex items-stretch">
                 <RightSidebar
                   isOpen={isRightSidebarVisible}
@@ -1492,6 +1557,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   pins={pins}
                   setPins={setPins}
                   chatBoards={chatBoards}
+                  referencesSources={referencesSources}
                   className="order1"
                 />
                 <RightSidebarCollapsed

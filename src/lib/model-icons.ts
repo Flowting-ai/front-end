@@ -1,4 +1,4 @@
-const DEFAULT_MODEL_ICON = "/default-icon.svg";
+const DEFAULT_MODEL_ICON = "/new-logos/FlowtingLogo.svg";
 
 const ICON_BY_KEYWORD: Record<string, string> = {
   openai: "/open.svg",

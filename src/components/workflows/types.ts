@@ -37,7 +37,8 @@ export interface WorkflowNodeData {
   instructions?: string;
   name?: string; // Node name for inspectors
   selectedChats?: string; // Chat ID for chat node (single selection)
-  selectedPins?: string; // Pin ID for pin node (single selection)
+  selectedPins?: string[]; // Pin IDs for pin node (multi-selection, max 10)
+  selectedFolder?: { id: string; name: string; pinIds: string[] }; // Folder attachment for pin node
   selectedPersona?: string; // Persona ID for persona nodes
   selectedModel?: string; // Model ID for model nodes
   personaData?: { // Full persona data for display

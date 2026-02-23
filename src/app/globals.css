@@ -1627,3 +1627,45 @@
 .dark .toast-description {
   color: #a3a3a3;
 }
+
+
+/* Auth Pages - Form Styling */
+.form-title {
+  @apply font-medium text-[27px] text-[#333333]
+}
+
+.form-tagline {
+  @apply text-base text-[#1E1E1E];
+}
+
+.form-container{
+  @apply flex flex-col flex-1 gap-4;
+}
+
+.form-label{
+  @apply font-normal text-sm text-[#1E1E1E] mb-0.5;
+}
+
+.form-input{
+  @apply w-full h-9 font-inter font-normal text-sm text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3;
+}
+
+.form-password-eye-btn{
+  @apply cursor-pointer absolute top-1/2 right-2.5 -translate-y-1/2 h-6 w-6 text-[#888] flex items-center justify-center;
+}
+
+.form-error-message{
+  @apply text-sm text-red-600;
+}
+
+.form-success-message{
+  @apply text-sm text-green-600;
+}
+
+.form-google-button{
+  @apply cursor-pointer w-full h-[48px] text-[#1E1E1E] bg-[#F5F5F5] hover:bg-[#1E1E1E] hover:text-[#F5F5F5] border border-main-border rounded-[8px] flex items-center justify-center gap-3 transition-all duration-300;
+}
+
+.form-submit-button{
+  @apply cursor-pointer min-w-[81px] w-full sm:w-auto h-9 font-inter font-normal text-sm text-[#F5F5F5] bg-[#2C2C2C] hover:bg-[#0F0F0F] rounded-[8px] transition-all duration-300;
+}

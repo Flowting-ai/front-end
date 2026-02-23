@@ -1,10 +1,8 @@
 "use client";
 import { usePrismHighlight } from "@/hooks/usePrismHighlight";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import chatStyles from "./chat-interface.module.css";
-import { useState, useRef, useEffect, useCallback, type JSX } from "react";
+import { useState, useRef, useEffect, useMemo, type JSX } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import {
@@ -21,14 +19,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Reply,
-  ChevronDown,
-  ChevronUp,
-  Search,
-  MessageSquare,
-  ExternalLink,
-  Globe,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
+import { Skeleton } from "../ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import {
   Tooltip,
@@ -38,6 +31,234 @@ import {
 } from "../ui/tooltip";
 import Image from "next/image";
 
+type ContentSegment =
+  | { type: "text"; value: string }
+  | { type: "code"; value: string; language?: string };
+
+const parseContentSegments = (value: string): ContentSegment[] => {
+  if (!value) return [];
+  const segments: ContentSegment[] = [];
+  const codeRegex = /```([\w+-]+)?\s*\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = codeRegex.exec(value)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({
+        type: "text",
+        value: value.slice(lastIndex, match.index),
+      });
+    }
+    segments.push({
+      type: "code",
+      language: match[1]?.trim(),
+      value: match[2] ?? "",
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < value.length) {
+    segments.push({
+      type: "text",
+      value: value.slice(lastIndex),
+    });
+  }
+
+  return segments;
+};
+
+const headingClassByLevel: Record<number, string> = {
+  1: "text-2xl",
+  2: "text-xl",
+  3: "text-lg",
+  4: "text-base",
+  5: "text-sm",
+  6: "text-xs",
+};
+
+const isTableDivider = (line: string) =>
+  /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line.trim());
+
+const isTableRow = (line: string) => {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.includes("|", 1);
+};
+
+const parseTableRow = (line: string) => {
+  const cleaned = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return cleaned.split("|").map((cell) => cell.trim());
+};
+
+const renderInlineContent = (text: string, keyPrefix: string) => {
+  const boldRegex = /(\*\*|__)(.+?)\1/g;
+  const nodes: Array<string | JSX.Element> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let boldCount = 0;
+
+  while ((match = boldRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <strong
+        key={`${keyPrefix}-bold-${boldCount++}`}
+        className="font-semibold text-[#171717]"
+      >
+        {match[2]}
+      </strong>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(text);
+  }
+
+  return nodes;
+};
+
+const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
+  const nodes: JSX.Element[] = [];
+  const lines = value.replace(/\r/g, "").split("\n");
+  const listBuffer: string[] = [];
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    const listKey = `${keyPrefix}-list-${nodes.length}`;
+    nodes.push(
+      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#171717]">
+        {listBuffer.map((item, index) => (
+          <li key={`${listKey}-item-${index}`} className="leading-relaxed">
+            {renderInlineContent(item, `${listKey}-item-${index}`)}
+          </li>
+        ))}
+      </ul>,
+    );
+    listBuffer.length = 0;
+  };
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      nodes.push(
+        <span
+          key={`${keyPrefix}-gap-${index}`}
+          className="block h-2"
+          aria-hidden="true"
+        />,
+      );
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushList();
+      const level = Math.min(headingMatch[1].length, 6);
+      const content = headingMatch[2];
+      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      nodes.push(
+        <HeadingTag
+          key={`${keyPrefix}-heading-${index}`}
+          className={cn(
+            "font-semibold text-[#171717] tracking-tight",
+            headingClassByLevel[level],
+          )}
+        >
+          {renderInlineContent(content, `${keyPrefix}-heading-${index}`)}
+        </HeadingTag>,
+      );
+      continue;
+    }
+
+    if (isTableRow(line) && isTableDivider(lines[index + 1] ?? "")) {
+      flushList();
+      const headerCells = parseTableRow(line);
+      index += 2; // skip divider line
+      const bodyRows: string[][] = [];
+
+      while (index < lines.length && isTableRow(lines[index])) {
+        bodyRows.push(parseTableRow(lines[index]));
+        index++;
+      }
+
+      const tableKey = `${keyPrefix}-table-${nodes.length}`;
+      nodes.push(
+        <div
+          key={tableKey}
+          className="overflow-x-auto rounded-2xl border border-slate-200"
+        >
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-slate-50/70 text-slate-700">
+              <tr>
+                {headerCells.map((cell, cellIndex) => (
+                  <th
+                    key={`${tableKey}-header-${cellIndex}`}
+                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
+                  >
+                    {renderInlineContent(
+                      cell,
+                      `${tableKey}-header-${cellIndex}`,
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, rowIndex) => (
+                <tr
+                  key={`${tableKey}-row-${rowIndex}`}
+                  className="odd:bg-white even:bg-slate-50/50"
+                >
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
+                      className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]"
+                    >
+                      {renderInlineContent(
+                        cell,
+                        `${tableKey}-cell-${rowIndex}-${cellIndex}`,
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+
+      index -= 1; // adjust for loop increment
+      continue;
+    }
+
+    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (listMatch) {
+      listBuffer.push(listMatch[1]);
+      continue;
+    }
+
+    flushList();
+    nodes.push(
+      <p
+        key={`${keyPrefix}-paragraph-${index}`}
+        className="whitespace-pre-wrap leading-relaxed text-[#171717]"
+      >
+        {renderInlineContent(line, `${keyPrefix}-paragraph-${index}`)}
+      </p>,
+    );
+  }
+
+  flushList();
+  return nodes;
+};
 
 // Custom hook for typewriter effect
 const useTypewriter = (
@@ -70,18 +291,6 @@ const useTypewriter = (
   return displayText;
 };
 
-export interface Citation {
-  url: string;
-  title: string;
-  startIndex: number;
-  endIndex: number;
-}
-
-export interface MemorySearchResult {
-  name: string;
-  chats: Array<{ chatId: string; title: string }>;
-}
-
 export interface Message {
   id: string;
   sender: "user" | "ai";
@@ -95,8 +304,7 @@ export interface Message {
   thinkingContent?: string | null;
   imageUrl?: string;
   imageAlt?: string;
-  citations?: Citation[];
-  memoryResults?: MemorySearchResult[];
+  images?: Array<{ url: string; alt?: string }>;
   metadata?: {
     modelName?: string;
     providerName?: string;
@@ -110,8 +318,7 @@ export interface Message {
     userReaction?: string | null;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
-    cost?: number;
-    latencyMs?: number;
+    isImageGeneration?: boolean;
     attachments?: Array<{
       id: string;
       type: "pdf" | "image";
@@ -123,115 +330,83 @@ export interface Message {
       label: string;
       text?: string;
     }>;
+    /** Sources or citations (from backend or parsed from content). Shown in References panel. */
+    sources?: MessageSource[];
   };
 }
 
-function MemorySearchSection({ results }: { results: MemorySearchResult[] }) {
-  const [isOpen, setIsOpen] = useState(false);
+/** One source/citation item for the Citations panel */
+export type MessageSource = {
+  /** Name of the article, document, or webpage */
+  title?: string;
+  /** Direct URL to the original material */
+  url: string;
+  /** Short excerpt of the text the AI used (snippet/context) */
+  snippet?: string;
+  /** Human creator or organization behind the content */
+  authorOrPublisher?: string;
+  /** When the content was published or last updated (e.g. "2024-01-15" or "Last updated March 2024") */
+  publicationOrAccessDate?: string;
+  /** How strongly this source supports the claim, 0–100. Shown as relevance/confidence. */
+  relevanceScore?: number;
+  /** Website metadata: image URL (e.g. og:image). Fetched from link when not provided. */
+  imageUrl?: string;
+  /** Website metadata: description (e.g. og:description). Fetched from link when not provided. */
+  description?: string;
+};
 
-  return (
-    <div className="mb-3 rounded-xl border border-amber-200/60 bg-amber-50/20 px-4 py-3 text-xs">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between text-left font-medium text-zinc-500 hover:text-zinc-700 transition-colors"
-        onClick={() => setIsOpen((prev) => !prev)}
-      >
-        <div className="flex items-center gap-2">
-          <Search className="h-4 w-4" />
-          <span>Searched memory</span>
-        </div>
-        {isOpen ? (
-          <ChevronUp className="h-4 w-4" />
-        ) : (
-          <ChevronDown className="h-4 w-4" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="mt-3 space-y-3">
-          {results.map((result, idx) => (
-            <div key={idx}>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[11px] font-medium text-zinc-400">
-                  Relevant chats
-                </p>
-                <span className="text-[11px] text-zinc-400">
-                  {result.chats.length} {result.chats.length === 1 ? "result" : "results"}
-                </span>
-              </div>
-              <ul className="space-y-1">
-                {result.chats.map((chat, chatIdx) => (
-                  <li
-                    key={chatIdx}
-                    className="flex items-center gap-2 text-[12px] text-zinc-600 py-1"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    <span className="truncate">{chat.title}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
 }
 
-function CitationsList({ citations }: { citations: Citation[] }) {
-  const uniqueCitations = citations.filter(
-    (citation, index, self) =>
-      index === self.findIndex((c) => c.url === citation.url)
-  );
+const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
 
-  if (uniqueCitations.length === 0) return null;
-
+function SourceFaviconStack({ urls }: { urls: string[] }) {
+  const [failed, setFailed] = useState<Set<number>>(() => new Set());
+  const list = urls.slice(0, 4).filter(Boolean);
+  const markFailed = (i: number) => {
+    setFailed((prev) => new Set(prev).add(i));
+  };
+  if (list.length === 0) {
+    return (
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E4E4E7] border border-main-border text-[10px] font-semibold text-[#525252]">
+        ?
+      </span>
+    );
+  }
   return (
-    <div className="mt-3 border-t border-zinc-100 pt-3">
-      <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
-        Sources
-      </p>
-      <div className="flex flex-col gap-1.5">
-        {uniqueCitations.map((citation, idx) => {
-          let faviconUrl: string | null = null;
-          try {
-            const domain = new URL(citation.url).hostname;
-            faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-          } catch {
-            // invalid URL, fall back to Globe icon
-          }
-
-          return (
-            <a
-              key={idx}
-              href={citation.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-[12px] text-blue-600 hover:text-blue-800 transition-colors group"
-            >
-              {faviconUrl ? (
-                <img
-                  src={faviconUrl}
-                  alt=""
-                  width={14}
-                  height={14}
-                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
-                  onError={(e) => {
-                    // Hide broken favicon, parent still has gap so it looks fine
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <Globe className="h-3.5 w-3.5 shrink-0 text-blue-400 group-hover:text-blue-600" />
-              )}
-              <span className="truncate underline underline-offset-2">
-                {citation.title || citation.url}
+    <span className="flex items-center -space-x-1">
+      {list.map((url, i) => {
+        const hostname = getHostname(url);
+        const faviconUrl = hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "";
+        const showFallback = !faviconUrl || failed.has(i);
+        return (
+          <span
+            key={`${url}-${i}`}
+            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden bg-[#E4E4E7] border border-main-border rounded-md text-[10px] font-semibold text-[#525252]"
+            style={{ zIndex: i + 1 }}
+          >
+            {showFallback ? (
+              <span aria-hidden>
+                {hostname ? hostname.charAt(0).toUpperCase() : "?"}
               </span>
-              <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
-          );
-        })}
-      </div>
-    </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={faviconUrl}
+                alt=""
+                className="w-5 h-5 object-contain"
+                onError={() => markFailed(i)}
+              />
+            )}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 
@@ -250,6 +425,12 @@ interface ChatMessageProps {
   referencedMessage?: Message | null;
   isNewMessage: boolean;
   isResponding?: boolean;
+  /** When set, show a "Sources" button that opens the references panel. Only for AI messages. */
+  onOpenSources?: () => void;
+  /** Number of sources (1–4) for the Sources button. */
+  sourceCount?: number;
+  /** Source URLs (max 4) for showing domain favicons on the Sources button. */
+  sourceUrls?: string[];
 }
 
 export function ChatMessage({
@@ -267,20 +448,23 @@ export function ChatMessage({
   referencedMessage,
   isNewMessage,
   isResponding,
+  onOpenSources,
+  sourceCount = 0,
+  sourceUrls = [],
 }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showThinking, setShowThinking] = useState(true);
+  const [showThinking, setShowThinking] = useState(false);
 
-  // Typewriter effect for thinking/reasoning content
-  const thinkingTypewriterSpeed = 5;
-  const displayedThinking = useTypewriter(
-    message.thinkingContent || "",
-    thinkingTypewriterSpeed,
-    isNewMessage && !isUser && isResponding && !!message.thinkingContent,
-  );
+  // Typewriter effect disabled - displaying content directly
+  // const typewriterSpeed = 7;
+  // const displayedContent = useTypewriter(
+  //   message.content,
+  //   typewriterSpeed,
+  //   isNewMessage && !isUser && !message.isLoading,
+  // );
 
   usePrismHighlight(message.content);
 
@@ -325,8 +509,8 @@ export function ChatMessage({
     }
   }, [isEditing, editedContent]);
   useEffect(() => {
-    setShowThinking(true);
-  }, [message.id]);
+    setShowThinking(false);
+  }, [message.id, message.thinkingContent]);
 
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
@@ -348,9 +532,11 @@ export function ChatMessage({
     }
   };
 
-  const handleCopyCode = useCallback((code: string) => {
-    onCopy(code);
-  }, [onCopy]);
+  const contentToDisplay = message.content;
+  const contentSegments = useMemo(
+    () => parseContentSegments(contentToDisplay),
+    [contentToDisplay],
+  );
 
   const actionButtonClasses =
     "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
@@ -422,7 +608,8 @@ export function ChatMessage({
         )}
       >
         <div className="inline-flex items-center gap-1">
-          <Tooltip>
+          {/* Pin button commented out */}
+          {/* <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -440,7 +627,7 @@ export function ChatMessage({
             <TooltipContent>
               <p>{isPinned ? "Unpin" : "Pin"} message</p>
             </TooltipContent>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -576,6 +763,23 @@ export function ChatMessage({
               <TooltipContent>
                 <p>Needs improvement</p>
               </TooltipContent>
+            </Tooltip>
+          )}
+          {onOpenSources && sourceCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-1 border border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#0A0A0A] hover:text-[#111827] transition-colors"
+                  onClick={onOpenSources}
+                >
+                  <SourceFaviconStack urls={sourceUrls.slice(0, 4)} />
+                  <span className="text-xs font-medium">Sources</span>
+                </Button>
+              </TooltipTrigger>
+              {/* <TooltipContent>
+                <p>View sources</p>
+              </TooltipContent>  */}
             </Tooltip>
           )}
         </div>
@@ -723,49 +927,27 @@ export function ChatMessage({
                 </div>
               )}
               {message.thinkingContent && (
-                <div className={cn(
-                  "mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/30 px-4 py-3 text-xs",
-                  isResponding && "border-l-2 border-l-zinc-400"
-                )}>
-                  <div className="flex w-full items-center justify-between">
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 text-left font-medium text-zinc-500 hover:text-zinc-700 transition-colors"
-                      onClick={() => setShowThinking((prev) => !prev)}
-                    >
-                      {showThinking ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                      <span>
-                        {showThinking ? "Hide reasoning" : "Show reasoning"}
-                      </span>
-                    </button>
-                    {showThinking && (
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors"
-                        onClick={() => onCopy(message.thinkingContent ?? "")}
-                      >
-                        <Copy className="h-3 w-3" />
-                        <span>Copy</span>
-                      </button>
+                <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between text-left font-semibold"
+                    onClick={() => setShowThinking((prev) => !prev)}
+                  >
+                    <span>
+                      {showThinking ? "Hide reasoning" : "Show reasoning"}
+                    </span>
+                    {showThinking ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
                     )}
-                  </div>
+                  </button>
                   {showThinking && (
-                    <div className="mt-3 whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-500 italic">
-                      {isNewMessage && isResponding ? displayedThinking : message.thinkingContent}
-                      {isNewMessage && isResponding && displayedThinking.length < (message.thinkingContent?.length || 0) && (
-                        <span className="inline-block w-0.5 h-3.5 ml-0.5 bg-zinc-400 animate-pulse align-middle" />
-                      )}
-                    </div>
+                    <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
+                      {message.thinkingContent}
+                    </pre>
                   )}
                 </div>
-              )}
-
-              {message.memoryResults && message.memoryResults.length > 0 && (
-                <MemorySearchSection results={message.memoryResults} />
               )}
 
               {isEditing && isUser ? (
@@ -804,169 +986,84 @@ export function ChatMessage({
                   <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
                 </div>
               ) : (
-                <div className="prose prose-sm max-w-none text-sm text-[#171717]">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      // Headings
-                      h1: ({ children }) => (
-                        <h1 className="text-2xl font-semibold text-[#171717] tracking-tight mt-4 mb-2">{children}</h1>
-                      ),
-                      h2: ({ children }) => (
-                        <h2 className="text-xl font-semibold text-[#171717] tracking-tight mt-3 mb-2">{children}</h2>
-                      ),
-                      h3: ({ children }) => (
-                        <h3 className="text-lg font-semibold text-[#171717] tracking-tight mt-3 mb-1">{children}</h3>
-                      ),
-                      h4: ({ children }) => (
-                        <h4 className="text-base font-semibold text-[#171717] mt-2 mb-1">{children}</h4>
-                      ),
-                      // Paragraphs
-                      p: ({ children }) => (
-                        <p className="leading-relaxed text-[#171717] my-2">{children}</p>
-                      ),
-                      // Links
-                      a: ({ href, children }) => {
-                        let faviconUrl: string | null = null;
-                        let domain = "";
-                        try {
-                          domain = new URL(href || "").hostname;
-                          faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-                        } catch {
-                          // invalid URL
-                        }
-
-                        // Check if link text is a bare URL (children equals href)
-                        const childText = Array.isArray(children)
-                          ? children.join("")
-                          : typeof children === "string"
-                            ? children
-                            : "";
-                        const isBareUrl = childText === href && domain;
-
-                        return (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors group/link"
-                          >
-                            {faviconUrl && (
-                              <img
-                                src={faviconUrl}
-                                alt=""
-                                width={14}
-                                height={14}
-                                className="inline-block h-3.5 w-3.5 rounded-sm shrink-0 align-text-bottom"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
-                                }}
-                              />
+                // <LoadingState />
+                <div className="flex flex-col gap-4 text-sm">
+                  {contentSegments.length === 0 && (
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {contentToDisplay}
+                    </p>
+                  )}
+                  {contentSegments.map((segment, index) => {
+                    if (segment.type === "code") {
+                      return (
+                        <div
+                          key={`code-${message.id}-${index}`}
+                          className={`relative border border-zinc-100 rounded-2xl bg-[#f9f9f9] py-2 overflow-hidden`}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70 px-4">
+                            {segment.language && (
+                              <span className="text-black">
+                                {segment.language}
+                              </span>
                             )}
-                            {isBareUrl ? domain : children}
-                            <ExternalLink className="inline-block h-3 w-3 shrink-0 opacity-0 group-hover/link:opacity-100 transition-opacity" />
-                          </a>
-                        );
-                      },
-                      // Bold
-                      strong: ({ children }) => (
-                        <strong className="font-semibold text-[#171717]">{children}</strong>
-                      ),
-                      // Italic
-                      em: ({ children }) => (
-                        <em className="italic">{children}</em>
-                      ),
-                      // Lists
-                      ul: ({ children }) => (
-                        <ul className="ml-5 list-disc space-y-1 text-[#171717] my-2">{children}</ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="ml-5 list-decimal space-y-1 text-[#171717] my-2">{children}</ol>
-                      ),
-                      li: ({ children }) => (
-                        <li className="leading-relaxed">{children}</li>
-                      ),
-                      // Code blocks
-                      pre: ({ children }) => (
-                        <div className="relative border border-zinc-100 rounded-2xl bg-[#f9f9f9] py-2 overflow-hidden my-3">
-                          {children}
-                        </div>
-                      ),
-                      code: ({ className, children }) => {
-                        const match = /language-(\w+)/.exec(className || "");
-                        const isInline = !className;
-                        const codeContent = String(children).replace(/\n$/, "");
-
-                        if (isInline) {
-                          return (
-                            <code className="bg-zinc-100 text-zinc-800 px-1.5 py-0.5 rounded text-[13px] font-mono">
-                              {children}
+                            <button
+                              type="button"
+                              onClick={() => onCopy(segment.value)}
+                              className="cursor-pointer inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-main-border text-black transition hover:text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                            >
+                              <Copy className="h-3 w-3" />
+                              Copy
+                            </button>
+                          </div>
+                          <pre
+                            className={`overflow-x-auto rounded-2xl bg-transparent p-4 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}
+                          >
+                            <code
+                              className={`language-${segment.language || "ts"}`}
+                            >
+                              {segment.value.trimEnd()}
                             </code>
-                          );
-                        }
-
-                        return (
-                          <>
-                            <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider px-4 mb-1">
-                              {match && (
-                                <span className="text-black">{match[1]}</span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleCopyCode(codeContent)}
-                                className="cursor-pointer inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-main-border text-black transition hover:text-white hover:bg-black"
-                              >
-                                <Copy className="h-3 w-3" />
-                                Copy
-                              </button>
-                            </div>
-                            <pre className={`overflow-x-auto bg-transparent px-4 pb-2 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}>
-                              <code className={className}>
-                                {codeContent}
-                              </code>
-                            </pre>
-                          </>
-                        );
-                      },
-                      // Tables
-                      table: ({ children }) => (
-                        <div className="overflow-x-auto rounded-2xl border border-slate-200 my-3">
-                          <table className="w-full border-collapse text-sm">{children}</table>
+                          </pre>
                         </div>
-                      ),
-                      thead: ({ children }) => (
-                        <thead className="bg-slate-50/70 text-slate-700">{children}</thead>
-                      ),
-                      th: ({ children }) => (
-                        <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]">
-                          {children}
-                        </th>
-                      ),
-                      tbody: ({ children }) => <tbody>{children}</tbody>,
-                      tr: ({ children }) => (
-                        <tr className="odd:bg-white even:bg-slate-50/50">{children}</tr>
-                      ),
-                      td: ({ children }) => (
-                        <td className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]">
-                          {children}
-                        </td>
-                      ),
-                      // Blockquotes
-                      blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-zinc-300 pl-4 italic text-zinc-600 my-3">
-                          {children}
-                        </blockquote>
-                      ),
-                      // Horizontal rule
-                      hr: () => <hr className="border-zinc-200 my-4" />,
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
-                  {message.imageUrl && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 mt-3">
+                      );
+                    }
+
+                    if (!segment.value) {
+                      return <br key={`text-${message.id}-${index}`} />;
+                    }
+
+                    return (
+                      <div
+                        key={`text-${message.id}-${index}`}
+                        className="space-y-2"
+                      >
+                        {renderTextContent(
+                          segment.value,
+                          `text-${message.id}-${index}`,
+                        )}
+                      </div>
+                    );
+                  })}
+                  {(message.isLoading || isResponding) && !message.imageUrl && !(message.images?.length) && !isUser && message.metadata?.isImageGeneration && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      <Skeleton
+                        className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"
+                        aria-label="Image generating"
+                      />
+                    </div>
+                  )}
+                  {(message.images?.length
+                    ? message.images
+                    : message.imageUrl
+                      ? [{ url: message.imageUrl }]
+                      : []
+                  ).map((img, idx) => (
+                    <div
+                      key={`${message.id ?? "msg"}-img-${idx}`}
+                      className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                    >
                       <Image
-                        src={message.imageUrl}
+                        src={img.url}
                         alt={
                           message.imageAlt ||
                           message.content ||
@@ -975,14 +1072,11 @@ export function ChatMessage({
                         width={0}
                         height={0}
                         sizes="100vw"
-                        unoptimized={message.imageUrl.startsWith("data:")}
+                        unoptimized={img.url.startsWith("data:")}
                         className="w-full h-auto object-contain bg-white"
                       />
                     </div>
-                  )}
-                  {message.citations && message.citations.length > 0 && (
-                    <CitationsList citations={message.citations} />
-                  )}
+                  ))}
                 </div>
               )}
             </div>

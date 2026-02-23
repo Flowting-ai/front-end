@@ -21,7 +21,7 @@ export function ReferenceBanner({
   return (
     <div className="relative mx-auto w-full max-w-[min(1400px,100%)] px-4 sm:px-6 lg:px-10 mb-2">
       <div className="flex items-center gap-3 p-3 rounded-[20px] bg-blue-50 border border-blue-200">
-        <CornerDownRight className="h-4 w-4 text-blue-600 flex-shrink-0" />
+        <CornerDownRight className="h-4 w-4 text-blue-600 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-blue-700 mb-0.5">
             Replying to:
@@ -34,7 +34,7 @@ export function ReferenceBanner({
           variant="ghost"
           size="icon"
           onClick={onClear}
-          className="h-7 w-7 rounded-full hover:bg-blue-100 flex-shrink-0"
+          className="h-7 w-7 rounded-full hover:bg-blue-100 shrink-0"
         >
           <X className="h-4 w-4 text-blue-600" />
         </Button>

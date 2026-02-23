@@ -772,7 +772,7 @@ export default function CompareModelsPage({
       {/* Available Models Section */}
       <div className={styles.sectionHeader}>Available models</div>
       {/* Category Tabs (Radix Tabs, styled like model-selector-dialog) */}
-      <div style={{ padding: "0 20px 12px 20px" }}>
+      {/* <div style={{ padding: "0 20px 12px 20px" }}>
         <div
           className="flex items-center model-category-root"
           style={{
@@ -859,7 +859,7 @@ export default function CompareModelsPage({
             </TabsPrimitive.List>
           </TabsPrimitive.Root>
         </div>
-      </div>
+      </div> */}
       {/* Models Grid (Scrollable Area) */}
       <div className="flex-1 flex flexcol overflow-hidden">
         <div

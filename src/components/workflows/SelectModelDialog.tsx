@@ -230,7 +230,7 @@ export function SelectModelDialog({
         </div>
 
         {/* Category Tabs */}
-        <div className="px-3 py-2 flex-shrink-0">
+        {/* <div className="px-3 py-2 flex-shrink-0">
           <div
             className="flex items-center"
             style={{
@@ -291,7 +291,9 @@ export function SelectModelDialog({
               </TabsPrimitive.List>
             </TabsPrimitive.Root>
           </div>
-        </div>
+        </div> */}
+
+        
 
         {/* Models List */}
         <div className="flex-1 min-h-0 overflow-hidden px-3">

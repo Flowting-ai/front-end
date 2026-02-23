@@ -20,8 +20,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, MessageSquare, CircleCheckBig, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  CircleCheckBig,
+  ChevronRight,
+} from "lucide-react";
 import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
@@ -29,6 +36,7 @@ import { getModelIcon } from "@/lib/model-icons";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
 import { renderInlineMarkdown, formatPinTitle } from "@/lib/markdown-utils";
+import chatStyles from "@/components/chat/chat-interface.module.css";
 
 interface ModelSwitchDialogProps {
   open: boolean;
@@ -61,7 +69,7 @@ export function ModelSwitchDialog({
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(
-    pendingModel || currentModel
+    pendingModel || currentModel,
   );
   const [showFree, setShowFree] = useState(true);
   const [showPaid, setShowPaid] = useState(true);
@@ -72,6 +80,13 @@ export function ModelSwitchDialog({
   const [includeFiles, setIncludeFiles] = useState(true);
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
+  // Input/Output modality filters (lowercase for matching)
+  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
+  const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
+  const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
+  const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -123,12 +138,33 @@ export function ModelSwitchDialog({
       setSelectedPinIds([]);
       setExpandedChatIds([]);
       setIncludeFiles(false);
+      setInputFilters(new Set());
+      setOutputFilters(new Set());
     }
   }, [open, currentModel, pendingModel]);
 
   const filteredModels = models.filter((model) => {
     if (!showFree && model.modelType === "free") return false;
     if (!showPaid && model.modelType === "paid") return false;
+
+    // Filter by input modalities (if any selected)
+    if (inputFilters.size > 0) {
+      const inputMods = (model.inputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...inputFilters].some((f) => inputMods.includes(f));
+      if (!hasMatch) return false;
+    }
+
+    // Filter by output modalities (if any selected)
+    if (outputFilters.size > 0) {
+      const outputMods = (model.outputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...outputFilters].some((f) => outputMods.includes(f));
+      if (!hasMatch) return false;
+    }
+
     return true;
   });
 
@@ -152,45 +188,52 @@ export function ModelSwitchDialog({
   };
 
   // Group pins by chat
-  const pinsByChat = pins.reduce((acc, pin) => {
-    const chatId = pin.chatId || pin.sourceChatId || 'unknown';
-    if (!acc[chatId]) {
-      acc[chatId] = [];
-    }
-    acc[chatId].push(pin);
-    return acc;
-  }, {} as Record<string, PinType[]>);
+  const pinsByChat = pins.reduce(
+    (acc, pin) => {
+      const chatId = pin.chatId || pin.sourceChatId || "unknown";
+      if (!acc[chatId]) {
+        acc[chatId] = [];
+      }
+      acc[chatId].push(pin);
+      return acc;
+    },
+    {} as Record<string, PinType[]>,
+  );
 
   // Filter to only show chats with pins
-  const chatsWithPins = chatBoards.filter(chat => pinsByChat[chat.id]?.length > 0);
+  const chatsWithPins = chatBoards.filter(
+    (chat) => pinsByChat[chat.id]?.length > 0,
+  );
 
   const handleToggleChat = (chatId: string) => {
-    setExpandedChatIds(prev => 
-      prev.includes(chatId) 
-        ? prev.filter(id => id !== chatId)
-        : [...prev, chatId]
+    setExpandedChatIds((prev) =>
+      prev.includes(chatId)
+        ? prev.filter((id) => id !== chatId)
+        : [...prev, chatId],
     );
   };
 
   const handleTogglePin = (pinId: string) => {
-    setSelectedPinIds(prev =>
+    setSelectedPinIds((prev) =>
       prev.includes(pinId)
-        ? prev.filter(id => id !== pinId)
-        : [...prev, pinId]
+        ? prev.filter((id) => id !== pinId)
+        : [...prev, pinId],
     );
   };
 
   const handleToggleAllPinsInChat = (chatId: string) => {
     const chatPins = pinsByChat[chatId] || [];
-    const chatPinIds = chatPins.map(p => p.id);
-    const allSelected = chatPinIds.every(id => selectedPinIds.includes(id));
-    
+    const chatPinIds = chatPins.map((p) => p.id);
+    const allSelected = chatPinIds.every((id) => selectedPinIds.includes(id));
+
     if (allSelected) {
       // Deselect all pins in this chat
-      setSelectedPinIds(prev => prev.filter(id => !chatPinIds.includes(id)));
+      setSelectedPinIds((prev) =>
+        prev.filter((id) => !chatPinIds.includes(id)),
+      );
     } else {
       // Select all pins in this chat
-      setSelectedPinIds(prev => [...new Set([...prev, ...chatPinIds])]);
+      setSelectedPinIds((prev) => [...new Set([...prev, ...chatPinIds])]);
     }
   };
 
@@ -260,7 +303,7 @@ export function ModelSwitchDialog({
               </button>
             </div>
           </div>
-
+         
           {/* Model Dropdown + Free/Paid checkboxes (compact row) */}
           <div className="flex items-center justify-between gap-3 h-[36px]">
             <div className="flex items-center gap-3">
@@ -276,7 +319,7 @@ export function ModelSwitchDialog({
                           src={getModelIcon(
                             selectedModel.companyName,
                             selectedModel.modelName,
-                            selectedModel.sdkLibrary
+                            selectedModel.sdkLibrary,
                           )}
                           alt=""
                           width={20}
@@ -295,58 +338,58 @@ export function ModelSwitchDialog({
                     <ChevronDown className="h-4 w-4 text-[#8a8a8a]" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="w-[300px] border border-[#e6e6e6] bg-white p-2"
-                >
-                  <ScrollArea className="max-h-[300px]">
-                    {isLoading ? (
-                      <div className="py-8 text-center text-[#8a8a8a] text-sm">
-                        Loading models...
-                      </div>
-                    ) : filteredModels.length === 0 ? (
-                      <div className="py-8 text-center text-[#8a8a8a] text-sm">
-                        No models available
-                      </div>
-                    ) : (
-                      filteredModels.map((model) => (
-                        <DropdownMenuItem
-                          key={`${model.companyName}-${model.modelName}`}
-                          onClick={() => {
-                            setSelectedModel(model);
-                            setFrameworkSelected(false);
-                          }}
-                          className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
-                        >
-                          <Image
-                            src={getModelIcon(
-                              model.companyName,
-                              model.modelName,
-                              model.sdkLibrary
+                  <DropdownMenuContent
+                    align="start"
+                    className={`w-full min-w-[351px] border border-[#e6e6e6] p-2 pr-0 overflow-hidden`}
+                  >
+                    <ScrollArea className={`max-h-[310px] overflow-y-auto pr-2 ${chatStyles.customScrollbar}`}>
+                      {isLoading ? (
+                        <div className="py-8 text-center text-[#8a8a8a] text-sm">
+                          Loading models...
+                        </div>
+                      ) : filteredModels.length === 0 ? (
+                        <div className="py-8 text-center text-[#8a8a8a] text-sm">
+                          No models available
+                        </div>
+                      ) : (
+                        filteredModels.map((model) => (
+                          <DropdownMenuItem
+                            key={`${model.companyName}-${model.modelName}`}
+                            onClick={() => {
+                              setSelectedModel(model);
+                              setFrameworkSelected(false);
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
+                          >
+                            <Image
+                              src={getModelIcon(
+                                model.companyName,
+                                model.modelName,
+                                model.sdkLibrary,
+                              )}
+                              alt=""
+                              width={20}
+                              height={20}
+                              className="model-logo"
+                            />
+                            <div className="flex-1">
+                              <div className="text-[#171717] text-sm font-medium">
+                                {model.modelName}
+                              </div>
+                              <div className="text-[#8a8a8a] text-xs">
+                                {model.companyName}
+                              </div>
+                            </div>
+                            {model.modelType === "paid" && (
+                              <span className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-2 py-0.5 rounded">
+                                Paid
+                              </span>
                             )}
-                            alt=""
-                            width={20}
-                            height={20}
-                            className="model-logo"
-                          />
-                          <div className="flex-1">
-                            <div className="text-[#171717] text-sm font-medium">
-                              {model.modelName}
-                            </div>
-                            <div className="text-[#8a8a8a] text-xs">
-                              {model.companyName}
-                            </div>
-                          </div>
-                          {model.modelType === "paid" && (
-                            <span className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-2 py-0.5 rounded">
-                              Paid
-                            </span>
-                          )}
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                  </ScrollArea>
-                </DropdownMenuContent>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </ScrollArea>
+                  </DropdownMenuContent>
               </DropdownMenu>
 
               <div className="flex items-center gap-3">
@@ -384,6 +427,112 @@ export function ModelSwitchDialog({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Input Output Clear */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu
+              open={inputDropdownOpen}
+              onOpenChange={setInputDropdownOpen}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                    inputFilters.size > 0
+                      ? "text-[#FFFFFF] bg-[#000000]"
+                      : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                  }`}
+                >
+                  Input
+                  {inputDropdownOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+                align="start"
+              >
+                {INPUT_OPTIONS.map((opt) => (
+                  <DropdownMenuCheckboxItem
+                    key={opt}
+                    className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                    checked={inputFilters.has(opt)}
+                    onCheckedChange={(checked) => {
+                      setInputFilters((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(opt);
+                        else next.delete(opt);
+                        return next;
+                      });
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu
+              open={outputDropdownOpen}
+              onOpenChange={setOutputDropdownOpen}
+            >
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                    outputFilters.size > 0
+                      ? "text-[#FFFFFF] bg-[#000000]"
+                      : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                  }`}
+                >
+                  Output
+                  {outputDropdownOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+                align="start"
+              >
+                {OUTPUT_OPTIONS.map((opt) => (
+                  <DropdownMenuCheckboxItem
+                    key={opt}
+                    className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                    checked={outputFilters.has(opt)}
+                    onCheckedChange={(checked) => {
+                      setOutputFilters((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(opt);
+                        else next.delete(opt);
+                        return next;
+                      });
+                    }}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {(inputFilters.size > 0 || outputFilters.size > 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInputFilters(new Set());
+                  setOutputFilters(new Set());
+                }}
+                className="font-medium text-[12px] text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300 rounded-[8px] transition-all duration-300 px-2.5 py-1.5 cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Chat Memory (split layout) */}
@@ -460,11 +609,19 @@ export function ModelSwitchDialog({
                       chatsWithPins.map((chat) => {
                         const chatPins = pinsByChat[chat.id] || [];
                         const isExpanded = expandedChatIds.includes(chat.id);
-                        const chatPinIds = chatPins.map(p => p.id);
-                        const allPinsSelected = chatPinIds.length > 0 && chatPinIds.every(id => selectedPinIds.includes(id));
-                        const somePinsSelected = chatPinIds.some(id => selectedPinIds.includes(id)) && !allPinsSelected;
-                        const displayName = chat.name.length > 25 ? `${chat.name.slice(0, 25)}...` : chat.name;
-                        
+                        const chatPinIds = chatPins.map((p) => p.id);
+                        const allPinsSelected =
+                          chatPinIds.length > 0 &&
+                          chatPinIds.every((id) => selectedPinIds.includes(id));
+                        const somePinsSelected =
+                          chatPinIds.some((id) =>
+                            selectedPinIds.includes(id),
+                          ) && !allPinsSelected;
+                        const displayName =
+                          chat.name.length > 25
+                            ? `${chat.name.slice(0, 25)}...`
+                            : chat.name;
+
                         return (
                           <div key={chat.id} className="mb-1">
                             {/* Chat Header */}
@@ -473,8 +630,8 @@ export function ModelSwitchDialog({
                                 onClick={() => handleToggleChat(chat.id)}
                                 className="flex items-center gap-1.5 flex-1 text-left min-w-0 overflow-hidden"
                               >
-                                <ChevronRight 
-                                  className={`h-3.5 w-3.5 shrink-0 text-[#8a8a8a] transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                <ChevronRight
+                                  className={`h-3.5 w-3.5 shrink-0 text-[#8a8a8a] transition-transform ${isExpanded ? "rotate-90" : ""}`}
                                 />
                                 <span className="text-sm text-[#171717] font-medium">
                                   {displayName}
@@ -485,11 +642,13 @@ export function ModelSwitchDialog({
                               </span>
                               <Checkbox
                                 checked={allPinsSelected}
-                                onCheckedChange={() => handleToggleAllPinsInChat(chat.id)}
-                                className={`h-4 w-4 shrink-0 rounded border-[#d4d4d4] ${somePinsSelected ? 'data-[state=checked]:bg-[#8a8a8a]' : ''}`}
+                                onCheckedChange={() =>
+                                  handleToggleAllPinsInChat(chat.id)
+                                }
+                                className={`h-4 w-4 shrink-0 rounded border-[#d4d4d4] ${somePinsSelected ? "data-[state=checked]:bg-[#8a8a8a]" : ""}`}
                               />
                             </div>
-                            
+
                             {/* Nested Pins */}
                             {isExpanded && (
                               <div className="ml-6 space-y-1">
@@ -501,23 +660,34 @@ export function ModelSwitchDialog({
                                   >
                                     <Checkbox
                                       checked={selectedPinIds.includes(pin.id)}
-                                      onCheckedChange={() => handleTogglePin(pin.id)}
+                                      onCheckedChange={() =>
+                                        handleTogglePin(pin.id)
+                                      }
                                       className="h-4 w-4 rounded border-[#d4d4d4] mt-0.5 shrink-0"
                                     />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm text-[#171717] line-clamp-2">
-                                        {renderInlineMarkdown(formatPinTitle(pin.text || pin.title || pin.formattedContent || 'Untitled pin'))}
+                                        {renderInlineMarkdown(
+                                          formatPinTitle(
+                                            pin.text ||
+                                              pin.title ||
+                                              pin.formattedContent ||
+                                              "Untitled pin",
+                                          ),
+                                        )}
                                       </p>
                                       {pin.tags && pin.tags.length > 0 && (
                                         <div className="flex gap-1 mt-1 flex-wrap">
-                                          {pin.tags.slice(0, 2).map((tag, idx) => (
-                                            <span
-                                              key={idx}
-                                              className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-1.5 py-0.5 rounded"
-                                            >
-                                              {tag}
-                                            </span>
-                                          ))}
+                                          {pin.tags
+                                            .slice(0, 2)
+                                            .map((tag, idx) => (
+                                              <span
+                                                key={idx}
+                                                className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-1.5 py-0.5 rounded"
+                                              >
+                                                {tag}
+                                              </span>
+                                            ))}
                                           {pin.tags.length > 2 && (
                                             <span className="text-xs text-[#8a8a8a]">
                                               +{pin.tags.length - 2}
@@ -538,7 +708,7 @@ export function ModelSwitchDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </div>   
+          </div>
         </div>
 
         {/* <Separator className="text-main-border py-0 my-0"/> */}

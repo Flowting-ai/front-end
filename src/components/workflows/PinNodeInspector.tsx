@@ -22,33 +22,56 @@ export function PinNodeInspector({
   allPins = [],
 }: PinNodeInspectorProps) {
   const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
-  const [selectedPin, setSelectedPin] = useState<string | undefined>(
-    nodeData.selectedPins as string | undefined
+  const [selectedPins, setSelectedPins] = useState<string[]>(
+    Array.isArray(nodeData.selectedPins) ? nodeData.selectedPins : []
+  );
+  const [selectedFolder, setSelectedFolder] = useState<{ id: string; name: string; pinIds: string[] } | undefined>(
+    nodeData.selectedFolder
   );
   const [showSelectPinsDialog, setShowSelectPinsDialog] = useState(false);
 
   // Update local state when nodeData changes (switching between nodes)
   useEffect(() => {
     setNodeName(nodeData.name || "");
-    setSelectedPin(nodeData.selectedPins as string | undefined);
+    setSelectedPins(Array.isArray(nodeData.selectedPins) ? nodeData.selectedPins : []);
+    setSelectedFolder(nodeData.selectedFolder);
   }, [nodeData]);
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ name: nodeName, selectedPins: selectedPin });
+    onUpdate({ 
+      name: nodeName, 
+      selectedPins,
+      selectedFolder
+    });
     onClose();
   };
 
-  const handleAddPin = (pinId: string) => {
-    setSelectedPin(pinId);
+  const handleAddPins = (pinIds: string[]) => {
+    setSelectedPins(pinIds);
+    setSelectedFolder(undefined); // Clear folder when selecting individual pins
     setShowSelectPinsDialog(false);
-    toast.success("Pin attached");
+    toast.success(`${pinIds.length} pin${pinIds.length !== 1 ? 's' : ''} attached`);
   };
 
-  const handleRemovePin = () => {
-    setSelectedPin(undefined);
+  const handleAddFolder = (folder: { id: string; name: string; pinIds: string[] }) => {
+    setSelectedFolder(folder);
+    setSelectedPins([]); // Clear individual pins when selecting folder
+    setShowSelectPinsDialog(false);
+    toast.success(`Folder "${folder.name}" attached with ${folder.pinIds.length} pins`);
+  };
+
+  const handleRemovePin = (pinId: string) => {
+    setSelectedPins(prev => prev.filter(id => id !== pinId));
     toast.info("Pin removed");
   };
+
+  const handleRemoveFolder = () => {
+    setSelectedFolder(undefined);
+    toast.info("Folder removed");
+  };
+
+  const hasAttachments = selectedPins.length > 0 || selectedFolder !== undefined;
 
   return (
     <>
@@ -109,7 +132,11 @@ export function PinNodeInspector({
         {/* Select Pin Section */}
         <div className="flex flex-col gap-2">
           <label className="font-geist font-medium text-sm text-[#0A0A0A]">
-            Select Pin
+            {selectedFolder 
+              ? `${selectedFolder.name} attached with ${selectedFolder.pinIds.length} ${selectedFolder.pinIds.length === 1 ? 'pin' : 'pins'}` 
+              : selectedPins.length > 0 
+                ? `${selectedPins.length} ${selectedPins.length === 1 ? 'pin' : 'pins'} attached (${selectedPins.length}/10)` 
+                : 'No pins attached'}
           </label>
           <button
             onClick={(e) => {
@@ -119,32 +146,81 @@ export function PinNodeInspector({
             className="cursor-pointer w-full h-8 px-3 py-2 rounded-lg border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
           >
             <span className="text-[#757575]">
-              {selectedPin ? "Change Pin" : "Add Pin"}
+              {hasAttachments ? "Change Selection" : "Add Pins or Folder"}
             </span>
             <ChevronRight className="h-4 w-4 text-[#757575]" />
           </button>
         </div>
 
-        {/* Selected Pin Display */}
-        {selectedPin && (
+        {/* Selected Folder Display */}
+        {selectedFolder && (
           <div className="flex flex-col gap-2">
-            <div className="relative rounded-lg border border-[#E5E5E5] bg-white p-2">
+            <div className="relative rounded-lg border border-[#E5E5E5] bg-[#E5F2FF] p-2">
               {/* X Button - Top Right */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleRemovePin();
+                  handleRemoveFolder();
                 }}
                 className="absolute top-1 right-1 text-[#757575] hover:text-red-600 transition-colors cursor-pointer"
-                aria-label="Remove pin"
+                aria-label="Remove folder"
               >
                 <X className="h-4 w-4" />
               </button>
 
-              {/* Pin Title */}
-              <p className="text-xs font-medium text-black truncate pr-5" title={allPins.find((p) => p.id === selectedPin)?.name || selectedPin}>
-                {allPins.find((p) => p.id === selectedPin)?.name || selectedPin}
-              </p>
+              {/* Folder Info */}
+              <div className="flex items-start gap-2 pr-5">
+                <ArrowRight className="h-4 w-4 text-[#3C6CFF] mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-black">{selectedFolder.name}</p>
+                  <p className="text-[10px] text-[#757575] mt-0.5">
+                    {selectedFolder.pinIds.length} pin{selectedFolder.pinIds.length !== 1 ? 's' : ''} included
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Selected Pins Display */}
+        {selectedPins.length > 0 && !selectedFolder && (
+          <div className="flex flex-col gap-2">
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {selectedPins.map((pinId) => {
+                const pin = allPins.find((p) => p.id === pinId);
+                return (
+                  <div
+                    key={pinId}
+                    className="relative rounded-lg border border-[#E5E5E5] bg-white p-2"
+                  >
+                    {/* X Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemovePin(pinId);
+                      }}
+                      className="absolute top-1 right-1 text-[#757575] hover:text-red-600 transition-colors cursor-pointer"
+                      aria-label="Remove pin"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+
+                    {/* Pin Title */}
+                    <p className="text-xs font-medium text-black truncate pr-5" title={pin?.name || pinId}>
+                      {pin?.name || pinId}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* No Pins Attached Display */}
+        {!selectedFolder && selectedPins.length === 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="rounded-lg border border-[#E5E5E5] bg-[#F5F5F5] p-3 text-center">
+              <p className="text-xs text-[#757575]">No pins attached</p>
             </div>
           </div>
         )}
@@ -162,9 +238,11 @@ export function PinNodeInspector({
       {showSelectPinsDialog && (
         <SelectPinsDialog
           allPins={allPins}
-          selectedPinId={selectedPin}
+          selectedPinIds={selectedPins}
+          selectedFolder={selectedFolder}
           onClose={() => setShowSelectPinsDialog(false)}
-          onAdd={handleAddPin}
+          onAddPins={handleAddPins}
+          onAddFolder={handleAddFolder}
         />
       )}
     </>

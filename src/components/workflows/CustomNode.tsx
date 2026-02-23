@@ -324,26 +324,27 @@ function CustomNode({
         </div> */}
         
         {/* Pin display for pin nodes */}
-        <div className="w-auto flex items-center justify-start">
-          {data.type === 'pin' && data.selectedPins && (
-          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
-            Pin attached
+        {data.type === 'pin' && (
+          <div className="w-auto flex items-center justify-start">
+            {data.selectedFolder ? (
+              <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
+                {data.selectedFolder.name} attached with {data.selectedFolder.pinIds.length} {data.selectedFolder.pinIds.length === 1 ? 'pin' : 'pins'}
+              </div>
+            ) : Array.isArray(data.selectedPins) && data.selectedPins.length > 0 ? (
+              <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
+                {data.selectedPins.length} {data.selectedPins.length === 1 ? 'pin' : 'pins'} attached
+              </div>
+            ) : (
+              <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5">
+                No pins attached
+              </div>
+            )}
           </div>
         )}
-        </div>
-
-        {/* empty state for pin nodes with no pins attached */}
-        {/* <div className="w-auto flex items-center justify-start">
-          {data.type === 'pin' && !data.selectedPins && (
-          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5">
-            No Pin attached
-          </div>
-        )}
-        </div> */}
         
 
-        {/* Instructions CTA - Show only for reasoning nodes (persona, model), not for control or context nodes */}
-        {data.type !== 'start' && data.type !== 'end' && data.type !== 'pin' && data.type !== 'chat' && data.type !== 'document' && (
+        {/* Instructions CTA - Show only for reasoning nodes (persona, model, chat), not for control or context nodes */}
+        {data.type !== 'start' && data.type !== 'end' && data.type !== 'pin' && data.type !== 'document' && (
           <button 
             onClick={handleInstructionsClick}
             className={`cursor-pointer absolute -bottom-7 left-1/2 -translate-x-1/2 h-[25px] rounded-2xl border py-1 px-2 gap-1 shadow-md bg-white flex items-center justify-center text-xs font-medium hover:bg-[#E5E5E5] transition-colors whitespace-nowrap z-10 ${

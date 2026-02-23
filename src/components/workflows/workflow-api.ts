@@ -746,7 +746,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
             status: "idle",
             config: {},
             instructions: kb.instruction || "",
-            selectedPins: kb.kb_id,
+            selectedPins: [kb.kb_id],
           },
         });
       }

@@ -39,6 +39,7 @@ import {
 } from "../ui/dropdown-menu";
 import type { ChatBoard, RightSidebarPanel } from "./app-layout";
 import { PinItem } from "../pinboard/pin-item";
+import { CitationsPanel } from "../chat/citations-panel";
 import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
 import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
@@ -80,6 +81,7 @@ interface RightSidebarProps {
   pins: PinType[];
   setPins: React.Dispatch<React.SetStateAction<PinType[]>>;
   chatBoards: ChatBoard[];
+  referencesSources?: Array<{ title?: string; url: string; snippet?: string }>;
   className?: string;
   onInsertToChat?: (text: string, pin: PinType) => void;
 }
@@ -104,9 +106,13 @@ const PANEL_METADATA: Record<RightSidebarPanel, { title: string; description?: s
     title: "Compare Models",
     description: "Benchmark and contrast model responses side-by-side.",
   },
+  references: {
+    title: "Citations",
+    description: "Sources and citations from the latest response.",
+  },
 };
 
-const EMPTY_PLACEHOLDERS: Record<Exclude<RightSidebarPanel, "pinboard">, { title: string; description: string }> = {
+const EMPTY_PLACEHOLDERS: Record<Exclude<RightSidebarPanel, "pinboard" | "references">, { title: string; description: string }> = {
   files: {
     title: "No files yet",
     description: "Upload documents to keep them handy for future prompts.",
@@ -128,6 +134,7 @@ export function RightSidebar({
   pins,
   setPins,
   chatBoards,
+  referencesSources = [],
   className,
   onInsertToChat,
 }: RightSidebarProps) {
@@ -902,7 +909,7 @@ export function RightSidebar({
                       filteredTags.map((tag) => (
                           <DropdownMenuCheckboxItem
                             key={tag}
-                            className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0]"
+                            className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0] data-[state=checked]:pl-6"
                             checked={selectedTags.includes(tag)}
                             onCheckedChange={() => handleTagToggle(tag)}
                             onSelect={(event) => event.preventDefault()}
@@ -938,7 +945,7 @@ export function RightSidebar({
                         filteredFolders.map((folder) => (
                           <DropdownMenuCheckboxItem
                             key={folder.id}
-                            className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0]"
+                            className="rounded-md px-2 py-1.5 text-[#171717] data-[state=checked]:bg-[#f0f0f0] data-[state=checked]:pl-6"
                             checked={selectedFolders.includes(folder.id)}
                             onCheckedChange={() => handleFolderToggle(folder.id)}
                             onSelect={(event) => event.preventDefault()}
@@ -1043,7 +1050,7 @@ export function RightSidebar({
     </>
   );
 
-  const renderPlaceholder = (panel: Exclude<RightSidebarPanel, "pinboard">) => (
+  const renderPlaceholder = (panel: Exclude<RightSidebarPanel, "pinboard" | "references">) => (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div className="rounded-full bg-[#f5f5f5] p-4">
         {panel === "files" ? (
@@ -1066,9 +1073,11 @@ export function RightSidebar({
   );
 
   const panelContent =
-    activePanel === "pinboard"
+    activePanel === "references"
+      ? <CitationsPanel sources={referencesSources} hideHeader className="flex-1 min-h-0" />
+      : activePanel === "pinboard"
       ? renderPinboard()
-      : renderPlaceholder(activePanel as Exclude<RightSidebarPanel, "pinboard">);
+      : renderPlaceholder(activePanel as Exclude<RightSidebarPanel, "pinboard" | "references">);
 
   const header = PANEL_METADATA[activePanel];
 
@@ -1084,20 +1093,22 @@ export function RightSidebar({
           <div className="flex items-center justify-between border-b border-[#d9d9d9] px-4 py-4">
             <p className="text-base font-semibold text-[#1e1e1e]">{header.title}</p>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSearchOpen((prev) => !prev)}
-                aria-pressed={isSearchOpen}
-                className={cn(
-                  "border border-transparent bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8] group",
-                  isSearchOpen && "border-[#1e1e1e]"
-                )}
-                style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', padding: '7px' }}
-              >
-                <Search className="h-full w-full text-[#1e1e1e] group-hover:text-black" strokeWidth={1.5} style={{ strokeWidth: '1.5' }} />
-                <span className="sr-only">Toggle search</span>
-              </Button>
+              {activePanel === "pinboard" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsSearchOpen((prev) => !prev)}
+                  aria-pressed={isSearchOpen}
+                  className={cn(
+                    "border border-transparent bg-[#f5f5f5] text-[#1e1e1e] hover:bg-[#e8e8e8] group",
+                    isSearchOpen && "border-[#1e1e1e]"
+                  )}
+                  style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', borderRadius: '8px', padding: '7px' }}
+                >
+                  <Search className="h-full w-full text-[#1e1e1e] group-hover:text-black" strokeWidth={1.5} style={{ strokeWidth: '1.5' }} />
+                  <span className="sr-only">Toggle search</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"

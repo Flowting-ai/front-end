@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -20,7 +20,15 @@ import {
   BookImage,
   Video,
   CircleCheckBig,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -69,6 +77,13 @@ export function ModelSelectorDialog({
   const [hoveredModel, setHoveredModel] = useState<string | null>(null);
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
+  // Input/Output modality filters (lowercase for matching)
+  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
+  const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
+  const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
+  const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -163,6 +178,24 @@ export function ModelSelectorDialog({
       if (category === "text" && !modalities.includes("text")) return false;
       if (category === "image" && !modalities.includes("image")) return false;
       if (category === "video" && !modalities.includes("video")) return false;
+    }
+
+    // Filter by input modalities (if any selected)
+    if (inputFilters.size > 0) {
+      const inputMods = (model.inputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...inputFilters].some((f) => inputMods.includes(f));
+      if (!hasMatch) return false;
+    }
+
+    // Filter by output modalities (if any selected)
+    if (outputFilters.size > 0) {
+      const outputMods = (model.outputModalities || []).map((m) =>
+        m.toLowerCase()
+      );
+      const hasMatch = [...outputFilters].some((f) => outputMods.includes(f));
+      if (!hasMatch) return false;
     }
 
     return true;
@@ -278,7 +311,7 @@ export function ModelSelectorDialog({
         </div>
 
         {/* Category Tabs */}
-        <div className=" category-tabs-wrapper px-3">
+        {/* <div className=" category-tabs-wrapper px-3">
           <div
             className="flex items-center model-category-root"
             style={{
@@ -390,6 +423,112 @@ export function ModelSelectorDialog({
               </TabsPrimitive.List>
             </TabsPrimitive.Root>
           </div>
+        </div> */}
+
+        {/* Input Output Clear */}
+        <div className="flex items-center gap-2 px-3">
+          <DropdownMenu
+            open={inputDropdownOpen}
+            onOpenChange={setInputDropdownOpen}
+          >
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                  inputFilters.size > 0
+                    ? "text-[#FFFFFF] bg-[#000000]"
+                    : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                }`}
+              >
+                Input
+                {inputDropdownOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+              align="start"
+            >
+              {INPUT_OPTIONS.map((opt) => (
+                <DropdownMenuCheckboxItem
+                  key={opt}
+                  className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                  checked={inputFilters.has(opt)}
+                  onCheckedChange={(checked) => {
+                    setInputFilters((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(opt);
+                      else next.delete(opt);
+                      return next;
+                    });
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu
+            open={outputDropdownOpen}
+            onOpenChange={setOutputDropdownOpen}
+          >
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`font-medium text-[12px] rounded-[8px] transition-all duration-300 flex items-center gap-1 px-2.5 py-1.5 cursor-pointer ${
+                  outputFilters.size > 0
+                    ? "text-[#FFFFFF] bg-[#000000]"
+                    : "text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300"
+                }`}
+              >
+                Output
+                {outputDropdownOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="text-[#0A0A0A] text-sm rounded-[8px] min-w-[8rem]"
+              align="start"
+            >
+              {OUTPUT_OPTIONS.map((opt) => (
+                <DropdownMenuCheckboxItem
+                  key={opt}
+                  className="cursor-pointer [&>span]:border [&>span]:border-[#0A0A0A] [&>span]:rounded [&>span]:rounded-xs"
+                  checked={outputFilters.has(opt)}
+                  onCheckedChange={(checked) => {
+                    setOutputFilters((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(opt);
+                      else next.delete(opt);
+                      return next;
+                    });
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {(inputFilters.size > 0 || outputFilters.size > 0) && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputFilters(new Set());
+                setOutputFilters(new Set());
+              }}
+              className="font-medium text-[12px] text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300 rounded-[8px] transition-all duration-300 px-2.5 py-1.5 cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         {/* Models List */}

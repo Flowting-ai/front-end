@@ -25,13 +25,8 @@ import {
   Reply,
   Globe,
 } from "lucide-react";
-import { ChatMessage, type Message, type Citation, type MemorySearchResult } from "./chat-message";
+import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
-import {
-  ClarificationPrompt,
-  type ClarificationData,
-} from "./clarification-prompt";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { ReferenceBanner } from "./reference-banner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { PinType } from "../layout/right-sidebar";
@@ -80,10 +75,12 @@ import {
   PERSONA_TEST_ENDPOINT,
   CHAT_DETAIL_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
+  MODELS_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
 import { uploadDocument } from "@/lib/api/documents";
+import { normalizeModels } from "@/lib/ai-models";
 import Image from "next/image";
 
 interface ChatInterfaceProps {
@@ -112,6 +109,125 @@ type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
 interface MentionedPin {
   id: string;
   label: string;
+}
+
+/** Normalize backend sources/citations into MessageSource shape */
+function normalizeMessageSources(
+  raw: unknown,
+): Message["metadata"] extends { sources?: infer S } ? S : never {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined as never;
+  const out: MessageSource[] = [];
+  for (const item of raw) {
+    if (item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string") {
+      const o = item as Record<string, unknown>;
+      const url = o.url as string;
+      const title = [o.title, o.name].find((v) => typeof v === "string") as string | undefined;
+      const snippet = typeof o.snippet === "string" ? o.snippet : undefined;
+      const authorOrPublisher = [o.authorOrPublisher, o.author, o.publisher].find((v) => typeof v === "string") as string | undefined;
+      const publicationOrAccessDate = [o.publicationOrAccessDate, o.publicationDate, o.date, o.accessDate, o.publishedDate].find((v) => typeof v === "string") as string | undefined;
+      const relevanceScore = typeof o.relevanceScore === "number" ? o.relevanceScore : typeof o.relevance === "number" ? o.relevance : typeof o.confidence === "number" ? o.confidence : typeof o.score === "number" ? o.score : undefined;
+      const num = relevanceScore != null ? Math.min(100, Math.max(0, Number(relevanceScore))) : undefined;
+      const imageUrl = [o.imageUrl, o.image, o.ogImage].find((v) => typeof v === "string") as string | undefined;
+      const description = [o.description, o.ogDescription].find((v) => typeof v === "string") as string | undefined;
+      out.push({
+        url,
+        title: title || undefined,
+        snippet: snippet || undefined,
+        authorOrPublisher: authorOrPublisher || undefined,
+        publicationOrAccessDate: publicationOrAccessDate || undefined,
+        relevanceScore: num,
+        imageUrl: imageUrl || undefined,
+        description: description || undefined,
+      });
+    }
+  }
+  return (out.length > 0 ? out : undefined) as never;
+}
+
+/** Normalize URL for matching (e.g. when comparing source URL to link in content). */
+function normalizeUrlForMatch(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    u.hash = "";
+    u.search = "";
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.origin}${path}`;
+  } catch {
+    return url.trim();
+  }
+}
+
+/**
+ * Extract titles from markdown links in content: [link text](url).
+ * Returns a map of normalized URL -> title (first occurrence per URL, or longest title if we want to prefer descriptive labels).
+ */
+function extractTitlesFromContentByUrl(content: string): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!content || typeof content !== "string") return map;
+  const linkRegex = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRegex.exec(content)) !== null) {
+    const rawUrl = m[2].trim();
+    const key = normalizeUrlForMatch(rawUrl);
+    const title = m[1].trim();
+    if (!title) continue;
+    // Prefer first occurrence; optionally prefer longer (more descriptive) title
+    const existing = map.get(key);
+    if (!existing || title.length > existing.length) map.set(key, title);
+  }
+  return map;
+}
+
+/** Return number of sources for an AI message (from metadata or parsed from content). */
+function getMessageSourceCount(message: Message): number {
+  if (message.sender !== "ai") return 0;
+  const fromMeta = message.metadata?.sources;
+  if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta.length;
+  }
+  return extractSourcesFromContent(message.content ?? "").length;
+}
+
+/** Return up to 4 source URLs for an AI message (for favicons on Sources button). */
+function getMessageSourceUrls(message: Message): string[] {
+  if (message.sender !== "ai") return [];
+  const fromMeta = message.metadata?.sources;
+  if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta
+      .slice(0, 4)
+      .map((s: { url?: string }) => (s && typeof s.url === "string" ? s.url : ""))
+      .filter(Boolean);
+  }
+  return extractSourcesFromContent(message.content ?? "")
+    .slice(0, 4)
+    .map((s) => s.url);
+}
+
+/** Extract link-like sources from markdown content (e.g. [text](url) or bare URLs) */
+function extractSourcesFromContent(content: string): Array<{ title?: string; url: string }> {
+  if (!content || typeof content !== "string") return [];
+  const seen = new Set<string>();
+  const out: Array<{ title?: string; url: string }> = [];
+  // Markdown links: [text](url)
+  const linkRegex = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkRegex.exec(content)) !== null) {
+    const url = m[2].trim();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const title = m[1].trim();
+    out.push({ url, title: title || undefined });
+  }
+  // Bare URLs (http/https) not already captured
+  const urlRegex = /https?:\/\/[^\s)\]">]+/g;
+  while ((m = urlRegex.exec(content)) !== null) {
+    const raw = m[0];
+    const url = raw.replace(/[.)]+$/, ""); // trim trailing punctuation
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url });
+  }
+  return out;
 }
 
 export function ChatInterface({
@@ -155,24 +271,6 @@ export function ChatInterface({
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [activePersonas, setActivePersonas] = useState<any[]>([]);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  // Clarification state - for when backend asks follow-up questions
-  const [clarificationData, setClarificationData] =
-    useState<ClarificationData | null>(null);
-  const [pendingClarification, setPendingClarification] = useState<{
-    userMessage: string;
-    loadingMessageId: string;
-    chatId: string | null;
-    userMessageId: string | undefined;
-    model: typeof selectedModel;
-    avatar: MessageAvatar;
-    refMessageId?: string | null;
-    pinIds?: string[];
-    personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>;
-    replyToMsgId?: string | null;
-    files?: File[];
-  } | null>(null);
-  const [isClarificationSubmitting, setIsClarificationSubmitting] =
-    useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const personaDropdownRef = useRef<HTMLDivElement>(null);
   const PIN_INSERT_EVENT = "pin-insert-to-chat";
@@ -260,9 +358,7 @@ export function ChatInterface({
   const pinItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const userAvatar = PlaceHolderImages.find((p) => p.id === "user-avatar");
-  const defaultAiAvatar = PlaceHolderImages.find((p) => p.id === "ai-avatar");
-  const qwenAvatarUrl = "/Qwen.svg";
+  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
   const resolveModelAvatar = (
     modelOverride?: AIModel | null,
   ): MessageAvatar => {
@@ -279,9 +375,10 @@ export function ChatInterface({
         avatarHint: hintParts.join(" ").trim(),
       };
     }
+    // When no model is selected, use Flowting logo (framework mode)
     return {
-      avatarUrl: defaultAiAvatar?.imageUrl ?? qwenAvatarUrl,
-      avatarHint: defaultAiAvatar?.imageHint ?? "AI model",
+      avatarUrl: flowtingLogoUrl,
+      avatarHint: "Flowting AI Framework",
     };
   };
 
@@ -307,6 +404,42 @@ export function ChatInterface({
   const layoutContext = useContext(AppLayoutContext);
   const displayMessages = messages;
   const { user, csrfToken } = useAuth();
+
+  // References panel: from last AI message (metadata.sources or links parsed from content).
+  // Prefer source titles extracted from the chat (e.g. [Title](url)) when available; otherwise use generic (API/fetched/hostname).
+  const sourcesForPanel = useMemo((): MessageSource[] => {
+    let lastAi: Message | null = null;
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      if (displayMessages[i].sender === "ai") {
+        lastAi = displayMessages[i];
+        break;
+      }
+    }
+    if (!lastAi) return [];
+    const content = lastAi.content ?? "";
+    const titlesFromChat = extractTitlesFromContentByUrl(content);
+    const fromMeta = lastAi.metadata?.sources;
+    const rawSources: MessageSource[] =
+      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
+    return rawSources.map((s) => {
+      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
+      const title = chatTitle?.trim() || s.title?.trim();
+      return { ...s, title: title || undefined };
+    });
+  }, [displayMessages]);
+
+  // Stable key so we only sync when source content actually changes (avoids loop from new array refs).
+  const sourcesSyncKey = useMemo(
+    () => JSON.stringify(sourcesForPanel.map((s) => ({ url: s.url, title: s.title ?? "" }))),
+    [sourcesForPanel],
+  );
+
+  // Sync references to layout so the right-sidebar References panel can show them.
+  // Depend only on sourcesSyncKey (stable string) so we avoid loops from new array refs or context identity.
+  useEffect(() => {
+    layoutContext?.setReferencesSources(sourcesForPanel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when source content (key) changes
+  }, [sourcesSyncKey]);
   const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
 
   const handleReact = (message: Message, reaction: string | null) => {
@@ -345,6 +478,30 @@ export function ChatInterface({
 
     toast.info("Reaction removed");
   };
+
+  const handleOpenSources = (message: Message) => {
+    if (message.sender !== "ai" || !layoutContext) return;
+    
+    // Extract sources from the specific message (similar to sourcesForPanel logic)
+    const content = message.content ?? "";
+    const titlesFromChat = extractTitlesFromContentByUrl(content);
+    const fromMeta = message.metadata?.sources;
+    const rawSources: MessageSource[] =
+      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
+    
+    const messageSources = rawSources.map((s) => {
+      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
+      const title = chatTitle?.trim() || s.title?.trim();
+      return { ...s, title: title || undefined };
+    });
+
+    // Update the references sources with this specific message's sources
+    layoutContext.setReferencesSources(messageSources);
+    
+    // Open the references panel
+    layoutContext.openReferencesPanel();
+  };
+
   const pinsById = useMemo(() => {
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
@@ -407,6 +564,8 @@ export function ChatInterface({
               : null,
             prompt: bp.prompt,
             modelId: bp.modelId,
+            modelName: bp.modelName,
+            providerName: bp.providerName,
             status: "active",
           }));
         setActivePersonas(activeOnly);
@@ -586,14 +745,6 @@ export function ChatInterface({
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const fetchAiResponse = async (
     userMessage: string,
     loadingMessageId: string,
@@ -608,7 +759,6 @@ export function ChatInterface({
     personaChatHistory?: Array<{ role: "user" | "assistant"; content: string }>,
     replyToMessageId?: string | null,
     files?: File[],
-    clarificationAnswer?: string,
   ) => {
     try {
       if (!modelForRequest) {
@@ -639,18 +789,8 @@ export function ChatInterface({
         Accept: "text/event-stream",
       };
 
-      // Separate image files (base64 in JSON) from PDFs (FormData)
-      const imageFiles = files?.filter((f) => f.type.startsWith("image/")) ?? [];
-      const pdfFiles = files?.filter((f) => !f.type.startsWith("image/")) ?? [];
-
-      // Convert images to base64 data URLs
-      const base64Images =
-        imageFiles.length > 0
-          ? await Promise.all(imageFiles.map(fileToBase64))
-          : [];
-
-      if (pdfFiles.length > 0 && !isPersonaTest) {
-        // Use FormData only when PDFs are present
+      if (files && files.length > 0 && !isPersonaTest) {
+        // Use FormData for file uploads
         const formData = new FormData();
         formData.append("message", userMessage);
         if (modelId !== null && modelId !== undefined) {
@@ -685,21 +825,17 @@ export function ChatInterface({
         if (pinIds && pinIds.length > 0) {
           formData.append("pinIds", JSON.stringify(pinIds));
         }
-        if (clarificationAnswer) {
-          formData.append("clarificationAnswer", clarificationAnswer);
+        if (webSearchEnabled) {
+          formData.append("webSearch", "true");
         }
-        // Append PDFs as file uploads
-        pdfFiles.forEach((file) => {
+        // Append all files
+        files.forEach((file) => {
           formData.append("files", file);
         });
-        // Include images as base64 in FormData
-        if (base64Images.length > 0) {
-          formData.append("images", JSON.stringify(base64Images));
-        }
         body = formData;
         // Don't set Content-Type header - browser sets it with boundary for FormData
       } else {
-        // Use JSON (with images as base64 data URLs when present)
+        // Use JSON when no file
         const payload: Record<string, unknown> = {
           message: userMessage,
           modelId,
@@ -713,9 +849,6 @@ export function ChatInterface({
             : null,
         };
 
-        if (base64Images.length > 0) {
-          payload.images = base64Images;
-        }
         if (isExistingChat && chatId) {
           payload.chatId = chatId;
         }
@@ -740,8 +873,8 @@ export function ChatInterface({
         if (pinIds && pinIds.length > 0) {
           payload.pinIds = pinIds;
         }
-        if (clarificationAnswer) {
-          payload.clarificationAnswer = clarificationAnswer;
+        if (webSearchEnabled) {
+          payload.webSearch = true;
         }
 
         body = JSON.stringify(payload);
@@ -767,66 +900,9 @@ export function ChatInterface({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
-      let assistantReasoning = "";
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
-      const collectedCitations: Citation[] = [];
-      const collectedMemoryResults: MemorySearchResult[] = [];
       let currentChatId = chatId;
-
-      const syncResolvedChatId = (resolvedId: string, title?: string | null) => {
-        if (isPersonaTest || !layoutContext?.setActiveChatId) return;
-
-        const previousChatId = currentChatId;
-        currentChatId = resolvedId;
-
-        if (
-          previousChatId &&
-          previousChatId !== resolvedId &&
-          previousChatId.startsWith("temp-") &&
-          layoutContext?.setChatBoards
-        ) {
-          layoutContext.setChatBoards((prev) => {
-            const tempIndex = prev.findIndex(
-              (board) => board.id === previousChatId
-            );
-            if (tempIndex === -1) return prev;
-
-            const resolvedIndex = prev.findIndex(
-              (board) => board.id === resolvedId
-            );
-            if (resolvedIndex !== -1) {
-              return prev.filter((board) => board.id !== previousChatId);
-            }
-
-            const next = [...prev];
-            const currentBoard = next[tempIndex];
-            next[tempIndex] = {
-              ...currentBoard,
-              id: resolvedId,
-              name: title?.trim() ? title : currentBoard.name,
-            };
-            return next;
-          });
-        }
-
-        layoutContext.setActiveChatId(resolvedId);
-        if (messageBufferRef.current.length > 0) {
-          setMessages(messageBufferRef.current, resolvedId);
-        }
-      };
-
-      const mergeReasoningContent = (
-        ...parts: Array<string | null | undefined>
-      ): string | null => {
-        const uniqueParts: string[] = [];
-        for (const part of parts) {
-          const normalized = typeof part === "string" ? part.trim() : "";
-          if (!normalized || uniqueParts.includes(normalized)) continue;
-          uniqueParts.push(normalized);
-        }
-        return uniqueParts.length > 0 ? uniqueParts.join("\n\n") : null;
-      };
 
       const updateAiMessage = (fields: Partial<Message>) => {
         setMessages((prev = []) => {
@@ -863,168 +939,45 @@ export function ChatInterface({
             continue;
           }
 
-          // Debug logging for SSE events
-          console.log("[SSE Event]", eventName, parsed);
-
-          const payloadType =
-            typeof parsed?.type === "string" ? parsed.type : "";
-
-          if (eventName === "reasoning" || payloadType === "reasoning") {
-            const reasoningDelta =
-              typeof parsed.content === "string"
-                ? parsed.content
-                : typeof parsed.reasoning_content === "string"
-                  ? parsed.reasoning_content
-                  : typeof parsed.delta === "string"
-                    ? parsed.delta
-                    : "";
-            if (reasoningDelta) {
-              assistantReasoning += reasoningDelta;
-              const sanitized = extractThinkingContent(assistantContent);
-              updateAiMessage({
-                content: sanitized.visibleText || "",
-                thinkingContent: mergeReasoningContent(
-                  assistantReasoning,
-                  sanitized.thinkingText,
-                ),
-                isLoading: false,
-              });
-            }
-            continue;
-          }
-
           if (eventName === "metadata") {
             streamMetadata = parsed;
-            const chatTitle =
-              typeof parsed.title === "string"
-                ? parsed.title
-                : typeof parsed.chat_title === "string"
-                ? parsed.chat_title
-                : null;
-            if (parsed.chat_id) {
-              syncResolvedChatId(String(parsed.chat_id), chatTitle);
+            if (
+              !isPersonaTest &&
+              parsed.chat_id &&
+              layoutContext?.setActiveChatId
+            ) {
+              const resolved = String(parsed.chat_id);
+              currentChatId = resolved;
+              layoutContext.setActiveChatId(resolved);
+              // Re-sync buffered messages to the resolved chat id
+              if (messageBufferRef.current.length > 0) {
+                setMessages(messageBufferRef.current, resolved);
+              }
             }
 
             // Update chat title if provided by backend (works for both new and existing chats)
+            const chatTitle = parsed.title || parsed.chat_title;
             if (
               !isPersonaTest &&
               chatTitle &&
               currentChatId &&
-              layoutContext?.setChatBoards
+              layoutContext?.updateChatTitleWithAnimation
             ) {
-              layoutContext.setChatBoards((prev) =>
-                prev.map((board) =>
-                  board.id === currentChatId
-                    ? { ...board, name: String(chatTitle) }
-                    : board,
-                ),
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                String(chatTitle)
               );
-            }
-
-            // Update AI message avatar based on model info from metadata (especially useful for framework mode)
-            const metaModelName =
-              typeof parsed.model_name === "string" ? parsed.model_name : null;
-            const metaProvider =
-              typeof parsed.provider === "string" ? parsed.provider : null;
-            const metaModelId =
-              parsed.model_id !== undefined ? String(parsed.model_id) : null;
-
-            if (metaModelName || metaProvider) {
-              const modelIcon = getModelIcon(metaProvider, metaModelName);
-              if (modelIcon) {
-                updateAiMessage({
-                  avatarUrl: modelIcon,
-                  avatarHint: metaModelName || metaProvider || "AI model",
-                  metadata: {
-                    modelName: metaModelName || undefined,
-                    providerName: metaProvider || undefined,
-                    llmModelId: metaModelId,
-                  },
-                });
-              }
-            }
-            continue;
-          }
-
-          if (eventName === "start") {
-            // Stream has begun — loading skeleton is already visible
-            continue;
-          }
-
-          // Handle clarification event - backend is asking for more info
-          if (eventName === "clarification") {
-            const question =
-              typeof parsed.question === "string" ? parsed.question : "";
-            const options = Array.isArray(parsed.options)
-              ? parsed.options.filter(
-                  (opt: unknown): opt is string => typeof opt === "string"
-                )
-              : [];
-            const clarificationChatId =
-              typeof parsed.chat_id === "string" ? parsed.chat_id : "";
-            const clarificationChatTitle =
-              typeof parsed.chat_title === "string"
-                ? parsed.chat_title
-                : undefined;
-
-            if (question && options.length > 0) {
-              // Sync chat ID if provided
-              if (clarificationChatId) {
-                syncResolvedChatId(clarificationChatId, clarificationChatTitle);
-              }
-
-              // Store clarification data and pending request info
-              setClarificationData({
-                question,
-                options,
-                chatId: clarificationChatId || currentChatId || "",
-                chatTitle: clarificationChatTitle,
-              });
-
-              // Store pending request info for when user answers
-              setPendingClarification({
-                userMessage,
-                loadingMessageId,
-                chatId: clarificationChatId || currentChatId,
-                userMessageId,
-                model: modelForRequest,
-                avatar: avatarForRequest,
-                refMessageId: referencedMessageId,
-                pinIds,
-                personaChatHistory,
-                replyToMsgId: replyToMessageId,
-                files,
-              });
-
-              // Remove the loading message since we're waiting for user input
-              setMessages((prev = []) => {
-                const next = prev.filter((msg) => msg.id !== loadingMessageId);
-                messageBufferRef.current = next;
-                return next;
-              }, currentChatId ?? undefined);
-
-              setIsResponding(false);
-              streamFinished = true;
             }
             continue;
           }
 
           if (eventName === "chunk") {
-            const delta =
-              typeof parsed.delta === "string"
-                ? parsed.delta
-                : typeof parsed.content === "string" &&
-                    (payloadType === "content" || payloadType === "text")
-                  ? parsed.content
-                  : "";
+            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
             assistantContent += delta;
             const sanitized = extractThinkingContent(assistantContent);
             updateAiMessage({
               content: sanitized.visibleText || "",
-              thinkingContent: mergeReasoningContent(
-                assistantReasoning,
-                sanitized.thinkingText,
-              ),
+              thinkingContent: sanitized.thinkingText,
               // Flip off loading state once the first chunk arrives so UI shows streaming text.
               isLoading: false,
             });
@@ -1043,103 +996,17 @@ export function ChatInterface({
             continue;
           }
 
-          if (eventName === "citation") {
-            const citUrl = typeof parsed.url === "string" ? parsed.url : "";
-            const citTitle = typeof parsed.title === "string" ? parsed.title : "";
-            const citStart = typeof parsed.start_index === "number" ? parsed.start_index : 0;
-            const citEnd = typeof parsed.end_index === "number" ? parsed.end_index : 0;
-            if (citUrl) {
-              collectedCitations.push({ url: citUrl, title: citTitle, startIndex: citStart, endIndex: citEnd });
-              updateAiMessage({
-                citations: [...collectedCitations],
-              });
-            }
-            continue;
-          }
-
-          if (eventName === "tool_result") {
-            const toolName = typeof parsed.name === "string" ? parsed.name : "unknown_tool";
-            const chats = Array.isArray(parsed.chats)
-              ? parsed.chats
-                  .filter(
-                    (c: unknown): c is { chat_id: unknown; title: unknown } =>
-                      typeof c === "object" && c !== null
-                  )
-                  .map((c: { chat_id?: unknown; title?: unknown }) => ({
-                    chatId: String(c.chat_id ?? ""),
-                    title: typeof c.title === "string" ? c.title : "Untitled",
-                  }))
-              : [];
-            if (chats.length > 0) {
-              collectedMemoryResults.push({ name: toolName, chats });
-              updateAiMessage({
-                memoryResults: [...collectedMemoryResults],
-                isLoading: false,
-              });
-            }
-            continue;
-          }
-
-          if (eventName === "end") {
-            // Stream content finished — wait for "done" event to finalize
-            continue;
-          }
-
           if (eventName === "done") {
             const messageText =
               typeof parsed.response === "string"
                 ? parsed.response
                 : assistantContent;
-            const doneReasoning =
-              typeof parsed.reasoning === "string"
-                ? parsed.reasoning
-                : typeof parsed.reasoning_content === "string"
-                  ? parsed.reasoning_content
-                  : typeof parsed.thinking === "string"
-                    ? parsed.thinking
-                    : "";
-            if (doneReasoning) {
-              if (!assistantReasoning) {
-                assistantReasoning = doneReasoning;
-              } else if (doneReasoning.includes(assistantReasoning)) {
-                assistantReasoning = doneReasoning;
-              } else if (!assistantReasoning.includes(doneReasoning)) {
-                assistantReasoning = `${assistantReasoning}\n\n${doneReasoning}`;
-              }
-            }
             const messageMeta =
               parsed.metadata && typeof parsed.metadata === "object"
                 ? parsed.metadata
                 : null;
             const resolvedMessageId =
               parsed.message_id ?? parsed.messageId ?? null;
-
-            // Extract tokens from top-level done payload (new spec)
-            const tokensInput =
-              typeof parsed.tokens_input === "number" ? parsed.tokens_input : undefined;
-            const tokensOutput =
-              typeof parsed.tokens_output === "number" ? parsed.tokens_output : undefined;
-            const doneCost =
-              typeof parsed.cost === "string" ? parseFloat(parsed.cost)
-              : typeof parsed.cost === "number" ? parsed.cost
-              : undefined;
-            const doneLatencyMs =
-              typeof parsed.latency_ms === "number" ? parsed.latency_ms : undefined;
-
-            // Extract citations from done event (authoritative), fall back to incrementally collected
-            const doneCitations: Citation[] = Array.isArray(parsed.citations)
-              ? parsed.citations
-                  .filter(
-                    (c: unknown): c is { url: string } =>
-                      typeof c === "object" && c !== null && typeof (c as { url?: unknown }).url === "string"
-                  )
-                  .map((c: { url: string; title?: string; start_index?: number; end_index?: number }) => ({
-                    url: c.url,
-                    title: typeof c.title === "string" ? c.title : "",
-                    startIndex: typeof c.start_index === "number" ? c.start_index : 0,
-                    endIndex: typeof c.end_index === "number" ? c.end_index : 0,
-                  }))
-              : collectedCitations;
 
             const metadata: Message["metadata"] | undefined = messageMeta
               ? {
@@ -1149,8 +1016,12 @@ export function ChatInterface({
                   providerName:
                     (messageMeta as { providerName?: string }).providerName ??
                     (messageMeta as { provider_name?: string }).provider_name,
-                  inputTokens: tokensInput,
-                  outputTokens: tokensOutput,
+                  inputTokens:
+                    (messageMeta as { inputTokens?: number }).inputTokens ??
+                    (messageMeta as { input_tokens?: number }).input_tokens,
+                  outputTokens:
+                    (messageMeta as { outputTokens?: number }).outputTokens ??
+                    (messageMeta as { output_tokens?: number }).output_tokens,
                   createdAt:
                     (messageMeta as { createdAt?: string }).createdAt ??
                     (messageMeta as { created_at?: string }).created_at,
@@ -1193,22 +1064,15 @@ export function ChatInterface({
                     (messageMeta as { document_url?: string | null })
                       .document_url ??
                     null,
-                  cost: doneCost,
-                  latencyMs: doneLatencyMs,
+                  sources: normalizeMessageSources(
+                    (messageMeta as { sources?: unknown }).sources ??
+                    (messageMeta as { citations?: unknown }).citations,
+                  ),
                 }
-              : {
-                  inputTokens: tokensInput,
-                  outputTokens: tokensOutput,
-                  cost: doneCost,
-                  latencyMs: doneLatencyMs,
-                };
+              : undefined;
 
             const sanitized = extractThinkingContent(
               messageText || assistantContent || "API didn't respond",
-            );
-            const mergedThinkingContent = mergeReasoningContent(
-              assistantReasoning,
-              sanitized.thinkingText,
             );
 
             // Extract image data from done event if present
@@ -1224,8 +1088,8 @@ export function ChatInterface({
             updateAiMessage({
               content:
                 sanitized.visibleText ||
-                (mergedThinkingContent ? "" : "API didn't respond"),
-              thinkingContent: mergedThinkingContent,
+                (sanitized.thinkingText ? "" : "API didn't respond"),
+              thinkingContent: sanitized.thinkingText,
               chatMessageId:
                 resolvedMessageId !== null && resolvedMessageId !== undefined
                   ? String(resolvedMessageId)
@@ -1234,20 +1098,19 @@ export function ChatInterface({
               isLoading: false,
               ...(doneImageUrl && { imageUrl: doneImageUrl }),
               ...(doneImageAlt && { imageAlt: doneImageAlt }),
-              ...(doneCitations.length > 0 && { citations: doneCitations }),
-              ...(collectedMemoryResults.length > 0 && { memoryResults: [...collectedMemoryResults] }),
             });
 
             if (
-              parsed.chat_id
+              !isPersonaTest &&
+              parsed.chat_id &&
+              layoutContext?.setActiveChatId
             ) {
-              const doneTitle =
-                typeof parsed.title === "string"
-                  ? parsed.title
-                  : typeof parsed.chat_title === "string"
-                  ? parsed.chat_title
-                  : null;
-              syncResolvedChatId(String(parsed.chat_id), doneTitle);
+              const resolved = String(parsed.chat_id);
+              currentChatId = resolved;
+              layoutContext.setActiveChatId(resolved);
+              if (messageBufferRef.current.length > 0) {
+                setMessages(messageBufferRef.current, resolved);
+              }
             }
 
             // Update chat title if provided in done event (works for both new and existing chats)
@@ -1256,14 +1119,11 @@ export function ChatInterface({
               !isPersonaTest &&
               doneTitle &&
               currentChatId &&
-              layoutContext?.setChatBoards
+              layoutContext?.updateChatTitleWithAnimation
             ) {
-              layoutContext.setChatBoards((prev) =>
-                prev.map((board) =>
-                  board.id === currentChatId
-                    ? { ...board, name: String(doneTitle) }
-                    : board,
-                ),
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                String(doneTitle)
               );
             }
 
@@ -1494,8 +1354,8 @@ export function ChatInterface({
         id: userMessageId,
         sender: "user",
         content: trimmedContent,
-        avatarUrl: userAvatar?.imageUrl,
-        avatarHint: userAvatar?.imageHint,
+        avatarUrl: "/personas/userAvatar.png",
+        avatarHint: "User",
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
@@ -1565,74 +1425,6 @@ export function ChatInterface({
     }
   };
 
-  // Handle user selecting a clarification option
-  const handleClarificationSelect = async (answer: string) => {
-    if (!pendingClarification || isClarificationSubmitting) return;
-
-    setIsClarificationSubmitting(true);
-
-    const {
-      userMessage,
-      chatId,
-      userMessageId,
-      model,
-      avatar,
-      refMessageId,
-      pinIds,
-      personaChatHistory,
-      replyToMsgId,
-      files,
-    } = pendingClarification;
-
-    // Create a new loading message for the AI response
-    const newLoadingMessageId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const loadingMessage: Message = {
-      id: newLoadingMessageId,
-      sender: "ai",
-      isLoading: true,
-      content: "",
-      avatarUrl: avatar.avatarUrl,
-      avatarHint: avatar.avatarHint,
-    };
-
-    // Add the loading message
-    setMessages((prev = []) => {
-      const next = [...prev, loadingMessage];
-      messageBufferRef.current = next;
-      return next;
-    }, chatId ?? undefined);
-
-    setIsResponding(true);
-
-    // Clear clarification state
-    setClarificationData(null);
-    setPendingClarification(null);
-
-    // Send request with clarification answer
-    await fetchAiResponse(
-      userMessage,
-      newLoadingMessageId,
-      chatId,
-      userMessageId,
-      model,
-      avatar,
-      refMessageId,
-      undefined,
-      undefined,
-      pinIds,
-      personaChatHistory,
-      replyToMsgId,
-      files,
-      answer, // clarificationAnswer
-    );
-
-    setIsClarificationSubmitting(false);
-  };
-
   const handleInputChange = (value: string) => {
     setInput(value);
 
@@ -1693,10 +1485,37 @@ export function ChatInterface({
     setMentionedPins((prev) => prev.filter((mp) => mp.id !== pinId));
   };
 
-  const handleSelectPersona = (persona: any) => {
+  const handleSelectPersona = async (persona: any) => {
     setSelectedPersona(persona);
     setShowPersonaDropdown(false);
     toast.success(`Persona selected: ${persona.name}`);
+    
+    // If persona has a modelId, fetch models and update the selected model in topbar
+    if (persona.modelId && layoutContext) {
+      try {
+        const response = await fetch(MODELS_ENDPOINT);
+        if (response.ok) {
+          const data = await response.json();
+          const models = normalizeModels(data);
+          
+          // Find the model matching the persona's modelId
+          const matchingModel = models.find(
+            (m) => String(m.id) === String(persona.modelId) || 
+                   String(m.modelId) === String(persona.modelId)
+          );
+          
+          if (matchingModel) {
+            // Update the selected model in the topbar
+            layoutContext.setSelectedModel(matchingModel);
+            layoutContext.setUseFramework(false);
+            toast.info(`Switched to ${matchingModel.modelName}`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch models for persona:", error);
+        // Don't show error toast - persona is still selected, just model wasn't updated
+      }
+    }
   };
 
   const handleAddNewPersona = () => {
@@ -2291,11 +2110,11 @@ export function ChatInterface({
                               msg.metadata?.providerName,
                               msg.metadata?.modelName,
                             ) ||
-                            qwenAvatarUrl,
+                            flowtingLogoUrl,
                           avatarHint:
                             msg.avatarHint ||
                             metadataAvatar?.avatarHint ||
-                            "AI model",
+                            "Flowting AI",
                         }
                       : msg;
 
@@ -2429,6 +2248,13 @@ export function ChatInterface({
                         isNewMessage={msg.id === lastMessageId}
                         taggedPins={taggedPins}
                         isResponding={isResponding}
+                        onOpenSources={
+                          msg.sender === "ai"
+                            ? () => handleOpenSources(msg)
+                            : undefined
+                        }
+                        sourceCount={getMessageSourceCount(msg)}
+                        sourceUrls={getMessageSourceUrls(msg)}
                       />
                     </div>
                   );
@@ -2472,19 +2298,6 @@ export function ChatInterface({
               </svg>
             </span>
           </button>
-        </div>
-      )}
-
-      {/* Clarification Prompt - shown when backend needs more info */}
-      {clarificationData && (
-        <div className="shrink-0 bg-white px-2 pt-2 pb-0">
-          <div className="mx-auto w-full max-w-[756px]">
-            <ClarificationPrompt
-              data={clarificationData}
-              onSelect={handleClarificationSelect}
-              isSubmitting={isClarificationSubmitting}
-            />
-          </div>
         </div>
       )}
 
@@ -2838,13 +2651,11 @@ export function ChatInterface({
                   placeholder={
                     disableInput
                       ? "Save to start chatting..."
-                      : clarificationData
-                        ? "Please answer the question above..."
-                        : "Ask your persona .... "
+                      : "Ask your persona .... "
                   }
                   className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey shadow-none!"
                   rows={1}
-                  disabled={isResponding || disableInput || !!clarificationData}
+                  disabled={isResponding || disableInput}
                 />
               </div>
 
@@ -2922,182 +2733,227 @@ export function ChatInterface({
                   </div>
                 )}
 
-                {!hidePersonaButton && (
-                  <div className="relative" ref={personaDropdownRef}>
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setShowPersonaDropdown(!showPersonaDropdown)
-                      }
-                      className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
-                      title="Choose Persona"
-                    >
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
-                        <UserPlus className="h-3 w-3" />
-                      </div>
-                      <span>
-                        {selectedPersona
-                          ? selectedPersona.name
-                          : "Choose Persona"}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Button>
-
-                    {showPersonaDropdown && (
-                      <div
-                        className="absolute bottom-full left-0 mb-2 rounded-lg border border-[#E5E5E5] bg-white shadow-lg overflow-hidden"
-                        style={{ width: "291px", maxHeight: "181px" }}
-                        role="listbox"
-                        aria-expanded={showPersonaDropdown}
-                        tabIndex={-1}
-                        onKeyDown={(e) => {
-                          if (activePersonas.length === 0) return;
-
-                          // Total items = personas + "Add new persona" button
-                          const totalItems = activePersonas.length + 1;
-
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            setHighlightedPersonaIndex((prev) => {
-                              const next =
-                                prev === -1 ? 0 : (prev + 1) % totalItems;
-                              return next;
-                            });
-                          } else if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            setHighlightedPersonaIndex((prev) => {
-                              if (prev === -1 || prev === 0)
-                                return totalItems - 1;
-                              return prev - 1;
-                            });
-                          } else if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (
-                              highlightedPersonaIndex >= 0 &&
-                              highlightedPersonaIndex < activePersonas.length
-                            ) {
-                              handleSelectPersona(
-                                activePersonas[highlightedPersonaIndex],
-                              );
-                            } else if (
-                              highlightedPersonaIndex === activePersonas.length
-                            ) {
-                              handleAddNewPersona();
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            setShowPersonaDropdown(false);
-                          }
-                        }}
+                {/* Persona dropdown and web search indicator */}
+                <div className="flex items-center gap-2">
+                  {!hidePersonaButton && (
+                    <div className="relative" ref={personaDropdownRef}>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          setShowPersonaDropdown(!showPersonaDropdown)
+                        }
+                        className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                        title="Choose Persona"
                       >
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
+                          <UserPlus className="h-3 w-3" />
+                        </div>
+                        <span>
+                          {selectedPersona
+                            ? selectedPersona.name
+                            : "Choose Persona"}
+                        </span>
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+
+                      {showPersonaDropdown && (
                         <div
-                          className="max-h-[calc(5*32px)] overflow-y-auto overflow-x-hidden px-[5px] py-1"
-                          style={{ scrollbarWidth: "thin" }}
+                          className="absolute bottom-full left-0 mb-2 rounded-lg border border-[#E5E5E5] bg-white shadow-lg overflow-hidden"
+                          style={{ width: "291px", maxHeight: "181px" }}
+                          role="listbox"
+                          aria-expanded={showPersonaDropdown}
+                          tabIndex={-1}
+                          onKeyDown={(e) => {
+                            if (activePersonas.length === 0) return;
+
+                            // Total items = personas + "Add new persona" button
+                            const totalItems = activePersonas.length + 1;
+
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setHighlightedPersonaIndex((prev) => {
+                                const next =
+                                  prev === -1 ? 0 : (prev + 1) % totalItems;
+                                return next;
+                              });
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setHighlightedPersonaIndex((prev) => {
+                                if (prev === -1 || prev === 0)
+                                  return totalItems - 1;
+                                return prev - 1;
+                              });
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (
+                                highlightedPersonaIndex >= 0 &&
+                                highlightedPersonaIndex < activePersonas.length
+                              ) {
+                                handleSelectPersona(
+                                  activePersonas[highlightedPersonaIndex],
+                                );
+                              } else if (
+                                highlightedPersonaIndex === activePersonas.length
+                              ) {
+                                handleAddNewPersona();
+                              }
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              setShowPersonaDropdown(false);
+                            }
+                          }}
                         >
-                          {activePersonas.length === 0 ? (
-                            <div className="px-2 py-4 text-center text-xs text-[#888888]">
-                              No active personas available
-                            </div>
-                          ) : (
-                            activePersonas.map((persona, idx) => (
-                              <button
-                                key={persona.id}
-                                type="button"
-                                role="option"
-                                aria-selected={
-                                  selectedPersona?.id === persona.id
-                                }
-                                onClick={() => handleSelectPersona(persona)}
-                                onMouseEnter={() =>
-                                  setHighlightedPersonaIndex(idx)
-                                }
-                                onMouseLeave={() =>
-                                  setHighlightedPersonaIndex(-1)
-                                }
-                                className={
-                                  `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
-                                  (idx === highlightedPersonaIndex &&
-                                  highlightedPersonaIndex >= 0
-                                    ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                    : selectedPersona?.id === persona.id
+                          <div
+                            className="max-h-[calc(5*32px)] overflow-y-auto overflow-x-hidden px-[5px] py-1"
+                            style={{ scrollbarWidth: "thin" }}
+                          >
+                            {activePersonas.length === 0 ? (
+                              <div className="px-2 py-4 text-center text-xs text-[#888888]">
+                                No active personas available
+                              </div>
+                            ) : (
+                              activePersonas.map((persona, idx) => (
+                                <button
+                                  key={persona.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={
+                                    selectedPersona?.id === persona.id
+                                  }
+                                  onClick={() => handleSelectPersona(persona)}
+                                  onMouseEnter={() =>
+                                    setHighlightedPersonaIndex(idx)
+                                  }
+                                  onMouseLeave={() =>
+                                    setHighlightedPersonaIndex(-1)
+                                  }
+                                  className={
+                                    `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                    (idx === highlightedPersonaIndex &&
+                                    highlightedPersonaIndex >= 0
                                       ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                      : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
-                                }
-                                style={{
-                                  width: "280px",
-                                  minHeight: "32px",
-                                  paddingRight: "8px",
-                                }}
-                              >
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] border border-[#E5E5E5]">
-                                  {persona.avatar ? (
-                                    <img
-                                      src={persona.avatar}
-                                      alt={persona.name}
-                                      className="h-full w-full rounded-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-[10px] font-medium text-[#666666]">
-                                      {persona.name.charAt(0).toUpperCase()}
+                                      : selectedPersona?.id === persona.id
+                                        ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
+                                        : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
+                                  }
+                                  style={{
+                                    width: "280px",
+                                    minHeight: "32px",
+                                    paddingRight: "8px",
+                                  }}
+                                >
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] border border-[#E5E5E5]">
+                                    {persona.avatar ? (
+                                      <img
+                                        src={persona.avatar}
+                                        alt={persona.name}
+                                        className="h-full w-full rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-[10px] font-medium text-[#666666]">
+                                        {persona.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="flex-1 truncate font-medium pr-0">
+                                    {persona.name}
+                                  </span>
+                                  {(persona.modelName || persona.providerName) && (
+                                    <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[10px] font-medium text-[#666666] border border-[#E5E5E5]">
+                                      {persona.modelName || persona.providerName}
                                     </span>
                                   )}
-                                </div>
-                                <span className="flex-1 truncate font-medium pr-0">
-                                  {persona.name}
-                                </span>
-                              </button>
-                            ))
-                          )}
-                        </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
 
-                        {activePersonas.length > 0 && (
-                          <>
-                            <div
-                              className="mx-[5px] my-1"
-                              style={{
-                                width: "280px",
-                                height: "1px",
-                                backgroundColor:
-                                  "var(--general-border, #E5E5E5)",
-                              }}
-                            />
-                            <div className="px-[5px] pb-1">
-                              <button
-                                type="button"
-                                onClick={handleAddNewPersona}
-                                onMouseEnter={() =>
-                                  setHighlightedPersonaIndex(
-                                    activePersonas.length,
-                                  )
-                                }
-                                onMouseLeave={() =>
-                                  setHighlightedPersonaIndex(-1)
-                                }
-                                className={
-                                  `w-full flex items-center gap-2 rounded-[6px] px-2 py-[5.5px] text-left text-xs transition-colors ` +
-                                  (highlightedPersonaIndex ===
-                                  activePersonas.length
-                                    ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                    : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
-                                }
+                          {activePersonas.length > 0 && (
+                            <>
+                              <div
+                                className="mx-[5px] my-1"
                                 style={{
                                   width: "280px",
-                                  minHeight: "32px",
-                                  paddingRight: "8px",
+                                  height: "1px",
+                                  backgroundColor:
+                                    "var(--general-border, #E5E5E5)",
                                 }}
-                              >
-                                <Plus className="h-4 w-4" />
-                                <span className="font-medium">
-                                  Add new persona
-                                </span>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                              />
+                              <div className="px-[5px] pb-1">
+                                <button
+                                  type="button"
+                                  onClick={handleAddNewPersona}
+                                  onMouseEnter={() =>
+                                    setHighlightedPersonaIndex(
+                                      activePersonas.length,
+                                    )
+                                  }
+                                  onMouseLeave={() =>
+                                    setHighlightedPersonaIndex(-1)
+                                  }
+                                  className={
+                                    `w-full flex items-center gap-2 rounded-[6px] px-2 py-[5.5px] text-left text-xs transition-colors ` +
+                                    (highlightedPersonaIndex ===
+                                    activePersonas.length
+                                      ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
+                                      : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
+                                  }
+                                  style={{
+                                    width: "280px",
+                                    minHeight: "32px",
+                                    paddingRight: "8px",
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  <span className="font-medium">
+                                    Add new persona
+                                  </span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Web search indicator button */}
+                  {webSearchEnabled && (
+                    <button
+                      type="button"
+                      aria-label="Disable web search"
+                      onClick={() => setWebSearchEnabled(false)}
+                      style={{
+                        width: "152.5px",
+                        height: "36px",
+                        minHeight: "36px",
+                        borderRadius: "8px",
+                        padding: "7.5px 4px",
+                        gap: "8px",
+                        opacity: 1,
+                        background: "#F0F7FF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: "Geist, sans-serif",
+                        fontWeight: 500,
+                        fontSize: "14px",
+                        lineHeight: "150%",
+                        letterSpacing: "0.5%",
+                        color: "#2563eb",
+                        boxShadow: "none",
+                        border: "none",
+                        marginLeft: "2px"
+                      }}
+                    >
+                      <Globe className="h-4 w-4 mr-2" style={{ color: "#2563eb" }} />
+                      <span style={{ flex: 1, textAlign: "center", color: "#2563eb" }}>Web Search</span>
+                      <X
+                        className="h-4 w-4 ml-2 cursor-pointer"
+                        style={{ color: "#2563eb" }}
+                      />
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
                   {/* <span className="text-sm font-medium text-[#888888]">
@@ -3126,8 +2982,7 @@ export function ChatInterface({
                             disabled={
                               (!selectedModel &&
                                 !layoutContext?.useFramework) ||
-                              disableInput ||
-                              !!clarificationData
+                              disableInput
                             }
                             className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                           >
@@ -3135,17 +2990,14 @@ export function ChatInterface({
                           </Button>
                         </TooltipTrigger>
                         {((!selectedModel && !layoutContext?.useFramework) ||
-                          disableInput ||
-                          clarificationData) && (
+                          disableInput) && (
                           <TooltipContent
                             side="top"
                             className="bg-[#1E1E1E] text-white px-3 py-2 text-sm"
                           >
-                            {clarificationData
-                              ? "Please answer the clarification question above"
-                              : disableInput
-                                ? "Save to test first to enable chat"
-                                : "Please select a model to start the conversation"}
+                            {disableInput
+                              ? "Save to test first to enable chat"
+                              : "Please select a model to start the conversation"}
                           </TooltipContent>
                         )}
                       </Tooltip>

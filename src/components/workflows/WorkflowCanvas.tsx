@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import ReactFlow, {
   ReactFlowProvider,
   Background,
@@ -70,6 +70,7 @@ const getId = () => `node_${id++}`;
 function WorkflowCanvasInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   // Initialize with start and end nodes - centered positions
   const initialNodes = [
@@ -207,8 +208,10 @@ function WorkflowCanvasInner() {
   const [isSaving, setIsSaving] = useState(false);
   const isInitialMount = useRef(true);
   const hasLoadedQueryWorkflow = useRef(false);
+  const hasJustSaved = useRef(false);
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
@@ -493,6 +496,11 @@ function WorkflowCanvasInner() {
       isInitialMount.current = false;
       return;
     }
+    // Skip if we just saved - prevents immediate re-flagging as unsaved
+    if (hasJustSaved.current) {
+      hasJustSaved.current = false;
+      return;
+    }
     if (nodes.length > 0) {
       setHasUnsavedChanges(true);
     }
@@ -508,6 +516,17 @@ function WorkflowCanvasInner() {
       return () => clearTimeout(timer);
     }
   }, [saveStatus]);
+
+  // Prompt user when leaving with unsaved changes (browser close/refresh)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Undo
   const handleUndo = useCallback(() => {
@@ -599,6 +618,7 @@ function WorkflowCanvasInner() {
     setShowPinInspector(false);
     setShowPersonaInspector(false);
     setShowModelInspector(false);
+    setShowWorkflowChat(false);
     setCurrentInstructionsNodeId(null);
     setDocumentNodeId(null);
     setChatNodeId(null);
@@ -720,6 +740,7 @@ function WorkflowCanvasInner() {
     setShowPinInspector(false);
     setShowPersonaInspector(false);
     setShowModelInspector(false);
+    setShowWorkflowChat(false);
     
     // Open appropriate inspector based on node type
     if (nodeData.type === 'document') {
@@ -759,6 +780,7 @@ function WorkflowCanvasInner() {
     setCurrentInstructionsNodeId(null);
     setShowEdgeDetails(false);
     setSelectedEdgeForDetails(null);
+    // Note: Don't close workflow chat on pane click - let user explicitly close it
   }, []);
 
   // Node drag handler - Removed auto-duplication to prevent glitches
@@ -834,29 +856,50 @@ function WorkflowCanvasInner() {
     setIsClearDialogOpen(false);
   }, [setNodes, setEdges, saveToHistory]);
 
-  // Save workflow to local storage only (backend is sent on Test click)
-  const handleSave = useCallback(() => {
+  // Save workflow to backend (enables Test and Run after first save). Returns true if saved successfully.
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const trimmedName = workflowName.trim();
-    if (!trimmedName || trimmedName.toLowerCase() === 'untitled workflow') {
-      toast.error("Please enter a workflow name");
-      return;
+    if (!trimmedName || trimmedName.toLowerCase() === "untitled workflow") {
+      toast.error("Workflow name required", {
+        description: "Rename your workflow before saving.",
+      });
+      return false;
     }
-
+    if (!canTestWorkflow) {
+      toast.error("Configure workflow before saving", {
+        description: testWorkflowDisabledReason || "Add and configure at least one reasoning model node.",
+      });
+      return false;
+    }
+    const validation = validateWorkflow(nodes, edges);
+    if (!validation.valid) {
+      toast.error("Cannot save workflow", {
+        description: validation.errors.join(", "),
+      });
+      return false;
+    }
     try {
+      setIsSaving(true);
+      setSaveStatus("Saving...");
       const viewport = getViewport();
-      const workflowDTO = serializeWorkflow(workflowName, nodes, edges, viewport);
-      const localDraftId = workflowId || "workflow_draft";
-
-      // Save to local storage only
-      saveToLocalStorage(localDraftId, workflowDTO);
-
+      const workflowDTO = serializeWorkflow(trimmedName, nodes, edges, viewport);
+      const saved = await workflowAPI.upsert(workflowId, workflowDTO);
+      if (saved.id && saved.id !== workflowId) {
+        setWorkflowId(saved.id);
+      }
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
-      setSaveStatus("Draft saved locally");
-      console.log("Workflow saved to local storage");
+      setSaveStatus("Saved");
+      return true;
     } catch (error) {
-      console.error("Local save failed:", error);
+      console.error("Save failed:", error);
+      toast.error("Failed to save workflow", { description: "Please try again." });
+      setSaveStatus("Save failed");
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-  }, [workflowId, nodes, edges, workflowName, getViewport]);
+  }, [workflowId, nodes, edges, workflowName, getViewport, canTestWorkflow, testWorkflowDisabledReason]);
 
   // Load workflow
   const handleLoad = useCallback(() => {
@@ -874,6 +917,7 @@ function WorkflowCanvasInner() {
       }
       // Don't show save status on load
       setSaveStatus(null);
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       saveToHistory();
     }
@@ -896,6 +940,7 @@ function WorkflowCanvasInner() {
       
       // Reset save status
       setSaveStatus(null);
+      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       saveToHistory();
       
@@ -919,6 +964,14 @@ function WorkflowCanvasInner() {
     if (workflowIdFromQuery) {
       handleLoadWorkflow(workflowIdFromQuery).finally(() => {
         if (openChatMode) {
+          // Close all dialogs when opening chat
+          setShowInstructions(false);
+          setShowDocumentInspector(false);
+          setShowChatInspector(false);
+          setShowPinInspector(false);
+          setShowPersonaInspector(false);
+          setShowModelInspector(false);
+          setShowEdgeDetails(false);
           setShowWorkflowChat(true);
         }
       });
@@ -926,78 +979,46 @@ function WorkflowCanvasInner() {
     }
 
     if (openChatMode) {
+      // Close all dialogs when opening chat
+      setShowInstructions(false);
+      setShowDocumentInspector(false);
+      setShowChatInspector(false);
+      setShowPinInspector(false);
+      setShowPersonaInspector(false);
+      setShowModelInspector(false);
+      setShowEdgeDetails(false);
       setShowWorkflowChat(true);
     }
   }, [searchParams, handleLoadWorkflow]);
 
-  // Test workflow - Send graph to backend and execute
-  const handleTest = async () => {
-    // VALIDATION 1: Workflow name is required
-    const trimmedName = workflowName.trim();
-    if (!trimmedName || trimmedName.toLowerCase() === 'untitled workflow') {
-      toast.error("Workflow name required", {
-        description: "Please rename your workflow before testing."
-      });
-      return;
+  // Test workflow - open in-built chat only (no save, no chat persistence). URL becomes ?id=X&chatMode=true
+  const handleTest = useCallback(() => {
+    if (!workflowId) return;
+    setShowInstructions(false);
+    setShowDocumentInspector(false);
+    setShowChatInspector(false);
+    setShowPinInspector(false);
+    setShowPersonaInspector(false);
+    setShowModelInspector(false);
+    setShowEdgeDetails(false);
+    setShowWorkflowChat(true);
+    router.replace(`/workflows?id=${workflowId}&chatMode=true`);
+  }, [workflowId, router]);
+
+  // Run workflow - navigate to dedicated workflow chat page (highlighted in recent workflows board)
+  const handleRun = useCallback(() => {
+    if (!workflowId) return;
+    router.push(`/workflowAdmin/chat/${workflowId}`);
+  }, [workflowId, router]);
+
+  // Back: show leave dialog if unsaved, else navigate to workflowAdmin
+  const handleBack = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setShowLeaveConfirm(true);
+    } else {
+      router.push("/workflowAdmin");
     }
-
-    // VALIDATION 2: Must have at least one configured reasoning node
-    if (!canTestWorkflow) {
-      toast.error("Cannot test workflow", {
-        description: testWorkflowDisabledReason || "Configure workflow before testing."
-      });
-      return;
-    }
-
-    // VALIDATION 3: Validate graph structure
-    const validation = validateWorkflow(nodes, edges);
-    if (!validation.valid) {
-      toast.error("Cannot test workflow", {
-        description: validation.errors.join(', ')
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setSaveStatus("Sending to backend...");
-
-      // Serialize and send graph to backend
-      const viewport = getViewport();
-      const workflowDTO = serializeWorkflow(trimmedName, nodes, edges, viewport);
-
-      console.log("[handleTest] Sending graph to backend:", {
-        name: trimmedName,
-        nodeCount: nodes.length,
-        edgeCount: edges.length,
-      });
-
-      // Send to backend - create or update
-      const saved = await workflowAPI.upsert(workflowId, workflowDTO);
-
-      if (saved.id && saved.id !== workflowId) {
-        setWorkflowId(saved.id);
-      }
-
-      setHasUnsavedChanges(false);
-      setSaveStatus("Saved");
-
-      console.log("[handleTest] Graph sent successfully, workflowId:", saved.id);
-
-      // Execute the workflow
-      executeWorkflow();
-      setShowWorkflowChat(true);
-
-    } catch (error) {
-      console.error("[handleTest] Failed to send graph to backend:", error);
-      toast.error("Failed to save workflow", {
-        description: "Please try again."
-      });
-      setSaveStatus("Save failed");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  }, [hasUnsavedChanges, router]);
 
   const handleRunStart = useCallback(() => {
     setNodes((nds) =>
@@ -1331,9 +1352,14 @@ function WorkflowCanvasInner() {
       <TopBar
         workflowName={workflowName}
         onNameChange={setWorkflowName}
+        onBack={handleBack}
+        onSave={handleSave}
         onTest={handleTest}
+        onRun={handleRun}
         onShare={handleShare}
-        onReset={resetWorkflow}
+        workflowId={workflowId}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isSaving={isSaving}
         isExecuting={isExecuting}
         canTestWorkflow={canTestWorkflow}
         testDisabledReason={testWorkflowDisabledReason}
@@ -1572,7 +1598,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
         onRedo={handleRedo}
         onFitView={() => fitView({ duration: 300 })}
         onClear={handleClear}
-        onSave={handleSave}
+        onSave={() => void handleSave()}
         onLoad={() => setShowLoadDialog(true)}
         onZoomIn={() => zoomIn({ duration: 300 })}
         onZoomOut={() => zoomOut({ duration: 300 })}
@@ -1580,6 +1606,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
         showMinimap={showMinimap}
+        saveDisabled={!hasUnsavedChanges}
       />
 
       {/* Footer */}
@@ -1643,6 +1670,54 @@ Please provide clear, specific, and well-structured instructions to ensure accur
               onClick={handleConfirmClear}
             >
               Clear workflow
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave with unsaved changes */}
+      <AlertDialog
+        open={showLeaveConfirm}
+        onOpenChange={(open) => {
+          if (!open) setShowLeaveConfirm(false);
+        }}
+      >
+        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-black">
+              Unsaved changes
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[#6B7280]">
+              You have unsaved changes. Do you want to save before leaving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              onClick={() => setShowLeaveConfirm(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-[25px] bg-white border border-[#D4D4D4] text-[#6B7280] hover:bg-[#f5f5f5]"
+              onClick={() => {
+                setShowLeaveConfirm(false);
+                router.push("/workflowAdmin");
+              }}
+            >
+              Don&apos;t save
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="rounded-[25px] bg-[#171717] text-white hover:bg-[#0A0A0A]"
+              onClick={async () => {
+                const saved = await handleSave();
+                if (saved) {
+                  setShowLeaveConfirm(false);
+                  router.push("/workflowAdmin");
+                }
+              }}
+            >
+              Save
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
