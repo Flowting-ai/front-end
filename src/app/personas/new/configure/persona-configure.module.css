@@ -943,7 +943,7 @@
 }
 
 .suggestedButton {
-  height: 32px;
+  height: auto;
   min-height: 32px;
   padding: 5.5px 12px;
   font-size: 14px;
@@ -956,10 +956,9 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  text-align: center;
-  white-space: nowrap;
-  width: auto;
-  min-width: fit-content;
+  text-align: left;
+  white-space: normal;
+  @apply cursor-pointer;
 }
 
 .suggestedButton:hover {

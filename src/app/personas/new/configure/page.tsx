@@ -68,7 +68,11 @@ import { normalizeModels } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { REFINEMENT_STEPS } from "./types";
 import { dataUrlToFile } from "./utils";
-import { createPersona, fetchPersonaById, PERSONA_TEST_STREAM_ENDPOINT } from "@/lib/api/personas";
+import {
+  createPersona,
+  fetchPersonaById,
+  PERSONA_TEST_STREAM_ENDPOINT,
+} from "@/lib/api/personas";
 import { useAuth } from "@/context/auth-context";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -76,7 +80,11 @@ import { API_BASE_URL } from "@/lib/config";
 const getFullAvatarUrl = (url: string | null | undefined): string | null => {
   if (!url || url.trim() === "") return null;
   // Already a full URL (http/https) or data URL
-  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) {
+  if (
+    url.startsWith("http") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
     return url;
   }
   // Relative path - prepend backend URL
@@ -88,7 +96,11 @@ const shouldUseUnoptimized = (url: string | null | undefined): boolean => {
   if (!url) return false;
   const fullUrl = getFullAvatarUrl(url);
   if (!fullUrl) return false;
-  return fullUrl.startsWith("data:") || fullUrl.startsWith("blob:") || fullUrl.startsWith("http");
+  return (
+    fullUrl.startsWith("data:") ||
+    fullUrl.startsWith("blob:") ||
+    fullUrl.startsWith("http")
+  );
 };
 
 function PersonaConfigurePageContent() {
@@ -156,6 +168,7 @@ function PersonaConfigurePageContent() {
     selectedDonts,
     suggestedDos,
     suggestedDonts,
+    dosSkipped,
     setCurrentStep,
     setDosText,
     setDontsText,
@@ -170,6 +183,12 @@ function PersonaConfigurePageContent() {
     handleSkip,
     reset: resetRefinement,
   } = useRefinement(hasEnhancedContent);
+
+  const isRefinementComplete =
+    hasEnhancedContent &&
+    !!selectedTone &&
+    (selectedDos.length > 0 || dosText.trim() !== "" || dosSkipped) &&
+    (selectedDonts.length > 0 || dontsText.trim() !== "");
 
   // Check if persona is ready to be saved
   const isPersonaReady = useMemo(() => {
@@ -265,7 +284,10 @@ function PersonaConfigurePageContent() {
           setModels(normalized);
           sessionStorage.setItem("aiModels", JSON.stringify(normalized));
         } else {
-          console.warn("Failed to fetch models for persona configure", response.status);
+          console.warn(
+            "Failed to fetch models for persona configure",
+            response.status,
+          );
         }
       } catch (error) {
         console.warn("Error fetching models for persona configure", error);
@@ -288,14 +310,18 @@ function PersonaConfigurePageContent() {
       try {
         const savedAvatar = sessionStorage.getItem("personaAvatar");
         if (savedAvatar) {
-          console.log("✅ Loaded avatar from sessionStorage, size:", savedAvatar.length, "bytes");
+          console.log(
+            "✅ Loaded avatar from sessionStorage, size:",
+            savedAvatar.length,
+            "bytes",
+          );
           console.log("✅ Avatar preview:", savedAvatar.substring(0, 100));
           setAvatarUrl(savedAvatar);
         } else {
           console.log("ℹ️ No avatar in sessionStorage");
         }
       } catch (error) {
-        console.error('❌ Failed to load avatar from sessionStorage:', error);
+        console.error("❌ Failed to load avatar from sessionStorage:", error);
       }
     }
 
@@ -328,13 +354,19 @@ function PersonaConfigurePageContent() {
           if (personaData.modelId) {
             const modelIdStr = String(personaData.modelId);
             console.log("🔍 Setting model ID:", modelIdStr);
-            console.log("📋 Available models:", models.map(m => ({ id: m.modelId, name: m.modelName })));
+            console.log(
+              "📋 Available models:",
+              models.map((m) => ({ id: m.modelId, name: m.modelName })),
+            );
             setSelectedModel(modelIdStr);
           }
 
           // Set avatar if available (only when editing existing persona)
           if (personaData.imageUrl) {
-            console.log("✅ Loading existing persona avatar:", personaData.imageUrl);
+            console.log(
+              "✅ Loading existing persona avatar:",
+              personaData.imageUrl,
+            );
             const fullUrl = getFullAvatarUrl(personaData.imageUrl);
             console.log("✅ Full avatar URL:", fullUrl);
             setAvatarUrl(fullUrl); // Use full URL instead of relative path
@@ -358,7 +390,7 @@ function PersonaConfigurePageContent() {
     const match = models.find(
       (m) =>
         String(m.modelId ?? m.id ?? m.modelName) === selectedModel ||
-        `${m.companyName}: ${m.modelName}` === selectedModel
+        `${m.companyName}: ${m.modelName}` === selectedModel,
     );
     return match || null;
   }, [models, selectedModel]);
@@ -485,13 +517,24 @@ function PersonaConfigurePageContent() {
         console.log("✅ Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
         if (imageFile) {
-          console.log("✅ Converted to file:", imageFile.name, imageFile.size, "bytes, type:", imageFile.type);
+          console.log(
+            "✅ Converted to file:",
+            imageFile.name,
+            imageFile.size,
+            "bytes, type:",
+            imageFile.type,
+          );
         } else {
           console.error("❌ Failed to convert data URL to file");
         }
       }
 
-      console.log("💾 Saving persona with image:", imageFile ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})` : "no image");
+      console.log(
+        "💾 Saving persona with image:",
+        imageFile
+          ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})`
+          : "no image",
+      );
 
       const personaPayload = {
         name: personaName.trim(),
@@ -499,7 +542,9 @@ function PersonaConfigurePageContent() {
         modelId:
           resolvedSelectedModel?.modelId ??
           resolvedSelectedModel?.id ??
-          (Number.isFinite(Number(selectedModel)) ? Number(selectedModel) : null),
+          (Number.isFinite(Number(selectedModel))
+            ? Number(selectedModel)
+            : null),
         status: "test" as const,
         image: imageFile,
       };
@@ -513,10 +558,10 @@ function PersonaConfigurePageContent() {
 
       // Clean up avatar from sessionStorage after successful creation
       try {
-        sessionStorage.removeItem('personaAvatar');
+        sessionStorage.removeItem("personaAvatar");
         console.log("Cleaned up avatar from sessionStorage");
       } catch (error) {
-        console.error('Failed to clean up sessionStorage:', error);
+        console.error("Failed to clean up sessionStorage:", error);
       }
 
       setCreatedPersonaId(created.id);
@@ -537,7 +582,8 @@ function PersonaConfigurePageContent() {
       try {
         const parsed = JSON.parse(errorMessage);
         if (parsed.name || parsed.detail || parsed.message) {
-          errorMessage = parsed.name?.[0] || parsed.detail || parsed.message || errorMessage;
+          errorMessage =
+            parsed.name?.[0] || parsed.detail || parsed.message || errorMessage;
         }
       } catch {
         // Not JSON, use as-is
@@ -546,11 +592,13 @@ function PersonaConfigurePageContent() {
       const lowerError = errorMessage.toLowerCase();
 
       // Check for duplicate name error
-      if (lowerError.includes("name") &&
-          (lowerError.includes("exist") ||
-           lowerError.includes("duplicate") ||
-           lowerError.includes("already") ||
-           lowerError.includes("unique"))) {
+      if (
+        lowerError.includes("name") &&
+        (lowerError.includes("exist") ||
+          lowerError.includes("duplicate") ||
+          lowerError.includes("already") ||
+          lowerError.includes("unique"))
+      ) {
         toast.error("Name Already Exists", {
           description: `A persona with the name "${personaName}" already exists. Please choose a different name.`,
         });
@@ -601,7 +649,9 @@ function PersonaConfigurePageContent() {
                 className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
               >
                 <ChevronLeft className="h-4 w-4" />
-                {searchParams.get("personaId") ? "Back to Dashboard" : "Back to Edit"}
+                {searchParams.get("personaId")
+                  ? "Back to Dashboard"
+                  : "Back to Edit"}
               </Button>
 
               <Button
@@ -617,7 +667,7 @@ function PersonaConfigurePageContent() {
 
             {/* Chat Container */}
             <div
-            className="w-[1072px] min-w-[1072px] max-w-[1072px] h-full max-h-[calc(100vh-140px)]"
+              className="w-[1072px] min-w-[1072px] max-w-[1072px] h-full max-h-[calc(100vh-140px)]"
               style={{
                 borderRadius: "30px",
                 padding: "12px",
@@ -663,10 +713,22 @@ function PersonaConfigurePageContent() {
                       >
                         <img
                           src={(() => {
-                            const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                            const uploadedImage = uploadedFiles.find(
+                              (f) => f.type === "image",
+                            )?.url;
                             const resolvedAvatar = getFullAvatarUrl(avatarUrl);
-                            const finalSrc = uploadedImage || resolvedAvatar || "/avatars/personaAvatarPlaceHolder.svg";
-                            console.log("🖼️ Avatar display - uploaded:", !!uploadedImage, "avatar:", !!resolvedAvatar, "final:", finalSrc.substring(0, 100));
+                            const finalSrc =
+                              uploadedImage ||
+                              resolvedAvatar ||
+                              "/avatars/personaAvatarPlaceHolder.svg";
+                            console.log(
+                              "🖼️ Avatar display - uploaded:",
+                              !!uploadedImage,
+                              "avatar:",
+                              !!resolvedAvatar,
+                              "final:",
+                              finalSrc.substring(0, 100),
+                            );
                             return finalSrc;
                           })()}
                           alt="Persona"
@@ -736,13 +798,21 @@ function PersonaConfigurePageContent() {
                             if (personaId) {
                               router.push("/personaAdmin");
                             } else {
-                              router.push(hasFinishedBuilding ? "/personas" : "/personas/new");
+                              router.push(
+                                hasFinishedBuilding
+                                  ? "/personas"
+                                  : "/personas/new",
+                              );
                             }
                           }}
                           className={styles.backButton}
                         >
                           <ArrowLeft className="h-4 w-4" />
-                          {searchParams.get("personaId") ? "Back " : hasFinishedBuilding ? "Go to home" : "Back"}
+                          {searchParams.get("personaId")
+                            ? "Back "
+                            : hasFinishedBuilding
+                              ? "Go to home"
+                              : "Back"}
                         </Button>
                       </div>
                       <div className={styles.headerActions}>
@@ -786,7 +856,10 @@ function PersonaConfigurePageContent() {
                                         selectedModelData.companyName,
                                         selectedModelData.modelName,
                                       )}
-                                      alt={selectedModelData.companyName || "Model icon"}
+                                      alt={
+                                        selectedModelData.companyName ||
+                                        "Model icon"
+                                      }
                                       width={20}
                                       height={20}
                                       className={styles.modelIcon}
@@ -795,7 +868,9 @@ function PersonaConfigurePageContent() {
                                   </div>
                                 ) : (
                                   <span className={cn(styles.placeholderText)}>
-                                    {isLoadingModels ? "Loading models..." : "Select Model"}
+                                    {isLoadingModels
+                                      ? "Loading models..."
+                                      : "Select Model"}
                                   </span>
                                 )}
                               </div>
@@ -805,12 +880,14 @@ function PersonaConfigurePageContent() {
                         <SelectContent className={styles.selectContent}>
                           {models.length === 0 && (
                             <div className="px-3 py-2 text-sm text-[#6B7280]">
-                              {isLoadingModels ? "Loading..." : "No models available"}
+                              {isLoadingModels
+                                ? "Loading..."
+                                : "No models available"}
                             </div>
                           )}
                           {models.map((model) => {
                             const value = String(
-                              model.modelId ?? model.id ?? model.modelName
+                              model.modelId ?? model.id ?? model.modelName,
                             );
                             return (
                               <SelectItem
@@ -822,7 +899,7 @@ function PersonaConfigurePageContent() {
                                   <Image
                                     src={getModelIcon(
                                       model.companyName,
-                                      model.modelName
+                                      model.modelName,
                                     )}
                                     alt={model.companyName || "Model"}
                                     width={20}
@@ -881,7 +958,7 @@ function PersonaConfigurePageContent() {
                                 {currentStep === REFINEMENT_STEPS.TONE && (
                                   <div className={styles.refinementSection}>
                                     <h3 className={styles.refinementTitle}>
-                                      Let's refine your persona in 1/4 steps
+                                      Let&apos;s refine your persona in 1/3 steps
                                     </h3>
                                     <p className={styles.refinementSubtitle}>
                                       We detected a few areas that could be
@@ -964,9 +1041,11 @@ function PersonaConfigurePageContent() {
 
                                 {/* Step 2: Dos Section */}
                                 {currentStep === REFINEMENT_STEPS.DOS && (
-                                  <div className={`overflow-x-auto ${styles.dosDontsSection}`}>
+                                  <div
+                                    className={`overflow-x-auto ${styles.dosDontsSection}`}
+                                  >
                                     <h3 className={styles.refinementTitle}>
-                                      Let's refine your persona in 2/3 steps
+                                      Let&apos;s refine your persona in 2/3 steps
                                     </h3>
                                     <h4 className={styles.dosDontsTitle}>
                                       Dos (what do you want the persona to
@@ -990,9 +1069,9 @@ function PersonaConfigurePageContent() {
                                           className={styles.suggestedButtons}
                                         >
                                           {suggestedDos.map((dos) => (
-                                            <Button
+                                            <button
                                               key={dos}
-                                              variant="outline"
+                                              
                                               onClick={() =>
                                                 handleDosToggle(dos)
                                               }
@@ -1003,7 +1082,7 @@ function PersonaConfigurePageContent() {
                                               )}
                                             >
                                               {dos}
-                                            </Button>
+                                            </button>
                                           ))}
                                         </div>
                                       </>
@@ -1015,10 +1094,10 @@ function PersonaConfigurePageContent() {
                                 {currentStep === REFINEMENT_STEPS.DONTS && (
                                   <div className={styles.dosDontsSection}>
                                     <h3 className={styles.refinementTitle}>
-                                      Let's refine your persona in 3/3 steps
+                                      Let&apos;s refine your persona in 3/3 steps
                                     </h3>
                                     <h4 className={styles.dosDontsTitle}>
-                                      Don'ts (what should the persona never do?)
+                                      Don&apos;ts (what should the persona never do?)
                                     </h4>
                                     <Textarea
                                       placeholder="Type your message here."
@@ -1038,9 +1117,8 @@ function PersonaConfigurePageContent() {
                                           className={styles.suggestedButtons}
                                         >
                                           {suggestedDonts.map((dont) => (
-                                            <Button
+                                            <button
                                               key={dont}
-                                              variant="outline"
                                               onClick={() =>
                                                 handleDontsToggle(dont)
                                               }
@@ -1051,7 +1129,7 @@ function PersonaConfigurePageContent() {
                                               )}
                                             >
                                               {dont}
-                                            </Button>
+                                            </button>
                                           ))}
                                         </div>
                                       </>
@@ -1059,6 +1137,12 @@ function PersonaConfigurePageContent() {
                                   </div>
                                 )}
                               </>
+                            )}
+
+                            {isRefinementComplete && (
+                              <p className={styles.refinementSubtitle}>
+                                You are all set with enhancements!
+                              </p>
                             )}
 
                             <div className={styles.textareaActions}>
@@ -1337,7 +1421,7 @@ function PersonaConfigurePageContent() {
                         disableInput={!isTesting}
                         hideAttachButton={true}
                         personaTestConfig={
-                          (isTesting || isChatMode)
+                          isTesting || isChatMode
                             ? {
                                 personaId: createdPersonaId ?? undefined,
                                 prompt: currentInstruction,
@@ -1353,9 +1437,7 @@ function PersonaConfigurePageContent() {
                         // For persona test: do not share chat history with other boards
                         customEmptyState={
                           <div className="flex flex-col items-center justify-center gap-2">
-                            <div
-                              className="relative w-[146px] h-[146px]"
-                            >
+                            <div className="relative w-[146px] h-[146px]">
                               <div
                                 style={{
                                   position: "absolute",
@@ -1374,9 +1456,15 @@ function PersonaConfigurePageContent() {
                               >
                                 <img
                                   src={(() => {
-                                    const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
-                                    const resolvedAvatar = getFullAvatarUrl(avatarUrl);
-                                    const finalSrc = uploadedImage || resolvedAvatar || "/avatars/personaAvatarPlaceHolder.svg";
+                                    const uploadedImage = uploadedFiles.find(
+                                      (f) => f.type === "image",
+                                    )?.url;
+                                    const resolvedAvatar =
+                                      getFullAvatarUrl(avatarUrl);
+                                    const finalSrc =
+                                      uploadedImage ||
+                                      resolvedAvatar ||
+                                      "/avatars/personaAvatarPlaceHolder.svg";
                                     return finalSrc;
                                   })()}
                                   alt="Persona"
@@ -1399,9 +1487,10 @@ function PersonaConfigurePageContent() {
                                       "-rotate-90 absolute top-1/2 left-1/2 -translate-1/2 h-2 w-2 rounded-full transition-colors duration-300",
                                       index < progressSteps
                                         ? "bg-[#009951]"
-                                        : index === progressSteps && progressSteps < 7
-                                        ? "border border-[#009951] bg-transparent"
-                                        : "bg-transparent",
+                                        : index === progressSteps &&
+                                            progressSteps < 7
+                                          ? "border border-[#009951] bg-transparent"
+                                          : "bg-transparent",
                                     )}
                                     style={{
                                       transform: `rotate(${angle}deg) translateX(${radius}px) rotate(-${angle}deg)`,
@@ -1412,10 +1501,24 @@ function PersonaConfigurePageContent() {
                             </div>
 
                             <div className="text-center mb-2">
-                              <p className={cn("font-clash font-medium text-[29px]", isPersonaReady ? "text-[#1E1E1E]" : "text-zinc-300")}>
+                              <p
+                                className={cn(
+                                  "font-clash font-medium text-[29px]",
+                                  isPersonaReady
+                                    ? "text-[#1E1E1E]"
+                                    : "text-zinc-300",
+                                )}
+                              >
                                 {personaName}
                               </p>
-                              <p className={cn("max-w-[240px] w-[240px] font-normal text-center text-[14px] mt-1", isPersonaReady ? "text-[#333333]" : "text-zinc-300")}>
+                              <p
+                                className={cn(
+                                  "max-w-[240px] w-[240px] font-normal text-center text-[14px] mt-1",
+                                  isPersonaReady
+                                    ? "text-[#333333]"
+                                    : "text-zinc-300",
+                                )}
+                              >
                                 Start chatting to test your persona
                               </p>
                             </div>
@@ -1500,9 +1603,14 @@ function PersonaConfigurePageContent() {
               >
                 <img
                   src={(() => {
-                    const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                    const uploadedImage = uploadedFiles.find(
+                      (f) => f.type === "image",
+                    )?.url;
                     const resolvedAvatar = getFullAvatarUrl(avatarUrl);
-                    const finalSrc = uploadedImage || resolvedAvatar || "/personas/persona1.png";
+                    const finalSrc =
+                      uploadedImage ||
+                      resolvedAvatar ||
+                      "/personas/persona1.png";
                     return finalSrc;
                   })()}
                   alt="Persona"
@@ -1517,7 +1625,7 @@ function PersonaConfigurePageContent() {
 
               {/* Success Message */}
               <h2
-              className="w-[304px]"
+                className="w-[304px]"
                 style={{
                   fontFamily: "Clash Grotesk Variable",
                   fontWeight: 500,
@@ -1541,8 +1649,8 @@ function PersonaConfigurePageContent() {
                   marginBottom: "24px",
                 }}
               >
-                &apos;{personaName}&apos; was created and added to your manager page. Try
-                chatting with your persona or share it with your team.
+                &apos;{personaName}&apos; was created and added to your manager
+                page. Try chatting with your persona or share it with your team.
               </p>
 
               {/* Action Buttons */}
@@ -1675,9 +1783,14 @@ function PersonaConfigurePageContent() {
                     >
                       <img
                         src={(() => {
-                          const uploadedImage = uploadedFiles.find((f) => f.type === "image")?.url;
+                          const uploadedImage = uploadedFiles.find(
+                            (f) => f.type === "image",
+                          )?.url;
                           const resolvedAvatar = getFullAvatarUrl(avatarUrl);
-                          const finalSrc = uploadedImage || resolvedAvatar || "/personas/persona1.png";
+                          const finalSrc =
+                            uploadedImage ||
+                            resolvedAvatar ||
+                            "/personas/persona1.png";
                           return finalSrc;
                         })()}
                         alt="User"

@@ -391,8 +391,10 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       ? String(entry.pin.id)
       : undefined;
 
+  let promptMetadata: Message["metadata"] | undefined;
+
   if (hasPrompt) {
-    const promptMetadata: Message["metadata"] = extractMetadata(entry);
+    promptMetadata = extractMetadata(entry);
     // Parse attachments from backend onto user message
     const rawAttachments = (entry as { attachments?: unknown[] }).attachments;
     if (Array.isArray(rawAttachments) && rawAttachments.length > 0 && promptMetadata) {
@@ -437,7 +439,7 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       isThinkingInProgress: false,
       chatMessageId,
       pinId,
-      metadata: extractMetadata(entry),
+      metadata: promptMetadata,
       referencedMessageId:
         (entry as { referenced_message_id?: string | null })
           .referenced_message_id ?? null,
