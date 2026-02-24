@@ -175,6 +175,7 @@ export function PersonaChatFullPage({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
+      let reasoningContent = "";
 
       const updateAiMessage = (fields: Partial<Message>) => {
         setDisplayMessages((prev) =>
@@ -221,13 +222,25 @@ export function PersonaChatFullPage({
             continue;
           }
 
+          if (eventName === "reasoning") {
+            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+            reasoningContent += delta;
+            updateAiMessage({
+              thinkingContent: reasoningContent,
+              isThinkingInProgress: true,
+              isLoading: false,
+            });
+            continue;
+          }
+
           if (eventName === "chunk") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
             assistantContent += delta;
             const sanitized = extractThinkingContent(assistantContent);
             updateAiMessage({
               content: sanitized.visibleText || "",
-              thinkingContent: sanitized.thinkingText,
+              thinkingContent: reasoningContent || sanitized.thinkingText,
+              isThinkingInProgress: false,
               isLoading: false,
             });
             continue;
@@ -248,9 +261,11 @@ export function PersonaChatFullPage({
           if (eventName === "done") {
             const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
             const sanitized = extractThinkingContent(finalContent);
+            const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
             updateAiMessage({
-              content: sanitized.visibleText || "No response from persona.",
-              thinkingContent: sanitized.thinkingText,
+              content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
+              thinkingContent: finalReasoning || null,
+              isThinkingInProgress: false,
               isLoading: false,
               metadata: {
                 modelName: persona.modelName,
@@ -267,7 +282,8 @@ export function PersonaChatFullPage({
         const sanitized = extractThinkingContent(assistantContent);
         updateAiMessage({
           content: sanitized.visibleText || "No response from persona.",
-          thinkingContent: sanitized.thinkingText,
+          thinkingContent: reasoningContent || sanitized.thinkingText,
+          isThinkingInProgress: false,
           isLoading: false,
           metadata: {
             modelName: persona.modelName,

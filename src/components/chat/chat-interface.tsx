@@ -900,6 +900,7 @@ export function ChatInterface({
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
+      let reasoningContent = "";
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
       let currentChatId = chatId;
@@ -971,6 +972,17 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "reasoning") {
+            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+            reasoningContent += delta;
+            updateAiMessage({
+              thinkingContent: reasoningContent,
+              isThinkingInProgress: true,
+              isLoading: false,
+            });
+            continue;
+          }
+
           if (eventName === "chunk") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
             assistantContent += delta;
@@ -980,8 +992,8 @@ export function ChatInterface({
             const stillThinking = hasOpenThink && !hasCloseThink;
             updateAiMessage({
               content: sanitized.visibleText || "",
-              thinkingContent: sanitized.thinkingText,
-              isThinkingInProgress: stillThinking,
+              thinkingContent: reasoningContent || sanitized.thinkingText,
+              isThinkingInProgress: stillThinking && !reasoningContent,
               isLoading: false,
             });
             continue;
@@ -1088,11 +1100,15 @@ export function ChatInterface({
                 ? parsed.images[0]?.alt
                 : undefined;
 
+            // Use reasoning from dedicated events if available, otherwise from <think> tags
+            const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
+
             updateAiMessage({
               content:
                 sanitized.visibleText ||
-                (sanitized.thinkingText ? "" : "API didn't respond"),
-              thinkingContent: sanitized.thinkingText,
+                (finalReasoning ? "" : "API didn't respond"),
+              thinkingContent: finalReasoning || null,
+              isThinkingInProgress: false,
               chatMessageId:
                 resolvedMessageId !== null && resolvedMessageId !== undefined
                   ? String(resolvedMessageId)
