@@ -1404,6 +1404,24 @@ export function ChatInterface({
         layoutContext?.setActiveChatId?.(chatId);
       }
 
+      // Convert image attachments to base64 data URLs so they persist after blob URLs are revoked
+      let persistentAttachments: Array<{ id: string; type: "pdf" | "image"; name: string; url: string }> | undefined;
+      if (attachments.length > 0) {
+        persistentAttachments = await Promise.all(
+          attachments.map(async (a) => {
+            if (a.type === "image") {
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(a.file);
+              });
+              return { id: a.id, type: a.type, name: a.name, url: dataUrl };
+            }
+            return { id: a.id, type: a.type, name: a.name, url: a.url };
+          }),
+        );
+      }
+
       const userMessage: Message = {
         id: userMessageId,
         sender: "user",
@@ -1413,15 +1431,7 @@ export function ChatInterface({
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
-          attachments:
-            attachments.length > 0
-              ? attachments.map((a) => ({
-                  id: a.id,
-                  type: a.type,
-                  name: a.name,
-                  url: a.url,
-                }))
-              : undefined,
+          attachments: persistentAttachments,
           mentionedPins:
             mentionedPins.length > 0
               ? mentionedPins.map((mp) => {
@@ -2272,11 +2282,10 @@ export function ChatInterface({
                                   padding: "1.08px",
                                 }}
                               >
-                                <Image
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
                                   src={attachment.url}
                                   alt={attachment.name}
-                                  width={0}
-                                  height={0}
                                   className="w-full h-full object-cover rounded-[10px]"
                                 />
                               </div>

@@ -306,7 +306,23 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     (msg as { thinking_content?: string | null }).thinking_content ??
     null;
   const finalReasoning = backendReasoning || thinkingText;
-  const metadata = extractMetadata(msg);
+  const metadata: Message["metadata"] = extractMetadata(msg);
+  // Parse attachments from backend
+  const rawAttachments = (msg as { attachments?: unknown[] }).attachments;
+  if (Array.isArray(rawAttachments) && rawAttachments.length > 0 && metadata) {
+    metadata.attachments = rawAttachments
+      .filter((a): a is Record<string, unknown> => a !== null && typeof a === "object")
+      .map((a, i) => ({
+        id: String(a.id ?? `att-${i}`),
+        type: (String(a.type ?? a.file_type ?? "image").startsWith("image") ||
+               String(a.name ?? a.file_name ?? "").match(/\.(png|jpe?g|gif|webp|svg|bmp)$/i))
+          ? "image" as const
+          : "pdf" as const,
+        name: String(a.name ?? a.file_name ?? a.filename ?? "attachment"),
+        url: String(a.url ?? a.file_url ?? a.file ?? ""),
+      }))
+      .filter((a) => a.url);
+  }
   const rawId =
     msg.id !== undefined && msg.id !== null
       ? msg.id
@@ -376,12 +392,29 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       : undefined;
 
   if (hasPrompt) {
+    const promptMetadata: Message["metadata"] = extractMetadata(entry);
+    // Parse attachments from backend onto user message
+    const rawAttachments = (entry as { attachments?: unknown[] }).attachments;
+    if (Array.isArray(rawAttachments) && rawAttachments.length > 0 && promptMetadata) {
+      promptMetadata.attachments = rawAttachments
+        .filter((a): a is Record<string, unknown> => a !== null && typeof a === "object")
+        .map((a, i) => ({
+          id: String(a.id ?? `att-${i}`),
+          type: (String(a.type ?? a.file_type ?? "image").startsWith("image") ||
+                 String(a.name ?? a.file_name ?? "").match(/\.(png|jpe?g|gif|webp|svg|bmp)$/i))
+            ? "image" as const
+            : "pdf" as const,
+          name: String(a.name ?? a.file_name ?? a.filename ?? "attachment"),
+          url: String(a.url ?? a.file_url ?? a.file ?? ""),
+        }))
+        .filter((a) => a.url);
+    }
     messages.push({
       id: `${baseId}-prompt`,
       sender: "user",
       content: entry.prompt as string,
       chatMessageId,
-      metadata: extractMetadata(entry),
+      metadata: promptMetadata,
     });
   }
 
