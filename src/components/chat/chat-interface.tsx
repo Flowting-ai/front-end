@@ -789,8 +789,13 @@ export function ChatInterface({
         Accept: "text/event-stream",
       };
 
-      if (files && files.length > 0 && !isPersonaTest) {
-        // Use FormData for file uploads
+      // Only use FormData when there are non-image files (e.g. PDFs).
+      // Images are always sent as base64 data URLs in the JSON payload.
+      const nonImageFiles = files?.filter((f) => !f.type.startsWith("image/")) ?? [];
+      const imageFiles = files?.filter((f) => f.type.startsWith("image/")) ?? [];
+
+      if (nonImageFiles.length > 0 && !isPersonaTest) {
+        // Use FormData for non-image file uploads
         const formData = new FormData();
         formData.append("message", userMessage);
         if (modelId !== null && modelId !== undefined) {
@@ -830,11 +835,10 @@ export function ChatInterface({
         if (webSearchEnabled) {
           formData.append("webSearch", "true");
         }
-        // Convert image files to base64 and append as images array
-        const imageFilesFD = files.filter((f) => f.type.startsWith("image/"));
-        if (imageFilesFD.length > 0) {
+        // Convert image files to base64 and include in FormData as JSON array
+        if (imageFiles.length > 0) {
           const imgUrls: string[] = [];
-          for (const file of imageFilesFD) {
+          for (const file of imageFiles) {
             const dataUrl = await new Promise<string>((resolve) => {
               const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result as string);
@@ -845,7 +849,6 @@ export function ChatInterface({
           formData.append("images", JSON.stringify(imgUrls));
         }
         // Append non-image files
-        const nonImageFiles = files.filter((f) => !f.type.startsWith("image/"));
         nonImageFiles.forEach((file) => {
           formData.append("files", file);
         });
@@ -896,20 +899,17 @@ export function ChatInterface({
           payload.webSearch = true;
         }
         // Convert image files to base64 data URLs for the images field
-        if (files && files.length > 0) {
-          const imageFiles = files.filter((f) => f.type.startsWith("image/"));
-          if (imageFiles.length > 0) {
-            const imageDataUrls: string[] = [];
-            for (const file of imageFiles) {
-              const dataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(file);
-              });
-              imageDataUrls.push(dataUrl);
-            }
-            payload.images = imageDataUrls;
+        if (imageFiles.length > 0) {
+          const imageDataUrls: string[] = [];
+          for (const file of imageFiles) {
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+            imageDataUrls.push(dataUrl);
           }
+          payload.images = imageDataUrls;
         }
 
         body = JSON.stringify(payload);
