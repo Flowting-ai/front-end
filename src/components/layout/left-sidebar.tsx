@@ -925,5 +925,5 @@ export function LeftSidebar({
         </aside>
       )}
     </section>
-  );t
+  );
 }

@@ -21,9 +21,6 @@ import {
   Reply,
   ExternalLink,
   ChevronDown,
-  ChevronRight,
-  Sparkles,
-  Loader2,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
@@ -315,6 +312,100 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   return nodes;
 };
 
+// Reasoning section with Claude-style typewriter effect
+const ReasoningSection = ({
+  thinkingContent,
+  isNewMessage,
+  isThinkingInProgress,
+}: {
+  thinkingContent: string;
+  isNewMessage: boolean;
+  isThinkingInProgress?: boolean;
+}) => {
+  const [displayText, setDisplayText] = useState(
+    isNewMessage ? "" : thinkingContent,
+  );
+  const [isTypingDone, setIsTypingDone] = useState(!isNewMessage);
+  const [isCollapsed, setIsCollapsed] = useState(!isNewMessage);
+
+  useEffect(() => {
+    if (isThinkingInProgress) {
+      setDisplayText(thinkingContent);
+      setIsTypingDone(false);
+      setIsCollapsed(false);
+      return;
+    }
+
+    if (!isNewMessage) {
+      setDisplayText(thinkingContent);
+      setIsTypingDone(true);
+      setIsCollapsed(true);
+      return;
+    }
+
+    let i = 0;
+    setDisplayText("");
+    setIsTypingDone(false);
+    setIsCollapsed(false);
+
+    const intervalId = setInterval(() => {
+      if (i < thinkingContent.length) {
+        setDisplayText((prev) => prev + thinkingContent.charAt(i));
+        i++;
+      } else {
+        clearInterval(intervalId);
+        setIsTypingDone(true);
+        setTimeout(() => setIsCollapsed(true), 700);
+      }
+    }, 6);
+
+    return () => clearInterval(intervalId);
+  }, [thinkingContent, isNewMessage, isThinkingInProgress]);
+
+  return (
+    <div className="mb-3 rounded-xl border border-[#e8e3f4] bg-[#f9f7ff] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+      >
+        <div className="flex items-center gap-2">
+          {(!isTypingDone || isThinkingInProgress) && (
+            <span className="flex gap-0.5">
+              {[0, 1, 2].map((dot) => (
+                <span
+                  key={dot}
+                  className="h-1.5 w-1.5 rounded-full bg-[#7c6fcd] animate-bounce"
+                  style={{ animationDelay: `${dot * 0.15}s` }}
+                />
+              ))}
+            </span>
+          )}
+          <span className="text-xs font-semibold text-[#6b5fad] tracking-wide">
+            {!isTypingDone || isThinkingInProgress ? "Reasoning\u2026" : "Reasoning"}
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-[#9d8fd4] transition-transform duration-200",
+            isCollapsed ? "" : "rotate-180",
+          )}
+        />
+      </button>
+      {!isCollapsed && (
+        <div className="border-t border-[#e8e3f4] px-3 py-2">
+          <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80 italic">
+            {displayText}
+            {(!isTypingDone || isThinkingInProgress) && (
+              <span className="inline-block w-[2px] h-[13px] bg-[#9d8fd4] ml-[1px] align-middle animate-[blink_0.8s_step-end_infinite]" />
+            )}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   const nodes: JSX.Element[] = [];
   const lines = value.replace(/\r/g, "").split("\n");
@@ -513,6 +604,9 @@ export interface Message {
     replyToMessageId?: string | null;
     replyToContent?: string | null;
     isImageGeneration?: boolean;
+    totalCost?: number;
+    totalTokens?: number;
+    totalDurationMs?: number;
     attachments?: Array<{
       id: string;
       type: "pdf" | "image";
@@ -653,8 +747,6 @@ export function ChatMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showThinking, setShowThinking] = useState(false);
-
   // Typewriter effect disabled - displaying content directly
   // const typewriterSpeed = 7;
   // const displayedContent = useTypewriter(
@@ -705,28 +797,6 @@ export function ChatMessage({
       };
     }
   }, [isEditing, editedContent]);
-  // Auto-collapse reasoning when thinking finishes (transition from in-progress to done)
-  const wasThinkingRef = useRef(message.isThinkingInProgress ?? false);
-  const prevMessageIdRef = useRef(message.id);
-  useEffect(() => {
-    // Reset when the message changes entirely
-    if (prevMessageIdRef.current !== message.id) {
-      prevMessageIdRef.current = message.id;
-      wasThinkingRef.current = false;
-      if (showThinking) setShowThinking(false);
-      return;
-    }
-
-    const wasThinking = wasThinkingRef.current;
-    const isNowThinking = message.isThinkingInProgress ?? false;
-    wasThinkingRef.current = isNowThinking;
-
-    if (wasThinking && !isNowThinking && showThinking) {
-      setShowThinking(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [message.id, message.isThinkingInProgress]);
-
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
     setIsEditing(false);
@@ -1154,40 +1224,11 @@ export function ChatMessage({
                 </div>
               )}
               {(message.thinkingContent || message.isThinkingInProgress) && (
-                <div className="mb-3">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors hover:bg-zinc-50"
-                    onClick={() => setShowThinking((prev) => !prev)}
-                  >
-                    {message.isThinkingInProgress ? (
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                    )}
-                    <span className="font-medium text-zinc-500">
-                      {message.isThinkingInProgress
-                        ? "Thinking..."
-                        : showThinking
-                          ? "Hide reasoning"
-                          : "Reasoning"}
-                    </span>
-                    {!message.isThinkingInProgress && (
-                      showThinking ? (
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 text-zinc-400" />
-                      ) : (
-                        <ChevronRight className="ml-auto h-3.5 w-3.5 text-zinc-400" />
-                      )
-                    )}
-                  </button>
-                  {(showThinking || message.isThinkingInProgress) && message.thinkingContent && (
-                    <div className="mt-1 ml-3 border-l-2 border-zinc-200 pl-3">
-                      <pre className="whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-500 font-normal">
-                        {message.thinkingContent}
-                      </pre>
-                    </div>
-                  )}
-                </div>
+                <ReasoningSection
+                  thinkingContent={message.thinkingContent || ""}
+                  isNewMessage={isNewMessage && !isUser}
+                  isThinkingInProgress={message.isThinkingInProgress}
+                />
               )}
 
               {isEditing && isUser ? (
