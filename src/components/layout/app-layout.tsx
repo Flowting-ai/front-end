@@ -1039,7 +1039,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
         chatId,
         csrfTokenRef.current
       );
+      // DEBUG: Log raw backend messages to inspect attachments shape
+      console.log("[DEBUG] Raw backend messages:", JSON.stringify(backendMessages, null, 2));
       const normalized = backendMessages.flatMap(convertBackendEntryToMessages);
+      console.log("[DEBUG] Normalized messages:", normalized.map(m => ({ id: m.id, sender: m.sender, attachments: m.metadata?.attachments, thinkingContent: m.thinkingContent?.slice(0, 50) })));
       setChatHistory((prev) => ({ ...prev, [chatId]: normalized }));
     } catch (error) {
       console.error(`Failed to load messages for chat ${chatId}`, error);
