@@ -7,7 +7,13 @@
       "WebSearch",
       "WebFetch(domain:commons.wikimedia.org)",
       "Bash(curl:*)",
-      "WebFetch(domain:lobehub.com)"
+      "WebFetch(domain:lobehub.com)",
+      "Bash(git fetch:*)",
+      "WebFetch(domain:upload.wikimedia.org)",
+      "WebFetch(domain:uxwing.com)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(cd:*)"
     ]
   }
 }
