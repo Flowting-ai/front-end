@@ -813,8 +813,10 @@ export function ChatInterface({
         if (isExistingChat && chatId) {
           formData.append("chatId", chatId);
         }
-        if (referencedMessageId) {
-          formData.append("referencedMessageId", referencedMessageId);
+        // Send referencedMessageId — use replyToMessageId as fallback
+        const resolvedRefIdFD = referencedMessageId || replyToMessageId || null;
+        if (resolvedRefIdFD) {
+          formData.append("referencedMessageId", resolvedRefIdFD);
         }
         if (regenerateMessageId) {
           formData.append("regenerateMessageId", regenerateMessageId);
@@ -828,8 +830,23 @@ export function ChatInterface({
         if (webSearchEnabled) {
           formData.append("webSearch", "true");
         }
-        // Append all files
-        files.forEach((file) => {
+        // Convert image files to base64 and append as images array
+        const imageFilesFD = files.filter((f) => f.type.startsWith("image/"));
+        if (imageFilesFD.length > 0) {
+          const imgUrls: string[] = [];
+          for (const file of imageFilesFD) {
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+            imgUrls.push(dataUrl);
+          }
+          formData.append("images", JSON.stringify(imgUrls));
+        }
+        // Append non-image files
+        const nonImageFiles = files.filter((f) => !f.type.startsWith("image/"));
+        nonImageFiles.forEach((file) => {
           formData.append("files", file);
         });
         body = formData;
@@ -861,8 +878,10 @@ export function ChatInterface({
         if (isPersonaTest && personaChatHistory) {
           payload.chatHistory = personaChatHistory;
         }
-        if (referencedMessageId) {
-          payload.referencedMessageId = referencedMessageId;
+        // Send referencedMessageId — use replyToMessageId as fallback
+        const resolvedRefId = referencedMessageId || replyToMessageId || null;
+        if (resolvedRefId) {
+          payload.referencedMessageId = resolvedRefId;
         }
         if (regenerateMessageId) {
           payload.regenerateMessageId = regenerateMessageId;
@@ -875,6 +894,22 @@ export function ChatInterface({
         }
         if (webSearchEnabled) {
           payload.webSearch = true;
+        }
+        // Convert image files to base64 data URLs for the images field
+        if (files && files.length > 0) {
+          const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+          if (imageFiles.length > 0) {
+            const imageDataUrls: string[] = [];
+            for (const file of imageFiles) {
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+              });
+              imageDataUrls.push(dataUrl);
+            }
+            payload.images = imageDataUrls;
+          }
         }
 
         body = JSON.stringify(payload);

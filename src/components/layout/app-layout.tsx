@@ -300,6 +300,12 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     sender === "ai"
       ? extractThinkingContent(baseContent)
       : { visibleText: baseContent, thinkingText: null };
+  // Use dedicated reasoning field from backend if available, fallback to <think> tag extraction
+  const backendReasoning =
+    (msg as { reasoning?: string | null }).reasoning ??
+    (msg as { thinking_content?: string | null }).thinking_content ??
+    null;
+  const finalReasoning = backendReasoning || thinkingText;
   const metadata = extractMetadata(msg);
   const rawId =
     msg.id !== undefined && msg.id !== null
@@ -313,7 +319,7 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     id: resolvedId,
     sender,
     content: visibleText,
-    thinkingContent: thinkingText,
+    thinkingContent: finalReasoning,
     isThinkingInProgress: false,
     metadata,
     chatMessageId:
@@ -382,14 +388,19 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
   if (hasResponse) {
     const sanitized = extractThinkingContent(entry.response as string);
     const { images, imageUrl } = getImagesFromBackendMessage(entry);
+    const entryReasoning =
+      (entry as { reasoning?: string | null }).reasoning ??
+      (entry as { thinking_content?: string | null }).thinking_content ??
+      null;
+    const responseReasoning = entryReasoning || sanitized.thinkingText;
 
     messages.push({
       id: `${baseId}-response`,
       sender: "ai",
       content:
         sanitized.visibleText ||
-        (sanitized.thinkingText ? "" : (entry.response as string)),
-      thinkingContent: sanitized.thinkingText,
+        (responseReasoning ? "" : (entry.response as string)),
+      thinkingContent: responseReasoning,
       isThinkingInProgress: false,
       chatMessageId,
       pinId,

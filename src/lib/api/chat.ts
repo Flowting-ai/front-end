@@ -53,6 +53,8 @@ export interface BackendMessage {
   is_pinned?: boolean;
   pin?: BackendPin | null;
   referenced_message_id?: string | number | null;
+  reasoning?: string | null;
+  thinking_content?: string | null;
   tokens_input?: number;
   tokens_output?: number;
   cost?: number;
