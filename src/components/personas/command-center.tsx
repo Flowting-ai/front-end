@@ -29,7 +29,7 @@ const DEFAULT_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Personas" },
   { value: "active", label: "Active Personas" },
   { value: "paused", label: "Paused Personas" },
-  { value: "inactive", label: "Inactive Personas" },
+  // { value: "inactive", label: "Inactive Personas" },
 ];
 
 export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps>(

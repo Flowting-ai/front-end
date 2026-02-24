@@ -237,77 +237,7 @@ function PersonaConfigurePageContent() {
     uploadedFiles,
   ]);
 
-  // Get persona name and ID from URL params
-  useEffect(() => {
-    const nameParam = searchParams.get("name");
-    const personaIdParam = searchParams.get("personaId");
-    const chatModeParam = searchParams.get("chatMode");
-
-    // Load avatar from sessionStorage (only for new personas, not when editing)
-    if (!searchParams.get("personaId")) {
-      try {
-        const savedAvatar = sessionStorage.getItem("personaAvatar");
-        if (savedAvatar) {
-          console.log("✅ Loaded avatar from sessionStorage, size:", savedAvatar.length, "bytes");
-          console.log("✅ Avatar preview:", savedAvatar.substring(0, 100));
-          setAvatarUrl(savedAvatar);
-        } else {
-          console.log("ℹ️ No avatar in sessionStorage");
-        }
-      } catch (error) {
-        console.error('❌ Failed to load avatar from sessionStorage:', error);
-      }
-    }
-
-    if (nameParam) {
-      setPersonaName(nameParam);
-    }
-
-    // Enable chat mode if chatMode=true is in URL
-    if (chatModeParam === "true") {
-      setIsChatMode(true);
-      setIsTesting(true);
-    }
-
-    // Load existing persona data if personaId is provided
-    if (personaIdParam) {
-      setCreatedPersonaId(personaIdParam);
-
-      const loadPersonaData = async () => {
-        try {
-          const personaData = await fetchPersonaById(personaIdParam, csrfToken);
-
-          // Populate fields with existing data
-          setPersonaName(personaData.name);
-          setInstruction(personaData.prompt);
-
-          // Set model if available
-          if (personaData.modelId) {
-            setSelectedModel(String(personaData.modelId));
-          }
-
-          // Set avatar if available (only when editing existing persona)
-          if (personaData.imageUrl) {
-            console.log("✅ Loading existing persona avatar:", personaData.imageUrl);
-            const fullUrl = getFullAvatarUrl(personaData.imageUrl);
-            console.log("✅ Full avatar URL:", fullUrl);
-            setAvatarUrl(personaData.imageUrl);
-          } else {
-            console.log("ℹ️ No avatar for existing persona");
-          }
-
-          console.log("Loaded persona:", personaData);
-        } catch (error) {
-          console.error("Failed to load persona:", error);
-          toast.error("Failed to load persona data");
-        }
-      };
-
-      loadPersonaData();
-    }
-  }, [searchParams, csrfToken]);
-
-  // Load models from backend (reuse chat model list)
+  // Load models first (priority - needed before loading persona data)
   useEffect(() => {
     const loadModels = async () => {
       // Try cache first
@@ -316,8 +246,9 @@ function PersonaConfigurePageContent() {
         try {
           const parsed = JSON.parse(cached) as AIModel[];
           setModels(parsed);
+          return; // Use cached models
         } catch {
-          // ignore parse errors
+          // ignore parse errors, continue to fetch
         }
       }
 
@@ -345,6 +276,82 @@ function PersonaConfigurePageContent() {
 
     loadModels();
   }, [models.length]);
+
+  // Get persona name and ID from URL params - load after models are ready
+  useEffect(() => {
+    const nameParam = searchParams.get("name");
+    const personaIdParam = searchParams.get("personaId");
+    const chatModeParam = searchParams.get("chatMode");
+
+    // Load avatar from sessionStorage (only for new personas, not when editing)
+    if (!personaIdParam) {
+      try {
+        const savedAvatar = sessionStorage.getItem("personaAvatar");
+        if (savedAvatar) {
+          console.log("✅ Loaded avatar from sessionStorage, size:", savedAvatar.length, "bytes");
+          console.log("✅ Avatar preview:", savedAvatar.substring(0, 100));
+          setAvatarUrl(savedAvatar);
+        } else {
+          console.log("ℹ️ No avatar in sessionStorage");
+        }
+      } catch (error) {
+        console.error('❌ Failed to load avatar from sessionStorage:', error);
+      }
+    }
+
+    if (nameParam) {
+      setPersonaName(nameParam);
+    }
+
+    // Enable chat mode if chatMode=true is in URL
+    if (chatModeParam === "true") {
+      setIsChatMode(true);
+      setIsTesting(true);
+    }
+
+    // Load existing persona data if personaId is provided
+    // Wait for models to load first to ensure model selection works
+    if (personaIdParam && (models.length > 0 || !isLoadingModels)) {
+      setCreatedPersonaId(personaIdParam);
+
+      const loadPersonaData = async () => {
+        try {
+          const personaData = await fetchPersonaById(personaIdParam, csrfToken);
+
+          console.log("📥 Loading persona data:", personaData);
+
+          // Populate fields with existing data
+          setPersonaName(personaData.name);
+          setInstruction(personaData.prompt);
+
+          // Set model if available - ensure models are loaded
+          if (personaData.modelId) {
+            const modelIdStr = String(personaData.modelId);
+            console.log("🔍 Setting model ID:", modelIdStr);
+            console.log("📋 Available models:", models.map(m => ({ id: m.modelId, name: m.modelName })));
+            setSelectedModel(modelIdStr);
+          }
+
+          // Set avatar if available (only when editing existing persona)
+          if (personaData.imageUrl) {
+            console.log("✅ Loading existing persona avatar:", personaData.imageUrl);
+            const fullUrl = getFullAvatarUrl(personaData.imageUrl);
+            console.log("✅ Full avatar URL:", fullUrl);
+            setAvatarUrl(fullUrl); // Use full URL instead of relative path
+          } else {
+            console.log("ℹ️ No avatar for existing persona");
+          }
+
+          console.log("✅ Persona data loaded successfully");
+        } catch (error) {
+          console.error("❌ Failed to load persona:", error);
+          toast.error("Failed to load persona data");
+        }
+      };
+
+      loadPersonaData();
+    }
+  }, [searchParams, csrfToken, models.length, isLoadingModels]);
 
   const resolvedSelectedModel = useMemo<AIModel | null>(() => {
     if (!selectedModel) return null;
@@ -724,11 +731,18 @@ function PersonaConfigurePageContent() {
                       <div className={styles.headerLeft}>
                         <Button
                           variant="outline"
-                          onClick={() => router.push(hasFinishedBuilding ? "/personas" : "/personas/new")}
+                          onClick={() => {
+                            const personaId = searchParams.get("personaId");
+                            if (personaId) {
+                              router.push("/personaAdmin");
+                            } else {
+                              router.push(hasFinishedBuilding ? "/personas" : "/personas/new");
+                            }
+                          }}
                           className={styles.backButton}
                         >
                           <ArrowLeft className="h-4 w-4" />
-                          {hasFinishedBuilding ? "Go to home" : "Back"}
+                          {searchParams.get("personaId") ? "Back " : hasFinishedBuilding ? "Go to home" : "Back"}
                         </Button>
                       </div>
                       <div className={styles.headerActions}>

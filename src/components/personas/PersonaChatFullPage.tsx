@@ -305,8 +305,8 @@ export function PersonaChatFullPage({
   return (
     <div className="px-12 py-4 max-h-[95vh] h-full flex flex-col w-full">
       {/* Row 1 - Header with persona details and actions */}
-      <div className="w-full flex items-center justify-between shrink-0 h-9 mb-3">
-        <div className="flex items-center gap-2">
+      <div className="w-full flex items-center justify-end shrink-0 h-9 mb-3">
+        {/* <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setDetailsSectionOpen((o) => !o)}
@@ -328,11 +328,11 @@ export function PersonaChatFullPage({
             <Pencil className="h-4 w-4" />
             <span>Edit Persona</span>
           </button>
-        </div>
+        </div> */}
         <button
           type="button"
           onClick={handleShare}
-          className="text-sm text-[#0A0A0A] bg-[#F5F5F5] hover:bg-zinc-300 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
+          className="text-sm text-[#0A0A0A]/30 bg-[#F5F5F5]/0 cursor-pointer pointer-events-none hover:bg-zinc-300 border border-[#D4D4D4]/30 rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
         >
           <Share2 className="h-4 w-4" />
           <span>Share</span>
@@ -445,6 +445,7 @@ export function PersonaChatFullPage({
                       onRegenerate={undefined}
                       onReply={undefined}
                       onReact={undefined}
+                      disablePinning={true}
                     />
                   ))}
                 </div>

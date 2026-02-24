@@ -197,7 +197,7 @@ export function WorkflowChatFullPage({
           <button
             type="button"
             onClick={() => setNodesSectionOpen((o) => !o)}
-            className={`text-sm ${nodesSectionOpen ? "text-[#FAFAFA] bg-[#171717]" : "text-[#171717] bg-[#F5F5F5]"} hover:bg-zinc-300 rounded-[8px] flex items-center gap-2 px-4 h-9 transition-all duration-300`}
+            className={`text-sm ${nodesSectionOpen ? "text-[#FAFAFA] bg-[#171717]" : "text-[#171717] bg-[#F5F5F5]"} hover:bg-black hover:text-white cursor-pointer rounded-[8px] flex items-center gap-2 px-4 h-9 transition-all duration-300`}
           >
             <span>
               {connectedCount} Node{connectedCount !== 1 ? "s" : ""} Connected
@@ -211,7 +211,7 @@ export function WorkflowChatFullPage({
           <button
             type="button"
             onClick={onEditWorkflow}
-            className="text-sm text-[#171717] bg-[#F5F5F5] hover:bg-zinc-300 rounded-[8px] flex items-center gap-2 px-4 h-9 transition-all duration-300"
+            className="text-sm text-[#171717] bg-[#F5F5F5] cursor-pointer hover:bg-black hover:text-white rounded-[8px] flex items-center gap-2 px-4 h-9 transition-all duration-300"
           >
             <Pencil className="h-4 w-4" />
             <span>Edit Workflow</span>
@@ -220,7 +220,7 @@ export function WorkflowChatFullPage({
         <button
           type="button"
           onClick={handleShare}
-          className="text-sm text-[#0A0A0A] bg-[#F5F5F5] hover:bg-zinc-300 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
+          className="pointer-events-none text-sm text-[#0A0A0A]/20 bg-[#F5F5F5]/0 hover:bg-zinc-300 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
         >
           <Share2 className="h-4 w-4" />
           <span>Share</span>
@@ -311,6 +311,7 @@ export function WorkflowChatFullPage({
                       onRegenerate={undefined}
                       onReply={undefined}
                       onReact={undefined}
+                      disablePinning={true}
                     />
                   ))}
                 </div>

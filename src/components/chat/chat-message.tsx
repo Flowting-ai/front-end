@@ -302,6 +302,7 @@ export interface Message {
   pinId?: string;
   referencedMessageId?: string | null;
   thinkingContent?: string | null;
+  isThinkingInProgress?: boolean;
   imageUrl?: string;
   imageAlt?: string;
   images?: Array<{ url: string; alt?: string }>;
@@ -431,6 +432,8 @@ interface ChatMessageProps {
   sourceCount?: number;
   /** Source URLs (max 4) for showing domain favicons on the Sources button. */
   sourceUrls?: string[];
+  /** When true, disables the pin button (for personas and workflow chats) */
+  disablePinning?: boolean;
 }
 
 export function ChatMessage({
@@ -448,6 +451,7 @@ export function ChatMessage({
   referencedMessage,
   isNewMessage,
   isResponding,
+  disablePinning = false,
   onOpenSources,
   sourceCount = 0,
   sourceUrls = [],
@@ -599,6 +603,13 @@ export function ChatMessage({
     </TooltipProvider>
   );
 
+  // Check if this is an image/video generation message
+  const isMediaGeneration = !!(
+    message.metadata?.isImageGeneration || 
+    message.imageUrl || 
+    message.images?.length
+  );
+
   const AiActions = ({ className }: { className?: string } = {}) => (
     <TooltipProvider>
       <div
@@ -608,41 +619,46 @@ export function ChatMessage({
         )}
       >
         <div className="inline-flex items-center gap-1">
-          {/* Pin button commented out */}
-          {/* <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  actionButtonClasses,
-                  isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]",
-                )}
-                onClick={() => onPin(message)}
-                aria-pressed={isPinned}
-              >
-                <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isPinned ? "Unpin" : "Pin"} message</p>
-            </TooltipContent>
-          </Tooltip> */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={actionButtonClasses}
-                onClick={() => onCopy(message.content)}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Copy</p>
-            </TooltipContent>
-          </Tooltip>
+          {/* Pin button - disabled for media generations */}
+          {!disablePinning && !isMediaGeneration && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    actionButtonClasses,
+                    isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]",
+                  )}
+                  onClick={() => onPin(message)}
+                  aria-pressed={isPinned}
+                >
+                  <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isPinned ? "Unpin" : "Pin"} message</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {/* Copy button - disabled for media generations */}
+          {!isMediaGeneration && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={actionButtonClasses}
+                  onClick={() => onCopy(message.content)}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {onRegenerate && (
             <Tooltip>
               <TooltipTrigger asChild>

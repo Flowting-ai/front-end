@@ -1682,7 +1682,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
           if (!open) setShowLeaveConfirm(false);
         }}
       >
-        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+        <AlertDialogContent className="rounded-[8px] bg-white border-main-border border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-black">
               Unsaved changes
@@ -1693,13 +1693,13 @@ Please provide clear, specific, and well-structured instructions to ensure accur
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setShowLeaveConfirm(false)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-[#6B7280] hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => {
                 setShowLeaveConfirm(false);
                 router.push("/workflowAdmin");
@@ -1708,7 +1708,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
               Don&apos;t save
             </AlertDialogAction>
             <AlertDialogAction
-              className="rounded-[25px] bg-[#171717] text-white hover:bg-[#0A0A0A]"
+              className="rounded-[8px] text-white bg-zinc-600 hover:bg-[#0A0A0A]"
               onClick={async () => {
                 const saved = await handleSave();
                 if (saved) {

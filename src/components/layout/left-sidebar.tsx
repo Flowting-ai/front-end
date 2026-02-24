@@ -137,11 +137,13 @@ export function LeftSidebar({
     return () => clearInterval(timer);
   }, [chatBoards, layoutContext]);
 
-  // Expand "Recent chats" when on a chat page (workflow or persona) so active item is visible; collapse on dashboard
+  // Expand "Recent chats" when on workflow or persona pages (including chat pages)
   React.useEffect(() => {
-    if (pathname?.startsWith("/workflowAdmin/chat") || pathname?.startsWith("/personaAdmin/chat")) {
+    if (pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/personaAdmin")) {
       setIsChatBoardsExpanded(true);
-    } else if (pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/workflowAdmin")) {
+    } else if (pathname === "/" || pathname?.startsWith("/chat")) {
+      setIsChatBoardsExpanded(true);
+    } else {
       setIsChatBoardsExpanded(false);
     }
   }, [pathname]);
@@ -658,7 +660,7 @@ export function LeftSidebar({
                     </div>
                   </div>
 
-                  {isOnWorkflowChatPage ? (
+                  {isOnWorkflowPage ? (
                     workflowListLoading ? (
                       <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading workflows...</div>
                     ) : workflowsToDisplay.length > 0 ? (
@@ -689,7 +691,7 @@ export function LeftSidebar({
                         <p>No workflows found.</p>
                       </div>
                     )
-                  ) : isOnPersonaChatPage ? (
+                  ) : isOnPersonaPage ? (
                     personaListLoading ? (
                       <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading personas...</div>
                     ) : personasToDisplay.length > 0 ? (

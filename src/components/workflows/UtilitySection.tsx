@@ -42,7 +42,7 @@ export default function UtilitySection({
     { icon: ZoomOut, label: 'Zoom Out', action: onZoomOut, disabled: false },
     { icon: Maximize, label: 'Fit View', action: onFitView, disabled: false },
     { icon: Map, label: showMinimap ? 'Hide Minimap' : 'Show Minimap', action: onToggleMinimap, disabled: false, active: showMinimap },
-    { icon: Save, label: 'Save', action: onSave, disabled: saveDisabled },
+    // { icon: Save, label: 'Save', action: onSave, disabled: saveDisabled },
     // { icon: FolderOpen, label: 'Load', action: onLoad, disabled: false },
     { icon: Trash2, label: 'Clear', action: onClear, disabled: false },
   ];

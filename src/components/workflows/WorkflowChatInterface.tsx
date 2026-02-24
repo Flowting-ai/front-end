@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,9 +20,160 @@ import {
 } from "./workflow-api";
 import type { NodeStatus } from "./types";
 
+// Helper function to render markdown content for node outputs
+const renderMarkdownContent = (content: string): React.ReactElement => {
+  if (!content) return <span className="text-zinc-400 italic">No output yet</span>;
+
+  const lines = content.split("\n");
+  const elements: React.ReactElement[] = [];
+  let i = 0;
+
+  // Helper to detect table rows
+  const isTableRow = (line: string) => {
+    const trimmed = line.trim();
+    return trimmed.startsWith("|") && trimmed.includes("|", 1);
+  };
+
+  const isTableDivider = (line: string) =>
+    /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line.trim());
+
+  const parseTableRow = (line: string) => {
+    const cleaned = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+    return cleaned.split("|").map((cell) => cell.trim());
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Detect and render tables
+    if (isTableRow(line) && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
+      const headerCells = parseTableRow(line);
+      const bodyRows: string[][] = [];
+      let j = i + 2; // Skip header and divider
+
+      while (j < lines.length && isTableRow(lines[j])) {
+        bodyRows.push(parseTableRow(lines[j]));
+        j++;
+      }
+
+      elements.push(
+        <div key={`table-${i}`} className="my-2 overflow-x-auto">
+          <table className="min-w-full border-collapse border border-slate-200 text-xs">
+            <thead className="bg-slate-100">
+              <tr>
+                {headerCells.map((cell, idx) => (
+                  <th key={`th-${i}-${idx}`} className="border border-slate-200 px-2 py-1 text-left font-semibold">
+                    {cell}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, rowIdx) => (
+                <tr key={`tr-${i}-${rowIdx}`} className="odd:bg-white even:bg-slate-50">
+                  {row.map((cell, cellIdx) => (
+                    <td key={`td-${i}-${rowIdx}-${cellIdx}`} className="border border-slate-200 px-2 py-1">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      i = j;
+      continue;
+    }
+
+    // Detect and render code blocks
+    if (trimmed.startsWith("```")) {
+      const language = trimmed.slice(3).trim();
+      const codeLines: string[] = [];
+      let j = i + 1;
+
+      while (j < lines.length && !lines[j].trim().startsWith("```")) {
+        codeLines.push(lines[j]);
+        j++;
+      }
+
+      elements.push(
+        <div key={`code-${i}`} className="my-2 rounded bg-slate-900 p-2">
+          {language && (
+            <div className="mb-1 text-[10px] font-mono text-slate-400">{language}</div>
+          )}
+          <pre className="overflow-x-auto text-xs text-slate-100">
+            <code>{codeLines.join("\n")}</code>
+          </pre>
+        </div>
+      );
+      i = j + 1; // Skip closing ```
+      continue;
+    }
+
+    // Detect and render lists
+    if (trimmed.match(/^[-*+]\s+/)) {
+      const listItems: string[] = [];
+      let j = i;
+
+      while (j < lines.length && lines[j].trim().match(/^[-*+]\s+/)) {
+        listItems.push(lines[j].trim().replace(/^[-*+]\s+/, ""));
+        j++;
+      }
+
+      elements.push(
+        <ul key={`list-${i}`} className="my-1 ml-4 list-disc space-y-0.5 text-xs">
+          {listItems.map((item, idx) => (
+            <li key={`li-${i}-${idx}`}>{item}</li>
+          ))}
+        </ul>
+      );
+      i = j;
+      continue;
+    }
+
+    // Detect headings
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      const sizeClass = level === 1 ? "text-base" : level === 2 ? "text-sm" : "text-xs";
+
+      const headingElement = React.createElement(
+        `h${level}`,
+        { key: `heading-${i}`, className: `font-semibold ${sizeClass} my-1` },
+        text
+      );
+      elements.push(headingElement);
+      i++;
+      continue;
+    }
+
+    // Render as regular paragraph with bold/italic support
+    const processedLine = line
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
+
+    elements.push(
+      <p key={`p-${i}`} className="my-0.5 text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: processedLine }} />
+    );
+    i++;
+  }
+
+  return <div className="space-y-1">{elements}</div>;
+};
+
 interface NodeOutput {
   nodeId: string;
   nodeName?: string;
+  nodeType?: string;
   content: string;
   isStreaming: boolean;
   status: NodeStatus;
@@ -141,7 +292,7 @@ export function WorkflowChatInterface({
         },
 
         onNodeStart: (event: NodeStartEvent) => {
-          console.log("[Stream] Node started:", event.node_id);
+          console.log("[Stream] Node started:", event.node_id, "Name:", event.node_name, "Type:", event.node_type);
           setActiveNodeId(event.node_id);
           setExpandedNodeOutputId(event.node_id);
           if (!seenRunningNodesRef.current.has(event.node_id)) {
@@ -155,6 +306,7 @@ export function WorkflowChatInterface({
             next.set(event.node_id, {
               nodeId: event.node_id,
               nodeName: event.node_name || event.node_id,
+              nodeType: event.node_type,
               content: "",
               isStreaming: true,
               status: "running",
@@ -213,9 +365,11 @@ export function WorkflowChatInterface({
                 status: "running",
               });
             } else {
+              // If we receive chunks without node_start, create entry with minimal info
               next.set(nodeId, {
                 nodeId,
                 nodeName: nodeId,
+                nodeType: undefined,
                 content: chunkContent,
                 isStreaming: true,
                 status: "running",
@@ -285,12 +439,14 @@ export function WorkflowChatInterface({
         },
 
         onNodeComplete: (event) => {
-          console.log("[Stream] Node complete (non-LLM):", event.node_id);
+          console.log("[Stream] Node complete (non-LLM):", event.node_id, "Type:", event.node_type);
           setNodeOutputs((prev) => {
             const next = new Map(prev);
+            const existing = next.get(event.node_id);
             next.set(event.node_id, {
               nodeId: event.node_id,
-              nodeName: event.node_id,
+              nodeName: existing?.nodeName || event.node_id,
+              nodeType: event.node_type,
               content: event.output,
               isStreaming: false,
               status: "success",
@@ -449,7 +605,13 @@ export function WorkflowChatInterface({
         <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2 z-10">
           <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
           <span className="text-sm text-blue-700">
-            <strong>{nodeOutputs.get(activeNodeId)?.nodeName || activeNodeId}</strong> is processing...
+            <strong>{nodeOutputs.get(activeNodeId)?.nodeName || activeNodeId}</strong>
+            {nodeOutputs.get(activeNodeId)?.nodeType && (
+              <span className="ml-1.5 text-xs bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 font-medium uppercase">
+                {nodeOutputs.get(activeNodeId)?.nodeType}
+              </span>
+            )}
+            {" is processing..."}
           </span>
           {totalCost > 0 && (
             <span className="ml-auto text-xs text-blue-500">
@@ -510,13 +672,14 @@ export function WorkflowChatInterface({
                     onRegenerate={undefined}
                     onReply={undefined}
                     onReact={undefined}
+                    disablePinning={true}
                   />
                 ))}
 
                 {outputItems.length > 0 && (
                   <div className="mt-6 rounded-2xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6F6F6F]">
-                      Node Outputs
+                      Node Outputs ({outputItems.length})
                     </div>
                     <div className="space-y-2">
                       {outputItems.map((output) => {
@@ -533,15 +696,29 @@ export function WorkflowChatInterface({
                                   prev === output.nodeId ? null : output.nodeId
                                 )
                               }
-                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50/50 transition-colors rounded-xl"
                             >
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium text-[#1E1E1E]">
-                                  {output.nodeName || output.nodeId}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="truncate text-sm font-medium text-[#1E1E1E]">
+                                    {output.nodeName || output.nodeId}
+                                  </span>
+                                  {output.nodeType && (
+                                    <span className="shrink-0 rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 uppercase">
+                                      {output.nodeType}
+                                    </span>
+                                  )}
                                 </div>
                                 {!isExpanded && (
                                   <div className="truncate text-xs text-[#6B7280]">
                                     {getCollapsedPreview(output.content)}
+                                  </div>
+                                )}
+                                {output.tokens !== undefined && (
+                                  <div className="mt-1 text-[10px] text-[#8B8B8B]">
+                                    {output.tokens > 0 && `${output.tokens} tokens`}
+                                    {output.cost !== undefined && output.cost > 0 && ` • $${output.cost.toFixed(4)}`}
+                                    {output.durationMs !== undefined && ` • ${(output.durationMs / 1000).toFixed(2)}s`}
                                   </div>
                                 )}
                               </div>
@@ -554,10 +731,10 @@ export function WorkflowChatInterface({
                               </span>
                             </button>
                             {isExpanded && (
-                              <div className="border-t border-[#EFEFEF] px-3 py-2">
-                                <pre className="whitespace-pre-wrap text-xs leading-relaxed text-[#3D3D3D]">
-                                  {output.content || "No output yet"}
-                                </pre>
+                              <div className="border-t border-[#EFEFEF] px-3 py-3">
+                                <div className="text-xs leading-relaxed text-[#3D3D3D]">
+                                  {renderMarkdownContent(output.content)}
+                                </div>
                               </div>
                             )}
                           </div>

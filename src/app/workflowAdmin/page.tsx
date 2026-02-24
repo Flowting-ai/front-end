@@ -231,8 +231,8 @@ export default function WorkflowAdminPage() {
   };
 
   const handleChatWorkflow = (workflowId: string) => {
-    // Execute workflow and open in chat mode
-    router.push(`/workflows?id=${workflowId}&chatMode=true`);
+    // Navigate to dedicated workflow chat page
+    router.push(`/workflowAdmin/chat/${workflowId}`);
   };
 
 

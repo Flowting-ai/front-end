@@ -916,18 +916,18 @@ export const workflowAPI = {
         workflowId: id,
         payload,
       });
-      const patchResponse = await fetchWithTimeout(workflowDetailEndpoint(id), {
-        method: "PATCH",
+      const putResponse = await fetchWithTimeout(workflowDetailEndpoint(id), {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
-      if (patchResponse.ok) {
+      if (putResponse.ok) {
         const updated = await handleResponse<
           BackendWorkflowDetail | BackendWorkflowCreateResponse
-        >(patchResponse);
+        >(putResponse);
         if ("nodes" in (updated as BackendWorkflowDetail)) {
           return toWorkflowDTO(updated as BackendWorkflowDetail);
         }
@@ -939,19 +939,19 @@ export const workflowAPI = {
         };
       }
 
-      if (patchResponse.status === 404) {
+      if (putResponse.status === 404) {
         return createOrReuseExistingWorkflow();
       }
 
-      if ([405, 501].includes(patchResponse.status)) {
+      if ([405, 501].includes(putResponse.status)) {
         throw new WorkflowAPIError(
           "Backend workflow update endpoint is not available yet.",
-          patchResponse.status,
+          putResponse.status,
           "UNSUPPORTED_UPDATE"
         );
       }
 
-      await handleResponse(patchResponse);
+      await handleResponse(putResponse);
     }
 
     return createOrReuseExistingWorkflow();

@@ -94,7 +94,7 @@ export default function TopBar({
       </div>
 
       {/* Right Content */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {saveStatus && (
           <div className="h-5 px-1.5 py-1 rounded text-xs flex items-center text-[#00812F] bg-[#D8FDE4]">
             {saveStatus}
@@ -106,7 +106,7 @@ export default function TopBar({
           onClick={onSave}
           disabled={!hasUnsavedChanges || isSaving}
           title={!workflowId ? "Name and configure workflow first, then save" : hasUnsavedChanges ? "Save workflow" : "No changes to save"}
-          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+          className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           {isSaving ? (
             <>
@@ -114,7 +114,7 @@ export default function TopBar({
               <span className="text-sm">Saving...</span>
             </>
           ) : (
-            <div className={`flex items-center gap-2 rounded-[8px] px-3 py-2 ${hasUnsavedChanges ? "text-black border border-main-border" : "text-gray-400 border border-gray-300"}`}>
+            <div className={`flex items-center gap-2 rounded-[8px] px-3 py-2 ${hasUnsavedChanges ? "border border-main-border" : "border border-gray-300"}`}>
               <Save className="w-4 h-4" />
               <span className="text-sm">Save</span>
             </div>
@@ -126,7 +126,7 @@ export default function TopBar({
           onClick={onTest}
           disabled={isTestDisabled}
           title={isTestDisabled ? testDisabledReason || "Save workflow first, then test." : "Open test chat (in-built)"}
-          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+          className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           {isExecuting ? (
             <>
@@ -134,7 +134,7 @@ export default function TopBar({
               <span className="text-sm">Running...</span>
             </>
           ) : (
-            <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
+            <div className="flex items-center gap-2 border border-main-border rounded-[8px] px-3 py-2">
               <FlaskConical className="w-4 h-4" />
               <span className="text-sm">Test Workflow</span>
             </div>
@@ -146,9 +146,9 @@ export default function TopBar({
           onClick={onRun}
           disabled={isRunDisabled}
           title={isRunDisabled ? testDisabledReason || "Save workflow first." : "Open workflow chat"}
-          className="z-10 text-[#404040] bg-transparent hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+          className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
-          <div className="flex items-center gap-2 text-black border border-main-border rounded-[8px] px-3 py-2">
+          <div className="flex items-center gap-2 border border-main-border rounded-[8px] px-3 py-2">
             <Play className="w-4 h-4" />
             <span className="text-sm">Run Workflow</span>
           </div>

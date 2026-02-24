@@ -314,6 +314,7 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     sender,
     content: visibleText,
     thinkingContent: thinkingText,
+    isThinkingInProgress: false,
     metadata,
     chatMessageId:
       rawId !== null && rawId !== undefined ? String(rawId) : undefined,
@@ -389,6 +390,7 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
         sanitized.visibleText ||
         (sanitized.thinkingText ? "" : (entry.response as string)),
       thinkingContent: sanitized.thinkingText,
+      isThinkingInProgress: false,
       chatMessageId,
       pinId,
       metadata: extractMetadata(entry),
