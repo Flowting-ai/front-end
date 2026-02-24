@@ -118,17 +118,50 @@ function normalizeMessageSources(
   if (!Array.isArray(raw) || raw.length === 0) return undefined as never;
   const out: MessageSource[] = [];
   for (const item of raw) {
-    if (item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string") {
+    if (
+      item &&
+      typeof item === "object" &&
+      "url" in item &&
+      typeof (item as { url: unknown }).url === "string"
+    ) {
       const o = item as Record<string, unknown>;
       const url = o.url as string;
-      const title = [o.title, o.name].find((v) => typeof v === "string") as string | undefined;
+      const title = [o.title, o.name].find((v) => typeof v === "string") as
+        | string
+        | undefined;
       const snippet = typeof o.snippet === "string" ? o.snippet : undefined;
-      const authorOrPublisher = [o.authorOrPublisher, o.author, o.publisher].find((v) => typeof v === "string") as string | undefined;
-      const publicationOrAccessDate = [o.publicationOrAccessDate, o.publicationDate, o.date, o.accessDate, o.publishedDate].find((v) => typeof v === "string") as string | undefined;
-      const relevanceScore = typeof o.relevanceScore === "number" ? o.relevanceScore : typeof o.relevance === "number" ? o.relevance : typeof o.confidence === "number" ? o.confidence : typeof o.score === "number" ? o.score : undefined;
-      const num = relevanceScore != null ? Math.min(100, Math.max(0, Number(relevanceScore))) : undefined;
-      const imageUrl = [o.imageUrl, o.image, o.ogImage].find((v) => typeof v === "string") as string | undefined;
-      const description = [o.description, o.ogDescription].find((v) => typeof v === "string") as string | undefined;
+      const authorOrPublisher = [
+        o.authorOrPublisher,
+        o.author,
+        o.publisher,
+      ].find((v) => typeof v === "string") as string | undefined;
+      const publicationOrAccessDate = [
+        o.publicationOrAccessDate,
+        o.publicationDate,
+        o.date,
+        o.accessDate,
+        o.publishedDate,
+      ].find((v) => typeof v === "string") as string | undefined;
+      const relevanceScore =
+        typeof o.relevanceScore === "number"
+          ? o.relevanceScore
+          : typeof o.relevance === "number"
+            ? o.relevance
+            : typeof o.confidence === "number"
+              ? o.confidence
+              : typeof o.score === "number"
+                ? o.score
+                : undefined;
+      const num =
+        relevanceScore != null
+          ? Math.min(100, Math.max(0, Number(relevanceScore)))
+          : undefined;
+      const imageUrl = [o.imageUrl, o.image, o.ogImage].find(
+        (v) => typeof v === "string",
+      ) as string | undefined;
+      const description = [o.description, o.ogDescription].find(
+        (v) => typeof v === "string",
+      ) as string | undefined;
       out.push({
         url,
         title: title || undefined,
@@ -195,7 +228,9 @@ function getMessageSourceUrls(message: Message): string[] {
   if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
     return fromMeta
       .slice(0, 4)
-      .map((s: { url?: string }) => (s && typeof s.url === "string" ? s.url : ""))
+      .map((s: { url?: string }) =>
+        s && typeof s.url === "string" ? s.url : "",
+      )
       .filter(Boolean);
   }
   return extractSourcesFromContent(message.content ?? "")
@@ -204,7 +239,9 @@ function getMessageSourceUrls(message: Message): string[] {
 }
 
 /** Extract link-like sources from markdown content (e.g. [text](url) or bare URLs) */
-function extractSourcesFromContent(content: string): Array<{ title?: string; url: string }> {
+function extractSourcesFromContent(
+  content: string,
+): Array<{ title?: string; url: string }> {
   if (!content || typeof content !== "string") return [];
   const seen = new Set<string>();
   const out: Array<{ title?: string; url: string }> = [];
@@ -420,7 +457,9 @@ export function ChatInterface({
     const titlesFromChat = extractTitlesFromContentByUrl(content);
     const fromMeta = lastAi.metadata?.sources;
     const rawSources: MessageSource[] =
-      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
+      fromMeta && fromMeta.length > 0
+        ? fromMeta
+        : extractSourcesFromContent(content);
     return rawSources.map((s) => {
       const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
       const title = chatTitle?.trim() || s.title?.trim();
@@ -430,7 +469,10 @@ export function ChatInterface({
 
   // Stable key so we only sync when source content actually changes (avoids loop from new array refs).
   const sourcesSyncKey = useMemo(
-    () => JSON.stringify(sourcesForPanel.map((s) => ({ url: s.url, title: s.title ?? "" }))),
+    () =>
+      JSON.stringify(
+        sourcesForPanel.map((s) => ({ url: s.url, title: s.title ?? "" })),
+      ),
     [sourcesForPanel],
   );
 
@@ -481,14 +523,16 @@ export function ChatInterface({
 
   const handleOpenSources = (message: Message) => {
     if (message.sender !== "ai" || !layoutContext) return;
-    
+
     // Extract sources from the specific message (similar to sourcesForPanel logic)
     const content = message.content ?? "";
     const titlesFromChat = extractTitlesFromContentByUrl(content);
     const fromMeta = message.metadata?.sources;
     const rawSources: MessageSource[] =
-      fromMeta && fromMeta.length > 0 ? fromMeta : extractSourcesFromContent(content);
-    
+      fromMeta && fromMeta.length > 0
+        ? fromMeta
+        : extractSourcesFromContent(content);
+
     const messageSources = rawSources.map((s) => {
       const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
       const title = chatTitle?.trim() || s.title?.trim();
@@ -497,7 +541,7 @@ export function ChatInterface({
 
     // Update the references sources with this specific message's sources
     layoutContext.setReferencesSources(messageSources);
-    
+
     // Open the references panel
     layoutContext.openReferencesPanel();
   };
@@ -622,15 +666,14 @@ export function ChatInterface({
     return availablePins.filter((pin) => {
       // Match against pin text content
       const textMatch = stripMarkdown(pin.text).toLowerCase().includes(query);
-      
+
       // Match against pin ID
       const idMatch = pin.id.toLowerCase().includes(query);
-      
+
       // Match against tags if available
-      const tagsMatch = pin.tags?.some((tag) => 
-        tag.toLowerCase().includes(query)
-      ) ?? false;
-      
+      const tagsMatch =
+        pin.tags?.some((tag) => tag.toLowerCase().includes(query)) ?? false;
+
       return textMatch || idMatch || tagsMatch;
     });
   }, [availablePins, pinSearchQuery]);
@@ -638,17 +681,17 @@ export function ChatInterface({
   // Helper function to highlight matching text
   const highlightMatch = (text: string, query: string) => {
     if (!query.trim()) return text;
-    
+
     const lowerText = text.toLowerCase();
     const lowerQuery = query.toLowerCase();
     const index = lowerText.indexOf(lowerQuery);
-    
+
     if (index === -1) return text;
-    
+
     const before = text.slice(0, index);
     const match = text.slice(index, index + query.length);
     const after = text.slice(index + query.length);
-    
+
     return (
       <>
         {before}
@@ -966,7 +1009,7 @@ export function ChatInterface({
             ) {
               layoutContext.updateChatTitleWithAnimation(
                 currentChatId,
-                String(chatTitle)
+                String(chatTitle),
               );
             }
             continue;
@@ -1001,7 +1044,8 @@ export function ChatInterface({
 
           if (eventName === "image") {
             const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-            const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+            const imageAlt =
+              typeof parsed.alt === "string" ? parsed.alt : undefined;
             if (imageUrl) {
               updateAiMessage({
                 imageUrl,
@@ -1081,7 +1125,7 @@ export function ChatInterface({
                     null,
                   sources: normalizeMessageSources(
                     (messageMeta as { sources?: unknown }).sources ??
-                    (messageMeta as { citations?: unknown }).citations,
+                      (messageMeta as { citations?: unknown }).citations,
                   ),
                 }
               : undefined;
@@ -1101,7 +1145,8 @@ export function ChatInterface({
                 : undefined;
 
             // Use reasoning from dedicated events if available, otherwise from <think> tags
-            const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
+            const finalReasoning =
+              reasoningContent || parsed.reasoning || sanitized.thinkingText;
 
             updateAiMessage({
               content:
@@ -1142,7 +1187,7 @@ export function ChatInterface({
             ) {
               layoutContext.updateChatTitleWithAnimation(
                 currentChatId,
-                String(doneTitle)
+                String(doneTitle),
               );
             }
 
@@ -1369,6 +1414,31 @@ export function ChatInterface({
         layoutContext?.setActiveChatId?.(chatId);
       }
 
+      // Convert image attachments to base64 data URLs so they persist after blob URLs are revoked
+      let persistentAttachments:
+        | Array<{
+            id: string;
+            type: "pdf" | "image";
+            name: string;
+            url: string;
+          }>
+        | undefined;
+      if (attachments.length > 0) {
+        persistentAttachments = await Promise.all(
+          attachments.map(async (a) => {
+            if (a.type === "image") {
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(a.file);
+              });
+              return { id: a.id, type: a.type, name: a.name, url: dataUrl };
+            }
+            return { id: a.id, type: a.type, name: a.name, url: a.url };
+          }),
+        );
+      }
+
       const userMessage: Message = {
         id: userMessageId,
         sender: "user",
@@ -1378,15 +1448,7 @@ export function ChatInterface({
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
-          attachments:
-            attachments.length > 0
-              ? attachments.map((a) => ({
-                  id: a.id,
-                  type: a.type,
-                  name: a.name,
-                  url: a.url,
-                }))
-              : undefined,
+          attachments: persistentAttachments,
           mentionedPins:
             mentionedPins.length > 0
               ? mentionedPins.map((mp) => {
@@ -1462,10 +1524,10 @@ export function ChatInterface({
       if (lastAtIndex !== -1) {
         // Extract text after @
         const textAfterAt = value.substring(lastAtIndex + 1);
-        
+
         // Check if there's a terminating character (space, punctuation, or newline)
         const hasTerminator = /[\s,.!?;:\n]/.test(textAfterAt);
-        
+
         if (hasTerminator) {
           // Close dropdown if terminator found
           setShowPinDropdown(false);
@@ -1487,7 +1549,8 @@ export function ChatInterface({
 
     // Remove @ and any text after it from input
     const lastAtIndex = input.lastIndexOf("@");
-    const newInput = lastAtIndex !== -1 ? input.substring(0, lastAtIndex) : input;
+    const newInput =
+      lastAtIndex !== -1 ? input.substring(0, lastAtIndex) : input;
     setInput(newInput);
 
     // Add to mentioned pins if not already added
@@ -1508,7 +1571,7 @@ export function ChatInterface({
     setSelectedPersona(persona);
     setShowPersonaDropdown(false);
     toast.success(`Persona selected: ${persona.name}`);
-    
+
     // If persona has a modelId, fetch models and update the selected model in topbar
     if (persona.modelId && layoutContext) {
       try {
@@ -1516,13 +1579,14 @@ export function ChatInterface({
         if (response.ok) {
           const data = await response.json();
           const models = normalizeModels(data);
-          
+
           // Find the model matching the persona's modelId
           const matchingModel = models.find(
-            (m) => String(m.id) === String(persona.modelId) || 
-                   String(m.modelId) === String(persona.modelId)
+            (m) =>
+              String(m.id) === String(persona.modelId) ||
+              String(m.modelId) === String(persona.modelId),
           );
-          
+
           if (matchingModel) {
             // Update the selected model in the topbar
             layoutContext.setSelectedModel(matchingModel);
@@ -2148,15 +2212,24 @@ export function ChatInterface({
                       {messagePins && messagePins.length > 0 && (
                         <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
                           {messagePins.map((pin: any) => {
-                            const pinText = stripMarkdown(pin.text || pin.label);
-                            const displayText = pinText.length > 80 ? pinText.slice(0, 80) + "..." : pinText;
+                            const pinText = stripMarkdown(
+                              pin.text || pin.label,
+                            );
+                            const displayText =
+                              pinText.length > 80
+                                ? pinText.slice(0, 80) + "..."
+                                : pinText;
                             const pinColor = getPinSeparatorColor(pin.id);
-                            
+
                             return (
                               <div
                                 key={pin.id}
                                 className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden cursor-pointer hover:bg-[#F5F5F5] transition-colors"
-                                style={{ minWidth: "180px", maxWidth: "280px", height: "60px" }}
+                                style={{
+                                  minWidth: "180px",
+                                  maxWidth: "280px",
+                                  height: "60px",
+                                }}
                                 onClick={() => {
                                   // Emit event to insert pin content into input
                                   if (typeof window !== "undefined") {
@@ -2168,7 +2241,7 @@ export function ChatInterface({
                                   }
                                 }}
                               >
-                                <div 
+                                <div
                                   className="flex h-full w-1 rounded-full shrink-0"
                                   style={{ backgroundColor: pinColor }}
                                 ></div>
@@ -2334,17 +2407,25 @@ export function ChatInterface({
               {filteredPins.length > 0 ? (
                 <>
                   <div className="font-geist font-medium text-left text-sm text-[#888888] px-4 py-2">
-                    {pinSearchQuery ? `Searching: "${pinSearchQuery}"` : "Select a pin to mention"}
+                    {pinSearchQuery
+                      ? `Searching: "${pinSearchQuery}"`
+                      : "Select a pin to mention"}
                   </div>
                   <div
                     ref={pinDropdownScrollRef}
-                    className={cn("max-h-76 overflow-y-auto flex flex-col", chatStyles.customScrollbar)}
+                    className={cn(
+                      "max-h-76 overflow-y-auto flex flex-col",
+                      chatStyles.customScrollbar,
+                    )}
                   >
                     {filteredPins.map((pin, idx) => {
                       const isHighlighted = idx === highlightedPinIndex;
                       const pinText = stripMarkdown(pin.text);
-                      const displayText = pinText.length > 80 ? pinText.slice(0, 80) + "..." : pinText;
-                      
+                      const displayText =
+                        pinText.length > 80
+                          ? pinText.slice(0, 80) + "..."
+                          : pinText;
+
                       return (
                         <button
                           key={pin.id}
@@ -2366,16 +2447,20 @@ export function ChatInterface({
                           }
                         >
                           <div className="flex items-center gap-4">
-                            <div 
-                              className="w-1 h-full min-h-10 rounded-full" 
-                              style={{ backgroundColor: getPinSeparatorColor(pin.id) }}
-                            ></div> 
+                            <div
+                              className="w-1 h-full min-h-10 rounded-full"
+                              style={{
+                                backgroundColor: getPinSeparatorColor(pin.id),
+                              }}
+                            ></div>
                             <div className="flex flex-col">
                               <p className="truncate font-medium text-inherit text-black text-[13px]">
-                                {pinSearchQuery 
+                                {pinSearchQuery
                                   ? highlightMatch(displayText, pinSearchQuery)
                                   : renderInlineMarkdown(
-                                      formatPinTitle(displayText || "Untitled Pin"),
+                                      formatPinTitle(
+                                        displayText || "Untitled Pin",
+                                      ),
                                     )}
                               </p>
                               {pin.tags && pin.tags.length > 0 && (
@@ -2385,7 +2470,9 @@ export function ChatInterface({
                                       key={i}
                                       className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[11px] text-[#767676]"
                                     >
-                                      {pinSearchQuery ? highlightMatch(tag, pinSearchQuery) : tag}
+                                      {pinSearchQuery
+                                        ? highlightMatch(tag, pinSearchQuery)
+                                        : tag}
                                     </span>
                                   ))}
                                 </div>
@@ -2407,8 +2494,19 @@ export function ChatInterface({
                       fill="none"
                       className="mx-auto opacity-40"
                     >
-                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-                      <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M12 8v4M12 16h.01"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
                     </svg>
                   </div>
                   <div className="text-sm font-medium">
@@ -2739,7 +2837,9 @@ export function ChatInterface({
                           <Globe
                             className={cn(
                               "h-3.5 w-3.5",
-                              webSearchEnabled ? "text-blue-600" : "text-[#666666]",
+                              webSearchEnabled
+                                ? "text-blue-600"
+                                : "text-[#666666]",
                             )}
                           />
                           <span>Web Search</span>
@@ -2812,7 +2912,8 @@ export function ChatInterface({
                                   activePersonas[highlightedPersonaIndex],
                                 );
                               } else if (
-                                highlightedPersonaIndex === activePersonas.length
+                                highlightedPersonaIndex ===
+                                activePersonas.length
                               ) {
                                 handleAddNewPersona();
                               }
@@ -2877,9 +2978,11 @@ export function ChatInterface({
                                   <span className="flex-1 truncate font-medium pr-0">
                                     {persona.name}
                                   </span>
-                                  {(persona.modelName || persona.providerName) && (
+                                  {(persona.modelName ||
+                                    persona.providerName) && (
                                     <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[10px] font-medium text-[#666666] border border-[#E5E5E5]">
-                                      {persona.modelName || persona.providerName}
+                                      {persona.modelName ||
+                                        persona.providerName}
                                     </span>
                                   )}
                                 </button>
@@ -2961,11 +3064,22 @@ export function ChatInterface({
                         color: "#2563eb",
                         boxShadow: "none",
                         border: "none",
-                        marginLeft: "2px"
+                        marginLeft: "2px",
                       }}
                     >
-                      <Globe className="h-4 w-4 mr-2" style={{ color: "#2563eb" }} />
-                      <span style={{ flex: 1, textAlign: "center", color: "#2563eb" }}>Web Search</span>
+                      <Globe
+                        className="h-4 w-4 mr-2"
+                        style={{ color: "#2563eb" }}
+                      />
+                      <span
+                        style={{
+                          flex: 1,
+                          textAlign: "center",
+                          color: "#2563eb",
+                        }}
+                      >
+                        Web Search
+                      </span>
                       <X
                         className="h-4 w-4 ml-2 cursor-pointer"
                         style={{ color: "#2563eb" }}

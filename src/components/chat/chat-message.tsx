@@ -1167,11 +1167,6 @@ export function ChatMessage({
         {/* Only show avatar for AI, not user */}
         <div className="w-auto flex flex-col items-center justify-start gap-1">
           {!isUser && <div className="mt-4 shrink-0">{AvatarComponent}</div>}
-          {!isUser && (
-            <span className="text-[10px] text-[#8a8a8a] font-medium text-center max-w-[50px] truncate" title={message.metadata?.modelName || message.metadata?.providerName || message.avatarHint}>
-              {message.metadata?.modelName || message.metadata?.providerName || ""}
-            </span>
-          )}
         </div>
 
         <div

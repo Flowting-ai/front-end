@@ -214,7 +214,7 @@ export function PersonaNodeInspector({
             {/* Persona Content */}
             <div className="flex items-start gap-3">
               {/* Persona Image or Initials */}
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 {selectedPersona.image ? (
                   <Image
                     src={selectedPersona.image}

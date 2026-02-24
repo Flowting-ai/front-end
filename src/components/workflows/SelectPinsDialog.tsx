@@ -544,8 +544,15 @@ export function SelectPinsDialog({
                             onClick={(e) => e.stopPropagation()}
                             className="shrink-0"
                           />
-                          <label className="hidden text-sm font-medium text-[#0A0A0A] truncate cursor-pointer">
-                            {pin.title || pin.name}
+                          <label
+                            className={`text-sm font-medium truncate cursor-pointer ${
+                              isDisabled ? 'text-gray-300' : 'text-black'
+                            }`}
+                          >
+                            {(pin.title || pin.name)
+                              ?.replace(/^#+\s*/g, '') // remove leading markdown hashes like ###
+                              .replace(/\*/g, '') // remove asterisks
+                              .trim()}
                           </label>
                         </div>
                       </div>

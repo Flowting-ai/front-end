@@ -221,11 +221,11 @@ function CustomNode({
                   alt={data.personaData.name}
                   width={32}
                   height={32}
-                  className="rounded object-cover flex-shrink-0"
+                  className="rounded object-cover shrink-0"
                 />
               ) : (
                 <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
-                  {data.personaData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                  {data.personaData.name.charAt(0).toUpperCase()}
                 </div>
               )}
               <div className="flex-1 min-w-0">
@@ -234,7 +234,7 @@ function CustomNode({
                 </p>
                 {data.personaData.modelName && (
                   <p className="text-[10px] text-[#757575] truncate mt-0.5">
-                    {data.personaData.modelName}
+                    Model: {data.personaData.modelName}
                   </p>
                 )}
               </div>
@@ -242,10 +242,9 @@ function CustomNode({
           ) : (
             <div className="flex">
               <div className="text-xs text-[#9F9F9F] italic mt-1 border rounded-full px-2">
-              No persona selected
+                No persona selected
+              </div>
             </div>
-            </div>
-            
           )
         )}
 
