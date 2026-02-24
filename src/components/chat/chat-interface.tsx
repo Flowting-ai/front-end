@@ -975,10 +975,13 @@ export function ChatInterface({
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
             assistantContent += delta;
             const sanitized = extractThinkingContent(assistantContent);
+            const hasOpenThink = /<think>/i.test(assistantContent);
+            const hasCloseThink = /<\/think>/i.test(assistantContent);
+            const stillThinking = hasOpenThink && !hasCloseThink;
             updateAiMessage({
               content: sanitized.visibleText || "",
               thinkingContent: sanitized.thinkingText,
-              // Flip off loading state once the first chunk arrives so UI shows streaming text.
+              isThinkingInProgress: stillThinking,
               isLoading: false,
             });
             continue;

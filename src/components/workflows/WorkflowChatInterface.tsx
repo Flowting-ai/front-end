@@ -201,6 +201,9 @@ export function WorkflowChatInterface({
 }: WorkflowChatInterfaceProps) {
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [nodeMetadata, setNodeMetadata] = useState<
+    Map<string, { label: string; type?: string }>
+  >(new Map());
   const [isResponding, setIsResponding] = useState(false);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [nodeOutputs, setNodeOutputs] = useState<Map<string, NodeOutput>>(new Map());
@@ -209,6 +212,7 @@ export function WorkflowChatInterface({
   const abortRef = useRef<(() => void) | null>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const nodeOutputsRef = useRef<Map<string, NodeOutput>>(new Map());
   // Ref to track streaming content without stale closure issues
   const streamingContentRef = useRef<Map<string, string>>(new Map());
   // Track nodes already marked as running to avoid repeated expensive canvas updates.
@@ -231,6 +235,51 @@ export function WorkflowChatInterface({
       textareaRef.current.style.height = `${scrollHeight}px`;
     }
   }, [input]);
+
+  // Fetch workflow metadata so we can map backend node IDs to human-readable labels
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWorkflowMetadata = async () => {
+      if (!workflowId || workflowId === "temp") return;
+      try {
+        const workflow = await workflowAPI.get(workflowId);
+        if (!isMounted || !workflow?.nodes) return;
+
+        const map = new Map<string, { label: string; type?: string }>();
+        for (const node of workflow.nodes) {
+          const data: any = node.data || {};
+          const label: string =
+            data.label ||
+            data.name ||
+            (typeof node.id === "string" && node.id.trim().length > 0
+              ? node.id
+              : "Node");
+          const type: string | undefined = data.type;
+          map.set(node.id, { label, type });
+        }
+        setNodeMetadata(map);
+      } catch (err) {
+        console.warn("[WorkflowChatInterface] Failed to load workflow metadata", err);
+      }
+    };
+
+    void loadWorkflowMetadata();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workflowId]);
+
+  const getDisplayNodeName = (nodeId: string, fallbackName?: string) => {
+    const meta = nodeMetadata.get(nodeId);
+    return meta?.label || fallbackName || nodeId;
+  };
+
+  const getDisplayNodeType = (nodeId: string, fallbackType?: string) => {
+    const meta = nodeMetadata.get(nodeId);
+    return meta?.type || fallbackType;
+  };
 
   const handleSend = async () => {
     const trimmedContent = input.trim();
@@ -292,7 +341,14 @@ export function WorkflowChatInterface({
         },
 
         onNodeStart: (event: NodeStartEvent) => {
-          console.log("[Stream] Node started:", event.node_id, "Name:", event.node_name, "Type:", event.node_type);
+          console.log(
+            "[Stream] Node started:",
+            event.node_id,
+            "Name:",
+            event.node_name,
+            "Type:",
+            event.node_type
+          );
           setActiveNodeId(event.node_id);
           setExpandedNodeOutputId(event.node_id);
           if (!seenRunningNodesRef.current.has(event.node_id)) {
@@ -305,12 +361,13 @@ export function WorkflowChatInterface({
             const next = new Map(prev);
             next.set(event.node_id, {
               nodeId: event.node_id,
-              nodeName: event.node_name || event.node_id,
-              nodeType: event.node_type,
+              nodeName: getDisplayNodeName(event.node_id, event.node_name),
+              nodeType: getDisplayNodeType(event.node_id, event.node_type),
               content: "",
               isStreaming: true,
               status: "running",
             });
+            nodeOutputsRef.current = next;
             return next;
           });
 
@@ -320,7 +377,10 @@ export function WorkflowChatInterface({
               msg.id === aiMessageId
                 ? {
                     ...msg,
-                    content: `**${event.node_name || event.node_id}** is thinking...`,
+                    content: `**${getDisplayNodeName(
+                      event.node_id,
+                      event.node_name
+                    )}** is thinking...`,
                     isLoading: true,
                   }
                 : msg
@@ -337,7 +397,6 @@ export function WorkflowChatInterface({
             content: chunkContent,
             chunk_index: event.chunk_index,
           });
-
           // Some backends emit chunks without node_start; keep the active node in sync.
           setActiveNodeId(nodeId);
           setExpandedNodeOutputId(nodeId);
@@ -368,13 +427,14 @@ export function WorkflowChatInterface({
               // If we receive chunks without node_start, create entry with minimal info
               next.set(nodeId, {
                 nodeId,
-                nodeName: nodeId,
-                nodeType: undefined,
+                nodeName: getDisplayNodeName(nodeId),
+                nodeType: getDisplayNodeType(nodeId, undefined),
                 content: chunkContent,
                 isStreaming: true,
                 status: "running",
               });
             }
+            nodeOutputsRef.current = next;
             return next;
           });
 
@@ -418,7 +478,7 @@ export function WorkflowChatInterface({
             } else {
               next.set(event.node_id, {
                 nodeId: event.node_id,
-                nodeName: event.node_id,
+                nodeName: getDisplayNodeName(event.node_id),
                 content: finalContent,
                 isStreaming: false,
                 status: "success",
@@ -427,6 +487,7 @@ export function WorkflowChatInterface({
                 durationMs: event.duration_ms,
               });
             }
+            nodeOutputsRef.current = next;
             return next;
           });
           seenRunningNodesRef.current.delete(event.node_id);
@@ -445,12 +506,13 @@ export function WorkflowChatInterface({
             const existing = next.get(event.node_id);
             next.set(event.node_id, {
               nodeId: event.node_id,
-              nodeName: existing?.nodeName || event.node_id,
-              nodeType: event.node_type,
+              nodeName: existing?.nodeName || getDisplayNodeName(event.node_id),
+              nodeType: getDisplayNodeType(event.node_id, event.node_type),
               content: event.output,
               isStreaming: false,
               status: "success",
             });
+            nodeOutputsRef.current = next;
             return next;
           });
           seenRunningNodesRef.current.delete(event.node_id);
@@ -460,10 +522,34 @@ export function WorkflowChatInterface({
         onWorkflowComplete: (event: WorkflowCompleteEvent) => {
           console.log("[Stream] Workflow complete! Total cost:", event.total_cost);
 
+          // Prefer backend final_output, but if it's missing, synthesize a rich summary
+          // from individual node outputs so the user always sees a meaningful result.
+          let finalContent = (event.final_output || "").trim();
+
+          if (!finalContent) {
+            const outputs = Array.from(nodeOutputsRef.current.values());
+            if (outputs.length > 0) {
+              const sections = outputs.map((output, index) => {
+                const title = output.nodeName || output.nodeId;
+                const body = (output.content || "").trim() || "_No output produced_";
+                return `### Step ${index + 1}: ${title}\n\n${body}`;
+              });
+              finalContent = sections.join("\n\n");
+            }
+          }
+
+          if (!finalContent) {
+            finalContent = "Workflow completed successfully.";
+          }
+
+          if (typeof event.total_cost === "number") {
+            setTotalCost(event.total_cost);
+          }
+
           const finalMessage: Message = {
             id: aiMessageId,
             sender: "ai",
-            content: event.final_output || "Workflow completed successfully.",
+            content: finalContent,
             avatarUrl: selectedModel
               ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
               : flowtingLogoUrl,
@@ -471,6 +557,9 @@ export function WorkflowChatInterface({
             metadata: {
               providerName: selectedModel?.companyName,
               modelName: selectedModel?.modelName,
+              totalCost: event.total_cost,
+              totalTokens: event.total_tokens,
+              totalDurationMs: event.total_duration_ms,
             },
           };
 
@@ -495,6 +584,7 @@ export function WorkflowChatInterface({
                   status: "error",
                 });
               }
+              nodeOutputsRef.current = next;
               return next;
             });
             seenRunningNodesRef.current.delete(event.node_id);

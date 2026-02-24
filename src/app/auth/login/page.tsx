@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { CSRF_INIT_ENDPOINT, LOGIN_ENDPOINT } from "@/lib/config";
-import { GoogleLogo } from "@/components/icons/google-logo";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -100,6 +99,8 @@ export default function LoginPage() {
         setUser(data.user);
         if (typeof window !== "undefined") {
           localStorage.setItem("isLoggedIn", "true");
+          // Signal the app layout to start a fresh chat after login
+          localStorage.setItem("startNewChatOnLogin", "true");
         }
       }
       router.replace("/");
@@ -248,13 +249,13 @@ export default function LoginPage() {
               className="form-google-button"
             >
               <Image
-                src="/googleLogo.svg"
+                src="/company-logos/google.svg"
                 width={24}
                 height={24}
                 alt="Google Logo"
                 className="h-5 w-5 object-contain"
               />
-              <span className="font-inter font-normal text-sm">
+              <span className="font-inter font-semibold text-sm">
                 Sign In with Google
               </span>
             </Button>

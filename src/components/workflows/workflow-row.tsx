@@ -204,8 +204,13 @@ export const WorkflowRow = React.forwardRef<
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+                  <FilePenLine className="h-4 w-4 mr-2" />
+                  Edit Workflow
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={workflow.status === "active" ? onPause : onResume}
+                  className="cursor-pointer"
                 >
                   {workflow.status === "active" ? (
                     <>
@@ -219,11 +224,7 @@ export const WorkflowRow = React.forwardRef<
                     </>
                   )}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={onEdit}>
-                  <FilePenLine className="h-4 w-4 mr-2" />
-                  Edit Workflow
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onDelete} className="text-red-600">
+                <DropdownMenuItem onClick={onDelete} className="cursor-pointer text-red-600">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>

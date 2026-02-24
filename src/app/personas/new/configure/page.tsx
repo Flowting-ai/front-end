@@ -964,7 +964,7 @@ function PersonaConfigurePageContent() {
 
                                 {/* Step 2: Dos Section */}
                                 {currentStep === REFINEMENT_STEPS.DOS && (
-                                  <div className={styles.dosDontsSection}>
+                                  <div className={`overflow-x-auto ${styles.dosDontsSection}`}>
                                     <h3 className={styles.refinementTitle}>
                                       Let's refine your persona in 2/3 steps
                                     </h3>

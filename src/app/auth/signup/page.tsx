@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { CSRF_INIT_ENDPOINT, SIGNUP_ENDPOINT } from "@/lib/config";
-import { GoogleLogo } from "@/components/icons/google-logo";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -387,7 +386,7 @@ export default function SignupPage() {
               className="form-google-button"
             >
               <Image
-                src="/googleLogo.svg"
+                src="/company-logos/google.svg"
                 width={24}
                 height={24}
                 alt="Google Logo"

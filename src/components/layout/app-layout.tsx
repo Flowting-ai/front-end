@@ -581,6 +581,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [isDeletingChatBoard, setIsDeletingChatBoard] = useState(false);
   const [isRenamingChatBoard, setIsRenamingChatBoard] = useState(false);
+  const hasStartedNewChatAfterLoginRef = useRef(false);
   const [starUpdatingChatId, setStarUpdatingChatId] = useState<string | null>(
     null
   );
@@ -815,13 +816,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
       console.error("Failed to load chats from backend", error);
     }
   }, [setCsrfToken, user]);
-
-  // Load chat boards only once when user is authenticated
-  useEffect(() => {
-    if (user && !hasFetchedChats.current) {
-      loadChatBoards();
-    }
-  }, [user, loadChatBoards]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;
@@ -1327,6 +1321,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
       router.push("/");
     }
   };
+
+  // Stable ref so the effect doesn't re-fire when handleAddChat identity changes
+  const handleAddChatRef = useRef(handleAddChat);
+  handleAddChatRef.current = handleAddChat;
+
+  // Load chat boards once when user is authenticated, then (optionally) start a fresh chat after login
+  useEffect(() => {
+    if (!user || hasFetchedChats.current) return;
+
+    const shouldStartNewChat =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("startNewChatOnLogin") === "true";
+
+    (async () => {
+      await loadChatBoards();
+
+      if (shouldStartNewChat && !hasStartedNewChatAfterLoginRef.current) {
+        hasStartedNewChatAfterLoginRef.current = true;
+        handleAddChatRef.current();
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("startNewChatOnLogin");
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loadChatBoards]);
 
   const isRightSidebarVisible =
     !isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && activeRightSidebarPanel !== null;

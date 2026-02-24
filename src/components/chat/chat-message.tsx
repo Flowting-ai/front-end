@@ -14,11 +14,16 @@ import {
   X,
   CornerDownRight,
   RefreshCw,
-  Eye,
-  EyeOff,
+  // Eye,
+  // EyeOff,
   ThumbsUp,
   ThumbsDown,
   Reply,
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
@@ -89,7 +94,7 @@ const parseTableRow = (line: string) => {
   return cleaned.split("|").map((cell) => cell.trim());
 };
 
-const renderInlineContent = (text: string, keyPrefix: string) => {
+const renderBoldInlineContent = (text: string, keyPrefix: string) => {
   const boldRegex = /(\*\*|__)(.+?)\1/g;
   const nodes: Array<string | JSX.Element> = [];
   let lastIndex = 0;
@@ -113,6 +118,194 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
 
   if (lastIndex < text.length) {
     nodes.push(text.slice(lastIndex));
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(text);
+  }
+
+  return nodes;
+};
+
+interface LinkPreviewProps {
+  url: string;
+  label?: string;
+  k: string;
+}
+
+const linkPreviewCache = new Map<
+  string,
+  { siteName: string; faviconUrl: string }
+>();
+
+const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
+  const normalizedUrl = url.trim();
+  const hostname = getHostname(normalizedUrl) || normalizedUrl;
+  const displayLabel = (label || hostname || normalizedUrl).trim();
+  const [showCard, setShowCard] = useState(false);
+  const [preview, setPreview] = useState<{
+    siteName: string;
+    faviconUrl: string;
+  } | null>(linkPreviewCache.get(normalizedUrl) ?? null);
+
+  const fetchPreview = async () => {
+    if (preview || linkPreviewCache.has(normalizedUrl)) {
+      if (!preview) setPreview(linkPreviewCache.get(normalizedUrl)!);
+      return;
+    }
+    const faviconUrl = hostname
+      ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
+      : "";
+    const result = { siteName: hostname, faviconUrl };
+    linkPreviewCache.set(normalizedUrl, result);
+    setPreview(result);
+  };
+
+  const faviconSrc = preview?.faviconUrl || (hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "");
+
+  return (
+    <span
+      key={k}
+      className="relative inline-flex"
+      onMouseEnter={() => {
+        setShowCard(true);
+        void fetchPreview();
+      }}
+      onMouseLeave={() => {
+        setShowCard(false);
+      }}
+    >
+      <a
+        href={normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group inline-flex items-center gap-1 rounded-full border border-main-border bg-[#F4F4F5] px-2 py-0.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#E4E4E7] hover:text-[#111827] transition-all duration-200 max-w-full align-middle"
+      >
+        <span className="truncate">{displayLabel}</span>
+        <ExternalLink
+          className="ml-0.5 h-3 w-3 shrink-0 text-zinc-400 transition-all duration-150 group-hover:text-zinc-600"
+          aria-hidden="true"
+        />
+      </a>
+      {showCard && (
+        <div
+          className="absolute left-0 bottom-full mb-2 w-64 rounded-[12px] border border-zinc-200 bg-white shadow-xl z-50 overflow-hidden"
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="flex items-center gap-3 p-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[#F4F4F5] border border-zinc-200 overflow-hidden">
+              {faviconSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={faviconSrc}
+                  alt=""
+                  className="h-6 w-6 object-contain"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-zinc-500">
+                  {(hostname || "?").charAt(0).toUpperCase()}
+                </span>
+              )}
+            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[13px] font-semibold text-[#111827] truncate">
+                {preview?.siteName ?? hostname}
+              </span>
+              <span className="text-[11px] text-[#6B7280] flex items-center gap-1">
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                Go to website
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
+const renderInlineContent = (text: string, keyPrefix: string) => {
+  if (!text) {
+    return [text];
+  }
+
+  const nodes: Array<string | JSX.Element> = [];
+  // Match either markdown links [label](url) or bare URLs
+  const linkRegex =
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|((?:https?:\/\/[^\s)]+)|(?:(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let partIndex = 0;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      let before = text.slice(lastIndex, match.index);
+      const afterChar = text[match.index + match[0].length];
+
+      // If the link is wrapped in parentheses like "(example.com)", strip them
+      const wrappedInParens =
+        before.endsWith("(") && afterChar === ")";
+      if (wrappedInParens) {
+        before = before.slice(0, -1);
+      }
+
+      nodes.push(
+        ...renderBoldInlineContent(
+          before,
+          `${keyPrefix}-text-${partIndex++}`,
+        ),
+      );
+    }
+
+    if (match[2]) {
+      // Markdown link: [label](url)
+      const label = match[1];
+      const url = match[2];
+      nodes.push(
+        <LinkPreview
+          k={`${keyPrefix}-link-${partIndex++}`}
+          url={url}
+          label={label}
+        />,
+      );
+    } else if (match[3]) {
+      // Bare URL, strip trailing punctuation from the URL but keep it visually
+      const raw = match[3];
+      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trailing = raw.slice(trimmedUrl.length);
+
+      nodes.push(
+        <LinkPreview
+          k={`${keyPrefix}-link-${partIndex++}`}
+          url={trimmedUrl}
+        />,
+      );
+
+      if (trailing) {
+        nodes.push(
+          ...renderBoldInlineContent(
+            trailing,
+            `${keyPrefix}-trail-${partIndex++}`,
+          ),
+        );
+      }
+    }
+
+    const afterOffset =
+      text[match.index + match[0].length] === ")" &&
+      text[match.index - 1] === "("
+        ? 1
+        : 0;
+    lastIndex = match.index + match[0].length + afterOffset;
+  }
+
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    nodes.push(
+      ...renderBoldInlineContent(
+        remaining,
+        `${keyPrefix}-text-${partIndex++}`,
+      ),
+    );
   }
 
   if (nodes.length === 0) {
@@ -512,9 +705,27 @@ export function ChatMessage({
       };
     }
   }, [isEditing, editedContent]);
+  // Auto-collapse reasoning when thinking finishes (transition from in-progress to done)
+  const wasThinkingRef = useRef(message.isThinkingInProgress ?? false);
+  const prevMessageIdRef = useRef(message.id);
   useEffect(() => {
-    setShowThinking(false);
-  }, [message.id, message.thinkingContent]);
+    // Reset when the message changes entirely
+    if (prevMessageIdRef.current !== message.id) {
+      prevMessageIdRef.current = message.id;
+      wasThinkingRef.current = false;
+      if (showThinking) setShowThinking(false);
+      return;
+    }
+
+    const wasThinking = wasThinkingRef.current;
+    const isNowThinking = message.isThinkingInProgress ?? false;
+    wasThinkingRef.current = isNowThinking;
+
+    if (wasThinking && !isNowThinking && showThinking) {
+      setShowThinking(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id, message.isThinkingInProgress]);
 
   const handleSaveAndResubmit = () => {
     onResubmit(editedContent, message.id);
@@ -942,26 +1153,39 @@ export function ChatMessage({
                   </div>
                 </div>
               )}
-              {message.thinkingContent && (
-                <div className="mb-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {(message.thinkingContent || message.isThinkingInProgress) && (
+                <div className="mb-3">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between text-left font-semibold"
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors hover:bg-zinc-50"
                     onClick={() => setShowThinking((prev) => !prev)}
                   >
-                    <span>
-                      {showThinking ? "Hide reasoning" : "Show reasoning"}
-                    </span>
-                    {showThinking ? (
-                      <EyeOff className="h-3.5 w-3.5" />
+                    {message.isThinkingInProgress ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400" />
                     ) : (
-                      <Eye className="h-3.5 w-3.5" />
+                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                    )}
+                    <span className="font-medium text-zinc-500">
+                      {message.isThinkingInProgress
+                        ? "Thinking..."
+                        : showThinking
+                          ? "Hide reasoning"
+                          : "Reasoning"}
+                    </span>
+                    {!message.isThinkingInProgress && (
+                      showThinking ? (
+                        <ChevronDown className="ml-auto h-3.5 w-3.5 text-zinc-400" />
+                      ) : (
+                        <ChevronRight className="ml-auto h-3.5 w-3.5 text-zinc-400" />
+                      )
                     )}
                   </button>
-                  {showThinking && (
-                    <pre className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-900/90">
-                      {message.thinkingContent}
-                    </pre>
+                  {(showThinking || message.isThinkingInProgress) && message.thinkingContent && (
+                    <div className="mt-1 ml-3 border-l-2 border-zinc-200 pl-3">
+                      <pre className="whitespace-pre-wrap text-[12px] leading-relaxed text-zinc-500 font-normal">
+                        {message.thinkingContent}
+                      </pre>
+                    </div>
                   )}
                 </div>
               )}
