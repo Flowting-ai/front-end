@@ -17,6 +17,7 @@ import {
   type ChunkEvent,
   type NodeEndEvent,
   type WorkflowCompleteEvent,
+  type AskUserEvent,
 } from "./workflow-api";
 import type { NodeStatus } from "./types";
 
@@ -281,8 +282,8 @@ export function WorkflowChatInterface({
     return meta?.type || fallbackType;
   };
 
-  const handleSend = async () => {
-    const trimmedContent = input.trim();
+  const handleSend = async (inputOverride?: string) => {
+    const trimmedContent = (inputOverride ?? input).trim();
     if (!trimmedContent || isResponding) return;
 
     const userMessageId = `user-${Date.now()}`;
@@ -571,6 +572,50 @@ export function WorkflowChatInterface({
           abortRef.current = null;
         },
 
+        onAskUser: (event: AskUserEvent) => {
+          const question =
+            typeof event.question === "string" && event.question.trim().length > 0
+              ? event.question.trim()
+              : "Could you clarify your request?";
+          const suggestions: Array<{ label: string; description?: string }> = [];
+          if (Array.isArray(event.suggestions)) {
+            for (const item of event.suggestions) {
+              const label =
+                typeof item?.label === "string" ? item.label.trim() : "";
+              if (!label) continue;
+              const description =
+                typeof item?.description === "string" &&
+                item.description.trim().length > 0
+                  ? item.description.trim()
+                  : undefined;
+              suggestions.push({ label, description });
+            }
+          }
+
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    content: question,
+                    isLoading: false,
+                    metadata: {
+                      ...msg.metadata,
+                      clarification: {
+                        question,
+                        suggestions,
+                      },
+                    },
+                  }
+                : msg,
+            ),
+          );
+          seenRunningNodesRef.current.clear();
+          setIsResponding(false);
+          setActiveNodeId(null);
+          abortRef.current = null;
+        },
+
         onError: (event) => {
           console.error("[Stream] Error:", event.error);
           if (event.node_id) {
@@ -763,6 +808,11 @@ export function WorkflowChatInterface({
                     onReply={undefined}
                     onReact={undefined}
                     disablePinning={true}
+                    onSuggestionSelect={(suggestion) => {
+                      const trimmedSuggestion = suggestion.trim();
+                      if (!trimmedSuggestion || isResponding) return;
+                      void handleSend(trimmedSuggestion);
+                    }}
                   />
                 ))}
 
@@ -888,7 +938,9 @@ export function WorkflowChatInterface({
                   ) : input.trim() ? (
                     <Button
                       type="button"
-                      onClick={handleSend}
+                      onClick={() => {
+                        void handleSend();
+                      }}
                       className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A] disabled:bg-[#CCCCCC] disabled:shadow-none"
                     >
                       <Send className="h-[18px] w-[18px]" />

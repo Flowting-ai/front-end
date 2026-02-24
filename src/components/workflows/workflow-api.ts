@@ -149,6 +149,7 @@ export type StreamEventType =
   | "node_end"
   | "node_complete"
   | "workflow_complete"
+  | "ask_user"
   | "error";
 
 export interface StreamEventBase {
@@ -203,6 +204,17 @@ export interface WorkflowCompleteEvent extends StreamEventBase {
   total_duration_ms?: number;
 }
 
+export interface AskUserSuggestion {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserEvent extends StreamEventBase {
+  event: "ask_user";
+  question: string;
+  suggestions?: AskUserSuggestion[];
+}
+
 export interface StreamErrorEvent extends StreamEventBase {
   event: "error";
   node_id?: string;
@@ -217,6 +229,7 @@ export type StreamEvent =
   | NodeEndEvent
   | NodeCompleteEvent
   | WorkflowCompleteEvent
+  | AskUserEvent
   | StreamErrorEvent;
 
 export interface StreamCallbacks {
@@ -226,8 +239,29 @@ export interface StreamCallbacks {
   onNodeEnd?: (event: NodeEndEvent) => void;
   onNodeComplete?: (event: NodeCompleteEvent) => void;
   onWorkflowComplete?: (event: WorkflowCompleteEvent) => void;
+  onAskUser?: (event: AskUserEvent) => void;
   onError?: (event: StreamErrorEvent) => void;
 }
+
+const STREAM_EVENT_TYPES = new Set<StreamEventType>([
+  "workflow_start",
+  "node_start",
+  "chunk",
+  "node_end",
+  "node_complete",
+  "workflow_complete",
+  "ask_user",
+  "error",
+]);
+
+const toStreamEventType = (value: unknown): StreamEventType | undefined => {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  return STREAM_EVENT_TYPES.has(normalized as StreamEventType)
+    ? (normalized as StreamEventType)
+    : undefined;
+};
 
 class WorkflowAPIError extends Error {
   constructor(
@@ -1091,14 +1125,25 @@ export const workflowAPI = {
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let pendingEventType: StreamEventType | undefined;
 
         const processSseLine = (line: string) => {
           const trimmedLine = line.trim();
 
           // Skip empty lines and comments
-          if (!trimmedLine || trimmedLine.startsWith(":")) return;
+          if (!trimmedLine) {
+            pendingEventType = undefined;
+            return;
+          }
+          if (trimmedLine.startsWith(":")) return;
 
           console.log("[executeStream] Processing line:", trimmedLine.slice(0, 100));
+
+          // Parse explicit SSE event name (e.g. "event: ask_user")
+          if (trimmedLine.startsWith("event:")) {
+            pendingEventType = toStreamEventType(trimmedLine.slice(6));
+            return;
+          }
 
           // Parse "data: {...}" format
           if (trimmedLine.startsWith("data:")) {
@@ -1107,38 +1152,49 @@ export const workflowAPI = {
 
             try {
               const event = JSON.parse(jsonStr) as Record<string, unknown> & {
-                event?: StreamEventType;
-                type?: StreamEventType;
+                event?: string;
+                type?: string;
               };
-              // Backend may send either "event" or "type".
-              const eventType = event.event ?? event.type;
+              // Backend may send event type via "event" field, "type" field, or SSE event line.
+              const eventType =
+                toStreamEventType(event.event) ??
+                toStreamEventType(event.type) ??
+                pendingEventType;
+              pendingEventType = undefined;
               if (!eventType) {
                 return;
               }
+              const eventWithType = {
+                ...event,
+                event: eventType,
+              } as StreamEvent;
               console.log("[executeStream] Parsed event:", eventType);
 
               // Dispatch to appropriate callback
               switch (eventType) {
                 case "workflow_start":
-                  callbacks.onWorkflowStart?.(event as unknown as WorkflowStartEvent);
+                  callbacks.onWorkflowStart?.(eventWithType as WorkflowStartEvent);
                   break;
                 case "node_start":
-                  callbacks.onNodeStart?.(event as unknown as NodeStartEvent);
+                  callbacks.onNodeStart?.(eventWithType as NodeStartEvent);
                   break;
                 case "chunk":
-                  callbacks.onChunk?.(event as unknown as ChunkEvent);
+                  callbacks.onChunk?.(eventWithType as ChunkEvent);
                   break;
                 case "node_end":
-                  callbacks.onNodeEnd?.(event as unknown as NodeEndEvent);
+                  callbacks.onNodeEnd?.(eventWithType as NodeEndEvent);
                   break;
                 case "node_complete":
-                  callbacks.onNodeComplete?.(event as unknown as NodeCompleteEvent);
+                  callbacks.onNodeComplete?.(eventWithType as NodeCompleteEvent);
                   break;
                 case "workflow_complete":
-                  callbacks.onWorkflowComplete?.(event as unknown as WorkflowCompleteEvent);
+                  callbacks.onWorkflowComplete?.(eventWithType as WorkflowCompleteEvent);
+                  break;
+                case "ask_user":
+                  callbacks.onAskUser?.(eventWithType as AskUserEvent);
                   break;
                 case "error":
-                  callbacks.onError?.(event as unknown as StreamErrorEvent);
+                  callbacks.onError?.(eventWithType as StreamErrorEvent);
                   break;
               }
             } catch (parseError) {

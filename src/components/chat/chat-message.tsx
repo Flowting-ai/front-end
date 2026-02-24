@@ -618,6 +618,13 @@ export interface Message {
       label: string;
       text?: string;
     }>;
+    clarification?: {
+      question: string;
+      suggestions?: Array<{
+        label: string;
+        description?: string;
+      }>;
+    };
     /** Sources or citations (from backend or parsed from content). Shown in References panel. */
     sources?: MessageSource[];
   };
@@ -721,6 +728,8 @@ interface ChatMessageProps {
   sourceUrls?: string[];
   /** When true, disables the pin button (for personas and workflow chats) */
   disablePinning?: boolean;
+  /** Optional handler for AI clarification suggestions. */
+  onSuggestionSelect?: (suggestion: string) => void;
 }
 
 export function ChatMessage({
@@ -742,6 +751,7 @@ export function ChatMessage({
   onOpenSources,
   sourceCount = 0,
   sourceUrls = [],
+  onSuggestionSelect,
 }: ChatMessageProps) {
   const isUser = message.sender === "user";
   const [isEditing, setIsEditing] = useState(false);
@@ -822,6 +832,10 @@ export function ChatMessage({
     () => parseContentSegments(contentToDisplay),
     [contentToDisplay],
   );
+  const clarificationSuggestions =
+    !isUser && Array.isArray(message.metadata?.clarification?.suggestions)
+      ? message.metadata?.clarification?.suggestions ?? []
+      : [];
 
   const actionButtonClasses =
     "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
@@ -1353,6 +1367,30 @@ export function ChatMessage({
                       />
                     </div>
                   ))}
+                  {!isUser &&
+                    !message.isLoading &&
+                    onSuggestionSelect &&
+                    clarificationSuggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {clarificationSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={`${message.id}-clarification-${idx}-${suggestion.label}`}
+                            type="button"
+                            onClick={() => onSuggestionSelect(suggestion.label)}
+                            className="inline-flex max-w-full flex-col items-start rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-left transition-colors hover:bg-[#EEF2FF]"
+                          >
+                            <span className="text-xs font-medium text-[#111827]">
+                              {suggestion.label}
+                            </span>
+                            {suggestion.description && (
+                              <span className="mt-1 text-[11px] text-[#6B7280]">
+                                {suggestion.description}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                 </div>
               )}
             </div>

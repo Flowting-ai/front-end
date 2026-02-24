@@ -111,6 +111,63 @@ interface MentionedPin {
   label: string;
 }
 
+type ClarificationSuggestion = {
+  label: string;
+  description?: string;
+};
+
+type ClarificationPromptPayload = {
+  question: string;
+  suggestions: ClarificationSuggestion[];
+};
+
+const toOptionalTrimmedString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeClarificationPrompt = (
+  raw: unknown,
+): ClarificationPromptPayload | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const payload = raw as Record<string, unknown>;
+  const question =
+    toOptionalTrimmedString(payload.question) ??
+    toOptionalTrimmedString(payload.prompt) ??
+    toOptionalTrimmedString(payload.clarification_question) ??
+    "Could you clarify your request?";
+  const rawSuggestions = Array.isArray(payload.suggestions)
+    ? payload.suggestions
+    : Array.isArray(payload.options)
+      ? payload.options
+      : [];
+  const suggestions = rawSuggestions
+    .map((item) => {
+      if (typeof item === "string") {
+        const label = item.trim();
+        return label ? ({ label } as ClarificationSuggestion) : null;
+      }
+      if (!item || typeof item !== "object") return null;
+      const option = item as Record<string, unknown>;
+      const label =
+        toOptionalTrimmedString(option.label) ??
+        toOptionalTrimmedString(option.option) ??
+        toOptionalTrimmedString(option.title) ??
+        toOptionalTrimmedString(option.text);
+      if (!label) return null;
+      const description =
+        toOptionalTrimmedString(option.description) ??
+        toOptionalTrimmedString(option.detail) ??
+        toOptionalTrimmedString(option.subtitle) ??
+        undefined;
+      return { label, description };
+    })
+    .filter((item): item is ClarificationSuggestion => Boolean(item));
+
+  return { question, suggestions };
+};
+
 /** Normalize backend sources/citations into MessageSource shape */
 function normalizeMessageSources(
   raw: unknown,
@@ -993,6 +1050,30 @@ export function ChatInterface({
         }, currentChatId ?? undefined);
       };
 
+      const applyClarificationPrompt = (
+        clarification: ClarificationPromptPayload,
+      ) => {
+        setMessages((prev = []) => {
+          const next = prev.map((msg) =>
+            msg.id === loadingMessageId
+              ? {
+                  ...msg,
+                  content: clarification.question,
+                  thinkingContent: null,
+                  isThinkingInProgress: false,
+                  isLoading: false,
+                  metadata: {
+                    ...msg.metadata,
+                    clarification,
+                  },
+                }
+              : msg,
+          );
+          messageBufferRef.current = next;
+          return next;
+        }, currentChatId ?? undefined);
+      };
+
       const reader = response.body.getReader();
       const processChunk = (value: Uint8Array) => {
         buffer += decoder.decode(value, { stream: true });
@@ -1087,6 +1168,54 @@ export function ChatInterface({
                 imageAlt,
               });
             }
+            continue;
+          }
+
+          if (eventName === "ask_user") {
+            const clarification = normalizeClarificationPrompt(parsed);
+            if (!clarification) {
+              continue;
+            }
+
+            if (
+              !isPersonaTest &&
+              parsed.chat_id &&
+              layoutContext?.setActiveChatId
+            ) {
+              const resolved = String(parsed.chat_id);
+              currentChatId = resolved;
+              layoutContext.setActiveChatId(resolved);
+              if (messageBufferRef.current.length > 0) {
+                setMessages(messageBufferRef.current, resolved);
+              }
+            }
+
+            const askUserTitle = parsed.title || parsed.chat_title;
+            if (
+              !isPersonaTest &&
+              askUserTitle &&
+              currentChatId &&
+              layoutContext?.updateChatTitleWithAnimation
+            ) {
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                String(askUserTitle),
+              );
+            }
+
+            applyClarificationPrompt(clarification);
+
+            if (
+              !isPersonaTest &&
+              currentChatId &&
+              layoutContext?.moveChatToTop
+            ) {
+              layoutContext.moveChatToTop(currentChatId);
+            }
+
+            setLastMessageId(loadingMessageId);
+            setIsResponding(false);
+            streamFinished = true;
             continue;
           }
 
@@ -2381,6 +2510,15 @@ export function ChatInterface({
                         }
                         sourceCount={getMessageSourceCount(msg)}
                         sourceUrls={getMessageSourceUrls(msg)}
+                        onSuggestionSelect={
+                          msg.sender === "ai"
+                            ? (suggestion) => {
+                                const trimmedSuggestion = suggestion.trim();
+                                if (!trimmedSuggestion || isResponding) return;
+                                void handleSend(trimmedSuggestion);
+                              }
+                            : undefined
+                        }
                       />
                     </div>
                   );
