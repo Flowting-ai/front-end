@@ -10,11 +10,11 @@ interface Frame117Props {
 
 const Frame1171275887: NextPage<Frame117Props> = ({ userName }) => {
   const normalized = (() => {
-    if (!userName?.trim()) return "Jack";
+    if (!userName?.trim()) return "User";
     const clean = userName.includes("@")
       ? userName.split("@")[0]
       : userName.split(" ")[0];
-    if (!clean) return "Jack";
+    if (!clean) return "User";
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   })();
 

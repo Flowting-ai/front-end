@@ -172,7 +172,7 @@ export default function LoginPage() {
                 htmlFor="identifier"
                 className="form-label text-[15px]"
               >
-                Email address
+                Email address <span className="text-zinc-400">*</span>
               </Label>
               <Input
                 id="identifier"
@@ -191,7 +191,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="form-label text-[15px]"
               >
-                Password
+                Password <span className="text-zinc-400">*</span>
               </Label>
               <div className="relative w-full">
                 <Input

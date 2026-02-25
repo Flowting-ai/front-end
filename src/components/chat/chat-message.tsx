@@ -625,6 +625,8 @@ export interface Message {
         description?: string;
       }>;
     };
+    /** True when the user manually stopped generation for this message. */
+    stoppedByUser?: boolean;
     /** Sources or citations (from backend or parsed from content). Shown in References panel. */
     sources?: MessageSource[];
   };
@@ -905,7 +907,13 @@ export function ChatMessage({
     message.images?.length
   );
 
-  const AiActions = ({ className }: { className?: string } = {}) => (
+  const AiActions = ({ className }: { className?: string } = {}) => {
+    // Hide AI actions for messages that were explicitly stopped by the user
+    if (message.metadata?.stoppedByUser) {
+      return null;
+    }
+
+    return (
     <TooltipProvider>
       <div
         className={cn(
@@ -1102,6 +1110,7 @@ export function ChatMessage({
       </div>
     </TooltipProvider>
   );
+  };
 
   // const LoadingState = () => (
   //   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#6B7280]">

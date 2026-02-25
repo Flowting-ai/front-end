@@ -634,6 +634,8 @@ export function ChatInterface({
       ? "Let's Play..."
       : "Choose a model or enable framework to start chatting";
   const messageBufferRef = useRef<Message[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const stopRequestedRef = useRef(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -845,6 +847,28 @@ export function ChatInterface({
     }
   };
 
+  const handleStopGeneration = () => {
+    // Mark that a user-initiated stop was requested
+    stopRequestedRef.current = true;
+    // Abort the in-flight request, if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    // Stop showing responding UI state immediately
+    setIsResponding(false);
+
+    // Ensure any loading AI message is marked as not loading
+    setMessages((prev = []) => {
+      const next = prev.map((msg) =>
+        msg.sender === "ai" && msg.isLoading
+          ? { ...msg, isLoading: false, isThinkingInProgress: false }
+          : msg,
+      );
+      messageBufferRef.current = next;
+      return next;
+    }, layoutContext?.activeChatId ?? undefined);
+  };
+
   const fetchAiResponse = async (
     userMessage: string,
     loadingMessageId: string,
@@ -860,6 +884,11 @@ export function ChatInterface({
     replyToMessageId?: string | null,
     files?: File[],
   ) => {
+    // Reset any previous stop signal and create a new abort controller
+    stopRequestedRef.current = false;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     try {
       if (!modelForRequest) {
@@ -892,8 +921,10 @@ export function ChatInterface({
 
       // Only use FormData when there are non-image files (e.g. PDFs).
       // Images are always sent as base64 data URLs in the JSON payload.
-      const nonImageFiles = files?.filter((f) => !f.type.startsWith("image/")) ?? [];
-      const imageFiles = files?.filter((f) => f.type.startsWith("image/")) ?? [];
+      const nonImageFiles =
+        files?.filter((f) => !f.type.startsWith("image/")) ?? [];
+      const imageFiles =
+        files?.filter((f) => f.type.startsWith("image/")) ?? [];
 
       if (nonImageFiles.length > 0 && !isPersonaTest) {
         // Use FormData for non-image file uploads
@@ -1026,6 +1057,7 @@ export function ChatInterface({
         headers,
         credentials: "include",
         body,
+        signal: controller.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -1407,8 +1439,54 @@ export function ChatInterface({
         setIsResponding(false);
       }
     } catch (error) {
+      // If the user explicitly requested to stop, treat this as a
+      // graceful cancellation, not an error.
+      if (stopRequestedRef.current) {
+        try {
+          reader?.cancel();
+        } catch {
+          // ignore cancellation errors
+        }
+
+        setMessages(
+          (prev = []) =>
+            prev.map((msg) => {
+              if (msg.id !== loadingMessageId) return msg;
+
+              const baseContent = msg.content || "";
+              const marker = "Generation Stopped By User";
+              const hasMarker = baseContent.includes(marker);
+              const suffix =
+                baseContent.length > 0
+                  ? hasMarker
+                    ? ""
+                    : `\n\n${marker}`
+                  : marker;
+
+              return {
+                ...msg,
+                content: `${baseContent}${suffix}`,
+                isLoading: false,
+                isThinkingInProgress: false,
+                metadata: {
+                  ...msg.metadata,
+                  stoppedByUser: true,
+                },
+              };
+            }),
+          chatId ?? undefined,
+        );
+
+        setIsResponding(false);
+        return;
+      }
+
       // Release the connection on error too
-      try { reader?.cancel(); } catch {}
+      try {
+        reader?.cancel();
+      } catch {
+        // ignore cancellation errors
+      }
       console.error("Error fetching AI response:", error);
 
       const errorMessage =
@@ -3222,47 +3300,17 @@ export function ChatInterface({
                     <button
                       type="button"
                       aria-label="Disable web search"
-                      onClick={() => setWebSearchEnabled(false)}
-                      style={{
-                        width: "152.5px",
-                        height: "36px",
-                        minHeight: "36px",
-                        borderRadius: "8px",
-                        padding: "7.5px 4px",
-                        gap: "8px",
-                        opacity: 1,
-                        background: "#F0F7FF",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontFamily: "Geist, sans-serif",
-                        fontWeight: 500,
-                        fontSize: "14px",
-                        lineHeight: "150%",
-                        letterSpacing: "0.5%",
-                        color: "#2563eb",
-                        boxShadow: "none",
-                        border: "none",
-                        marginLeft: "2px",
+                      onClick={() => {
+                        setWebSearchEnabled(false);
+                        toast("Web search disabled", {
+                          description: "Results will not include web search",
+                        });
                       }}
+                      className="cursor-pointer w-auto h-[36px] font-geist text-sm text-[#2563eb] bg-[#F0F7FF] rounded-full flex items-center justify-between gap-2 px-3 py-2"
                     >
-                      <Globe
-                        className="h-4 w-4 mr-2"
-                        style={{ color: "#2563eb" }}
-                      />
-                      <span
-                        style={{
-                          flex: 1,
-                          textAlign: "center",
-                          color: "#2563eb",
-                        }}
-                      >
-                        Web Search
-                      </span>
-                      <X
-                        className="h-4 w-4 ml-2 cursor-pointer"
-                        style={{ color: "#2563eb" }}
-                      />
+                      <Globe size={16} />
+                      <p>Web Search</p>
+                      <X size={16} />
                     </button>
                   )}
                 </div>
@@ -3274,10 +3322,7 @@ export function ChatInterface({
                   {isResponding ? (
                     <Button
                       type="button"
-                      onClick={() => {
-                        // TODO: Implement stop generation logic
-                        setIsResponding(false);
-                      }}
+                      onClick={handleStopGeneration}
                       className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                       title="Stop generation"
                     >
