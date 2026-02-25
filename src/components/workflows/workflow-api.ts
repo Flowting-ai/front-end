@@ -1033,6 +1033,7 @@ export const workflowAPI = {
     options?: {
       inputText?: string;
       input_text?: string;
+      webSearch?: boolean;
     }
   ): Promise<ExecutionResult> => {
     const inputText = (
@@ -1049,17 +1050,21 @@ export const workflowAPI = {
       );
     }
 
-    const response = await fetchWithTimeout(
-      workflowExecuteEndpoint(id),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ input_text: inputText }),
+    const payload: Record<string, unknown> = {
+      input_text: inputText,
+    };
+
+    if (options?.webSearch) {
+      payload.webSearch = true;
+    }
+
+    const response = await fetchWithTimeout(workflowExecuteEndpoint(id), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      60000
-    );
+      body: JSON.stringify(payload),
+    }, 60000);
 
     const data = await handleResponse<BackendWorkflowExecutionResponse>(response);
     return toExecutionResult(id, data);

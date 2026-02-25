@@ -638,7 +638,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isPersonasRoute =
     pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
   const isWorkflowChatRoute = pathname?.startsWith("/workflowAdmin/chat");
+  const isWorkflowAdminOverviewRoute = pathname === "/workflowAdmin";
   const isPersonaChatRoute = pathname?.startsWith("/personaAdmin/chat");
+  const isSettingsSectionRoute = pathname?.startsWith("/settings");
   const { user, csrfToken, setCsrfToken } = useAuth();
   const csrfTokenRef = useRef<string | null>(csrfToken);
   const hasFetchedChats = useRef(false);
@@ -1414,10 +1416,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [user, loadChatBoards]);
 
   const isRightSidebarVisible =
-    !isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && activeRightSidebarPanel !== null;
+    !isPersonasRoute &&
+    !isWorkflowChatRoute &&
+    !isPersonaChatRoute &&
+    !isSettingsSectionRoute &&
+    !isWorkflowAdminOverviewRoute &&
+    activeRightSidebarPanel !== null;
 
   const setIsRightSidebarVisible = (value: React.SetStateAction<boolean>) => {
-    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
+    if (
+      isPersonasRoute ||
+      isWorkflowChatRoute ||
+      isPersonaChatRoute ||
+      isSettingsSectionRoute ||
+      isWorkflowAdminOverviewRoute
+    ) {
       return;
     }
     setActiveRightSidebarPanel((prev) => {
@@ -1431,7 +1444,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleRightSidebarSelect = (panel: RightSidebarPanel) => {
-    if (isPersonasRoute || isWorkflowChatRoute || isPersonaChatRoute) {
+    if (
+      isPersonasRoute ||
+      isWorkflowChatRoute ||
+      isPersonaChatRoute ||
+      isSettingsSectionRoute ||
+      isWorkflowAdminOverviewRoute
+    ) {
       return;
     }
     setActiveRightSidebarPanel((prev) => (prev === panel ? null : panel));
@@ -1457,7 +1476,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     referencesSources,
     setReferencesSources,
     openReferencesPanel: () => {
-      if (!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute)
+      if (
+        !isPersonasRoute &&
+        !isWorkflowChatRoute &&
+        !isPersonaChatRoute &&
+        !isWorkflowAdminOverviewRoute
+      )
         setActiveRightSidebarPanel("references");
     },
     updateChatTitleWithAnimation,
@@ -1513,29 +1537,49 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <AppLayoutContext.Provider value={contextValue}>
         <div className="chat-layout-mobile-shell--full">
           <div className="chat-layout-mobile-container">
-            <Topbar
-              selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-              useFramework={useFramework}
-              onFrameworkChange={setUseFramework}
-              chatBoards={chatBoards}
-              activeChatId={activeChatId}
-              hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
-              pins={pins}
-              onPinsSelect={setSelectedPinIdsForNextMessage}
-            >
-              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="chat-layout-mobile-sheet">
-                  <LeftSidebar {...sidebarProps} isCollapsed={false} />
-                </SheetContent>
-              </Sheet>
-            </Topbar>
-            <main className="chat-layout-mobile-main">{pageContent}</main>
+            {!isSettingsSectionRoute && (
+              <Topbar
+                selectedModel={selectedModel}
+                onModelSelect={setSelectedModel}
+                useFramework={useFramework}
+                onFrameworkChange={setUseFramework}
+                chatBoards={chatBoards}
+                activeChatId={activeChatId}
+                hasMessages={
+                  activeChatId
+                    ? (chatHistory[activeChatId]?.length || 0) > 0
+                    : false
+                }
+                pins={pins}
+                onPinsSelect={setSelectedPinIdsForNextMessage}
+              >
+                <Sheet
+                  open={isMobileMenuOpen}
+                  onOpenChange={setIsMobileMenuOpen}
+                >
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent
+                    side="left"
+                    className="chat-layout-mobile-sheet"
+                  >
+                    <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                  </SheetContent>
+                </Sheet>
+              </Topbar>
+            )}
+            {isSettingsSectionRoute && (
+              <div className="w-full h-full flex">
+                <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                <main className="flex-1 h-full" />
+              </div>
+            )}
+            {!isSettingsSectionRoute && (
+              <main className="chat-layout-mobile-main">{pageContent}</main>
+            )}
           </div>
         </div>
         <AlertDialog
@@ -1615,17 +1659,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <div className="chat-layout-shell--full">
         <LeftSidebar {...sidebarProps} />
         <div className="chat-layout-sidebar-area">
-          <Topbar
-            selectedModel={selectedModel}
-            onModelSelect={setSelectedModel}
-            useFramework={useFramework}
-            onFrameworkChange={setUseFramework}
-            chatBoards={chatBoards}
-            activeChatId={activeChatId}
-            hasMessages={activeChatId ? (chatHistory[activeChatId]?.length || 0) > 0 : false}
-            pins={pins}
-            onPinsSelect={setSelectedPinIdsForNextMessage}
-          />
+          {!isSettingsSectionRoute && (
+            <Topbar
+              selectedModel={selectedModel}
+              onModelSelect={setSelectedModel}
+              useFramework={useFramework}
+              onFrameworkChange={setUseFramework}
+              chatBoards={chatBoards}
+              activeChatId={activeChatId}
+              hasMessages={
+                activeChatId
+                  ? (chatHistory[activeChatId]?.length || 0) > 0
+                  : false
+              }
+              pins={pins}
+              onPinsSelect={setSelectedPinIdsForNextMessage}
+            />
+          )}
           <div className="chat-layout-main-wrapper">
             <div className="chat-layout-content-panel">
               <main className="chat-layout-main">
@@ -1635,7 +1685,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 </div>
               </main>
             </div>
-            {!isPersonasRoute && !isWorkflowChatRoute && !isPersonaChatRoute && (
+            {!isPersonasRoute &&
+              !isWorkflowChatRoute &&
+              !isPersonaChatRoute &&
+                !isSettingsSectionRoute &&
+                !isWorkflowAdminOverviewRoute && (
               <div className="hidden h-full lg:flex items-stretch">
                 <RightSidebar
                   isOpen={isRightSidebarVisible}

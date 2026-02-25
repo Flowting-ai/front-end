@@ -11,6 +11,8 @@ import {
   HelpCircle,
   TrendingUp,
   User,
+  UserCog,
+  CreditCard,
   PanelLeft,
   BotMessageSquare,
   ChevronUp,
@@ -182,6 +184,13 @@ export function LeftSidebar({
   // Determine if user is on persona chat page
   const isOnPersonaChatPage = pathname?.startsWith("/personaAdmin/chat");
   const activePersonaIdFromUrl = pathname?.match(/\/personaAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+
+  // Determine if user is on settings-related pages
+  const isSettingsSectionRoute = pathname?.startsWith("/settings");
+  const isAccountRoute = pathname?.startsWith("/settings/account");
+  const isUsageAndBillingRoute = pathname?.startsWith(
+    "/settings/usage-and-billing"
+  );
 
   // Fetch workflows for "Recent Workflow chats" when on workflow pages
   const [workflowList, setWorkflowList] = useState<WorkflowMetadata[]>([]);
@@ -478,8 +487,8 @@ export function LeftSidebar({
                     Upgrade Plan
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    disabled
-                    className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
+                    onClick={() => router.push("/settings")}
+                    className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
                   >
                     <Settings className="h-4 w-4 text-lsb-text" />
                     Settings
@@ -516,310 +525,436 @@ export function LeftSidebar({
       ) : (
         // === OPEN SIDEBAR ===
         <aside className="w-full h-full flex flex-col">
-          {/* 1. Logo + ToggleIcon */}
+          {/* 1. Header */}
           <div className="w-full h-[56px] px-4">
             <div className="w-full h-full border-b border-main-border flex items-center justify-between">
               <div className="min-h-[56px] h-[56px] flex items-center gap-2">
-                <Image
-                  src="/icons/logo.png"
-                  width={23}
-                  height={23}
-                  alt="Flowting AI Logo"
-                />
-                <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
-                  FlowtingAI
-                </h3>
+                {isSettingsSectionRoute ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/")}
+                      className="cursor-pointer flex items-center justify-center rounded-md p-1 text-lsb-panelleft-icon hover:bg-zinc-200 hover:text-black transition-all duration-300"
+                    >
+                      <ChevronsLeft size={18} strokeWidth={1.5} />
+                    </button>
+                    <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
+                      Settings
+                    </h3>
+                  </>
+                ) : (
+                  <>
+                    <Image
+                      src="/icons/logo.png"
+                      width={23}
+                      height={23}
+                      alt="Flowting AI Logo"
+                    />
+                    <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
+                      FlowtingAI
+                    </h3>
+                  </>
+                )}
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={onToggle}
-                    className="cursor-pointer text-lsb-panelleft-icon hover:*:text-black hover:bg-zinc-200 rounded-sm flex items-center justify-center p-1 transition-all duration-300"
-                  >
-                    <PanelLeft size={20} strokeWidth={1.3} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side={"bottom"}>
-                  <p>Close Sidebar</p>
-                </TooltipContent>
-              </Tooltip>
+              {!isSettingsSectionRoute && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={onToggle}
+                      className="cursor-pointer text-lsb-panelleft-icon hover:*:text-black hover:bg-zinc-200 rounded-sm flex items-center justify-center p-1 transition-all duration-300"
+                    >
+                      <PanelLeft size={20} strokeWidth={1.3} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side={"bottom"}>
+                    <p>Close Sidebar</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
 
-          {/* 2. Buttons */}
-          <div className="w-full font-inter grid grid-cols-1 gap-1 px-4 py-4">
-            {/* Chat Board */}
-            <Button
-              onClick={() => {
-                onAddChat("chat");
-              }}
-              className={cn(
-                "group cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                isOnChatBoard &&
-                  !isOnPersonaPage &&
-                  "text-lsb-button-active-text bg-lsb-button-active-bg"
-              )}
-            >
-              <Image
-                src="/icons/chatboard.svg"
-                alt="chatboard"
-                width={14}
-                height={14}
-                className={cn(
-                  "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
-                  isOnChatBoard && !isOnPersonaPage && "invert-100"
-                )}
-              />
-              {/* <SquarePen size={20} strokeWidth={2} /> */}
-              <p className="font-normal text-[13px]">{chatBoardButtonText}</p>
-            </Button>
-
-            {/* Personas */}
-            <Button
-              onClick={() => router.push("/personaAdmin")}
-              className={cn(
-                "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                !isOnChatBoard &&
-                  isOnPersonaPage &&
-                  "text-lsb-button-active-text bg-lsb-button-active-bg"
-              )}
-            >
-              <div className="w-auto h-full flex items-center justify-center">
-                <UserRoundPen size={20} strokeWidth={2} />
+          {isSettingsSectionRoute ? (
+            // Settings navigation layout
+            <div className="w-full flex-1 flex flex-col px-4 py-4 gap-4 font-inter">
+              {/* Row 2: Search settings */}
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
+                <Input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search settings"
+                  className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  type="search"
+                  aria-label="Search settings"
+                />
               </div>
 
-              <p className="font-normal text-[13px]">AI Assistants</p>
-            </Button>
-
-            {/* Workflows */}
-            <Button
-              onClick={() => router.push("/workflowAdmin")}
-              className={cn(
-                "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                isOnWorkflowPage &&
-                  "text-lsb-button-active-text bg-lsb-button-active-bg"
-              )}
-            >
-              <div className="w-auto h-full flex items-center justify-center">
-                {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
-                <Workflow size={20} strokeWidth={2}/>
-              </div>
-              <p className="h-full font-normal text-[13px] flex items-center gap-2">
-                Flow Builder
-              </p>
-            </Button>
-
-            {/* Container Border Bottom */}
-            <div className="w-full h-[0.5] bg-main-border mt-3"></div>
-          </div>
-
-          {/* 3. Chat */}
-          <div className="font-inter flex-1 w-full flex flex-col min-h-0">
-            <div className="px-0 pb-4.5 flex-1 flex flex-col min-h-0 overflow-hidden">
-              {/* Section header - accordion trigger style */}
-              <div className="flex h-[31px] w-full items-center gap-2 shrink-0 px-4">
-                <p className="px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
-                  {isOnPersonaPage 
-                    ? "Recent Persona chats" 
-                    : isOnWorkflowPage 
-                    ? "Recent Workflow chats" 
-                    : "Recent Chat boards"}
-                </p>
-                <button
-                  onClick={() => setIsChatBoardsExpanded(!isChatBoardsExpanded)}
-                  className="cursor-pointer h-4 w-4 text-[#737373] hover:text-black flex items-center justify-center"
+              {/* Settings links */}
+              <div className="flex flex-col gap-1 mt-1">
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/account")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isAccountRoute && "text-lsb-button-active-text bg-lsb-button-active-bg"
+                  )}
                 >
-                  {isChatBoardsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <UserCog size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Account</p>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() =>
+                    router.push("/settings/usage-and-billing")
+                  }
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isUsageAndBillingRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <CreditCard size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Usage &amp; Billing</p>
+                </Button>
               </div>
+            </div>
+          ) : (
+            <>
+              {/* 2. Primary buttons */}
+              <div className="w-full font-inter grid grid-cols-1 gap-1 px-4 py-4">
+                {/* Chat Board */}
+                <Button
+                  onClick={() => {
+                    onAddChat("chat");
+                  }}
+                  className={cn(
+                    "group cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isOnChatBoard &&
+                      !isOnPersonaPage &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                  )}
+                >
+                  <Image
+                    src="/icons/chatboard.svg"
+                    alt="chatboard"
+                    width={14}
+                    height={14}
+                    className={cn(
+                      "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
+                      isOnChatBoard && !isOnPersonaPage && "invert-100"
+                    )}
+                  />
+                  {/* <SquarePen size={20} strokeWidth={2} /> */}
+                  <p className="font-normal text-[13px]">
+                    {chatBoardButtonText}
+                  </p>
+                </Button>
 
-              {isChatBoardsExpanded && (
-                <>
-                  <div className="mt-2 shrink-0 px-4">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
-                      <Input
-                        value={searchTerm}
-                        onChange={(event) => setSearchTerm(event.target.value)}
-                        placeholder={
-                          isOnPersonaPage 
-                            ? "Search persona chats" 
-                            : isOnWorkflowPage 
-                            ? "Search workflow chats" 
-                            : "Search chats"
-                        }
-                        className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
-                        type="search"
-                        aria-label="Search chats"
-                      />
-                    </div>
+                {/* Personas */}
+                <Button
+                  onClick={() => router.push("/personaAdmin")}
+                  className={cn(
+                    "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    !isOnChatBoard &&
+                      isOnPersonaPage &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center">
+                    <UserRoundPen size={20} strokeWidth={2} />
                   </div>
 
-                  {isOnWorkflowPage ? (
-                    workflowListLoading ? (
-                      <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading workflows...</div>
-                    ) : workflowsToDisplay.length > 0 ? (
-                      <div id="recent-workflow-chats" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
-                        {workflowsToDisplay.map((wf) => {
-                          const isActive = activeWorkflowIdFromUrl === wf.id;
-                          const handleSelect = () => {
-                            router.push(`/workflowAdmin/chat/${wf.id}`);
-                          };
-                          return (
-                            <div key={wf.id} className="snap-start">
-                              <ChatHistoryItem
-                                title={wf.name}
-                                isSelected={isActive}
-                                isStarred={false}
-                                pinnedCount={0}
-                                onSelect={handleSelect}
-                                onToggleStar={() => {}}
-                                onRename={() => {}}
-                                onDelete={() => {}}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
-                        <p>No workflows found.</p>
-                      </div>
-                    )
-                  ) : isOnPersonaPage ? (
-                    personaListLoading ? (
-                      <div className="mt-8 px-4 text-sm text-[#6F6F6F]">Loading personas...</div>
-                    ) : personasToDisplay.length > 0 ? (
-                      <div id="recent-persona-chats" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
-                        {personasToDisplay.map((persona) => {
-                          const isActive = activePersonaIdFromUrl === persona.id;
-                          const handleSelect = () => {
-                            router.push(`/personaAdmin/chat/${persona.id}`);
-                          };
-                          return (
-                            <div key={persona.id} className="snap-start">
-                              <ChatHistoryItem
-                                title={persona.name}
-                                isSelected={isActive}
-                                isStarred={false}
-                                pinnedCount={0}
-                                onSelect={handleSelect}
-                                onToggleStar={() => {}}
-                                onRename={() => {}}
-                                onDelete={() => {}}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
-                        <p>No personas found.</p>
-                      </div>
-                    )
-                  ) : boardsToDisplay.length > 0 ? (
-                    <div id="recent-chat-boards" className={cn("flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500", chatStyles.customScrollbar2)}>
-                      {boardsToDisplay.map((board) => {
-                        const isActive = activeChatId === board.id;
-                        const pinTotal =
-                          board.metadata?.pinCount ?? board.pinCount ?? 0;
-                        const isRenamingBoard = renamingChatId === board.id;
+                  <p className="font-normal text-[13px]">AI Assistants</p>
+                </Button>
 
-                        const handleSelect = () => {
-                          if (renamingChatId) {
-                            onRenameCancel();
-                          }
-                          setActiveChatId(board.id);
-                          router.push("/");
-                        };
-
-                        const handleToggleStar = () => {
-                          void onToggleStar(board);
-                        };
-
-                        const handleRename = () => {
-                          if (isRenamingPending) return;
-                          setRenamingChatId(board.id);
-                          setRenamingText(board.name);
-                          requestAnimationFrame(() => {
-                            renameInputRef.current?.focus();
-                          });
-                        };
-
-                        const handleDelete = () => {
-                          handleDeleteClick(board);
-                        };
-
-                        const handleRenameSubmit = () => {
-                          const trimmed = renamingText.trim();
-                          if (!trimmed) return;
-                          void onRenameConfirm();
-                        };
-
-                        // Get the display title - use typewriter effect if animating
-                        const displayTitle = (() => {
-                          const displayedLength = displayedTitleLengths.get(board.id);
-                          if (displayedLength !== undefined && displayedLength < board.name.length) {
-                            // Show partial title (typewriter effect)
-                            return board.name.substring(0, displayedLength);
-                          }
-                          // Show full title
-                          return board.name;
-                        })();
-
-                        return (
-                          <div key={board.id} className="snap-start">
-                            <ChatHistoryItem
-                              title={displayTitle}
-                              isSelected={isActive}
-                              isStarred={Boolean(board.isStarred)}
-                              pinnedCount={pinTotal}
-                              onSelect={handleSelect}
-                              onToggleStar={handleToggleStar}
-                              onRename={handleRename}
-                              onDelete={handleDelete}
-                              isRenaming={isRenamingBoard}
-                              renameValue={isRenamingBoard ? renamingText : undefined}
-                              onRenameChange={
-                                isRenamingBoard
-                                  ? (value) => {
-                                      setRenamingText(value);
-                                    }
-                                  : undefined
-                              }
-                              onRenameSubmit={
-                                isRenamingBoard ? handleRenameSubmit : undefined
-                              }
-                              onRenameCancel={
-                                isRenamingBoard ? onRenameCancel : undefined
-                              }
-                              renameInputRef={
-                                isRenamingBoard ? renameInputRef : undefined
-                              }
-                              isRenamePending={
-                                isRenamingBoard ? isRenamingPending : false
-                              }
-                              isStarPending={starUpdatingChatId === board.id}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
-                      <p>
-                        {isOnPersonaPage 
-                          ? "No persona chats found." 
-                          : isOnWorkflowPage 
-                          ? "No workflow chats found." 
-                          : "No chats found."}
-                      </p>
-                    </div>
+                {/* Workflows */}
+                <Button
+                  onClick={() => router.push("/workflowAdmin")}
+                  className={cn(
+                    "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isOnWorkflowPage &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg"
                   )}
-                </>
-              )}
-            </div>
-          </div>
+                >
+                  <div className="w-auto h-full flex items-center justify-center">
+                    {/* <BotMessageSquare size={20} strokeWidth={2} /> */}
+                    <Workflow size={20} strokeWidth={2} />
+                  </div>
+                  <p className="h-full font-normal text-[13px] flex items-center gap-2">
+                    Flow Builder
+                  </p>
+                </Button>
+
+                {/* Container Border Bottom */}
+                <div className="w-full h-[0.5] bg-main-border mt-3"></div>
+              </div>
+
+              {/* 3. Chat / recent lists */}
+              <div className="font-inter flex-1 w-full flex flex-col min-h-0">
+                <div className="px-0 pb-4.5 flex-1 flex flex-col min-h-0 overflow-hidden">
+                  {/* Section header - accordion trigger style */}
+                  <div className="flex h-[31px] w-full items-center gap-2 shrink-0 px-4">
+                    <p className="px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
+                      {isOnPersonaPage
+                        ? "Recent Persona chats"
+                        : isOnWorkflowPage
+                        ? "Recent Workflow chats"
+                        : "Recent Chat boards"}
+                    </p>
+                    <button
+                      onClick={() =>
+                        setIsChatBoardsExpanded(!isChatBoardsExpanded)
+                      }
+                      className="cursor-pointer h-4 w-4 text-[#737373] hover:text-black flex items-center justify-center"
+                    >
+                      {isChatBoardsExpanded ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </button>
+                  </div>
+
+                  {isChatBoardsExpanded && (
+                    <>
+                      <div className="mt-2 shrink-0 px-4">
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
+                          <Input
+                            value={searchTerm}
+                            onChange={(event) =>
+                              setSearchTerm(event.target.value)
+                            }
+                            placeholder={
+                              isOnPersonaPage
+                                ? "Search persona chats"
+                                : isOnWorkflowPage
+                                ? "Search workflow chats"
+                                : "Search chats"
+                            }
+                            className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+                            type="search"
+                            aria-label="Search chats"
+                          />
+                        </div>
+                      </div>
+
+                      {isOnWorkflowPage ? (
+                        workflowListLoading ? (
+                          <div className="mt-8 px-4 text-sm text-[#6F6F6F]">
+                            Loading workflows...
+                          </div>
+                        ) : workflowsToDisplay.length > 0 ? (
+                          <div
+                            id="recent-workflow-chats"
+                            className={cn(
+                              "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
+                              chatStyles.customScrollbar2
+                            )}
+                          >
+                            {workflowsToDisplay.map((wf) => {
+                              const isActive =
+                                activeWorkflowIdFromUrl === wf.id;
+                              const handleSelect = () => {
+                                router.push(`/workflowAdmin/chat/${wf.id}`);
+                              };
+                              return (
+                                <div key={wf.id} className="snap-start">
+                                  <ChatHistoryItem
+                                    title={wf.name}
+                                    isSelected={isActive}
+                                    isStarred={false}
+                                    pinnedCount={0}
+                                    onSelect={handleSelect}
+                                    onToggleStar={() => {}}
+                                    onRename={() => {}}
+                                    onDelete={() => {}}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                            <p>No workflows found.</p>
+                          </div>
+                        )
+                      ) : isOnPersonaPage ? (
+                        personaListLoading ? (
+                          <div className="mt-8 px-4 text-sm text-[#6F6F6F]">
+                            Loading personas...
+                          </div>
+                        ) : personasToDisplay.length > 0 ? (
+                          <div
+                            id="recent-persona-chats"
+                            className={cn(
+                              "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
+                              chatStyles.customScrollbar2
+                            )}
+                          >
+                            {personasToDisplay.map((persona) => {
+                              const isActive =
+                                activePersonaIdFromUrl === persona.id;
+                              const handleSelect = () => {
+                                router.push(
+                                  `/personaAdmin/chat/${persona.id}`
+                                );
+                              };
+                              return (
+                                <div key={persona.id} className="snap-start">
+                                  <ChatHistoryItem
+                                    title={persona.name}
+                                    isSelected={isActive}
+                                    isStarred={false}
+                                    pinnedCount={0}
+                                    onSelect={handleSelect}
+                                    onToggleStar={() => {}}
+                                    onRename={() => {}}
+                                    onDelete={() => {}}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                            <p>No personas found.</p>
+                          </div>
+                        )
+                      ) : boardsToDisplay.length > 0 ? (
+                        <div
+                          id="recent-chat-boards"
+                          className={cn(
+                            "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
+                            chatStyles.customScrollbar2
+                          )}
+                        >
+                          {boardsToDisplay.map((board) => {
+                            const isActive = activeChatId === board.id;
+                            const pinTotal =
+                              board.metadata?.pinCount ??
+                              board.pinCount ??
+                              0;
+                            const isRenamingBoard =
+                              renamingChatId === board.id;
+
+                            const handleSelect = () => {
+                              if (renamingChatId) {
+                                onRenameCancel();
+                              }
+                              setActiveChatId(board.id);
+                              router.push("/");
+                            };
+
+                            const handleToggleStar = () => {
+                              void onToggleStar(board);
+                            };
+
+                            const handleRename = () => {
+                              if (isRenamingPending) return;
+                              setRenamingChatId(board.id);
+                              setRenamingText(board.name);
+                              requestAnimationFrame(() => {
+                                renameInputRef.current?.focus();
+                              });
+                            };
+
+                            const handleDelete = () => {
+                              handleDeleteClick(board);
+                            };
+
+                            const handleRenameSubmit = () => {
+                              const trimmed = renamingText.trim();
+                              if (!trimmed) return;
+                              void onRenameConfirm();
+                            };
+
+                            // Get the display title - use typewriter effect if animating
+                            const displayTitle = (() => {
+                              const displayedLength =
+                                displayedTitleLengths.get(board.id);
+                              if (
+                                displayedLength !== undefined &&
+                                displayedLength < board.name.length
+                              ) {
+                                // Show partial title (typewriter effect)
+                                return board.name.substring(
+                                  0,
+                                  displayedLength
+                                );
+                              }
+                              // Show full title
+                              return board.name;
+                            })();
+
+                            return (
+                              <div key={board.id} className="snap-start">
+                                <ChatHistoryItem
+                                  title={displayTitle}
+                                  isSelected={isActive}
+                                  isStarred={Boolean(board.isStarred)}
+                                  pinnedCount={pinTotal}
+                                  onSelect={handleSelect}
+                                  onToggleStar={handleToggleStar}
+                                  onRename={handleRename}
+                                  onDelete={handleDelete}
+                                  isRenaming={isRenamingBoard}
+                                  renameValue={
+                                    isRenamingBoard ? renamingText : undefined
+                                  }
+                                  onRenameChange={
+                                    isRenamingBoard
+                                      ? (value) => {
+                                          setRenamingText(value);
+                                        }
+                                      : undefined
+                                  }
+                                  onRenameSubmit={
+                                    isRenamingBoard
+                                      ? handleRenameSubmit
+                                      : undefined
+                                  }
+                                  onRenameCancel={
+                                    isRenamingBoard
+                                      ? onRenameCancel
+                                      : undefined
+                                  }
+                                  renameInputRef={
+                                    isRenamingBoard ? renameInputRef : undefined
+                                  }
+                                  isRenamePending={
+                                    isRenamingBoard
+                                      ? isRenamingPending
+                                      : false
+                                  }
+                                  isStarPending={starUpdatingChatId === board.id}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="mt-12 flex w-full flex-col items-center gap-3 text-center text-sm text-[#6F6F6F]">
+                          <p>
+                            {isOnPersonaPage
+                              ? "No persona chats found."
+                              : isOnWorkflowPage
+                              ? "No workflow chats found."
+                              : "No chats found."}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* 4. User Footer */}
           <div className="w-full min-h-[59px] h-[59px] border-t border-main-border px-4 py-2">
@@ -883,8 +1018,8 @@ export function LeftSidebar({
                   Upgrade Plan
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  disabled
-                  className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
+                  onClick={() => router.push("/settings")}
+                  className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
                 >
                   <Settings className="h-4 w-4 text-lsb-text" />
                   Settings

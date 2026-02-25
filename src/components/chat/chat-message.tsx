@@ -32,6 +32,8 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import Image from "next/image";
+import Lottie from "lottie-react";
+import frameworkLoadingAnimation from "@/../public/FrameworkLoading.json";
 
 type ContentSegment =
   | { type: "text"; value: string }
@@ -759,6 +761,7 @@ export function ChatMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [avatarVisible, setAvatarVisible] = useState(false);
   // Typewriter effect disabled - displaying content directly
   // const typewriterSpeed = 7;
   // const displayedContent = useTypewriter(
@@ -768,6 +771,19 @@ export function ChatMessage({
   // );
 
   usePrismHighlight(message.content);
+
+  useEffect(() => {
+    if (!isUser && !message.isLoading) {
+      const id = requestAnimationFrame(() => {
+        setAvatarVisible(true);
+      });
+      return () => cancelAnimationFrame(id);
+    }
+
+    if (message.isLoading) {
+      setAvatarVisible(false);
+    }
+  }, [isUser, message.isLoading]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -1189,7 +1205,32 @@ export function ChatMessage({
       >
         {/* Only show avatar for AI, not user */}
         <div className="w-auto flex flex-col items-center justify-start gap-1">
-          {!isUser && <div className="mt-4 shrink-0">{AvatarComponent}</div>}
+          {!isUser && (
+            <div className="mt-4 shrink-0 h-9 w-9 relative flex items-center justify-center overflow-hidden">
+              {message.isLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Lottie
+                    animationData={frameworkLoadingAnimation}
+                    loop
+                    autoplay
+                    className="h-16 w-16 scale-300"
+                    rendererSettings={{ preserveAspectRatio: "xMidYMid slice" }}
+                  />
+                </div>
+              ) : (
+                <div
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center",
+                    avatarVisible
+                      ? "opacity-100 translate-y-0 transition-all duration-500"
+                      : "opacity-0 -translate-y-[5px] transition-all duration-500",
+                  )}
+                >
+                  {AvatarComponent}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div

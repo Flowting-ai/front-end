@@ -329,26 +329,26 @@ export default function SignupPage() {
             )}
 
             {/* Terms & Policy | Promotion Checkboxes */}
-            <div className="pointer-events-none flex flex-col gap-3 mb-2">
+            <div className="flex flex-col gap-3 mb-2">
               <div className="flex items-center gap-2">
-                <Checkbox disabled className="border border-main-border!" />
-                <p className="text-balance text-sm text-[#1E1E1E]/30">
+                <Checkbox required className="border border-main-border!" />
+                <p className="text-balance text-sm text-[#1E1E1E]">
                   By creating an account, I agree to our
                   {" "}
                   <span>
-                    <Link href="/terms-and-conditions" className="underline underline-offset-2">Terms of use</Link>
+                    <Link href="/terms-and-conditions" className="pointer-events-none! underline underline-offset-2">Terms of use</Link>
                   </span>
                   {" "}
                   and
                   {" "}
                   <span>
-                    <Link href="/privacy-policy" className="underline underline-offset-2">Privacy Policy</Link>
+                    <Link href="/privacy-policy" className="pointer-events-none! underline underline-offset-2">Privacy Policy</Link>
                   </span>
                 </p>
               </div>
               <div className="flex items-start justify-start gap-2">
-                <Checkbox disabled className="border border-main-border!" />
-                <p className="w-full text-balance text-sm text-[#1E1E1E]/30 leading-[120%]">
+                <Checkbox className="border border-main-border!" />
+                <p className="w-full text-balance text-sm text-[#1E1E1E] leading-[120%]">
                   By creating an account, I am also consenting to receive SMS
                   messages and emails, including product new feature updates,
                   events, and marketing promotions.

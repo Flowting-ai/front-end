@@ -144,6 +144,7 @@ export function WorkflowChatFullPage({
     try {
       const result = await workflowAPI.execute(workflowId, {
         inputText: trimmedContent,
+        webSearch: webSearchEnabled,
       });
       const failed =
         result.status === "failed" ||

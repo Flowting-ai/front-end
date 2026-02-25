@@ -38,7 +38,7 @@ export function ModelNodeInspector({
   onDelete,
   allModels = [],
 }: ModelNodeInspectorProps) {
-  const [nodeName, setNodeName] = useState<string>(nodeData.name || nodeData.modelData?.name || "");
+  const [nodeName, setNodeName] = useState<string>(nodeData.name || "");
   const [selectedModelId, setSelectedModelId] = useState<string | undefined>(
     nodeData.selectedModel
   );
@@ -46,7 +46,7 @@ export function ModelNodeInspector({
 
   // Update local state when nodeData changes (switching between nodes)
   useEffect(() => {
-    setNodeName(nodeData.name || nodeData.modelData?.name || "");
+    setNodeName(nodeData.name || "");
     setSelectedModelId(nodeData.selectedModel);
   }, [nodeData]);
 
@@ -68,10 +68,8 @@ export function ModelNodeInspector({
     setSelectedModelId(modelId);
     const model = allModels.find((m) => m.id === modelId);
     if (model) {
-      // Update node immediately with model name and full data
-      setNodeName(model.name);
+      // Update node immediately with selected model data, but keep existing node name
       onUpdate({ 
-        name: model.name,
         selectedModel: modelId,
         modelData: {
           name: model.name,
