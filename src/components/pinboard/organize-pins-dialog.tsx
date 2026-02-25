@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { PinType } from "../layout/right-sidebar";
 import { PinItem } from "./pin-item";
+import { toast } from "@/lib/toast-helper";
 
 interface FolderType {
   id: string;
@@ -170,6 +171,32 @@ export function OrganizePinsDialog({
     });
     return pins;
   }, [pinsByFolder, selectedFolderIds]);
+
+  // Global search across all pins (in any folder)
+  const globalFilteredPins = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return selectedFolderPins;
+
+    return pinsToDisplay.filter((pin) => {
+      if (pin.text.toLowerCase().includes(query)) return true;
+      return pin.tags.some((tag) => tag.toLowerCase().includes(query));
+    });
+  }, [pinsToDisplay, searchQuery, selectedFolderPins]);
+
+  const globalSearchResultsCount = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return 0;
+
+    return pinsToDisplay.filter((pin) => {
+      if (pin.text.toLowerCase().includes(query)) return true;
+      return pin.tags.some((tag) => tag.toLowerCase().includes(query));
+    }).length;
+  }, [pinsToDisplay, searchQuery]);
+
+  const visiblePins = useMemo(
+    () => (searchQuery.trim() ? globalFilteredPins : selectedFolderPins),
+    [searchQuery, globalFilteredPins, selectedFolderPins]
+  );
 
   // Handle scroll for custom scrollbar
   useEffect(() => {
@@ -369,10 +396,10 @@ export function OrganizePinsDialog({
   };
 
   const handleSelectAll = () => {
-    if (selectedPinIds.length === selectedFolderPins.length) {
+    if (selectedPinIds.length === visiblePins.length) {
       setSelectedPinIds([]);
     } else {
-      setSelectedPinIds(selectedFolderPins.map((p) => p.id));
+      setSelectedPinIds(visiblePins.map((p) => p.id));
     }
   };
 
@@ -401,6 +428,21 @@ export function OrganizePinsDialog({
           : pin
       );
       onPinsUpdate(updatedPins);
+
+      const targetFolder =
+        folders.find((f) => f.id === folderId) ??
+        (folderId === "unorganized"
+          ? { id: "unorganized", name: "Unorganized Pins" }
+          : undefined);
+
+      if (targetFolder) {
+        const count = selectedPinIds.length;
+        toast(
+          count === 1
+            ? `Pin moved to ${targetFolder.name}`
+            : `${count} pins moved to ${targetFolder.name}`
+        );
+      }
     }
 
     // Reset state
@@ -570,20 +612,7 @@ export function OrganizePinsDialog({
                   )}
                   {!isMoveMode && searchQuery && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-[#666666]">
-                      {
-                        selectedFolderPins.filter(
-                          (pin) =>
-                            pin.text
-                              .toLowerCase()
-                              .includes(searchQuery.toLowerCase()) ||
-                            pin.tags.some((tag) =>
-                              tag
-                                .toLowerCase()
-                                .includes(searchQuery.toLowerCase())
-                            )
-                        ).length
-                      }{" "}
-                      results
+                      {globalSearchResultsCount} results
                     </div>
                   )}
                 </div>
@@ -1084,12 +1113,12 @@ export function OrganizePinsDialog({
                               ?.name || "Unorganised pins"}
                           </h3>
 
-                          {selectedFolderPins.length > 0 && (
+                          {visiblePins.length > 0 && (
                             <div className="flex items-center gap-2">
                               <Checkbox
                                 checked={
-                                  selectedPinIds.length ===
-                                  selectedFolderPins.length
+                                  visiblePins.length > 0 &&
+                                  selectedPinIds.length === visiblePins.length
                                 }
                                 onCheckedChange={handleSelectAll}
                                 className="shrink-0 cursor-pointer w-[14px] h-[14px] text-white bg-white data-[state=checked]:bg-black border border-[#D4D4D4] data-[state=checked]:border-black rounded-[4px]"
@@ -1134,21 +1163,9 @@ export function OrganizePinsDialog({
                             className="space-y-2 flex flex-col items-center"
                             style={{ width: "100%", paddingBottom: "100px" }}
                           >
-                            {selectedFolderPins.length > 0 ? (
-                              selectedFolderPins
-                                .filter(
-                                  (pin) =>
-                                    !searchQuery ||
-                                    pin.text
-                                      .toLowerCase()
-                                      .includes(searchQuery.toLowerCase()) ||
-                                    pin.tags.some((tag) =>
-                                      tag
-                                        .toLowerCase()
-                                        .includes(searchQuery.toLowerCase())
-                                    )
-                                )
-                                .map((pin) => {
+                            {visiblePins.length > 0 ? (
+                              visiblePins.map(
+                                (pin) => {
                                   const chatBoard = chatBoards.find(
                                     (board) => board.id === pin.chatId
                                   );
@@ -1219,11 +1236,14 @@ export function OrganizePinsDialog({
                                       </div>
                                     </div>
                                   );
-                                })
+                                }
+                              )
                             ) : (
                               <div className="flex flex-col items-center justify-center py-20 text-center text-[#9a9a9a]">
                                 <p className="text-sm">
-                                  No pins in this folder
+                                  {searchQuery
+                                    ? "No pins match your search"
+                                    : "No pins in this folder"}
                                 </p>
                               </div>
                             )}

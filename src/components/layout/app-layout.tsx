@@ -42,6 +42,7 @@ import {
   createChat,
   fetchChatBoards,
   fetchChatMessages,
+  renameChat,
   type BackendChat,
   type BackendMessage,
 } from "@/lib/api/chat";
@@ -106,7 +107,7 @@ interface AppLayoutContextType {
   pins: PinType[];
   onPinMessage: (pin: PinType) => Promise<void>;
   onUnpinMessage: (pinId: string) => Promise<void>;
-  handleAddChat: () => void;
+  handleAddChat: (typeOverride?: ChatBoardType | null) => void;
   ensureChatOnServer: (
     options: EnsureChatOptions
   ) => Promise<EnsureChatResult | null>;
@@ -907,19 +908,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
 
     try {
-      const response = await apiFetch(
-        CHAT_DETAIL_ENDPOINT(targetId),
-        {
-          method: "PUT",
-          body: JSON.stringify({ title: nextName }),
-        },
-        csrfTokenRef.current
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to rename chat");
-      }
+      await renameChat(targetId, nextName, csrfTokenRef.current);
 
       await loadChatBoards();
       handleRenameCancel();
@@ -1299,17 +1288,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
     [activeChatId, chatBoards, chatHistory, loadPinsForChat, setCsrfToken, user]
   );
 
-  const handleAddChat = () => {
+  const handleAddChat = (typeOverride?: ChatBoardType | null) => {
     handleRenameCancel();
 
-    // Determine the type based on current route
-    const isOnPersonaPage = pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
-    const isOnWorkflowPage = pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
-    const chatType: ChatBoardType = isOnPersonaPage
-      ? "persona"
-      : isOnWorkflowPage
-      ? "workflow"
-      : "chat";
+    // Determine the type based on explicit override or current route
+    const isOnPersonaPage =
+      pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+    const isOnWorkflowPage =
+      pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+
+    const chatType: ChatBoardType =
+      typeOverride ??
+      (isOnPersonaPage
+        ? "persona"
+        : isOnWorkflowPage
+        ? "workflow"
+        : "chat");
 
     // Check if there's already a temp chat of the same type
     const existingTemp = chatBoards.find((board) =>
@@ -1374,6 +1368,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // Stable ref so the effect doesn't re-fire when handleAddChat identity changes
   const handleAddChatRef = useRef(handleAddChat);
   handleAddChatRef.current = handleAddChat;
+
+  // Track previous route so we can detect transitions into the main chat board.
+  const prevPathRef = useRef<string | null>(null);
+
+  // Whenever we navigate from a non-chat route into the main chat board route,
+  // automatically focus a single "new chat" board (type "chat").
+  useEffect(() => {
+    const current = pathname ?? null;
+    const prev = prevPathRef.current;
+
+    const isChatRouteNow =
+      current === "/" || (current !== null && current.startsWith("/chat"));
+    const wasChatRouteBefore =
+      prev === "/" || (prev !== null && prev.startsWith("/chat"));
+
+    // Only trigger when entering chat routes from non-chat routes.
+    if (isChatRouteNow && !wasChatRouteBefore) {
+      handleAddChatRef.current("chat");
+    }
+
+    prevPathRef.current = current;
+  }, [pathname]);
 
   // Load chat boards once when user is authenticated, then (optionally) start a fresh chat after login
   useEffect(() => {

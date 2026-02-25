@@ -40,7 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import type { ChatBoard } from "./app-layout";
+import type { ChatBoard, ChatBoardType } from "./app-layout";
 import { useAuth } from "@/context/auth-context";
 import { AppLayoutContext } from "./app-layout";
 import chatStyles from "../chat/chat-interface.module.css";
@@ -54,7 +54,7 @@ interface LeftSidebarProps {
   chatBoards: ChatBoard[];
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
-  onAddChat: () => void;
+  onAddChat: (typeOverride?: ChatBoardType | null) => void;
   renamingChatId: string | null;
   setRenamingChatId: (id: string | null) => void;
   renamingText: string;
@@ -349,10 +349,7 @@ export function LeftSidebar({
                   aria-label={isOnChatBoard ? "New Chat Board" : "Chat Board"}
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => {
-                    if (isOnChatBoard) {
-                      onAddChat();
-                    }
-                    router.push("/");
+                    onAddChat("chat");
                   }}
                 >
                   <Image
@@ -554,10 +551,7 @@ export function LeftSidebar({
             {/* Chat Board */}
             <Button
               onClick={() => {
-                if (isOnChatBoard) {
-                  onAddChat();
-                }
-                router.push("/");
+                onAddChat("chat");
               }}
               className={cn(
                 "group cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",

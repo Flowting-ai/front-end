@@ -186,7 +186,7 @@ export default function SignupPage() {
                   htmlFor="firstName"
                   className="form-label"
                 >
-                  First name
+                  First name <span className="text-zinc-400">*</span>
                 </Label>
                 <Input
                   id="firstName"
@@ -202,7 +202,7 @@ export default function SignupPage() {
                   htmlFor="lastName"
                   className="form-label"
                 >
-                  Last name
+                  Last name <span className="text-zinc-400">*</span>
                 </Label>
                 <Input
                   id="lastName"
@@ -221,7 +221,7 @@ export default function SignupPage() {
                 htmlFor="email"
                 className="form-label"
               >
-                Email address
+                Email address <span className="text-zinc-400">*</span>
               </Label>
               <Input
                 id="email"
@@ -258,7 +258,7 @@ export default function SignupPage() {
                   htmlFor="password"
                   className="form-label"
                 >
-                  Password
+                  Password <span className="text-zinc-400">*</span>
                 </Label>
                 <div className="relative w-full">
                   <Input
@@ -290,7 +290,7 @@ export default function SignupPage() {
                   htmlFor="confirmPassword"
                   className="form-label"
                 >
-                  Confirm Password
+                  Confirm Password <span className="text-zinc-400">*</span>
                 </Label>
                 <div className="relative w-full">
                   <Input

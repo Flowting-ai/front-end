@@ -185,12 +185,12 @@ export function ChatHistoryItem({
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            align="end" 
+          <DropdownMenuContent
+            align="end"
             className="w-[108px] h-[76px] rounded-lg border border-[#E5E5E5] bg-white shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1),0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
           >
             <DropdownMenuItem
-              onClick={() => {
+              onSelect={() => {
                 onRename();
               }}
               disabled={isRenamePending}
@@ -200,7 +200,7 @@ export function ChatHistoryItem({
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => {
+              onSelect={() => {
                 onDelete();
               }}
               disabled={isRenamePending}
