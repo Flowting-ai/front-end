@@ -67,6 +67,7 @@ export function PersonaChatFullPage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
 
   // Click outside to close attach menu
@@ -155,10 +156,14 @@ export function PersonaChatFullPage({
         headers["X-CSRFToken"] = csrfToken;
       }
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const response = await fetch(PERSONA_TEST_ENDPOINT, {
         method: "POST",
         headers,
         credentials: "include",
+        signal: controller.signal,
         body: JSON.stringify({
           personaId: personaId,
           message: trimmedContent,
@@ -297,22 +302,44 @@ export function PersonaChatFullPage({
       }
 
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Sorry, I encountered an error processing your request.";
-      const errorMessage: Message = {
-        id: aiMessageId,
-        sender: "ai",
-        content: message,
-        avatarUrl: avatarUrl || flowtingLogoUrl,
-        avatarHint: personaName,
-      };
+      // If aborted by user, show stopped message instead of error
+      if (error instanceof Error && error.name === "AbortError") {
+        setDisplayMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.id !== aiMessageId) return msg;
+            const baseContent = msg.content || "";
+            const marker = "Generation Stopped By User";
+            const hasMarker = baseContent.includes(marker);
+            const suffix = baseContent.length > 0
+              ? hasMarker ? "" : `\n\n${marker}`
+              : marker;
+            return {
+              ...msg,
+              content: `${baseContent}${suffix}`,
+              isLoading: false,
+              isThinkingInProgress: false,
+            };
+          })
+        );
+      } else {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Sorry, I encountered an error processing your request.";
+        const errorMessage: Message = {
+          id: aiMessageId,
+          sender: "ai",
+          content: message,
+          avatarUrl: avatarUrl || flowtingLogoUrl,
+          avatarHint: personaName,
+        };
 
-      setDisplayMessages((prev) =>
-        prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
-      );
+        setDisplayMessages((prev) =>
+          prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
+        );
+      }
     } finally {
+      abortControllerRef.current = null;
       setIsResponding(false);
     }
   };
@@ -600,7 +627,7 @@ export function PersonaChatFullPage({
                     {isResponding ? (
                       <Button
                         type="button"
-                        onClick={() => setIsResponding(false)}
+                        onClick={() => abortControllerRef.current?.abort()}
                         className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                         title="Stop generation"
                       >

@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styles from "./compareModels.module.css";
 import {
   X,
@@ -124,6 +124,7 @@ export default function CompareModelsPage({
   const [streamingModels, setStreamingModels] = useState<Set<string>>(
     new Set(),
   );
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { csrfToken } = useAuth();
 
   // Store full AIModel data alongside CompareModel
@@ -196,6 +197,9 @@ export default function CompareModelsPage({
         throw new Error("No valid model IDs found");
       }
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const response = await apiFetch(
         MODEL_TEST_ENDPOINT,
         {
@@ -204,6 +208,7 @@ export default function CompareModelsPage({
             modelIds,
             message: prompt,
           }),
+          signal: controller.signal,
         },
         csrfToken,
       );
@@ -311,6 +316,10 @@ export default function CompareModelsPage({
         reader.cancel().catch(() => {});
       }
     } catch (error) {
+      // Ignore abort errors (user cancelled or component unmounted)
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
       console.error("Error testing models:", error);
       // Set error message for all models
       const errorResponses: Record<string, string> = {};
@@ -319,6 +328,7 @@ export default function CompareModelsPage({
       });
       setTestResponses(errorResponses);
     } finally {
+      abortControllerRef.current = null;
       setIsTesting(false);
     }
   };
