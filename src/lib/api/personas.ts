@@ -337,6 +337,8 @@ export async function testPersona(
       if ((error as Error).name !== "AbortError") {
         callbacks.onError?.((error as Error).message || "Stream error");
       }
+    } finally {
+      reader.cancel().catch(() => {});
     }
   };
 

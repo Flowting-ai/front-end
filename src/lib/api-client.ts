@@ -222,30 +222,34 @@ export async function handleStream(
       throw new Error('No response body');
     }
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+    try {
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      
-      if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
 
-      buffer += decoder.decode(value, { stream: true });
-      
-      // Process complete chunks
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      
-      for (const line of lines) {
-        if (line.trim()) {
-          onChunk(line);
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete chunks
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            onChunk(line);
+          }
         }
       }
-    }
 
-    // Process remaining buffer
-    if (buffer.trim()) {
-      onChunk(buffer);
+      // Process remaining buffer
+      if (buffer.trim()) {
+        onChunk(buffer);
+      }
+    } finally {
+      reader.cancel().catch(() => {});
     }
   } catch (error) {
     logger.error('Stream error:', error);

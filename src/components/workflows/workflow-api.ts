@@ -1123,6 +1123,7 @@ export const workflowAPI = {
           return;
         }
 
+        try {
         const decoder = new TextDecoder();
         let buffer = "";
         let pendingEventType: StreamEventType | undefined;
@@ -1235,6 +1236,9 @@ export const workflowAPI = {
             console.log("[executeStream] Stream done");
             break;
           }
+        }
+        } finally {
+          reader.cancel().catch(() => {});
         }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {

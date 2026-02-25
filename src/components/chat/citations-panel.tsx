@@ -65,13 +65,13 @@ function useLinkMetadata(url: string | null): LinkMetadata | null {
       setMeta(null);
       return;
     }
-    let cancelled = false;
+    const abortController = new AbortController();
     setMeta(null);
     const encoded = encodeURIComponent(url);
-    fetch(`/api/link-metadata?url=${encoded}`)
+    fetch(`/api/link-metadata?url=${encoded}`, { signal: abortController.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!cancelled && data && typeof data === "object") {
+        if (data && typeof data === "object") {
           setMeta({
             title: typeof data.title === "string" ? data.title : undefined,
             description:
@@ -85,7 +85,7 @@ function useLinkMetadata(url: string | null): LinkMetadata | null {
       })
       .catch(() => {});
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
   }, [url]);
   return meta;

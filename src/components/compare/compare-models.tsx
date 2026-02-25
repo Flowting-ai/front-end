@@ -218,93 +218,97 @@ export default function CompareModelsPage({
         throw new Error("No response body");
       }
 
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const streamingResponses: Record<string, string> = {};
+      try {
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const streamingResponses: Record<string, string> = {};
 
-      // Initialize empty responses for each model
-      selectedModels.forEach((stringId) => {
-        streamingResponses[stringId] = "";
-      });
+        // Initialize empty responses for each model
+        selectedModels.forEach((stringId) => {
+          streamingResponses[stringId] = "";
+        });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-        let currentEventType = "";
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEventType = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              const modelIdStr = String(data.modelId);
+          let currentEventType = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEventType = line.slice(7).trim();
+            } else if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const modelIdStr = String(data.modelId);
 
-              switch (currentEventType) {
-                case "metadata":
-                  // Model metadata received
-                  console.log(`Model ${modelIdStr} metadata:`, data);
-                  break;
+                switch (currentEventType) {
+                  case "metadata":
+                    // Model metadata received
+                    console.log(`Model ${modelIdStr} metadata:`, data);
+                    break;
 
-                case "start":
-                  // Model started generating
-                  streamingResponses[modelIdStr] = "";
-                  setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-                  setTestResponses({ ...streamingResponses });
-                  break;
-
-                case "chunk":
-                  // Append streaming chunk
-                  if (data.delta) {
-                    streamingResponses[modelIdStr] =
-                      (streamingResponses[modelIdStr] || "") + data.delta;
+                  case "start":
+                    // Model started generating
+                    streamingResponses[modelIdStr] = "";
+                    setStreamingModels((prev) => new Set(prev).add(modelIdStr));
                     setTestResponses({ ...streamingResponses });
-                  }
-                  break;
+                    break;
 
-                case "end":
-                  // Model finished streaming
-                  setStreamingModels((prev) => {
-                    const next = new Set(prev);
-                    next.delete(modelIdStr);
-                    return next;
-                  });
-                  console.log(`Model ${modelIdStr} finished streaming`);
-                  break;
+                  case "chunk":
+                    // Append streaming chunk
+                    if (data.delta) {
+                      streamingResponses[modelIdStr] =
+                        (streamingResponses[modelIdStr] || "") + data.delta;
+                      setTestResponses({ ...streamingResponses });
+                    }
+                    break;
 
-                case "done":
-                  // Final response with token usage
-                  streamingResponses[modelIdStr] =
-                    data.response || streamingResponses[modelIdStr];
-                  setTestResponses({ ...streamingResponses });
-                  console.log(`Model ${modelIdStr} tokens:`, {
-                    input: data.inputTokens,
-                    output: data.outputTokens,
-                  });
-                  break;
+                  case "end":
+                    // Model finished streaming
+                    setStreamingModels((prev) => {
+                      const next = new Set(prev);
+                      next.delete(modelIdStr);
+                      return next;
+                    });
+                    console.log(`Model ${modelIdStr} finished streaming`);
+                    break;
 
-                case "error":
-                  // Handle error for specific model
-                  streamingResponses[modelIdStr] =
-                    `Error: ${data.error || "Unknown error"}`;
-                  setTestResponses({ ...streamingResponses });
-                  break;
+                  case "done":
+                    // Final response with token usage
+                    streamingResponses[modelIdStr] =
+                      data.response || streamingResponses[modelIdStr];
+                    setTestResponses({ ...streamingResponses });
+                    console.log(`Model ${modelIdStr} tokens:`, {
+                      input: data.inputTokens,
+                      output: data.outputTokens,
+                    });
+                    break;
 
-                case "complete":
-                  // All models completed
-                  console.log("All models completed");
-                  break;
+                  case "error":
+                    // Handle error for specific model
+                    streamingResponses[modelIdStr] =
+                      `Error: ${data.error || "Unknown error"}`;
+                    setTestResponses({ ...streamingResponses });
+                    break;
+
+                  case "complete":
+                    // All models completed
+                    console.log("All models completed");
+                    break;
+                }
+              } catch (e) {
+                // Ignore JSON parse errors for incomplete data
+                console.warn("Failed to parse SSE data:", e);
               }
-            } catch (e) {
-              // Ignore JSON parse errors for incomplete data
-              console.warn("Failed to parse SSE data:", e);
             }
           }
         }
+      } finally {
+        reader.cancel().catch(() => {});
       }
     } catch (error) {
       console.error("Error testing models:", error);

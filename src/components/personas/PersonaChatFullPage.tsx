@@ -184,97 +184,101 @@ export function PersonaChatFullPage({
       };
 
       const reader = response.body.getReader();
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
 
-        for (const eventChunk of events) {
-          const lines = eventChunk.split("\n");
-          let eventName = "";
-          let dataStr = "";
+          if (done) break;
 
-          for (const line of lines) {
-            if (line.startsWith("event:")) {
-              eventName = line.slice(6).trim();
-            } else if (line.startsWith("data:")) {
-              dataStr += line.slice(5).trim();
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
+
+          for (const eventChunk of events) {
+            const lines = eventChunk.split("\n");
+            let eventName = "";
+            let dataStr = "";
+
+            for (const line of lines) {
+              if (line.startsWith("event:")) {
+                eventName = line.slice(6).trim();
+              } else if (line.startsWith("data:")) {
+                dataStr += line.slice(5).trim();
+              }
             }
-          }
 
-          if (!dataStr) continue;
+            if (!dataStr) continue;
 
-          let parsed: any;
-          try {
-            parsed = JSON.parse(dataStr);
-          } catch (err) {
-            console.warn("Failed to parse SSE data", err, dataStr);
-            continue;
-          }
+            let parsed: any;
+            try {
+              parsed = JSON.parse(dataStr);
+            } catch (err) {
+              console.warn("Failed to parse SSE data", err, dataStr);
+              continue;
+            }
 
-          if (eventName === "metadata") {
-            // Handle metadata if needed
-            continue;
-          }
+            if (eventName === "metadata") {
+              // Handle metadata if needed
+              continue;
+            }
 
-          if (eventName === "reasoning") {
-            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-            reasoningContent += delta;
-            updateAiMessage({
-              thinkingContent: reasoningContent,
-              isThinkingInProgress: true,
-              isLoading: false,
-            });
-            continue;
-          }
-
-          if (eventName === "chunk") {
-            const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-            assistantContent += delta;
-            const sanitized = extractThinkingContent(assistantContent);
-            updateAiMessage({
-              content: sanitized.visibleText || "",
-              thinkingContent: reasoningContent || sanitized.thinkingText,
-              isThinkingInProgress: false,
-              isLoading: false,
-            });
-            continue;
-          }
-
-          if (eventName === "image") {
-            const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-            const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
-            if (imageUrl) {
+            if (eventName === "reasoning") {
+              const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+              reasoningContent += delta;
               updateAiMessage({
-                imageUrl,
-                imageAlt,
+                thinkingContent: reasoningContent,
+                isThinkingInProgress: true,
+                isLoading: false,
               });
+              continue;
             }
-            continue;
-          }
 
-          if (eventName === "done") {
-            const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
-            const sanitized = extractThinkingContent(finalContent);
-            const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
-            updateAiMessage({
-              content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
-              thinkingContent: finalReasoning || null,
-              isThinkingInProgress: false,
-              isLoading: false,
-              metadata: {
-                modelName: persona.modelName,
-                providerName: persona.providerName,
-              },
-            });
-            break;
+            if (eventName === "chunk") {
+              const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+              assistantContent += delta;
+              const sanitized = extractThinkingContent(assistantContent);
+              updateAiMessage({
+                content: sanitized.visibleText || "",
+                thinkingContent: reasoningContent || sanitized.thinkingText,
+                isThinkingInProgress: false,
+                isLoading: false,
+              });
+              continue;
+            }
+
+            if (eventName === "image") {
+              const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
+              const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+              if (imageUrl) {
+                updateAiMessage({
+                  imageUrl,
+                  imageAlt,
+                });
+              }
+              continue;
+            }
+
+            if (eventName === "done") {
+              const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
+              const sanitized = extractThinkingContent(finalContent);
+              const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
+              updateAiMessage({
+                content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
+                thinkingContent: finalReasoning || null,
+                isThinkingInProgress: false,
+                isLoading: false,
+                metadata: {
+                  modelName: persona.modelName,
+                  providerName: persona.providerName,
+                },
+              });
+              break;
+            }
           }
         }
+      } finally {
+        reader.cancel().catch(() => {});
       }
 
       // Ensure we have a final message even if stream ended without "done" event
