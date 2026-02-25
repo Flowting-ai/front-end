@@ -57,7 +57,7 @@ export default function TopBar({
     }
   };
 
-  const canUseTestOrRun = Boolean(workflowId) && canTestWorkflow;
+  const canUseTestOrRun = Boolean(workflowId) && canTestWorkflow && !hasUnsavedChanges;
   const isTestDisabled = isExecuting || !canUseTestOrRun;
   const isRunDisabled = !canUseTestOrRun;
 

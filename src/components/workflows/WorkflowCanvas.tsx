@@ -490,21 +490,19 @@ function WorkflowCanvasInner() {
     setExecutionOrder([]);
   }, [setNodes]);
 
-  // Track unsaved changes (for UI indicator only, no auto-save)
+  // Track unsaved changes (for UI indicator, test/run disabling). Skip when we just saved or
+  // opened a workflow from workflowAdmin (load from API) so Test/Run stay enabled until user edits.
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    // Skip if we just saved - prevents immediate re-flagging as unsaved
     if (hasJustSaved.current) {
       hasJustSaved.current = false;
       return;
     }
-    if (nodes.length > 0) {
-      setHasUnsavedChanges(true);
-    }
-  }, [nodes, edges]);
+    setHasUnsavedChanges(true);
+  }, [nodes, edges, workflowName]);
 
   // Auto-hide the save status indicator after 3 seconds
   useEffect(() => {
@@ -923,27 +921,28 @@ function WorkflowCanvasInner() {
     }
   }, [setNodes, setEdges, setViewport, saveToHistory]);
 
-  // Load workflow from API
+  // Load workflow from API (e.g. opening from workflowAdmin). Test/Run stay enabled until user makes new changes.
   const handleLoadWorkflow = useCallback(async (workflowId: string) => {
+    // Mark as "just loaded" before any state updates so the unsaved-changes effect won't flag this as unsaved
+    hasJustSaved.current = true;
     try {
       const workflowDTO = await workflowAPI.get(workflowId);
-      
+
       // Update canvas with loaded workflow
       setNodes(workflowDTO.nodes || []);
       setEdges(workflowDTO.edges || []);
       setWorkflowName(workflowDTO.name || "Untitled Workflow");
       setWorkflowId(workflowId);
-      
+
       if (workflowDTO.viewport) {
         setViewport(workflowDTO.viewport);
       }
-      
-      // Reset save status
+
+      // Explicitly no unsaved state when opening a previously saved workflow
       setSaveStatus(null);
-      hasJustSaved.current = true;
       setHasUnsavedChanges(false);
       saveToHistory();
-      
+
       console.log('Workflow loaded successfully:', workflowDTO.name);
     } catch (error) {
       console.error('Failed to load workflow:', error);
