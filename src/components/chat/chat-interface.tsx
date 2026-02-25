@@ -860,6 +860,7 @@ export function ChatInterface({
     replyToMessageId?: string | null,
     files?: File[],
   ) => {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     try {
       if (!modelForRequest) {
         console.warn("No model selected  backend may need to use a default.");
@@ -1074,7 +1075,8 @@ export function ChatInterface({
         }, currentChatId ?? undefined);
       };
 
-      const reader = response.body.getReader();
+      const streamReader = response.body.getReader();
+      reader = streamReader;
       const processChunk = (value: Uint8Array) => {
         buffer += decoder.decode(value, { stream: true });
         const events = buffer.split("\n\n");
@@ -1387,13 +1389,13 @@ export function ChatInterface({
 
       // Read the stream
       while (true) {
-        const { value, done } = await reader.read();
+        const { value, done } = await streamReader.read();
         if (done || streamFinished) break;
         if (value) processChunk(value);
       }
 
       // Release the connection so the browser can reuse the slot
-      reader.cancel().catch(() => {});
+      streamReader.cancel().catch(() => {});
 
       // If stream ended without a done/error event, treat as interrupted
       if (!streamFinished) {
