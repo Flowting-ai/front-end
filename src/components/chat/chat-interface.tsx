@@ -1392,6 +1392,9 @@ export function ChatInterface({
         if (value) processChunk(value);
       }
 
+      // Release the connection so the browser can reuse the slot
+      reader.cancel().catch(() => {});
+
       // If stream ended without a done/error event, treat as interrupted
       if (!streamFinished) {
         updateAiMessage({
@@ -1402,6 +1405,8 @@ export function ChatInterface({
         setIsResponding(false);
       }
     } catch (error) {
+      // Release the connection on error too
+      try { reader?.cancel(); } catch {}
       console.error("Error fetching AI response:", error);
 
       const errorMessage =
