@@ -2650,20 +2650,6 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Stop generating button - floats above input */}
-      {isResponding && (
-        <div className="flex justify-center pb-2">
-          <button
-            type="button"
-            onClick={handleStopGeneration}
-            className="flex items-center gap-2 rounded-full border border-[#D9D9D9] bg-white px-4 py-2 text-sm font-medium text-[#1E1E1E] shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:bg-[#F5F5F5] transition-colors cursor-pointer"
-          >
-            <Square className="h-3.5 w-3.5 fill-[#1E1E1E]" />
-            Stop generating
-          </button>
-        </div>
-      )}
-
       {/* Chat Input Footer */}
       <footer className="shrink-0 bg-white px-2 pb-0.5 pt-0">
         <div className="relative mx-auto w-full max-w-[756px]">
