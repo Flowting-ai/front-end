@@ -8,6 +8,14 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * Get JWT token from localStorage
+ */
+function getJwtToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+}
+
 type ApiFetchOptions = RequestInit & { skipJson?: boolean };
 
 export async function apiFetch(
@@ -33,6 +41,12 @@ export async function apiFetch(
       ? readCookie("csrftoken")
       : null);
   if (tokenToSend) headers.set("X-CSRFToken", tokenToSend);
+
+  // Add JWT token to Authorization header if available
+  const jwtToken = getJwtToken();
+  if (jwtToken) {
+    headers.set("Authorization", `Bearer ${jwtToken}`);
+  }
 
   return fetch(url, {
     credentials: "include",

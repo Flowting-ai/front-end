@@ -26,19 +26,23 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   csrfToken: string | null;
+  jwtToken: string | null;
   setUser: (user: AuthUser | null) => void;
   setCsrfToken: (token: string | null) => void;
+  setJwtToken: (token: string | null) => void;
   clearAuth: () => void;
 }
 
 const USER_STORAGE_KEY = "auth:user";
 const CSRF_STORAGE_KEY = "auth:csrftoken";
+const JWT_STORAGE_KEY = "token";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [jwtToken, setJwtToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Try sessionStorage first (new secure approach), fallback to localStorage for migration
       const storedToken = sessionStorage.getItem(CSRF_STORAGE_KEY) || 
                          localStorage.getItem(CSRF_STORAGE_KEY);
+      const storedJwt = localStorage.getItem(JWT_STORAGE_KEY);
+      
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
@@ -56,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (localStorage.getItem(CSRF_STORAGE_KEY)) {
           localStorage.removeItem(CSRF_STORAGE_KEY);
         }
+      }
+      if (storedJwt) {
+        setJwtToken(storedJwt);
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -102,13 +111,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [csrfToken]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (jwtToken) {
+      localStorage.setItem(JWT_STORAGE_KEY, jwtToken);
+    } else {
+      localStorage.removeItem(JWT_STORAGE_KEY);
+    }
+  }, [jwtToken]);
+
   const clearAuth = useCallback(() => {
     setUser(null);
     setCsrfToken(null);
+    setJwtToken(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem(USER_STORAGE_KEY);
       localStorage.removeItem(CSRF_STORAGE_KEY);
       sessionStorage.removeItem(CSRF_STORAGE_KEY);
+      localStorage.removeItem(JWT_STORAGE_KEY);
       localStorage.removeItem("isLoggedIn");
       
       // Clear CSRF cookie
@@ -124,11 +144,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       csrfToken,
+      jwtToken,
       setUser,
       setCsrfToken,
+      setJwtToken,
       clearAuth,
     }),
-    [user, csrfToken, clearAuth]
+    [user, csrfToken, jwtToken, clearAuth]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

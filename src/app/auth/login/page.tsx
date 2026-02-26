@@ -13,11 +13,12 @@ import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, csrfToken, setCsrfToken } = useAuth();
+  const { setUser, csrfToken, setCsrfToken, setJwtToken } = useAuth();
   type LoginSuccess = {
     message?: string;
     csrfToken?: string;
     csrf_token?: string;
+    token?: string; // JWT token from backend
     user?: {
       id?: string | number;
       username?: string | null;
@@ -93,6 +94,14 @@ export default function LoginPage() {
       const freshToken = data?.csrfToken || data?.csrf_token;
       if (freshToken) {
         setCsrfToken(freshToken);
+      }
+
+      // Store JWT token
+      if (data?.token) {
+        setJwtToken(data.token);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("token", data.token);
+        }
       }
 
       if (data?.user) {

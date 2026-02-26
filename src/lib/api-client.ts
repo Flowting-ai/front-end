@@ -12,6 +12,14 @@ interface FetchOptions extends RequestInit {
   retryDelay?: number;
 }
 
+/**
+ * Get JWT token from localStorage
+ */
+function getJwtToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token');
+}
+
 // Global rate limiters for different endpoint types
 const apiRateLimiter = new RateLimiter(100, 60000); // 100 requests per minute
 const uploadRateLimiter = new RateLimiter(10, 60000); // 10 uploads per minute
@@ -60,8 +68,16 @@ export async function secureFetch<T = unknown>(
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
+          // Add JWT token to headers if available
+          const jwtToken = getJwtToken();
+          const headers = new Headers(fetchOptions.headers);
+          if (jwtToken) {
+            headers.set('Authorization', `Bearer ${jwtToken}`);
+          }
+
           const response = await fetch(url, {
             ...fetchOptions,
+            headers,
             signal: controller.signal,
           });
 

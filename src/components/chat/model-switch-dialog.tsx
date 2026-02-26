@@ -106,8 +106,14 @@ export function ModelSwitchDialog({
     const fetchModels = async () => {
       setIsLoading(true);
       try {
+        const jwtToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const headers: Record<string, string> = {};
+        if (jwtToken) {
+          headers["Authorization"] = `Bearer ${jwtToken}`;
+        }
         const response = await fetch(MODELS_ENDPOINT, {
           credentials: "include",
+          headers,
         });
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.status}`);

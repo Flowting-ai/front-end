@@ -14,11 +14,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setCsrfToken, csrfToken } = useAuth();
+  const { setCsrfToken, csrfToken, setJwtToken, setUser } = useAuth();
   type SignupSuccess = {
     message?: string;
     csrfToken?: string;
     csrf_token?: string;
+    token?: string; // JWT token from backend
     user?: {
       id?: string | number;
       username?: string | null;
@@ -114,10 +115,30 @@ export default function SignupPage() {
         setCsrfToken(freshToken);
       }
 
-      setSuccessMessage(
-        data?.message || "Signup successful! Please sign in to continue.",
-      );
-      setTimeout(() => router.replace("/auth/login"), 1000);
+      // Store JWT token if returned
+      if (data?.token) {
+        setJwtToken(data.token);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("token", data.token);
+        }
+      }
+
+      // Store user if returned (auto-login after signup)
+      if (data?.user) {
+        setUser(data.user);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("isLoggedIn", "true");
+        }
+        setSuccessMessage(
+          data?.message || "Signup successful! Redirecting...",
+        );
+        setTimeout(() => router.replace("/"), 1000);
+      } else {
+        setSuccessMessage(
+          data?.message || "Signup successful! Please sign in to continue.",
+        );
+        setTimeout(() => router.replace("/auth/login"), 1000);
+      }
     } catch (err) {
       console.error("Signup failed", err);
       setError("Unexpected error. Please try again.");

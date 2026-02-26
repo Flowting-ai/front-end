@@ -156,6 +156,12 @@ export function PersonaChatFullPage({
         headers["X-CSRFToken"] = csrfToken;
       }
 
+      // Add JWT authorization
+      const jwtToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (jwtToken) {
+        headers["Authorization"] = `Bearer ${jwtToken}`;
+      }
+
       const controller = new AbortController();
       abortControllerRef.current = controller;
 

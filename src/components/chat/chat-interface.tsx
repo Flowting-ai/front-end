@@ -41,6 +41,7 @@ import {
 } from "@/lib/markdown-utils";
 import { fetchPersonas as fetchPersonasApi } from "@/lib/api/personas";
 import { API_BASE_URL } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1052,9 +1053,12 @@ export function ChatInterface({
         headers["X-CSRFToken"] = token;
       }
 
+      // Add JWT authorization header
+      const authHeaders = getAuthHeaders(headers);
+
       const response = await fetch(endpoint, {
         method: "POST",
-        headers,
+        headers: authHeaders,
         credentials: "include",
         body,
         signal: controller.signal,
@@ -1824,7 +1828,10 @@ export function ChatInterface({
     // If persona has a modelId, fetch models and update the selected model in topbar
     if (persona.modelId && layoutContext) {
       try {
-        const response = await fetch(MODELS_ENDPOINT);
+        const response = await fetch(MODELS_ENDPOINT, {
+          headers: getAuthHeaders(),
+          credentials: "include",
+        });
         if (response.ok) {
           const data = await response.json();
           const models = normalizeModels(data);
@@ -2266,7 +2273,7 @@ export function ChatInterface({
         DELETE_MESSAGE_ENDPOINT(chatId, identifier),
         {
           method: "DELETE",
-          headers,
+          headers: getAuthHeaders(headers),
           credentials: "include",
         },
       );
@@ -2332,7 +2339,7 @@ export function ChatInterface({
 
       const response = await fetch(CHAT_DETAIL_ENDPOINT(chatId), {
         method: "DELETE",
-        headers,
+        headers: getAuthHeaders(headers),
         credentials: "include",
       });
 
