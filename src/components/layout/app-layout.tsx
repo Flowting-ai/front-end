@@ -1314,21 +1314,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
       board.id.startsWith("temp-") && (board.type || "chat") === chatType
     );
     if (existingTemp) {
-      setActiveChatId(existingTemp.id);
-      setChatHistory((prev) =>
-        prev[existingTemp.id]
-          ? prev
-          : { ...prev, [existingTemp.id]: [] }
-      );
-      // Navigate to appropriate route based on type
-      if (chatType === "persona") {
-        router.push("/personas");
-      } else if (chatType === "workflow") {
-        router.push("/workflows");
-      } else {
-        router.push("/");
+      const tempMessages = chatHistory[existingTemp.id] ?? [];
+      if (tempMessages.length === 0 && existingTemp.id !== activeChatId) {
+        // Reuse the empty temp chat only if it's not already active
+        setActiveChatId(existingTemp.id);
+        setChatHistory((prev) =>
+          prev[existingTemp.id]
+            ? prev
+            : { ...prev, [existingTemp.id]: [] }
+        );
+        // Navigate to appropriate route based on type
+        if (chatType === "persona") {
+          router.push("/personas");
+        } else if (chatType === "workflow") {
+          router.push("/workflows");
+        } else {
+          router.push("/");
+        }
+        return;
       }
-      return;
+      // Temp chat has messages or is the current chat — remove it and create a fresh one below
+      setChatBoards_((prev) => prev.filter((b) => b.id !== existingTemp.id));
+      setChatHistory((prev) => {
+        const next = { ...prev };
+        delete next[existingTemp.id];
+        return next;
+      });
     }
 
     // Create new temp chat

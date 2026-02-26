@@ -680,8 +680,9 @@ export function ChatInterface({
     loadPersonas();
   }, [csrfToken]);
 
-  // Clear reference, mentions, and attachments when switching chats
+  // Clear input, reference, mentions, and attachments when switching chats
   useEffect(() => {
+    setInput("");
     setReferencedMessage(null);
     setMentionedPins([]);
     setShowPinDropdown(false);
@@ -1145,11 +1146,36 @@ export function ChatInterface({
               layoutContext?.setActiveChatId
             ) {
               const resolved = String(parsed.chat_id);
+              const previousChatId = currentChatId;
               currentChatId = resolved;
               layoutContext.setActiveChatId(resolved);
               // Re-sync buffered messages to the resolved chat id
               if (messageBufferRef.current.length > 0) {
                 setMessages(messageBufferRef.current, resolved);
+              }
+              // Replace temp board in chatBoards with the real one
+              if (
+                previousChatId &&
+                previousChatId.startsWith("temp-") &&
+                layoutContext.setChatBoards
+              ) {
+                layoutContext.setChatBoards((prev) => {
+                  const tempBoard = prev.find(
+                    (b) => b.id === previousChatId,
+                  );
+                  if (!tempBoard) return prev;
+                  const realBoard = {
+                    ...tempBoard,
+                    id: resolved,
+                    name:
+                      parsed.title ||
+                      parsed.chat_title ||
+                      tempBoard.name,
+                  };
+                  return prev.map((b) =>
+                    b.id === previousChatId ? realBoard : b,
+                  );
+                });
               }
             }
 
@@ -1372,10 +1398,35 @@ export function ChatInterface({
               layoutContext?.setActiveChatId
             ) {
               const resolved = String(parsed.chat_id);
+              const previousDoneChatId = currentChatId;
               currentChatId = resolved;
               layoutContext.setActiveChatId(resolved);
               if (messageBufferRef.current.length > 0) {
                 setMessages(messageBufferRef.current, resolved);
+              }
+              // Replace temp board in chatBoards with the real one (fallback if metadata event didn't handle it)
+              if (
+                previousDoneChatId &&
+                previousDoneChatId.startsWith("temp-") &&
+                layoutContext.setChatBoards
+              ) {
+                layoutContext.setChatBoards((prev) => {
+                  const tempBoard = prev.find(
+                    (b) => b.id === previousDoneChatId,
+                  );
+                  if (!tempBoard) return prev;
+                  const realBoard = {
+                    ...tempBoard,
+                    id: resolved,
+                    name:
+                      parsed.title ||
+                      parsed.chat_title ||
+                      tempBoard.name,
+                  };
+                  return prev.map((b) =>
+                    b.id === previousDoneChatId ? realBoard : b,
+                  );
+                });
               }
             }
 
