@@ -1,5 +1,6 @@
 ﻿"use client";
 import React, { useState, useEffect, useRef } from "react";
+import { getJwtToken } from "@/lib/jwt-utils";
 import styles from "./compareModels.module.css";
 import {
   X,
@@ -135,8 +136,8 @@ export default function CompareModelsPage({
     const fetchModels = async () => {
       setIsLoading(true);
       try {
-        const jwtToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
         const headers: Record<string, string> = {};
+        const jwtToken = getJwtToken();
         if (jwtToken) {
           headers["Authorization"] = `Bearer ${jwtToken}`;
         }

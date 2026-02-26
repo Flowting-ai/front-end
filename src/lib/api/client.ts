@@ -9,11 +9,12 @@ function readCookie(name: string): string | null {
 }
 
 /**
- * Get JWT token from localStorage
+ * Get JWT token from cookie
  */
 function getJwtToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )jwt=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 type ApiFetchOptions = RequestInit & { skipJson?: boolean };

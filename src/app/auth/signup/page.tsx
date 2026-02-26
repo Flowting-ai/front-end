@@ -115,12 +115,9 @@ export default function SignupPage() {
         setCsrfToken(freshToken);
       }
 
-      // Store JWT token if returned
+      // Store JWT token if returned (written to cookie via setJwtToken)
       if (data?.token) {
         setJwtToken(data.token);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("token", data.token);
-        }
       }
 
       // Store user if returned (auto-login after signup)

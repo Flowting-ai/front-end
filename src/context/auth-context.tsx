@@ -6,11 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
 import { CSRF_INIT_ENDPOINT } from "@/lib/config";
+import { getJwtToken, setJwtCookie, removeJwtCookie } from "@/lib/jwt-utils";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -38,7 +38,6 @@ interface AuthContextValue {
 
 const USER_STORAGE_KEY = "auth:user";
 const CSRF_STORAGE_KEY = "auth:csrftoken";
-const JWT_STORAGE_KEY = "token";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -51,43 +50,62 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
-  const [jwtToken, setJwtToken] = useState<string | null>(null);
+  const [jwtToken, setJwtTokenState] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
-  const hydrated = useRef(false);
 
-  // Hydrate auth state from storage on mount
+  // Wrapper that syncs JWT to cookie whenever it changes
+  const setJwtToken = useCallback((token: string | null) => {
+    if (token) {
+      setJwtCookie(token);
+    } else {
+      removeJwtCookie();
+    }
+    setJwtTokenState(token);
+  }, []);
+
+  // Hydrate auth state on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      const storedToken =
+      const storedCsrf =
         sessionStorage.getItem(CSRF_STORAGE_KEY) ||
         localStorage.getItem(CSRF_STORAGE_KEY);
-      const storedJwt = localStorage.getItem(JWT_STORAGE_KEY);
+      // JWT is read from cookie — survives refresh, new tabs, no race conditions
+      const storedJwt = getJwtToken();
+
+      // Migrate any old localStorage JWT to cookie
+      const legacyJwt = localStorage.getItem("token");
+      if (legacyJwt && !storedJwt) {
+        setJwtCookie(legacyJwt);
+        setJwtTokenState(legacyJwt);
+        localStorage.removeItem("token");
+      } else if (storedJwt) {
+        setJwtTokenState(storedJwt);
+      }
+      // Clean up legacy localStorage token if cookie exists
+      if (storedJwt && legacyJwt) {
+        localStorage.removeItem("token");
+      }
 
       if (storedUser) {
         setUser(JSON.parse(storedUser));
       }
-      if (storedToken) {
-        setCsrfToken(storedToken);
+      if (storedCsrf) {
+        setCsrfToken(storedCsrf);
         if (localStorage.getItem(CSRF_STORAGE_KEY)) {
           localStorage.removeItem(CSRF_STORAGE_KEY);
         }
-      }
-      if (storedJwt) {
-        setJwtToken(storedJwt);
       }
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
         console.error("Failed to hydrate auth state", error);
       }
     }
-    hydrated.current = true;
     setIsHydrated(true);
   }, []);
 
   // Re-fetch CSRF token on mount if we have a JWT but no CSRF token
-  // This handles page refresh / new tab scenarios
   useEffect(() => {
     if (!isHydrated) return;
     if (jwtToken && !csrfToken) {
@@ -98,25 +116,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCsrfToken(cookie);
           }
         })
-        .catch(() => {
-          // CSRF init failed, will retry on next mutating request
-        });
+        .catch(() => {});
     }
   }, [isHydrated, jwtToken, csrfToken]);
 
-  // Sync user to localStorage — skip before hydration to avoid clearing stored values
+  // Sync user to localStorage
   useEffect(() => {
-    if (typeof window === "undefined" || !hydrated.current) return;
+    if (typeof window === "undefined" || !isHydrated) return;
     if (user) {
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     } else {
       localStorage.removeItem(USER_STORAGE_KEY);
     }
-  }, [user]);
+  }, [user, isHydrated]);
 
-  // Sync CSRF token to sessionStorage + cookie — skip before hydration
+  // Sync CSRF token to sessionStorage + cookie
   useEffect(() => {
-    if (typeof window === "undefined" || !hydrated.current) return;
+    if (typeof window === "undefined" || !isHydrated) return;
     if (csrfToken) {
       sessionStorage.setItem(CSRF_STORAGE_KEY, csrfToken);
       try {
@@ -140,27 +156,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [csrfToken]);
-
-  // Sync JWT to localStorage — skip before hydration to avoid clearing stored values
-  useEffect(() => {
-    if (typeof window === "undefined" || !hydrated.current) return;
-    if (jwtToken) {
-      localStorage.setItem(JWT_STORAGE_KEY, jwtToken);
-    } else {
-      localStorage.removeItem(JWT_STORAGE_KEY);
-    }
-  }, [jwtToken]);
+  }, [csrfToken, isHydrated]);
 
   const clearAuth = useCallback(() => {
     setUser(null);
     setCsrfToken(null);
-    setJwtToken(null);
+    setJwtTokenState(null);
+    removeJwtCookie();
     if (typeof window !== "undefined") {
       localStorage.removeItem(USER_STORAGE_KEY);
       localStorage.removeItem(CSRF_STORAGE_KEY);
       sessionStorage.removeItem(CSRF_STORAGE_KEY);
-      localStorage.removeItem(JWT_STORAGE_KEY);
+      localStorage.removeItem("token"); // clean up legacy
       localStorage.removeItem("isLoggedIn");
 
       try {
@@ -183,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setJwtToken,
       clearAuth,
     }),
-    [user, csrfToken, jwtToken, isHydrated, clearAuth]
+    [user, csrfToken, jwtToken, isHydrated, setJwtToken, clearAuth]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useContext } from "react";
+import { getJwtToken } from "@/lib/jwt-utils";
 import {
   ChevronDown,
   ChevronUp,
@@ -157,7 +158,7 @@ export function PersonaChatFullPage({
       }
 
       // Add JWT authorization
-      const jwtToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const jwtToken = getJwtToken();
       if (jwtToken) {
         headers["Authorization"] = `Bearer ${jwtToken}`;
       }

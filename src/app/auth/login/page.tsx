@@ -96,12 +96,9 @@ export default function LoginPage() {
         setCsrfToken(freshToken);
       }
 
-      // Store JWT token
+      // Store JWT token (written to cookie via setJwtToken)
       if (data?.token) {
         setJwtToken(data.token);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("token", data.token);
-        }
       }
 
       if (data?.user) {
