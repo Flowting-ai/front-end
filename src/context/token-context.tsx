@@ -14,7 +14,7 @@ interface TokenContextValue {
 const TokenContext = createContext<TokenContextValue | undefined>(undefined);
 
 export function TokenProvider({ children }: { children: ReactNode }) {
-  const { csrfToken, user, setUser } = useAuth();
+  const { csrfToken, jwtToken, isHydrated, user, setUser } = useAuth();
   const [stats, setStats] = useState<TokenStats>({
     availableTokens: 0,
     totalTokensUsed: 0,
@@ -22,6 +22,9 @@ export function TokenProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Wait for auth hydration so we have the JWT/CSRF tokens from storage
+    if (!isHydrated || !jwtToken) return;
+
     let isMounted = true;
     const loadStats = async () => {
       setIsLoading(true);
@@ -56,7 +59,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [csrfToken, setUser, user]);
+  }, [isHydrated, jwtToken, csrfToken, setUser, user]);
 
   // Compute percent based on used vs available from /user/.
   const totalBudget = stats.totalTokensUsed + stats.availableTokens;

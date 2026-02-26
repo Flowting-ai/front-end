@@ -507,12 +507,14 @@ const backendPinToLegacy = (
 const PINS_CACHE_KEY = "chat-pins-cache";
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('leftSidebarCollapsed') === 'true';
+  const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('leftSidebarCollapsed');
+    if (stored === 'true') {
+      setIsLeftSidebarCollapsed(true);
     }
-    return false;
-  });
+  }, []);
   const [activeRightSidebarPanel, setActiveRightSidebarPanel] =
     useState<RightSidebarPanel | null>(null);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);

@@ -34,13 +34,14 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [isSelectorDialogOpen, setIsSelectorDialogOpen] = useState(false);
   const [isSwitchDialogOpen, setIsSwitchDialogOpen] = useState(false);
-  const [chatModelHistory, setChatModelHistory] = useState<Record<string, { model: AIModel | null; useFramework: boolean }>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('chatModelHistory');
-      return saved ? JSON.parse(saved) : {};
+  const [chatModelHistory, setChatModelHistory] = useState<Record<string, { model: AIModel | null; useFramework: boolean }>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem('chatModelHistory');
+    if (saved) {
+      setChatModelHistory(JSON.parse(saved));
     }
-    return {};
-  });
+  }, []);
 
   // Save chat model history to localStorage
   useEffect(() => {
