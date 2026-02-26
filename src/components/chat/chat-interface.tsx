@@ -3057,17 +3057,17 @@ export function ChatInterface({
                     {showAttachMenu && (
                       <div
                         className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
-                        style={{ width: "160px" }}
+                        style={{ width: "auto" }}
                       >
                         <button
                           onClick={() => {
                             handleAttachClick();
                             setShowAttachMenu(false);
                           }}
-                          className="flex items-center gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
+                          className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Files</span>
+                          <span>Attach Images and Files</span>
                         </button>
                         <button
                           onClick={() => {
@@ -3085,10 +3085,10 @@ export function ChatInterface({
                             );
                           }}
                           className={cn(
-                            "flex items-center gap-1.5 rounded-lg border p-2 text-left text-xs font-medium transition-colors hover:bg-[#F5F5F5] whitespace-nowrap",
+                            "flex items-center gap-1.5 rounded-lg border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
                             webSearchEnabled
                               ? "border-blue-500 bg-blue-50 text-blue-700"
-                              : "border-[#E5E5E5] bg-white text-[#1E1E1E]",
+                              : "border-none bg-white text-[#1E1E1E]",
                           )}
                         >
                           <Globe
