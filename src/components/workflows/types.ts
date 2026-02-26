@@ -41,6 +41,11 @@ export interface WorkflowNodeData {
   selectedFolder?: { id: string; name: string; pinIds: string[] }; // Folder attachment for pin node
   selectedPersona?: string; // Persona ID for persona nodes
   selectedModel?: string; // Model ID for model nodes
+  chatData?: { // Full chat data for display
+    name: string;
+    id: string;
+    pinnedDate?: string;
+  };
   personaData?: { // Full persona data for display
     name: string;
     image?: string;

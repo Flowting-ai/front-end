@@ -49,6 +49,7 @@ interface BackendWorkflowEdgePayload {
 interface BackendWorkflowCreatePayload {
   name: string;
   description?: string;
+  is_active?: boolean;
   nodes: BackendWorkflowNodePayload[];
   edges: BackendWorkflowEdgePayload[];
 }
@@ -625,28 +626,40 @@ const toBackendWorkflowPayload = (
   console.log("[toBackendWorkflowPayload] OUTPUT backendNodes:", backendNodes);
   console.log("[toBackendWorkflowPayload] OUTPUT backendEdges:", backendEdges);
 
-  return {
+  const payload: BackendWorkflowCreatePayload = {
     name: (workflow.name || "Untitled Workflow").trim() || "Untitled Workflow",
     description: workflow.description?.trim() || "",
     nodes: backendNodes,
     edges: backendEdges,
   };
+
+  // Include is_active if present in the workflow
+  console.log("[toBackendWorkflowPayload] Checking isActive - 'isActive' in workflow:", "isActive" in workflow, "workflow.isActive:", workflow.isActive);
+  if ("isActive" in workflow && workflow.isActive !== undefined) {
+    payload.is_active = workflow.isActive;
+    console.log("[toBackendWorkflowPayload] Set is_active in payload to:", workflow.isActive);
+  }
+
+  console.log("[toBackendWorkflowPayload] Final payload is_active:", payload.is_active);
+  return payload;
 };
 
 const toWorkflowMetadata = (
   workflow: BackendWorkflowListItem
-): WorkflowMetadata => ({
-  id: workflow.id,
-  name: workflow.name,
-  description: workflow.description || "",
-  nodeCount: Number(workflow.nodes_count || 0),
-  edgeCount: Number(workflow.edges_count || 0),
-  createdAt: workflow.created_at,
-  updatedAt: workflow.updated_at,
-  isPublic: false,
-  isActive: Boolean(workflow.is_active),
-  runsCount: Number(workflow.runs_count || 0),
-});
+): WorkflowMetadata => {
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description || "",
+    nodeCount: Number(workflow.nodes_count || 0),
+    edgeCount: Number(workflow.edges_count || 0),
+    createdAt: workflow.created_at,
+    updatedAt: workflow.updated_at,
+    isPublic: false,
+    isActive: workflow.is_active !== undefined ? workflow.is_active : true,
+    runsCount: Number(workflow.runs_count || 0),
+  };
+};
 
 const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
   console.log("[toWorkflowDTO] Input workflow:", {
@@ -676,15 +689,16 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     else if (node.persona_id) frontendType = "persona";
     else if (node.model_id) frontendType = "model";
 
+    // Use default labels instead of overwriting with model/persona names
     const label =
       frontendType === "start"
         ? "Start"
         : frontendType === "end"
         ? "End"
-        : frontendType === "persona" && node.persona_name
-        ? node.persona_name
-        : frontendType === "model" && node.model_name
-        ? node.model_name
+        : frontendType === "persona"
+        ? "Persona"
+        : frontendType === "model"
+        ? "Model"
         : node.node_id;
 
     // Create the main node (start/end/process)
@@ -697,7 +711,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
       },
       data: {
         label,
-        name: node.node_id,
+        name: label, // Use default label as name, not kb ID or model/persona name
         description: "",
         type: frontendType,
         status: "idle",
@@ -753,13 +767,17 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
           },
           data: {
             label: "Chat",
-            name: kbNodeId,
+            name: "Chat", // Use default name instead of kb ID
             description: contextText ? contextText.slice(0, 100) + "..." : "Chat context",
             type: "chat",
             status: "idle",
             config: {},
             instructions: kb.instruction || "",
             selectedChats: kb.kb_id,
+            chatData: {
+              name: kb.kb_id, // Store the actual chat ID in chatData
+              id: kb.kb_id,
+            },
           },
         });
       } else if (kb.kb_type === "pin") {
@@ -774,7 +792,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
           },
           data: {
             label: "Pin",
-            name: kbNodeId,
+            name: "Pin", // Use default name instead of kb ID
             description: contextText ? contextText.slice(0, 100) + "..." : "Pin context",
             type: "pin",
             status: "idle",
@@ -821,7 +839,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     createdAt: workflow.created_at,
     updatedAt: workflow.updated_at,
     isPublic: false,
-    isActive: workflow.is_active,
+    isActive: workflow.is_active !== undefined ? workflow.is_active : true,
     preprocessedKnowledge: workflow.preprocessed_knowledge,
   };
 };
@@ -869,11 +887,15 @@ export const workflowAPI = {
   },
 
   get: async (id: string): Promise<WorkflowDTO> => {
+    console.log('[workflowAPI.get] Fetching workflow:', id);
     const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
       method: "GET",
     });
     const data = await handleResponse<BackendWorkflowDetail>(response);
-    return toWorkflowDTO(data);
+    console.log('[workflowAPI.get] Raw backend is_active:', data.is_active);
+    const mapped = toWorkflowDTO(data);
+    console.log('[workflowAPI.get] Mapped isActive:', mapped.isActive);
+    return mapped;
   },
 
   create: async (
@@ -1025,6 +1047,34 @@ export const workflowAPI = {
         "UNSUPPORTED"
       );
     }
+    await handleResponse(response);
+  },
+
+  activate: async (id: string): Promise<void> => {
+    // Fetch current workflow
+    const workflow = await workflowAPI.get(id);
+    // Update with new status
+    const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
+    // Send PUT request
+    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await handleResponse(response);
+  },
+
+  deactivate: async (id: string): Promise<void> => {
+    // Fetch current workflow
+    const workflow = await workflowAPI.get(id);
+    // Update with new status
+    const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
+    // Send PUT request
+    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     await handleResponse(response);
   },
 
@@ -1242,6 +1292,7 @@ export const workflowAPI = {
             break;
           }
         }
+        // Release the HTTP connection to prevent connection pool exhaustion
         } finally {
           reader.cancel().catch(() => {});
         }

@@ -146,23 +146,39 @@ export const WorkflowRow = React.forwardRef<
 
           {/* Status */}
           <div className="w-[180px] h-8 flex items-center justify-center">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                statusStyles[workflow.status],
-              )}
-            >
+            {workflow.status === "active" ? (
               <span
                 className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  workflow.status === "active" && "bg-[#16A34A]",
-                  workflow.status === "paused" && "bg-[#D97706]",
-                  workflow.status === "inactive" && "bg-[#6B7280]",
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                  statusStyles[workflow.status],
                 )}
-              />
-              {workflow.status.charAt(0).toUpperCase() +
-                workflow.status.slice(1)}
-            </span>
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                Active
+              </span>
+            ) : workflow.status === "paused" ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                style={{
+                  background: 'var(--Background-Warning-Secondary, #FEF3C7)',
+                  color: 'var(--Background-Warning-Default, #B45309)',
+                }}
+              >
+                <Pause className="h-2.5 w-2.5" />
+                Paused
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                  statusStyles[workflow.status],
+                )}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-[#6B7280]" />
+                {workflow.status.charAt(0).toUpperCase() +
+                  workflow.status.slice(1)}
+              </span>
+            )}
           </div>
 
           {/* Last Activity */}
@@ -178,6 +194,7 @@ export const WorkflowRow = React.forwardRef<
               type="button"
               variant="ghost"
               size="sm"
+              disabled={workflow.status !== "active"}
               className="h-8 w-8 rounded-full p-0"
               onClick={onChat}
             >

@@ -4,7 +4,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { REFINEMENT_STEPS } from '../types';
-import { MOCK_SUGGESTED_DOS, MOCK_SUGGESTED_DONTS } from '../constants';
 
 interface UseRefinementReturn {
   currentStep: number;
@@ -47,16 +46,13 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
   const [dosSkipped, setDosSkipped] = useState(false);
 
   // Fetch suggested Dos and Don'ts when step >= 2
+  // Note: This should be replaced with actual API calls when available
   useEffect(() => {
     if (hasEnhancedContent && currentStep >= REFINEMENT_STEPS.DOS) {
-      if (suggestedDos.length === 0) {
-        setSuggestedDos(MOCK_SUGGESTED_DOS);
-      }
-      if (suggestedDonts.length === 0) {
-        setSuggestedDonts(MOCK_SUGGESTED_DONTS);
-      }
+      // TODO: Fetch suggestions from backend API
+      // For now, suggestions will remain empty until API is implemented
     }
-  }, [hasEnhancedContent, currentStep, suggestedDos.length, suggestedDonts.length]);
+  }, [hasEnhancedContent, currentStep]);
 
   // Reset when enhancement is cleared
   useEffect(() => {

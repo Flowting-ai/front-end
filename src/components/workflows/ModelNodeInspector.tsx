@@ -61,6 +61,7 @@ export function ModelNodeInspector({
       updateData.modelData = nodeData.modelData;
     }
     onUpdate(updateData);
+    toast.success("Model node updated");
     onClose();
   };
 
@@ -79,7 +80,6 @@ export function ModelNodeInspector({
           sdkLibrary: model.sdkLibrary,
         }
       });
-      toast.success("Model added");
     }
     setShowSelectModelDialog(false);
   };

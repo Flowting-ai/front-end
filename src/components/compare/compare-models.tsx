@@ -321,6 +321,9 @@ export default function CompareModelsPage({
       } finally {
         reader.cancel().catch(() => {});
       }
+
+      // Release the HTTP connection to prevent connection pool exhaustion
+      reader.cancel().catch(() => {});
     } catch (error) {
       // Ignore abort errors (user cancelled or component unmounted)
       if (error instanceof Error && error.name === "AbortError") {

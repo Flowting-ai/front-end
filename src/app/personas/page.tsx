@@ -661,7 +661,7 @@ function PersonasPageContent() {
                       <div 
                         key={`${persona.id}-${persona.thumbnail}`} 
                         className={cn(styles.personaCard, "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]")}
-                        onClick={() => router.push(`/personas/new/configure?personaId=${persona.id}&chatMode=true`)}
+                        onClick={() => router.push(`/personas/new?personaId=${persona.id}`)}
                       >
                         <img
                           src={persona.thumbnail}
@@ -695,7 +695,7 @@ function PersonasPageContent() {
                             <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuItem onClick={(e) => {
                                 e.stopPropagation();
-                                router.push(`/personas/new/configure?personaId=${persona.id}`);
+                                router.push(`/personas/new?personaId=${persona.id}`);
                               }}>
                                 Edit configuration
                               </DropdownMenuItem>
@@ -737,7 +737,7 @@ function PersonasPageContent() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(
-                                  `/personas/new/configure?personaId=${persona.id}`
+                                  `/personas/new?personaId=${persona.id}`
                                 );
                               }}
                             >

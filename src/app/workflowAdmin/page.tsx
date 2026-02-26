@@ -33,7 +33,7 @@ import {
   MessageSquareWarning,
   RefreshCw,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowMetadata } from "@/components/workflows/types";
 import userAvatar from "@/avatars/userAvatar.png";
@@ -41,34 +41,6 @@ import userAvatar2 from "@/avatars/userAvatar2.png";
 import userAvatar3 from "@/avatars/userAvatar3.png";
 import Image from "next/image";
 import type { Consumer } from "@/components/workflows/workflow-row";
-
-// Mock consumers data (replace with actual API data when available)
-const MOCK_CONSUMERS: Consumer[] = [
-  {
-    id: "c1",
-    name: "Sarah Johnson",
-    email: "sarah.j@company.com",
-    avatar: "/avatars/avatar1.svg",
-    lastActivity: "1 hour ago",
-    status: "active",
-  },
-  {
-    id: "c2",
-    name: "Mike Chen",
-    email: "mike.c@company.com",
-    avatar: "/avatars/avatar2.svg",
-    lastActivity: "3 hours ago",
-    status: "active",
-  },
-  {
-    id: "c3",
-    name: "Emma Davis",
-    email: "emma.d@company.com",
-    avatar: "/avatars/avatar3.svg",
-    lastActivity: "5 hours ago",
-    status: "active",
-  },
-];
 
 const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Workflows" },
@@ -83,6 +55,7 @@ export default function WorkflowAdminPage() {
   const [workflows, setWorkflows] = React.useState<WorkflowItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  // No updatingWorkflowIds needed
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [deleteDialog, setDeleteDialog] = React.useState<{
     open: boolean;
@@ -111,13 +84,13 @@ export default function WorkflowAdminPage() {
         id: wf.id,
         name: wf.name,
         description: wf.description,
-        status: wf.isActive ? "active" : "inactive",
-        creditUsage: wf.nodeCount * 1000 + wf.edgeCount * 500, // Mock calculation
-        consumers: index < 2 ? MOCK_CONSUMERS : MOCK_CONSUMERS.slice(0, 2), // Mock consumers
-        consumersCount: index < 2 ? MOCK_CONSUMERS.length : 2, // Mock count
+        status: wf.isActive ? "active" : "paused",
+        creditUsage: wf.nodeCount * 1000 + wf.edgeCount * 500,
+        consumers: [],
+        consumersCount: 0,
         nodeCount: wf.nodeCount,
         edgeCount: wf.edgeCount,
-        lastActivity: wf.lastExecuted || "Never",
+        lastActivity: formatRelativeTime(wf.updatedAt),
         createdAt: wf.createdAt,
         updatedAt: wf.updatedAt,
         tags: wf.tags,
@@ -177,19 +150,36 @@ export default function WorkflowAdminPage() {
     const workflow = workflows.find((w) => w.id === workflowId);
     if (!workflow) return;
 
-    const newStatus: "active" | "paused" =
+    // Calculate new frontend status
+    const newFrontendStatus: "active" | "paused" =
       workflow.status === "active" ? "paused" : "active";
 
     // Optimistically update UI
     setWorkflows((prev) =>
       prev.map((w) =>
-        w.id === workflowId ? { ...w, status: newStatus } : w
+        w.id === workflowId ? { ...w, status: newFrontendStatus } : w
       )
     );
 
-    // TODO: Persist to backend when API supports status updates
+    // Persist to backend
     try {
-      // await workflowAPI.update(workflowId, { status: newStatus });
+      // Fetch full workflow from backend
+      const fullWorkflow = await workflowAPI.get(workflowId);
+      if (!fullWorkflow.nodes || fullWorkflow.nodes.length === 0) {
+        console.error("Cannot update workflow status: No nodes found in workflow", fullWorkflow);
+        // Revert optimistic update on error
+        setWorkflows((prev) =>
+          prev.map((w) =>
+            w.id === workflowId ? { ...w, status: workflow.status } : w
+          )
+        );
+        return;
+      }
+      // Map frontend status to backend status
+      // - "active" → true
+      // - "paused" → false
+      const isActive = newFrontendStatus === "active";
+      await workflowAPI.upsert(workflowId, { ...fullWorkflow, isActive });
     } catch (error) {
       console.error("Failed to update workflow status:", error);
       // Revert optimistic update on error

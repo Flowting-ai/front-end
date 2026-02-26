@@ -1128,6 +1128,19 @@ export function ChatMessage({
   );
   };
 
+  // const handlePin = (message: Message) => {
+  //   // Show toast immediately using toastify
+  //   if (typeof window !== "undefined") {
+  //     import("react-toastify").then(({ toast }) => {
+  //       toast.info("Pin is being generated", {
+  //         autoClose: 5000,
+  //         position: "top-right",
+  //       });
+  //     });
+  //   }
+  //   onPin(message);
+  // };
+
   // const LoadingState = () => (
   //   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#6B7280]">
   //     {[0, 1, 2].map((dot) => (

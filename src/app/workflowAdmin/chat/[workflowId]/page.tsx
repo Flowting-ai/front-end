@@ -15,23 +15,13 @@ export default function WorkflowChatPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const isPreview = workflowId === "preview";
-  const mockWorkflow: WorkflowDTO | null = isPreview
-    ? { name: "Preview Workflow", nodes: [], edges: [] }
-    : null;
-
   React.useEffect(() => {
     if (!workflowId) {
       setLoading(false);
       setError("Missing workflow ID");
       return;
     }
-    if (isPreview) {
-      setWorkflow(mockWorkflow);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -77,7 +67,7 @@ export default function WorkflowChatPage() {
     );
   }
 
-  if (!isPreview && (error || !workflow)) {
+  if (error || !workflow) {
     return (
       <AppLayout>
         <div className="p-8 flex items-center justify-center min-h-[200px] text-red-600">
@@ -87,15 +77,34 @@ export default function WorkflowChatPage() {
     );
   }
 
-  const workflowToShow = workflow ?? mockWorkflow;
-  if (!workflowToShow) return null;
+  // Check if workflow is paused (not active)
+  if (!workflow.isActive) {
+    return (
+      <AppLayout>
+        <div className="p-8 flex flex-col items-center justify-center min-h-[200px] gap-4">
+          <div className="text-[#666666] text-lg">
+            This workflow is currently paused
+          </div>
+          <div className="text-[#999999] text-sm">
+            Please activate the workflow from the Workflow Admin page to use the chat interface
+          </div>
+          <button
+            onClick={() => router.push("/workflowAdmin")}
+            className="mt-4 px-4 py-2 bg-[#111827] text-white rounded-md hover:bg-[#1f2937]"
+          >
+            Go to Workflow Admin
+          </button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
       <WorkflowChatFullPage
-        workflowId={isPreview ? "preview" : workflowId}
-        workflow={workflowToShow}
-        onEditWorkflow={() => router.push(isPreview ? "/workflows" : `/workflows?id=${workflowId}`)}
+        workflowId={workflowId}
+        workflow={workflow}
+        onEditWorkflow={() => router.push(`/workflows?id=${workflowId}`)}
       />
     </AppLayout>
   );

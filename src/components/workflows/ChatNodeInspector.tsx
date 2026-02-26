@@ -37,21 +37,42 @@ export function ChatNodeInspector({
 
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    onUpdate({ 
+    // Preserve existing chatData if selection hasn't changed
+    const updateData: Partial<WorkflowNodeData> = { 
       name: nodeName, 
       selectedChats: selectedChat
-    });
+    };
+    if (nodeData.chatData && selectedChat === (Array.isArray(nodeData.selectedChats) ? nodeData.selectedChats[0] : nodeData.selectedChats)) {
+      updateData.chatData = nodeData.chatData;
+    }
+    onUpdate(updateData);
+    toast.success("Chat node updated");
     onClose();
   };
 
   const handleSelectChat = (chatId: string) => {
     setSelectedChat(chatId);
+    const chat = allChats.find((c) => c.id === chatId);
+    if (chat) {
+      // Update node immediately with chat data, but keep existing node name
+      onUpdate({ 
+        selectedChats: chatId,
+        chatData: {
+          name: chat.name,
+          id: chat.id,
+          pinnedDate: chat.pinnedDate,
+        }
+      });
+    }
     setShowSelectChatsDialog(false);
-    toast.success("Chat attached");
   };
 
   const handleRemoveChat = () => {
     setSelectedChat(undefined);
+    onUpdate({ 
+      selectedChats: undefined,
+      chatData: undefined,
+    });
     toast.info("Chat removed");
   };
 

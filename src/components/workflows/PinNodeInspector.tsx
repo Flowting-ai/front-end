@@ -44,6 +44,7 @@ export function PinNodeInspector({
       selectedPins,
       selectedFolder
     });
+    toast.success("Pin node updated");
     onClose();
   };
 
@@ -51,14 +52,12 @@ export function PinNodeInspector({
     setSelectedPins(pinIds);
     setSelectedFolder(undefined); // Clear folder when selecting individual pins
     setShowSelectPinsDialog(false);
-    toast.success(`${pinIds.length} pin${pinIds.length !== 1 ? 's' : ''} attached`);
   };
 
   const handleAddFolder = (folder: { id: string; name: string; pinIds: string[] }) => {
     setSelectedFolder(folder);
     setSelectedPins([]); // Clear individual pins when selecting folder
     setShowSelectPinsDialog(false);
-    toast.success(`Folder "${folder.name}" attached with ${folder.pinIds.length} pins`);
   };
 
   const handleRemovePin = (pinId: string) => {
