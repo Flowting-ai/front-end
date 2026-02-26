@@ -1315,15 +1315,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
     if (existingTemp) {
       const tempMessages = chatHistory[existingTemp.id] ?? [];
-      if (tempMessages.length === 0 && existingTemp.id !== activeChatId) {
-        // Reuse the empty temp chat only if it's not already active
+      if (tempMessages.length === 0) {
+        // Reuse the empty temp chat — just make sure it's active and on the right route
         setActiveChatId(existingTemp.id);
         setChatHistory((prev) =>
           prev[existingTemp.id]
             ? prev
             : { ...prev, [existingTemp.id]: [] }
         );
-        // Navigate to appropriate route based on type
         if (chatType === "persona") {
           router.push("/personas");
         } else if (chatType === "workflow") {
@@ -1333,7 +1332,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         }
         return;
       }
-      // Temp chat has messages or is the current chat — remove it and create a fresh one below
+      // Temp chat has messages — remove it and create a fresh one below
       setChatBoards_((prev) => prev.filter((b) => b.id !== existingTemp.id));
       setChatHistory((prev) => {
         const next = { ...prev };

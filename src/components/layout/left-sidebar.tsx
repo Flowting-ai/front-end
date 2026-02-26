@@ -99,33 +99,37 @@ export function LeftSidebar({
   // Track the displayed length of titles that are animating (typewriter effect)
   const [displayedTitleLengths, setDisplayedTitleLengths] = useState<Map<string, number>>(new Map());
 
-  // Typewriter effect for chat titles
-  React.useEffect(() => {
-    if (!layoutContext?.getAnimatingTitle) return;
+  // Keep refs so the interval always reads fresh values without restarting
+  const chatBoardsRef = React.useRef(chatBoards);
+  chatBoardsRef.current = chatBoards;
+  const getAnimatingTitleRef = React.useRef(layoutContext?.getAnimatingTitle);
+  getAnimatingTitleRef.current = layoutContext?.getAnimatingTitle;
 
+  // Typewriter effect for chat titles — runs a single interval for the lifetime of the component
+  React.useEffect(() => {
     const timer = setInterval(() => {
+      const getAnimatingTitle = getAnimatingTitleRef.current;
+      if (!getAnimatingTitle) return;
+
       setDisplayedTitleLengths((prev) => {
+        const boards = chatBoardsRef.current;
         const next = new Map(prev);
         let hasChanges = false;
 
-        // Check each chat board for animation
-        chatBoards.forEach((board) => {
-          const animInfo = layoutContext.getAnimatingTitle(board.id);
+        boards.forEach((board) => {
+          const animInfo = getAnimatingTitle(board.id);
           if (animInfo) {
             const currentLength = prev.get(board.id) ?? 0;
             const targetLength = animInfo.targetTitle.length;
 
             if (currentLength < targetLength) {
-              // Increment by 1 character (fast typewriter)
               next.set(board.id, currentLength + 1);
               hasChanges = true;
             } else if (currentLength >= targetLength) {
-              // Animation complete, remove from map
               next.delete(board.id);
               hasChanges = true;
             }
           } else {
-            // No animation for this board, remove if exists
             if (prev.has(board.id)) {
               next.delete(board.id);
               hasChanges = true;
@@ -135,10 +139,10 @@ export function LeftSidebar({
 
         return hasChanges ? next : prev;
       });
-    }, 15); // 15ms per character = fast typewriter
+    }, 15);
 
     return () => clearInterval(timer);
-  }, [chatBoards, layoutContext]);
+  }, []); // stable — reads from refs
 
   // Expand "Recent chats" when on workflow or persona pages (including chat pages)
   React.useEffect(() => {
