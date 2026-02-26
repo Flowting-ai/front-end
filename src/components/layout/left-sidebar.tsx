@@ -99,6 +99,9 @@ export function LeftSidebar({
   // Track the displayed length of titles that are animating (typewriter effect)
   const [displayedTitleLengths, setDisplayedTitleLengths] = useState<Map<string, number>>(new Map());
 
+  // Track which animations have completed so we don't restart them
+  const completedAnimationsRef = React.useRef<Set<string>>(new Set());
+
   // Keep refs so the interval always reads fresh values without restarting
   const chatBoardsRef = React.useRef(chatBoards);
   chatBoardsRef.current = chatBoards;
@@ -119,15 +122,23 @@ export function LeftSidebar({
         boards.forEach((board) => {
           const animInfo = getAnimatingTitle(board.id);
           if (animInfo) {
+            // Skip if this animation already completed
+            const animKey = `${board.id}:${animInfo.timestamp}`;
+            if (completedAnimationsRef.current.has(animKey)) return;
+
             const currentLength = prev.get(board.id) ?? 0;
             const targetLength = animInfo.targetTitle.length;
 
             if (currentLength < targetLength) {
               next.set(board.id, currentLength + 1);
               hasChanges = true;
-            } else if (currentLength >= targetLength) {
-              next.delete(board.id);
-              hasChanges = true;
+            } else {
+              // Animation complete — mark done and clean up
+              completedAnimationsRef.current.add(animKey);
+              if (prev.has(board.id)) {
+                next.delete(board.id);
+                hasChanges = true;
+              }
             }
           } else {
             if (prev.has(board.id)) {
