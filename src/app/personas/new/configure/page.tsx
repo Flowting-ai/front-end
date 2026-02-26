@@ -70,6 +70,7 @@ import { REFINEMENT_STEPS } from "./types";
 import { dataUrlToFile } from "./utils";
 import {
   createPersona,
+  updatePersona,
   fetchPersonaById,
   PERSONA_TEST_STREAM_ENDPOINT,
 } from "@/lib/api/personas";
@@ -299,6 +300,9 @@ function PersonaConfigurePageContent() {
     loadModels();
   }, [models.length]);
 
+  // Track which persona we've loaded to prevent re-loading
+  const loadedPersonaIdRef = useRef<string | null>(null);
+
   // Get persona name and ID from URL params - load after models are ready
   useEffect(() => {
     const nameParam = searchParams.get("name");
@@ -337,8 +341,14 @@ function PersonaConfigurePageContent() {
 
     // Load existing persona data if personaId is provided
     // Wait for models to load first to ensure model selection works
-    if (personaIdParam && (models.length > 0 || !isLoadingModels)) {
+    // Only load once per personaId to prevent re-loading and clearing the form
+    if (
+      personaIdParam && 
+      (models.length > 0 || !isLoadingModels) &&
+      loadedPersonaIdRef.current !== personaIdParam
+    ) {
       setCreatedPersonaId(personaIdParam);
+      loadedPersonaIdRef.current = personaIdParam;
 
       const loadPersonaData = async () => {
         try {
@@ -349,6 +359,12 @@ function PersonaConfigurePageContent() {
           // Populate fields with existing data
           setPersonaName(personaData.name);
           setInstruction(personaData.prompt);
+
+          // Set temperature if available
+          if (personaData.temperature !== undefined) {
+            console.log("🌡️ Setting temperature:", personaData.temperature);
+            setTemperature([personaData.temperature]);
+          }
 
           // Set model if available - ensure models are loaded
           if (personaData.modelId) {
@@ -383,7 +399,7 @@ function PersonaConfigurePageContent() {
 
       loadPersonaData();
     }
-  }, [searchParams, csrfToken, models.length, isLoadingModels]);
+  }, [searchParams, csrfToken, models.length, isLoadingModels, setInstruction]);
 
   const resolvedSelectedModel = useMemo<AIModel | null>(() => {
     if (!selectedModel) return null;
@@ -546,27 +562,49 @@ function PersonaConfigurePageContent() {
             ? Number(selectedModel)
             : null),
         status: "test" as const,
+        temperature: temperature[0],
         image: imageFile,
       };
 
-      const created = await createPersona(personaPayload, csrfToken);
+      let result;
+      
+      // Check if we're updating an existing persona or creating a new one
+      if (createdPersonaId) {
+        // Update existing persona
+        console.log("📝 Updating persona:", createdPersonaId);
+        result = await updatePersona(createdPersonaId, personaPayload, csrfToken);
+        console.log("✅ Persona updated successfully!");
+        
+        // Show success toast for update
+        toast("Persona Updated", {
+          description: "Your persona has been updated successfully.",
+        });
+        
+        // Navigate back to personas list after update
+        setTimeout(() => {
+          router.push("/personas");
+        }, 1000);
+      } else {
+        // Create new persona
+        result = await createPersona(personaPayload, csrfToken);
+        console.log("✅ Persona created successfully!");
+        
+        setCreatedPersonaId(result.id);
+        setHasFinishedBuilding(true);
+        setShowSuccessDialog(true);
+      }
 
-      console.log("✅ Persona created successfully!");
-      console.log("✅ Persona ID:", created.id);
-      console.log("✅ Persona imageUrl:", created.imageUrl);
-      console.log("✅ Full imageUrl:", getFullAvatarUrl(created.imageUrl));
+      console.log("✅ Persona ID:", result.id);
+      console.log("✅ Persona imageUrl:", result.imageUrl);
+      console.log("✅ Full imageUrl:", getFullAvatarUrl(result.imageUrl));
 
-      // Clean up avatar from sessionStorage after successful creation
+      // Clean up avatar from sessionStorage after successful save
       try {
         sessionStorage.removeItem("personaAvatar");
         console.log("Cleaned up avatar from sessionStorage");
       } catch (error) {
         console.error("Failed to clean up sessionStorage:", error);
       }
-
-      setCreatedPersonaId(created.id);
-      setHasFinishedBuilding(true);
-      setShowSuccessDialog(true);
     } catch (error: unknown) {
       console.error("Failed to save persona:", error);
 
@@ -1402,9 +1440,9 @@ function PersonaConfigurePageContent() {
                           </>
                         ) : (
                           <>
-                            <Rocket className="h-4 w-4" />
+                            {/* {createdPersonaId ? null : <Rocket className="h-4 w-4" />} */}
                             <span className={styles.saveButtonText}>
-                              Finish building
+                              {createdPersonaId ? "Update Persona" : "Finish building"}
                             </span>
                           </>
                         )}

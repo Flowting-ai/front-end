@@ -306,6 +306,9 @@ export default function CompareModelsPage({
           }
         }
       }
+
+      // Release the HTTP connection to prevent connection pool exhaustion
+      reader.cancel().catch(() => {});
     } catch (error) {
       console.error("Error testing models:", error);
       // Set error message for all models

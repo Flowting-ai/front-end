@@ -19,6 +19,7 @@ export interface BackendPersona {
   modelName: string | null;
   providerName: string | null;
   status: PersonaStatus;
+  temperature?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,6 +29,7 @@ export interface PersonaInput {
   prompt: string;
   modelId?: number | string | null;
   status?: PersonaStatus;
+  temperature?: number;
   image?: File;
 }
 
@@ -36,6 +38,7 @@ export interface PersonaUpdateInput {
   prompt?: string;
   modelId?: number | string | null;
   status?: PersonaStatus;
+  temperature?: number;
   image?: File;
   clearImage?: boolean;
 }
@@ -68,6 +71,7 @@ const normalizePersona = (persona: BackendPersona) => ({
   modelName: persona.modelName ?? null,
   providerName: persona.providerName ?? null,
   status: persona.status ?? "test",
+  temperature: persona.temperature ?? undefined,
   createdAt: persona.createdAt ?? null,
   updatedAt: persona.updatedAt ?? null,
 });
@@ -122,6 +126,9 @@ export async function createPersona(payload: PersonaInput, csrfToken?: string | 
     if (payload.status) {
       formData.append("status", payload.status);
     }
+    if (payload.temperature !== undefined) {
+      formData.append("temperature", String(payload.temperature));
+    }
     formData.append("image", payload.image);
     body = formData;
     // Don't set Content-Type - browser will set it with boundary for FormData
@@ -133,6 +140,7 @@ export async function createPersona(payload: PersonaInput, csrfToken?: string | 
       prompt: payload.prompt,
       modelId: numericModelId !== undefined ? numericModelId : null,
       status: payload.status,
+      temperature: payload.temperature,
     });
     headers = { "Content-Type": "application/json" };
   }
@@ -178,6 +186,9 @@ export async function updatePersona(
     if (payload.status !== undefined) {
       formData.append("status", payload.status);
     }
+    if (payload.temperature !== undefined) {
+      formData.append("temperature", String(payload.temperature));
+    }
     formData.append("image", payload.image);
     body = formData;
     // Don't set Content-Type - browser will set it with boundary for FormData
@@ -191,6 +202,7 @@ export async function updatePersona(
       jsonPayload.modelId = numericModelId !== undefined ? numericModelId : null;
     }
     if (payload.status !== undefined) jsonPayload.status = payload.status;
+    if (payload.temperature !== undefined) jsonPayload.temperature = payload.temperature;
     if (payload.clearImage) jsonPayload.clearImage = true;
     body = JSON.stringify(jsonPayload);
     headers = { "Content-Type": "application/json" };
@@ -333,6 +345,9 @@ export async function testPersona(
           }
         }
       }
+
+      // Release the HTTP connection to prevent connection pool exhaustion
+      reader.cancel().catch(() => {});
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         callbacks.onError?.((error as Error).message || "Stream error");

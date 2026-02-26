@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, Trash2, Upload, File, Image as ImageIcon } from "lucide-react";
 import { WorkflowNodeData } from "./types";
+import { toast } from "@/lib/toast-helper";
 
 interface DocumentFile {
   id: string;
@@ -128,6 +129,7 @@ export function DocumentNodeInspector({
   const handleSaveAndClose = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     onUpdate({ files: files as any, name: nodeName });
+    toast.success("Document node updated");
     onClose();
   };
 

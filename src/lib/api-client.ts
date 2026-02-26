@@ -243,6 +243,9 @@ export async function handleStream(
       }
     }
 
+    // Release the HTTP connection to prevent connection pool exhaustion
+    reader.cancel().catch(() => {});
+
     // Process remaining buffer
     if (buffer.trim()) {
       onChunk(buffer);

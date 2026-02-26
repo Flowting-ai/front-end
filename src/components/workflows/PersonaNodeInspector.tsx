@@ -64,6 +64,7 @@ export function PersonaNodeInspector({
       updateData.personaData = nodeData.personaData;
     }
     onUpdate(updateData);
+    toast.success("Persona node updated");
     onClose();
   };
 
@@ -78,10 +79,8 @@ export function PersonaNodeInspector({
         modelName = model?.name;
       }
       
-      // Update node immediately with persona name and data
-      setNodeName(persona.name);
+      // Update node immediately with persona data, but keep existing node name
       onUpdate({ 
-        name: persona.name,
         selectedPersona: personaId,
         personaData: {
           name: persona.name,
@@ -91,7 +90,6 @@ export function PersonaNodeInspector({
           modelName: modelName,
         }
       });
-      toast.success("Persona added");
     }
     setShowAddPersonaDialog(false);
   };

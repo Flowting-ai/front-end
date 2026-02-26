@@ -1,8 +1,9 @@
 "use client";
 
 import React from 'react';
-import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge } from 'reactflow';
+import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge, useReactFlow } from 'reactflow';
 import { X } from 'lucide-react';
+import { WorkflowNodeData } from './types';
 
 interface CustomEdgeData {
   onDeleteEdge?: (edgeIds: string[]) => void;
@@ -15,6 +16,8 @@ interface CustomEdgeProps extends EdgeProps<CustomEdgeData> {
 
 export function CustomEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -27,6 +30,8 @@ export function CustomEdge({
   selected = false,
   onDelete,
 }: CustomEdgeProps) {
+  const { getNode } = useReactFlow();
+  
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -50,6 +55,14 @@ export function CustomEdge({
     }
   };
 
+  // Check if source is pin/chat node and target is end node
+  const sourceNode = getNode(source);
+  const targetNode = getNode(target);
+  const sourceNodeType = (sourceNode?.data as WorkflowNodeData | undefined)?.type;
+  const isInvalidConnection = 
+    (sourceNodeType === 'pin' || sourceNodeType === 'chat') && 
+    target === 'end-node';
+
   return (
     <>
       <BaseEdge 
@@ -58,7 +71,7 @@ export function CustomEdge({
         style={{
           ...style,
           strokeWidth: selected ? 3 : 2,
-          stroke: selected ? '#000000' : '#8B8B8B',
+          stroke: isInvalidConnection ? '#EF4444' : (selected ? '#000000' : '#8B8B8B'),
         }}
       />
       {selected && (onDelete || onDeleteFromData) && (

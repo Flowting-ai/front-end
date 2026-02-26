@@ -277,6 +277,9 @@ export function PersonaChatFullPage({
         }
       }
 
+      // Release the HTTP connection to prevent connection pool exhaustion
+      reader.cancel().catch(() => {});
+
       // Ensure we have a final message even if stream ended without "done" event
       if (assistantContent) {
         const sanitized = extractThinkingContent(assistantContent);
