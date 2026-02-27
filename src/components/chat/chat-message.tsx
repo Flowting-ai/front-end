@@ -1213,7 +1213,7 @@ export function ChatMessage({
     return extractInitials(hint, "AI");
   })();
 
-  const AvatarComponent = !isUser && (
+  const AvatarComponent = (
     <Avatar
       className={cn(
         "h-9 w-9 text-xs font-semibold",
@@ -1223,7 +1223,7 @@ export function ChatMessage({
       {message.avatarUrl && (
         <AvatarImage
           src={message.avatarUrl}
-          alt={"AI"}
+          alt={isUser ? "User" : "AI"}
           data-ai-hint={message.avatarHint}
         />
       )}
@@ -1255,9 +1255,9 @@ export function ChatMessage({
           isUser ? "flex-row-reverse" : "flex-row",
         )}
       >
-        {/* Only show avatar for AI, not user */}
+        {/* Show avatar for both AI and user (when persona is selected) */}
         <div className="w-auto flex flex-col items-center justify-start gap-1">
-          {!isUser && (
+          {(!isUser || (isUser && message.avatarUrl && message.avatarUrl !== "/personas/userAvatar.png")) && (
             <div className="mt-4 shrink-0 h-9 w-9 relative flex items-center justify-center overflow-hidden">
               {message.isLoading ? (
                 <div className="absolute inset-0 flex items-center justify-center">

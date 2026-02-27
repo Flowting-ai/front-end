@@ -536,24 +536,24 @@ function PersonaConfigurePageContent() {
 
       // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
       if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
-        console.log("✅ Converting data URL to file for persona avatar");
-        console.log("✅ Data URL preview:", avatarUrl.substring(0, 100));
+        console.log("Converting data URL to file for persona avatar");
+        console.log("Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
         if (imageFile) {
           console.log(
-            "✅ Converted to file:",
+            "Converted to file:",
             imageFile.name,
             imageFile.size,
             "bytes, type:",
             imageFile.type,
           );
         } else {
-          console.error("❌ Failed to convert data URL to file");
+          console.error("Failed to convert data URL to file");
         }
       }
 
       console.log(
-        "💾 Saving persona with image:",
+        "Saving persona with image:",
         imageFile
           ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})`
           : "no image",
@@ -578,23 +578,23 @@ function PersonaConfigurePageContent() {
       // Check if we're updating an existing persona or creating a new one
       if (createdPersonaId) {
         // Update existing persona
-        console.log("📝 Updating persona:", createdPersonaId);
+        console.log("Updating persona:", createdPersonaId);
         result = await updatePersona(createdPersonaId, personaPayload, csrfToken);
-        console.log("✅ Persona updated successfully!");
+        console.log("Persona updated successfully!");
         
         // Show success toast for update
         toast("Persona Updated", {
           description: "Your persona has been updated successfully.",
         });
         
-        // Navigate back to personas list after update
+        // Navigate to persona chat page after update
         setTimeout(() => {
-          router.push("/personas");
+          router.push(`/personas/chat/${createdPersonaId}`);
         }, 1000);
       } else {
         // Create new persona
         result = await createPersona(personaPayload, csrfToken);
-        console.log("✅ Persona created successfully!");
+        console.log("Persona created successfully!");
         
         setCreatedPersonaId(result.id);
         setHasFinishedBuilding(true);

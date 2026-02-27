@@ -1747,8 +1747,8 @@ export function ChatInterface({
         id: userMessageId,
         sender: "user",
         content: trimmedContent,
-        avatarUrl: "/personas/userAvatar.png",
-        avatarHint: "User",
+        avatarUrl: selectedPersona?.imageUrl || "/personas/userAvatar.png",
+        avatarHint: selectedPersona?.name || "User",
         metadata: {
           replyToMessageId: replyToMsgId,
           replyToContent: replyToContent,
@@ -3176,17 +3176,30 @@ export function ChatInterface({
                         onClick={() =>
                           setShowPersonaDropdown(!showPersonaDropdown)
                         }
-                        className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E5E5E5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#F5F5F5] hover:border-[#D9D9D9]"
+                        className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#f5f5f5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#E5E5E5] hover:border-[#D9D9D9]"
                         title="Choose Persona"
                       >
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5]">
-                          <UserPlus className="h-3 w-3" />
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5] overflow-hidden border border-[#E5E5E5]">
+                          {selectedPersona?.avatar ? (
+                            <img
+                              src={selectedPersona.avatar}
+                              alt={selectedPersona.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <UserPlus className="h-3 w-3" />
+                          )}
                         </div>
                         <span>
                           {selectedPersona
                             ? selectedPersona.name
                             : "Choose Persona"}
                         </span>
+                        {selectedPersona && (selectedPersona.modelName || selectedPersona.providerName) && (
+                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[10px] font-medium text-[#666666] border border-[#E5E5E5]">
+                            {selectedPersona.modelName || selectedPersona.providerName}
+                          </span>
+                        )}
                         <ChevronDown className="h-3.5 w-3.5" />
                       </Button>
 
@@ -3264,10 +3277,9 @@ export function ChatInterface({
                                   }
                                   className={
                                     `w-full flex items-center gap-2 rounded-[6px] pl-2 pr-2 py-[5.5px] text-left text-xs transition-colors ` +
-                                    (idx === highlightedPersonaIndex &&
-                                    highlightedPersonaIndex >= 0
+                                    (idx === highlightedPersonaIndex && highlightedPersonaIndex >= 0
                                       ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
-                                      : selectedPersona?.id === persona.id
+                                      : selectedPersona?.id === persona.id && highlightedPersonaIndex === -1
                                         ? "bg-[var(--unofficial-accent-2,#E5E5E5)] text-black font-medium"
                                         : "bg-white text-[#1E1E1E] hover:bg-[var(--unofficial-accent-2,#E5E5E5)]")
                                   }
@@ -3364,7 +3376,7 @@ export function ChatInterface({
                           description: "Results will not include web search",
                         });
                       }}
-                      className="cursor-pointer w-auto h-[36px] font-geist text-sm text-[#2563eb] bg-[#F0F7FF] rounded-full flex items-center justify-between gap-2 px-3 py-2"
+                      className="cursor-pointer w-auto h-[36px] font-geist font-medium text-sm text-[#4A8CEB] bg-transparent rounded-[8px] flex items-center justify-between gap-2 px-3 py-2"
                     >
                       <Globe size={16} />
                       <p>Web Search</p>

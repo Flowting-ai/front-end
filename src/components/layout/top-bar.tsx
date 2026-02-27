@@ -8,9 +8,10 @@ import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "./right-sidebar";
 import { useTokenUsage } from "@/context/token-context";
 import { useAuth } from "@/context/auth-context";
-import { UserRoundPen, UserRoundPlus } from "lucide-react";
+import { UserRoundPen, UserRoundPlus, Share2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "@/lib/toast-helper";
 
 interface TopbarProps {
   children?: ReactNode;
@@ -40,6 +41,7 @@ export function Topbar({
   const { usagePercent, isLoading } = useTokenUsage();
   const { user } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const showUpgradePlan = !isLoading && usagePercent >= 80;
   const firstName =
     (user?.firstName as string | undefined) ||
@@ -50,12 +52,32 @@ export function Topbar({
   const isHomePage = pathname === "/";
   const isPersonaAdminPage = pathname === "/personaAdmin";
   const isPersonasPage = pathname?.startsWith("/personas");
+  const isPersonaAdminChatPage = pathname?.startsWith("/personaAdmin/chat/");
+  const isWorkflowAdminChatPage = pathname?.startsWith("/workflowAdmin/chat/");
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white">
       <div className="h-[56px] w-full border-b border-main-border flex items-center justify-between gap-4 px-3 py-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 lg:flex-nowrap">
           {/* Left side content */}
+          {isPersonaAdminChatPage && (
+            <Button
+              onClick={() => router.push("/personaAdmin")}
+              className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Button>
+          )}
+          {isWorkflowAdminChatPage && (
+            <Button
+              onClick={() => router.push("/workflowAdmin")}
+              className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg ml-9"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </Button>
+          )}
           {isHomePage && children ? (
             <div className="shrink-0 lg:hidden">{children}</div>
           ) : null}
@@ -97,7 +119,32 @@ export function Topbar({
 
         <div className="flex shrink-0 items-center gap-3">
           {/* Right side content */}
-       
+          {isPersonaAdminChatPage && (
+            <Button
+              onClick={() => {
+                toast.info("Share", {
+                  description: "Share persona feature coming soon.",
+                });
+              }}
+              className="pointer-events-none text-sm text-[#0A0A0A]/30 bg-white hover:bg-zinc-100 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300 mr-9"
+            >
+              <Share2 className="h-4 w-4" />
+              <span>Share</span>
+            </Button>
+          )}
+          {isWorkflowAdminChatPage && (
+            <Button
+              onClick={() => {
+                toast.info("Share", {
+                  description: "Share workflow feature coming soon.",
+                });
+              }}
+              className="pointer-events-none text-sm text-[#0A0A0A]/30 bg-white hover:bg-zinc-100 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300 mr-9"
+            >
+              <Share2 className="h-4 w-4" />
+              <span>Share</span>
+            </Button>
+          )}
           {isHomePage && !user && (
             <Link href="/auth/login">
               <Button
