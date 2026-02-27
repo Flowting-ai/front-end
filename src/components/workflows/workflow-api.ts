@@ -21,23 +21,20 @@ type FrontendNodeType =
   | "model"
   | "phantom";
 
-interface BackendKnowledgeBaseItem {
-  kb_type: "chat" | "pin";
-  kb_id: string;
-  instruction?: string;
-  position_x?: number;
-  position_y?: number;
-}
+type BackendNodeType = "start" | "end" | "model" | "persona" | "chat" | "pin_folder";
+
+// =============================================================================
+// BACKEND API TYPES (Request / Response shapes)
+// =============================================================================
 
 interface BackendWorkflowNodePayload {
   node_id: string;
-  node_type: "start" | "end" | "process";
+  name: string;
+  node_type: BackendNodeType;
+  reference_id: string;
+  instructions: string;
   position_x: number;
   position_y: number;
-  model_id?: string;
-  persona_id?: string;
-  instructions?: string;
-  knowledge_bases?: BackendKnowledgeBaseItem[];
 }
 
 interface BackendWorkflowEdgePayload {
@@ -69,16 +66,14 @@ interface BackendWorkflowListItem {
 interface BackendWorkflowNode {
   id?: string;
   node_id: string;
-  node_type: "start" | "end" | "process";
+  name: string;
+  node_type: BackendNodeType;
+  reference_id: string;
+  instructions: string;
   position_x: number;
   position_y: number;
-  model_id?: number | string | null;
-  model_name?: string | null;
-  persona_id?: string | null;
-  persona_name?: string | null;
-  instructions?: string;
-  knowledge_bases?: BackendKnowledgeBaseItem[];
   created_at?: string;
+  updated_at?: string;
 }
 
 interface BackendWorkflowEdge {
@@ -87,15 +82,6 @@ interface BackendWorkflowEdge {
   target_node_id: string;
   label?: string;
   created_at?: string;
-}
-
-interface PreprocessedKnowledgeItem {
-  kb_type: "chat" | "pin";
-  instruction?: string;
-  context?: string;
-  position_x?: number;
-  position_y?: number;
-  node_id?: string;
 }
 
 interface BackendWorkflowDetail {
@@ -107,7 +93,6 @@ interface BackendWorkflowDetail {
   updated_at?: string;
   nodes: BackendWorkflowNode[];
   edges: BackendWorkflowEdge[];
-  preprocessed_knowledge?: Record<string, PreprocessedKnowledgeItem>;
 }
 
 interface BackendWorkflowCreateResponse {
@@ -144,14 +129,23 @@ interface BackendWorkflowRunSummary {
 // =============================================================================
 
 export type StreamEventType =
-  | "workflow_start"
+  // New event types from updated backend API
+  | "metadata"
+  | "start"
+  | "node_success"
+  | "end"
+  | "done"
+  | "node_failed"
+  // Shared event types (present in both old and new API)
   | "node_start"
   | "chunk"
+  | "error"
+  // Legacy event types (kept for backward compatibility)
+  | "workflow_start"
   | "node_end"
   | "node_complete"
   | "workflow_complete"
-  | "ask_user"
-  | "error";
+  | "ask_user";
 
 export interface StreamEventBase {
   event: StreamEventType;
@@ -170,13 +164,19 @@ export interface NodeStartEvent extends StreamEventBase {
   event: "node_start";
   node_id: string;
   node_type: string;
+  /** Normalized from the "name" field in new API or "node_name" in legacy API */
   node_name?: string;
+  name?: string;
+  execution_order?: number;
+  started_at?: string;
 }
 
 export interface ChunkEvent extends StreamEventBase {
   event: "chunk";
   node_id: string;
+  /** Normalized content — populated from "delta" (new API) or "content" (legacy API) */
   content: string;
+  delta?: string;
   chunk_index?: number;
 }
 
@@ -244,15 +244,29 @@ export interface StreamCallbacks {
   onError?: (event: StreamErrorEvent) => void;
 }
 
+// Chat session returned by GET /api/workflows/<uuid>/chats/
+export interface WorkflowChatSession {
+  id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 const STREAM_EVENT_TYPES = new Set<StreamEventType>([
-  "workflow_start",
+  "metadata",
+  "start",
   "node_start",
   "chunk",
+  "node_success",
+  "end",
+  "done",
+  "node_failed",
+  "error",
+  "workflow_start",
   "node_end",
   "node_complete",
   "workflow_complete",
   "ask_user",
-  "error",
 ]);
 
 const toStreamEventType = (value: unknown): StreamEventType | undefined => {
@@ -290,16 +304,6 @@ const asString = (value: unknown): string | undefined => {
     return String(value);
   }
   return undefined;
-};
-
-const asStringArray = (value: unknown): string[] => {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => asString(item))
-      .filter((item): item is string => Boolean(item));
-  }
-  const single = asString(value);
-  return single ? [single] : [];
 };
 
 const parseJsonSafe = async (response: Response): Promise<unknown> => {
@@ -386,245 +390,117 @@ const workflowExecuteStreamEndpoint = (id: string) =>
 const workflowRunsEndpoint = (id: string) =>
   `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/runs/`;
 
-const CONTEXT_NODE_TYPES = new Set<FrontendNodeType>([
-  "chat",
-  "pin",
-  "document",
-  "phantom",
-]);
+const workflowChatsEndpoint = (id: string) =>
+  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/chats/`;
 
-const dedupeKnowledgeBases = (
-  items: BackendKnowledgeBaseItem[]
-): BackendKnowledgeBaseItem[] => {
-  const seen = new Set<string>();
-  const result: BackendKnowledgeBaseItem[] = [];
+const workflowChatEndpoint = (id: string) =>
+  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/chat/`;
 
-  for (const item of items) {
-    const key = `${item.kb_type}:${item.kb_id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(item);
+// =============================================================================
+// NODE TYPE MAPPING
+// =============================================================================
+
+/** Node types that have no backend equivalent — excluded from the payload */
+const UNSUPPORTED_FRONTEND_TYPES = new Set<string>(["document", "phantom"]);
+
+const toBackendNodeType = (frontendType: string): BackendNodeType | null => {
+  switch (frontendType) {
+    case "start":   return "start";
+    case "end":     return "end";
+    case "model":   return "model";
+    case "persona": return "persona";
+    case "chat":    return "chat";
+    case "pin":     return "pin_folder";
+    default:        return null;
   }
-
-  return result;
 };
 
+const fromBackendNodeType = (backendType: string): FrontendNodeType => {
+  switch (backendType) {
+    case "start":      return "start";
+    case "end":        return "end";
+    case "model":      return "model";
+    case "persona":    return "persona";
+    case "chat":       return "chat";
+    case "pin_folder": return "pin";
+    default:           return "model";
+  }
+};
+
+/** Extract the single reference_id for a node from its frontend data */
+const getNodeReferenceId = (node: WorkflowDTO["nodes"][0]): string => {
+  const type = (node.data?.type ?? "") as FrontendNodeType;
+  switch (type) {
+    case "chat":
+      return asString(node.data?.selectedChats) || "";
+    case "pin":
+      // Prefer folder UUID; fall back to first pin ID if folder not set
+      return (
+        asString(node.data?.selectedFolder?.id) ||
+        (Array.isArray(node.data?.selectedPins)
+          ? asString(node.data!.selectedPins![0])
+          : "") ||
+        ""
+      );
+    case "persona":
+      return asString(node.data?.selectedPersona) || "";
+    case "model":
+      return asString(node.data?.selectedModel || node.data?.modelId) || "";
+    default:
+      return "";
+  }
+};
+
+// =============================================================================
+// PAYLOAD TRANSFORMERS
+// =============================================================================
+
+/**
+ * Convert a frontend WorkflowDTO into the backend create/update payload.
+ *
+ * All supported node types are sent directly with a `reference_id` field.
+ * Document and phantom nodes are excluded as they have no backend representation.
+ * Edges are filtered to only include connections between backend-supported nodes.
+ */
 const toBackendWorkflowPayload = (
   workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt"> | WorkflowDTO
 ): BackendWorkflowCreatePayload => {
-  // DEBUG: Log input workflow
-  console.log("[toBackendWorkflowPayload] INPUT workflow.nodes:", workflow.nodes.map(n => ({
-    id: n.id,
-    type: n.data?.type,
-    selectedModel: n.data?.selectedModel,
-    selectedPersona: n.data?.selectedPersona,
-  })));
-  console.log("[toBackendWorkflowPayload] INPUT workflow.edges:", workflow.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-  })));
-
-  const nodeById = new Map(workflow.nodes.map((node) => [node.id, node]));
-
-  const keptNodes = workflow.nodes.filter((node) => {
-    const nodeType = (node.data?.type || "") as FrontendNodeType;
-    return !CONTEXT_NODE_TYPES.has(nodeType);
-  });
-
-  const keptNodeIds = new Set(keptNodes.map((node) => node.id));
-  const processNodeIds = new Set(
-    keptNodes
-      .filter((node) => {
-        const nodeType = (node.data?.type || "") as FrontendNodeType;
-        return nodeType !== "start" && nodeType !== "end";
-      })
-      .map((node) => node.id)
-  );
-
-  const knowledgeByTarget = new Map<string, BackendKnowledgeBaseItem[]>();
-
-  // Build adjacency lists for computing transitive edges
-  const incomingEdges = new Map<string, Set<string>>(); // nodeId -> set of source nodeIds
-  const outgoingEdges = new Map<string, Set<string>>(); // nodeId -> set of target nodeIds
+  const backendNodes: BackendWorkflowNodePayload[] = [];
 
   for (const node of workflow.nodes) {
-    incomingEdges.set(node.id, new Set());
-    outgoingEdges.set(node.id, new Set());
-  }
+    const frontendType = (node.data?.type ?? "") as FrontendNodeType;
 
-  for (const edge of workflow.edges) {
-    const sourceNode = nodeById.get(edge.source);
-    const targetNode = nodeById.get(edge.target);
-    if (!sourceNode || !targetNode) continue;
+    if (UNSUPPORTED_FRONTEND_TYPES.has(frontendType)) continue;
 
-    // Build adjacency lists
-    incomingEdges.get(edge.target)?.add(edge.source);
-    outgoingEdges.get(edge.source)?.add(edge.target);
+    const backendNodeType = toBackendNodeType(frontendType);
+    if (!backendNodeType) continue;
 
-    // Collect knowledge bases from context nodes
-    const sourceType = (sourceNode.data?.type || "") as FrontendNodeType;
-    if (sourceType !== "chat" && sourceType !== "pin") continue;
-    if (!processNodeIds.has(targetNode.id)) continue;
-
-    const sourceInstruction = asString(sourceNode.data?.instructions) || "";
-    const sourcePositionX = Number(sourceNode.position?.x ?? 0);
-    const sourcePositionY = Number(sourceNode.position?.y ?? 0);
-    const list = knowledgeByTarget.get(targetNode.id) || [];
-
-    if (sourceType === "chat") {
-      for (const chatId of asStringArray(sourceNode.data?.selectedChats)) {
-        list.push({
-          kb_type: "chat",
-          kb_id: chatId,
-          instruction: sourceInstruction,
-          position_x: sourcePositionX,
-          position_y: sourcePositionY,
-        });
-      }
-    }
-
-    if (sourceType === "pin") {
-      const pinId = sourceNode.data?.selectedPins;
-      if (pinId && typeof pinId === 'string') {
-        list.push({
-          kb_type: "pin",
-          kb_id: pinId,
-          instruction: sourceInstruction,
-          position_x: sourcePositionX,
-          position_y: sourcePositionY,
-        });
-      }
-    }
-
-    if (list.length) {
-      knowledgeByTarget.set(targetNode.id, list);
-    }
-  }
-
-  // Compute transitive edges: when context nodes are removed, connect their predecessors to successors
-  // This ensures the execution graph remains connected
-  const transitiveEdges = new Set<string>(); // "sourceId->targetId" format
-
-  // Helper to find all reachable kept nodes from a given node
-  const findReachableKeptNodes = (
-    startNodeId: string,
-    visited: Set<string>
-  ): Set<string> => {
-    const result = new Set<string>();
-    const queue = [startNodeId];
-
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      if (visited.has(currentId)) continue;
-      visited.add(currentId);
-
-      // If this is a kept node, add it to results
-      if (keptNodeIds.has(currentId)) {
-        result.add(currentId);
-        continue; // Don't traverse further from kept nodes
-      }
-
-      // Otherwise, traverse to successors
-      const successors = outgoingEdges.get(currentId) || new Set();
-      for (const successor of successors) {
-        if (!visited.has(successor)) {
-          queue.push(successor);
-        }
-      }
-    }
-
-    return result;
-  };
-
-  // For each kept node, find all reachable kept nodes through context nodes
-  for (const keptNodeId of keptNodeIds) {
-    const directSuccessors = outgoingEdges.get(keptNodeId) || new Set();
-
-    for (const successor of directSuccessors) {
-      if (keptNodeIds.has(successor)) {
-        // Direct edge to another kept node - keep it
-        transitiveEdges.add(`${keptNodeId}->${successor}`);
-      } else {
-        // Successor is a context node - find all reachable kept nodes through it
-        const visited = new Set<string>([keptNodeId]);
-        const reachable = findReachableKeptNodes(successor, visited);
-        for (const reachableId of reachable) {
-          transitiveEdges.add(`${keptNodeId}->${reachableId}`);
-        }
-      }
-    }
-  }
-
-  const backendNodes: BackendWorkflowNodePayload[] = keptNodes.map((node) => {
-    const frontendType = (node.data?.type || "") as FrontendNodeType;
-    const isStart = frontendType === "start";
-    const isEnd = frontendType === "end";
-    const backendNodeType: "start" | "end" | "process" = isStart
-      ? "start"
-      : isEnd
-      ? "end"
-      : "process";
-
-    const payload: BackendWorkflowNodePayload = {
+    backendNodes.push({
       node_id: node.id,
+      name: asString(node.data?.label) || asString(node.data?.name) || node.id || "Node",
       node_type: backendNodeType,
-      position_x: Number(node.position?.x ?? 0),
-      position_y: Number(node.position?.y ?? 0),
-    };
-
-    if (backendNodeType === "process") {
-      const instructions =
+      reference_id: getNodeReferenceId(node),
+      instructions:
         asString(node.data?.instructions) ||
         asString(node.data?.prompt) ||
         asString(node.data?.systemPrompt) ||
-        "";
-      if (instructions) {
-        payload.instructions = instructions;
-      }
-
-      const modelId = asString(node.data?.selectedModel || node.data?.modelId);
-      const personaId = asString(node.data?.selectedPersona);
-      const isPersonaNode = frontendType === "persona";
-      const isModelNode = frontendType === "model";
-
-      // Keep persona_id and model_id independent.
-      if (isPersonaNode) {
-        if (personaId) payload.persona_id = personaId;
-      } else if (isModelNode) {
-        if (modelId) payload.model_id = modelId;
-      } else {
-        if (modelId) payload.model_id = modelId;
-        if (personaId) payload.persona_id = personaId;
-      }
-
-      const knowledge = dedupeKnowledgeBases(
-        knowledgeByTarget.get(node.id) || []
-      );
-      if (knowledge.length) {
-        payload.knowledge_bases = knowledge;
-      }
-    }
-
-    return payload;
-  });
-
-  // Convert transitive edges set to backend format
-  const backendEdges: BackendWorkflowEdgePayload[] = Array.from(transitiveEdges)
-    .map((edgeKey) => {
-      const [source, target] = edgeKey.split("->") as [string, string];
-      return {
-        source_node_id: source,
-        target_node_id: target,
-        label: `e-${source}-${target}`,
-      };
+        "",
+      position_x: Number(node.position?.x ?? 0),
+      position_y: Number(node.position?.y ?? 0),
     });
+  }
 
-  // DEBUG: Log intermediate and output data
-  console.log("[toBackendWorkflowPayload] keptNodes:", keptNodes.map(n => ({ id: n.id, type: n.data?.type })));
-  console.log("[toBackendWorkflowPayload] transitiveEdges:", Array.from(transitiveEdges));
-  console.log("[toBackendWorkflowPayload] OUTPUT backendNodes:", backendNodes);
-  console.log("[toBackendWorkflowPayload] OUTPUT backendEdges:", backendEdges);
+  // Only send edges whose both endpoints are included in the payload
+  const backendNodeIds = new Set(backendNodes.map((n) => n.node_id));
+  const backendEdges: BackendWorkflowEdgePayload[] = workflow.edges
+    .filter(
+      (edge) =>
+        backendNodeIds.has(edge.source) && backendNodeIds.has(edge.target)
+    )
+    .map((edge) => ({
+      source_node_id: edge.source,
+      target_node_id: edge.target,
+    }));
 
   const payload: BackendWorkflowCreatePayload = {
     name: (workflow.name || "Untitled Workflow").trim() || "Untitled Workflow",
@@ -633,14 +509,10 @@ const toBackendWorkflowPayload = (
     edges: backendEdges,
   };
 
-  // Include is_active if present in the workflow
-  console.log("[toBackendWorkflowPayload] Checking isActive - 'isActive' in workflow:", "isActive" in workflow, "workflow.isActive:", workflow.isActive);
   if ("isActive" in workflow && workflow.isActive !== undefined) {
     payload.is_active = workflow.isActive;
-    console.log("[toBackendWorkflowPayload] Set is_active in payload to:", workflow.isActive);
   }
 
-  console.log("[toBackendWorkflowPayload] Final payload is_active:", payload.is_active);
   return payload;
 };
 
@@ -661,174 +533,78 @@ const toWorkflowMetadata = (
   };
 };
 
+/**
+ * Convert a backend workflow detail response into the frontend WorkflowDTO.
+ *
+ * Each backend node maps 1:1 to a frontend node — no KB node reconstruction needed.
+ */
 const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
-  console.log("[toWorkflowDTO] Input workflow:", {
-    id: workflow.id,
-    name: workflow.name,
-    nodeCount: workflow.nodes.length,
-    edgeCount: workflow.edges.length,
-    hasPreprocessedKb: !!workflow.preprocessed_knowledge,
-  });
+  const allNodes: WorkflowDTO["nodes"] = workflow.nodes.map((node) => {
+    const frontendType = fromBackendNodeType(node.node_type);
+    const label = node.name || node.node_id;
 
-  // Build preprocessed knowledge lookup for context data
-  const preprocessedKb = workflow.preprocessed_knowledge || {};
+    const data: WorkflowDTO["nodes"][0]["data"] = {
+      label,
+      name: label,
+      description: "",
+      type: frontendType,
+      status: "idle",
+      config: {},
+      instructions: node.instructions || "",
+    };
 
-  // Collect all nodes (process nodes + recreated context nodes)
-  const allNodes: WorkflowDTO["nodes"] = [];
-  // Collect all edges (backend edges + edges from context nodes to process nodes)
-  const allEdges: WorkflowDTO["edges"] = [];
+    // Populate type-specific reference fields
+    switch (frontendType) {
+      case "chat":
+        if (node.reference_id) {
+          data.selectedChats = node.reference_id;
+          data.chatData = { name: node.name || node.reference_id, id: node.reference_id };
+        }
+        break;
+      case "pin":
+        if (node.reference_id) {
+          data.selectedFolder = {
+            id: node.reference_id,
+            name: node.name || node.reference_id,
+            pinIds: [],
+          };
+          data.selectedPins = [];
+        }
+        break;
+      case "persona":
+        if (node.reference_id) {
+          data.selectedPersona = node.reference_id;
+          data.personaData = { name: node.name || node.reference_id };
+        }
+        break;
+      case "model":
+        if (node.reference_id) {
+          data.selectedModel = node.reference_id;
+          data.modelId = node.reference_id;
+          data.modelData = { name: node.name || node.reference_id };
+        }
+        break;
+    }
 
-  // Track created KB node IDs to avoid duplicates
-  const createdKbNodes = new Map<string, string>(); // kb_id -> node_id
-
-  workflow.nodes.forEach((node) => {
-    // Determine frontend type
-    let frontendType: FrontendNodeType = "model";
-    if (node.node_type === "start") frontendType = "start";
-    else if (node.node_type === "end") frontendType = "end";
-    else if (node.persona_id) frontendType = "persona";
-    else if (node.model_id) frontendType = "model";
-
-    // Use default labels instead of overwriting with model/persona names
-    const label =
-      frontendType === "start"
-        ? "Start"
-        : frontendType === "end"
-        ? "End"
-        : frontendType === "persona"
-        ? "Persona"
-        : frontendType === "model"
-        ? "Model"
-        : node.node_id;
-
-    // Create the main node (start/end/process)
-    allNodes.push({
+    return {
       id: node.node_id,
       type: "custom",
       position: {
-        x: Number(node.position_x || 0),
-        y: Number(node.position_y || 0),
+        x: Number(node.position_x ?? 0),
+        y: Number(node.position_y ?? 0),
       },
-      data: {
-        label,
-        name: label, // Use default label as name, not kb ID or model/persona name
-        description: "",
-        type: frontendType,
-        status: "idle",
-        config: {},
-        instructions: node.instructions || "",
-        selectedModel: node.model_id ? String(node.model_id) : undefined,
-        modelId: node.model_id ? String(node.model_id) : undefined,
-        selectedPersona: node.persona_id || undefined,
-        modelData: node.model_name
-          ? { name: node.model_name }
-          : undefined,
-        personaData: node.persona_name
-          ? { name: node.persona_name }
-          : undefined,
-      },
-    });
-
-    // Recreate chat/pin context nodes from knowledge_bases
-    const knowledgeBases = node.knowledge_bases || [];
-    console.log(`[toWorkflowDTO] Node ${node.node_id} has ${knowledgeBases.length} knowledge_bases:`, knowledgeBases);
-
-    knowledgeBases.forEach((kb, kbIndex) => {
-      // Check if we already created a node for this kb_id
-      if (createdKbNodes.has(kb.kb_id)) {
-        // Just add an edge from existing node to this process node
-        const existingNodeId = createdKbNodes.get(kb.kb_id)!;
-        allEdges.push({
-          id: `e-${existingNodeId}-${node.node_id}`,
-          source: existingNodeId,
-          target: node.node_id,
-          type: "default",
-        });
-        return;
-      }
-
-      // Create a new context node for this KB
-      const kbNodeId = `kb-${kb.kb_type}-${kb.kb_id}`;
-      createdKbNodes.set(kb.kb_id, kbNodeId);
-
-      // Get preprocessed context if available
-      const preprocessed = preprocessedKb[kb.kb_id];
-      const contextText = preprocessed?.context || "";
-
-      if (kb.kb_type === "chat") {
-        // Create chat node
-        console.log(`[toWorkflowDTO] Creating CHAT node: ${kbNodeId} at (${kb.position_x}, ${kb.position_y})`);
-        allNodes.push({
-          id: kbNodeId,
-          type: "custom",
-          position: {
-            x: Number(kb.position_x ?? node.position_x - 200),
-            y: Number(kb.position_y ?? node.position_y + kbIndex * 120),
-          },
-          data: {
-            label: "Chat",
-            name: "Chat", // Use default name instead of kb ID
-            description: contextText ? contextText.slice(0, 100) + "..." : "Chat context",
-            type: "chat",
-            status: "idle",
-            config: {},
-            instructions: kb.instruction || "",
-            selectedChats: kb.kb_id,
-            chatData: {
-              name: kb.kb_id, // Store the actual chat ID in chatData
-              id: kb.kb_id,
-            },
-          },
-        });
-      } else if (kb.kb_type === "pin") {
-        // Create pin node
-        console.log(`[toWorkflowDTO] Creating PIN node: ${kbNodeId} at (${kb.position_x}, ${kb.position_y})`);
-        allNodes.push({
-          id: kbNodeId,
-          type: "custom",
-          position: {
-            x: Number(kb.position_x ?? node.position_x - 200),
-            y: Number(kb.position_y ?? node.position_y + kbIndex * 120),
-          },
-          data: {
-            label: "Pin",
-            name: "Pin", // Use default name instead of kb ID
-            description: contextText ? contextText.slice(0, 100) + "..." : "Pin context",
-            type: "pin",
-            status: "idle",
-            config: {},
-            instructions: kb.instruction || "",
-            selectedPins: [kb.kb_id],
-          },
-        });
-      }
-
-      // Create edge from KB node to process node
-      allEdges.push({
-        id: `e-${kbNodeId}-${node.node_id}`,
-        source: kbNodeId,
-        target: node.node_id,
-        type: "default",
-      });
-    });
+      data,
+    };
   });
 
-  // Add backend edges (between process nodes)
-  workflow.edges.forEach((edge, index) => {
-    allEdges.push({
-      id: edge.id || `e-${edge.source_node_id}-${edge.target_node_id}-${String(index + 1)}`,
-      source: edge.source_node_id,
-      target: edge.target_node_id,
-      type: "default",
-    });
-  });
-
-  // Log final output
-  console.log("[toWorkflowDTO] OUTPUT:", {
-    totalNodes: allNodes.length,
-    nodeTypes: allNodes.map(n => ({ id: n.id, type: n.data.type })),
-    totalEdges: allEdges.length,
-  });
+  const allEdges: WorkflowDTO["edges"] = workflow.edges.map((edge, index) => ({
+    id:
+      edge.id ||
+      `e-${edge.source_node_id}-${edge.target_node_id}-${String(index + 1)}`,
+    source: edge.source_node_id,
+    target: edge.target_node_id,
+    type: "default",
+  }));
 
   return {
     id: workflow.id,
@@ -840,7 +616,6 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     updatedAt: workflow.updated_at,
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
-    preprocessedKnowledge: workflow.preprocessed_knowledge,
   };
 };
 
@@ -873,6 +648,241 @@ const toExecutionSummary = (
   error: run.error_message || undefined,
 });
 
+// =============================================================================
+// SSE STREAM HELPERS
+// =============================================================================
+
+/**
+ * Read an SSE stream from a Response and dispatch to StreamCallbacks.
+ * Handles both the new API event types (metadata/start/node_success/done/node_failed)
+ * and the legacy types (workflow_start/node_end/node_complete/workflow_complete/ask_user).
+ */
+const processSseStream = async (
+  response: Response,
+  callbacks: StreamCallbacks,
+  signal: AbortSignal
+): Promise<void> => {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.({
+      event: "error",
+      error: "No response body",
+      error_code: "NO_BODY",
+    });
+    return;
+  }
+
+  try {
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let pendingEventType: StreamEventType | undefined;
+
+    const processSseLine = (line: string) => {
+      const trimmedLine = line.trim();
+
+      if (!trimmedLine) {
+        pendingEventType = undefined;
+        return;
+      }
+      if (trimmedLine.startsWith(":")) return;
+
+      if (trimmedLine.startsWith("event:")) {
+        pendingEventType = toStreamEventType(trimmedLine.slice(6));
+        return;
+      }
+
+      if (!trimmedLine.startsWith("data:")) return;
+
+      const jsonStr = trimmedLine.slice(5).trim();
+      if (!jsonStr) return;
+
+      let event: Record<string, unknown>;
+      try {
+        event = JSON.parse(jsonStr) as Record<string, unknown>;
+      } catch {
+        console.warn("[SSE] Failed to parse event JSON:", jsonStr.slice(0, 100));
+        return;
+      }
+
+      const eventType =
+        toStreamEventType(event.event) ??
+        toStreamEventType(event.type) ??
+        pendingEventType;
+      pendingEventType = undefined;
+
+      if (!eventType) return;
+
+      console.log("[SSE] Event:", eventType);
+
+      switch (eventType) {
+        // ── New API events ───────────────────────────────────────────────────
+
+        case "metadata":
+          // Fires at the start of the stream with workflow/run identifiers
+          callbacks.onWorkflowStart?.({
+            event: "workflow_start",
+            run_id: String(event.run_id ?? ""),
+            workflow_id: String(event.workflow_id ?? ""),
+            input_text: "",
+          });
+          break;
+
+        case "start":
+          // Execution has begun; metadata already covered this — no-op
+          break;
+
+        case "node_start": {
+          // Normalize "name" (new API) → "node_name" (legacy callback field)
+          const adapted: NodeStartEvent = {
+            event: "node_start",
+            node_id: String(event.node_id ?? ""),
+            node_type: String(event.node_type ?? ""),
+            node_name:
+              String(event.node_name ?? event.name ?? event.node_id ?? ""),
+            name: String(event.name ?? ""),
+            execution_order:
+              typeof event.execution_order === "number"
+                ? event.execution_order
+                : undefined,
+            started_at:
+              typeof event.started_at === "string" ? event.started_at : undefined,
+          };
+          callbacks.onNodeStart?.(adapted);
+          break;
+        }
+
+        case "chunk": {
+          // Normalize "delta" (new API) → "content" (legacy callback field)
+          const adapted: ChunkEvent = {
+            event: "chunk",
+            node_id: String(event.node_id ?? ""),
+            content: String(event.content ?? event.delta ?? ""),
+            delta: typeof event.delta === "string" ? event.delta : undefined,
+            chunk_index:
+              typeof event.chunk_index === "number"
+                ? event.chunk_index
+                : undefined,
+          };
+          callbacks.onChunk?.(adapted);
+          break;
+        }
+
+        case "node_success": {
+          // Maps to both onNodeEnd (for LLM cost/token data) and onNodeComplete
+          const nodeId = String(event.node_id ?? "");
+          const tokensIn = typeof event.tokens_input === "number" ? event.tokens_input : 0;
+          const tokensOut = typeof event.tokens_output === "number" ? event.tokens_output : 0;
+          const cost =
+            typeof event.cost === "number" ? event.cost : undefined;
+
+          callbacks.onNodeEnd?.({
+            event: "node_end",
+            node_id: nodeId,
+            output: String(event.output ?? ""),
+            tokens_used: tokensIn + tokensOut,
+            cost,
+          });
+          callbacks.onNodeComplete?.({
+            event: "node_complete",
+            node_id: nodeId,
+            node_type: String(event.node_type ?? ""),
+            output: String(event.output ?? ""),
+          });
+          break;
+        }
+
+        case "done": {
+          // Final event with the aggregated response
+          const tokensIn = typeof event.tokens_input === "number" ? event.tokens_input : 0;
+          const tokensOut = typeof event.tokens_output === "number" ? event.tokens_output : 0;
+          callbacks.onWorkflowComplete?.({
+            event: "workflow_complete",
+            run_id: String(event.run_id ?? ""),
+            final_output: String(event.response ?? ""),
+            total_cost:
+              typeof event.total_cost === "number" ? event.total_cost : undefined,
+            total_tokens: tokensIn + tokensOut,
+          });
+          break;
+        }
+
+        case "node_failed":
+          callbacks.onError?.({
+            event: "error",
+            node_id: typeof event.node_id === "string" ? event.node_id : undefined,
+            error: String(event.error ?? "Node execution failed"),
+          });
+          break;
+
+        case "end":
+          // Signals end of stream before the done event — no action needed
+          break;
+
+        // ── Legacy API events (backward compatibility) ────────────────────
+
+        case "workflow_start":
+          callbacks.onWorkflowStart?.(event as unknown as WorkflowStartEvent);
+          break;
+
+        case "node_end":
+          callbacks.onNodeEnd?.(event as unknown as NodeEndEvent);
+          break;
+
+        case "node_complete":
+          callbacks.onNodeComplete?.(event as unknown as NodeCompleteEvent);
+          break;
+
+        case "workflow_complete":
+          callbacks.onWorkflowComplete?.(event as unknown as WorkflowCompleteEvent);
+          break;
+
+        case "ask_user":
+          callbacks.onAskUser?.(event as unknown as AskUserEvent);
+          break;
+
+        case "error":
+          callbacks.onError?.({
+            event: "error",
+            node_id: typeof event.node_id === "string" ? event.node_id : undefined,
+            error: String(event.error ?? "Unknown error"),
+            error_code:
+              typeof event.error_code === "string" ? event.error_code : undefined,
+          });
+          break;
+      }
+    };
+
+    while (true) {
+      if (signal.aborted) break;
+
+      const { done, value } = await reader.read();
+
+      if (done) {
+        const trailing = decoder.decode();
+        if (trailing) buffer += trailing;
+        if (buffer && !buffer.endsWith("\n")) buffer += "\n";
+      } else {
+        buffer += decoder.decode(value, { stream: true });
+      }
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        processSseLine(line);
+      }
+
+      if (done) break;
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+};
+
+// =============================================================================
+// PUBLIC API
+// =============================================================================
+
 export const workflowAPI = {
   list: async (): Promise<{ workflows: WorkflowMetadata[]; total: number }> => {
     const response = await fetchWithTimeout(WORKFLOWS_ENDPOINT, {
@@ -887,27 +897,20 @@ export const workflowAPI = {
   },
 
   get: async (id: string): Promise<WorkflowDTO> => {
-    console.log('[workflowAPI.get] Fetching workflow:', id);
     const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
       method: "GET",
     });
     const data = await handleResponse<BackendWorkflowDetail>(response);
-    console.log('[workflowAPI.get] Raw backend is_active:', data.is_active);
-    const mapped = toWorkflowDTO(data);
-    console.log('[workflowAPI.get] Mapped isActive:', mapped.isActive);
-    return mapped;
+    return toWorkflowDTO(data);
   },
 
   create: async (
     workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
   ): Promise<WorkflowDTO> => {
     const payload = toBackendWorkflowPayload(workflow);
-    console.log("[workflowAPI] Sending workflow graph payload (create):", payload);
     const response = await fetchWithTimeout(WORKFLOWS_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
@@ -968,15 +971,9 @@ export const workflowAPI = {
 
     if (id && isUuid(id)) {
       const payload = toBackendWorkflowPayload(workflow);
-      console.log("[workflowAPI] Sending workflow graph payload (update):", {
-        workflowId: id,
-        payload,
-      });
       const putResponse = await fetchWithTimeout(workflowDetailEndpoint(id), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -1051,11 +1048,8 @@ export const workflowAPI = {
   },
 
   activate: async (id: string): Promise<void> => {
-    // Fetch current workflow
     const workflow = await workflowAPI.get(id);
-    // Update with new status
     const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
-    // Send PUT request
     const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1065,11 +1059,8 @@ export const workflowAPI = {
   },
 
   deactivate: async (id: string): Promise<void> => {
-    // Fetch current workflow
     const workflow = await workflowAPI.get(id);
-    // Update with new status
     const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
-    // Send PUT request
     const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1100,29 +1091,28 @@ export const workflowAPI = {
       );
     }
 
-    const payload: Record<string, unknown> = {
-      input_text: inputText,
-    };
-
+    const payload: Record<string, unknown> = { input_text: inputText };
     if (options?.webSearch) {
       payload.webSearch = true;
     }
 
-    const response = await fetchWithTimeout(workflowExecuteEndpoint(id), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetchWithTimeout(
+      workflowExecuteEndpoint(id),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    }, 60000);
+      60000
+    );
 
     const data = await handleResponse<BackendWorkflowExecutionResponse>(response);
     return toExecutionResult(id, data);
   },
 
   /**
-   * Execute workflow with streaming response (SSE)
-   * Returns an abort controller to cancel the stream
+   * Execute a workflow with SSE streaming.
+   * Returns an abort controller so the caller can cancel the stream.
    */
   executeStream: async (
     id: string,
@@ -1143,14 +1133,13 @@ export const workflowAPI = {
 
     const controller = new AbortController();
 
-    // Start streaming in background
     (async () => {
       try {
         const response = await apiFetch(workflowExecuteStreamEndpoint(id), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Accept": "text/event-stream",
+            Accept: "text/event-stream",
           },
           body: JSON.stringify({ input_text: trimmedInput }),
           signal: controller.signal,
@@ -1166,142 +1155,11 @@ export const workflowAPI = {
           return;
         }
 
-        console.log("[executeStream] Response OK, starting to read stream...");
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          callbacks.onError?.({
-            event: "error",
-            error: "No response body",
-            error_code: "NO_BODY",
-          });
-          return;
-        }
-
-        try {
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let pendingEventType: StreamEventType | undefined;
-
-        const processSseLine = (line: string) => {
-          const trimmedLine = line.trim();
-
-          // Skip empty lines and comments
-          if (!trimmedLine) {
-            pendingEventType = undefined;
-            return;
-          }
-          if (trimmedLine.startsWith(":")) return;
-
-          console.log("[executeStream] Processing line:", trimmedLine.slice(0, 100));
-
-          // Parse explicit SSE event name (e.g. "event: ask_user")
-          if (trimmedLine.startsWith("event:")) {
-            pendingEventType = toStreamEventType(trimmedLine.slice(6));
-            return;
-          }
-
-          // Parse "data: {...}" format
-          if (trimmedLine.startsWith("data:")) {
-            const jsonStr = trimmedLine.slice(5).trim();
-            if (!jsonStr) return;
-
-            try {
-              const event = JSON.parse(jsonStr) as Record<string, unknown> & {
-                event?: string;
-                type?: string;
-              };
-              // Backend may send event type via "event" field, "type" field, or SSE event line.
-              const eventType =
-                toStreamEventType(event.event) ??
-                toStreamEventType(event.type) ??
-                pendingEventType;
-              pendingEventType = undefined;
-              if (!eventType) {
-                return;
-              }
-              const eventWithType = {
-                ...event,
-                event: eventType,
-              } as StreamEvent;
-              console.log("[executeStream] Parsed event:", eventType);
-
-              // Dispatch to appropriate callback
-              switch (eventType) {
-                case "workflow_start":
-                  callbacks.onWorkflowStart?.(eventWithType as WorkflowStartEvent);
-                  break;
-                case "node_start":
-                  callbacks.onNodeStart?.(eventWithType as NodeStartEvent);
-                  break;
-                case "chunk":
-                  callbacks.onChunk?.(eventWithType as ChunkEvent);
-                  break;
-                case "node_end":
-                  callbacks.onNodeEnd?.(eventWithType as NodeEndEvent);
-                  break;
-                case "node_complete":
-                  callbacks.onNodeComplete?.(eventWithType as NodeCompleteEvent);
-                  break;
-                case "workflow_complete":
-                  callbacks.onWorkflowComplete?.(eventWithType as WorkflowCompleteEvent);
-                  break;
-                case "ask_user":
-                  callbacks.onAskUser?.(eventWithType as AskUserEvent);
-                  break;
-                case "error":
-                  callbacks.onError?.(eventWithType as StreamErrorEvent);
-                  break;
-              }
-            } catch (parseError) {
-              console.warn("[executeStream] Failed to parse SSE event:", jsonStr, parseError);
-            }
-          }
-        };
-
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            // Flush any remaining decoded bytes and force trailing line processing.
-            const trailing = decoder.decode();
-            if (trailing) {
-              buffer += trailing;
-            }
-            if (buffer && !buffer.endsWith("\n")) {
-              buffer += "\n";
-            }
-          } else {
-            const chunk = decoder.decode(value, { stream: true });
-            console.log("[executeStream] Raw chunk received:", chunk);
-            buffer += chunk;
-          }
-
-          // Parse SSE events from buffer
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-          console.log("[executeStream] Lines to process:", lines.length);
-
-          for (const line of lines) {
-            processSseLine(line);
-          }
-
-          if (done) {
-            console.log("[executeStream] Stream done");
-            break;
-          }
-        }
-        // Release the HTTP connection to prevent connection pool exhaustion
-        } finally {
-          reader.cancel().catch(() => {});
-        }
+        await processSseStream(response, callbacks, controller.signal);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
-          console.log("[executeStream] Stream aborted by user");
           return;
         }
-
         callbacks.onError?.({
           event: "error",
           error: error instanceof Error ? error.message : "Stream failed",
@@ -1310,9 +1168,7 @@ export const workflowAPI = {
       }
     })();
 
-    return {
-      abort: () => controller.abort(),
-    };
+    return { abort: () => controller.abort() };
   },
 
   getExecutions: async (
@@ -1331,6 +1187,150 @@ export const workflowAPI = {
       total: executions.length,
     };
   },
+
+  // ===========================================================================
+  // CHATBOARD
+  // ===========================================================================
+
+  /**
+   * List all chatboard sessions for a workflow.
+   * GET /api/workflows/<uuid>/chats/
+   */
+  listChats: async (workflowId: string): Promise<WorkflowChatSession[]> => {
+    const response = await fetchWithTimeout(workflowChatsEndpoint(workflowId), {
+      method: "GET",
+    });
+    const data = await handleResponse<unknown[]>(response);
+    if (!Array.isArray(data)) return [];
+    return data.map((item: any) => ({
+      id: String(item.id || item.chat_id || ""),
+      title: String(item.title || item.chat_title || item.name || "Untitled"),
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    })).filter((s) => Boolean(s.id));
+  },
+
+  /**
+   * Start a new chatboard conversation.
+   * POST /api/workflows/<uuid>/chats/ — returns an SSE stream.
+   * The chat_id and chat_title are included in the "metadata" and "done" events.
+   */
+  chatNew: async (
+    workflowId: string,
+    message: string,
+    callbacks: StreamCallbacks
+  ): Promise<{ abort: () => void }> => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      throw new WorkflowAPIError(
+        "message is required.",
+        400,
+        "INVALID_INPUT"
+      );
+    }
+
+    await ensureCsrfToken();
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const response = await apiFetch(workflowChatsEndpoint(workflowId), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          },
+          body: JSON.stringify({ message: trimmedMessage }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          callbacks.onError?.({
+            event: "error",
+            error: errorText || `HTTP ${response.status}`,
+            error_code: `HTTP_${response.status}`,
+          });
+          return;
+        }
+
+        await processSseStream(response, callbacks, controller.signal);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        callbacks.onError?.({
+          event: "error",
+          error: error instanceof Error ? error.message : "Stream failed",
+          error_code: "STREAM_ERROR",
+        });
+      }
+    })();
+
+    return { abort: () => controller.abort() };
+  },
+
+  /**
+   * Continue an existing chatboard conversation.
+   * POST /api/workflows/<uuid>/chat/ — returns an SSE stream.
+   */
+  chatContinue: async (
+    workflowId: string,
+    chatId: string,
+    message: string,
+    callbacks: StreamCallbacks
+  ): Promise<{ abort: () => void }> => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      throw new WorkflowAPIError(
+        "message is required.",
+        400,
+        "INVALID_INPUT"
+      );
+    }
+
+    await ensureCsrfToken();
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const response = await apiFetch(workflowChatEndpoint(workflowId), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          },
+          body: JSON.stringify({ message: trimmedMessage, chatId }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          callbacks.onError?.({
+            event: "error",
+            error: errorText || `HTTP ${response.status}`,
+            error_code: `HTTP_${response.status}`,
+          });
+          return;
+        }
+
+        await processSseStream(response, callbacks, controller.signal);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        callbacks.onError?.({
+          event: "error",
+          error: error instanceof Error ? error.message : "Stream failed",
+          error_code: "STREAM_ERROR",
+        });
+      }
+    })();
+
+    return { abort: () => controller.abort() };
+  },
+
+  // ===========================================================================
+  // DATA FETCHERS (for node inspector dropdowns)
+  // ===========================================================================
 
   share: async (
     _id: string,
@@ -1351,10 +1351,7 @@ export const workflowAPI = {
 
     const response = await fetchWithTimeout(
       `${API_BASE_URL}/files/upload`,
-      {
-        method: "POST",
-        body: formData,
-      },
+      { method: "POST", body: formData },
       120000
     );
 
@@ -1504,13 +1501,7 @@ export const workflowAPI = {
               : `${API_BASE_URL}${rawImageUrl.startsWith("/") ? "" : "/"}${rawImageUrl}`
             : undefined;
 
-          return {
-            id,
-            name,
-            description,
-            modelId,
-            image,
-          };
+          return { id, name, description, modelId, image };
         })
         .filter((persona: { id: string }) => Boolean(persona.id));
     } catch {
