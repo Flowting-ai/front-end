@@ -21,6 +21,17 @@ import {
   Workflow,
   UserRoundPen,
   LogIn,
+  Database,
+  Folder,
+  Zap,
+  Brain,
+  Palette,
+  Shield,
+  CircleHelp,
+  Route,
+  Cable,
+  Bell,
+  UsersRound,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -48,7 +59,10 @@ import { AppLayoutContext } from "./app-layout";
 import chatStyles from "../chat/chat-interface.module.css";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowMetadata } from "@/components/workflows/types";
-import { fetchPersonas as fetchPersonasApi, type PersonaStatus } from "@/lib/api/personas";
+import {
+  fetchPersonas as fetchPersonasApi,
+  type PersonaStatus,
+} from "@/lib/api/personas";
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -95,9 +109,11 @@ export function LeftSidebar({
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
-  
+
   // Track the displayed length of titles that are animating (typewriter effect)
-  const [displayedTitleLengths, setDisplayedTitleLengths] = useState<Map<string, number>>(new Map());
+  const [displayedTitleLengths, setDisplayedTitleLengths] = useState<
+    Map<string, number>
+  >(new Map());
 
   // Track which animations have completed so we don't restart them
   const completedAnimationsRef = React.useRef<Set<string>>(new Set());
@@ -157,7 +173,10 @@ export function LeftSidebar({
 
   // Expand "Recent chats" when on workflow or persona pages (including chat pages)
   React.useEffect(() => {
-    if (pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/personaAdmin")) {
+    if (
+      pathname?.startsWith("/workflowAdmin") ||
+      pathname?.startsWith("/personaAdmin")
+    ) {
       setIsChatBoardsExpanded(true);
     } else if (pathname === "/" || pathname?.startsWith("/chat")) {
       setIsChatBoardsExpanded(true);
@@ -192,20 +211,38 @@ export function LeftSidebar({
 
   // Determine if user is on workflow pages
   const isOnWorkflowPage =
-    pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+    pathname?.startsWith("/workflowAdmin") ||
+    pathname?.startsWith("/workflows");
   const isOnWorkflowChatPage = pathname?.startsWith("/workflowAdmin/chat");
-  const activeWorkflowIdFromUrl = pathname?.match(/\/workflowAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+  const activeWorkflowIdFromUrl =
+    pathname?.match(/\/workflowAdmin\/chat\/([^/]+)/)?.[1] ?? null;
 
   // Determine if user is on persona chat page
   const isOnPersonaChatPage = pathname?.startsWith("/personaAdmin/chat");
-  const activePersonaIdFromUrl = pathname?.match(/\/personaAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+  const activePersonaIdFromUrl =
+    pathname?.match(/\/personaAdmin\/chat\/([^/]+)/)?.[1] ?? null;
 
   // Determine if user is on settings-related pages
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
   const isAccountRoute = pathname?.startsWith("/settings/account");
   const isUsageAndBillingRoute = pathname?.startsWith(
-    "/settings/usage-and-billing"
+    "/settings/usage-and-billing",
   );
+  const isRoutingRoute = pathname?.startsWith("/settings/routing");
+  const isMemoryAndContextRoute = pathname?.startsWith(
+    "/settings/memory-and-context",
+  );
+  const isFilesAndDataRoute = pathname?.startsWith("/settings/files-and-data");
+  const isAutomationsRoute = pathname?.startsWith("/settings/automations");
+  const isAIandModelsRoute = pathname?.startsWith("/settings/ai-and-models");
+  const isIntegrationsRoute = pathname?.startsWith("/settings/integrations");
+  const isNotificationsRoute = pathname?.startsWith("/settings/notifications");
+  const isAppearanceRoute = pathname?.startsWith("/settings/appearance");
+  const isSecurityRoute = pathname?.startsWith("/settings/security");
+  const isTeamsAndRolesRoute = pathname?.startsWith(
+    "/settings/teams-and-roles",
+  );
+  const isHelpAndLegalRoute = pathname?.startsWith("/settings/help-and-legal");
 
   // Fetch workflows for "Recent Workflow chats" when on workflow pages
   const [workflowList, setWorkflowList] = useState<WorkflowMetadata[]>([]);
@@ -231,7 +268,9 @@ export function LeftSidebar({
   }, [isOnWorkflowPage]);
 
   // Fetch personas for "Recent Persona chats" when on persona pages
-  const [personaList, setPersonaList] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
+  const [personaList, setPersonaList] = useState<
+    Array<{ id: string; name: string; isActive: boolean }>
+  >([]);
   const [personaListLoading, setPersonaListLoading] = useState(false);
   useEffect(() => {
     if (!isOnPersonaPage) return;
@@ -260,22 +299,19 @@ export function LeftSidebar({
     };
   }, [isOnPersonaPage]);
 
-
   const normalizedWorkflowSearch = searchTerm.trim().toLowerCase();
   const workflowsToDisplay = useMemo(() => {
     if (!normalizedWorkflowSearch) return workflowList;
-    return workflowList.filter(
-      (wf) =>
-        wf.name.toLowerCase().includes(normalizedWorkflowSearch)
+    return workflowList.filter((wf) =>
+      wf.name.toLowerCase().includes(normalizedWorkflowSearch),
     );
   }, [workflowList, normalizedWorkflowSearch]);
 
   const normalizedPersonaSearch = searchTerm.trim().toLowerCase();
   const personasToDisplay = useMemo(() => {
     if (!normalizedPersonaSearch) return personaList;
-    return personaList.filter(
-      (p) =>
-        p.name.toLowerCase().includes(normalizedPersonaSearch)
+    return personaList.filter((p) =>
+      p.name.toLowerCase().includes(normalizedPersonaSearch),
     );
   }, [personaList, normalizedPersonaSearch]);
 
@@ -283,18 +319,18 @@ export function LeftSidebar({
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
 
   // Determine which chat board type to display based on current route
-  const currentBoardType = isOnPersonaPage 
-    ? "persona" 
-    : isOnWorkflowPage 
-    ? "workflow" 
-    : "chat";
+  const currentBoardType = isOnPersonaPage
+    ? "persona"
+    : isOnWorkflowPage
+      ? "workflow"
+      : "chat";
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const boardsToDisplay = chatBoards.filter((board) => {
     // Filter by type - default to "chat" if no type is set (for backward compatibility)
     const boardType = board.type || "chat";
     if (boardType !== currentBoardType) return false;
-    
+
     // Filter by search term
     if (!normalizedSearch) return true;
     const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
@@ -327,7 +363,7 @@ export function LeftSidebar({
     <section
       className={cn(
         "max-w-[240px] w-full h-screen bg-lsb-bg border-r border-main-border transition-all duration-500 overflow-hidden",
-        isCollapsed && "max-w-[72px]"
+        isCollapsed && "max-w-[72px]",
       )}
     >
       {isCollapsed ? (
@@ -408,7 +444,7 @@ export function LeftSidebar({
                   <UserRoundPen
                     className={cn(
                       "h-5 w-5",
-                      isOnPersonaPage ? "text-[#303030]" : "text-[#303030]"
+                      isOnPersonaPage ? "text-[#303030]" : "text-[#303030]",
                     )}
                   />
                 </Button>
@@ -441,7 +477,7 @@ export function LeftSidebar({
                   <Workflow
                     className={cn(
                       "h-5 w-5",
-                      isOnWorkflowPage ? "text-[#303030]" : "text-[#303030]"
+                      isOnWorkflowPage ? "text-[#303030]" : "text-[#303030]",
                     )}
                   />
                 </Button>
@@ -591,9 +627,9 @@ export function LeftSidebar({
 
           {isSettingsSectionRoute ? (
             // Settings navigation layout
-            <div className="w-full flex-1 flex flex-col px-4 py-4 gap-4 font-inter">
+            <div className="w-full flex-1 flex flex-col px-0 py-2 gap-4 font-inter overflow-hidden">
               {/* Row 2: Search settings */}
-              <div className="relative">
+              <div className="relative mx-4">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9F9F9F]" />
                 <Input
                   value={searchTerm}
@@ -605,14 +641,16 @@ export function LeftSidebar({
                 />
               </div>
 
-              {/* Settings links */}
-              <div className="flex flex-col gap-1 mt-1">
+              {/* 2. Settings links */}
+              <div className="flex-1 flex flex-col gap-1 min-h-0 pl-4 pr-2 mr-1 mt-1 overflow-y-auto customScrollbar2">
+                {/* 1. Account */}
                 <Button
                   type="button"
                   onClick={() => router.push("/settings/account")}
                   className={cn(
                     "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isAccountRoute && "text-lsb-button-active-text bg-lsb-button-active-bg"
+                    isAccountRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
                   )}
                 >
                   <div className="w-auto h-full flex items-center justify-center mr-2">
@@ -620,21 +658,185 @@ export function LeftSidebar({
                   </div>
                   <p className="font-normal text-[13px]">Account</p>
                 </Button>
+                {/* 2. Usage & Billing */}
                 <Button
                   type="button"
-                  onClick={() =>
-                    router.push("/settings/usage-and-billing")
-                  }
+                  onClick={() => router.push("/settings/usage-and-billing")}
                   className={cn(
                     "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     isUsageAndBillingRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
                   )}
                 >
                   <div className="w-auto h-full flex items-center justify-center mr-2">
                     <CreditCard size={18} strokeWidth={1.7} />
                   </div>
                   <p className="font-normal text-[13px]">Usage &amp; Billing</p>
+                </Button>
+                {/* 3. Routing */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/routing")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isRoutingRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Route size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Routing</p>
+                </Button>
+                {/* 4. Memory & Context */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/memory-and-context")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isMemoryAndContextRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Database size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Memory & Context</p>
+                </Button>
+                {/* 5. Files & Data */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/files-and-data")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isFilesAndDataRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Folder size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Files & Data</p>
+                </Button>
+                {/* 6. Automations */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/automations")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isAutomationsRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Zap size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Automations</p>
+                </Button>
+                {/* 7. AI & Models */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/ai-and-models")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isAIandModelsRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Brain size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">AI & Models</p>
+                </Button>
+                {/* 8. Integrations */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/integrations")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isIntegrationsRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Cable size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Integrations</p>
+                </Button>
+                {/* 9. Notifications */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/notifications")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isNotificationsRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Bell size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Notifications</p>
+                </Button>
+                {/* 10. Appearance */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/appearance")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isAppearanceRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Palette size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Appearance</p>
+                </Button>
+                {/* 11. Security */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/security")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isSecurityRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <Shield size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Security</p>
+                </Button>
+                {/* 12. Teams & Roles */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/teams-and-roles")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isTeamsAndRolesRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <UsersRound size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Teams & Roles</p>
+                </Button>
+                {/* 13. Help & Legal */}
+                <Button
+                  type="button"
+                  onClick={() => router.push("/settings/help-and-legal")}
+                  className={cn(
+                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                    isHelpAndLegalRoute &&
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
+                  )}
+                >
+                  <div className="w-auto h-full flex items-center justify-center mr-2">
+                    <CircleHelp size={18} strokeWidth={1.7} />
+                  </div>
+                  <p className="font-normal text-[13px]">Help & Legal</p>
                 </Button>
               </div>
             </div>
@@ -651,7 +853,7 @@ export function LeftSidebar({
                     "group cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     isOnChatBoard &&
                       !isOnPersonaPage &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
                   )}
                 >
                   <Image
@@ -661,7 +863,7 @@ export function LeftSidebar({
                     height={14}
                     className={cn(
                       "object-contain brightness-0 invert-0 group-hover:invert-100 transition-all duration-300",
-                      isOnChatBoard && !isOnPersonaPage && "invert-100"
+                      isOnChatBoard && !isOnPersonaPage && "invert-100",
                     )}
                   />
                   {/* <SquarePen size={20} strokeWidth={2} /> */}
@@ -677,7 +879,7 @@ export function LeftSidebar({
                     "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     !isOnChatBoard &&
                       isOnPersonaPage &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
                   )}
                 >
                   <div className="w-auto h-full flex items-center justify-center">
@@ -693,7 +895,7 @@ export function LeftSidebar({
                   className={cn(
                     "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     isOnWorkflowPage &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg"
+                      "text-lsb-button-active-text bg-lsb-button-active-bg",
                   )}
                 >
                   <div className="w-auto h-full flex items-center justify-center">
@@ -718,8 +920,8 @@ export function LeftSidebar({
                       {isOnPersonaPage
                         ? "Recent Persona chats"
                         : isOnWorkflowPage
-                        ? "Recent Workflow chats"
-                        : "Recent Chat boards"}
+                          ? "Recent Workflow chats"
+                          : "Recent Chat boards"}
                     </p>
                     <button
                       onClick={() =>
@@ -749,8 +951,8 @@ export function LeftSidebar({
                               isOnPersonaPage
                                 ? "Search persona chats"
                                 : isOnWorkflowPage
-                                ? "Search workflow chats"
-                                : "Search chats"
+                                  ? "Search workflow chats"
+                                  : "Search chats"
                             }
                             className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
                             type="search"
@@ -769,7 +971,7 @@ export function LeftSidebar({
                             id="recent-workflow-chats"
                             className={cn(
                               "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
-                              chatStyles.customScrollbar2
+                              chatStyles.customScrollbar2,
                             )}
                           >
                             {workflowsToDisplay.map((wf) => {
@@ -809,16 +1011,14 @@ export function LeftSidebar({
                             id="recent-persona-chats"
                             className={cn(
                               "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
-                              chatStyles.customScrollbar2
+                              chatStyles.customScrollbar2,
                             )}
                           >
                             {personasToDisplay.map((persona) => {
                               const isActive =
                                 activePersonaIdFromUrl === persona.id;
                               const handleSelect = () => {
-                                router.push(
-                                  `/personaAdmin/chat/${persona.id}`
-                                );
+                                router.push(`/personaAdmin/chat/${persona.id}`);
                               };
                               return (
                                 <div key={persona.id} className="snap-start">
@@ -846,17 +1046,14 @@ export function LeftSidebar({
                           id="recent-chat-boards"
                           className={cn(
                             "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
-                            chatStyles.customScrollbar2
+                            chatStyles.customScrollbar2,
                           )}
                         >
                           {boardsToDisplay.map((board) => {
                             const isActive = activeChatId === board.id;
                             const pinTotal =
-                              board.metadata?.pinCount ??
-                              board.pinCount ??
-                              0;
-                            const isRenamingBoard =
-                              renamingChatId === board.id;
+                              board.metadata?.pinCount ?? board.pinCount ?? 0;
+                            const isRenamingBoard = renamingChatId === board.id;
 
                             const handleSelect = () => {
                               if (renamingChatId) {
@@ -891,17 +1088,15 @@ export function LeftSidebar({
 
                             // Get the display title - use typewriter effect if animating
                             const displayTitle = (() => {
-                              const displayedLength =
-                                displayedTitleLengths.get(board.id);
+                              const displayedLength = displayedTitleLengths.get(
+                                board.id,
+                              );
                               if (
                                 displayedLength !== undefined &&
                                 displayedLength < board.name.length
                               ) {
                                 // Show partial title (typewriter effect)
-                                return board.name.substring(
-                                  0,
-                                  displayedLength
-                                );
+                                return board.name.substring(0, displayedLength);
                               }
                               // Show full title
                               return board.name;
@@ -935,19 +1130,17 @@ export function LeftSidebar({
                                       : undefined
                                   }
                                   onRenameCancel={
-                                    isRenamingBoard
-                                      ? onRenameCancel
-                                      : undefined
+                                    isRenamingBoard ? onRenameCancel : undefined
                                   }
                                   renameInputRef={
                                     isRenamingBoard ? renameInputRef : undefined
                                   }
                                   isRenamePending={
-                                    isRenamingBoard
-                                      ? isRenamingPending
-                                      : false
+                                    isRenamingBoard ? isRenamingPending : false
                                   }
-                                  isStarPending={starUpdatingChatId === board.id}
+                                  isStarPending={
+                                    starUpdatingChatId === board.id
+                                  }
                                 />
                               </div>
                             );
@@ -959,8 +1152,8 @@ export function LeftSidebar({
                             {isOnPersonaPage
                               ? "No persona chats found."
                               : isOnWorkflowPage
-                              ? "No workflow chats found."
-                              : "No chats found."}
+                                ? "No workflow chats found."
+                                : "No chats found."}
                           </p>
                         </div>
                       )}
@@ -989,7 +1182,7 @@ export function LeftSidebar({
                             parts.length > 1 ? parts[parts.length - 1][0] : "";
                           return (first + last).toUpperCase();
                         }
-                        if (user?.email) { 
+                        if (user?.email) {
                           const [first, last] = user.email
                             .split("@")[0]
                             .split(".");
@@ -1017,13 +1210,13 @@ export function LeftSidebar({
                 style={{ width: "222px", gap: "8px" }}
               >
                 {user && (
-                <DropdownMenuItem
-                  disabled
-                  className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
-                >
-                  <User className="h-4 w-4 text-lsb-text" />
-                  Profile
-                </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled
+                    className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
+                  >
+                    <User className="h-4 w-4 text-lsb-text" />
+                    Profile
+                  </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
                   disabled

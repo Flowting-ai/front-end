@@ -1669,3 +1669,23 @@
 .form-submit-button{
   @apply cursor-pointer min-w-[81px] w-full sm:w-auto h-9 font-inter font-normal text-sm text-[#F5F5F5] bg-[#2C2C2C] hover:bg-[#0F0F0F] rounded-[8px] transition-all duration-300;
 }
+
+/* Custom Scrollbar 2 - For Settings */
+.customScrollbar2 {
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 #f5f5f5;
+}
+
+/* Chrome, Edge, Safari */
+.customScrollbar2::-webkit-scrollbar {
+  width: 5px;
+  background: #f5f5f5;
+}
+.customScrollbar2::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 8px;
+}
+.customScrollbar2::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 8px;
+}
