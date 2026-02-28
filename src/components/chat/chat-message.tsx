@@ -1,5 +1,7 @@
 "use client";
-import { usePrismHighlight } from "@/hooks/usePrismHighlight";
+import { useHighlightJs } from "@/hooks/useHighlightJs";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 import chatStyles from "./chat-interface.module.css";
 import { useState, useRef, useEffect, useMemo, type JSX } from "react";
@@ -91,6 +93,62 @@ const isTableRow = (line: string) => {
 const parseTableRow = (line: string) => {
   const cleaned = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   return cleaned.split("|").map((cell) => cell.trim());
+};
+
+const renderLatexInlineContent = (text: string, keyPrefix: string) => {
+  const nodes: Array<string | JSX.Element> = [];
+  // Match $$...$$ (block) and $...$ (inline) LaTeX
+  const latexRegex = /(\$\$)([^$]+)\1|(\$)([^$]+)\3/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let latexCount = 0;
+
+  while ((match = latexRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      nodes.push(...renderBoldInlineContent(beforeText, `${keyPrefix}-pre-${latexCount}`));
+    }
+
+    const isBlock = match[1] === "$$";
+    const latexContent = isBlock ? match[2] : match[4];
+
+    try {
+      const html = katex.renderToString(latexContent, {
+        throwOnError: false,
+        displayMode: isBlock,
+      });
+      nodes.push(
+        <span
+          key={`${keyPrefix}-latex-${latexCount++}`}
+          className={isBlock ? "block my-2" : "inline-block mx-0.5"}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />,
+      );
+    } catch {
+      // If KaTeX fails, show the raw LaTeX
+      nodes.push(
+        <code
+          key={`${keyPrefix}-latex-err-${latexCount++}`}
+          className="bg-red-100 text-red-800 px-1 rounded"
+        >
+          {match[0]}
+        </code>,
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    nodes.push(...renderBoldInlineContent(remaining, `${keyPrefix}-post`));
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(...renderBoldInlineContent(text, `${keyPrefix}-all`));
+  }
+
+  return nodes;
 };
 
 const renderBoldInlineContent = (text: string, keyPrefix: string) => {
@@ -267,9 +325,9 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   }
 
   const nodes: Array<string | JSX.Element> = [];
-  // Match either markdown links [label](url) or bare URLs
+  // Match either markdown links [label](url) or bare URLs (with http://, https://, or www. prefix only)
   const linkRegex =
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|((?:https?:\/\/[^\s)]+)|(?:(?:www\.)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))/g;
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)]*)?)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let partIndex = 0;
@@ -287,7 +345,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       }
 
       nodes.push(
-        ...renderBoldInlineContent(
+        ...renderLatexInlineContent(
           before,
           `${keyPrefix}-text-${partIndex++}`,
         ),
@@ -306,7 +364,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
         />,
       );
     } else if (match[3]) {
-      // Bare URL, strip trailing punctuation from the URL but keep it visually
+      // Bare URL with http/https, strip trailing punctuation from the URL but keep it visually
       const raw = match[3];
       const trimmedUrl = raw.replace(/[).,]+$/, "");
       const trailing = raw.slice(trimmedUrl.length);
@@ -320,7 +378,28 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
 
       if (trailing) {
         nodes.push(
-          ...renderBoldInlineContent(
+          ...renderLatexInlineContent(
+            trailing,
+            `${keyPrefix}-trail-${partIndex++}`,
+          ),
+        );
+      }
+    } else if (match[4]) {
+      // Bare URL starting with www., strip trailing punctuation from the URL but keep it visually
+      const raw = match[4];
+      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trailing = raw.slice(trimmedUrl.length);
+
+      nodes.push(
+        <LinkPreview
+          k={`${keyPrefix}-link-${partIndex++}`}
+          url={trimmedUrl}
+        />,
+      );
+
+      if (trailing) {
+        nodes.push(
+          ...renderLatexInlineContent(
             trailing,
             `${keyPrefix}-trail-${partIndex++}`,
           ),
@@ -339,7 +418,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   if (lastIndex < text.length) {
     const remaining = text.slice(lastIndex);
     nodes.push(
-      ...renderBoldInlineContent(
+      ...renderLatexInlineContent(
         remaining,
         `${keyPrefix}-text-${partIndex++}`,
       ),
@@ -351,6 +430,87 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   }
 
   return nodes;
+};
+
+// Helper to render formatted reasoning content
+const renderReasoningContent = (text: string): JSX.Element[] => {
+  if (!text) return [];
+  
+  const lines = text.split("\n");
+  const elements: JSX.Element[] = [];
+  let lineIndex = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    if (!trimmed) {
+      elements.push(
+        <span key={`reasoning-gap-${lineIndex++}`} className="block h-2" />
+      );
+      continue;
+    }
+
+    // Check for headers
+    const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const content = headerMatch[2];
+      const fontSize = level === 1 ? "text-[13px]" : level === 2 ? "text-[12.5px]" : "text-[12px]";
+      elements.push(
+        <div key={`reasoning-h-${lineIndex++}`} className={`font-semibold ${fontSize} text-[#6b5fad] mb-1 mt-2`}>
+          {content}
+        </div>
+      );
+      continue;
+    }
+
+    // Check for list items
+    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (listMatch) {
+      elements.push(
+        <div key={`reasoning-li-${lineIndex++}`} className="flex gap-2 ml-3">
+          <span className="text-[#9d8fd4] select-none">•</span>
+          <span>{listMatch[1]}</span>
+        </div>
+      );
+      continue;
+    }
+
+    // Regular paragraph with bold support
+    const parts: (string | JSX.Element)[] = [];
+    const boldRegex = /(\*\*|__)(.+?)\1/g;
+    let lastIdx = 0;
+    let match;
+    let boldCount = 0;
+
+    while ((match = boldRegex.exec(trimmed)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(trimmed.slice(lastIdx, match.index));
+      }
+      parts.push(
+        <strong key={`reasoning-bold-${lineIndex}-${boldCount++}`} className="font-semibold text-[#6b5fad]">
+          {match[2]}
+        </strong>
+      );
+      lastIdx = match.index + match[0].length;
+    }
+
+    if (lastIdx < trimmed.length) {
+      parts.push(trimmed.slice(lastIdx));
+    }
+
+    if (parts.length === 0) {
+      parts.push(trimmed);
+    }
+
+    elements.push(
+      <div key={`reasoning-p-${lineIndex++}`} className="leading-relaxed">
+        {parts}
+      </div>
+    );
+  }
+
+  return elements;
 };
 
 // Reasoning section with Claude-style typewriter effect
@@ -384,15 +544,23 @@ const ReasoningSection = ({
       return;
     }
 
-    let i = 0;
-    setDisplayText("");
+    // Start with first character immediately to avoid delay
+    let currentIndex = 0;
+    setDisplayText(thinkingContent.charAt(0) || "");
+    currentIndex = 1;
     setIsTypingDone(false);
     setIsCollapsed(false);
 
+    if (thinkingContent.length <= 1) {
+      setIsTypingDone(true);
+      setTimeout(() => setIsCollapsed(true), 700);
+      return;
+    }
+
     const intervalId = setInterval(() => {
-      if (i < thinkingContent.length) {
-        setDisplayText((prev) => prev + thinkingContent.charAt(i));
-        i++;
+      if (currentIndex < thinkingContent.length) {
+        setDisplayText(thinkingContent.slice(0, currentIndex + 1));
+        currentIndex++;
       } else {
         clearInterval(intervalId);
         setIsTypingDone(true);
@@ -435,12 +603,16 @@ const ReasoningSection = ({
       </button>
       {!isCollapsed && (
         <div className="border-t border-[#e8e3f4] px-3 py-2">
-          <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80 italic">
-            {displayText}
-            {(!isTypingDone || isThinkingInProgress) && (
+          {(!isTypingDone || isThinkingInProgress) ? (
+            <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80">
+              {displayText}
               <span className="inline-block w-[2px] h-[13px] bg-[#9d8fd4] ml-[1px] align-middle animate-[blink_0.8s_step-end_infinite]" />
-            )}
-          </pre>
+            </pre>
+          ) : (
+            <div className="font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80 space-y-1">
+              {renderReasoningContent(displayText)}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -809,7 +981,7 @@ export function ChatMessage({
   //   isNewMessage && !isUser && !message.isLoading,
   // );
 
-  usePrismHighlight(message.content);
+  useHighlightJs(message.content);
 
   useEffect(() => {
     if (!isUser && !message.isLoading) {
@@ -947,9 +1119,9 @@ export function ChatMessage({
               <Trash2 className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
+          {/* <TooltipContent>
             <p>Delete</p>
-          </TooltipContent>
+          </TooltipContent> */}
         </Tooltip>
       </div>
     </TooltipProvider>
@@ -1390,7 +1562,7 @@ export function ChatMessage({
                       return (
                         <div
                           key={`code-${message.id}-${index}`}
-                          className={`relative border border-zinc-100 rounded-2xl bg-[#f9f9f9] py-2 overflow-hidden`}
+                          className={`relative border border-zinc-100 rounded-2xl bg-[#F5F5F5] py-2 overflow-hidden`}
                         >
                           <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70 px-4">
                             {segment.language && (
@@ -1408,7 +1580,7 @@ export function ChatMessage({
                             </button>
                           </div>
                           <pre
-                            className={`overflow-x-auto rounded-2xl bg-transparent p-4 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}
+                            className={`overflow-x-auto rounded-2xl bg-transparent p-2 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}
                           >
                             <code
                               className={`language-${segment.language || "ts"}`}

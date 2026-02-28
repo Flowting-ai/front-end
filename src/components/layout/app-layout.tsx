@@ -1176,6 +1176,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             folderId: pinRequest.folderId ?? null,
             tags: pinRequest.tags,
             comments: pinRequest.comments,
+            content: pinRequest.text, // Pass full content explicitly
           }
         );
         const normalized = backendPinToLegacy(backendPin, pinRequest);

@@ -1189,16 +1189,16 @@ export function LeftSidebar({
                           return (
                             (
                               (first?.[0] || "") + (last?.[0] || "")
-                            ).toUpperCase() || "AP"
+                            ).toUpperCase() || "G"
                           );
                         }
-                        return "AP";
+                        return "G";
                       })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col justify-center">
                     <span className="font-normal font-inter text-[14px] text-lsb-text whitespace-nowrap">
-                      {user ? `${userFirstName}` : "Avnish Poonia"}
+                      {user ? `${userFirstName}` : "Guest"}
                     </span>
                   </div>
                 </button>

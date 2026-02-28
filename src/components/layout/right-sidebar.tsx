@@ -260,6 +260,7 @@ export function RightSidebar({
             folderId: pin.folderId || null,
             tags: [...pin.tags],
             comments: [...(pin.comments || [])],
+            content: pin.text || pin.formattedContent, // Pass full content explicitly
           }
         );
         
