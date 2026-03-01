@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X, CheckCircle, XCircle, ArrowRight } from "lucide-react";
+import { X, CheckCircle, XCircle, ArrowRight, ArrowDown, ArrowDownWideNarrow } from "lucide-react";
 import { WorkflowNode, WorkflowEdge } from "./types";
 import { isValidConnection, getNodeCategory } from "./workflow-utils";
 
@@ -142,7 +142,7 @@ export function EdgeDetailsDialog({
 
         {/* Arrow Indicator */}
         <div className="flex items-center justify-center">
-          <ArrowRight className="h-5 w-5 text-[#8B8B8B]" />
+          <ArrowDownWideNarrow strokeWidth={3} size={24} className="text-[#8B8B8B]" />
         </div>
 
         {/* Target Node */}

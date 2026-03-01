@@ -99,10 +99,17 @@ export function SelectChatsDialog({
   }, [propChats]);
 
   const filteredChats = useMemo(() => {
-    return chats.filter((chat) => {
-      if (!chat || !chat.name) return false;
-      return chat.name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    return chats
+      .filter((chat) => {
+        if (!chat || !chat.name) return false;
+        return chat.name.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+      .sort((a, b) => {
+        // Sort chronologically - most recent first
+        const dateA = a.pinnedDate ? new Date(a.pinnedDate).getTime() : 0;
+        const dateB = b.pinnedDate ? new Date(b.pinnedDate).getTime() : 0;
+        return dateB - dateA; // Descending order (newest first)
+      });
   }, [chats, searchQuery]);
 
   const handleToggleChat = (chatId: string) => {
@@ -173,10 +180,10 @@ export function SelectChatsDialog({
               {filteredChats.map((chat) => (
                 <div
                   key={chat.id}
-                  className="flex items-center justify-between h-8 px-2 py-1.5 rounded-[8px] hover:bg-[#F5F5F5] transition-colors duration-300 group cursor-pointer"
+                  className="flex items-center justify-between h-8 px-2 py-1.5 rounded-[8px] hover:bg-[#E5E5E5] overflow-hidden transition-colors duration-300 group cursor-pointer"
                   onClick={() => handleToggleChat(chat.id)}
                 >
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <input
                       type="radio"
                       checked={localSelectedId === chat.id}
@@ -184,7 +191,7 @@ export function SelectChatsDialog({
                         e.stopPropagation();
                         handleToggleChat(chat.id);
                       }}
-                      className="w-4 h-4 cursor-pointer accent-black transition-colors"
+                      className="w-4 h-4 cursor-pointer accent-black transition-colors flex-shrink-0"
                     />
                     <span className="text-sm text-[#0A0A0A] truncate">
                       {chat.name}
