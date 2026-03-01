@@ -486,6 +486,7 @@
 .textareaActions {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   flex-shrink: 0;
   flex-wrap: wrap;
   width: 100%;
@@ -565,9 +566,10 @@
 
 .enhanceButton {
   min-width: 101.25px;
+  width: auto;
   height: 32px;
   min-height: 32px;
-  padding: 5.5px 3px;
+  padding: 6px 5px;
   font-size: 14px;
   font-weight: 500;
   background-color: #171717;
