@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Geist, Poppins } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/sonner" // react-toastify
 import { cn } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/context/auth-context";
@@ -21,7 +21,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "FlowtingAI",
+  title: "SouvenirAI",
   description: "An intuitive AI collaboration platform.",
 };
 

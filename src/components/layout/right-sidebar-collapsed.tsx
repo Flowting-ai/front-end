@@ -55,12 +55,11 @@ export function RightSidebarCollapsed({
   onSelect,
   isCompareActive,
   onCompareClick,
-  className,
 }: RightSidebarCollapsedProps) {
   return (
     <aside
       className={cn(
-        "w-[65px] h-full bg-white border-l border-main-border shrink-0 flex flex-col items-center justify-center",
+        "w-[65px] h-full bg-main-bg1 border-l border-main-border shrink-0 flex flex-col items-center justify-center",
       )}
     >
       <div className="w-full h-full flex flex-col items-center gap-7 pt-5.5 px-1.5">
@@ -77,25 +76,25 @@ export function RightSidebarCollapsed({
               key={panel}
               variant="ghost"
               className={cn(
-                "sidebar-collapsed-button w-[55px] cursor-pointer text-[#1E1E1E]",
+                "sidebar-collapsed-button w-[55px] cursor-pointer text-rsb-text flex flex-col items-center justify-center transition-all duration-300",
                 helperLabel ? "min-h-[64px] " : "min-h-[50px]",
                 disabled
                   ? disabled
                   : isActive
-                    ? "sidebar-collapsed-button--active text-[#1E1E1E] hover:text-[#1E1E1E] bg-main-border hover:bg-main-border border-2 border-main-border transition-all duration-300"
-                    : "sidebar-collapsed-button--inactive hover:bg-main-border border-2 border-transparent",
+                    ? " text-rsb-text hover:text-rsb-text bg-rsb-button-bg-active hover:bg-rsb-button-bg-active border-2 border-main-border"
+                    : " hover:bg-rsb-button-bg-active border-2 border-transparent",
               )}
               onClick={handleClick}
               aria-pressed={isActive}
               disabled={disabled}
             >
-              <Icon strokeWidth={1.4} className="size-[28px] shrink-0 pt-1 " />
+              <Icon strokeWidth={1.4} className="text-rsb-icon size-[28px] shrink-0 pt-1" />
               <span className="font-semibold text-center text-[11px]">
                 {label}
                 {helperLabel ? (
                   <>
                     <br />
-                    <span className="text-[10px]">{helperLabel}</span>
+                    <span className="text-[11px]">{helperLabel}</span>
                   </>
                 ) : null}
               </span>

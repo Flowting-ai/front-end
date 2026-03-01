@@ -1,15 +1,15 @@
 
 "use client";
 
-import Image from "next/image";
+// import Image from "next/image";
 import type { NextPage } from "next";
-import { ChevronDown, Mic } from "lucide-react";
-import styles from "./chat-box-main.module.css";
+// import { ChevronDown, Mic } from "lucide-react";
+// import styles from "./chat-box-main.module.css";
 
 const ChatBoxMain: NextPage = () => {
   return (
-    <div className={styles.chatBoxMain}>
-      <div className={styles.placeholder}>Lets Play.....</div>
+    <div>
+      {/* <div className={styles.placeholder}>Lets Play.....</div>
       <div className={styles.frameParent}>
         <div className={styles.iconButtonParent}>
           <button className={styles.iconButton} type="button">
@@ -63,7 +63,7 @@ const ChatBoxMain: NextPage = () => {
             </span>
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

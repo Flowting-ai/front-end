@@ -56,14 +56,14 @@ export function Topbar({
   const isWorkflowAdminChatPage = pathname?.startsWith("/workflowAdmin/chat/");
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white">
-      <div className="h-[56px] w-full border-b border-main-border flex items-center justify-between gap-4 px-3 py-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 lg:flex-nowrap">
+    <header className="z-40 sticky top-0 w-full bg-main-bg1">
+      <div className="w-full min-h-[56px] h-[56px] border-b border-main-border flex items-center justify-between gap-4 px-3 py-2">
+        <div className="min-w-0 flex-1 flex items-center gap-4 flex-wrap lg:flex-nowrap">
           {/* Left side content */}
           {isPersonaAdminChatPage && (
             <Button
               onClick={() => router.push("/personaAdmin")}
-              className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg"
+              className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -72,7 +72,7 @@ export function Topbar({
           {isWorkflowAdminChatPage && (
             <Button
               onClick={() => router.push("/workflowAdmin")}
-              className="flex items-center gap-2 h-9 px-4 bg-black text-white hover:bg-gray-900 rounded-lg ml-9"
+              className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -99,7 +99,7 @@ export function Topbar({
               {showUpgradePlan ? (
                 <Button
                   variant="secondary"
-                  className="cursor-pointer w-[122px] h-[33px] font-inter font-[500] text-[14px] text-[#1E1E1E] bg-[#F5F5F5] hover:text-[#1E1E1E] hover:bg-[#DCDCDC] rounded-[7px] flex items-center justify-center px-4"
+                  className="cursor-pointer w-[122px] h-[33px] font-inter font-normal text-[14px] text-tb-button2-text bg-tb-button2-bg hover:text-tb-button2-text-hover hover:bg-tb-button2-bg-hover rounded-[8px] flex items-center justify-center px-4"
                 >
                   Upgrade Plan
                 </Button>
@@ -107,7 +107,7 @@ export function Topbar({
               {isPersonasPage && (
                 <Button
                   variant="outline"
-                  className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-lg border-main-border"
+                  className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-[8px] border-main-border"
                   onClick={() => window.location.href = '/personaAdmin'}
                 >
                   Go to Command Center
@@ -148,7 +148,7 @@ export function Topbar({
           {isHomePage && !user && (
             <Link href="/auth/login">
               <Button
-                className="cursor-pointer w-[122px] h-[38px] font-inter font-[400] text-[14px] text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
+                className="cursor-pointer w-[122px] h-[38px] font-inter font-normal text-[14px] text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
               >
                 <UserRoundPen className="h-4 w-4" />
                 Sign In

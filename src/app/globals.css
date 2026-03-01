@@ -1,5 +1,5 @@
 /* ============================================
-   IMPORTS - ORDER MATTERS FOR TAILWIND CSS V4
+   SOUVENIR AI - GLOBAL CSS
    ============================================ */
 
 /* 1. Google Fonts */
@@ -8,22 +8,14 @@
 
 /* 2. Highlight.js theme for syntax highlighting 
    To change theme, see src/lib/highlight-themes.ts for available options
-   Popular alternatives:
-   - @import "highlight.js/styles/github-dark.css";
-   - @import "highlight.js/styles/atom-one-dark.css";
-   - @import "highlight.js/styles/monokai.css";
-   - @import "highlight.js/styles/vs2015.css";
 */
-
 @import "highlight.js/styles/github.css";
 
-/* 3. Tailwind CSS - MUST BE IMPORTED FIRST! */
+/* 3. Tailwind CSS */
 @import "tailwindcss";
 
 /* 4. Tailwind extensions */
 @import "tw-animate-css";
-
-
 
 /* Clash Grotesk Variable Font */
 @font-face {
@@ -42,25 +34,44 @@
   --font-inter: "Inter", sans-serif;
   --font-poppins: "Poppins", sans-serif;
 
-  /* Main */
+  /* === Main === */
+  --color-main-text: black;
+  --color-main-bg1: white;
+  --color-main-bg2: #f5f5f5;
   --color-main-border: #d9d9d9;
 
-  /* Left Sidebar */
+  /* === Left Sidebar === */
   --color-lsb-bg: #f5f5f5;
   --color-lsb-text: #1e1e1e;
-  --color-lsb-panelleft-icon: #525252;
+  --color-lsb-panelleft-normal: #525252;
+  --color-lsb-panelleft-active: black;
 
   --color-lsb-button-active-bg: #2c2c2c;
   --color-lsb-button-active-text: #f5f5f5;
   --color-lsb-button-active-icon: #f5f5f5;
 
-  --color-lsb-button-text: #bababa;
-  --color-lsb-button-icon: #c4c4c4;
-  --color-lsb-button-disabled: #a2a2a2;
-
-  /* Topbar */
-  /* Topbar - Dialog [Choose Your Model] */
+  /* === Topbar === */
+  /* Topbar - Dialog (Select & Switch Model)*/
   --color-tb-dialog-text: #0a0a0a;
+
+  /* Topbar Dark Button */
+  --color-tb-button-text: white;
+  --color-tb-button-bg: black;
+  --color-tb-button-bg-hover: #101828;
+
+  /* Topbar Normal Buttons */
+  --color-tb-button2-text: #1E1E1E;
+  --color-tb-button2-text-hover: #1E1E1E;
+  --color-tb-button2-bg: #F5F5F5;
+  --color-tb-button2-bg-hover: #DCDCDC;
+
+  /* === Right Sidebar === */
+  --color-rsb-text: #1e1e1e;
+  --color-rsb-icon: #1e1e1e;
+  --color-rsb-button-bg-active: #d9d9d9;
+
+  /* === Pinboard === */
+  
 }
 
 /* ShadCN Generated CSS */
@@ -178,18 +189,10 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Base Layer */
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
   }
 
   body {
@@ -857,118 +860,6 @@
     fill: #ffffff;
   }
 
-  /* Right sidebar collapsed buttons */
-  /* .sidebar-collapsed-container {
-    display: none;
-    height: 100%;
-    width: 68px;
-    flex-shrink: 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-left: 1px solid #d9d9d9;
-    background-color: #ffffff;
-  } */
-
-  /* @media (min-width: 1024px) {
-    .sidebar-collapsed-container {
-      display: flex;
-    }
-  } */
-
-  /* .sidebar-collapsed-stack {
-    display: flex;
-    height: 100%;
-    width: 100%;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1.5rem 13px;
-  } */
-
-  .sidebar-collapsed-button {
-    @apply text-[#1E1E1E] rounded-[7px] flex flex-col items-center justify-center transition-all duration-300;
-  }
-
-  /* .sidebar-collapsed-button--active {
-    border-color: transparent;
-    background-color: transparent;
-    color: #1e1e1e;
-  }
-
-  .sidebar-collapsed-button--active .sidebar-collapsed-icon {
-    color: #000000;
-    fill: #000000;
-  }
-
-  .sidebar-collapsed-button--active .sidebar-collapsed-label {
-    color: #000000;
-    font-weight: 700;
-  }
-
-  .sidebar-collapsed-button--active:hover {
-    border-color: transparent;
-    background-color: #f5f5f5;
-  }
-
-  .sidebar-collapsed-button--active:hover .sidebar-collapsed-icon {
-    color: #000000;
-    fill: #000000;
-  }
-
-  .sidebar-collapsed-button--active:hover .sidebar-collapsed-label {
-    color: #000000;
-    font-weight: 700;
-  }
-
-  .sidebar-collapsed-button--inactive:hover {
-    border-color: transparent;
-    background-color: #f5f5f5;
-  }
-
-  .sidebar-collapsed-button--inactive:hover .sidebar-collapsed-icon {
-    color: #000000;
-    fill: #000000;
-  }
-
-  .sidebar-collapsed-button--inactive:hover .sidebar-collapsed-label {
-    color: #000000;
-    font-weight: 700;
-  }
-
-  .sidebar-collapsed-button--disabled {
-    opacity: 1;
-    cursor: not-allowed;
-  }
-
-  .sidebar-collapsed-button--disabled .sidebar-collapsed-icon {
-    color: #d4d4d4;
-  }
-
-  .sidebar-collapsed-button--disabled .sidebar-collapsed-label {
-    color: #d4d4d4;
-  }
-
-  .sidebar-collapsed-button--disabled:hover {
-    border-color: transparent;
-    background-color: transparent;
-  }
-
-  .sidebar-collapsed-icon {
-    height: 26px;
-    width: 26px;
-    flex-shrink: 0;
-    color: #1e1e1e;
-  }
-
-  .sidebar-collapsed-label {
-    text-align: center;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 140%;
-    letter-spacing: 0;
-    color: #1e1e1e;
-  } */
 
   /* Model Selector Dialog */
   /* .dialog-title-wrapper {
@@ -1256,6 +1147,7 @@
 }
 
 /* Organize Pins Dialog outer wrapper */
+/* ========================= */
 .organize-dialog {
   /* keep outer wrapper flexible and allow tooltips to escape */
   display: flex;
@@ -1272,8 +1164,10 @@
   box-shadow: 0 6px 20px rgba(26, 26, 26, 0.08);
   z-index: 60;
 }
+/* ========================= */
 
 /* Grey scrollbar for dialog lists */
+/* ========================= */
 .scrollbar-grey {
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
@@ -1288,8 +1182,10 @@
   background: rgba(0, 0, 0, 0.12);
   border-radius: 6px;
 }
+/* ========================= */
 
 /* Custom scrollbar for organize pins dialog - pin cards column */
+/* ========================= */
 .scrollbar-custom-grey {
   scrollbar-color: #e5e5e5 transparent !important;
 }
@@ -1310,8 +1206,10 @@
 .scrollbar-custom-grey::-webkit-scrollbar-thumb:hover {
   background: #d4d4d4 !important;
 }
+/* ========================= */
 
 /* Custom scrollbar for recent chatboards */
+/* ========================= */
 .scrollbar-custom-rcb {
   scrollbar-color: #e5e5e5 transparent !important;
 }
@@ -1332,90 +1230,20 @@
 .scrollbar-custom-rcb::-webkit-scrollbar-thumb:hover {
   background: #d4d4d4 !important;
 }
-
-/* Sonner Toast Styles */
-.sonner-toast-title {
-  font-family: var(--font-geist);
-  font-weight: 500;
-  font-size: 16px;
-  line-height: 150%;
-  color: #171717;
-}
-
-.sonner-toast-description {
-  font-family: var(--font-geist);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 150%;
-  letter-spacing: 0.5%;
-  color: #737373;
-}
-
-.sonner-close {
-  width: 24px;
-  height: 24px;
-  background: #b3b3b3;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  border: none;
-  cursor: pointer;
-}
-
-.sonner-close svg {
-  width: 8px;
-  height: 8px;
-  color: white;
-}
-
-.sonner-toast::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 8px;
-  background: #d4d4d4;
-  border-radius: 0 0 8px 8px;
-}
-
-.sonner-toast::before {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 8px;
-  background: #0a0a0a;
-  width: 0%;
-  animation: progress linear forwards;
-  animation-duration: calc(attr(data-duration number) / 1000 * 1s);
-  border-radius: 0 0 8px 8px;
-}
-
-@keyframes progress {
-  0% {
-    width: 0%;
-  }
-  100% {
-    width: 100%;
-  }
-}
+/* ========================= */
 
 /* Highlight.js handles syntax highlighting - custom theme styles removed */
 /* If you need custom styling, you can add Highlight.js-specific classes here */
 /* Example: .hljs-keyword, .hljs-string, .hljs-comment, etc. */
 
-/* React Toastify Custom Styles */
+/* 48. React Toastify Custom Styles */
+/* ========================= */
 .Toastify__toast {
   font-family: var(--font-geist);
   min-height: 98px;
   border-radius: 8px;
   padding: 12px;
-  border: 1px solid #E5E5E5;
+  border: 1px solid #e5e5e5;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -1473,7 +1301,7 @@
 .Toastify__toast--default .Toastify__progress-bar,
 .Toastify__toast--info .Toastify__progress-bar,
 .Toastify__toast--warning .Toastify__progress-bar {
-  background: #0A0A0A !important;
+  background: #0a0a0a !important;
 }
 
 /* Dark mode adjustments */
@@ -1484,50 +1312,53 @@
 .dark .toast-description {
   color: #a3a3a3;
 }
+/* ========================= */
 
-
-/* Auth Pages - Form Styling */
+/* 49. Auth Pages - Form Styling */
+/* ========================= */
 .form-title {
-  @apply font-medium text-[27px] text-[#333333]
+  @apply font-medium text-[27px] text-[#333333];
 }
 
 .form-tagline {
   @apply text-base text-[#1E1E1E];
 }
 
-.form-container{
+.form-container {
   @apply flex flex-col flex-1 gap-4;
 }
 
-.form-label{
-  @apply font-normal text-sm text-[#1E1E1E] mb-0.5;
+.form-label {
+  @apply font-normal text-sm text-[#1E1E1E] flex gap-0 mb-0.5;
 }
 
-.form-input{
+.form-input {
   @apply w-full h-9 font-inter font-normal text-sm text-[#0A0A0A] placeholder:text-[#B3B3B3] bg-white border border-[#D9D9D9] rounded-[8px] px-4 py-3;
 }
 
-.form-password-eye-btn{
+.form-password-eye-btn {
   @apply cursor-pointer absolute top-1/2 right-2.5 -translate-y-1/2 h-6 w-6 text-[#888] flex items-center justify-center;
 }
 
-.form-error-message{
+.form-error-message {
   @apply text-sm text-red-600;
 }
 
-.form-success-message{
+.form-success-message {
   @apply text-sm text-green-600;
 }
 
-.form-google-button{
+.form-google-button {
   @apply cursor-pointer w-full h-[48px] text-[#1E1E1E] bg-[#F5F5F5] hover:bg-[#1E1E1E] hover:text-[#F5F5F5] border border-main-border rounded-[8px] flex items-center justify-center gap-3 transition-all duration-300;
 }
 
-.form-submit-button{
+.form-submit-button {
   @apply cursor-pointer min-w-[81px] w-full sm:w-auto h-9 font-inter font-normal text-sm text-[#F5F5F5] bg-[#2C2C2C] hover:bg-[#0F0F0F] rounded-[8px] transition-all duration-300;
 }
+/* ========================= */
 
-/* Custom Scrollbar 2 - For Settings */
+/* 50. Custom Scrollbar 2 */
+/* ========================= */
 .customScrollbar2 {
   scrollbar-width: thin;
   scrollbar-color: #e0e0e0 #f5f5f5;
@@ -1546,3 +1377,4 @@
   background: #f5f5f5;
   border-radius: 8px;
 }
+/* ========================= */

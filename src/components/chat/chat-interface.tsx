@@ -3,13 +3,10 @@
 import { useState, useRef, useEffect, useContext, useMemo } from "react";
 import chatStyles from "./chat-interface.module.css";
 import { Button } from "@/components/ui/button";
-
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   Send,
-  Trash2,
   X,
   Loader2,
   Plus,
@@ -21,7 +18,6 @@ import {
   FileText,
   UserPlus,
   Paperclip,
-  ScanText,
   Reply,
   Globe,
 } from "lucide-react";

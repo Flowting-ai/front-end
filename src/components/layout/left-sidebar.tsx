@@ -5,8 +5,6 @@ import {
   ChevronsLeft,
   Settings,
   LogOut,
-  Layers,
-  Bot,
   Search,
   HelpCircle,
   TrendingUp,
@@ -14,10 +12,8 @@ import {
   UserCog,
   CreditCard,
   PanelLeft,
-  BotMessageSquare,
   ChevronUp,
   ChevronDown,
-  GitCompareArrows,
   Workflow,
   UserRoundPen,
   LogIn,
@@ -342,23 +338,6 @@ export function LeftSidebar({
     router.push("/auth/login");
   };
 
-  // Hover state for logo/table icon
-  const [logoHovered, setLogoHovered] = useState(false);
-
-  // Logo component (expanded)
-  const brandMark = (
-    <div className="relative flex h-[30.341px] w-[30.341px] shrink-0 items-center justify-center">
-      <Image
-        src="/icons/logo.png"
-        alt="FlowtingAi Logo"
-        width={31}
-        height={31}
-        className="h-[30.341px] w-[30.341px] object-contain"
-        priority
-      />
-    </div>
-  );
-
   return (
     <section
       className={cn(
@@ -370,8 +349,9 @@ export function LeftSidebar({
         // === COLLAPSED SIDEBAR ===
         <aside className="w-full h-full flex flex-col">
           {/* 1. Logo + ToggleIcon */}
-          <div className="w-full h-[56px] px-4">
+          <div className="w-full min-h-[56px] h-[56px] px-4">
             <div className="group relative w-full h-full border-b border-main-border flex items-center justify-center">
+              {/* Open Sidebar Tooltip */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -392,7 +372,7 @@ export function LeftSidebar({
                 </TooltipContent>
               </Tooltip>
 
-              <div className="text-lsb-panelleft-icon group-hover:text-black group-hover:bg-zinc-200 rounded-sm opacity-0 group-hover:opacity-100 flex items-center justify-center p-1 transition-all duration-300">
+              <div className="text-lsb-panelleft-normal group-hover:text-lsb-panelleft-hover group-hover:bg-zinc-200 rounded-sm opacity-0 group-hover:opacity-100 flex items-center justify-center p-1 transition-all duration-300">
                 <PanelLeft size={20} strokeWidth={1.3} />
               </div>
             </div>
@@ -585,7 +565,7 @@ export function LeftSidebar({
                     <button
                       type="button"
                       onClick={() => router.push("/")}
-                      className="cursor-pointer flex items-center justify-center rounded-md p-1 text-lsb-panelleft-icon hover:bg-zinc-200 hover:text-black transition-all duration-300"
+                      className="cursor-pointer flex items-center justify-center rounded-md p-1 text-lsb-panelleft-normal hover:text-lsb-panelleft-active hover:bg-zinc-200 transition-all duration-300"
                     >
                       <ChevronsLeft size={18} strokeWidth={1.5} />
                     </button>
@@ -602,7 +582,7 @@ export function LeftSidebar({
                       alt="Flowting AI Logo"
                     />
                     <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
-                      FlowtingAI
+                      SouvenirAI
                     </h3>
                   </>
                 )}
@@ -612,7 +592,7 @@ export function LeftSidebar({
                   <TooltipTrigger asChild>
                     <button
                       onClick={onToggle}
-                      className="cursor-pointer text-lsb-panelleft-icon hover:*:text-black hover:bg-zinc-200 rounded-sm flex items-center justify-center p-1 transition-all duration-300"
+                      className="cursor-pointer text-lsb-panelleft-normal hover:text-lsb-panelleft-active hover:bg-zinc-200 rounded-sm flex items-center justify-center p-1 transition-all duration-300"
                     >
                       <PanelLeft size={20} strokeWidth={1.3} />
                     </button>
