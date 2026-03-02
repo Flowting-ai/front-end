@@ -55,35 +55,20 @@ export default function SignupPage() {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-      let response: Response;
-      try {
-        response = await fetch(SIGNUP_ENDPOINT, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-            firstName: firstName.trim() || null,
-            lastName: lastName.trim() || null,
-            phoneNumber: phoneNumber.trim() || null,
-          }),
-          signal: controller.signal,
-        });
-      } catch (fetchErr) {
-        if ((fetchErr as Error).name === "AbortError") {
-          setError("Request timed out. The server may be unavailable — please try again.");
-          return;
-        }
-        throw fetchErr;
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      const response = await fetch(SIGNUP_ENDPOINT, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          firstName: firstName.trim() || null,
+          lastName: lastName.trim() || null,
+          phoneNumber: phoneNumber.trim() || null,
+        }),
+      });
 
       const data: SignupSuccess & SignupError = await response.json();
       if (!response.ok) {
@@ -321,7 +306,7 @@ export default function SignupPage() {
             )}
 
             {/* Terms & Policy | Promotion Checkboxes */}
-            <div className="flex flex-col gap-3 mb-2">
+            {/* <div className="flex flex-col gap-3 mb-2">
               <div className="flex items-center gap-2">
                 <Checkbox required className="border border-main-border!" />
                 <p className="text-balance text-sm text-[#1E1E1E]">
@@ -346,7 +331,7 @@ export default function SignupPage() {
                   events, and marketing promotions.
                 </p>
               </div>
-            </div>
+            </div> */}
 
             <div className="flex flex-col sm:flex-row items-center gap-4">
               {/* Sign Up Button */}
