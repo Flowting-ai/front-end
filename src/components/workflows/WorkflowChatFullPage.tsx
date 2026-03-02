@@ -493,13 +493,20 @@ export function WorkflowChatFullPage({
                   ))}
 
                   {/* Per-node / per-model output panel */}
-                  {nodeOutputs.size > 0 && (
+                  {/* Only show LLM nodes (model/persona) — not pin/chat/document context nodes */}
+                  {(() => {
+                    const LLM_NODE_TYPES = new Set(["model", "persona"]);
+                    const llmOutputs = Array.from(nodeOutputs.values()).filter(
+                      (o) => !o.nodeType || LLM_NODE_TYPES.has(o.nodeType.toLowerCase())
+                    );
+                    if (llmOutputs.length === 0) return null;
+                    return (
                     <div className="mt-6 rounded-2xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
                       <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6F6F6F]">
-                        Node Outputs ({nodeOutputs.size})
+                        Node Outputs ({llmOutputs.length})
                       </div>
                       <div className="space-y-2">
-                        {Array.from(nodeOutputs.values()).map((output) => {
+                        {llmOutputs.map((output) => {
                           const isExpanded = expandedNodeOutputId === output.nodeId;
                           const thinkStripped = output.content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
                           return (
@@ -559,7 +566,8 @@ export function WorkflowChatFullPage({
                         })}
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

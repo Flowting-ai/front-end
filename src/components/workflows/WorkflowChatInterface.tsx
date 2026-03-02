@@ -798,7 +798,11 @@ export function WorkflowChatInterface({
     setInput(value);
   };
 
-  const outputItems = Array.from(nodeOutputs.values());
+  // Only show output panels for LLM nodes (model/persona) — not context nodes
+  const LLM_NODE_TYPES = new Set(["model", "persona"]);
+  const outputItems = Array.from(nodeOutputs.values()).filter(
+    (o) => !o.nodeType || LLM_NODE_TYPES.has(o.nodeType.toLowerCase())
+  );
   const getOutputStatusClass = (status: NodeStatus) => {
     if (status === "running") return "bg-blue-100 text-blue-700 border-blue-200";
     if (status === "success") return "bg-green-100 text-green-700 border-green-200";
