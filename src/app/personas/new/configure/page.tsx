@@ -1184,10 +1184,11 @@ function PersonaConfigurePageContent() {
                       <div
                         className={cn(
                           styles.textareaWrapper,
+                          "relative",
                           chatStyles.customScrollbar,
                         )}
                       >
-                        <div className={styles.textareaContainer}>
+                        <div className={`${styles.textareaContainer}`}>
                           <div
                             ref={textareaContentRef}
                             className={cn(
@@ -1202,7 +1203,7 @@ function PersonaConfigurePageContent() {
                               onChange={(e) =>
                                 handleInstructionChange(e.target.value)
                               }
-                              className={styles.textarea}
+                              className={`${styles.textarea} customScrollbar2`}
                               placeholder="Describe your persona’s goals, expertise, tone, and responsibilities. Example: ‘You are a Lead AI Researcher who specializes in…’"
                             />
 
@@ -1421,6 +1422,699 @@ function PersonaConfigurePageContent() {
                             </div>
                           </div>
                         </div>
+
+                        {showEnhanceMode && (
+                          <div
+                            className="absolute inset-0 z-20 bg-white border border-main-[#D4D4D4] rounded-[18px] flex items-center justify-center p-2"
+                          >
+                            <div
+                              className="max-w-full w-full max-h-full h-full bg-[#F5F5F5] border border-main-[#D4D4D4] rounded-[14px] relative overflow-hidden"
+                            >
+                              {/* Loading State */}
+                              {enhanceLoadingStep && (
+                                <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                                  <Sparkles size={60} className="text-[#7e6afe] animate-pulse" />
+                                  <div className="flex flex-col items-center gap-1.5">
+                                    <h2
+                                      className="font-clash font-semibold text-[20px] text-[#0A0A0A] tracking-[-0.02em] flex items-center gap-1"
+                                    >
+                                      Enhance Mode
+                                    </h2>
+                                    <p className="text-[12px] text-[#666666] animate-pulse">
+                                      {enhanceLoadingStep === "analyzing"
+                                        ? "Analysing the prompt..."
+                                        : "Looking for gaps to enhance..."}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Tab Interface */}
+                              {!enhanceLoadingStep && (
+                                <div className="w-full h-full flex flex-col p-2">
+                                  {/* Header */}
+                                  <div className="flex items-center justify-between mb-6">
+                                    <h2
+                                      className="font-clash font-medium text-[14px] flex items-center gap-1.5"
+                                      style={{
+                                        letterSpacing: "-0.02em",
+                                        color: "#7e6afe",
+                                      }}
+                                    >
+                                          <Sparkles size={14} />
+                                      <span className="text-[#0A0A0A]">Enhance Mode</span>
+                                    </h2>
+                                    <button
+                                      onClick={handleCloseEnhanceMode}
+                                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                                    >
+                                      <X
+                                        size={20}
+                                        className="text-[#666666]"
+                                      />
+                                    </button>
+                                  </div>
+
+                                  {/* Tab Content */}
+                                  <div className="flex-1 overflow-hidden mb-4">
+                                    {/* Tab 1: Tone Selection */}
+                                    {activeEnhanceTab === 0 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-base text-[#0A0A0A] mb-1">
+                                          How should this persona sound?
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          Pick up to two for a blended tone.
+                                        </p>
+                                        <div className="flex-1 overflow-y-auto customScrollbar2">
+                                          <div className="flex items-center justify-center flex-wrap gap-3">
+                                            {TONE_OPTIONS.map((tone) => (
+                                              <button
+                                                key={tone}
+                                                onClick={() =>
+                                                  handleToneToggle(tone)
+                                                }
+                                                className={cn(
+                                                  "cursor-pointer h-[36px] px-3 rounded-lg border-2 transition-all duration-200",
+                                                  "flex items-center justify-center",
+                                                  "text-sm font-medium",
+                                                  selectedTone.includes(tone)
+                                                    ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                    : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                                )}
+                                              >
+                                                {tone}
+                                              </button>
+                                            ))}
+                                            <button
+                                              onClick={() =>
+                                                handleToneToggle("Custom")
+                                              }
+                                              className={cn(
+                                                "cursor-pointer h-[36px] px-3 rounded-lg border transition-all duration-200",
+                                                "flex items-center justify-center gap-1.5",
+                                                "text-sm font-medium",
+                                                selectedTone.includes("Custom")
+                                                ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                              )}
+                                            >
+                                              <Pencil size={16} />
+                                              Custom
+                                            </button>
+                                          </div>
+                                          {showCustomInput &&
+                                            selectedTone.includes("Custom") && (
+                                              <div className="mt-4">
+                                                <Input
+                                                  type="text"
+                                                  placeholder="Eg. Supportive"
+                                                  value={customToneInput}
+                                                  onChange={(e) =>
+                                                    handleCustomToneChange(
+                                                      e.target.value,
+                                                    )
+                                                  }
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                      handleCustomToneSubmit();
+                                                    }
+                                                  }}
+                                                  className="w-full h-11 bg-white border border-[#D9D9D9] rounded-lg px-4"
+                                                />
+                                              </div>
+                                            )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tab 2: Dos Selection */}
+                                    {activeEnhanceTab === 1 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-1">
+                                          What should this persona always do?
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          Select all that apply, or write your
+                                          own.
+                                        </p>
+                                        <div
+                                          className="flex-1 overflow-y-auto customScrollbar2"
+                                          style={{ maxHeight: "320px" }}
+                                        >
+                                          <div className="grid grid-cols-2 gap-3">
+                                            {suggestedDos.map(
+                                              (doItem, index) => (
+                                                <button
+                                                  key={index}
+                                                  onClick={() =>
+                                                    handleDosToggle(doItem)
+                                                  }
+                                                  className={cn(
+                                                    "cursor-pointer h-auto min-h-[28px] px-3 py-1.5 rounded-lg border-2 transition-all duration-200",
+                                                    "flex items-center justify-start text-left",
+                                                    "text-sm font-medium",
+                                                    selectedDos.includes(
+                                                      doItem,
+                                                    )
+                                                      ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                      : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                                  )}
+                                                >
+                                                  {doItem}
+                                                </button>
+                                              ),
+                                            )}
+                                            <button
+                                              onClick={() => {
+                                                setShowCustomDos(true);
+                                                setTimeout(() => {
+                                                  const input =
+                                                    document.getElementById(
+                                                      "custom-dos-input",
+                                                    ) as HTMLInputElement;
+                                                  input?.focus();
+                                                }, 10);
+                                              }}
+                                              className={cn(
+                                                "cursor-pointer h-[36px] px-3 rounded-lg border transition-all duration-200",
+                                                "flex items-center justify-center gap-1.5",
+                                                "text-sm font-medium",
+                                                showCustomDos
+                                                  ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                  : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                              )}
+                                            >
+                                              <Pencil size={16} />
+                                              Custom
+                                            </button>
+                                          </div>
+                                          {showCustomDos && (
+                                            <div className="mt-4">
+                                              <Textarea
+                                                id="custom-dos-input"
+                                                placeholder="Add your own DOs..."
+                                                value={dosText}
+                                                onChange={(e) =>
+                                                  setDosText(e.target.value)
+                                                }
+                                                className="w-full min-h-[80px] px-4 py-3 bg-white border border-[#D9D9D9] rounded-lg resize-none"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tab 3: Donts Selection */}
+                                    {activeEnhanceTab === 2 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-1">
+                                          What should this persona never do?
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          Select all that apply, or write your
+                                          own.
+                                        </p>
+                                        <div
+                                          className="flex-1 overflow-y-auto customScrollbar2"
+                                          style={{ maxHeight: "320px" }}
+                                        >
+                                          <div className="grid grid-cols-2 gap-3">
+                                            {suggestedDonts.map(
+                                              (dontItem, index) => (
+                                                <button
+                                                  key={index}
+                                                  onClick={() =>
+                                                    handleDontsToggle(dontItem)
+                                                  }
+                                                  className={cn(
+                                                    "cursor-pointer h-auto min-h-[28px] px-3 py-1.5 rounded-lg border-2 transition-all duration-200",
+                                                    "flex items-center justify-start text-left",
+                                                    "text-sm font-medium",
+                                                    selectedDonts.includes(
+                                                      dontItem,
+                                                    )
+                                                      ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                      : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                                  )}
+                                                >
+                                                  {dontItem}
+                                                </button>
+                                              ),
+                                            )}
+                                            <button
+                                              onClick={() => {
+                                                setShowCustomDonts(true);
+                                                setTimeout(() => {
+                                                  const input =
+                                                    document.getElementById(
+                                                      "custom-donts-input",
+                                                    ) as HTMLTextAreaElement;
+                                                  input?.focus();
+                                                }, 10);
+                                              }}
+                                              className={cn(
+                                                "cursor-pointer h-[36px] px-4 rounded-lg border transition-all duration-200",
+                                                "flex items-center justify-center gap-2",
+                                                "text-sm font-medium",
+                                                showCustomDonts
+                                                  ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                  : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                              )}
+                                            >
+                                              <Pencil size={16} />
+                                              Custom
+                                            </button>
+                                          </div>
+                                          {showCustomDonts && (
+                                            <div className="mt-4">
+                                              <Textarea
+                                                id="custom-donts-input"
+                                                placeholder="Add your own DONTs..."
+                                                value={dontsText}
+                                                onChange={(e) =>
+                                                  setDontsText(e.target.value)
+                                                }
+                                                className="w-full min-h-[80px] px-4 py-3 bg-white border border-[#D9D9D9] rounded-lg resize-none"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tabs 4-7: Implementation */}
+                                    {/* Tab 4: Topic Focus */}
+                                    {activeEnhanceTab === 3 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-1">
+                                          Should this persona stick to specific topics?
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          Keeps conversation focused and on-brand.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <button
+                                            onClick={() =>
+                                              setTopicFocus("Open")
+                                            }
+                                            className={cn(
+                                              "cursor-pointer h-auto px-4 py-2 rounded-lg border-2 transition-all duration-200",
+                                              "flex flex-col items-start text-left",
+                                              topicFocus === "Open"
+                                                ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                            )}
+                                          >
+                                            <span className="font-medium text-sm">
+                                              Open
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                "text-[12px] mt-0.5",
+                                                topicFocus === "Open"
+                                                  ? "text-white/80"
+                                                  : "text-[#666666]",
+                                              )}
+                                            >
+                                              Can discuss anything relevant
+                                            </span>
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setTopicFocus("Focused")
+                                            }
+                                            className={cn(
+                                              "cursor-pointer h-auto px-4 py-2 rounded-lg border-2 transition-all duration-200",
+                                              "flex flex-col items-start text-left",
+                                              topicFocus === "Focused"
+                                                ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                            )}
+                                          >
+                                            <span className="font-medium text-sm">
+                                              Focused
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                "text-[12px] mt-0.5",
+                                                topicFocus === "Focused"
+                                                  ? "text-white/80"
+                                                  : "text-[#666666]",
+                                              )}
+                                            >
+                                              Stays close to its expertise
+                                            </span>
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setTopicFocus("Strict")
+                                            }
+                                            className={cn(
+                                              "cursor-pointer h-auto px-4 py-2 rounded-lg border-2 transition-all duration-200",
+                                              "flex flex-col items-start text-left",
+                                              topicFocus === "Strict"
+                                                ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                            )}
+                                          >
+                                            <span className="font-medium text-sm">
+                                              Strict
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                "text-[12px] mt-0.5",
+                                                topicFocus === "Strict"
+                                                  ? "text-white/80"
+                                                  : "text-[#666666]",
+                                              )}
+                                            >
+                                              Only discusses defined topics
+                                            </span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tab 5: Handling Unknowns */}
+                                    {activeEnhanceTab === 4 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-1">
+                                          When the persona doesn&apos;t know something...
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          How it handles gaps matters for trust.
+                                        </p>
+                                        <div
+                                          className="flex-1 overflow-y-auto customScrollbar2"
+                                          style={{ maxHeight: "320px" }}
+                                        >
+                                          <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                              "Admit it honestly",
+                                              "Suggest alternatives",
+                                              "Ask for more context",
+                                              "Best guess + disclaimer",
+                                            ].map((option) => (
+                                              <button
+                                                key={option}
+                                                onClick={() => {
+                                                  if (
+                                                    handlingUnknowns.includes(
+                                                      option,
+                                                    )
+                                                  ) {
+                                                    setHandlingUnknowns(
+                                                      handlingUnknowns.filter(
+                                                        (h) => h !== option,
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    setHandlingUnknowns([
+                                                      ...handlingUnknowns,
+                                                      option,
+                                                    ]);
+                                                  }
+                                                }}
+                                                    className={cn(
+                                                      "cursor-pointer h-auto min-h-[36px] px-3 py-1.5 rounded-lg border-2 transition-all duration-200",
+                                                      "flex items-center justify-start text-left",
+                                                      "text-sm font-medium",
+                                                  handlingUnknowns.includes(
+                                                    option,
+                                                  )
+                                                    ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                    : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                                )}
+                                              >
+                                                {option}
+                                              </button>
+                                            ))}
+                                            <button
+                                              onClick={() => {
+                                                setShowCustomUnknown(true);
+                                                setTimeout(() => {
+                                                  const input =
+                                                    document.getElementById(
+                                                      "custom-unknown-input",
+                                                    ) as HTMLTextAreaElement;
+                                                  input?.focus();
+                                                }, 10);
+                                              }}
+                                              className={cn(
+                                                "cursor-pointer h-[36px] px-3 rounded-lg border transition-all duration-200",
+                                                "flex items-center justify-center gap-1.5",
+                                                "text-sm font-medium",
+                                                showCustomUnknown
+                                                  ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                  : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                              )}
+                                            >
+                                              <Pencil size={16} />
+                                              Custom
+                                            </button>
+                                          </div>
+                                          {showCustomUnknown && (
+                                            <div className="mt-4">
+                                              <Textarea
+                                                id="custom-unknown-input"
+                                                placeholder="Describe how to handle unknowns..."
+                                                value={customUnknown}
+                                                onChange={(e) =>
+                                                  setCustomUnknown(
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full min-h-[80px] px-4 py-3 bg-white border border-[#D9D9D9] rounded-lg resize-none"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tab 6: Response Structure */}
+                                    {activeEnhanceTab === 5 && (
+                                      <div className="h-full flex flex-col text-center">
+                                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-1">
+                                          How should the persona structure its responses?
+                                        </h3>
+                                        <p className="text-[11px] text-[#666666] mb-3">
+                                          Format affects clarity and usability.
+                                        </p>
+                                        <div
+                                          className="flex-1 overflow-y-auto customScrollbar2"
+                                          style={{ maxHeight: "320px" }}
+                                        >
+                                          <div className="flex flex-wrap items-center justify-center gap-2">
+                                            {[
+                                              "Detailed",
+                                              "Concise",
+                                              "Framework-based",
+                                              "Bullets only",
+                                              "Step-by-step",
+                                            ].map((option) => (
+                                              <button
+                                                key={option}
+                                                onClick={() => {
+                                                  if (
+                                                    responseStructure.includes(
+                                                      option,
+                                                    )
+                                                  ) {
+                                                    setResponseStructure(
+                                                      responseStructure.filter(
+                                                        (r) => r !== option,
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    setResponseStructure([
+                                                      ...responseStructure,
+                                                      option,
+                                                    ]);
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "cursor-pointer h-auto min-h-[36px] px-3 py-1.5 rounded-lg border-2 transition-all duration-200",
+                                                  "flex items-center justify-start text-left",
+                                                  "text-sm font-medium",
+                                                  responseStructure.includes(
+                                                    option,
+                                                  )
+                                                    ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                    : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                                )}
+                                              >
+                                                {option}
+                                              </button>
+                                            ))}
+                                            <button
+                                              onClick={() => {
+                                                setShowCustomStructure(true);
+                                                setTimeout(() => {
+                                                  const input =
+                                                    document.getElementById(
+                                                      "custom-structure-input",
+                                                    ) as HTMLTextAreaElement;
+                                                  input?.focus();
+                                                }, 10);
+                                              }}
+                                              className={cn(
+                                                "cursor-pointer h-[36px] px-3 rounded-lg border transition-all duration-200",
+                                                "flex items-center justify-center gap-1.5",
+                                                "text-sm font-medium",
+                                                showCustomStructure
+                                                  ? "bg-[#0a0a0a] text-white border-[#0a0a0a]"
+                                                  : "bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white",
+                                              )}
+                                            >
+                                              <Pencil size={16} />
+                                              Custom
+                                            </button>
+                                          </div>
+                                          {showCustomStructure && (
+                                            <div className="mt-4">
+                                              <Textarea
+                                                id="custom-structure-input"
+                                                placeholder="Describe response structure..."
+                                                value={customStructure}
+                                                onChange={(e) =>
+                                                  setCustomStructure(
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                className="w-full min-h-[80px] px-4 py-3 bg-white border border-[#D9D9D9] rounded-lg resize-none"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Tab 7: Summary */}
+                                    {activeEnhanceTab === 6 && (
+                                      <div className="h-full flex flex-col">
+                                        <div className="flex flex-col items-center justify-center mb-3">
+                                          <div className="w-14 h-14 rounded-lg bg-[#7e6afe] border-3 border-white shadow-sm flex items-center justify-center mb-2">
+                                            <Check
+                                              size={30}
+                                              strokeWidth={4}
+                                              className="text-white"
+                                            />
+                                          </div>
+                                          <h3 className="font-medium text-base text-[#0A0A0A] mb-1">
+                                            Ready to apply
+                                          </h3>
+                                          <p className="text-sm text-[#666666]">
+                                            {improvementsList.length}{" "}
+                                            improvements will be added to your
+                                            prompt
+                                          </p>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto space-y-2 customScrollbar2">
+                                          {improvementsList.map(
+                                            (improvement, index) => (
+                                              <div
+                                                key={index}
+                                                className="flex items-start gap-2 px-3 py-2 border border-[#D9D9D9] rounded-lg bg-white"
+                                              >
+                                                <Check
+                                                  size={12}
+                                                  className="text-[#7e6afe] mt-0.5 shrink-0"
+                                                />
+                                                <span className="text-sm text-[#0a0a0a]">
+                                                  {improvement}
+                                                </span>
+                                              </div>
+                                            ),
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Tab Navigation Dots - Bottom Center */}
+                                  <div className="flex items-center justify-center gap-1.5 py-2">
+                                    {Array.from({ length: 7 }).map(
+                                      (_, index) => (
+                                        <button
+                                          key={index}
+                                          onClick={() =>
+                                            setActiveEnhanceTab(index)
+                                          }
+                                          className={cn(
+                                            "h-2 rounded-full transition-all duration-300",
+                                            activeEnhanceTab === index
+                                              ? "w-12 bg-[#7e6afe]"
+                                              : "w-2 bg-gray-300",
+                                          )}
+                                          aria-label={`Tab ${index + 1}`}
+                                        />
+                                      ),
+                                    )}
+                                  </div>
+
+                                  {/* Footer Actions */}
+                                  <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                                    <div className="flex gap-1.5">
+                                      {activeEnhanceTab > 0 &&
+                                        activeEnhanceTab < 6 && (
+                                            <Button
+                                              onClick={handleBackTab}
+                                              variant="ghost"
+                                              className="text-sm text-[#666666] hover:text-[#0A0A0A] bg-white hover:bg-white border border-main-border shadow-sm"
+                                            >
+                                              Back
+                                            </Button>
+                                        )}
+                                      {activeEnhanceTab > 0 &&
+                                        activeEnhanceTab < 6 && (
+                                            <Button
+                                              onClick={handleSkipTab}
+                                              variant="ghost"
+                                              className="text-sm text-[#666666] hover:text-[#0A0A0A]"
+                                            >
+                                              Skip
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {activeEnhanceTab === 6 ? (
+                                      <div className="flex gap-1.5">
+                                        <Button
+                                          onClick={handleCloseEnhanceMode}
+                                          variant="outline"
+                                          className="px-4 py-1.5 rounded-lg text-sm font-medium border-[#D9D9D9] text-[#666666] hover:text-[#0A0A0A]"
+                                        >
+                                          Cancel
+                                        </Button>
+                                        <Button
+                                          onClick={handleApplyEnhancements}
+                                          className="px-4 py-1.5 rounded-lg text-sm font-medium bg-[#171717] hover:bg-[#000000] text-white"
+                                        >
+                                          Apply to prompt
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        onClick={handleContinueTab}
+                                        disabled={!canContinueTab}
+                                        className={cn(
+                                          "px-4 py-1.5 rounded-lg text-sm font-medium",
+                                          canContinueTab
+                                            ? "bg-[#171717] hover:bg-[#000000] text-white"
+                                            : "bg-[#D4D4D4] cursor-not-allowed text-gray-500",
+                                        )}
+                                      >
+                                        Continue
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1778,8 +2472,8 @@ function PersonaConfigurePageContent() {
           </div>
         )}
 
-        {/* Enhance Mode Overlay */}
-        {showEnhanceMode && (
+        {/* Enhance Mode Overlay (disabled; now inline in System Instruction section) */}
+        {false && showEnhanceMode && (
           <div
             className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"
             style={{ backdropFilter: 'blur(4px)' }}
@@ -1844,14 +2538,14 @@ function PersonaConfigurePageContent() {
                         <p className="text-[14px] text-[#666666] mb-6">
                           Pick up to two for a blended tone.
                         </p>
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="flex-1 overflow-y-auto customScrollbar2">
                           <div className="grid grid-cols-4 gap-3">
                             {TONE_OPTIONS.map((tone) => (
                               <button
                                 key={tone}
                                 onClick={() => handleToneToggle(tone)}
                                 className={cn(
-                                  'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                  'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                   'flex items-center justify-center',
                                   'text-[14px] font-medium',
                                   selectedTone.includes(tone)
@@ -1865,7 +2559,7 @@ function PersonaConfigurePageContent() {
                             <button
                               onClick={() => handleToneToggle('Custom')}
                               className={cn(
-                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
                                 'text-[14px] font-medium',
                                 selectedTone.includes('Custom')
@@ -1899,15 +2593,15 @@ function PersonaConfigurePageContent() {
 
                     {/* Tab 2: Dos Selection */}
                     {activeEnhanceTab === 1 && (
-                      <div className="h-full flex flex-col">
+                      <div className="w-full h-full flex flex-col items-center border-2 border-pink-500">
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           What should this persona always do?
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-[11px] text-[#666666] mb-6">
                           Select all that apply, or write your own.
                         </p>
                         <div 
-                          className="flex-1 overflow-y-auto"
+                          className="flex-1 overflow-y-auto customScrollbar2"
                           style={{ maxHeight: '320px' }}
                         >
                           <div className="grid grid-cols-2 gap-3">
@@ -1916,9 +2610,9 @@ function PersonaConfigurePageContent() {
                                 key={index}
                                 onClick={() => handleDosToggle(doItem)}
                                 className={cn(
-                                  'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
+                                  'cursor-pointer h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
                                   'flex items-center justify-start text-left',
-                                  'text-[14px] font-medium',
+                                  'text-base font-medium',
                                   selectedDos.includes(doItem)
                                     ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                     : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -1936,7 +2630,7 @@ function PersonaConfigurePageContent() {
                                 }, 10);
                               }}
                               className={cn(
-                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
                                 'text-[14px] font-medium',
                                 showCustomDos
@@ -1973,10 +2667,10 @@ function PersonaConfigurePageContent() {
                           Select all that apply, or write your own.
                         </p>
                         <div 
-                          className="flex-1 overflow-y-auto"
+                          className="flex-1 overflow-y-auto customScrollbar2"
                           style={{ maxHeight: '320px' }}
                         >
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3">
                             {suggestedDonts.map((dontItem, index) => (
                               <button
                                 key={index}
@@ -2002,7 +2696,7 @@ function PersonaConfigurePageContent() {
                                 }, 10);
                               }}
                               className={cn(
-                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
                                 'text-[14px] font-medium',
                                 showCustomDonts
@@ -2039,61 +2733,63 @@ function PersonaConfigurePageContent() {
                         <p className="text-[14px] text-[#666666] mb-6">
                           Keeps conversation focused and on-brand.
                         </p>
-                        <div className="flex flex-col gap-4">
-                          <button
-                            onClick={() => setTopicFocus('Open')}
-                            className={cn(
-                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
-                              'flex flex-col items-start text-left',
-                              topicFocus === 'Open'
-                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
-                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
-                            )}
-                          >
-                            <span className="font-medium text-[16px]">Open</span>
-                            <span className={cn(
-                              'text-[14px] mt-1',
-                              topicFocus === 'Open' ? 'text-white/80' : 'text-[#666666]'
-                            )}>
-                              Can discuss anything relevant
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => setTopicFocus('Focused')}
-                            className={cn(
-                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
-                              'flex flex-col items-start text-left',
-                              topicFocus === 'Focused'
-                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
-                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
-                            )}
-                          >
-                            <span className="font-medium text-[16px]">Focused</span>
-                            <span className={cn(
-                              'text-[14px] mt-1',
-                              topicFocus === 'Focused' ? 'text-white/80' : 'text-[#666666]'
-                            )}>
-                              Stays close to its expertise
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => setTopicFocus('Strict')}
-                            className={cn(
-                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
-                              'flex flex-col items-start text-left',
-                              topicFocus === 'Strict'
-                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
-                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
-                            )}
-                          >
-                            <span className="font-medium text-[16px]">Strict</span>
-                            <span className={cn(
-                              'text-[14px] mt-1',
-                              topicFocus === 'Strict' ? 'text-white/80' : 'text-[#666666]'
-                            )}>
-                              Only discusses defined topics
-                            </span>
-                          </button>
+                        <div className="flex-1 overflow-y-auto customScrollbar2">
+                          <div className="flex flex-col gap-4">
+                            <button
+                              onClick={() => setTopicFocus('Open')}
+                              className={cn(
+                                'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                                'flex flex-col items-start text-left',
+                                topicFocus === 'Open'
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <span className="font-medium text-[16px]">Open</span>
+                              <span className={cn(
+                                'text-[14px] mt-1',
+                                topicFocus === 'Open' ? 'text-white/80' : 'text-[#666666]'
+                              )}>
+                                Can discuss anything relevant
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => setTopicFocus('Focused')}
+                              className={cn(
+                                'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                                'flex flex-col items-start text-left',
+                                topicFocus === 'Focused'
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <span className="font-medium text-[16px]">Focused</span>
+                              <span className={cn(
+                                'text-[14px] mt-1',
+                                topicFocus === 'Focused' ? 'text-white/80' : 'text-[#666666]'
+                              )}>
+                                Stays close to its expertise
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => setTopicFocus('Strict')}
+                              className={cn(
+                                'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                                'flex flex-col items-start text-left',
+                                topicFocus === 'Strict'
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <span className="font-medium text-[16px]">Strict</span>
+                              <span className={cn(
+                                'text-[14px] mt-1',
+                                topicFocus === 'Strict' ? 'text-white/80' : 'text-[#666666]'
+                              )}>
+                                Only discusses defined topics
+                              </span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -2108,7 +2804,7 @@ function PersonaConfigurePageContent() {
                           How it handles gaps matters for trust.
                         </p>
                         <div 
-                          className="flex-1 overflow-y-auto"
+                          className="flex-1 overflow-y-auto customScrollbar2"
                           style={{ maxHeight: '320px' }}
                         >
                           <div className="grid grid-cols-2 gap-3">
@@ -2143,7 +2839,7 @@ function PersonaConfigurePageContent() {
                                 }, 10);
                               }}
                               className={cn(
-                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
                                 'text-[14px] font-medium',
                                 showCustomUnknown
@@ -2180,7 +2876,7 @@ function PersonaConfigurePageContent() {
                           Format affects clarity and usability.
                         </p>
                         <div 
-                          className="flex-1 overflow-y-auto"
+                          className="flex-1 overflow-y-auto customScrollbar2"
                           style={{ maxHeight: '320px' }}
                         >
                           <div className="grid grid-cols-2 gap-3">
@@ -2256,7 +2952,7 @@ function PersonaConfigurePageContent() {
                             {improvementsList.length} improvements will be added to your prompt
                           </p>
                         </div>
-                        <div className="flex-1 overflow-y-auto space-y-3">
+                        <div className="flex-1 overflow-y-auto space-y-3 customScrollbar2">
                           {improvementsList.map((improvement, index) => (
                             <div
                               key={index}

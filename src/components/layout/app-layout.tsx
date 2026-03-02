@@ -989,7 +989,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       );
 
       try {
-        let response = await apiFetch(
+        const response = await apiFetch(
           CHAT_STAR_ENDPOINT(chatId),
           {
             method: "PATCH",

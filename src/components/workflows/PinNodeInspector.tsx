@@ -71,6 +71,8 @@ export function PinNodeInspector({
   };
 
   const hasAttachments = selectedPins.length > 0 || selectedFolder !== undefined;
+  const folderPinCount = selectedFolder?.pinIds?.length ?? 0;
+  const folderDisplayCount = folderPinCount || 1;
 
   return (
     <>
@@ -132,7 +134,7 @@ export function PinNodeInspector({
         <div className="flex flex-col gap-2">
           <label className="font-geist font-medium text-sm text-[#0A0A0A]">
             {selectedFolder 
-              ? `${selectedFolder.name} attached with ${selectedFolder.pinIds.length} ${selectedFolder.pinIds.length === 1 ? 'pin' : 'pins'}` 
+              ? `${selectedFolder.name} attached with ${folderDisplayCount} ${folderDisplayCount === 1 ? 'pin' : 'pins'}` 
               : selectedPins.length > 0 
                 ? `${selectedPins.length} ${selectedPins.length === 1 ? 'pin' : 'pins'} attached (${selectedPins.length}/10)` 
                 : 'No pins attached'}
@@ -173,7 +175,7 @@ export function PinNodeInspector({
                 <div>
                   <p className="text-xs font-medium text-black">{selectedFolder.name}</p>
                   <p className="text-[10px] text-[#757575] mt-0.5">
-                    {selectedFolder.pinIds.length} pin{selectedFolder.pinIds.length !== 1 ? 's' : ''} included
+                    {folderDisplayCount} pin{folderDisplayCount !== 1 ? 's' : ''} included
                   </p>
                 </div>
               </div>

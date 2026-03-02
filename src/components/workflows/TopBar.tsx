@@ -57,7 +57,10 @@ export default function TopBar({
     }
   };
 
-  const canUseTestOrRun = Boolean(workflowId) && canTestWorkflow && !hasUnsavedChanges;
+  // Allow Test/Run whenever the workflow has been saved at least once
+  // and passes configuration checks, even if there are current unsaved edits.
+  const hasSavedWorkflow = Boolean(workflowId);
+  const canUseTestOrRun = hasSavedWorkflow && canTestWorkflow;
   const isTestDisabled = isExecuting || !canUseTestOrRun;
   const isRunDisabled = !canUseTestOrRun;
 
@@ -125,7 +128,11 @@ export default function TopBar({
         <button
           onClick={onTest}
           disabled={isTestDisabled}
-          title={isTestDisabled ? testDisabledReason || "Save workflow first, then test." : "Open test chat (in-built)"}
+          title={
+            isTestDisabled
+              ? testDisabledReason || (!hasSavedWorkflow ? "Save workflow first, then test." : "Configure workflow before testing.")
+              : "Open test chat (in-built)"
+          }
           className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           {isExecuting ? (
@@ -145,7 +152,11 @@ export default function TopBar({
         <button
           onClick={onRun}
           disabled={isRunDisabled}
-          title={isRunDisabled ? testDisabledReason || "Save workflow first." : "Open workflow chat"}
+          title={
+            isRunDisabled
+              ? testDisabledReason || (!hasSavedWorkflow ? "Save workflow first." : "Configure workflow before running.")
+              : "Open workflow chat"
+          }
           className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           <div className="flex items-center gap-2 border border-main-border rounded-[8px] px-3 py-2">

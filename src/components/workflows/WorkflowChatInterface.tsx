@@ -65,12 +65,15 @@ const renderMarkdownContent = (content: string): React.ReactElement => {
       }
 
       elements.push(
-        <div key={`table-${i}`} className="my-2 overflow-x-auto">
-          <table className="min-w-full border-collapse border border-slate-200 text-xs">
+        <div key={`table-${i}`} className="my-2 max-w-full overflow-y-auto customScrollbar2">
+          <table className="max-w-[200px] w-full table-fixed border-collapse text-xs">
             <thead className="bg-slate-100">
               <tr>
                 {headerCells.map((cell, idx) => (
-                  <th key={`th-${i}-${idx}`} className="border border-slate-200 px-2 py-1 text-left font-semibold">
+                  <th
+                    key={`th-${i}-${idx}`}
+                    className="border border-slate-200 px-2 py-1 text-left font-semibold break-words"
+                  >
                     {cell}
                   </th>
                 ))}
@@ -80,7 +83,10 @@ const renderMarkdownContent = (content: string): React.ReactElement => {
               {bodyRows.map((row, rowIdx) => (
                 <tr key={`tr-${i}-${rowIdx}`} className="odd:bg-white even:bg-slate-50">
                   {row.map((cell, cellIdx) => (
-                    <td key={`td-${i}-${rowIdx}-${cellIdx}`} className="border border-slate-200 px-2 py-1">
+                    <td
+                      key={`td-${i}-${rowIdx}-${cellIdx}`}
+                      className="border border-slate-200 px-2 py-1 align-top break-words"
+                    >
                       {cell}
                     </td>
                   ))}
@@ -735,7 +741,7 @@ export function WorkflowChatInterface({
   };
 
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 top-[60px] left-0 right-0 z-50' : 'top-[60px] right-2 relative flex-1'} max-h-[calc(100vh-65px)] flex min-h-0 h-full flex-col overflow-hidden bg-white border border-main-border rounded-3xl shadow-lg p-2 transition-all duration-300`}>
+    <div className={`${isFullscreen ? 'z-50 fixed top-2 bottom-2 right-2 max-w-3/5 w-full max-h-[calc(100vh-15px)]' : 'z-50 fixed top-[60px] right-2 max-w-[588px] w-full max-h-[calc(100vh-65px)] flex-1'} flex min-h-0 h-full flex-col overflow-hidden bg-white border border-main-border rounded-3xl shadow-lg p-2 transition-all duration-500`}>
       {/* Streaming Status Bar */}
       {isResponding && activeNodeId && (
         <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2 z-10">
@@ -760,7 +766,7 @@ export function WorkflowChatInterface({
       {/* Header */}
       <button
           onClick={() => setIsFullscreen(!isFullscreen)}
-          className="absolute top-2 left-3.5 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
+          className="absolute top-2 left-2 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
           aria-label={isFullscreen ? "Minimize" : "Fullscreen"}
         >
           {isFullscreen ? (
@@ -771,7 +777,7 @@ export function WorkflowChatInterface({
         </button>
       <button
           onClick={onClose}
-          className="absolute top-2 right-3.5 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
+          className="absolute top-2 right-6 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
           aria-label="Close chat"
         >
           <X className="h-3 w-3 text-[#666666]" />
@@ -800,8 +806,8 @@ export function WorkflowChatInterface({
           className={`relative flex-1 min-h-0 overflow-y-auto mt-2 ${chatStyles.customScrollbar} ${chatStyles.hidePinButton} ${chatStyles.hideAvatar}`}
           ref={scrollViewportRef}
         >
-          <div className={`mx-auto w-full ${isFullscreen ? 'max-w-full px-8' : 'max-w-[850px]'} flex-col gap-3 pr-4 py-4 break-words transition-all duration-300`}>
-            <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none break-words">
+          <div className={`mx-auto w-full ${isFullscreen ? 'max-w-full px-8' : 'max-w-[850px]'} flex-col gap-3 pr-4 py-4 wrap-break-word transition-all duration-300`}>
+            <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none wrap-break-word">
               <div className="flex-col gap-3">
                 {displayMessages.map((msg, idx) => (
                   <ChatMessage

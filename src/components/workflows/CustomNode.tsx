@@ -135,6 +135,11 @@ function CustomNode({
   // Context nodes (document, chat, pin) are source-only and cannot receive connections
   const isContextNode = data.type === 'document' || data.type === 'chat' || data.type === 'pin';
 
+  // For folder-based pin attachments coming from saved workflows, backend may not
+  // include individual pin IDs. Treat empty pinIds as at least 1 for display.
+  const folderPinCount = data.selectedFolder?.pinIds?.length ?? 0;
+  const folderDisplayCount = folderPinCount || 1;
+
   return (
     <div
       className="relative bg-transparent transition-all"
@@ -281,27 +286,42 @@ function CustomNode({
 
         {/* Model Display - Show selected model */}
         {data.type === 'model' && (
-          data.modelData ? (
-            <div className="flex items-center gap-2 mt-1 p-2 bg-[#F5F5F5] rounded-lg">
-              <Image
-                src={getModelIcon(data.modelData.companyName || '', data.modelData.name, data.modelData.sdkLibrary)}
-                alt={`${data.modelData.name} logo`}
-                width={32}
-                height={32}
-                className="shrink-0 rounded object-cover"
-                style={{ borderRadius: '4px' }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-black truncate">
-                  {data.modelData.name}
-                </p>
+          (() => {
+            const displayName =
+              data.modelData?.name ||
+              data.modelData?.description ||
+              (typeof data.selectedModel === "string" ? data.selectedModel : undefined) ||
+              (typeof data.modelId === "string" ? data.modelId : undefined);
+
+            if (!displayName) {
+              return (
+                <div className="text-xs text-[#9F9F9F] italic mt-1">
+                  No model selected
+                </div>
+              );
+            }
+
+            const companyName = data.modelData?.companyName || "";
+            const sdkLibrary = data.modelData?.sdkLibrary;
+
+            return (
+              <div className="flex items-center gap-2 mt-1 p-2 bg-[#F5F5F5] rounded-lg">
+                <Image
+                  src={getModelIcon(companyName, displayName, sdkLibrary)}
+                  alt={`${displayName} logo`}
+                  width={32}
+                  height={32}
+                  className="shrink-0 rounded object-cover"
+                  style={{ borderRadius: '4px' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-black truncate">
+                    {displayName}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-xs text-[#9F9F9F] italic mt-1">
-              No model selected
-            </div>
-          )
+            );
+          })()
         )}
 
         {/* File count for document nodes */}
@@ -334,7 +354,7 @@ function CustomNode({
           <div className="w-auto flex items-center justify-start">
             {data.selectedFolder ? (
               <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
-                {data.selectedFolder.name} attached with {data.selectedFolder.pinIds.length} {data.selectedFolder.pinIds.length === 1 ? 'pin' : 'pins'}
+                {data.selectedFolder.name} attached with {folderDisplayCount} {folderDisplayCount === 1 ? 'pin' : 'pins'}
               </div>
             ) : Array.isArray(data.selectedPins) && data.selectedPins.length > 0 ? (
               <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">

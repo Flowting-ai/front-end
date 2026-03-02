@@ -209,6 +209,7 @@ function WorkflowCanvasInner() {
   const isInitialMount = useRef(true);
   const hasLoadedQueryWorkflow = useRef(false);
   const hasJustSaved = useRef(false);
+  const lastSavedSnapshotRef = useRef<string | null>(null);
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -280,6 +281,54 @@ function WorkflowCanvasInner() {
     };
     fetchData();
   }, []);
+
+  // When models are loaded, hydrate any model nodes from saved workflows so they
+  // have full modelData (name, company, logo, sdkLibrary) for display.
+  // This only enriches display metadata and does not affect the structural
+  // snapshot used for tracking unsaved changes.
+  useEffect(() => {
+    if (!allModels.length) return;
+
+    setNodes((nds) =>
+      nds.map((node) => {
+        const nodeData = node.data as WorkflowNodeData;
+        if (nodeData.type !== "model") {
+          return node;
+        }
+
+        const selectedModelId = (nodeData.selectedModel || nodeData.modelId || "").toString().trim();
+        if (!selectedModelId) {
+          return node;
+        }
+
+        const model = allModels.find(
+          (m) => m.id === selectedModelId || m.modelId === selectedModelId,
+        );
+        if (!model) {
+          return node;
+        }
+
+        const existingModelData = nodeData.modelData || {};
+
+        return {
+          ...node,
+          data: {
+            ...nodeData,
+            selectedModel: selectedModelId,
+            modelId: selectedModelId,
+            modelData: {
+              ...existingModelData,
+              name: model.name,
+              description: model.description,
+              companyName: model.companyName,
+              sdkLibrary: model.sdkLibrary,
+              logo: model.logo,
+            },
+          },
+        };
+      }),
+    );
+  }, [allModels, setNodes]);
 
   // Center view on initial mount - Canvas Initial View/zoom can be set here
   useEffect(() => {
@@ -490,19 +539,89 @@ function WorkflowCanvasInner() {
     setExecutionOrder([]);
   }, [setNodes]);
 
-  // Track unsaved changes (for UI indicator, test/run disabling). Skip when we just saved or
-  // opened a workflow from workflowAdmin (load from API) so Test/Run stay enabled until user edits.
+  // Build a structural snapshot of the workflow that ignores runtime-only fields
+  // (status, output, highlighting, model/persona display data, etc.).
+  const buildWorkflowSnapshot = useCallback(
+    (
+      snapshotWorkflowName: string,
+      snapshotNodes: WorkflowNode[],
+      snapshotEdges: WorkflowEdge[],
+    ): string => {
+      const trimmedName = snapshotWorkflowName.trim();
+
+      const nodePayload = snapshotNodes.map((node) => {
+        const data = node.data as WorkflowNodeData;
+        return {
+          id: node.id,
+          position: node.position,
+          type: data.type,
+          label: data.label,
+          name: data.name,
+          description: data.description,
+          config: data.config,
+          files: data.files,
+          prompt: data.prompt,
+          systemPrompt: data.systemPrompt,
+          userPrompt: data.userPrompt,
+          modelId: data.modelId,
+          temperature: data.temperature,
+          maxTokens: data.maxTokens,
+          tools: data.tools,
+          instructions: data.instructions,
+          selectedChats: data.selectedChats,
+          selectedPins: data.selectedPins,
+          selectedFolderId: data.selectedFolder?.id,
+          selectedPersona: data.selectedPersona,
+          selectedModel: data.selectedModel,
+          knowledgeContext: data.knowledgeContext,
+        };
+      });
+
+      const edgePayload = snapshotEdges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+        type: edge.type,
+      }));
+
+      return JSON.stringify({
+        name: trimmedName,
+        nodes: nodePayload,
+        edges: edgePayload,
+      });
+    },
+    [],
+  );
+
+  // Track unsaved changes by comparing the current structural snapshot against
+  // the last saved/loaded snapshot. This prevents transient runtime updates
+  // (status/output/model hydration) from marking the workflow as dirty.
   useEffect(() => {
+    const snapshot = buildWorkflowSnapshot(workflowName, nodes as WorkflowNode[], edges as WorkflowEdge[]);
+
+    // Initialize baseline snapshot on first render if it hasn't been set yet.
+    if (isInitialMount.current && lastSavedSnapshotRef.current === null) {
+      lastSavedSnapshotRef.current = snapshot;
+      isInitialMount.current = false;
+      setHasUnsavedChanges(false);
+      return;
+    }
     if (isInitialMount.current) {
       isInitialMount.current = false;
+    }
+
+    if (lastSavedSnapshotRef.current === null) {
+      // No saved snapshot yet (brand new workflow) – any deviation from the initial
+      // baseline should be considered unsaved once the user edits.
+      setHasUnsavedChanges(true);
       return;
     }
-    if (hasJustSaved.current) {
-      hasJustSaved.current = false;
-      return;
-    }
-    setHasUnsavedChanges(true);
-  }, [nodes, edges, workflowName]);
+
+    const isDirty = snapshot !== lastSavedSnapshotRef.current;
+    setHasUnsavedChanges(isDirty);
+  }, [workflowName, nodes, edges, buildWorkflowSnapshot]);
 
   // Auto-hide the save status indicator after 3 seconds
   useEffect(() => {
@@ -885,7 +1004,8 @@ function WorkflowCanvasInner() {
       if (saved.id && saved.id !== workflowId) {
         setWorkflowId(saved.id);
       }
-      hasJustSaved.current = true;
+      // Update baseline snapshot to the just-saved structural state
+      lastSavedSnapshotRef.current = buildWorkflowSnapshot(trimmedName, nodes as WorkflowNode[], edges as WorkflowEdge[]);
       setHasUnsavedChanges(false);
       setSaveStatus("Saved");
       return true;
@@ -897,7 +1017,7 @@ function WorkflowCanvasInner() {
     } finally {
       setIsSaving(false);
     }
-  }, [workflowId, nodes, edges, workflowName, getViewport, canTestWorkflow, testWorkflowDisabledReason]);
+  }, [workflowId, nodes, edges, workflowName, getViewport, canTestWorkflow, testWorkflowDisabledReason, buildWorkflowSnapshot]);
 
   // Load workflow
   const handleLoad = useCallback(() => {
@@ -913,18 +1033,20 @@ function WorkflowCanvasInner() {
       if (workflow.viewport) {
         setViewport(workflow.viewport);
       }
-      // Don't show save status on load
+      // Don't show save status on load; reset baseline snapshot to loaded state
       setSaveStatus(null);
-      hasJustSaved.current = true;
+      lastSavedSnapshotRef.current = buildWorkflowSnapshot(
+        workflow.name || "Untitled Workflow",
+        (workflow.nodes || []) as WorkflowNode[],
+        (workflow.edges || []) as WorkflowEdge[],
+      );
       setHasUnsavedChanges(false);
       saveToHistory();
     }
-  }, [setNodes, setEdges, setViewport, saveToHistory]);
+  }, [setNodes, setEdges, setViewport, saveToHistory, buildWorkflowSnapshot]);
 
   // Load workflow from API (e.g. opening from workflowAdmin). Test/Run stay enabled until user makes new changes.
   const handleLoadWorkflow = useCallback(async (workflowId: string) => {
-    // Mark as "just loaded" before any state updates so the unsaved-changes effect won't flag this as unsaved
-    hasJustSaved.current = true;
     try {
       const workflowDTO = await workflowAPI.get(workflowId);
 
@@ -938,8 +1060,15 @@ function WorkflowCanvasInner() {
         setViewport(workflowDTO.viewport);
       }
 
-      // Explicitly no unsaved state when opening a previously saved workflow
+      // Explicitly no unsaved state when opening a previously saved workflow.
+      // Use the loaded structural state as the new baseline snapshot so that
+      // Save is disabled and Back does not show the unsaved modal until the user edits.
       setSaveStatus(null);
+      lastSavedSnapshotRef.current = buildWorkflowSnapshot(
+        workflowDTO.name || "Untitled Workflow",
+        (workflowDTO.nodes || []) as WorkflowNode[],
+        (workflowDTO.edges || []) as WorkflowEdge[],
+      );
       setHasUnsavedChanges(false);
       saveToHistory();
 
@@ -950,7 +1079,7 @@ function WorkflowCanvasInner() {
         description: "Please try again."
       });
     }
-  }, [setNodes, setEdges, setViewport, saveToHistory]);
+  }, [setNodes, setEdges, setViewport, saveToHistory, buildWorkflowSnapshot]);
 
   // Load workflow/chat mode from URL query params on initial mount.
   useEffect(() => {
@@ -1624,7 +1753,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
         <div
           className="fixed right-0 top-0 bottom-0 z-50 animate-slide-in-right"
           style={{
-            width: "588px",
+            width: "100vw",
             height: "100vh",
           }}
         >
