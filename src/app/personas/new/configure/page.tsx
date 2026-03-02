@@ -35,6 +35,7 @@ import {
   FileText,
   Rocket,
   Search,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getModelIcon } from "@/lib/model-icons";
@@ -940,6 +941,8 @@ function PersonaConfigurePageContent() {
                 selectedModel={previewModel}
                 hidePersonaButton={true}
                 hideAttachButton={true}
+                disablePinning={true}
+                disableSources={true}
                 personaTestConfig={{
                   personaId: createdPersonaId ?? undefined,
                   prompt: currentInstruction,
@@ -2323,6 +2326,8 @@ function PersonaConfigurePageContent() {
                         hidePersonaButton={true}
                         disableInput={!isTesting}
                         hideAttachButton={true}
+                        disablePinning={true}
+                        disableSources={true}
                         personaTestConfig={
                           isTesting || isChatMode
                             ? {
@@ -3134,15 +3139,17 @@ function PersonaConfigurePageContent() {
                   variant="outline"
                   onClick={() => {
                     setShowSuccessDialog(false);
-                    setShowShareDialog(true);
+                    if (createdPersonaId) {
+                      router.push(`/personaAdmin/chat/${createdPersonaId}`);
+                    }
                   }}
                   style={{
                     color: "#0A0A0A",
                   }}
-                  className="w-[108px] h-11 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] hover:text-[#0A0A0A] font-medium"
+                  className="w-[128px] h-11 rounded-lg border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5] hover:text-[#0A0A0A] font-medium"
                 >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Start Chat
                 </Button>
                 <Button
                   onClick={() => {

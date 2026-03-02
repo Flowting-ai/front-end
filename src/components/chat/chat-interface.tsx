@@ -98,6 +98,8 @@ interface ChatInterfaceProps {
     prompt?: string;
     modelId?: number | string | null;
   };
+  disablePinning?: boolean;
+  disableSources?: boolean;
 }
 
 type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
@@ -332,6 +334,8 @@ export function ChatInterface({
   disableInput = false,
   hideAttachButton = false,
   personaTestConfig,
+  disablePinning = false,
+  disableSources = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   // For pin mention dropdown keyboard navigation
@@ -2665,7 +2669,7 @@ export function ChatInterface({
                         taggedPins={taggedPins}
                         isResponding={isResponding}
                         onOpenSources={
-                          msg.sender === "ai"
+                          !disableSources && msg.sender === "ai"
                             ? () => handleOpenSources(msg)
                             : undefined
                         }
@@ -2680,6 +2684,7 @@ export function ChatInterface({
                               }
                             : undefined
                         }
+                        disablePinning={disablePinning}
                       />
                     </div>
                   );
