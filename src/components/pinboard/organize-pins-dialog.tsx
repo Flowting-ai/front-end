@@ -885,7 +885,7 @@ export function OrganizePinsDialog({
                         {folders.map((folder) => (
                           <div
                             key={folder.id}
-                            className={`w-full flex items-center justify-between rounded-lg text-sm cursor-pointer transition-colors duration-150 ${"bg-[#F5F5F5] hover:bg-[#e8e8e8] border border-transparent hover:border-[#D4D4D4]"}`}
+                            className={`w-full flex items-center justify-between rounded-lg text-sm cursor-pointer transition-colors duration-150 ${selectedFolderIds.includes(folder.id) ? "bg-[#e8e8e8] border border-[#D4D4D4]" : "bg-[#F5F5F5] hover:bg-[#e8e8e8] border border-transparent hover:border-[#D4D4D4]"}`}
                             style={{
                               height: "41px",
                               minHeight: "32px",
