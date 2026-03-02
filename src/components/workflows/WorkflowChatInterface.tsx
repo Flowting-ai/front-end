@@ -512,19 +512,28 @@ export function WorkflowChatInterface({
           setNodeOutputs((prev) => {
             const next = new Map(prev);
             const existing = next.get(event.node_id);
+            // Prefer event.output; fall back to existing content (set by onNodeEnd streaming)
+            // to avoid wiping streamed content when event.output is empty.
+            const resolvedContent =
+              event.output || existing?.content || streamingContentRef.current.get(event.node_id) || "";
             next.set(event.node_id, {
               nodeId: event.node_id,
               nodeName: existing?.nodeName || getDisplayNodeName(event.node_id),
               nodeType: getDisplayNodeType(event.node_id, event.node_type),
-              content: event.output,
+              content: resolvedContent,
               isStreaming: false,
               status: "success",
+              // Preserve cost/token metadata already populated by onNodeEnd
+              tokens: existing?.tokens,
+              cost: existing?.cost,
+              durationMs: existing?.durationMs,
             });
             nodeOutputsRef.current = next;
             return next;
           });
           seenRunningNodesRef.current.delete(event.node_id);
-          onNodeStatusChange?.(event.node_id, "success", event.output);
+          const finalOutput = event.output || streamingContentRef.current.get(event.node_id) || "";
+          onNodeStatusChange?.(event.node_id, "success", finalOutput);
         },
 
         onWorkflowComplete: (event: WorkflowCompleteEvent) => {
