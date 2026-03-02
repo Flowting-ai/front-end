@@ -69,7 +69,7 @@ function CustomNode({
     data.selectedFolder || 
     (Array.isArray(data.selectedPins) && data.selectedPins.length > 1)
   );
-  const isInstructionsRequired = data.type === 'model' || isPinInstructionsRequired;
+  const isInstructionsRequired = data.type === 'model' || data.type === 'persona' || isPinInstructionsRequired;
 
   const handleInstructionsClick = (e: React.MouseEvent) => {
     e.stopPropagation();

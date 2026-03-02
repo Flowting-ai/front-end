@@ -228,8 +228,10 @@ const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "cha
 const extractMetadata = (msg: BackendMessage) => {
   const meta = (msg as { metadata?: Record<string, unknown> }).metadata || {};
   const pinsRaw: unknown[] = Array.isArray(
-    (msg as { pins_tagged?: unknown[] }).pins_tagged
+    (msg as { taggedPins?: unknown[] }).taggedPins
   )
+    ? ((msg as { taggedPins: unknown[] }).taggedPins as unknown[])
+    : Array.isArray((msg as { pins_tagged?: unknown[] }).pins_tagged)
     ? ((msg as { pins_tagged: unknown[] }).pins_tagged as unknown[])
     : Array.isArray((meta as { pinIds?: unknown[] }).pinIds)
     ? ((meta as { pinIds: unknown[] }).pinIds as unknown[])
@@ -237,9 +239,43 @@ const extractMetadata = (msg: BackendMessage) => {
     ? ((meta as { pin_ids: unknown[] }).pin_ids as unknown[])
     : [];
 
+  // pins_tagged may be full pin objects {id, text, title, ...} or plain ID strings
+  const extractPinId = (p: unknown): string | null => {
+    if (p === undefined || p === null) return null;
+    if (typeof p === "string" || typeof p === "number") return String(p) || null;
+    if (typeof p === "object") {
+      const o = p as Record<string, unknown>;
+      const id = o.id ?? o.pin_id ?? o.pinId;
+      return id !== undefined && id !== null ? String(id) : null;
+    }
+    return null;
+  };
+
   const pinIds = pinsRaw
-    .map((p) => (p !== undefined && p !== null ? String(p) : null))
+    .map(extractPinId)
     .filter((p): p is string => Boolean(p));
+
+  // Rebuild mentionedPins so pin-attachment cards re-render in loaded history.
+  // Only built when pins_tagged/taggedPins contains full objects (with text/title), not bare IDs.
+  const rawPinsTagged: unknown[] = Array.isArray(
+    (msg as { taggedPins?: unknown[] }).taggedPins
+  )
+    ? ((msg as { taggedPins: unknown[] }).taggedPins as unknown[])
+    : Array.isArray((msg as { pins_tagged?: unknown[] }).pins_tagged)
+    ? ((msg as { pins_tagged: unknown[] }).pins_tagged as unknown[])
+    : [];
+
+  const mentionedPins: Array<{ id: string; label: string; text: string }> = rawPinsTagged
+    .map((p) => {
+      if (!p || typeof p !== "object") return null;
+      const o = p as Record<string, unknown>;
+      const id = extractPinId(p);
+      if (!id) return null;
+      const text = String(o.text ?? o.content ?? o.formattedContent ?? "");
+      const label = String(o.title ?? o.label ?? text).slice(0, 80) || id;
+      return { id, label, text };
+    })
+    .filter((p): p is { id: string; label: string; text: string } => p !== null);
 
   return {
     modelName:
@@ -288,14 +324,18 @@ const extractMetadata = (msg: BackendMessage) => {
       (meta as { document_url?: string | null }).document_url ??
       null,
     pinIds,
+    mentionedPins: mentionedPins.length > 0 ? mentionedPins : undefined,
     userReaction:
       (msg as { user_reaction?: string | null }).user_reaction ??
       (meta as { userReaction?: string | null }).userReaction ??
       (meta as { user_reaction?: string | null }).user_reaction ??
       null,
-    cost:
-      (msg as { cost?: number }).cost ??
-      (meta as { cost?: number }).cost,
+    cost: (() => {
+      const raw = (msg as { cost?: number | string }).cost ?? (meta as { cost?: number | string }).cost;
+      if (raw === undefined || raw === null) return undefined;
+      const n = typeof raw === "number" ? raw : parseFloat(raw as string);
+      return isNaN(n) ? undefined : n;
+    })(),
     latencyMs:
       (msg as { latency_ms?: number }).latency_ms ??
       (meta as { latencyMs?: number }).latencyMs ??

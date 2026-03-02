@@ -348,10 +348,11 @@ function WorkflowCanvasInner() {
     }
     const nodeData = node.data as WorkflowNodeData;
 
-    // Check for configured persona node (persona has model built-in)
+    // Check for configured persona node (needs both persona selected and instructions)
     if (nodeData.type === "persona") {
       const selectedPersonaId = (nodeData.selectedPersona || "").toString().trim();
-      return selectedPersonaId.length > 0;
+      const hasInstruction = (nodeData.instructions || "").toString().trim().length > 0;
+      return selectedPersonaId.length > 0 && hasInstruction;
     }
 
     // Check for configured model node (needs both model and instructions)
@@ -367,7 +368,7 @@ function WorkflowCanvasInner() {
   const testWorkflowDisabledReason = !hasCustomWorkflowTitle
     ? "Rename workflow from 'Untitled Workflow' before testing."
     : !hasConfiguredReasoningModel
-    ? "Add a configured model node (with model and instruction) or persona node before testing."
+    ? "Add a configured model node (with model and instruction) or persona node (with persona and instruction) before testing."
     : undefined;
 
   // Process individual node based on type

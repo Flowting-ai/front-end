@@ -23,14 +23,46 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { toast } from "@/lib/toast-helper";
-import { workflowAPI } from "./workflow-api";
-import type { WorkflowDTO } from "./types";
+import {
+  workflowAPI,
+  type NodeStartEvent,
+  type ChunkEvent,
+  type NodeEndEvent,
+  type NodeCompleteEvent,
+  type WorkflowCompleteEvent,
+} from "./workflow-api";
+import type { WorkflowDTO, NodeStatus } from "./types";
 import { extractThinkingContent } from "@/lib/thinking";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { cn } from "@/lib/utils";
 
 const CONTROL_NODE_IDS = ["start-node", "end-node", "phantom-node"];
 const CONTROL_TYPES = ["start", "end", "phantom"];
+
+interface NodeOutput {
+  nodeId: string;
+  nodeName?: string;
+  nodeType?: string;
+  content: string;
+  isStreaming: boolean;
+  status: NodeStatus;
+  tokens?: number;
+  cost?: number;
+  durationMs?: number;
+}
+
+const getOutputStatusClass = (status: NodeStatus) => {
+  if (status === "running") return "bg-blue-100 text-blue-700 border-blue-200";
+  if (status === "success") return "bg-green-100 text-green-700 border-green-200";
+  if (status === "error") return "bg-red-100 text-red-700 border-red-200";
+  return "bg-zinc-100 text-zinc-700 border-zinc-200";
+};
+
+const getCollapsedPreview = (content: string) => {
+  const normalized = content.replace(/<\/?think>/gi, "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "No output yet";
+  return normalized.length > 140 ? `${normalized.slice(0, 140)}...` : normalized;
+};
 
 function countNodes(workflow: WorkflowDTO) {
   const nodes = workflow?.nodes ?? [];
@@ -69,12 +101,16 @@ export function WorkflowChatFullPage({
   const [isResponding, setIsResponding] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [nodeOutputs, setNodeOutputs] = useState<Map<string, NodeOutput>>(new Map());
+  const [expandedNodeOutputId, setExpandedNodeOutputId] = useState<string | null>(null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
-  const streamingContentRef = useRef<string>("");
+  // Per-node streaming content (avoids stale-closure issues)
+  const streamingContentRef = useRef<Map<string, string>>(new Map());
+  const nodeOutputsRef = useRef<Map<string, NodeOutput>>(new Map());
   const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
 
   // Click outside to close attach menu (same as chat-interface)
@@ -136,36 +172,137 @@ export function WorkflowChatFullPage({
     };
 
     setDisplayMessages((prev) => [...prev, loadingMessage]);
-    streamingContentRef.current = ""; // reset accumulated content
+    streamingContentRef.current = new Map(); // reset per-node streaming content
+    nodeOutputsRef.current = new Map();
+    setNodeOutputs(new Map());
+    setExpandedNodeOutputId(null);
 
     try {
       const { abort } = await workflowAPI.executeStream(
         workflowId,
         trimmedContent,
         {
-          onChunk: (event) => {
-            streamingContentRef.current += event.content;
-            const accumulated = streamingContentRef.current;
-            const { visibleText, thinkingText } = extractThinkingContent(accumulated);
-            const hasOpenThink = /<think>/i.test(accumulated);
-            const hasCloseThink = /<\/think>/i.test(accumulated);
+          onNodeStart: (event: NodeStartEvent) => {
+            const nodeId = event.node_id;
+            const nodeName = event.node_name || event.name || nodeId;
+            streamingContentRef.current.set(nodeId, "");
+            setExpandedNodeOutputId(nodeId);
+            setNodeOutputs((prev) => {
+              const next = new Map(prev);
+              next.set(nodeId, {
+                nodeId,
+                nodeName,
+                nodeType: event.node_type,
+                content: "",
+                isStreaming: true,
+                status: "running",
+              });
+              nodeOutputsRef.current = next;
+              return next;
+            });
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: `**${nodeName}** is thinking...`, isLoading: true }
+                  : msg
+              )
+            );
+          },
+
+          onChunk: (event: ChunkEvent) => {
+            const nodeId = event.node_id || "unknown_node";
+            const chunk = event.content || "";
+            const current = streamingContentRef.current.get(nodeId) || "";
+            const updated = current + chunk;
+            streamingContentRef.current.set(nodeId, updated);
+
+            // Ensure this node has an entry even if node_start was missed
+            setNodeOutputs((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(nodeId);
+              if (existing) {
+                next.set(nodeId, { ...existing, content: existing.content + chunk, isStreaming: true, status: "running" });
+              } else {
+                next.set(nodeId, { nodeId, nodeName: nodeId, content: chunk, isStreaming: true, status: "running" });
+              }
+              nodeOutputsRef.current = next;
+              return next;
+            });
+
+            const { visibleText, thinkingText } = extractThinkingContent(updated);
+            const hasOpenThink = /<think>/i.test(updated);
+            const hasCloseThink = /<\/think>/i.test(updated);
             const stillThinking = hasOpenThink && !hasCloseThink;
             setDisplayMessages((prev) =>
               prev.map((msg) =>
                 msg.id === aiMessageId
                   ? {
                       ...msg,
-                      content: visibleText || accumulated,
-                      thinkingContent: thinkingText || msg.thinkingContent || undefined,
-                      isThinkingInProgress: stillThinking,
+                      content: visibleText || (stillThinking ? "" : updated),
+                      thinkingContent: thinkingText || (stillThinking ? updated.replace(/^[\s\S]*<think>/i, "").trim() : undefined) || msg.thinkingContent || undefined,
+                      isThinkingInProgress: stillThinking || Boolean(thinkingText),
                       isLoading: false,
                     }
                   : msg
               )
             );
           },
-          onWorkflowComplete: (event) => {
-            const rawFinal = (event.final_output || "").trim() || streamingContentRef.current || "Workflow completed successfully.";
+
+          onNodeEnd: (event: NodeEndEvent) => {
+            const fallback = streamingContentRef.current.get(event.node_id) || "";
+            const finalContent = event.output || fallback;
+            setNodeOutputs((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(event.node_id);
+              next.set(event.node_id, {
+                ...(existing ?? { nodeId: event.node_id, nodeName: event.node_id, content: "", isStreaming: false, status: "success" }),
+                content: finalContent || existing?.content || "",
+                isStreaming: false,
+                status: "success",
+                tokens: event.tokens_used,
+                cost: event.cost,
+                durationMs: event.duration_ms,
+              });
+              nodeOutputsRef.current = next;
+              return next;
+            });
+          },
+
+          onNodeComplete: (event: NodeCompleteEvent) => {
+            setNodeOutputs((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(event.node_id);
+              const resolved = event.output || existing?.content || streamingContentRef.current.get(event.node_id) || "";
+              next.set(event.node_id, {
+                nodeId: event.node_id,
+                nodeName: existing?.nodeName || event.node_id,
+                nodeType: event.node_type,
+                content: resolved,
+                isStreaming: false,
+                status: "success",
+                tokens: existing?.tokens,
+                cost: existing?.cost,
+                durationMs: existing?.durationMs,
+              });
+              nodeOutputsRef.current = next;
+              return next;
+            });
+          },
+
+          onWorkflowComplete: (event: WorkflowCompleteEvent) => {
+            let rawFinal = (event.final_output || "").trim();
+            if (!rawFinal) {
+              const outputs = Array.from(nodeOutputsRef.current.values());
+              if (outputs.length > 0) {
+                rawFinal = outputs
+                  .map((o, i) => {
+                    const body = o.content.replace(/<\/?think>[\s\S]*?<\/think>/gi, "").trim() || "_No output produced_";
+                    return `### Step ${i + 1}: ${o.nodeName || o.nodeId}\n\n${body}`;
+                  })
+                  .join("\n\n");
+              }
+            }
+            if (!rawFinal) rawFinal = "Workflow completed successfully.";
             const { visibleText: finalVisible, thinkingText: finalThinking } = extractThinkingContent(rawFinal);
             setDisplayMessages((prev) =>
               prev.map((msg) =>
@@ -183,7 +320,17 @@ export function WorkflowChatFullPage({
             setIsResponding(false);
             abortRef.current = null;
           },
+
           onError: (event) => {
+            if (event.node_id) {
+              setNodeOutputs((prev) => {
+                const next = new Map(prev);
+                const existing = next.get(event.node_id!);
+                if (existing) next.set(event.node_id!, { ...existing, isStreaming: false, status: "error" });
+                nodeOutputsRef.current = next;
+                return next;
+              });
+            }
             setDisplayMessages((prev) =>
               prev.map((msg) =>
                 msg.id === aiMessageId
@@ -344,6 +491,75 @@ export function WorkflowChatFullPage({
                       disablePinning={true}
                     />
                   ))}
+
+                  {/* Per-node / per-model output panel */}
+                  {nodeOutputs.size > 0 && (
+                    <div className="mt-6 rounded-2xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
+                      <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6F6F6F]">
+                        Node Outputs ({nodeOutputs.size})
+                      </div>
+                      <div className="space-y-2">
+                        {Array.from(nodeOutputs.values()).map((output) => {
+                          const isExpanded = expandedNodeOutputId === output.nodeId;
+                          const thinkStripped = output.content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+                          return (
+                            <div key={output.nodeId} className="rounded-xl border border-[#E4E4E4] bg-white">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedNodeOutputId((prev) =>
+                                    prev === output.nodeId ? null : output.nodeId
+                                  )
+                                }
+                                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50/50 transition-colors rounded-xl"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="truncate text-sm font-medium text-[#1E1E1E]">
+                                      {output.nodeName || output.nodeId}
+                                    </span>
+                                    {output.nodeType && (
+                                      <span className="shrink-0 rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 uppercase">
+                                        {output.nodeType}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {!isExpanded && (
+                                    <div className="truncate text-xs text-[#6B7280]">
+                                      {getCollapsedPreview(output.content)}
+                                    </div>
+                                  )}
+                                  {output.tokens !== undefined && (
+                                    <div className="mt-1 text-[10px] text-[#8B8B8B]">
+                                      {output.tokens > 0 && `${output.tokens} tokens`}
+                                      {output.cost !== undefined && output.cost > 0 && ` • $${output.cost.toFixed(4)}`}
+                                      {output.durationMs !== undefined && ` • ${(output.durationMs / 1000).toFixed(2)}s`}
+                                    </div>
+                                  )}
+                                </div>
+                                <span
+                                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${getOutputStatusClass(output.status)}`}
+                                >
+                                  {output.status}
+                                </span>
+                              </button>
+                              {isExpanded && (
+                                <div className="border-t border-[#EFEFEF] px-3 py-3 break-words">
+                                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-[#3D3D3D] break-words">
+                                    {thinkStripped || (
+                                      output.isStreaming
+                                        ? <span className="text-zinc-400 italic">Generating…</span>
+                                        : <span className="text-zinc-400 italic">No output yet</span>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

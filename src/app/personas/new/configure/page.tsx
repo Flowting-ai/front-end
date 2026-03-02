@@ -3054,6 +3054,7 @@ function PersonaConfigurePageContent() {
               padding: "12px",
             }}
           >
+            <DialogTitle className="sr-only">Persona Created Successfully</DialogTitle>
             <div
               className="flex flex-col items-center justify-center gap-3 px-6 py-8"
               style={{
@@ -3168,6 +3169,7 @@ function PersonaConfigurePageContent() {
               padding: "8px",
             }}
           >
+            <DialogTitle className="sr-only">Share Persona</DialogTitle>
             <div className="flex flex-col gap-3">
               {/* Title with Close Button */}
               <div className="flex items-center justify-between px-1">

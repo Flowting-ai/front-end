@@ -2506,8 +2506,30 @@ export function ChatInterface({
 
                   const messageAttachments =
                     msg.sender === "user" && msg.metadata?.attachments;
-                  const messagePins =
-                    msg.sender === "user" && msg.metadata?.mentionedPins;
+                  // Build pin cards from mentionedPins (in-session) or fall back to
+                  // pinIds + pinsById (loaded from history where backend sends bare IDs)
+                  const messagePins: Array<{ id: string; label: string; text: string }> | false =
+                    msg.sender === "user" &&
+                    (() => {
+                      if (msg.metadata?.mentionedPins?.length) {
+                        return msg.metadata.mentionedPins.map((mp) => ({
+                          id: mp.id,
+                          label: mp.label,
+                          text: mp.text ?? "",
+                        }));
+                      }
+                      const ids = msg.metadata?.pinIds ?? [];
+                      if (ids.length === 0) return false;
+                      return ids.map((id) => {
+                        const pin = pinsById.get(id);
+                        const text = pin?.text ?? "";
+                        return {
+                          id,
+                          label: pin ? stripMarkdown(text).slice(0, 80) || id : id,
+                          text,
+                        };
+                      });
+                    })();
 
                   return (
                     <div key={msg.id} className="flex flex-col gap-2">
