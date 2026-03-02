@@ -147,7 +147,7 @@ export function ModelSelector({
         ) : null}
         <span className="model-selector-label font-inter font-[400] text-[14px] whitespace-nowrap">
           {useFramework
-            ? "Flowting AI Framework"
+            ? "Souvenir AI Framework"
             : selectedModel
             ? selectedModel.modelName
             : "Select model"}

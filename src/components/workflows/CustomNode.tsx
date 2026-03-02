@@ -64,6 +64,13 @@ function CustomNode({
   // Check if this node type is highlighted
   const isHighlighted = data.isHighlighted && !selected;
 
+  // Determine if instructions are required for this node
+  const isPinInstructionsRequired = data.type === 'pin' && (
+    data.selectedFolder || 
+    (Array.isArray(data.selectedPins) && data.selectedPins.length > 1)
+  );
+  const isInstructionsRequired = data.type === 'model' || isPinInstructionsRequired;
+
   const handleInstructionsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (data.onOpenInstructions) {
@@ -307,8 +314,8 @@ function CustomNode({
         {/* Chat count for chat nodes */}
         <div className="w-auto flex items-center justify-start">
           {data.type === 'chat' && data.selectedChats && (
-          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic">
-            Chat attached
+          <div className="text-xs text-[#5B5B5B] border rounded-full px-2 py-0.5 italic truncate max-w-full">
+            Chat attached{data.chatData?.name ? ` - ${data.chatData.name}` : ''}
           </div>
         )}
         </div>
@@ -342,12 +349,12 @@ function CustomNode({
         )}
         
 
-        {/* Instructions CTA - Show only for reasoning nodes (persona, model, chat), not for control or context nodes */}
-        {data.type !== 'start' && data.type !== 'end' && data.type !== 'pin' && data.type !== 'document' && (
+        {/* Instructions CTA - Show only for reasoning nodes (persona, model, chat, pin), not for control or context nodes */}
+        {data.type !== 'start' && data.type !== 'end' && data.type !== 'document' && (
           <button 
             onClick={handleInstructionsClick}
             className={`cursor-pointer absolute -bottom-7 left-1/2 -translate-x-1/2 h-[25px] rounded-2xl border py-1 px-2 gap-1 shadow-md bg-white flex items-center justify-center text-xs font-medium hover:bg-[#E5E5E5] transition-colors whitespace-nowrap z-10 ${
-              data.type === 'model' && (!data.instructions || !data.instructions.trim())
+              isInstructionsRequired && (!data.instructions || !data.instructions.trim())
                 ? 'border-red-300 text-red-600'
                 : 'border-[#E5E5E5] text-[#1E1E1E]'
             }`}
@@ -357,7 +364,7 @@ function CustomNode({
                 <Check size={14} className="text-green-600" />
                 Instructions added
               </>
-            ) : data.type === 'model' ? (
+            ) : isInstructionsRequired ? (
               <>
                 <Plus size={14} />
                 Instructions (Required)

@@ -172,7 +172,7 @@ export default function SignupPage() {
             alt="Flowting Logo"
             className="w-10 h-10 object-contain"
           />
-          <h1 className="font-clash font-normal text-[27px]">FlowtingAI</h1>
+          <h1 className="font-clash font-normal text-[27px]">SouvenirAI</h1>
         </div>
 
         {/* Text */}

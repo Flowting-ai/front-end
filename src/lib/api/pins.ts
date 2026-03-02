@@ -49,7 +49,7 @@ export async function createPin(
   chatId: string,
   messageId: string,
   csrfToken?: string | null,
-  options?: { folderId?: string | null; tags?: string[]; comments?: string[] }
+  options?: { folderId?: string | null; tags?: string[]; comments?: string[]; content?: string }
 ): Promise<BackendPin> {
   const payload: Record<string, unknown> = {
     messageId,
@@ -62,6 +62,10 @@ export async function createPin(
   }
   if (options?.comments) {
     payload.comments = options.comments;
+  }
+  // Pass content explicitly to ensure full message is saved
+  if (options?.content !== undefined) {
+    payload.content = options.content;
   }
 
   const response = await apiFetch(

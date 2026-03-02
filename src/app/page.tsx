@@ -3,11 +3,13 @@
 import { ChatInterface } from "@/components/chat/chat-interface";
 import { Button } from "@/components/ui/button";
 import { Pin } from "lucide-react";
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import type { PinType } from "@/components/layout/right-sidebar";
 import type { Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
+import { useAuth } from "@/context/auth-context";
 
 interface ChatPageProps {
     isRightSidebarVisible?: boolean;
@@ -46,6 +48,24 @@ function ChatPageContent({
 }
 
 export default function ChatPage() {
+    const { user, isHydrated } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        // Wait for auth state to hydrate before checking
+        if (!isHydrated) return;
+        
+        // Redirect to login if no user is authenticated
+        if (!user) {
+            router.push('/auth/login');
+        }
+    }, [user, isHydrated, router]);
+
+    // Don't render anything while checking auth or if not authenticated
+    if (!isHydrated || !user) {
+        return null;
+    }
+
     return (
         <AppLayout>
             <ChatPageContent />

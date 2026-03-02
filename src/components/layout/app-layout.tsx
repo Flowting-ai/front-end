@@ -56,10 +56,23 @@ import {
 import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
 import { toast } from "@/lib/toast-helper";
 import { extractThinkingContent } from "@/lib/thinking";
+import { fetchPersonas as fetchPersonasApi, type BackendPersona } from "@/lib/api/personas";
+import { API_BASE_URL } from "@/lib/config";
 
 interface AppLayoutProps {
   children: React.ReactElement;
 }
+
+export type Persona = {
+  id: string;
+  name: string;
+  avatar: string | null;
+  prompt: string;
+  modelId: number | null;
+  modelName: string | null;
+  providerName: string | null;
+  status: "active" | "paused";
+};
 
 export type ChatMetadata = {
   messageCount?: number | null;
@@ -128,6 +141,9 @@ interface AppLayoutContextType {
   updateChatTitleWithAnimation: (chatId: string, newTitle: string) => void;
   /** Get the currently animating title for a chat (if any) */
   getAnimatingTitle: (chatId: string) => { targetTitle: string; timestamp: number } | null;
+  // Active personas (fetched once and shared across components)
+  activePersonas: Persona[];
+  setActivePersonas: React.Dispatch<React.SetStateAction<Persona[]>>;
 }
 
 export const AppLayoutContext = createContext<AppLayoutContextType | null>(
@@ -525,6 +541,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [referencesSources, setReferencesSources] = useState<MessageSource[]>([]);
   const [pendingModelFromCompare, setPendingModelFromCompare] = useState<AIModel | null>(null);
   const [isModelSwitchConfirmOpen, setIsModelSwitchConfirmOpen] = useState(false);
+  const [activePersonas, setActivePersonas] = useState<Persona[]>([]);
 
   const [pins, setPins_] = useState<PinType[]>([]);
   const [pinsChatId, setPinsChatId] = useState<string | null>(null);
@@ -1093,6 +1110,40 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [activeChatId, loadPinsForChat, pinsChatId]);
 
+  // Fetch active personas once on mount
+  useEffect(() => {
+    const loadPersonas = async () => {
+      try {
+        const backendPersonas = await fetchPersonasApi(undefined, csrfTokenRef.current);
+        const activeOnly = backendPersonas
+          .filter((bp) => bp.status === "test") // Only show "test" personas as active
+          .map((bp) => ({
+            id: bp.id,
+            name: bp.name,
+            avatar: bp.imageUrl
+              ? bp.imageUrl.startsWith("http") ||
+                bp.imageUrl.startsWith("data:") ||
+                bp.imageUrl.startsWith("blob:")
+                ? bp.imageUrl
+                : `${API_BASE_URL}${bp.imageUrl.startsWith("/") ? "" : "/"}${bp.imageUrl}`
+              : null,
+            prompt: bp.prompt,
+            modelId: bp.modelId,
+            modelName: bp.modelName,
+            providerName: bp.providerName,
+            status: "active" as const,
+          }));
+        setActivePersonas(activeOnly);
+      } catch (error) {
+        console.error("Failed to fetch personas:", error);
+        setActivePersonas([]);
+      }
+    };
+    if (user) {
+      loadPersonas();
+    }
+  }, [user]);
+
   const setMessagesForActiveChat = (
     messages: Message[] | ((prev: Message[]) => Message[]),
     chatIdOverride?: string
@@ -1125,6 +1176,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             folderId: pinRequest.folderId ?? null,
             tags: pinRequest.tags,
             comments: pinRequest.comments,
+            content: pinRequest.text, // Pass full content explicitly
           }
         );
         const normalized = backendPinToLegacy(backendPin, pinRequest);
@@ -1498,6 +1550,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
     },
     updateChatTitleWithAnimation,
     getAnimatingTitle,
+    activePersonas,
+    setActivePersonas,
   };
 
   const pageContentProps = {

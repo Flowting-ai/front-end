@@ -146,7 +146,7 @@ export default function LoginPage() {
             alt="Flowting Logo"
             className="w-10 h-10 object-contain"
           />
-          <h1 className="font-clash font-normal text-[27px]">FlowtingAI</h1>
+          <h1 className="font-clash font-normal text-[27px]">SouvenirAI</h1>
         </div>
 
         {/* Text */}
@@ -161,7 +161,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="w-full max-w-[540px] flex flex-col gap-2">
             <h1 className="form-title">
-              Welcome to FlowtingAI
+              Welcome to SouvenirAI
             </h1>
             <p className="form-tagline">
               <span className="font-bold">Log in</span> to orchestrate
@@ -176,9 +176,9 @@ export default function LoginPage() {
             <div className="flex flex-col gap-2">
               <Label
                 htmlFor="identifier"
-                className="form-label text-[15px]"
+                className="form-label text-[15px] whitespace-pre"
               >
-                Email address <span className="text-zinc-400">*</span>
+                Email address<span className="text-zinc-400">*</span>
               </Label>
               <Input
                 id="identifier"

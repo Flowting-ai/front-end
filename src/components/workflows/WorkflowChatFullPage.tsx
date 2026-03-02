@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   ChevronDown,
   ChevronUp,
-  Share2,
   Pencil,
   Files,
   MessagesSquare,
@@ -105,12 +104,6 @@ export function WorkflowChatFullPage({
       textareaRef.current.style.height = `${scrollHeight}px`;
     }
   }, [input]);
-
-  const handleShare = () => {
-    toast.info("Share", {
-      description: "Share workflow feature coming soon.",
-    });
-  };
 
   const handleSend = async () => {
     const trimmedContent = input.trim();
@@ -215,7 +208,7 @@ export function WorkflowChatFullPage({
   return (
     <div className="px-12 py-4 max-h-[95vh] h-full flex flex-col w-full">
       {/* Row 1 - h-9 (36px), full width, justify-between */}
-      <div className="w-full flex items-center justify-between shrink-0 h-9 mb-3">
+      <div className="w-full flex items-center justify-start shrink-0 h-9 mb-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -240,14 +233,6 @@ export function WorkflowChatFullPage({
             <span>Edit Workflow</span>
           </button>
         </div>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="pointer-events-none text-sm text-[#0A0A0A]/20 bg-[#F5F5F5]/0 hover:bg-zinc-300 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
-        >
-          <Share2 className="h-4 w-4" />
-          <span>Share</span>
-        </button>
       </div>
 
       {/* Row 2 - toggleable node breakdown, h-7 when visible, full width */}

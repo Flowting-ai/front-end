@@ -7,7 +7,7 @@ import { REFINEMENT_STEPS } from '../types';
 
 interface UseRefinementReturn {
   currentStep: number;
-  selectedTone: string | null;
+  selectedTone: string[];
   customToneInput: string;
   showCustomInput: boolean;
   dosText: string;
@@ -18,12 +18,13 @@ interface UseRefinementReturn {
   suggestedDonts: string[];
   dosSkipped: boolean;
   setCurrentStep: (step: number) => void;
-  setSelectedToneDirect: (tone: string | null) => void;
+  setSelectedToneDirect: (tones: string[]) => void;
   setSuggestedDos: (values: string[]) => void;
   setSuggestedDonts: (values: string[]) => void;
   setDosText: (value: string) => void;
   setDontsText: (value: string) => void;
   handleToneSelect: (tone: string) => void;
+  handleToneToggle: (tone: string) => void;
   handleCustomToneChange: (value: string) => void;
   handleCustomToneSubmit: () => void;
   handleDosToggle: (dos: string) => void;
@@ -34,7 +35,7 @@ interface UseRefinementReturn {
 
 export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn {
   const [currentStep, setCurrentStep] = useState<number>(REFINEMENT_STEPS.TONE);
-  const [selectedTone, setSelectedTone] = useState<string | null>(null);
+  const [selectedTone, setSelectedTone] = useState<string[]>([]);
   const [customToneInput, setCustomToneInput] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [dosText, setDosText] = useState('');
@@ -64,13 +65,42 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
   const handleToneSelect = useCallback((tone: string) => {
     if (tone === 'Custom') {
       setShowCustomInput(true);
-      setSelectedTone('Custom');
+      setSelectedTone(['Custom']);
     } else {
       setShowCustomInput(false);
-      setSelectedTone(tone);
+      setSelectedTone([tone]);
       setCustomToneInput('');
       setCurrentStep(REFINEMENT_STEPS.DOS);
     }
+  }, []);
+
+  const handleToneToggle = useCallback((tone: string) => {
+    setSelectedTone((prev) => {
+      // If clicking Custom, just toggle it
+      if (tone === 'Custom') {
+        if (prev.includes('Custom')) {
+          setShowCustomInput(false);
+          setCustomToneInput('');
+          return prev.filter(t => t !== 'Custom');
+        } else {
+          setShowCustomInput(true);
+          return [...prev.filter(t => t !== 'Custom'), 'Custom'].slice(0, 2);
+        }
+      }
+      
+      // For regular tones
+      if (prev.includes(tone)) {
+        // Deselect
+        return prev.filter(t => t !== tone);
+      } else {
+        // Select (limit to 2)
+        if (prev.length >= 2) {
+          // Replace oldest selection
+          return [...prev.slice(1), tone];
+        }
+        return [...prev, tone];
+      }
+    });
   }, []);
 
   const handleCustomToneChange = useCallback((value: string) => {
@@ -79,7 +109,12 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
 
   const handleCustomToneSubmit = useCallback(() => {
     if (!customToneInput.trim()) return;
-    setSelectedTone('Custom');
+    setSelectedTone((prev) => {
+      if (!prev.includes('Custom')) {
+        return [...prev, 'Custom'].slice(0, 2);
+      }
+      return prev;
+    });
     setShowCustomInput(false);
     setCurrentStep(REFINEMENT_STEPS.DOS);
   }, [customToneInput]);
@@ -120,7 +155,7 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
   const reset = useCallback(() => {
     setCurrentStep(REFINEMENT_STEPS.TONE);
     setDosSkipped(false);
-    setSelectedTone(null);
+    setSelectedTone([]);
     setShowCustomInput(false);
     setCustomToneInput('');
     setDosText('');
@@ -147,6 +182,7 @@ export function useRefinement(hasEnhancedContent: boolean): UseRefinementReturn 
     setDosText,
     setDontsText,
     handleToneSelect,
+    handleToneToggle,
     handleCustomToneChange,
     handleCustomToneSubmit,
     handleDosToggle,

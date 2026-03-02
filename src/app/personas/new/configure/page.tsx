@@ -128,6 +128,35 @@ function PersonaConfigurePageContent() {
   const [hasFinishedBuilding, setHasFinishedBuilding] = useState(false);
   const { csrfToken } = useAuth();
 
+  // Enhance mode state
+  const [showEnhanceMode, setShowEnhanceMode] = useState(false);
+  const [enhanceLoadingStep, setEnhanceLoadingStep] = useState<'analyzing' | 'enhancing' | null>(null);
+  const [activeEnhanceTab, setActiveEnhanceTab] = useState(0);
+  const [canContinueTab, setCanContinueTab] = useState(false);
+  
+  // Tab 4: Topic focus
+  const [topicFocus, setTopicFocus] = useState<'Open' | 'Focused' | 'Strict' | ''>('');
+  
+  // Tab 5: Handling unknowns
+  const [handlingUnknowns, setHandlingUnknowns] = useState<string[]>([]);
+  const [customUnknown, setCustomUnknown] = useState('');
+  const [showCustomUnknown, setShowCustomUnknown] = useState(false);
+  
+  // Tab 6: Response structure
+  const [responseStructure, setResponseStructure] = useState<string[]>([]);
+  const [customStructure, setCustomStructure] = useState('');
+  const [showCustomStructure, setShowCustomStructure] = useState(false);
+  
+  // Tab 2 & 3: Custom Dos and Donts visibility
+  const [showCustomDos, setShowCustomDos] = useState(false);
+  const [showCustomDonts, setShowCustomDonts] = useState(false);
+  
+  // Track all improvements for tab 7
+  const [improvementsList, setImprovementsList] = useState<string[]>([]);
+  
+  // Track if enhancements have been applied
+  const [hasAppliedEnhancements, setHasAppliedEnhancements] = useState(false);
+
   // Custom hooks
   const { uploadedFiles, handleFileUpload, removeFile } = useFileUpload();
 
@@ -178,6 +207,7 @@ function PersonaConfigurePageContent() {
     setSuggestedDos,
     setSuggestedDonts,
     handleToneSelect,
+    handleToneToggle,
     handleCustomToneChange,
     handleCustomToneSubmit,
     handleDosToggle,
@@ -188,7 +218,7 @@ function PersonaConfigurePageContent() {
 
   const isRefinementComplete =
     hasEnhancedContent &&
-    !!selectedTone &&
+    selectedTone.length > 0 &&
     (selectedDos.length > 0 || dosText.trim() !== "" || dosSkipped) &&
     (selectedDonts.length > 0 || dontsText.trim() !== "");
 
@@ -233,7 +263,7 @@ function PersonaConfigurePageContent() {
     }
 
     // Step 5: Tone selected
-    if (selectedTone !== "") {
+    if (selectedTone.length > 0) {
       completed++;
     }
 
@@ -433,7 +463,20 @@ function PersonaConfigurePageContent() {
   // Handle enhancement
   const handleEnhance = async () => {
     try {
+      // Show enhance mode modal
+      setShowEnhanceMode(true);
+      setEnhanceLoadingStep('analyzing');
+
+      // Simulate analyzing phase
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setEnhanceLoadingStep('enhancing');
+
+      // Call enhance API
       const analysis = await enhance(currentInstruction, csrfToken);
+
+      // Complete loading
+      setEnhanceLoadingStep(null);
+      setActiveEnhanceTab(0);
 
       // Replace the prompt with the enhanced version
       const enhancedPrompt = analysis.prompt || analysis.summary;
@@ -443,7 +486,7 @@ function PersonaConfigurePageContent() {
 
       // Set tone if provided
       if (analysis.tone) {
-        setSelectedToneDirect(analysis.tone);
+        setSelectedToneDirect([analysis.tone]);
       }
 
       // Set dos suggestions - user will select from these
@@ -459,6 +502,8 @@ function PersonaConfigurePageContent() {
     } catch (error) {
       // Error is already handled in the hook
       console.error("Enhancement failed:", error);
+      setShowEnhanceMode(false);
+      setEnhanceLoadingStep(null);
     }
   };
 
@@ -467,6 +512,171 @@ function PersonaConfigurePageContent() {
     resetEnhancement();
     resetRefinement();
   };
+
+  // Handle close enhance mode
+  const handleCloseEnhanceMode = () => {
+    setShowEnhanceMode(false);
+    setEnhanceLoadingStep(null);
+    setActiveEnhanceTab(0);
+    setCanContinueTab(false);
+    
+    // Reset selections when closing without applying
+    // But keep hasAppliedEnhancements state for button text
+  };
+
+  // Handle continue to next tab
+  const handleContinueTab = () => {
+    if (activeEnhanceTab < 6) {
+      // Build improvements list as we go
+      const improvements: string[] = [];
+      if (selectedTone.length > 0) {
+        const tones = selectedTone.map(t => t === 'Custom' && customToneInput.trim() ? customToneInput : t).filter(t => t !== 'Custom');
+        if (tones.length > 0) improvements.push(`Tone: ${tones.join(' + ')}`);
+      }
+      if (selectedDos.length > 0) improvements.push(`Dos: ${selectedDos.join(', ')}`);
+      if (dosText.trim()) improvements.push(`Custom Dos: ${dosText}`);
+      if (selectedDonts.length > 0) improvements.push(`Don'ts: ${selectedDonts.join(', ')}`);
+      if (dontsText.trim()) improvements.push(`Custom Don'ts: ${dontsText}`);
+      if (topicFocus) improvements.push(`Topic Focus: ${topicFocus}`);
+      if (handlingUnknowns.length > 0) improvements.push(`Handling Unknowns: ${handlingUnknowns.join(', ')}`);
+      if (customUnknown.trim()) improvements.push(`Custom Unknown Handling: ${customUnknown}`);
+      if (responseStructure.length > 0) improvements.push(`Response Structure: ${responseStructure.join(', ')}`);
+      if (customStructure.trim()) improvements.push(`Custom Structure: ${customStructure}`);
+      setImprovementsList(improvements);
+
+      setActiveEnhanceTab(activeEnhanceTab + 1);
+      setCanContinueTab(false);
+    } else {
+      // Final tab - close enhance mode
+      handleCloseEnhanceMode();
+    }
+  };
+
+  // Handle back button
+  const handleBackTab = () => {
+    if (activeEnhanceTab > 0) {
+      setActiveEnhanceTab(activeEnhanceTab - 1);
+    }
+  };
+
+  // Handle apply enhancements
+  const handleApplyEnhancements = () => {
+    // Build enhanced prompt with all selections
+    let enhancedPrompt = currentInstruction;
+    
+    // Add tone(s)
+    if (selectedTone.length > 0) {
+      enhancedPrompt += `\n\n**Communication Style:**`;
+      selectedTone.forEach(tone => {
+        if (tone === 'Custom' && customToneInput.trim()) {
+          enhancedPrompt += `\n- Tone: ${customToneInput}`;
+        } else if (tone !== 'Custom') {
+          enhancedPrompt += `\n- Tone: ${tone}`;
+        }
+      });
+    }
+    
+    // Add Dos
+    if (selectedDos.length > 0 || dosText.trim()) {
+      enhancedPrompt += `\n\n**Always Do:**`;
+      selectedDos.forEach(doItem => {
+        enhancedPrompt += `\n- ${doItem}`;
+      });
+      if (dosText.trim()) {
+        enhancedPrompt += `\n- ${dosText}`;
+      }
+    }
+    
+    // Add Don'ts
+    if (selectedDonts.length > 0 || dontsText.trim()) {
+      enhancedPrompt += `\n\n**Never Do:**`;
+      selectedDonts.forEach(dontItem => {
+        enhancedPrompt += `\n- ${dontItem}`;
+      });
+      if (dontsText.trim()) {
+        enhancedPrompt += `\n- ${dontsText}`;
+      }
+    }
+    
+    // Add Topic Focus
+    if (topicFocus) {
+      enhancedPrompt += `\n\n**Topic Scope:**\n- ${topicFocus === 'Open' ? 'Can discuss anything relevant' : topicFocus === 'Focused' ? 'Stays close to expertise' : 'Only discusses defined topics'}`;
+    }
+    
+    // Add Handling Unknowns
+    if (handlingUnknowns.length > 0 || customUnknown.trim()) {
+      enhancedPrompt += `\n\n**When Uncertain:**`;
+      handlingUnknowns.forEach(option => {
+        enhancedPrompt += `\n- ${option}`;
+      });
+      if (customUnknown.trim()) {
+        enhancedPrompt += `\n- ${customUnknown}`;
+      }
+    }
+    
+    // Add Response Structure
+    if (responseStructure.length > 0 || customStructure.trim()) {
+      enhancedPrompt += `\n\n**Response Format:**`;
+      responseStructure.forEach(format => {
+        enhancedPrompt += `\n- ${format}`;
+      });
+      if (customStructure.trim()) {
+        enhancedPrompt += `\n- ${customStructure}`;
+      }
+    }
+    
+    // Update the instruction
+    setInstruction(enhancedPrompt);
+    
+    // Mark that enhancements have been applied
+    setHasAppliedEnhancements(true);
+    
+    // Close the enhance mode
+    setShowEnhanceMode(false);
+    setEnhanceLoadingStep(null);
+    setActiveEnhanceTab(0);
+    setCanContinueTab(false);
+    
+    toast('Enhancements Applied', {
+      description: `${improvementsList.length} improvements have been added to your prompt.`,
+    });
+  };
+
+  // Handle skip tab
+  const handleSkipTab = () => {
+    if (activeEnhanceTab < 6) {
+      setActiveEnhanceTab(activeEnhanceTab + 1);
+      setCanContinueTab(false);
+    } else {
+      handleCloseEnhanceMode();
+    }
+  };
+
+  // Update canContinueTab when selections change
+  useEffect(() => {
+    if (activeEnhanceTab === 0) {
+      // Tab 1: At least one tone selected
+      setCanContinueTab(selectedTone.length > 0);
+    } else if (activeEnhanceTab === 1) {
+      // Tab 2: At least one Do selected
+      setCanContinueTab(selectedDos.length > 0 || dosText.trim() !== '');
+    } else if (activeEnhanceTab === 2) {
+      // Tab 3: At least one Don't selected
+      setCanContinueTab(selectedDonts.length > 0 || dontsText.trim() !== '');
+    } else if (activeEnhanceTab === 3) {
+      // Tab 4: Topic focus selected
+      setCanContinueTab(topicFocus !== '');
+    } else if (activeEnhanceTab === 4) {
+      // Tab 5: At least one unknown handling selected
+      setCanContinueTab(handlingUnknowns.length > 0 || customUnknown.trim() !== '');
+    } else if (activeEnhanceTab === 5) {
+      // Tab 6: At least one response structure selected
+      setCanContinueTab(responseStructure.length > 0 || customStructure.trim() !== '');
+    } else if (activeEnhanceTab === 6) {
+      // Tab 7: Always allow continue (summary tab)
+      setCanContinueTab(true);
+    }
+  }, [activeEnhanceTab, selectedTone, selectedDos, dosText, selectedDonts, dontsText, topicFocus, handlingUnknowns, customUnknown, responseStructure, customStructure]);
 
   // Handle skip with history management
   const handleSkipWithHistory = () => {
@@ -536,24 +746,24 @@ function PersonaConfigurePageContent() {
 
       // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
       if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
-        console.log("✅ Converting data URL to file for persona avatar");
-        console.log("✅ Data URL preview:", avatarUrl.substring(0, 100));
+        console.log("Converting data URL to file for persona avatar");
+        console.log("Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
         if (imageFile) {
           console.log(
-            "✅ Converted to file:",
+            "Converted to file:",
             imageFile.name,
             imageFile.size,
             "bytes, type:",
             imageFile.type,
           );
         } else {
-          console.error("❌ Failed to convert data URL to file");
+          console.error("Failed to convert data URL to file");
         }
       }
 
       console.log(
-        "💾 Saving persona with image:",
+        "Saving persona with image:",
         imageFile
           ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})`
           : "no image",
@@ -578,23 +788,23 @@ function PersonaConfigurePageContent() {
       // Check if we're updating an existing persona or creating a new one
       if (createdPersonaId) {
         // Update existing persona
-        console.log("📝 Updating persona:", createdPersonaId);
+        console.log("Updating persona:", createdPersonaId);
         result = await updatePersona(createdPersonaId, personaPayload, csrfToken);
-        console.log("✅ Persona updated successfully!");
+        console.log("Persona updated successfully!");
         
         // Show success toast for update
         toast("Persona Updated", {
           description: "Your persona has been updated successfully.",
         });
         
-        // Navigate back to personas list after update
+        // Navigate to persona chat page after update
         setTimeout(() => {
-          router.push("/personas");
+          router.push(`/personas/chat/${createdPersonaId}`);
         }, 1000);
       } else {
         // Create new persona
         result = await createPersona(personaPayload, csrfToken);
-        console.log("✅ Persona created successfully!");
+        console.log("Persona created successfully!");
         
         setCreatedPersonaId(result.id);
         setHasFinishedBuilding(true);
@@ -993,11 +1203,11 @@ function PersonaConfigurePageContent() {
                                 handleInstructionChange(e.target.value)
                               }
                               className={styles.textarea}
-                              placeholder="Enter system instructions..."
+                              placeholder="Describe your persona’s goals, expertise, tone, and responsibilities. Example: ‘You are a Lead AI Researcher who specializes in…’"
                             />
 
-                            {/* Refinement Section - Step-by-step flow */}
-                            {hasEnhancedContent && (
+                            {/* Refinement Section - MOVED TO ENHANCE MODE OVERLAY */}
+                            {false && hasEnhancedContent && (
                               <>
                                 {/* Step 1: Tone Selection */}
                                 {currentStep === REFINEMENT_STEPS.TONE && (
@@ -1025,7 +1235,7 @@ function PersonaConfigurePageContent() {
                                             }
                                             className={cn(
                                               styles.toneButton,
-                                              selectedTone === tone &&
+                                              selectedTone.includes(tone) &&
                                                 styles.toneButtonSelected,
                                             )}
                                           >
@@ -1039,7 +1249,7 @@ function PersonaConfigurePageContent() {
                                           }
                                           className={cn(
                                             styles.toneButton,
-                                            selectedTone === "Custom" &&
+                                            selectedTone.includes("Custom") &&
                                               styles.toneButtonSelected,
                                           )}
                                         >
@@ -1191,37 +1401,9 @@ function PersonaConfigurePageContent() {
                             )}
 
                             <div className={styles.textareaActions}>
-                              <div className={styles.iconButtonGroup}>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={undo}
-                                  disabled={!canUndo}
-                                  className={styles.iconButton}
-                                >
-                                  <Undo2
-                                    size={18}
-                                    strokeWidth={1.5}
-                                    className={styles.undoIcon}
-                                  />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={redo}
-                                  disabled={!canRedo}
-                                  className={styles.iconButton}
-                                >
-                                  <Redo2
-                                    size={18}
-                                    strokeWidth={1.5}
-                                    className={styles.redoIcon}
-                                  />
-                                </Button>
-                              </div>
                               <Button
                                 onClick={handleEnhance}
-                                disabled={isEnhancing}
+                                disabled={isEnhancing || !currentInstruction.trim()}
                                 className={styles.enhanceButton}
                               >
                                 {isEnhancing ? (
@@ -1232,28 +1414,10 @@ function PersonaConfigurePageContent() {
                                 ) : (
                                   <>
                                     <Sparkles className="h-4 w-4" />
-                                    Enhance
+                                    {hasAppliedEnhancements ? 'Enhance Again' : 'Enhance'}
                                   </>
                                 )}
                               </Button>
-                              {hasEnhancedContent && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    onClick={handleEditManually}
-                                    className={styles.editManualButton}
-                                  >
-                                    Edit Prompt Text Manually
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    onClick={handleSkipWithHistory}
-                                    className={styles.skipButton}
-                                  >
-                                    Skip
-                                  </Button>
-                                </>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -1610,6 +1774,575 @@ function PersonaConfigurePageContent() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enhance Mode Overlay */}
+        {showEnhanceMode && (
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"
+            style={{ backdropFilter: 'blur(4px)' }}
+          >
+            <div
+              className="bg-white rounded-[30px] relative"
+              style={{
+                width: '800px',
+                height: '600px',
+                boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              {/* Loading State */}
+              {enhanceLoadingStep && (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-6">
+                  <Sparkles size={120} color="#7e6afe" />
+                  <div className="flex flex-col items-center gap-2">
+                    <h2
+                      className="font-clash font-semibold text-[32px] flex items-center gap-2"
+                      style={{ letterSpacing: '-0.02em', color: '#7e6afe' }}
+                    >
+                      {/* <Sparkles size={24} /> */}
+                      Enhance Mode
+                    </h2>
+                    <p className="text-[16px] text-[#666666] animate-pulse">
+                      {enhanceLoadingStep === 'analyzing' 
+                        ? 'Analysing the prompt...' 
+                        : 'Looking for gaps to enhance...'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Interface */}
+              {!enhanceLoadingStep && (
+                <div className="w-full h-full flex flex-col p-8">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h2
+                      className="font-clash font-medium text-[24px] flex items-center gap-2"
+                      style={{ letterSpacing: '-0.02em', color: '#7e6afe' }}
+                    >
+                      <Sparkles size={20} />
+                      Enhance Mode
+                    </h2>
+                    <button
+                      onClick={handleCloseEnhanceMode}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <X size={20} className="text-[#666666]" />
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="flex-1 overflow-hidden mb-4">
+                    {/* Tab 1: Tone Selection */}
+                    {activeEnhanceTab === 0 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          How should this persona sound?
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          Pick up to two for a blended tone.
+                        </p>
+                        <div className="flex-1 overflow-y-auto">
+                          <div className="grid grid-cols-4 gap-3">
+                            {TONE_OPTIONS.map((tone) => (
+                              <button
+                                key={tone}
+                                onClick={() => handleToneToggle(tone)}
+                                className={cn(
+                                  'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                  'flex items-center justify-center',
+                                  'text-[14px] font-medium',
+                                  selectedTone.includes(tone)
+                                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                    : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                                )}
+                              >
+                                {tone}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => handleToneToggle('Custom')}
+                              className={cn(
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'flex items-center justify-center gap-2',
+                                'text-[14px] font-medium',
+                                selectedTone.includes('Custom')
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <Pencil size={16} />
+                              Custom
+                            </button>
+                          </div>
+                          {showCustomInput && selectedTone.includes('Custom') && (
+                            <div className="mt-4">
+                              <Input
+                                type="text"
+                                placeholder="Eg. Supportive"
+                                value={customToneInput}
+                                onChange={(e) => handleCustomToneChange(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleCustomToneSubmit();
+                                  }
+                                }}
+                                className="w-full h-11 px-4 border border-[#D9D9D9] rounded-lg"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 2: Dos Selection */}
+                    {activeEnhanceTab === 1 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          What should this persona always do?
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          Select all that apply, or write your own.
+                        </p>
+                        <div 
+                          className="flex-1 overflow-y-auto"
+                          style={{ maxHeight: '320px' }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {suggestedDos.map((doItem, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleDosToggle(doItem)}
+                                className={cn(
+                                  'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
+                                  'flex items-center justify-start text-left',
+                                  'text-[14px] font-medium',
+                                  selectedDos.includes(doItem)
+                                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                    : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                                )}
+                              >
+                                {doItem}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => {
+                                setShowCustomDos(true);
+                                setTimeout(() => {
+                                  const input = document.getElementById('custom-dos-input') as HTMLInputElement;
+                                  input?.focus();
+                                }, 10);
+                              }}
+                              className={cn(
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'flex items-center justify-center gap-2',
+                                'text-[14px] font-medium',
+                                showCustomDos
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <Pencil size={16} />
+                              Custom
+                            </button>
+                          </div>
+                          {showCustomDos && (
+                            <div className="mt-4">
+                              <Textarea
+                                id="custom-dos-input"
+                                placeholder="Add your own DOs..."
+                                value={dosText}
+                                onChange={(e) => setDosText(e.target.value)}
+                                className="w-full min-h-[80px] px-4 py-3 border border-[#D9D9D9] rounded-lg resize-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 3: Donts Selection */}
+                    {activeEnhanceTab === 2 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          What should this persona never do?
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          Select all that apply, or write your own.
+                        </p>
+                        <div 
+                          className="flex-1 overflow-y-auto"
+                          style={{ maxHeight: '320px' }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {suggestedDonts.map((dontItem, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleDontsToggle(dontItem)}
+                                className={cn(
+                                  'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
+                                  'flex items-center justify-start text-left',
+                                  'text-[14px] font-medium',
+                                  selectedDonts.includes(dontItem)
+                                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                    : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                                )}
+                              >
+                                {dontItem}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => {
+                                setShowCustomDonts(true);
+                                setTimeout(() => {
+                                  const input = document.getElementById('custom-donts-input') as HTMLTextAreaElement;
+                                  input?.focus();
+                                }, 10);
+                              }}
+                              className={cn(
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'flex items-center justify-center gap-2',
+                                'text-[14px] font-medium',
+                                showCustomDonts
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <Pencil size={16} />
+                              Custom
+                            </button>
+                          </div>
+                          {showCustomDonts && (
+                            <div className="mt-4">
+                              <Textarea
+                                id="custom-donts-input"
+                                placeholder="Add your own DONTs..."
+                                value={dontsText}
+                                onChange={(e) => setDontsText(e.target.value)}
+                                className="w-full min-h-[80px] px-4 py-3 border border-[#D9D9D9] rounded-lg resize-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tabs 4-7: Implementation */}
+                    {/* Tab 4: Topic Focus */}
+                    {activeEnhanceTab === 3 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          Should this persona stick to specific topics?
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          Keeps conversation focused and on-brand.
+                        </p>
+                        <div className="flex flex-col gap-4">
+                          <button
+                            onClick={() => setTopicFocus('Open')}
+                            className={cn(
+                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                              'flex flex-col items-start text-left',
+                              topicFocus === 'Open'
+                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                            )}
+                          >
+                            <span className="font-medium text-[16px]">Open</span>
+                            <span className={cn(
+                              'text-[14px] mt-1',
+                              topicFocus === 'Open' ? 'text-white/80' : 'text-[#666666]'
+                            )}>
+                              Can discuss anything relevant
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setTopicFocus('Focused')}
+                            className={cn(
+                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                              'flex flex-col items-start text-left',
+                              topicFocus === 'Focused'
+                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                            )}
+                          >
+                            <span className="font-medium text-[16px]">Focused</span>
+                            <span className={cn(
+                              'text-[14px] mt-1',
+                              topicFocus === 'Focused' ? 'text-white/80' : 'text-[#666666]'
+                            )}>
+                              Stays close to its expertise
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setTopicFocus('Strict')}
+                            className={cn(
+                              'h-auto px-6 py-4 rounded-lg border transition-all duration-200',
+                              'flex flex-col items-start text-left',
+                              topicFocus === 'Strict'
+                                ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                            )}
+                          >
+                            <span className="font-medium text-[16px]">Strict</span>
+                            <span className={cn(
+                              'text-[14px] mt-1',
+                              topicFocus === 'Strict' ? 'text-white/80' : 'text-[#666666]'
+                            )}>
+                              Only discusses defined topics
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 5: Handling Unknowns */}
+                    {activeEnhanceTab === 4 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          When the persona doesn't know something...
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          How it handles gaps matters for trust.
+                        </p>
+                        <div 
+                          className="flex-1 overflow-y-auto"
+                          style={{ maxHeight: '320px' }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {['Admit it honestly', 'Suggest alternatives', 'Ask for more context', 'Best guess + disclaimer'].map((option) => (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  if (handlingUnknowns.includes(option)) {
+                                    setHandlingUnknowns(handlingUnknowns.filter(h => h !== option));
+                                  } else {
+                                    setHandlingUnknowns([...handlingUnknowns, option]);
+                                  }
+                                }}
+                                className={cn(
+                                  'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
+                                  'flex items-center justify-start text-left',
+                                  'text-[14px] font-medium',
+                                  handlingUnknowns.includes(option)
+                                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                    : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                                )}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => {
+                                setShowCustomUnknown(true);
+                                setTimeout(() => {
+                                  const input = document.getElementById('custom-unknown-input') as HTMLTextAreaElement;
+                                  input?.focus();
+                                }, 10);
+                              }}
+                              className={cn(
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'flex items-center justify-center gap-2',
+                                'text-[14px] font-medium',
+                                showCustomUnknown
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <Pencil size={16} />
+                              Custom
+                            </button>
+                          </div>
+                          {showCustomUnknown && (
+                            <div className="mt-4">
+                              <Textarea
+                                id="custom-unknown-input"
+                                placeholder="Describe how to handle unknowns..."
+                                value={customUnknown}
+                                onChange={(e) => setCustomUnknown(e.target.value)}
+                                className="w-full min-h-[80px] px-4 py-3 border border-[#D9D9D9] rounded-lg resize-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 6: Response Structure */}
+                    {activeEnhanceTab === 5 && (
+                      <div className="h-full flex flex-col">
+                        <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          How should the persona structure its responses?
+                        </h3>
+                        <p className="text-[14px] text-[#666666] mb-6">
+                          Format affects clarity and usability.
+                        </p>
+                        <div 
+                          className="flex-1 overflow-y-auto"
+                          style={{ maxHeight: '320px' }}
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            {['Detailed', 'Concise', 'Framework-based', 'Bullets only', 'Step-by-step'].map((option) => (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  if (responseStructure.includes(option)) {
+                                    setResponseStructure(responseStructure.filter(r => r !== option));
+                                  } else {
+                                    setResponseStructure([...responseStructure, option]);
+                                  }
+                                }}
+                                className={cn(
+                                  'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
+                                  'flex items-center justify-start text-left',
+                                  'text-[14px] font-medium',
+                                  responseStructure.includes(option)
+                                    ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                    : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                                )}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => {
+                                setShowCustomStructure(true);
+                                setTimeout(() => {
+                                  const input = document.getElementById('custom-structure-input') as HTMLTextAreaElement;
+                                  input?.focus();
+                                }, 10);
+                              }}
+                              className={cn(
+                                'h-[48px] px-4 rounded-lg border transition-all duration-200',
+                                'flex items-center justify-center gap-2',
+                                'text-[14px] font-medium',
+                                showCustomStructure
+                                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
+                                  : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
+                              )}
+                            >
+                              <Pencil size={16} />
+                              Custom
+                            </button>
+                          </div>
+                          {showCustomStructure && (
+                            <div className="mt-4">
+                              <Textarea
+                                id="custom-structure-input"
+                                placeholder="Describe response structure..."
+                                value={customStructure}
+                                onChange={(e) => setCustomStructure(e.target.value)}
+                                className="w-full min-h-[80px] px-4 py-3 border border-[#D9D9D9] rounded-lg resize-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 7: Summary */}
+                    {activeEnhanceTab === 6 && (
+                      <div className="h-full flex flex-col">
+                        <div className="flex flex-col items-center justify-center mb-6">
+                          <div className="w-16 h-16 rounded-lg bg-[#7e6afe] flex items-center justify-center mb-4">
+                            <Check size={32} className="text-white" />
+                          </div>
+                          <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                            Ready to apply
+                          </h3>
+                          <p className="text-[14px] text-[#666666]">
+                            {improvementsList.length} improvements will be added to your prompt
+                          </p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-3">
+                          {improvementsList.map((improvement, index) => (
+                            <div
+                              key={index}
+                              className="flex items-start gap-3 px-4 py-3 border border-[#D9D9D9] rounded-lg bg-white"
+                            >
+                              <Check size={16} className="text-[#7e6afe] mt-0.5 flex-shrink-0" />
+                              <span className="text-[14px] text-[#0a0a0a]">{improvement}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tab Navigation Dots - Bottom Center */}
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    {Array.from({ length: 7 }).map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setActiveEnhanceTab(index)}
+                        className={cn(
+                          'h-2 rounded-full transition-all duration-300',
+                          activeEnhanceTab === index
+                            ? 'w-12 bg-[#7e6afe]'
+                            : 'w-2 bg-gray-300'
+                        )}
+                        aria-label={`Tab ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                    <div className="flex gap-2">
+                      {activeEnhanceTab > 0 && activeEnhanceTab < 6 && (
+                        <Button
+                          onClick={handleBackTab}
+                          variant="ghost"
+                          className="text-[14px] text-[#666666] hover:text-[#0A0A0A]"
+                        >
+                          Back
+                        </Button>
+                      )}
+                      {activeEnhanceTab > 0 && activeEnhanceTab < 6 && (
+                        <Button
+                          onClick={handleSkipTab}
+                          variant="ghost"
+                          className="text-[14px] text-[#666666] hover:text-[#0A0A0A]"
+                        >
+                          Skip
+                        </Button>
+                      )}
+                    </div>
+                    {activeEnhanceTab === 6 ? (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleCloseEnhanceMode}
+                          variant="outline"
+                          className="px-6 py-2.5 rounded-lg text-[14px] font-medium border-[#D9D9D9] text-[#666666] hover:text-[#0A0A0A]"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleApplyEnhancements}
+                          className="px-6 py-2.5 rounded-lg text-[14px] font-medium bg-[#171717] hover:bg-[#000000] text-white"
+                        >
+                          Apply to prompt
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleContinueTab}
+                        disabled={!canContinueTab}
+                        className={cn(
+                          'px-6 py-2.5 rounded-lg text-[14px] font-medium',
+                          canContinueTab
+                            ? 'bg-[#171717] hover:bg-[#000000] text-white'
+                            : 'bg-[#D4D4D4] cursor-not-allowed text-gray-500'
+                        )}
+                      >
+                        Continue
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

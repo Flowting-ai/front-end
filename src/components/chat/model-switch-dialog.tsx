@@ -291,7 +291,7 @@ export function ModelSwitchDialog({
                 <div className="w-full flex flex-col pl-1 pr-3 py-3">
                   <div className="flex items-center mb-1">
                     <div className="font-[600] text-[16px] flex items-center gap-2">
-                      Flowting AI Framework
+                      Souvenir AI Framework
                       <span className="font-geist font-[500] text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
                         {frameworkSelected ? "Default" : "Recommended"}
                       </span>
@@ -303,7 +303,7 @@ export function ModelSwitchDialog({
                   </div>
                   <p className="font-geist font-[400] text-[14px] text-left">
                     A smart blend of AI models for high-quality results.
-                    Flowting picks the right model for your task and adapts as
+                    Souvenir picks the right model for your task and adapts as
                     you work, keeping your context intact and you in control.
                   </p>
                 </div>

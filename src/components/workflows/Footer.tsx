@@ -18,7 +18,7 @@ export default function Footer({ nodeCount, connectionCount }: FooterProps) {
 
       {/* Right - Additional Info */}
       <div className="flex items-center gap-6">
-        <span>FlowtingAI Workflow Builder</span>
+        <span>SouvenirAI Workflow Builder</span>
       </div>
     </div>
   );

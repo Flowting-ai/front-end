@@ -260,6 +260,7 @@ export function RightSidebar({
             folderId: pin.folderId || null,
             tags: [...pin.tags],
             comments: [...(pin.comments || [])],
+            content: (pin.text ?? pin.formattedContent) ?? undefined, // Pass full content explicitly
           }
         );
         
@@ -320,7 +321,7 @@ export function RightSidebar({
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
-    pinsToDisplay.forEach((pin) => pin.tags.forEach((tag) => tagSet.add(tag)));
+    pinsToDisplay.forEach((pin) => pin.tags.forEach((tag) => tagSet.add(stripMarkdown(tag))));
     return Array.from(tagSet).sort();
   }, [pinsToDisplay]);
 
@@ -355,12 +356,11 @@ export function RightSidebar({
 
   const filteredTags = useMemo(() => {
     if (!tagSearch) {
-      return allTags.slice(0, 5);
+      return allTags;
     }
     const query = tagSearch.toLowerCase();
     return allTags
-      .filter((tag) => tag.toLowerCase().includes(query))
-      .slice(0, 5);
+      .filter((tag) => tag.toLowerCase().includes(query));
   }, [allTags, tagSearch]);
 
   const filteredFolders = useMemo(() => {
