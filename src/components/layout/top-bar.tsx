@@ -46,7 +46,6 @@ export function Topbar({
   const firstName =
     (user?.firstName as string | undefined) ||
     (user?.name as string | undefined)?.split(" ")[0] ||
-    (user?.username as string | undefined) ||
     "User";
 
   const isHomePage = pathname === "/";

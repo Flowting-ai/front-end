@@ -187,10 +187,6 @@ export function LeftSidebar({
       const first = fromName.split(/\s+/)[0];
       if (first) return first;
     }
-    if (typeof user?.username === "string") {
-      const first = user.username.split(/[.\s]/)[0];
-      if (first) return first;
-    }
     if (typeof user?.email === "string") {
       const first = user.email.split("@")[0];
       if (first) return first;
