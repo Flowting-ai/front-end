@@ -13,9 +13,9 @@ export interface ChatHistoryItemProps {
   isStarred: boolean;
   pinnedCount: number;
   onSelect: () => void;
-  onToggleStar: () => void;
-  onRename: () => void;
-  onDelete: () => void;
+  onToggleStar?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
   isRenaming?: boolean;
   renameValue?: string;
   onRenameChange?: (value: string) => void;
@@ -136,7 +136,7 @@ export function ChatHistoryItem({
               </TooltipContent>
             </Tooltip>
           )}
-          {!isRenaming && (
+          {!isRenaming && (onToggleStar) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -169,7 +169,8 @@ export function ChatHistoryItem({
             </Tooltip>
           )}
         </div>
-        <DropdownMenu>
+        {(onRename || onDelete) && (
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -189,28 +190,33 @@ export function ChatHistoryItem({
             align="end"
             className="w-[108px] h-[76px] rounded-lg border border-[#E5E5E5] bg-white shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1),0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
           >
-            <DropdownMenuItem
-              onSelect={() => {
-                onRename();
-              }}
-              disabled={isRenamePending}
-              className="flex items-center gap-2 text-black cursor-pointer"
-            >
-              <Edit className="h-4 w-4" />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                onDelete();
-              }}
-              disabled={isRenamePending}
-              className="flex items-center gap-2 text-black cursor-pointer"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
+            {onRename && (
+              <DropdownMenuItem
+                onSelect={() => {
+                  onRename();
+                }}
+                disabled={isRenamePending}
+                className="flex items-center gap-2 text-black cursor-pointer"
+              >
+                <Edit className="h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                onSelect={() => {
+                  onDelete();
+                }}
+                disabled={isRenamePending}
+                className="flex items-center gap-2 text-black cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </TooltipProvider>
     </div>
   );

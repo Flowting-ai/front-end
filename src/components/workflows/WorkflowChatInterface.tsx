@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Square, Mic } from "lucide-react";
+import { Send, X, Loader2, Square, Mic, Maximize2, Minimize2 } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
@@ -206,6 +206,7 @@ export function WorkflowChatInterface({
     Map<string, { label: string; type?: string }>
   >(new Map());
   const [isResponding, setIsResponding] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [nodeOutputs, setNodeOutputs] = useState<Map<string, NodeOutput>>(new Map());
   const [expandedNodeOutputId, setExpandedNodeOutputId] = useState<string | null>(null);
@@ -734,7 +735,7 @@ export function WorkflowChatInterface({
   };
 
   return (
-    <div className="top-[60px] max-h-[calc(100vh-65px)] right-2 relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-white border border-main-border rounded-3xl shadow-lg">
+    <div className={`${isFullscreen ? 'fixed inset-0 top-[60px] left-0 right-0 z-50' : 'top-[60px] right-2 relative flex-1'} max-h-[calc(100vh-65px)] flex min-h-0 h-full flex-col overflow-hidden bg-white border border-main-border rounded-3xl shadow-lg p-2 transition-all duration-300`}>
       {/* Streaming Status Bar */}
       {isResponding && activeNodeId && (
         <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2 z-10">
@@ -757,6 +758,17 @@ export function WorkflowChatInterface({
       )}
 
       {/* Header */}
+      <button
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="absolute top-2 left-3.5 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
+          aria-label={isFullscreen ? "Minimize" : "Fullscreen"}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="h-3 w-3 text-[#666666]" />
+          ) : (
+            <Maximize2 className="h-3 w-3 text-[#666666]" />
+          )}
+        </button>
       <button
           onClick={onClose}
           className="absolute top-2 right-3.5 z-20 cursor-pointer flex w-auto py-2 px-2 bg-zinc-100 text-xs items-center justify-center gap-2 rounded-full hover:bg-[#F5F5F5] transition-colors shadow-sm"
@@ -785,11 +797,11 @@ export function WorkflowChatInterface({
         </section>
       ) : (
         <div
-          className={`relative flex-1 min-h-0 overflow-y-auto mt-2 ${chatStyles.customScrollbar} ${chatStyles.hidePinButton}`}
+          className={`relative flex-1 min-h-0 overflow-y-auto mt-2 ${chatStyles.customScrollbar} ${chatStyles.hidePinButton} ${chatStyles.hideAvatar}`}
           ref={scrollViewportRef}
         >
-          <div className="mx-auto w-full max-w-[850px] flex-col gap-3 pr-4 py-4">
-            <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none">
+          <div className={`mx-auto w-full ${isFullscreen ? 'max-w-full px-8' : 'max-w-[850px]'} flex-col gap-3 pr-4 py-4 break-words transition-all duration-300`}>
+            <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none break-words">
               <div className="flex-col gap-3">
                 {displayMessages.map((msg, idx) => (
                   <ChatMessage
@@ -871,8 +883,8 @@ export function WorkflowChatInterface({
                               </span>
                             </button>
                             {isExpanded && (
-                              <div className="border-t border-[#EFEFEF] px-3 py-3">
-                                <div className="text-xs leading-relaxed text-[#3D3D3D]">
+                              <div className="border-t border-[#EFEFEF] px-3 py-3 break-words">
+                                <div className="text-xs leading-relaxed text-[#3D3D3D] break-words">
                                   {renderMarkdownContent(output.content)}
                                 </div>
                               </div>
@@ -891,7 +903,7 @@ export function WorkflowChatInterface({
 
       {/* Chat Input Footer */}
       <footer className="shrink-0 bg-white px-2 pb-0.5 pt-0">
-        <div className="relative mx-auto w-full max-w-[756px]">
+        <div className={`relative mx-auto w-full ${isFullscreen ? 'max-w-full px-8' : 'max-w-[756px]'} transition-all duration-300`}>
           <div
             className="rounded-[24px] border border-[#D9D9D9] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
             style={{

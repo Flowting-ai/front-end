@@ -22,3 +22,8 @@
 .hidePinButton :global(.chat-message-bubble--ai) button[aria-pressed]:has(svg.lucide-pin) {
   display: none !important;
 }
+
+/* Hide AI avatar in workflow chat - targets the Avatar component in AI messages (flex-row) */
+.hideAvatar :global(.flex-row) > span[class*="h-9"][class*="w-9"] {
+  display: none !important;
+}

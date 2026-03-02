@@ -101,7 +101,7 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, clearAuth } = useAuth();
+  const { user, clearAuth, csrfToken } = useAuth();
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
@@ -968,9 +968,6 @@ export function LeftSidebar({
                                     isStarred={false}
                                     pinnedCount={0}
                                     onSelect={handleSelect}
-                                    onToggleStar={() => {}}
-                                    onRename={() => {}}
-                                    onDelete={() => {}}
                                   />
                                 </div>
                               );
@@ -1008,9 +1005,6 @@ export function LeftSidebar({
                                     isStarred={false}
                                     pinnedCount={0}
                                     onSelect={handleSelect}
-                                    onToggleStar={() => {}}
-                                    onRename={() => {}}
-                                    onDelete={() => {}}
                                   />
                                 </div>
                               );
