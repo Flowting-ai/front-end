@@ -4,7 +4,6 @@ import {
   MODELS_ENDPOINT,
   PERSONAS_ENDPOINT,
   PINS_ENDPOINT as CONFIG_PINS_ENDPOINT,
-  CSRF_INIT_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "@/lib/api/client";
 
@@ -21,7 +20,7 @@ type FrontendNodeType =
   | "model"
   | "phantom";
 
-type BackendNodeType = "start" | "end" | "model" | "persona" | "chat" | "pin_folder";
+type BackendNodeType = "start" | "end" | "model" | "persona" | "chat" | "pin_folder" | "pin";
 
 // =============================================================================
 // BACKEND API TYPES (Request / Response shapes)
@@ -31,7 +30,7 @@ interface BackendWorkflowNodePayload {
   node_id: string;
   name: string;
   node_type: BackendNodeType;
-  reference_id: string;
+  reference_id?: string;
   instructions: string;
   position_x: number;
   position_y: number;
@@ -321,14 +320,21 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
     const errorPayload = (await parseJsonSafe(response)) as
       | Record<string, unknown>
       | null;
+    // Log full body so validation errors (e.g. Django field errors) are visible in console
+    if (process.env.NODE_ENV === "development") {
+      console.error(`[WorkflowAPI] ${response.status} ${response.url}`, errorPayload);
+    }
     const message =
       errorPayload?.message ||
       errorPayload?.detail ||
       errorPayload?.error ||
+      (typeof errorPayload === "object" && errorPayload !== null
+        ? JSON.stringify(errorPayload)
+        : undefined) ||
       response.statusText ||
       "API request failed";
     throw new WorkflowAPIError(
-      typeof message === "string" ? message : "API request failed",
+      typeof message === "string" ? message : JSON.stringify(message),
       response.status,
       typeof errorPayload?.code === "string" ? errorPayload.code : undefined
     );
@@ -336,17 +342,6 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 
   const payload = await parseJsonSafe(response);
   return payload as T;
-};
-
-const ensureCsrfToken = async () => {
-  if (typeof document === "undefined") return;
-  if (document.cookie.includes("csrftoken=")) return;
-
-  try {
-    await apiFetch(CSRF_INIT_ENDPOINT, { method: "GET" });
-  } catch {
-    // Best-effort only. Request may still succeed if CSRF cookie already exists server-side.
-  }
 };
 
 const fetchWithTimeout = async (
@@ -359,10 +354,13 @@ const fetchWithTimeout = async (
   const method = (options.method || "GET").toUpperCase();
 
   try {
-    if (method !== "GET") {
-      await ensureCsrfToken();
+    if (process.env.NODE_ENV === "development" && method !== "GET") {
+      try {
+        console.log(`[WorkflowAPI] ${method} ${url}`, JSON.parse(options.body as string));
+      } catch {
+        console.log(`[WorkflowAPI] ${method} ${url}`, options.body);
+      }
     }
-
     const response = await apiFetch(url, {
       ...options,
       signal: controller.signal,
@@ -423,6 +421,7 @@ const fromBackendNodeType = (backendType: string): FrontendNodeType => {
     case "persona":    return "persona";
     case "chat":       return "chat";
     case "pin_folder": return "pin";
+    case "pin":        return "pin";
     default:           return "model";
   }
 };
@@ -472,14 +471,23 @@ const toBackendWorkflowPayload = (
 
     if (UNSUPPORTED_FRONTEND_TYPES.has(frontendType)) continue;
 
-    const backendNodeType = toBackendNodeType(frontendType);
+    let backendNodeType = toBackendNodeType(frontendType);
     if (!backendNodeType) continue;
 
-    backendNodes.push({
+    let refId = getNodeReferenceId(node);
+
+    // For pin nodes, determine correct backend type based on available reference:
+    // - selectedFolder.id present → pin_folder (fetches all pins in folder)
+    // - only selectedPins[0] present → pin (single pin UUID)
+    if (frontendType === "pin") {
+      const hasFolderRef = Boolean(node.data?.selectedFolder?.id);
+      backendNodeType = hasFolderRef ? "pin_folder" : "pin";
+    }
+
+    const nodePayload: BackendWorkflowNodePayload = {
       node_id: node.id,
       name: asString(node.data?.label) || asString(node.data?.name) || node.id || "Node",
       node_type: backendNodeType,
-      reference_id: getNodeReferenceId(node),
       instructions:
         asString(node.data?.instructions) ||
         asString(node.data?.prompt) ||
@@ -487,7 +495,12 @@ const toBackendWorkflowPayload = (
         "",
       position_x: Number(node.position?.x ?? 0),
       position_y: Number(node.position?.y ?? 0),
-    });
+    };
+
+    // Only include reference_id when non-empty (start/end nodes must not have it)
+    if (refId) nodePayload.reference_id = refId;
+
+    backendNodes.push(nodePayload);
   }
 
   // Only send edges whose both endpoints are included in the payload
@@ -563,12 +576,18 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
         break;
       case "pin":
         if (node.reference_id) {
-          data.selectedFolder = {
-            id: node.reference_id,
-            name: node.name || node.reference_id,
-            pinIds: [],
-          };
-          data.selectedPins = [];
+          if (node.node_type === "pin_folder") {
+            // Reference is a folder UUID — restore as selectedFolder
+            data.selectedFolder = {
+              id: node.reference_id,
+              name: node.name || node.reference_id,
+              pinIds: [],
+            };
+            data.selectedPins = [];
+          } else {
+            // node_type === "pin" — reference is a single pin UUID
+            data.selectedPins = [node.reference_id];
+          }
         }
         break;
       case "persona":
@@ -1129,8 +1148,6 @@ export const workflowAPI = {
       );
     }
 
-    await ensureCsrfToken();
-
     const controller = new AbortController();
 
     (async () => {
@@ -1229,8 +1246,6 @@ export const workflowAPI = {
       );
     }
 
-    await ensureCsrfToken();
-
     const controller = new AbortController();
 
     (async () => {
@@ -1287,8 +1302,6 @@ export const workflowAPI = {
         "INVALID_INPUT"
       );
     }
-
-    await ensureCsrfToken();
 
     const controller = new AbortController();
 

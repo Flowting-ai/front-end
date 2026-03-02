@@ -1,28 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
 import { useTokenUsage } from "@/context/token-context";
-
-const formatLargeNumber = (num: number): string => {
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
-  }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
-  }
-  return num.toString();
-};
+import { useAuth } from "@/context/auth-context";
 
 export function TokenTracker() {
-  const { usagePercent, isLoading, stats } = useTokenUsage();
+  const { usagePercent, isLoading } = useTokenUsage();
+  const { user } = useAuth();
 
-  const { formattedTotalUsed, formattedBudget } = useMemo(() => {
-    const budget = stats.totalTokensUsed + stats.availableTokens;
-    return {
-      formattedTotalUsed: formatLargeNumber(stats.totalTokensUsed),
-      formattedBudget: budget > 0 ? formatLargeNumber(budget) : "--",
-    };
-  }, [stats.availableTokens, stats.totalTokensUsed]);
+  const formattedBudgetUsed = user?.budgetUsed ? `$${user.budgetUsed}` : "--";
+  const formattedBudget = user?.budget ? `$${user.budget}` : "--";
 
   return (
     <div className="flex w-[235px] flex-col items-center gap-0.5">
@@ -49,7 +35,7 @@ export function TokenTracker() {
 
       {/* Token usage text */}
       <div className="w-full text-right text-[10px] leading-[129%] text-[#757575]">
-        {isLoading ? "Updating..." : `${formattedTotalUsed}/${formattedBudget}`}
+        {isLoading ? "Updating..." : `${formattedBudgetUsed}/${formattedBudget}`}
       </div>
     </div>
   );

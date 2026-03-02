@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,18 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { CSRF_INIT_ENDPOINT, SIGNUP_ENDPOINT } from "@/lib/config";
+import { SIGNUP_ENDPOINT } from "@/lib/config";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setCsrfToken, csrfToken, setJwtToken, setUser } = useAuth();
+  const { setJwtToken, setRefreshToken, setUser } = useAuth();
   type SignupSuccess = {
     message?: string;
-    csrfToken?: string;
-    csrf_token?: string;
-    token?: string; // JWT token from backend
+    token?: string;
+    refreshToken?: string;
     user?: {
       id?: string | number;
       username?: string | null;
@@ -42,33 +41,6 @@ export default function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        await fetch(CSRF_INIT_ENDPOINT, {
-          method: "GET",
-          credentials: "include",
-        });
-      } catch (err) {
-        console.warn("CSRF init failed for signup", err);
-      }
-      try {
-        const response = await fetch(SIGNUP_ENDPOINT, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.csrfToken) {
-            setCsrfToken(data.csrfToken);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch CSRF token for signup", err);
-      }
-    };
-    fetchCsrfToken();
-  }, [setCsrfToken]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,11 +59,8 @@ export default function SignupPage() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
         body: JSON.stringify({
-          username:
-            `${firstName.trim()} ${lastName.trim()}`.trim() || email.trim(),
           email: email.trim(),
           password,
           firstName: firstName.trim() || null,
@@ -110,15 +79,8 @@ export default function SignupPage() {
         return;
       }
 
-      const freshToken = data?.csrfToken || data?.csrf_token;
-      if (freshToken) {
-        setCsrfToken(freshToken);
-      }
-
-      // Store JWT token if returned (written to cookie via setJwtToken)
-      if (data?.token) {
-        setJwtToken(data.token);
-      }
+      if (data?.token) setJwtToken(data.token);
+      if (data?.refreshToken) setRefreshToken(data.refreshToken);
 
       // Store user if returned (auto-login after signup)
       if (data?.user) {

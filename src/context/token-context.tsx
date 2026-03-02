@@ -1,56 +1,39 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { fetchTokenStats, type TokenStats } from "@/lib/api/tokens";
 import { fetchCurrentUser } from "@/lib/api/user";
 import { useAuth } from "@/context/auth-context";
 
 interface TokenContextValue {
   usagePercent: number;
   isLoading: boolean;
-  stats: TokenStats;
 }
 
 const TokenContext = createContext<TokenContextValue | undefined>(undefined);
 
 export function TokenProvider({ children }: { children: ReactNode }) {
   const { csrfToken, jwtToken, isHydrated, user, setUser } = useAuth();
-  const [stats, setStats] = useState<TokenStats>({
-    availableTokens: 0,
-    totalTokensUsed: 0,
-  });
+  const [usagePercent, setUsagePercent] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Wait for auth hydration so we have the JWT/CSRF tokens from storage
     if (!isHydrated || !jwtToken) return;
 
     let isMounted = true;
     const loadStats = async () => {
       setIsLoading(true);
       try {
-        // Prefer /user/ because it returns both profile + token info.
         const profile = await fetchCurrentUser(csrfToken);
         if (isMounted && profile) {
-          setStats({
-            availableTokens: Number(profile.availableTokens ?? 0),
-            totalTokensUsed: Number(profile.totalTokensUsed ?? 0),
-          });
-          // Hydrate missing profile fields into auth context if we don't have them.
+          setUsagePercent(Math.min(100, Math.round(profile.budgetConsumedPercent ?? 0)));
           if (user === null || Object.keys(user).length === 0) {
             setUser(profile as unknown as Parameters<typeof setUser>[0]);
           }
-          return;
         }
-        // Fallback to /tokens/ if /user/ is unavailable.
-        const data = await fetchTokenStats(csrfToken);
-        if (isMounted) setStats(data);
       } catch (error) {
         console.error("Failed to load token stats", error);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
     loadStats();
@@ -61,21 +44,14 @@ export function TokenProvider({ children }: { children: ReactNode }) {
     };
   }, [isHydrated, jwtToken, csrfToken, setUser, user]);
 
-  // Compute percent based on used vs available from /user/.
-  const totalBudget = stats.totalTokensUsed + stats.availableTokens;
-  const usagePercent =
-    totalBudget > 0
-      ? Math.min(100, Math.round((stats.totalTokensUsed / totalBudget) * 100))
-      : 0;
-
   return (
-    <TokenContext.Provider value={{ usagePercent, isLoading, stats }}>
+    <TokenContext.Provider value={{ usagePercent, isLoading }}>
       {children}
     </TokenContext.Provider>
   );
 }
 
-export function useTokenUsage() {
+export function useTokenUsage(): TokenContextValue {
   const context = useContext(TokenContext);
   if (context === undefined) {
     throw new Error("useTokenUsage must be used within a TokenProvider");

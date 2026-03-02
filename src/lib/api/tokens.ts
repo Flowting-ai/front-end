@@ -1,23 +1,24 @@
 "use client";
 
-import { TOKENS_ENDPOINT } from "@/lib/config";
+import { BUDGET_ENDPOINT } from "@/lib/config";
 import { apiFetch } from "./client";
 
-export interface TokenStats {
-  availableTokens: number;
-  totalTokensUsed: number;
+export interface BudgetStats {
+  budget: string;
+  budgetUsed: string;
+  budgetRemaining: string;
+  budgetConsumedPercent: number;
+  dailyQuotaEnabled: boolean;
+  dailyBudgetUsed: string;
+  dailyBudgetLimit: string;
+  dailyBudgetAvailable: string;
+  nextBillingDate: string;
 }
 
-export async function fetchTokenStats(
+export async function fetchBudgetStats(
   csrfToken?: string | null
-): Promise<TokenStats> {
-  const response = await apiFetch(TOKENS_ENDPOINT, { method: "GET" }, csrfToken);
-  if (!response.ok) {
-    throw new Error("Failed to load token stats");
-  }
-  const data = await response.json();
-  return {
-    availableTokens: Number(data?.availableTokens ?? 0),
-    totalTokensUsed: Number(data?.totalTokensUsed ?? 0),
-  };
+): Promise<BudgetStats | null> {
+  const response = await apiFetch(BUDGET_ENDPOINT, { method: "GET" }, csrfToken);
+  if (!response.ok) return null;
+  return response.json();
 }

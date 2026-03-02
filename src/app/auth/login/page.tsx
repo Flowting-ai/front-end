@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,17 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { CSRF_INIT_ENDPOINT, LOGIN_ENDPOINT } from "@/lib/config";
+import { LOGIN_ENDPOINT } from "@/lib/config";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser, csrfToken, setCsrfToken, setJwtToken } = useAuth();
+  const { setUser, setJwtToken, setRefreshToken } = useAuth();
   type LoginSuccess = {
     message?: string;
-    csrfToken?: string;
-    csrf_token?: string;
-    token?: string; // JWT token from backend
+    token?: string;
+    refreshToken?: string;
     user?: {
       id?: string | number;
       username?: string | null;
@@ -29,48 +28,19 @@ export default function LoginPage() {
     };
   };
   type LoginError = { error?: string; detail?: string };
-  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        await fetch(CSRF_INIT_ENDPOINT, {
-          method: "GET",
-          credentials: "include",
-        });
-      } catch (fetchError) {
-        console.warn("CSRF init failed", fetchError);
-      }
-      try {
-        const response = await fetch(LOGIN_ENDPOINT, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.csrfToken) {
-            setCsrfToken(data.csrfToken);
-          }
-        }
-      } catch (fetchError) {
-        console.error("Failed to obtain CSRF token", fetchError);
-      }
-    };
-    fetchCsrfToken();
-  }, [setCsrfToken]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
-    const payload = identifier.includes("@")
-      ? { email: identifier.trim(), password }
-      : { username: identifier.trim(), password };
+    const payload = { email: email.trim(), password };
 
     try {
       const response = await fetch(LOGIN_ENDPOINT, {
@@ -78,7 +48,6 @@ export default function LoginPage() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -91,15 +60,8 @@ export default function LoginPage() {
         return;
       }
 
-      const freshToken = data?.csrfToken || data?.csrf_token;
-      if (freshToken) {
-        setCsrfToken(freshToken);
-      }
-
-      // Store JWT token (written to cookie via setJwtToken)
-      if (data?.token) {
-        setJwtToken(data.token);
-      }
+      if (data?.token) setJwtToken(data.token);
+      if (data?.refreshToken) setRefreshToken(data.refreshToken);
 
       if (data?.user) {
         setUser(data.user);
@@ -184,8 +146,8 @@ export default function LoginPage() {
                 id="identifier"
                 type="email"
                 placeholder="Email address"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 className="form-input"
                 required
               />

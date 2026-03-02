@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Geist, Poppins } from "next/font/google";
 import "./globals.css";
+import "highlight.js/styles/github.css";
 import { Toaster } from "@/components/ui/sonner" // react-toastify
 import { cn } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";

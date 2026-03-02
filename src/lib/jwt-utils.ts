@@ -4,7 +4,8 @@
  */
 
 const JWT_COOKIE_NAME = "jwt";
-const JWT_MAX_AGE_DAYS = 7;
+const JWT_MAX_AGE_DAYS = 7; // Cookie lifespan — actual JWT expires in 10 min (enforced server-side)
+const REFRESH_TOKEN_KEY = "auth:refreshToken";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -34,6 +35,30 @@ export function setJwtCookie(token: string): void {
 export function removeJwtCookie(): void {
   if (typeof document === "undefined") return;
   document.cookie = `${JWT_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+}
+
+/**
+ * Get opaque refresh token from localStorage
+ */
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+/**
+ * Store opaque refresh token in localStorage
+ */
+export function setRefreshToken(token: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+/**
+ * Remove refresh token from localStorage
+ */
+export function removeRefreshToken(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 /**

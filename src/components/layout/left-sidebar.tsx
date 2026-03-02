@@ -101,7 +101,7 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, clearAuth, csrfToken } = useAuth();
+  const { user, logout, csrfToken } = useAuth();
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
@@ -334,7 +334,7 @@ export function LeftSidebar({
   });
 
   const handleLogout = () => {
-    clearAuth();
+    logout();
     router.push("/auth/login");
   };
 
