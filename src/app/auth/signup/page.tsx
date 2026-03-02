@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,7 +29,7 @@ export default function SignupPage() {
       phoneNumber?: string | null;
     };
   };
-  type SignupError = { error?: string; detail?: string };
+  type SignupError = { error?: string; detail?: string; message?: string };
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -89,25 +90,26 @@ export default function SignupPage() {
         setError(
           data?.error ||
             data?.detail ||
+            data?.message ||
             "Unable to create account. Please try again.",
         );
         return;
       }
 
-      if (data?.token) setJwtToken(data.token);
-      if (data?.refreshToken) setRefreshToken(data.refreshToken);
+      // Use flushSync to ensure all auth state is committed to context
+      // before navigation — prevents the root page briefly seeing user=null
+      // and redirecting back to login.
+      flushSync(() => {
+        if (data?.token) setJwtToken(data.token);
+        if (data?.refreshToken) setRefreshToken(data.refreshToken);
+        if (data?.user) setUser(data.user);
+      });
 
-      // Store user if returned (auto-login after signup)
-      if (data?.user) {
-        setUser(data.user);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("isLoggedIn", "true");
-          localStorage.setItem("startNewChatOnLogin", "true");
-        }
-        router.replace("/");
-      } else {
-        router.replace("/auth/login");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("startNewChatOnLogin", "true");
       }
+      router.replace("/");
     } catch (err) {
       console.error("Signup failed", err);
       setError("Unexpected error. Please try again.");
