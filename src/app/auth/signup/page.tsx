@@ -54,20 +54,35 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch(SIGNUP_ENDPOINT, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          firstName: firstName.trim() || null,
-          lastName: lastName.trim() || null,
-          phoneNumber: phoneNumber.trim() || null,
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      let response: Response;
+      try {
+        response = await fetch(SIGNUP_ENDPOINT, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            firstName: firstName.trim() || null,
+            lastName: lastName.trim() || null,
+            phoneNumber: phoneNumber.trim() || null,
+          }),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        if ((fetchErr as Error).name === "AbortError") {
+          setError("Request timed out. The server may be unavailable — please try again.");
+          return;
+        }
+        throw fetchErr;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const data: SignupSuccess & SignupError = await response.json();
       if (!response.ok) {
