@@ -633,6 +633,7 @@ export function WorkflowChatInterface({
               ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
               : flowtingLogoUrl,
             avatarHint: selectedModel?.modelName || "AI model",
+            ...(event.images?.length ? { images: event.images } : {}),
             metadata: {
               providerName: selectedModel?.companyName,
               modelName: selectedModel?.modelName,

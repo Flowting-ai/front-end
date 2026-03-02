@@ -430,8 +430,10 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
   const hasPrompt = typeof entry.prompt === "string" && entry.prompt.length > 0;
   const hasResponse =
     typeof entry.response === "string" && entry.response.length > 0;
+  const { images: entryImages, imageUrl: entryImageUrl } = getImagesFromBackendMessage(entry);
+  const hasImages = !!(entryImages?.length || entryImageUrl);
 
-  if (!hasPrompt && !hasResponse) {
+  if (!hasPrompt && !hasResponse && !hasImages) {
     return [normalizeBackendMessage(entry)];
   }
 
@@ -477,9 +479,10 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
     });
   }
 
-  if (hasResponse) {
-    const sanitized = extractThinkingContent(entry.response as string);
-    const { images, imageUrl } = getImagesFromBackendMessage(entry);
+  if (hasResponse || hasImages) {
+    const sanitized = extractThinkingContent((entry.response as string) || "");
+    const images = entryImages;
+    const imageUrl = entryImageUrl;
     const entryReasoning =
       (entry as { reasoning?: string | null }).reasoning ??
       (entry as { thinking_content?: string | null }).thinking_content ??

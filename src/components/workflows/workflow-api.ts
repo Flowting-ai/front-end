@@ -199,6 +199,7 @@ export interface WorkflowCompleteEvent extends StreamEventBase {
   event: "workflow_complete";
   run_id: string;
   final_output: string;
+  images?: Array<{ url: string; alt?: string }>;
   total_cost?: number;
   total_tokens?: number;
   total_duration_ms?: number;
@@ -814,10 +815,14 @@ const processSseStream = async (
           // Final event with the aggregated response
           const tokensIn = typeof event.tokens_input === "number" ? event.tokens_input : 0;
           const tokensOut = typeof event.tokens_output === "number" ? event.tokens_output : 0;
+          const doneImages = Array.isArray(event.images)
+            ? (event.images as Array<{ url: string; alt?: string }>).filter((img) => img?.url)
+            : undefined;
           callbacks.onWorkflowComplete?.({
             event: "workflow_complete",
             run_id: String(event.run_id ?? ""),
             final_output: String(event.response ?? ""),
+            ...(doneImages?.length ? { images: doneImages } : {}),
             total_cost:
               typeof event.total_cost === "number" ? event.total_cost : undefined,
             total_tokens: tokensIn + tokensOut,

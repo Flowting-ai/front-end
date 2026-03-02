@@ -313,6 +313,7 @@ export function WorkflowChatFullPage({
                       thinkingContent: finalThinking || msg.thinkingContent || undefined,
                       isThinkingInProgress: false,
                       isLoading: false,
+                      ...(event.images?.length ? { images: event.images } : {}),
                     }
                   : msg
               )
