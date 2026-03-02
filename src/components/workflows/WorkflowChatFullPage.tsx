@@ -25,6 +25,7 @@ import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { toast } from "@/lib/toast-helper";
 import { workflowAPI } from "./workflow-api";
 import type { WorkflowDTO } from "./types";
+import { extractThinkingContent } from "@/lib/thinking";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,7 @@ export function WorkflowChatFullPage({
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
+  const streamingContentRef = useRef<string>("");
   const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
 
   // Click outside to close attach menu (same as chat-interface)
@@ -134,6 +136,7 @@ export function WorkflowChatFullPage({
     };
 
     setDisplayMessages((prev) => [...prev, loadingMessage]);
+    streamingContentRef.current = ""; // reset accumulated content
 
     try {
       const { abort } = await workflowAPI.executeStream(
@@ -141,20 +144,39 @@ export function WorkflowChatFullPage({
         trimmedContent,
         {
           onChunk: (event) => {
+            streamingContentRef.current += event.content;
+            const accumulated = streamingContentRef.current;
+            const { visibleText, thinkingText } = extractThinkingContent(accumulated);
+            const hasOpenThink = /<think>/i.test(accumulated);
+            const hasCloseThink = /<\/think>/i.test(accumulated);
+            const stillThinking = hasOpenThink && !hasCloseThink;
             setDisplayMessages((prev) =>
               prev.map((msg) =>
                 msg.id === aiMessageId
-                  ? { ...msg, content: (msg.content || "") + event.content, isLoading: false }
+                  ? {
+                      ...msg,
+                      content: visibleText || accumulated,
+                      thinkingContent: thinkingText || msg.thinkingContent || undefined,
+                      isThinkingInProgress: stillThinking,
+                      isLoading: false,
+                    }
                   : msg
               )
             );
           },
           onWorkflowComplete: (event) => {
-            const finalContent = (event.final_output || "").trim() || "Workflow completed successfully.";
+            const rawFinal = (event.final_output || "").trim() || streamingContentRef.current || "Workflow completed successfully.";
+            const { visibleText: finalVisible, thinkingText: finalThinking } = extractThinkingContent(rawFinal);
             setDisplayMessages((prev) =>
               prev.map((msg) =>
                 msg.id === aiMessageId
-                  ? { ...msg, content: finalContent, isLoading: false }
+                  ? {
+                      ...msg,
+                      content: finalVisible || rawFinal,
+                      thinkingContent: finalThinking || msg.thinkingContent || undefined,
+                      isThinkingInProgress: false,
+                      isLoading: false,
+                    }
                   : msg
               )
             );

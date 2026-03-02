@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Square, Mic, Maximize2, Minimize2 } from "lucide-react";
+import { Send, X, Loader2, Square, Mic, Maximize2, Minimize2, ChevronDown } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
@@ -20,6 +20,51 @@ import {
   type AskUserEvent,
 } from "./workflow-api";
 import type { NodeStatus } from "./types";
+import { extractThinkingContent } from "@/lib/thinking";
+
+// Collapsible reasoning block shown inside node output panels
+const NodeReasoningBlock = ({ text, isStreaming }: { text: string; isStreaming?: boolean }) => {
+  const [collapsed, setCollapsed] = React.useState(false);
+  return (
+    <div className="mb-2 rounded-lg border border-[#e8e3f4] bg-[#f9f7ff] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed((p) => !p)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left"
+      >
+        <div className="flex items-center gap-1.5">
+          {isStreaming && (
+            <span className="flex gap-0.5">
+              {[0, 1, 2].map((d) => (
+                <span
+                  key={d}
+                  className="h-1.5 w-1.5 rounded-full bg-[#7c6fcd] animate-bounce"
+                  style={{ animationDelay: `${d * 0.15}s` }}
+                />
+              ))}
+            </span>
+          )}
+          <span className="text-[11px] font-semibold text-[#6b5fad] tracking-wide">
+            {isStreaming ? "Reasoning\u2026" : "Reasoning"}
+          </span>
+        </div>
+        <ChevronDown
+          className={`h-3 w-3 text-[#9d8fd4] transition-transform duration-200 ${collapsed ? "" : "rotate-180"}`}
+        />
+      </button>
+      {!collapsed && (
+        <div className="border-t border-[#e8e3f4] px-3 py-2">
+          <pre className="whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-[#6b5fad]/80">
+            {text}
+            {isStreaming && (
+              <span className="inline-block w-[2px] h-[12px] bg-[#9d8fd4] ml-[1px] align-middle animate-[blink_0.8s_step-end_infinite]" />
+            )}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Helper function to render markdown content for node outputs
 const renderMarkdownContent = (content: string): React.ReactElement => {
@@ -453,10 +498,21 @@ export function WorkflowChatInterface({
 
               // Use ref for latest content (not stale state)
               const streamContent = streamingContentRef.current.get(nodeId) || chunkContent;
+              const { visibleText, thinkingText } = extractThinkingContent(streamContent);
+              // Detect partial <think> that hasn't closed yet
+              const hasOpenThink = /<think>/i.test(streamContent);
+              const hasCloseThink = /<\/think>/i.test(streamContent);
+              const stillThinking = hasOpenThink && !hasCloseThink;
+              // While still inside an open <think>, extract the raw partial text for display
+              const partialThinking = stillThinking
+                ? streamContent.replace(/^[\s\S]*<think>/i, "").trim()
+                : undefined;
 
               return {
                 ...msg,
-                content: streamContent,
+                content: visibleText || (stillThinking ? "" : streamContent),
+                thinkingContent: thinkingText || partialThinking || msg.thinkingContent || undefined,
+                isThinkingInProgress: stillThinking || Boolean(thinkingText),
                 // Keep streaming visible instead of skeleton placeholders.
                 isLoading: false,
               };
@@ -548,7 +604,9 @@ export function WorkflowChatInterface({
             if (outputs.length > 0) {
               const sections = outputs.map((output, index) => {
                 const title = output.nodeName || output.nodeId;
-                const body = (output.content || "").trim() || "_No output produced_";
+                // Strip thinking tags when synthesising the summary
+                const { visibleText } = extractThinkingContent(output.content);
+                const body = (visibleText || output.content || "").trim() || "_No output produced_";
                 return `### Step ${index + 1}: ${title}\n\n${body}`;
               });
               finalContent = sections.join("\n\n");
@@ -563,10 +621,14 @@ export function WorkflowChatInterface({
             setTotalCost(event.total_cost);
           }
 
+          const { visibleText: finalVisible, thinkingText: finalThinking } = extractThinkingContent(finalContent);
+
           const finalMessage: Message = {
             id: aiMessageId,
             sender: "ai",
-            content: finalContent,
+            content: finalVisible || finalContent,
+            thinkingContent: finalThinking || undefined,
+            isThinkingInProgress: false,
             avatarUrl: selectedModel
               ? getModelIcon(selectedModel.companyName, selectedModel.modelName)
               : flowtingLogoUrl,
@@ -744,7 +806,8 @@ export function WorkflowChatInterface({
     return "bg-zinc-100 text-zinc-700 border-zinc-200";
   };
   const getCollapsedPreview = (content: string) => {
-    const normalized = content.replace(/\s+/g, " ").trim();
+    const { visibleText } = extractThinkingContent(content);
+    const normalized = visibleText.replace(/\s+/g, " ").trim();
     if (!normalized) return "No output yet";
     return normalized.length > 140 ? `${normalized.slice(0, 140)}...` : normalized;
   };
@@ -897,13 +960,26 @@ export function WorkflowChatInterface({
                                 {output.status}
                               </span>
                             </button>
-                            {isExpanded && (
-                              <div className="border-t border-[#EFEFEF] px-3 py-3 break-words">
-                                <div className="text-xs leading-relaxed text-[#3D3D3D] break-words">
-                                  {renderMarkdownContent(output.content)}
+                            {isExpanded && (() => {
+                              const { visibleText, thinkingText } = extractThinkingContent(output.content);
+                              return (
+                                <div className="border-t border-[#EFEFEF] px-3 py-3 break-words">
+                                  {thinkingText && (
+                                    <NodeReasoningBlock
+                                      text={thinkingText}
+                                      isStreaming={output.isStreaming}
+                                    />
+                                  )}
+                                  <div className="text-xs leading-relaxed text-[#3D3D3D] break-words">
+                                    {visibleText
+                                      ? renderMarkdownContent(visibleText)
+                                      : output.isStreaming
+                                        ? <span className="text-zinc-400 italic">Generating…</span>
+                                        : <span className="text-zinc-400 italic">No output yet</span>}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
                           </div>
                         );
                       })}
