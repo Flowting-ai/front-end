@@ -55,23 +55,68 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch(SIGNUP_ENDPOINT, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          firstName: firstName.trim() || null,
-          lastName: lastName.trim() || null,
-          phoneNumber: phoneNumber.trim() || null,
-        }),
-      });
+      // Add a defensive timeout so the UI never hangs forever if the
+      // server stops responding, but explain that the account may
+      // still have been created in that edge case.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      const data: SignupSuccess & SignupError = await response.json();
+      let response: Response;
+      try {
+        response = await fetch(SIGNUP_ENDPOINT, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            firstName: firstName.trim() || null,
+            lastName: lastName.trim() || null,
+            phoneNumber: phoneNumber.trim() || null,
+          }),
+          signal: controller.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+
+        if ((fetchErr as Error).name === "AbortError") {
+          setError(
+            "This is taking longer than expected. Your account may already be created — please try logging in with this email, and if that fails, try again in a minute.",
+          );
+          return;
+        }
+
+        console.error("Signup network error", fetchErr);
+        setError(
+          "Unable to reach the server. Please check your connection and try again.",
+        );
+        return;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      let data: (SignupSuccess & SignupError) | null = null;
+      try {
+        // Some backends may return 204/empty body on success; guard against that.
+        data = await response.json();
+      } catch (parseErr) {
+        console.warn("Signup response JSON parse failed", parseErr);
+      }
+
       if (!response.ok) {
+        // Handle "email already exists" as a first-class, user-friendly case.
+        if (response.status === 409) {
+          setError(
+            data?.error ||
+              data?.detail ||
+              data?.message ||
+              "An account with this email already exists. Please try logging in instead.",
+          );
+          return;
+        }
+
         setError(
           data?.error ||
             data?.detail ||
