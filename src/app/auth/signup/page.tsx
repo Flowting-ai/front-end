@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { flushSync } from "react-dom";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
 import { SIGNUP_ENDPOINT } from "@/lib/config";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { setJwtToken, setRefreshToken, setUser } = useAuth();
   type SignupSuccess = {
     message?: string;
     token?: string;
@@ -126,20 +123,7 @@ export default function SignupPage() {
         return;
       }
 
-      // Use flushSync to ensure all auth state is committed to context
-      // before navigation — prevents the root page briefly seeing user=null
-      // and redirecting back to login.
-      flushSync(() => {
-        if (data?.token) setJwtToken(data.token);
-        if (data?.refreshToken) setRefreshToken(data.refreshToken);
-        if (data?.user) setUser(data.user);
-      });
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("startNewChatOnLogin", "true");
-      }
-      router.replace("/");
+      router.replace("/auth/login");
     } catch (err) {
       console.error("Signup failed", err);
       setError("Unexpected error. Please try again.");
