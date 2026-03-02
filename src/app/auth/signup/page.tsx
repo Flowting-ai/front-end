@@ -87,16 +87,11 @@ export default function SignupPage() {
         setUser(data.user);
         if (typeof window !== "undefined") {
           localStorage.setItem("isLoggedIn", "true");
+          localStorage.setItem("startNewChatOnLogin", "true");
         }
-        setSuccessMessage(
-          data?.message || "Signup successful! Redirecting...",
-        );
-        setTimeout(() => router.replace("/"), 1000);
+        router.replace("/");
       } else {
-        setSuccessMessage(
-          data?.message || "Signup successful! Please sign in to continue.",
-        );
-        setTimeout(() => router.replace("/auth/login"), 1000);
+        router.replace("/auth/login");
       }
     } catch (err) {
       console.error("Signup failed", err);
