@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -73,6 +73,7 @@ export function WorkflowChatFullPage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<(() => void) | null>(null);
   const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
 
   // Click outside to close attach menu (same as chat-interface)
@@ -142,48 +143,69 @@ export function WorkflowChatFullPage({
     setDisplayMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      const result = await workflowAPI.execute(workflowId, {
-        inputText: trimmedContent,
-        webSearch: webSearchEnabled,
-      });
-      const failed =
-        result.status === "failed" ||
-        result.status === "error" ||
-        Boolean(result.error);
-
-      const aiResponse: Message = {
-        id: aiMessageId,
-        sender: "ai",
-        content: failed
-          ? result.error || "Workflow execution failed."
-          : result.finalOutput || "Workflow executed successfully with no output.",
-        avatarUrl: flowtingLogoUrl,
-        avatarHint: "Flowting AI",
-      };
-
-      setDisplayMessages((prev) =>
-        prev.map((msg) => (msg.id === aiMessageId ? aiResponse : msg))
+      const { abort } = await workflowAPI.executeStream(
+        workflowId,
+        trimmedContent,
+        {
+          onChunk: (event) => {
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: (msg.content || "") + event.content, isLoading: false }
+                  : msg
+              )
+            );
+          },
+          onWorkflowComplete: (event) => {
+            const finalContent = (event.final_output || "").trim() || "Workflow completed successfully.";
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: finalContent, isLoading: false }
+                  : msg
+              )
+            );
+            setIsResponding(false);
+            abortRef.current = null;
+          },
+          onError: (event) => {
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? { ...msg, content: `Error: ${event.error}`, isLoading: false }
+                  : msg
+              )
+            );
+            setIsResponding(false);
+            abortRef.current = null;
+          },
+        }
       );
+      abortRef.current = abort;
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Sorry, I encountered an error processing your request.";
-      const errorMessage: Message = {
-        id: aiMessageId,
-        sender: "ai",
-        content: message,
-        avatarUrl: flowtingLogoUrl,
-        avatarHint: "Flowting AI",
-      };
-
       setDisplayMessages((prev) =>
-        prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
+        prev.map((msg) =>
+          msg.id === aiMessageId
+            ? { ...msg, content: message, isLoading: false }
+            : msg
+        )
       );
-    } finally {
       setIsResponding(false);
     }
   };
+
+  const handleAbort = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current();
+      abortRef.current = null;
+      setIsResponding(false);
+      toast("Workflow execution cancelled");
+    }
+  }, []);
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
@@ -447,7 +469,7 @@ export function WorkflowChatFullPage({
                     {isResponding ? (
                       <Button
                         type="button"
-                        onClick={() => setIsResponding(false)}
+                        onClick={handleAbort}
                         className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E1E1E] text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                         title="Stop generation"
                       >
