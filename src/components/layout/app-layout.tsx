@@ -1695,7 +1695,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           open={!!chatToDelete}
           onOpenChange={(open) => !open && setChatToDelete(null)}
         >
-          <AlertDialogContent className="rounded-[25px] bg-white">
+          <AlertDialogContent className="rounded-[8px] bg-white">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-[#171717] text-lg font-semibold">
                 Delete Chat Board?
@@ -1826,7 +1826,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         open={!!chatToDelete}
         onOpenChange={(open) => !open && setChatToDelete(null)}
       >
-        <AlertDialogContent className="rounded-[25px]">
+        <AlertDialogContent className="rounded-[8px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1836,14 +1836,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px]"
+              className="rounded-[8px]"
               onClick={() => setChatToDelete(null)}
               disabled={isDeletingChatBoard}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px]"
+              className="rounded-[8px]"
               onClick={confirmDelete}
               disabled={isDeletingChatBoard}
             >

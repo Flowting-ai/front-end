@@ -1778,7 +1778,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
           }
         }}
       >
-        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+        <AlertDialogContent className="rounded-[8px] bg-white border border-[#D4D4D4]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-black">
               Clear entire workflow?
@@ -1789,13 +1789,13 @@ Please provide clear, specific, and well-structured instructions to ensure accur
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setIsClearDialogOpen(false)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
               onClick={handleConfirmClear}
             >
               Clear workflow

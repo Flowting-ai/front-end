@@ -687,6 +687,7 @@ export function ChatInterface({
     setMentionedPins([]);
     setShowPinDropdown(false);
     setPinSearchQuery("");
+    setWebSearchEnabled(false);
     // Cleanup attachment URLs and clear attachments
     setAttachments((prev) => {
       prev.forEach((a) => URL.revokeObjectURL(a.url));
@@ -1080,9 +1081,18 @@ export function ChatInterface({
 
       const updateAiMessage = (fields: Partial<Message>) => {
         setMessages((prev = []) => {
-          const next = prev.map((msg) =>
-            msg.id === loadingMessageId ? { ...msg, ...fields } : msg,
-          );
+          const next = prev.map((msg) => {
+            if (msg.id !== loadingMessageId) return msg;
+            // Merge metadata to preserve webSearchEnabled and other fields
+            const mergedFields = { ...fields };
+            if (fields.metadata && msg.metadata) {
+              mergedFields.metadata = {
+                ...msg.metadata,
+                ...fields.metadata,
+              };
+            }
+            return { ...msg, ...mergedFields };
+          });
           messageBufferRef.current = next;
           return next;
         }, currentChatId ?? undefined);
@@ -1672,6 +1682,9 @@ export function ChatInterface({
         content: "",
         avatarUrl: requestAvatar.avatarUrl,
         avatarHint: requestAvatar.avatarHint,
+        metadata: {
+          webSearchEnabled: webSearchEnabled,
+        },
       };
 
       const nextList = [...updatedMessages, loadingMessage];
@@ -1774,6 +1787,9 @@ export function ChatInterface({
         content: "",
         avatarUrl: requestAvatar.avatarUrl,
         avatarHint: requestAvatar.avatarHint,
+        metadata: {
+          webSearchEnabled: webSearchEnabled,
+        },
       };
 
       setMessages((prev = []) => {
@@ -3145,7 +3161,8 @@ export function ChatInterface({
                             handleAttachClick();
                             setShowAttachMenu(false);
                           }}
-                          className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
+                          // text-color was #1E1E1E - changed to #808080 during testing
+                          className="pointer-events-none flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium text-[#808080] transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
                           <span>Attach Images and Files</span>
@@ -3190,16 +3207,16 @@ export function ChatInterface({
                   </div>
                 )}
 
-                {/* Persona dropdown and web search indicator */}
+                {/* Choose Persona dropdown and web search indicator */}
                 <div className="flex items-center gap-2">
                   {!hidePersonaButton && (
                     <div className="relative" ref={personaDropdownRef}>
-                      <Button
+                      {/* <Button
                         variant="ghost"
                         onClick={() =>
                           setShowPersonaDropdown(!showPersonaDropdown)
                         }
-                        className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#f5f5f5] bg-white px-3 text-xs font-medium text-[#1E1E1E] hover:bg-[#E5E5E5] hover:border-[#D9D9D9]"
+                        className="pointer-events-none flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[8px] border border-[#f5f5f5] bg-white px-3 text-xs font-medium text-[#1E1E1E]/30 hover:bg-[#E5E5E5] hover:border-[#D9D9D9]"
                         title="Choose Persona"
                       >
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F5F5F5] overflow-hidden border border-[#E5E5E5]">
@@ -3224,7 +3241,7 @@ export function ChatInterface({
                           </span>
                         )}
                         <ChevronDown className="h-3.5 w-3.5" />
-                      </Button>
+                      </Button> */}
 
                       {showPersonaDropdown && (
                         <div
@@ -3491,7 +3508,7 @@ export function ChatInterface({
           }
         }}
       >
-        <DialogContent className="rounded-[25px]">
+        <DialogContent className="rounded-[8px]">
           <DialogHeader>
             <DialogTitle>Upload document</DialogTitle>
             <DialogDescription>
@@ -3528,14 +3545,14 @@ export function ChatInterface({
           <DialogFooter>
             <Button
               variant="ghost"
-              className="rounded-[25px]"
+              className="rounded-[8px]"
               onClick={() => setIsUploadDialogOpen(false)}
               disabled={uploadingDocument}
             >
               Cancel
             </Button>
             <Button
-              className="rounded-[25px]"
+              className="rounded-[8px]"
               onClick={handleUploadDocument}
               disabled={uploadingDocument}
             >
@@ -3556,7 +3573,7 @@ export function ChatInterface({
           }
         }}
       >
-        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+        <AlertDialogContent className="rounded-[8px] bg-white border border-[#D4D4D4]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-black">
               Delete entire chat?
@@ -3568,14 +3585,14 @@ export function ChatInterface({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setIsChatDeleteDialogOpen(false)}
               disabled={isDeletingChat}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
               onClick={handleConfirmChatDelete}
               disabled={isDeletingChat}
             >
@@ -3589,7 +3606,7 @@ export function ChatInterface({
         open={!!messageToDelete}
         onOpenChange={(open) => !open && setMessageToDelete(null)}
       >
-        <AlertDialogContent className="rounded-[25px] bg-white border border-[#D4D4D4]">
+        <AlertDialogContent className="rounded-[8px] bg-white border border-[#D4D4D4]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-black">
               Delete Message?
@@ -3624,13 +3641,13 @@ export function ChatInterface({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => setMessageToDelete(null)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="rounded-[25px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
+              className="rounded-[8px] bg-white border border-[#D4D4D4] text-red-600 hover:bg-[#f5f5f5]"
               onClick={confirmDelete}
             >
               Delete

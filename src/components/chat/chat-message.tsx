@@ -23,6 +23,7 @@ import {
   Reply,
   ExternalLink,
   ChevronDown,
+  Globe,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
@@ -842,6 +843,8 @@ export interface Message {
     stoppedByUser?: boolean;
     /** Sources or citations (from backend or parsed from content). Shown in References panel. */
     sources?: MessageSource[];
+    /** True when web search was enabled for this message. */
+    webSearchEnabled?: boolean;
   };
 }
 
@@ -1186,6 +1189,22 @@ export function ChatMessage({
               </TooltipTrigger>
               <TooltipContent>
                 <p>Copy</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {message.metadata?.webSearchEnabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={actionButtonClasses}
+                >
+                  <Globe className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Searched the web</p>
               </TooltipContent>
             </Tooltip>
           )}
