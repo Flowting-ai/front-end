@@ -800,7 +800,7 @@ function PersonaConfigurePageContent() {
         
         // Navigate to persona chat page after update
         setTimeout(() => {
-          router.push(`/personas/chat/${createdPersonaId}`);
+          router.push(`/personaAdmin/chat/${createdPersonaId}`);
         }, 1000);
       } else {
         // Create new persona

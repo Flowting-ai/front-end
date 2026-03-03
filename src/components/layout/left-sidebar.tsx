@@ -413,7 +413,7 @@ export function LeftSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="AI Assistants"
+                  aria-label="AI Personas"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
                   onClick={() => router.push("/personaAdmin")}
                 >
@@ -430,7 +430,7 @@ export function LeftSidebar({
                 sideOffset={8}
                 className="pointer-events-none px-2 py-1 text-xs font-medium"
               >
-                AI Assistants
+                AI Personas
               </TooltipContent>
             </Tooltip>
 
@@ -466,17 +466,6 @@ export function LeftSidebar({
                 Flow Builder
               </TooltipContent>
             </Tooltip>
-
-            {/* Button 4 */}
-            {/* <Button
-              variant="ghost"
-              size="icon"
-              aria-label="AI Automation"
-              className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
-              disabled
-            >
-              <Bot className="h-5 w-5 text-[#303030]" />
-            </Button> */}
 
             {/* 3. User Footer */}
             <div className="w-full mt-auto flex justify-center">
