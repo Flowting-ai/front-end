@@ -94,7 +94,7 @@ export function ClarificationPrompt({
           >
             <span
               className={cn(
-                "text-[14px] font-medium text-[#1E1E1E]",
+                "text-sm font-medium text-[#1E1E1E]",
                 selectedOption === option && "text-white"
               )}
             >
@@ -123,7 +123,7 @@ export function ClarificationPrompt({
               isSubmitting && "opacity-60 pointer-events-none"
             )}
           >
-            <span className="text-[14px] font-medium text-[#888888]">
+            <span className="text-sm font-medium text-[#888888]">
               Other (type your own)
             </span>
             <ChevronRight className="h-4 w-4 text-[#CCCCCC]" />
@@ -139,7 +139,7 @@ export function ClarificationPrompt({
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
               placeholder="Type your answer..."
-              className="flex-1 text-[14px] h-10 border-0 bg-transparent shadow-none focus-visible:ring-0 px-3"
+              className="flex-1 text-sm h-10 border-0 bg-transparent shadow-none focus-visible:ring-0 px-3"
               disabled={isSubmitting}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {

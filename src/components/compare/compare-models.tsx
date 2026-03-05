@@ -893,7 +893,7 @@ export default function CompareModelsPage({
           )}
         >
           {isLoading ? (
-            <div className="relative min-h-80 max-h-full h-full font-inter text-[16px] text-zinc-400 flex-1 flex flex-col items-center justify-center gap-2">
+            <div className="relative min-h-80 max-h-full h-full font-inter text-base text-zinc-400 flex-1 flex flex-col items-center justify-center gap-2">
               {/* Grid Skeleton Loader */}
               <div className="w-full absolute top-0 left-0 grid grid-cols-2 gap-3">
                 <div className="relative w-full min-h-47 h-45 bg-zinc-200 rounded-[8px] animate-pulse">
@@ -1126,7 +1126,7 @@ export default function CompareModelsPage({
         </span>
         <button
           className={cn(
-            "h-9 font-geist font-medium! text-[14px] border-0 rounded-[8px] flex items-center gap-2 px-4 py-0",
+            "h-9 font-geist font-medium! text-sm border-0 rounded-[8px] flex items-center gap-2 px-4 py-0",
             styles.primaryBtn,
           )}
           disabled={selectedModels.length === 0}

@@ -217,7 +217,7 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-[12px] sm:text-[13px] md:text-[14px] leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
+                    <span className="font-semibold text-[12px] sm:text-[13px] md:text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
                       {name}
                     </span>
                     {personaProps.description && (

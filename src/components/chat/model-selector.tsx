@@ -145,7 +145,7 @@ export function ModelSelector({
             />
           </span>
         ) : null}
-        <span className="model-selector-label font-inter font-[400] text-[14px] whitespace-nowrap">
+        <span className="model-selector-label font-inter font-[400] text-sm whitespace-nowrap">
           {useFramework
             ? "Souvenir AI Framework"
             : selectedModel

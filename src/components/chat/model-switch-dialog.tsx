@@ -290,7 +290,7 @@ export function ModelSwitchDialog({
                 </div>
                 <div className="w-full flex flex-col pl-1 pr-3 py-3">
                   <div className="flex items-center mb-1">
-                    <div className="font-[600] text-[16px] flex items-center gap-2">
+                    <div className="font-[600] text-base flex items-center gap-2">
                       Souvenir AI Framework
                       <span className="font-geist font-[500] text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
                         {frameworkSelected ? "Default" : "Recommended"}
@@ -301,7 +301,7 @@ export function ModelSwitchDialog({
                       <CircleCheckBig className="absolute top-3 right-3 w-[20px] h-[20px] text-[#0A0A0A]" />
                     )}
                   </div>
-                  <p className="font-geist font-[400] text-[14px] text-left">
+                  <p className="font-geist font-[400] text-sm text-left">
                     A smart blend of AI models for high-quality results.
                     Souvenir picks the right model for your task and adapts as
                     you work, keeping your context intact and you in control.
@@ -545,7 +545,7 @@ export function ModelSwitchDialog({
           {/* Chat Memory (split layout) */}
           <div className="w-full h-[77px] flex items-center gap-4">
             <div className="w-1/2">
-              <div className="font-geist font-[500] text-[14px] text-[#171717]">
+              <div className="font-geist font-[500] text-sm text-[#171717]">
                 Chat Memory
               </div>
               <div className="font-geist font-[400] text-balance text-[10px] text-[#8a8a8a] mt-1">
@@ -575,7 +575,7 @@ export function ModelSwitchDialog({
           {/* Include Pins (split row) */}
           <div className="w-full flex items-center justify-between gap-4">
             <div className="w-1/2">
-              <div className="font-geist font-[500] text-[14px] text-[#171717]">
+              <div className="font-geist font-[500] text-sm text-[#171717]">
                 Include Pins
               </div>
               <div className="font-geist font-[400] text-balance text-[10px] text-[#8a8a8a] mt-1">
@@ -724,7 +724,7 @@ export function ModelSwitchDialog({
           {/* Include Files Toggle */}
           <div className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="font-geist font-[500] text-[14px] text-[#171717]">
+              <div className="font-geist font-[500] text-sm text-[#171717]">
                 Include Files
               </div>
               <Switch

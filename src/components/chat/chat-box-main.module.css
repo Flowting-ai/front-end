@@ -1,5 +1,5 @@
 /* .chatBoxMain {
-  @apply box-border w-full text-left text-[14px] text-[#B3B3B3] bg-white border border-[#E5E5E5] rounded-[18px] shadow-sm shadow-black/5 flex flex-col items-center justify-center gap-3 px-4 py-3;
+  @apply box-border w-full text-left text-sm text-[#B3B3B3] bg-white border border-[#E5E5E5] rounded-[18px] shadow-sm shadow-black/5 flex flex-col items-center justify-center gap-3 px-4 py-3;
 }
 
 .placeholder {

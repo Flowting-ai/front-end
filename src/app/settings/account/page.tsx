@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Upload } from "lucide-react";
 import AppLayout from "@/components/layout/app-layout";
 import { useAuth } from "@/context/auth-context";
@@ -40,9 +40,15 @@ export default function SettingsAccountPage() {
   const [fullName, setFullName] = useState(fullNameDefault);
   const [displayName, setDisplayName] = useState(displayNameDefault);
 
+  const syncNamesFromDefaults = useEffectEvent(
+    (nextFullNameDefault: string, nextDisplayNameDefault: string) => {
+      setFullName(nextFullNameDefault);
+      setDisplayName(nextDisplayNameDefault);
+    }
+  );
+
   useEffect(() => {
-    setFullName(fullNameDefault);
-    setDisplayName(displayNameDefault);
+    syncNamesFromDefaults(fullNameDefault, displayNameDefault);
   }, [fullNameDefault, displayNameDefault]);
 
   const avatarInitials = useMemo(() => {

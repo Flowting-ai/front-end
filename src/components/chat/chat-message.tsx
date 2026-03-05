@@ -1599,7 +1599,7 @@ export function ChatMessage({
                             </button>
                           </div>
                           <pre
-                            className={`overflow-x-auto rounded-2xl bg-transparent p-2 font-normal text-[14px] leading-relaxed ${chatStyles.customScrollbar}`}
+                            className={`overflow-x-auto rounded-2xl bg-transparent p-2 font-normal text-sm leading-relaxed ${chatStyles.customScrollbar}`}
                           >
                             <code
                               className={`language-${segment.language || "ts"}`}

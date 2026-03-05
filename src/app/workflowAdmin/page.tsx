@@ -278,7 +278,7 @@ export default function WorkflowAdminPage() {
                   <div className="animate-pulse text-left bg-red-100 border-2 border-dashed border-red-200 rounded-[8px] px-3 py-2 flex items-center gap-4">
                     <MessageSquareWarning size={26} />
                     <div className="flex flex-col">
-                      <h1 className="font-inter font-medium leading-[140%] text-[16px] text-black tracking-tight">
+                      <h1 className="font-inter font-medium leading-[140%] text-base text-black tracking-tight">
                         No Workflows Found
                       </h1>
                       <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
@@ -297,7 +297,7 @@ export default function WorkflowAdminPage() {
                   <h2 className="font-semibold text-[32px] text-[#0A0A0A]">
                     Loading Workflows...
                   </h2>
-                  <p className="text-[16px] text-[#4b5563]">
+                  <p className="text-base text-[#4b5563]">
                     Please wait while we fetch your workflows.
                   </p>
                 </div>
@@ -316,7 +316,7 @@ export default function WorkflowAdminPage() {
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-[16px] leading-[140%] tracking-tight text-black">
+                          <p className="font-inter font-[600] text-base leading-[140%] tracking-tight text-black">
                             Credit Usage
                           </p>
                         </div>
@@ -325,7 +325,7 @@ export default function WorkflowAdminPage() {
                             <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
                               {(totalCredits / 1000).toFixed(1) + "K"}
                             </p>
-                            <span className="font-inter font-normal leading-[154%] text-[14px] text-[#B3B3B3]">
+                            <span className="font-inter font-normal leading-[154%] text-sm text-[#B3B3B3]">
                               Credits
                             </span>
                           </div>
@@ -349,7 +349,7 @@ export default function WorkflowAdminPage() {
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-[16px] font-semibold leading-[140%] tracking-tight text-black">
+                          <p className="font-inter font-[600] text-base font-semibold leading-[140%] tracking-tight text-black">
                             Active Consumers
                           </p>
                         </div>
@@ -358,7 +358,7 @@ export default function WorkflowAdminPage() {
                             <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
                               {activeConsumers}
                             </p>
-                            <span className="font-inter font-normal leading-[154%] text-[14px] text-[#B3B3B3]">
+                            <span className="font-inter font-normal leading-[154%] text-sm text-[#B3B3B3]">
                               Users
                             </span>
                           </div>

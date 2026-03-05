@@ -907,9 +907,10 @@ export const PinItem = ({
           style={
             inOrganizeDialog
               ? {
-                  maxHeight: "36px",
-                  overflow: "hidden",
+                  // In the organize dialog, allow up to two rows of tags
+                  // to be fully visible without being clipped.
                   alignContent: "flex-start",
+                  overflow: "visible",
                 }
               : {
                   maxHeight: "44px",

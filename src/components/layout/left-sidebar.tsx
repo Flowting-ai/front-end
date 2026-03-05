@@ -184,14 +184,24 @@ export function LeftSidebar({
   const userFirstName = (() => {
     const fromName = user?.name?.trim();
     if (fromName) {
-      const first = fromName.split(/\s+/)[0];
+      return fromName;
+    }
+    if (typeof user?.firstName === "string") {
+      const first = user.firstName.split("@")[0];
       if (first) return first;
     }
-    if (typeof user?.email === "string") {
-      const first = user.email.split("@")[0];
+    return "Test";
+  })();
+  const userLastName = (() => {
+    const fromName = user?.name?.trim();
+    if (fromName) {
+      return fromName;
+    }
+    if (typeof user?.lastName === "string") {
+      const first = user.lastName.split("@")[0];
       if (first) return first;
     }
-    return "there";
+    return "User";
   })();
 
   // Determine if user is on chat board route
@@ -235,6 +245,51 @@ export function LeftSidebar({
     "/settings/teams-and-roles",
   );
   const isHelpAndLegalRoute = pathname?.startsWith("/settings/help-and-legal");
+
+  // Persist settings nav scroll position across settings routes
+  const settingsScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const activeSettingsItemRef = React.useRef<HTMLButtonElement | null>(null);
+  React.useEffect(() => {
+    if (!isSettingsSectionRoute) return;
+    const stored =
+      typeof window !== "undefined"
+        ? window.sessionStorage.getItem("settingsScrollTop")
+        : null;
+    if (stored && settingsScrollRef.current) {
+      const value = Number(stored);
+      if (!Number.isNaN(value)) {
+        settingsScrollRef.current.scrollTop = value;
+      }
+    }
+  }, [isSettingsSectionRoute]);
+
+  // Ensure the active settings item is fully visible inside the scroll container
+  React.useEffect(() => {
+    if (!isSettingsSectionRoute) return;
+    const container = settingsScrollRef.current;
+    const activeItem = activeSettingsItemRef.current;
+    if (!container || !activeItem) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+
+    // Add a small margin so the item isn't flush with the edge
+    const margin = 6;
+
+    if (itemRect.top < containerRect.top + margin) {
+      container.scrollTop += itemRect.top - containerRect.top - margin;
+    } else if (itemRect.bottom > containerRect.bottom - margin) {
+      container.scrollTop += itemRect.bottom - containerRect.bottom + margin;
+    }
+  }, [pathname, isSettingsSectionRoute]);
+
+  const handleSettingsScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      "settingsScrollTop",
+      String(event.currentTarget.scrollTop),
+    );
+  };
 
   // Fetch workflows for "Recent Workflow chats" when on workflow pages
   const [workflowList, setWorkflowList] = useState<WorkflowMetadata[]>([]);
@@ -607,9 +662,14 @@ export function LeftSidebar({
               </div>
 
               {/* 2. Settings links */}
-              <div className="flex-1 flex flex-col gap-1 min-h-0 pl-4 pr-2 mr-1 mt-1 overflow-y-auto customScrollbar2">
+              <div
+                ref={settingsScrollRef}
+                onScroll={handleSettingsScroll}
+                className="flex-1 flex flex-col gap-1 min-h-0 pl-4 pr-2 mr-1 mt-1 overflow-y-auto customScrollbar2"
+              >
                 {/* 1. Account */}
                 <Button
+                  ref={isAccountRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/account")}
                   className={cn(
@@ -625,6 +685,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 2. Usage & Billing */}
                 <Button
+                  ref={isUsageAndBillingRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/usage-and-billing")}
                   className={cn(
@@ -640,6 +701,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 3. Routing */}
                 <Button
+                  ref={isRoutingRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/routing")}
                   className={cn(
@@ -655,6 +717,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 4. Memory & Context */}
                 <Button
+                  ref={isMemoryAndContextRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/memory-and-context")}
                   className={cn(
@@ -670,6 +733,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 5. Files & Data */}
                 <Button
+                  ref={isFilesAndDataRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/files-and-data")}
                   className={cn(
@@ -685,6 +749,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 6. Automations */}
                 <Button
+                  ref={isAutomationsRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/automations")}
                   className={cn(
@@ -700,6 +765,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 7. AI & Models */}
                 <Button
+                  ref={isAIandModelsRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/ai-and-models")}
                   className={cn(
@@ -715,6 +781,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 8. Integrations */}
                 <Button
+                  ref={isIntegrationsRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/integrations")}
                   className={cn(
@@ -730,6 +797,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 9. Notifications */}
                 <Button
+                  ref={isNotificationsRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/notifications")}
                   className={cn(
@@ -745,6 +813,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 10. Appearance */}
                 <Button
+                  ref={isAppearanceRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/appearance")}
                   className={cn(
@@ -760,6 +829,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 11. Security */}
                 <Button
+                  ref={isSecurityRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/security")}
                   className={cn(
@@ -775,6 +845,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 12. Teams & Roles */}
                 <Button
+                  ref={isTeamsAndRolesRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/teams-and-roles")}
                   className={cn(
@@ -790,6 +861,7 @@ export function LeftSidebar({
                 </Button>
                 {/* 13. Help & Legal */}
                 <Button
+                  ref={isHelpAndLegalRoute ? activeSettingsItemRef : undefined}
                   type="button"
                   onClick={() => router.push("/settings/help-and-legal")}
                   className={cn(
@@ -1124,40 +1196,31 @@ export function LeftSidebar({
           )}
 
           {/* 4. User Footer */}
-          <div className="w-full min-h-[59px] h-[59px] border-t border-main-border px-4 py-2">
+          <div className="w-full min-h-[59px] h-[59px] border-t border-main-border px-2 py-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="cursor-pointer w-full h-full text-left hover:bg-[#EDEDED] rounded-md focus:outline-none flex items-center gap-2 px-4 transition-colors"
+                  className="cursor-pointer w-full h-full text-left hover:bg-[#E5E5E5] rounded-md focus:outline-none flex items-center gap-2 px-4 transition-colors"
                 >
-                  <Avatar className="w-[22px] h-[22px] bg-white border border-main-border rounded-full">
-                    <AvatarFallback className="font-[500] font-inter font-bold text-lsb-button-active-bg text-[12px] bg-white">
+                  <Avatar className="w-8 h-8 bg-white border border-main-border rounded-full flex items-center justify-center">
+                    <AvatarFallback className="font-clash font-medium flex items-center justify-center w-11 h-11 rounded-full text-lsb-button-active-bg bg-white text-xs">
                       {(() => {
-                        if (user?.name) {
-                          const parts = user.name.trim().split(" ");
-                          const first = parts[0]?.[0] || "";
-                          const last =
-                            parts.length > 1 ? parts[parts.length - 1][0] : "";
-                          return (first + last).toUpperCase();
+                        if (user?.firstName && user?.lastName) {
+                          const first = user.firstName.trim().split(/\s+/);
+                          const firstLetter = first[0]?.charAt(0) ?? "";
+                          const last = user.lastName.trim().split(/\s+/);
+                          const lastLetter = last[0]?.charAt(0) ?? "";
+                          const combo = (firstLetter + lastLetter).trim();
+                          if (combo) return combo.toUpperCase();
                         }
-                        if (user?.email) {
-                          const [first, last] = user.email
-                            .split("@")[0]
-                            .split(".");
-                          return (
-                            (
-                              (first?.[0] || "") + (last?.[0] || "")
-                            ).toUpperCase() || "G"
-                          );
-                        }
-                        return "G";
+                        return "TU";
                       })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col justify-center">
-                    <span className="font-normal font-inter text-[14px] text-lsb-text whitespace-nowrap">
-                      {user ? `${userFirstName}` : "Guest"}
+                    <span className="font-geist font-medium capitalize text-sm text-lsb-text whitespace-nowrap">
+                      {user ? `${userFirstName} ${userLastName}` : "Test User"}
                     </span>
                   </div>
                 </button>

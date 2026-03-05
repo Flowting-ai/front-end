@@ -1024,7 +1024,7 @@ function PersonaConfigurePageContent() {
                         </span>
                         <br /> is ready!
                       </p>
-                      <p className="font-normal text-[14px] text-[#333333] mt-1">
+                      <p className="font-normal text-sm text-[#333333] mt-1">
                         Start chatting to test your persona
                       </p>
                     </div>
@@ -1458,7 +1458,7 @@ function PersonaConfigurePageContent() {
                                   {/* Header */}
                                   <div className="flex items-center justify-between mb-6">
                                     <h2
-                                      className="font-clash font-medium text-[14px] flex items-center gap-1.5"
+                                      className="font-clash font-medium text-sm flex items-center gap-1.5"
                                       style={{
                                         letterSpacing: "-0.02em",
                                         color: "#7e6afe",
@@ -2421,7 +2421,7 @@ function PersonaConfigurePageContent() {
                               </p>
                               <p
                                 className={cn(
-                                  "max-w-[240px] w-[240px] font-normal text-center text-[14px] mt-1",
+                                  "max-w-[240px] w-[240px] font-normal text-center text-sm mt-1",
                                   isPersonaReady
                                     ? "text-[#333333]"
                                     : "text-zinc-300",
@@ -2503,7 +2503,7 @@ function PersonaConfigurePageContent() {
                       {/* <Sparkles size={24} /> */}
                       Enhance Mode
                     </h2>
-                    <p className="text-[16px] text-[#666666] animate-pulse">
+                    <p className="text-base text-[#666666] animate-pulse">
                       {enhanceLoadingStep === 'analyzing' 
                         ? 'Analysing the prompt...' 
                         : 'Looking for gaps to enhance...'}
@@ -2540,7 +2540,7 @@ function PersonaConfigurePageContent() {
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           How should this persona sound?
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-sm text-[#666666] mb-6">
                           Pick up to two for a blended tone.
                         </p>
                         <div className="flex-1 overflow-y-auto customScrollbar2">
@@ -2552,7 +2552,7 @@ function PersonaConfigurePageContent() {
                                 className={cn(
                                   'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                   'flex items-center justify-center',
-                                  'text-[14px] font-medium',
+                                  'text-sm font-medium',
                                   selectedTone.includes(tone)
                                     ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                     : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2566,7 +2566,7 @@ function PersonaConfigurePageContent() {
                               className={cn(
                                 'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
-                                'text-[14px] font-medium',
+                                'text-sm font-medium',
                                 selectedTone.includes('Custom')
                                   ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2637,7 +2637,7 @@ function PersonaConfigurePageContent() {
                               className={cn(
                                 'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
-                                'text-[14px] font-medium',
+                                'text-sm font-medium',
                                 showCustomDos
                                   ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2668,7 +2668,7 @@ function PersonaConfigurePageContent() {
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           What should this persona never do?
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-sm text-[#666666] mb-6">
                           Select all that apply, or write your own.
                         </p>
                         <div 
@@ -2683,7 +2683,7 @@ function PersonaConfigurePageContent() {
                                 className={cn(
                                   'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
                                   'flex items-center justify-start text-left',
-                                  'text-[14px] font-medium',
+                                  'text-sm font-medium',
                                   selectedDonts.includes(dontItem)
                                     ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                     : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2703,7 +2703,7 @@ function PersonaConfigurePageContent() {
                               className={cn(
                                 'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
-                                'text-[14px] font-medium',
+                                'text-sm font-medium',
                                 showCustomDonts
                                   ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2735,7 +2735,7 @@ function PersonaConfigurePageContent() {
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           Should this persona stick to specific topics?
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-sm text-[#666666] mb-6">
                           Keeps conversation focused and on-brand.
                         </p>
                         <div className="flex-1 overflow-y-auto customScrollbar2">
@@ -2750,9 +2750,9 @@ function PersonaConfigurePageContent() {
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
                               )}
                             >
-                              <span className="font-medium text-[16px]">Open</span>
+                              <span className="font-medium text-base">Open</span>
                               <span className={cn(
-                                'text-[14px] mt-1',
+                                'text-sm mt-1',
                                 topicFocus === 'Open' ? 'text-white/80' : 'text-[#666666]'
                               )}>
                                 Can discuss anything relevant
@@ -2768,9 +2768,9 @@ function PersonaConfigurePageContent() {
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
                               )}
                             >
-                              <span className="font-medium text-[16px]">Focused</span>
+                              <span className="font-medium text-base">Focused</span>
                               <span className={cn(
-                                'text-[14px] mt-1',
+                                'text-sm mt-1',
                                 topicFocus === 'Focused' ? 'text-white/80' : 'text-[#666666]'
                               )}>
                                 Stays close to its expertise
@@ -2786,9 +2786,9 @@ function PersonaConfigurePageContent() {
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
                               )}
                             >
-                              <span className="font-medium text-[16px]">Strict</span>
+                              <span className="font-medium text-base">Strict</span>
                               <span className={cn(
-                                'text-[14px] mt-1',
+                                'text-sm mt-1',
                                 topicFocus === 'Strict' ? 'text-white/80' : 'text-[#666666]'
                               )}>
                                 Only discusses defined topics
@@ -2805,7 +2805,7 @@ function PersonaConfigurePageContent() {
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           When the persona doesn't know something...
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-sm text-[#666666] mb-6">
                           How it handles gaps matters for trust.
                         </p>
                         <div 
@@ -2826,7 +2826,7 @@ function PersonaConfigurePageContent() {
                                 className={cn(
                                   'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
                                   'flex items-center justify-start text-left',
-                                  'text-[14px] font-medium',
+                                  'text-sm font-medium',
                                   handlingUnknowns.includes(option)
                                     ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                     : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2846,7 +2846,7 @@ function PersonaConfigurePageContent() {
                               className={cn(
                                 'h-[48px] px-4 rounded-lg border transition-all duration-200 cursor-pointer',
                                 'flex items-center justify-center gap-2',
-                                'text-[14px] font-medium',
+                                'text-sm font-medium',
                                 showCustomUnknown
                                   ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2877,7 +2877,7 @@ function PersonaConfigurePageContent() {
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                           How should the persona structure its responses?
                         </h3>
-                        <p className="text-[14px] text-[#666666] mb-6">
+                        <p className="text-sm text-[#666666] mb-6">
                           Format affects clarity and usability.
                         </p>
                         <div 
@@ -2898,7 +2898,7 @@ function PersonaConfigurePageContent() {
                                 className={cn(
                                   'h-auto min-h-[48px] px-4 py-3 rounded-lg border transition-all duration-200',
                                   'flex items-center justify-start text-left',
-                                  'text-[14px] font-medium',
+                                  'text-sm font-medium',
                                   responseStructure.includes(option)
                                     ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                     : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2918,7 +2918,7 @@ function PersonaConfigurePageContent() {
                               className={cn(
                                 'h-[48px] px-4 rounded-lg border transition-all duration-200',
                                 'flex items-center justify-center gap-2',
-                                'text-[14px] font-medium',
+                                'text-sm font-medium',
                                 showCustomStructure
                                   ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]'
                                   : 'bg-white text-[#0a0a0a] border-[#D9D9D9] hover:bg-[#0a0a0a] hover:text-white'
@@ -2953,7 +2953,7 @@ function PersonaConfigurePageContent() {
                           <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
                             Ready to apply
                           </h3>
-                          <p className="text-[14px] text-[#666666]">
+                          <p className="text-sm text-[#666666]">
                             {improvementsList.length} improvements will be added to your prompt
                           </p>
                         </div>
@@ -2964,7 +2964,7 @@ function PersonaConfigurePageContent() {
                               className="flex items-start gap-3 px-4 py-3 border border-[#D9D9D9] rounded-lg bg-white"
                             >
                               <Check size={16} className="text-[#7e6afe] mt-0.5 flex-shrink-0" />
-                              <span className="text-[14px] text-[#0a0a0a]">{improvement}</span>
+                              <span className="text-sm text-[#0a0a0a]">{improvement}</span>
                             </div>
                           ))}
                         </div>
@@ -2996,7 +2996,7 @@ function PersonaConfigurePageContent() {
                         <Button
                           onClick={handleBackTab}
                           variant="ghost"
-                          className="text-[14px] text-[#666666] hover:text-[#0A0A0A]"
+                          className="text-sm text-[#666666] hover:text-[#0A0A0A]"
                         >
                           Back
                         </Button>
@@ -3005,7 +3005,7 @@ function PersonaConfigurePageContent() {
                         <Button
                           onClick={handleSkipTab}
                           variant="ghost"
-                          className="text-[14px] text-[#666666] hover:text-[#0A0A0A]"
+                          className="text-sm text-[#666666] hover:text-[#0A0A0A]"
                         >
                           Skip
                         </Button>
@@ -3016,13 +3016,13 @@ function PersonaConfigurePageContent() {
                         <Button
                           onClick={handleCloseEnhanceMode}
                           variant="outline"
-                          className="px-6 py-2.5 rounded-lg text-[14px] font-medium border-[#D9D9D9] text-[#666666] hover:text-[#0A0A0A]"
+                          className="px-6 py-2.5 rounded-lg text-sm font-medium border-[#D9D9D9] text-[#666666] hover:text-[#0A0A0A]"
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleApplyEnhancements}
-                          className="px-6 py-2.5 rounded-lg text-[14px] font-medium bg-[#171717] hover:bg-[#000000] text-white"
+                          className="px-6 py-2.5 rounded-lg text-sm font-medium bg-[#171717] hover:bg-[#000000] text-white"
                         >
                           Apply to prompt
                         </Button>
@@ -3032,7 +3032,7 @@ function PersonaConfigurePageContent() {
                         onClick={handleContinueTab}
                         disabled={!canContinueTab}
                         className={cn(
-                          'px-6 py-2.5 rounded-lg text-[14px] font-medium',
+                          'px-6 py-2.5 rounded-lg text-sm font-medium',
                           canContinueTab
                             ? 'bg-[#171717] hover:bg-[#000000] text-white'
                             : 'bg-[#D4D4D4] cursor-not-allowed text-gray-500'

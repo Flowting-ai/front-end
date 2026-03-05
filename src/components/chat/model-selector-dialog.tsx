@@ -260,7 +260,7 @@ export function ModelSelectorDialog({
             </div>
             <div className="w-full flex flex-col pl-1 pr-3 py-3">
               <div className="flex items-center mb-1">
-                <div className="font-[600] text-[16px] flex items-center gap-2">
+                <div className="font-[600] text-base flex items-center gap-2">
                   Souvenir AI Framework
                   <span className="font-geist font-[500] text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
                     {frameworkSelected ? "Default" : "Recommended"}
@@ -271,7 +271,7 @@ export function ModelSelectorDialog({
                   <CircleCheckBig className="absolute top-3 right-3 w-[20px] h-[20px] text-[#0A0A0A]" />
                 )}
               </div>
-              <p className="font-[400] text-[14px] text-left">
+              <p className="font-[400] text-sm text-left">
                 A smart blend of AI models for high-quality results. Souvenir
                 picks the right model for your task and adapts as you work,
                 keeping your context intact and you in control.

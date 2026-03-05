@@ -96,7 +96,7 @@ export const WorkflowRow = React.forwardRef<
               <Workflow className="h-5 w-5" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-[14px] leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
+              <span className="font-semibold text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
                 {workflow.name}
               </span>
               {workflow.description && (

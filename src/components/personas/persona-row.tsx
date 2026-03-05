@@ -156,7 +156,7 @@ export const PersonaRow = React.forwardRef<HTMLTableRowElement, PersonaRowProps>
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="font-semibold text-[14px] leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)]">
+                <span className="font-semibold text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)]">
                   {persona.name}
                 </span>
                 {persona.description && (

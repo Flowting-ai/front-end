@@ -356,7 +356,7 @@ function PersonasPageContent() {
                   </div>
                   <button
                     type="button"
-                    className={cn(styles.createPersonaButton, "cursor-pointer font-geist font-medium text-[14px]")}
+                    className={cn(styles.createPersonaButton, "cursor-pointer font-geist font-medium text-sm")}
                     onClick={() => router.push("/personas/new")}
                   >
                     Create New Persona
@@ -517,7 +517,7 @@ function PersonasPageContent() {
                 Object.entries(groupedTemplates).map(
                   ([category, templates]) => (
                     <div key={category} className={cn(styles.categoryBlock, "")}>
-                      <h3 className={cn(styles.categoryTitle, "font-clash font-medium! text-[16px]!")}>{category}</h3>
+                      <h3 className={cn(styles.categoryTitle, "font-clash font-medium! text-base!")}>{category}</h3>
                       <div className={styles.cardsGrid}>
                         {templates.map((template) => {
                           const isSaved = savedTemplates.has(template.id);
@@ -778,7 +778,7 @@ function PersonasPageContent() {
                     </div>
                     <button
                       type="button"
-                      className={cn(styles.createPersonaButton, "cursor-pointer font-geist font-medium text-[14px]")}
+                      className={cn(styles.createPersonaButton, "cursor-pointer font-geist font-medium text-sm")}
                       onClick={() => router.push("/personas/new")}
                     >
                       Create New Persona
@@ -930,7 +930,7 @@ function PersonasPageContent() {
                 Object.entries(groupedTemplates).map(
                   ([category, templates]) => (
                     <div key={category} className={styles.categoryBlock}>
-                      <h3 className={cn(styles.categoryTitle, "font-clash font-medium! text-[16px]!")}>{category}</h3>
+                      <h3 className={cn(styles.categoryTitle, "font-clash font-medium! text-base!")}>{category}</h3>
                       <div className={styles.cardsGrid}>
                         {templates.map((template) => {
                           const isSaved = savedTemplates.has(template.id);

@@ -98,7 +98,7 @@ export function Topbar({
               {showUpgradePlan ? (
                 <Button
                   variant="secondary"
-                  className="cursor-pointer w-[122px] h-[33px] font-inter font-normal text-[14px] text-tb-button2-text bg-tb-button2-bg hover:text-tb-button2-text-hover hover:bg-tb-button2-bg-hover rounded-[8px] flex items-center justify-center px-4"
+                  className="cursor-pointer w-[122px] h-[33px] font-inter font-normal text-sm text-tb-button2-text bg-tb-button2-bg hover:text-tb-button2-text-hover hover:bg-tb-button2-bg-hover rounded-[8px] flex items-center justify-center px-4"
                 >
                   Upgrade Plan
                 </Button>
@@ -147,7 +147,7 @@ export function Topbar({
           {isHomePage && !user && (
             <Link href="/auth/login">
               <Button
-                className="cursor-pointer w-[122px] h-[38px] font-inter font-normal text-[14px] text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
+                className="cursor-pointer w-[122px] h-[38px] font-inter font-normal text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
               >
                 <UserRoundPen className="h-4 w-4" />
                 Sign In
@@ -157,7 +157,7 @@ export function Topbar({
           {/* {isPersonaAdminPage && (
             <Link href="/personas/new">
               <Button
-                className="cursor-pointer w-[173px] h-[38px] font-inter font-[400] text-[14px] text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
+                className="cursor-pointer w-[173px] h-[38px] font-inter font-[400] text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
               >
                 <UserRoundPen className="h-3.5 w-3.5" />
                 Create New Persona
