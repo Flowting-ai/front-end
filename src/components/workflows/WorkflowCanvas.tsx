@@ -186,7 +186,7 @@ function WorkflowCanvasInner() {
   // Chat data fetched from API
   const [allChats, setAllChats] = useState<Array<{ id: string; name: string; pinnedDate?: string }>>([]);
   // Pin data fetched from API
-  const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[] }>>([]);
+  const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[]; folderId?: string; folderName?: string }>>([]);
   // Persona data fetched from API
   const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string; modelId?: string }>>([]);
   // Model data fetched from API
@@ -329,6 +329,99 @@ function WorkflowCanvasInner() {
       }),
     );
   }, [allModels, setNodes]);
+
+  // When chats are loaded, hydrate chat nodes with full chatData for display.
+  useEffect(() => {
+    if (!allChats.length) return;
+
+    setNodes((nds) =>
+      nds.map((node) => {
+        const nodeData = node.data as WorkflowNodeData;
+        if (nodeData.type !== "chat") return node;
+
+        const selectedChatId = (nodeData.selectedChats || "").toString().trim();
+        if (!selectedChatId) return node;
+
+        const chat = allChats.find((c) => c.id === selectedChatId);
+        if (!chat) return node;
+
+        return {
+          ...node,
+          data: {
+            ...nodeData,
+            chatData: {
+              name: chat.name,
+              id: chat.id,
+              pinnedDate: chat.pinnedDate,
+            },
+          },
+        };
+      }),
+    );
+  }, [allChats, setNodes]);
+
+  // When personas are loaded, hydrate persona nodes with full personaData for display.
+  useEffect(() => {
+    if (!allPersonas.length) return;
+
+    setNodes((nds) =>
+      nds.map((node) => {
+        const nodeData = node.data as WorkflowNodeData;
+        if (nodeData.type !== "persona") return node;
+
+        const selectedPersonaId = (nodeData.selectedPersona || "").toString().trim();
+        if (!selectedPersonaId) return node;
+
+        const persona = allPersonas.find((p) => p.id === selectedPersonaId);
+        if (!persona) return node;
+
+        return {
+          ...node,
+          data: {
+            ...nodeData,
+            personaData: {
+              name: persona.name,
+              image: persona.image,
+              description: persona.description,
+              modelId: persona.modelId,
+            },
+          },
+        };
+      }),
+    );
+  }, [allPersonas, setNodes]);
+
+  // When pins are loaded, hydrate pin folder nodes with folder name from pin data.
+  useEffect(() => {
+    if (!allPins.length) return;
+
+    setNodes((nds) =>
+      nds.map((node) => {
+        const nodeData = node.data as WorkflowNodeData;
+        if (nodeData.type !== "pin") return node;
+        if (!nodeData.selectedFolder?.id) return node;
+
+        const folderId = nodeData.selectedFolder.id;
+        // Find pins belonging to this folder
+        const folderPins = allPins.filter((p) => p.folderId === folderId);
+        // Derive folder name from any pin's folderName, or keep existing
+        const folderName = folderPins[0]?.folderName || nodeData.selectedFolder.name;
+        const pinIds = folderPins.map((p) => p.id);
+
+        return {
+          ...node,
+          data: {
+            ...nodeData,
+            selectedFolder: {
+              id: folderId,
+              name: folderName,
+              pinIds,
+            },
+          },
+        };
+      }),
+    );
+  }, [allPins, setNodes]);
 
   // Center view on initial mount - Canvas Initial View/zoom can be set here
   useEffect(() => {
