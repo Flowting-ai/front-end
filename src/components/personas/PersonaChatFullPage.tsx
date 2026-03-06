@@ -69,7 +69,7 @@ export function PersonaChatFullPage({
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
+  const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
 
   // Click outside to close attach menu
   useEffect(() => {

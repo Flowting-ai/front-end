@@ -237,7 +237,7 @@ export function ModelSelectorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[501px] w-[501px] max-h-[542px] h-[542px] text-[#171717] bg-white border border-[#E5E5E5] rounded-[10px] flex flex-col gap-1 px-0 py-2">
         <DialogHeader className="w-full max-h-[34px] h-[34px] flex items-start justify-center px-3">
-          <DialogTitle className="font-clash font-[400] text-[24px] text-tb-dialog-text">
+          <DialogTitle className="font-clash font-normal text-[24px] text-tb-dialog-text">
             Choose Your Model
           </DialogTitle>
         </DialogHeader>
@@ -251,10 +251,10 @@ export function ModelSelectorDialog({
           >
             <div className="p-3">
               <Image
-                src="/icons/logo.png"
+                src="/new-logos/souvenir-logo.svg"
                 width={30}
                 height={30}
-                alt="flowting ai logo"
+                alt="souvenir ai logo"
                 className="w-[30px] h-[30px] object-contain"
               />
             </div>
@@ -271,7 +271,7 @@ export function ModelSelectorDialog({
                   <CircleCheckBig className="absolute top-3 right-3 w-[20px] h-[20px] text-[#0A0A0A]" />
                 )}
               </div>
-              <p className="font-[400] text-sm text-left">
+              <p className="font-normal text-sm text-left">
                 A smart blend of AI models for high-quality results. Souvenir
                 picks the right model for your task and adapts as you work,
                 keeping your context intact and you in control.

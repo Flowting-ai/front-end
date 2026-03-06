@@ -157,7 +157,7 @@ export function Topbar({
           {/* {isPersonaAdminPage && (
             <Link href="/personas/new">
               <Button
-                className="cursor-pointer w-[173px] h-[38px] font-inter font-[400] text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
+                className="cursor-pointer w-[173px] h-[38px] font-inter font-normal text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
               >
                 <UserRoundPen className="h-3.5 w-3.5" />
                 Create New Persona

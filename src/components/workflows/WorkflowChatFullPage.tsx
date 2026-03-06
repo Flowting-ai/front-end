@@ -111,7 +111,7 @@ export function WorkflowChatFullPage({
   // Per-node streaming content (avoids stale-closure issues)
   const streamingContentRef = useRef<Map<string, string>>(new Map());
   const nodeOutputsRef = useRef<Map<string, NodeOutput>>(new Map());
-  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
+  const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
 
   // Click outside to close attach menu (same as chat-interface)
   useEffect(() => {
@@ -449,8 +449,8 @@ export function WorkflowChatFullPage({
             <div className="flex flex-col items-center gap-0">
               <div className="w-[146px] h-[146px] flex items-center justify-center overflow-hidden">
                 <Image
-                  src="/icons/FlowtingAI_LightGrey.png"
-                  alt="Workflow"
+                  src="/new-logos/souvenir-logo-chat.svg"
+                  alt="Souvenir AI Chat"
                   width={81}
                   height={81}
                   className="object-contain"

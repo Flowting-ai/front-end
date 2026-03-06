@@ -107,7 +107,12 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
   while ((match = latexRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       const beforeText = text.slice(lastIndex, match.index);
-      nodes.push(...renderBoldInlineContent(beforeText, `${keyPrefix}-pre-${latexCount}`));
+      nodes.push(
+        ...renderBoldInlineContent(
+          beforeText,
+          `${keyPrefix}-pre-${latexCount}`,
+        ),
+      );
     }
 
     const isBlock = match[1] === "$$";
@@ -207,7 +212,12 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
     description?: string;
   } | null>(linkPreviewCache.get(normalizedUrl) ?? null);
 
-  const displayLabel = (label || preview?.title || hostname || normalizedUrl).trim();
+  const displayLabel = (
+    label ||
+    preview?.title ||
+    hostname ||
+    normalizedUrl
+  ).trim();
 
   const fetchPreview = async () => {
     if (linkPreviewCache.has(normalizedUrl)) {
@@ -225,7 +235,9 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
 
     // Fetch metadata for title and description
     try {
-      const fullUrl = normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`;
+      const fullUrl = normalizedUrl.startsWith("http")
+        ? normalizedUrl
+        : `https://${normalizedUrl}`;
       const encoded = encodeURIComponent(fullUrl);
       const res = await fetch(`/api/link-metadata?url=${encoded}`);
       if (res.ok) {
@@ -234,7 +246,8 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
           siteName: hostname,
           faviconUrl,
           title: typeof data.title === "string" ? data.title : undefined,
-          description: typeof data.description === "string" ? data.description : undefined,
+          description:
+            typeof data.description === "string" ? data.description : undefined,
         };
         linkPreviewCache.set(normalizedUrl, enriched);
         setPreview(enriched);
@@ -250,7 +263,9 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedUrl]);
 
-  const faviconSrc = preview?.faviconUrl || (hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "");
+  const faviconSrc =
+    preview?.faviconUrl ||
+    (hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "");
 
   return (
     <span
@@ -264,14 +279,22 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
       }}
     >
       <a
-        href={normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`}
+        href={
+          normalizedUrl.startsWith("http")
+            ? normalizedUrl
+            : `https://${normalizedUrl}`
+        }
         target="_blank"
         rel="noopener noreferrer"
         className="group inline-flex items-center gap-1 rounded-full border border-main-border bg-[#F4F4F5] px-2 py-0.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#E4E4E7] hover:text-[#111827] transition-all duration-200 max-w-full align-middle"
       >
         {faviconSrc && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={faviconSrc} alt="" className="h-3.5 w-3.5 shrink-0 rounded-sm" />
+          <img
+            src={faviconSrc}
+            alt=""
+            className="h-3.5 w-3.5 shrink-0 rounded-sm"
+          />
         )}
         <span className="truncate max-w-[200px]">{displayLabel}</span>
         <ExternalLink
@@ -339,17 +362,13 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const afterChar = text[match.index + match[0].length];
 
       // If the link is wrapped in parentheses like "(example.com)", strip them
-      const wrappedInParens =
-        before.endsWith("(") && afterChar === ")";
+      const wrappedInParens = before.endsWith("(") && afterChar === ")";
       if (wrappedInParens) {
         before = before.slice(0, -1);
       }
 
       nodes.push(
-        ...renderLatexInlineContent(
-          before,
-          `${keyPrefix}-text-${partIndex++}`,
-        ),
+        ...renderLatexInlineContent(before, `${keyPrefix}-text-${partIndex++}`),
       );
     }
 
@@ -371,10 +390,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview
-          k={`${keyPrefix}-link-${partIndex++}`}
-          url={trimmedUrl}
-        />,
+        <LinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
       );
 
       if (trailing) {
@@ -392,10 +408,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview
-          k={`${keyPrefix}-link-${partIndex++}`}
-          url={trimmedUrl}
-        />,
+        <LinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
       );
 
       if (trailing) {
@@ -436,17 +449,17 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
 // Helper to render formatted reasoning content
 const renderReasoningContent = (text: string): JSX.Element[] => {
   if (!text) return [];
-  
+
   const lines = text.split("\n");
   const elements: JSX.Element[] = [];
   let lineIndex = 0;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     if (!trimmed) {
       elements.push(
-        <span key={`reasoning-gap-${lineIndex++}`} className="block h-2" />
+        <span key={`reasoning-gap-${lineIndex++}`} className="block h-2" />,
       );
       continue;
     }
@@ -456,11 +469,19 @@ const renderReasoningContent = (text: string): JSX.Element[] => {
     if (headerMatch) {
       const level = headerMatch[1].length;
       const content = headerMatch[2];
-      const fontSize = level === 1 ? "text-[13px]" : level === 2 ? "text-[12.5px]" : "text-[12px]";
+      const fontSize =
+        level === 1
+          ? "text-[13px]"
+          : level === 2
+            ? "text-[12.5px]"
+            : "text-[12px]";
       elements.push(
-        <div key={`reasoning-h-${lineIndex++}`} className={`font-semibold ${fontSize} text-[#6b5fad] mb-1 mt-2`}>
+        <div
+          key={`reasoning-h-${lineIndex++}`}
+          className={`font-semibold ${fontSize} text-[#6b5fad] mb-1 mt-2`}
+        >
           {content}
-        </div>
+        </div>,
       );
       continue;
     }
@@ -472,7 +493,7 @@ const renderReasoningContent = (text: string): JSX.Element[] => {
         <div key={`reasoning-li-${lineIndex++}`} className="flex gap-2 ml-3">
           <span className="text-[#9d8fd4] select-none">•</span>
           <span>{listMatch[1]}</span>
-        </div>
+        </div>,
       );
       continue;
     }
@@ -489,9 +510,12 @@ const renderReasoningContent = (text: string): JSX.Element[] => {
         parts.push(trimmed.slice(lastIdx, match.index));
       }
       parts.push(
-        <strong key={`reasoning-bold-${lineIndex}-${boldCount++}`} className="font-semibold text-[#6b5fad]">
+        <strong
+          key={`reasoning-bold-${lineIndex}-${boldCount++}`}
+          className="font-semibold text-[#6b5fad]"
+        >
           {match[2]}
-        </strong>
+        </strong>,
       );
       lastIdx = match.index + match[0].length;
     }
@@ -507,7 +531,7 @@ const renderReasoningContent = (text: string): JSX.Element[] => {
     elements.push(
       <div key={`reasoning-p-${lineIndex++}`} className="leading-relaxed">
         {parts}
-      </div>
+      </div>,
     );
   }
 
@@ -592,7 +616,9 @@ const ReasoningSection = ({
             </span>
           )}
           <span className="text-xs font-semibold text-[#6b5fad] tracking-wide">
-            {!isTypingDone || isThinkingInProgress ? "Reasoning\u2026" : "Reasoning"}
+            {!isTypingDone || isThinkingInProgress
+              ? "Reasoning\u2026"
+              : "Reasoning"}
           </span>
         </div>
         <ChevronDown
@@ -604,7 +630,7 @@ const ReasoningSection = ({
       </button>
       {!isCollapsed && (
         <div className="border-t border-[#e8e3f4] px-3 py-2">
-          {(!isTypingDone || isThinkingInProgress) ? (
+          {!isTypingDone || isThinkingInProgress ? (
             <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80">
               {displayText}
               <span className="inline-block w-[2px] h-[13px] bg-[#9d8fd4] ml-[1px] align-middle animate-[blink_0.8s_step-end_infinite]" />
@@ -895,7 +921,9 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
     <span className="flex items-center -space-x-1">
       {list.map((url, i) => {
         const hostname = getHostname(url);
-        const faviconUrl = hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "";
+        const faviconUrl = hostname
+          ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
+          : "";
         const showFallback = !faviconUrl || failed.has(i);
         return (
           <span
@@ -1066,7 +1094,7 @@ export function ChatMessage({
   );
   const clarificationSuggestions =
     !isUser && Array.isArray(message.metadata?.clarification?.suggestions)
-      ? message.metadata?.clarification?.suggestions ?? []
+      ? (message.metadata?.clarification?.suggestions ?? [])
       : [];
 
   const actionButtonClasses =
@@ -1132,8 +1160,8 @@ export function ChatMessage({
 
   // Check if this is an image/video generation message
   const isMediaGeneration = !!(
-    message.metadata?.isImageGeneration || 
-    message.imageUrl || 
+    message.metadata?.isImageGeneration ||
+    message.imageUrl ||
     message.images?.length
   );
 
@@ -1144,218 +1172,220 @@ export function ChatMessage({
     }
 
     return (
-    <TooltipProvider>
-      <div
-        className={cn(
-          "bg-transparent inline-flex items-center gap-1 w-full justify-between",
-          // ,className
-        )}
-      >
-        <div className="inline-flex items-center gap-1">
-          {/* Pin button - disabled for media generations */}
-          {!disablePinning && !isMediaGeneration && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    actionButtonClasses,
-                    isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]",
-                  )}
-                  onClick={() => onPin(message)}
-                  aria-pressed={isPinned}
-                >
-                  <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isPinned ? "Unpin" : "Pin"} message</p>
-              </TooltipContent>
-            </Tooltip>
+      <TooltipProvider>
+        <div
+          className={cn(
+            "bg-transparent inline-flex items-center gap-1 w-full justify-between",
+            // ,className
           )}
-          {/* Copy button - disabled for media generations */}
-          {!isMediaGeneration && (
+        >
+          <div className="inline-flex items-center gap-1">
+            {/* Pin button - disabled for media generations */}
+            {!disablePinning && !isMediaGeneration && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      actionButtonClasses,
+                      isPinned && "bg-[#4A4A4A] text-white hover:bg-[#4A4A4A]",
+                    )}
+                    onClick={() => onPin(message)}
+                    aria-pressed={isPinned}
+                  >
+                    <Pin className={cn("h-4 w-4", isPinned && "fill-white")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isPinned ? "Unpin" : "Pin"} message</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Copy button - disabled for media generations */}
+            {!isMediaGeneration && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={actionButtonClasses}
+                    onClick={() => onCopy(message.content)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {message.metadata?.webSearchEnabled && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={actionButtonClasses}
+                  >
+                    <Globe className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Searched the web</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onRegenerate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={actionButtonClasses}
+                    onClick={() => onRegenerate(message)}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Regenerate</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onReply && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={actionButtonClasses}
+                    onClick={() => onReply(message)}
+                  >
+                    <Reply className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reply</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onReference && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={actionButtonClasses}
+                    onClick={() => onReference(message)}
+                  >
+                    <CornerDownRight className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reply to this message</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className={actionButtonClasses}
-                  onClick={() => onCopy(message.content)}
+                  onClick={() => onDelete(message)}
                 >
-                  <Copy className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Copy</p>
+                <p>Delete</p>
               </TooltipContent>
             </Tooltip>
-          )}
-          {message.metadata?.webSearchEnabled && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                >
-                  <Globe className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Searched the web</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onRegenerate && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                  onClick={() => onRegenerate(message)}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Regenerate</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onReply && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                  onClick={() => onReply(message)}
-                >
-                  <Reply className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Reply</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onReference && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={actionButtonClasses}
-                  onClick={() => onReference(message)}
-                >
-                  <CornerDownRight className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Reply to this message</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={actionButtonClasses}
-                onClick={() => onDelete(message)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Delete</p>
-            </TooltipContent>
-          </Tooltip>
-          {onReact && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    actionButtonClasses,
-                    message.metadata?.userReaction === "like" &&
-                      "bg-[#E4E4E7] text-[#111827]",
-                  )}
-                  onClick={() =>
-                    onReact(
-                      message,
-                      message.metadata?.userReaction === "like" ? null : "like",
-                    )
-                  }
-                  aria-pressed={message.metadata?.userReaction === "like"}
-                >
-                  <ThumbsUp className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Good response</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onReact && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    actionButtonClasses,
-                    message.metadata?.userReaction === "dislike" &&
-                      "bg-[#E4E4E7] text-[#111827]",
-                  )}
-                  onClick={() =>
-                    onReact(
-                      message,
-                      message.metadata?.userReaction === "dislike"
-                        ? null
-                        : "dislike",
-                    )
-                  }
-                  aria-pressed={message.metadata?.userReaction === "dislike"}
-                >
-                  <ThumbsDown className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Needs improvement</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          {onOpenSources && sourceCount > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-1 border border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#0A0A0A] hover:text-[#111827] transition-colors"
-                  onClick={onOpenSources}
-                >
-                  <SourceFaviconStack urls={sourceUrls.slice(0, 4)} />
-                  <span className="text-xs font-medium">Sources</span>
-                </Button>
-              </TooltipTrigger>
-              {/* <TooltipContent>
+            {onReact && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      actionButtonClasses,
+                      message.metadata?.userReaction === "like" &&
+                        "bg-[#E4E4E7] text-[#111827]",
+                    )}
+                    onClick={() =>
+                      onReact(
+                        message,
+                        message.metadata?.userReaction === "like"
+                          ? null
+                          : "like",
+                      )
+                    }
+                    aria-pressed={message.metadata?.userReaction === "like"}
+                  >
+                    <ThumbsUp className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Good response</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onReact && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      actionButtonClasses,
+                      message.metadata?.userReaction === "dislike" &&
+                        "bg-[#E4E4E7] text-[#111827]",
+                    )}
+                    onClick={() =>
+                      onReact(
+                        message,
+                        message.metadata?.userReaction === "dislike"
+                          ? null
+                          : "dislike",
+                      )
+                    }
+                    aria-pressed={message.metadata?.userReaction === "dislike"}
+                  >
+                    <ThumbsDown className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Needs improvement</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {onOpenSources && sourceCount > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-1 border border-main-border px-3 py-1 rounded-full h-8  hover:bg-zinc-100 text-[#0A0A0A] hover:text-[#111827] transition-colors"
+                    onClick={onOpenSources}
+                  >
+                    <SourceFaviconStack urls={sourceUrls.slice(0, 4)} />
+                    <span className="text-xs font-medium">Sources</span>
+                  </Button>
+                </TooltipTrigger>
+                {/* <TooltipContent>
                 <p>View sources</p>
               </TooltipContent>  */}
-            </Tooltip>
+              </Tooltip>
+            )}
+          </div>
+          {(message.metadata?.modelName || message.metadata?.providerName) && (
+            <span className="text-xs text-[#6B7280] font-medium pr-[5px]">
+              {message.metadata.modelName || message.metadata.providerName}
+            </span>
           )}
         </div>
-        {(message.metadata?.modelName || message.metadata?.providerName) && (
-          <span className="text-xs text-[#6B7280] font-medium pr-[5px]">
-            {message.metadata.modelName || message.metadata.providerName}
-          </span>
-        )}
-      </div>
-    </TooltipProvider>
-  );
+      </TooltipProvider>
+    );
   };
 
   // const handlePin = (message: Message) => {
@@ -1408,7 +1438,7 @@ export function ChatMessage({
     <Avatar
       className={cn(
         "h-9 w-9 text-xs font-semibold",
-        "border border-transparent bg-transparent text-[#111827]",
+        "border border-transparent rounded-none! bg-transparent text-[#111827]",
       )}
     >
       {message.avatarUrl && (
@@ -1430,7 +1460,7 @@ export function ChatMessage({
     if (!isUser && message.isLoading) {
       return null;
     }
-    
+
     return isUser ? (
       <UserActions className={className} />
     ) : (
@@ -1448,16 +1478,26 @@ export function ChatMessage({
       >
         {/* Show avatar for both AI and user (when persona is selected) */}
         <div className="w-auto flex flex-col items-center justify-start gap-1">
-          {(!isUser || (isUser && message.avatarUrl && message.avatarUrl !== "/personas/userAvatar.png")) && (
+          {(!isUser ||
+            (isUser &&
+              message.avatarUrl &&
+              message.avatarUrl !== "/personas/userAvatar.png")) && (
             <div className="mt-4 shrink-0 h-9 w-9 relative flex items-center justify-center overflow-hidden">
               {message.isLoading ? (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Lottie
+                  {/* <Lottie
                     animationData={frameworkLoadingAnimation}
                     loop
                     autoplay
                     className="h-16 w-16 scale-300"
                     rendererSettings={{ preserveAspectRatio: "xMidYMid slice" }}
+                  /> */}
+                  <Image
+                    src="/new-logos/souvenir-logo.svg"
+                    width={64}
+                    height={64}
+                    alt="Souvenir AI Framework"
+                    className="w-full h-full object-contain animate-pulse"
                   />
                 </div>
               ) : (
@@ -1497,19 +1537,24 @@ export function ChatMessage({
               )}
             >
               {/* Reply indicator for user messages */}
-              {isUser && message.metadata?.replyToMessageId && message.metadata?.replyToContent && (
-                <div className="mb-2 flex items-start gap-2 px-2 py-1.5 bg-[#F5F5F5] rounded-lg border border-[#E5E5E5]">
-                  <Reply className="mt-0.5 h-3 w-3 shrink-0 text-[#666666]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="mb-0.5 text-xs font-medium text-[#666666]">
-                      Replying to AI
-                    </p>
-                    <p className="text-xs text-[#8a8a8a] line-clamp-1">
-                      {message.metadata.replyToContent.slice(0, 80)}{message.metadata.replyToContent.length > 80 ? '...' : ''}
-                    </p>
+              {isUser &&
+                message.metadata?.replyToMessageId &&
+                message.metadata?.replyToContent && (
+                  <div className="mb-2 flex items-start gap-2 px-2 py-1.5 bg-[#F5F5F5] rounded-lg border border-[#E5E5E5]">
+                    <Reply className="mt-0.5 h-3 w-3 shrink-0 text-[#666666]" />
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-0.5 text-xs font-medium text-[#666666]">
+                        Replying to AI
+                      </p>
+                      <p className="text-xs text-[#8a8a8a] line-clamp-1">
+                        {message.metadata.replyToContent.slice(0, 80)}
+                        {message.metadata.replyToContent.length > 80
+                          ? "..."
+                          : ""}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               {message.referencedMessageId && referencedMessage && (
                 <div className="mb-3 border-b border-slate-200 pb-3">
                   <div className="flex items-start gap-2 text-xs">
@@ -1627,14 +1672,18 @@ export function ChatMessage({
                       </div>
                     );
                   })}
-                  {(message.isLoading || isResponding) && !message.imageUrl && !(message.images?.length) && !isUser && message.metadata?.isImageGeneration && (
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                      <Skeleton
-                        className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"
-                        aria-label="Image generating"
-                      />
-                    </div>
-                  )}
+                  {(message.isLoading || isResponding) &&
+                    !message.imageUrl &&
+                    !message.images?.length &&
+                    !isUser &&
+                    message.metadata?.isImageGeneration && (
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                        <Skeleton
+                          className="w-full max-w-md aspect-square rounded-2xl bg-zinc-200"
+                          aria-label="Image generating"
+                        />
+                      </div>
+                    )}
                   {(message.images?.length
                     ? message.images
                     : message.imageUrl

@@ -271,7 +271,7 @@ export function WorkflowChatInterface({
   // Track nodes already marked as running to avoid repeated expensive canvas updates.
   const seenRunningNodesRef = useRef<Set<string>>(new Set());
 
-  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
+  const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -866,7 +866,7 @@ export function WorkflowChatInterface({
           <div className="text-center max-w-md">
             <div className="mb-6 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full">
-                <Image src="/icons/FlowtingAI_LightGrey.png" alt="Workflow Logo" width={81} height={81} className="object-contain" />
+                <Image src="/new-logos/souvenir-logo-chat.svg" alt="Workflow Logo" width={81} height={81} className="object-contain" />
               </div>
             </div>
             <h2 className="mb-3 text-2xl font-normal text-[#1E1E1E] font-clash">

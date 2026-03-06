@@ -22,8 +22,8 @@ const Frame1171275887: NextPage<Frame117Props> = ({ firstName }) => {
       <div className={styles.frameGroup}>
         <Image
           className={styles.frameChild}
-          src="/icons/FlowtingAI_LightGrey.png"
-          alt="FlowtingAi orb"
+          src="/new-logos/souvenir-logo-chat.svg"
+          alt="Souvenir AI Chat"
           width={82}
           height={82}
           priority

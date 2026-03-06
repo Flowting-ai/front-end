@@ -129,7 +129,7 @@ export function ModelSelector({
       >
         {useFramework ? (
           <span className="w-5 h-5 bg-zinc-100 group-hover:bg-zinc-100 rounded-full shrink-0 inline-flex items-center justify-center p-0.5 transition-all duration-500">
-            <Image src="/icons/logo.png" alt="Flowting AI" width={16} height={16}/>
+            <Image src="/new-logos/souvenir-logo.svg" alt="Souvenir AI" width={16} height={16}/>
           </span>
         ) : selectedModel ? (
           <span className="w-5 h-5 bg-zinc-100 group-hover:bg-zinc-100 rounded-full shrink-0 inline-flex items-center justify-center p-0.5 transition-all duration-500">
@@ -145,7 +145,7 @@ export function ModelSelector({
             />
           </span>
         ) : null}
-        <span className="model-selector-label font-inter font-[400] text-sm whitespace-nowrap">
+        <span className="model-selector-label font-inter font-normal text-sm whitespace-nowrap">
           {useFramework
             ? "Souvenir AI Framework"
             : selectedModel

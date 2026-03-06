@@ -453,7 +453,7 @@ export function ChatInterface({
   const pinItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const flowtingLogoUrl = "/new-logos/FlowtingLogo.svg";
+  const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
   const resolveModelAvatar = (
     modelOverride?: AIModel | null,
   ): MessageAvatar => {

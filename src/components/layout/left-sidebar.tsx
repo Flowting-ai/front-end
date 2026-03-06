@@ -390,10 +390,10 @@ export function LeftSidebar({
                     className="cursor-pointer absolute top-[50%] left-[50%] -translate-1/2 w-full max-h-[56px] h-full flex items-center justify-center gap-2 group-hover:opacity-0 transition-all duration-500"
                   >
                     <Image
-                      src="/icons/logo.png"
+                      src="/new-logos/souvenir-logo.svg"
                       width={23}
                       height={23}
-                      alt="Flowting AI Logo"
+                      alt="Souvenir AI Logo"
                       className="object-contain"
                     />
                   </button>
@@ -596,10 +596,10 @@ export function LeftSidebar({
                 ) : (
                   <>
                     <Image
-                      src="/icons/logo.png"
+                      src="/new-logos/souvenir-logo.svg"
                       width={23}
                       height={23}
-                      alt="Flowting AI Logo"
+                      alt="Souvenir AI Logo"
                     />
                     <h3 className="font-clash font-normal text-[18px] transition-all duration-300 overflow-hidden whitespace-nowrap">
                       SouvenirAI

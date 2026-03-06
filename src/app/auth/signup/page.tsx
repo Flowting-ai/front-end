@@ -154,10 +154,10 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="z-2 scale-100 absolute top-[5%] left-[5%] w-auto h-auto flex items-center gap-3">
           <Image
-            src="/new-logos/FlowtingLogoBlack.svg"
+            src="/new-logos/souvenir-logo.svg"
             width={45}
             height={45}
-            alt="Flowting Logo"
+            alt="Souvenir AI Logo"
             className="w-10 h-10 object-contain"
           />
           <h1 className="font-clash font-normal text-[27px]">SouvenirAI</h1>

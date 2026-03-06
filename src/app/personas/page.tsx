@@ -319,10 +319,10 @@ function PersonasPageContent() {
             <section className={styles.section}>
               {/* Header */}
               <div className="flex flex-col">
-                <h1 className="font-clash font-[400] leading-[140%] text-[24px] text-black">
+                <h1 className="font-clash font-normal leading-[140%] text-[24px] text-black">
                   Your Personas
                 </h1>
-                <p className="font-geist font-[400] leading-[140%] text-[13px] text-black">
+                <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
                   Manage your custom agents.
                 </p>
               </div>
@@ -606,10 +606,10 @@ function PersonasPageContent() {
             <section className={styles.section}>
               {/* Header */}
               <div className="flex flex-col">
-                <h1 className="font-clash font-[400] leading-[140%] text-[24px] text-black">
+                <h1 className="font-clash font-normal leading-[140%] text-[24px] text-black">
                   Your Personas
                 </h1>
-                <p className="font-geist font-[400] leading-[140%] text-[13px] text-black">
+                <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
                   Manage your custom agents.
                 </p>
               </div>
@@ -790,10 +790,10 @@ function PersonasPageContent() {
 
             {/* <section className={styles.section}>
               <div className="flex flex-col">
-                <h1 className="font-clash font-[400] leading-[140%] text-[24px] text-black">
+                <h1 className="font-clash font-normal leading-[140%] text-[24px] text-black">
                   Choose from templates
                 </h1>
-                <p className="font-geist font-[400] leading-[140%] text-[13px] text-black">
+                <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
                   Jumpstart your Persona with a pre-made expert.
                 </p>
               </div>
