@@ -181,28 +181,8 @@ export function LeftSidebar({
     }
   }, [pathname]);
 
-  const userFirstName = (() => {
-    const fromName = user?.name?.trim();
-    if (fromName) {
-      return fromName;
-    }
-    if (typeof user?.firstName === "string") {
-      const first = user.firstName.split("@")[0];
-      if (first) return first;
-    }
-    return "Test";
-  })();
-  const userLastName = (() => {
-    const fromName = user?.name?.trim();
-    if (fromName) {
-      return fromName;
-    }
-    if (typeof user?.lastName === "string") {
-      const first = user.lastName.split("@")[0];
-      if (first) return first;
-    }
-    return "User";
-  })();
+  const userFirstName = user?.firstName?.trim() || "Guest";
+  const userLastName = user?.lastName?.trim() || "User";
 
   // Determine if user is on chat board route
   const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
@@ -1206,21 +1186,16 @@ export function LeftSidebar({
                   <Avatar className="w-8 h-8 bg-white border border-main-border rounded-full flex items-center justify-center">
                     <AvatarFallback className="font-clash font-medium flex items-center justify-center w-11 h-11 rounded-full text-lsb-button-active-bg bg-white text-xs">
                       {(() => {
-                        if (user?.firstName && user?.lastName) {
-                          const first = user.firstName.trim().split(/\s+/);
-                          const firstLetter = first[0]?.charAt(0) ?? "";
-                          const last = user.lastName.trim().split(/\s+/);
-                          const lastLetter = last[0]?.charAt(0) ?? "";
-                          const combo = (firstLetter + lastLetter).trim();
-                          if (combo) return combo.toUpperCase();
-                        }
-                        return "TU";
+                        const firstLetter = user?.firstName?.trim().charAt(0) ?? "";
+                        const lastLetter = user?.lastName?.trim().charAt(0) ?? "";
+                        const combo = (firstLetter + lastLetter).toUpperCase();
+                        return combo || "GU";
                       })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col justify-center">
                     <span className="font-geist font-medium capitalize text-sm text-lsb-text whitespace-nowrap">
-                      {user ? `${userFirstName} ${userLastName}` : "Test User"}
+                      {user ? `${userFirstName} ${userLastName}` : "Guest User"}
                     </span>
                   </div>
                 </button>

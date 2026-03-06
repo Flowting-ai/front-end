@@ -2473,7 +2473,7 @@ export function ChatInterface({
       {displayMessages.length === 0 ? (
         <section className="flex flex-1 items-center justify-center bg-white px-4 py-8">
           {customEmptyState || (
-            <InitialPrompts userName={user?.name ?? user?.email ?? null} />
+            <InitialPrompts firstName={user?.firstName ?? user?.name ?? null} />
           )}
         </section>
       ) : (

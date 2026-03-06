@@ -5,17 +5,14 @@ import type { NextPage } from "next";
 import styles from "./frame-1171275887.module.css";
 
 interface Frame117Props {
-  userName?: string | null;
+  firstName?: string | null;
 }
 
-const Frame1171275887: NextPage<Frame117Props> = ({ userName }) => {
+const Frame1171275887: NextPage<Frame117Props> = ({ firstName }) => {
   const normalized = (() => {
-    if (!userName?.trim()) return "User";
-    const clean = userName.includes("@")
-      ? userName.split("@")[0]
-      : userName.split(" ")[0];
-    if (!clean) return "User";
-    return clean.charAt(0).toUpperCase() + clean.slice(1);
+    const trimmed = firstName?.trim();
+    if (!trimmed) return "User";
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   })();
 
   const formattedName = `${normalized}?`;
