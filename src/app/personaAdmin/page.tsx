@@ -56,7 +56,11 @@ import { API_BASE_URL } from "@/lib/config";
 const getFullAvatarUrl = (url: string | null | undefined): string | null => {
   if (!url || url.trim() === "") return null;
   // Already a full URL (http/https) or data URL
-  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) {
+  if (
+    url.startsWith("http") ||
+    url.startsWith("data:") ||
+    url.startsWith("blob:")
+  ) {
     return url;
   }
   // Relative path - prepend backend URL
@@ -104,7 +108,10 @@ export default function PersonaAdminPage() {
       }
       setIsLoading(true);
       try {
-        const backendPersonas = await fetchPersonas(undefined, csrfTokenRef.current);
+        const backendPersonas = await fetchPersonas(
+          undefined,
+          csrfTokenRef.current,
+        );
         hasFetchedPersonas.current = true;
 
         // Transform backend data to match frontend Persona interface
@@ -280,7 +287,11 @@ export default function PersonaAdminPage() {
 
     // Persist to backend
     try {
-      await updatePersona(personaId, { status: newBackendStatus }, csrfTokenRef.current);
+      await updatePersona(
+        personaId,
+        { status: newBackendStatus },
+        csrfTokenRef.current,
+      );
     } catch (error) {
       console.error("Failed to update persona status:", error);
       // Revert optimistic update on error
@@ -367,10 +378,10 @@ export default function PersonaAdminPage() {
       <div
         className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto border py-[20px]`}
       >
-        <div className="scale-100 max-w-[1040px] mx-auto w-full">
+        <div className="scale-100 mx-auto w-full">
           <div className="w-full flex flex-col gap-6">
             {/* Header */}
-            <div className="w-full flex justify-between">
+            <div className="pl-32 pr-4 w-full flex justify-between">
               {/* Left */}
               <div className="flex flex-col">
                 <h1 className="font-clash font-normal leading-[140%] text-[24px] text-black">
@@ -382,8 +393,8 @@ export default function PersonaAdminPage() {
               </div>
 
               {/* Right */}
-              {personas.length === 0 ? (
-                <div className="animate-pulse text-left bg-red-100 border-2 border-dashed border-red-200 rounded-[8px] px-3 py-2 flex items-center gap-4">
+              {personas.length === 0 && !isLoading ? (
+                <div className="animate-slide-in-right animate-pulse text-left bg-red-100 border-2 border-dashed border-red-200 rounded-[8px] px-3 py-2 flex items-center gap-4">
                   <MessageSquareWarning size={26} />
                   <div className="flex flex-col">
                     <h1 className="font-inter font-medium leading-[140%] text-base text-black tracking-tight">
@@ -399,7 +410,7 @@ export default function PersonaAdminPage() {
 
             {/* Loading State */}
             {isLoading ? (
-              <div className="font-inter border border-main-border rounded-[16px] shadow-xl shadow-zinc-100 flex flex-col items-center justify-center gap-8 py-16">
+              <div className="max-w-[1040px] mx-auto w-full font-inter border border-main-border rounded-[16px] shadow-xl shadow-zinc-100 flex flex-col items-center justify-center gap-8 py-16">
                 <div className="text-center flex flex-col items-center gap-3">
                   <h2 className="font-semibold text-[32px] text-[#0A0A0A]">
                     Loading Personas...
@@ -410,65 +421,9 @@ export default function PersonaAdminPage() {
                 </div>
               </div>
             ) : (
-              /* Empty State */
-              // personas.length === 0 ? (
-              //   <div className=" font-inter border border-main-border rounded-[16px] shadow-xl shadow-zinc-100 flex flex-col items-center justify-center gap-8 py-16">
-              //     <div className="text-center flex flex-col items-center gap-3">
-              //       <h2 className="font-semibold text-[32px] text-[#0A0A0A]">
-              //         No Personas Yet
-              //       </h2>
-              //       <p className="text-base text-[#4b5563]">
-              //         Start by creating a new persona based on your requirements.
-              //       </p>
-              //     </div>
-
-              //     <StatCard
-              //       title="Create Persona"
-              //       value=""
-              //       className="w-auto h-[148px] shadow-xl shadow-black/5 flex-none px-4! py-4!"
-              //     >
-              //       <div className="flex h-full w-full flex-col items-center justify-center gap-6">
-              //         Avatar Stack
-              //         <div className="w-[126px] h-[40px] flex items-center justify-center -space-x-2">
-              //           {[
-              //             "/avatars/avatar1.svg",
-              //             "/avatars/avatar2.svg",
-              //             "/avatars/avatar3.svg",
-              //           ].map((src, index) => (
-              //             <div
-              //               key={`${src}-${index}`}
-              //               className="relative h-10 w-10 rounded-full border-2 border-white shadow-md overflow-hidden"
-              //               style={{ zIndex: 4 - index }}
-              //             >
-              //               <Image
-              //                 src={src}
-              //                 alt="Persona avatar"
-              //                 width={41}
-              //                 height={40}
-              //                 className="h-full w-full rounded-full object-contain"
-              //               />
-              //             </div>
-              //           ))}
-              //         </div>
-
-              //         Create Persona Button
-              //         <Button
-              //           size="sm"
-              //           className="cursor-pointer w-auto min-h-[36px] h-[36px] bg-[#171717] text-white hover:bg-black rounded-[8px] px-1 py-[9.5px]"
-              //           onClick={handleCreatePersona}
-              //         >
-              //           <Plus className="h-4 w-4" />
-              //           <span className="text-sm font-medium">
-              //             Create Persona
-              //           </span>
-              //         </Button>
-              //       </div>
-              //     </StatCard>
-              //   </div>
-              // ) :
               <>
                 {/* Stats */}
-                <div className="mx-auto w-full">
+                <div className="max-w-[1040px] mx-auto w-full">
                   <div className="flex w-full flex-col md:flex-row md:flex-nowrap gap-6 pb-0">
                     {/* Left - Tokens Usage */}
                     <StatCard
@@ -605,102 +560,96 @@ export default function PersonaAdminPage() {
                 <CommandCenter
                   statusFilter={statusFilter}
                   onStatusFilterChange={setStatusFilter}
-                  className="w-full gap-0"
+                  className="max-w-[1040px] mx-auto w-full gap-0"
                 >
-                  <div className="mx-auto flex w-full flex-col overflow-x-auto md:overflow-x-visible">
-                    <div className={`w-full`}>
-                      <Table className="w-full border-collapse">
-                        <TableHeader>
-                          <TableRow className="h-9 rounded-xl border-t border-b border-[#E5E5E5] bg-[#F5F5F5] hover:bg-[#F5F5F5]">
-                            <TableHead colSpan={8} className="p-0 h-9">
-                              <div className="flex w-fit md:w-full items-center h-full text-[12px] font-inter font-bold uppercase tracking-normal text-[#0E1620]">
-                                {/* Spacer */}
-                                <div className="w-[47px] h-full shrink-0"></div>
+                  <div className="mx-auto flex w-full  flex-col overflow-x-auto md:overflow-x-visible p-0">
+                    <Table className="w-full border-collapse">
+                      <TableHeader>
+                        <TableRow className="h-9 rounded-xl border-t border-b border-[#E5E5E5] bg-[#F5F5F5] hover:bg-[#F5F5F5]">
+                          <TableHead colSpan={8} className="p-0 h-9">
+                            <div className="flex w-fit md:w-full items-center h-full text-[12px] font-inter font-bold uppercase tracking-normal text-[#0E1620]">
+                              {/* Spacer */}
+                              <div className="w-[47px] h-full shrink-0"></div>
 
-                                {/* Persona Unit */}
-                                <div className="w-[180px] h-full shrink-0 flex items-center justify-start px-2.5">
-                                  <p>Persona Unit</p>
-                                </div>
-
-                                {/* Token Usage */}
-                                <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
-                                  <p>Token Usage</p>
-                                </div>
-
-                                {/* Consumers */}
-                                <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
-                                  <p>Consumers</p>
-                                </div>
-
-                                {/* Status */}
-                                <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
-                                  <p>Status</p>
-                                </div>
-
-                                {/* Last Activity */}
-                                <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
-                                  <p>Last Activity</p>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex-1 h-full shrink-0 flex items-center justify-center px-2.5">
-                                  {/* <p>Actions</p> */}
-                                </div>
+                              {/* Persona Unit */}
+                              <div className="w-[180px] h-full shrink-0 flex items-center justify-start px-2.5">
+                                <p>Persona Unit</p>
                               </div>
-                            </TableHead>
+
+                              {/* Token Usage */}
+                              <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
+                                <p>Token Usage</p>
+                              </div>
+
+                              {/* Consumers */}
+                              <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
+                                <p>Consumers</p>
+                              </div>
+
+                              {/* Status */}
+                              <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
+                                <p>Status</p>
+                              </div>
+
+                              {/* Last Activity */}
+                              <div className="w-[180px] h-full shrink-0 flex items-center justify-center px-2.5">
+                                <p>Last Activity</p>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex-1 h-full shrink-0 flex items-center justify-center px-2.5">
+                                {/* <p>Actions</p> */}
+                              </div>
+                            </div>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPersonas.length === 0 ? (
+                          <TableRow>
+                            <td
+                              colSpan={8}
+                              className="py-8 text-center text-muted-foreground"
+                            >
+                              No personas found
+                            </td>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredPersonas.length === 0 ? (
-                            <TableRow>
-                              <td
-                                colSpan={8}
-                                className="py-8 text-center text-muted-foreground"
-                              >
-                                No personas found
-                              </td>
-                            </TableRow>
-                          ) : (
-                            filteredPersonas.map((persona) => (
-                              <PersonaWrapper
-                                key={persona.id}
-                                persona={persona}
-                                expanded={expandedPersonaIds.includes(
-                                  persona.id,
-                                )}
-                                onToggleExpand={() =>
-                                  handleToggleExpand(persona.id)
-                                }
-                                selectedConsumerIds={selectedConsumerIds}
-                                onToggleConsumer={handleToggleConsumer}
-                                onPause={() => handlePausePersona(persona.id)}
-                                onResume={() => handlePausePersona(persona.id)}
-                                onDelete={() => handleDeletePersona(persona.id)}
-                                onModifyConfig={() =>
-                                  router.push(
-                                    `/personas/new/configure?personaId=${persona.id}`,
-                                  )
-                                }
-                                onChat={() =>
-                                  router.push(
-                                    `/personaAdmin/chat/${persona.id}`,
-                                  )
-                                }
-                                onSelectAllConsumers={() =>
-                                  handleSelectAllConsumersForPersona(persona.id)
-                                }
-                                onPauseAllConsumers={() =>
-                                  handlePauseAllConsumersForPersona(persona.id)
-                                }
-                                onDeleteAllConsumers={() =>
-                                  handleDeleteAllConsumersForPersona(persona.id)
-                                }
-                              />
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
+                        ) : (
+                          filteredPersonas.map((persona) => (
+                            <PersonaWrapper
+                              key={persona.id}
+                              persona={persona}
+                              expanded={expandedPersonaIds.includes(persona.id)}
+                              onToggleExpand={() =>
+                                handleToggleExpand(persona.id)
+                              }
+                              selectedConsumerIds={selectedConsumerIds}
+                              onToggleConsumer={handleToggleConsumer}
+                              onPause={() => handlePausePersona(persona.id)}
+                              onResume={() => handlePausePersona(persona.id)}
+                              onDelete={() => handleDeletePersona(persona.id)}
+                              onModifyConfig={() =>
+                                router.push(
+                                  `/personas/new/configure?personaId=${persona.id}`,
+                                )
+                              }
+                              onChat={() =>
+                                router.push(`/personaAdmin/chat/${persona.id}`)
+                              }
+                              onSelectAllConsumers={() =>
+                                handleSelectAllConsumersForPersona(persona.id)
+                              }
+                              onPauseAllConsumers={() =>
+                                handlePauseAllConsumersForPersona(persona.id)
+                              }
+                              onDeleteAllConsumers={() =>
+                                handleDeleteAllConsumersForPersona(persona.id)
+                              }
+                            />
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
                 </CommandCenter>
 

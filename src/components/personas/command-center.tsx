@@ -43,7 +43,7 @@ export const CommandCenter = React.forwardRef<HTMLDivElement, CommandCenterProps
         ref={ref}
         role="region"
         className={cn(
-          "w-full max-w-full border border-[#e5e5e5] bg-[#ffffff] px-[1px] py-0 text-[#374151] shadow-[0_8px_15px_rgba(0,0,0,0.05)]",
+          "w-full max-w-full border border-[#e5e5e5] bg-[#ffffff] px-0 py-0 text-[#374151] shadow-[0_8px_15px_rgba(0,0,0,0.05)]",
           "!rounded-[16px]",
           className
         )}
