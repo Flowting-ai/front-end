@@ -246,14 +246,19 @@ function WorkflowCanvasInner() {
   const edgeTypes = useMemo(() => ({ default: CustomEdge }), []);
 
   // Remove phantom automatically if a real node exists (e.g., load or other state change)
+  // SAFETY: This effect only removes the phantom placeholder, never real workflow nodes
   useEffect(() => {
     const hasUserNode = nodes.some(
       (n) => n.id !== 'start-node' && n.id !== 'end-node' && n.id !== 'phantom-node',
     );
-    if (hasUserNode && nodes.some((n) => n.id === 'phantom-node')) {
+    
+    const hasPhantomNode = nodes.some((n) => n.id === 'phantom-node');
+    
+    // Only remove phantom if we have user nodes and phantom still exists
+    if (hasUserNode && hasPhantomNode) {
       setNodes((nds) => nds.filter((n) => n.id !== 'phantom-node'));
       setEdges((eds) => eds.filter((e) => e.source !== 'phantom-node' && e.target !== 'phantom-node'));
-      saveToHistory();
+      // Don't save to history here as this is an automatic cleanup, not a user action
     }
   }, [nodes, setNodes, setEdges]);
 
@@ -850,6 +855,8 @@ function WorkflowCanvasInner() {
   };
 
   // Add node
+  // IMPORTANT: This function must NEVER remove, replace, or modify existing nodes
+  // It should only add the new node and remove the phantom placeholder if present
   const addNode = useCallback((type: NodeType, position?: { x: number; y: number }) => {
     const baseName = `${type.charAt(0).toUpperCase() + type.slice(1)}`;
     
@@ -898,14 +905,32 @@ function WorkflowCanvasInner() {
       } as WorkflowNodeData,
     };
 
-    // If the phantom node exists, remove it (it's only an indicator)
-    setNodes((nds) => {
-      const filtered = nds.filter((n) => n.id !== 'phantom-node');
-      return [...filtered, newNode];
+    // CRITICAL: Only remove phantom node, preserve all other existing nodes
+    // This ensures non-destructive node addition
+    setNodes((currentNodes) => {
+      // Keep all nodes except phantom (phantom is just a placeholder)
+      const existingNodes = currentNodes.filter((n) => n.id !== 'phantom-node');
+      
+      // Verify we're not accidentally removing nodes
+      if (currentNodes.length > 0 && existingNodes.length === 0 && currentNodes.every(n => n.id !== 'phantom-node')) {
+        console.error('WARNING: All nodes would be removed! This should never happen.');
+        // Return current nodes without changes to prevent data loss
+        return [...currentNodes, newNode];
+      }
+      
+      // Add the new node to the existing nodes array
+      return [...existingNodes, newNode];
     });
+    
+    // Remove any edges connected to phantom node
     setEdges((eds) => eds.filter((e) => e.source !== 'phantom-node' && e.target !== 'phantom-node'));
+    
+    // Record this action in history for undo/redo
     saveToHistory();
-  }, [nodes, setNodes, setEdges, saveToHistory]);
+    
+    // Mark the workflow as having unsaved changes
+    setHasUnsavedChanges(true);
+  }, [nodes, setNodes, setEdges, saveToHistory, setHasUnsavedChanges]);
 
   // Handle click to add node from palette
   const onNodeClickFromPalette = useCallback((nodeType: NodeType) => {

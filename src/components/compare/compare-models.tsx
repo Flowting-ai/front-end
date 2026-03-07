@@ -1,5 +1,5 @@
 ﻿"use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, type JSX } from "react";
 import { getJwtToken } from "@/lib/jwt-utils";
 import styles from "./compareModels.module.css";
 import {
@@ -14,6 +14,7 @@ import {
   CircleCheckBig,
   ArrowUp,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
@@ -25,6 +26,8 @@ import { getModelIcon } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { useAuth } from "@/context/auth-context";
 import chatStyles from "../chat/chat-interface.module.css";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 // Transform AIModel to compare model format
 interface CompareModel {
@@ -98,6 +101,501 @@ const CATEGORY_OPTIONS = [
     icon: <Video className="h-5 w-5 text-[#A3A3A3]" />,
   },
 ];
+
+// Markdown rendering helpers (from chat-message.tsx)
+const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
+
+const headingClassByLevel: Record<number, string> = {
+  1: "text-2xl",
+  2: "text-xl",
+  3: "text-lg",
+  4: "text-base",
+  5: "text-sm",
+  6: "text-xs",
+};
+
+const isTableDivider = (line: string) =>
+  /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line.trim());
+
+const isTableRow = (line: string) => {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.includes("|", 1);
+};
+
+const parseTableRow = (line: string) => {
+  const cleaned = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return cleaned.split("|").map((cell) => cell.trim());
+};
+
+const getHostname = (url: string): string => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+};
+
+const renderLatexInlineContent = (text: string, keyPrefix: string) => {
+  const nodes: Array<string | JSX.Element> = [];
+  const latexRegex = /(\$\$)([^$]+)\1|(\$)([^$]+)\3/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let latexCount = 0;
+
+  while ((match = latexRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const beforeText = text.slice(lastIndex, match.index);
+      nodes.push(
+        ...renderBoldInlineContent(
+          beforeText,
+          `${keyPrefix}-pre-${latexCount}`,
+        ),
+      );
+    }
+
+    const isBlock = match[1] === "$$";
+    const latexContent = isBlock ? match[2] : match[4];
+
+    try {
+      const html = katex.renderToString(latexContent, {
+        throwOnError: false,
+        displayMode: isBlock,
+      });
+      nodes.push(
+        <span
+          key={`${keyPrefix}-latex-${latexCount++}`}
+          className={isBlock ? "block my-2" : "inline-block mx-0.5"}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />,
+      );
+    } catch {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-latex-err-${latexCount++}`}
+          className="bg-red-100 text-red-800 px-1 rounded"
+        >
+          {match[0]}
+        </code>,
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    nodes.push(...renderBoldInlineContent(remaining, `${keyPrefix}-post`));
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(...renderBoldInlineContent(text, `${keyPrefix}-all`));
+  }
+
+  return nodes;
+};
+
+const renderBoldInlineContent = (text: string, keyPrefix: string) => {
+  const boldRegex = /(\*\*|__)(.+?)\1/g;
+  const nodes: Array<string | JSX.Element> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let boldCount = 0;
+
+  while ((match = boldRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <strong
+        key={`${keyPrefix}-bold-${boldCount++}`}
+        className="font-semibold text-[#171717]"
+      >
+        {match[2]}
+      </strong>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(text);
+  }
+
+  return nodes;
+};
+
+const SimpleLinkPreview = ({ url, label, k }: { url: string; label?: string; k: string }) => {
+  const normalizedUrl = url.trim();
+  const hostname = getHostname(normalizedUrl) || normalizedUrl;
+  const displayLabel = (label || hostname || normalizedUrl).trim();
+  const faviconSrc = hostname
+    ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
+    : "";
+
+  return (
+    <a
+      key={k}
+      href={normalizedUrl.startsWith("http") ? normalizedUrl : `https://${normalizedUrl}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex items-center gap-1 rounded-full border border-main-border bg-[#F4F4F5] px-2 py-0.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#E4E4E7] hover:text-[#111827] transition-all duration-200 max-w-full align-middle"
+    >
+      {faviconSrc && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={faviconSrc}
+          alt=""
+          className="h-3.5 w-3.5 shrink-0 rounded-sm"
+        />
+      )}
+      <span className="truncate max-w-[200px]">{displayLabel}</span>
+      <ExternalLink size={12} className="shrink-0 opacity-60 group-hover:opacity-100" />
+    </a>
+  );
+};
+
+const renderInlineContent = (text: string, keyPrefix: string) => {
+  if (!text) {
+    return [text];
+  }
+
+  const nodes: Array<string | JSX.Element> = [];
+  const linkRegex =
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)]*)?)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let partIndex = 0;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      let before = text.slice(lastIndex, match.index);
+      const afterChar = text[match.index + match[0].length];
+
+      const wrappedInParens = before.endsWith("(") && afterChar === ")";
+      if (wrappedInParens) {
+        before = before.slice(0, -1);
+      }
+
+      nodes.push(
+        ...renderLatexInlineContent(before, `${keyPrefix}-text-${partIndex++}`),
+      );
+    }
+
+    if (match[2]) {
+      const label = match[1];
+      const url = match[2];
+      nodes.push(
+        <SimpleLinkPreview
+          k={`${keyPrefix}-link-${partIndex++}`}
+          url={url}
+          label={label}
+        />,
+      );
+    } else if (match[3]) {
+      const raw = match[3];
+      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trailing = raw.slice(trimmedUrl.length);
+
+      nodes.push(
+        <SimpleLinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
+      );
+
+      if (trailing) {
+        nodes.push(
+          ...renderLatexInlineContent(
+            trailing,
+            `${keyPrefix}-trail-${partIndex++}`,
+          ),
+        );
+      }
+    } else if (match[4]) {
+      const raw = match[4];
+      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trailing = raw.slice(trimmedUrl.length);
+
+      nodes.push(
+        <SimpleLinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
+      );
+
+      if (trailing) {
+        nodes.push(
+          ...renderLatexInlineContent(
+            trailing,
+            `${keyPrefix}-trail-${partIndex++}`,
+          ),
+        );
+      }
+    }
+
+    const afterOffset =
+      text[match.index + match[0].length] === ")" &&
+      text[match.index - 1] === "("
+        ? 1
+        : 0;
+    lastIndex = match.index + match[0].length + afterOffset;
+  }
+
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    nodes.push(
+      ...renderLatexInlineContent(
+        remaining,
+        `${keyPrefix}-text-${partIndex++}`,
+      ),
+    );
+  }
+
+  if (nodes.length === 0) {
+    nodes.push(text);
+  }
+
+  return nodes;
+};
+
+const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
+  const nodes: JSX.Element[] = [];
+  const lines = value.replace(/\r/g, "").split("\n");
+  const listBuffer: string[] = [];
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    const listKey = `${keyPrefix}-list-${nodes.length}`;
+    nodes.push(
+      <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#171717]">
+        {listBuffer.map((item, index) => (
+          <li key={`${listKey}-item-${index}`} className="leading-relaxed">
+            {renderInlineContent(item, `${listKey}-item-${index}`)}
+          </li>
+        ))}
+      </ul>,
+    );
+    listBuffer.length = 0;
+  };
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      nodes.push(
+        <span
+          key={`${keyPrefix}-gap-${index}`}
+          className="block h-2"
+          aria-hidden="true"
+        />,
+      );
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushList();
+      const level = Math.min(headingMatch[1].length, 6);
+      const content = headingMatch[2];
+      const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+      nodes.push(
+        <HeadingTag
+          key={`${keyPrefix}-heading-${index}`}
+          className={cn(
+            "font-semibold text-[#171717] tracking-tight",
+            headingClassByLevel[level],
+          )}
+        >
+          {renderInlineContent(content, `${keyPrefix}-heading-${index}`)}
+        </HeadingTag>,
+      );
+      continue;
+    }
+
+    if (isTableRow(line) && isTableDivider(lines[index + 1] ?? "")) {
+      flushList();
+      const headerCells = parseTableRow(line);
+      index += 2;
+      const bodyRows: string[][] = [];
+
+      while (index < lines.length && isTableRow(lines[index])) {
+        bodyRows.push(parseTableRow(lines[index]));
+        index++;
+      }
+
+      const tableKey = `${keyPrefix}-table-${nodes.length}`;
+      nodes.push(
+        <div
+          key={tableKey}
+          className="overflow-x-auto rounded-lg border border-slate-200 my-2"
+        >
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-slate-50/70 text-slate-700">
+              <tr>
+                {headerCells.map((cell, cellIndex) => (
+                  <th
+                    key={`${tableKey}-header-${cellIndex}`}
+                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
+                  >
+                    {renderInlineContent(
+                      cell,
+                      `${tableKey}-header-${cellIndex}`,
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, rowIndex) => (
+                <tr
+                  key={`${tableKey}-row-${rowIndex}`}
+                  className="odd:bg-white even:bg-slate-50/50"
+                >
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
+                      className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]"
+                    >
+                      {renderInlineContent(
+                        cell,
+                        `${tableKey}-cell-${rowIndex}-${cellIndex}`,
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+
+      index -= 1;
+      continue;
+    }
+
+    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (listMatch) {
+      listBuffer.push(listMatch[1]);
+      continue;
+    }
+
+    flushList();
+    nodes.push(
+      <p
+        key={`${keyPrefix}-paragraph-${index}`}
+        className="whitespace-pre-wrap leading-relaxed text-[#171717]"
+      >
+        {renderInlineContent(line, `${keyPrefix}-paragraph-${index}`)}
+      </p>,
+    );
+  }
+
+  flushList();
+  return nodes;
+};
+
+type ContentSegment =
+  | { type: "text"; value: string }
+  | { type: "code"; value: string; language?: string };
+
+const parseContentSegments = (value: string): ContentSegment[] => {
+  if (!value) return [];
+  const segments: ContentSegment[] = [];
+  const codeRegex = /```([\w+-]+)?\s*\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = codeRegex.exec(value)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({
+        type: "text",
+        value: value.slice(lastIndex, match.index),
+      });
+    }
+    segments.push({
+      type: "code",
+      language: match[1]?.trim(),
+      value: match[2] ?? "",
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < value.length) {
+    segments.push({
+      type: "text",
+      value: value.slice(lastIndex),
+    });
+  }
+
+  return segments;
+};
+
+// Component for rendering formatted response content
+const FormattedResponse = ({ content, modelId }: { content: string; modelId: string }) => {
+  const segments = parseContentSegments(content);
+
+  return (
+    <div className="w-full space-y-1">
+      {segments.map((segment, idx) => {
+        if (segment.type === "code") {
+          return (
+            <CodeBlock
+              key={`${modelId}-code-${idx}`}
+              code={segment.value}
+              language={segment.language}
+            />
+          );
+        }
+        return (
+          <div key={`${modelId}-text-${idx}`} className="text-sm">
+            {renderTextContent(segment.value, `${modelId}-text-${idx}`)}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Code block component with syntax highlighting
+const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
+  const codeRef = useRef<HTMLElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (codeRef.current) {
+      // Dynamically import highlight.js library
+      import("@/lib/highlight").then((hljs) => {
+        if (codeRef.current) {
+          hljs.default.highlightElement(codeRef.current);
+        }
+      });
+    }
+  }, [code, language]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative rounded-lg overflow-hidden my-2 border border-slate-200">
+      <div className="flex items-center justify-between bg-slate-100 px-3 py-1.5 text-xs">
+        <span className="font-mono text-slate-600">{language || "code"}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-200 transition-colors text-slate-600"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <pre className="m-0 p-3 overflow-x-auto bg-slate-50 text-sm">
+        <code ref={codeRef} className={language ? `language-${language}` : ""}>
+          {code}
+        </code>
+      </pre>
+    </div>
+  );
+};
 
 interface CompareModelsPageProps {
   selectedModel?: AIModel | null;
@@ -514,17 +1012,8 @@ export default function CompareModelsPage({
                 }}
               >
                 {streamingModels.has(model.id) ? (
-                  // Currently streaming
-                  <div
-                    style={{
-                      fontSize: 13,
-                      lineHeight: "1.6",
-                      color: "#171717",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      width: "100%",
-                    }}
-                  >
+                  // Currently streaming - show raw text with cursor
+                  <div className="w-full text-sm leading-relaxed text-[#171717] whitespace-pre-wrap break-words">
                     {testResponses[model.id] || ""}
                     <span className={styles.streamingCursor} />
                   </div>
@@ -547,19 +1036,11 @@ export default function CompareModelsPage({
                     </div>
                   </>
                 ) : testResponses[model.id] ? (
-                  // Response complete
-                  <div
-                    style={{
-                      fontSize: 13,
-                      lineHeight: "1.6",
-                      color: "#171717",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      width: "100%",
-                    }}
-                  >
-                    {testResponses[model.id]}
-                  </div>
+                  // Response complete - render formatted markdown
+                  <FormattedResponse
+                    content={testResponses[model.id]}
+                    modelId={model.id}
+                  />
                 ) : (
                   // Empty state
                   <>
@@ -588,10 +1069,11 @@ export default function CompareModelsPage({
         <div
           style={{
             width: 1006,
-            height: 82,
+            minHeight: 82,
+            height: "auto",
             padding: 16,
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "center",
             background: "#fff",
             boxSizing: "border-box",
@@ -600,7 +1082,8 @@ export default function CompareModelsPage({
           <div
             style={{
               width: 756,
-              height: 60,
+              minHeight: 60,
+              height: "auto",
               padding: 12,
               gap: 12,
               borderRadius: 16,
@@ -608,13 +1091,12 @@ export default function CompareModelsPage({
               background: "var(--general-input, #FFFFFF)",
               boxShadow: "0px 1px 2px 0px #0000000D",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-end",
               justifyContent: "center",
               margin: "0 auto",
             }}
           >
-            <input
-              type="text"
+            <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
@@ -625,17 +1107,24 @@ export default function CompareModelsPage({
               }}
               placeholder="Test prompt, anything can go here."
               disabled={isTesting}
+              rows={1}
               style={{
-                height: 36,
-                borderRadius: 999,
-                padding: "0 16px",
+                minHeight: 36,
+                maxHeight: 84,
+                height: "auto",
+                borderRadius: 12,
+                padding: "8px 16px",
                 border: "none",
                 flex: 1,
                 fontSize: 14,
+                lineHeight: "1.5",
                 outline: "none",
                 marginRight: 12,
                 background: "#fff",
                 opacity: isTesting ? 0.6 : 1,
+                resize: "none",
+                overflowY: "auto",
+                fontFamily: "inherit",
               }}
             />
             <button

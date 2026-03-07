@@ -572,8 +572,8 @@ export function ModelSwitchDialog({
             </div>
           </div>
 
-          {/* Include Pins (split row) */}
-          <div className="w-full flex items-center justify-between gap-4">
+          {/* Include Pins (split row) - commented out for now, might use in future */}
+          {/* <div className="w-full flex items-center justify-between gap-4">
             <div className="w-1/2">
               <div className="font-geist font-[500] text-sm text-[#171717]">
                 Include Pins
@@ -631,7 +631,7 @@ export function ModelSwitchDialog({
 
                         return (
                           <div key={chat.id} className="mb-1">
-                            {/* Chat Header */}
+                            // Chat Header
                             <div className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5f5f5] rounded-md">
                               <button
                                 onClick={() => handleToggleChat(chat.id)}
@@ -656,7 +656,7 @@ export function ModelSwitchDialog({
                               />
                             </div>
 
-                            {/* Nested Pins */}
+                            {/* // Nested Pins *\/}
                             {isExpanded && (
                               <div className="ml-6 space-y-1">
                                 {chatPins.map((pin) => (
@@ -715,14 +715,14 @@ export function ModelSwitchDialog({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* <Separator className="text-main-border py-0 my-0"/> */}
 
         <DialogFooter className="max-h-[40px] h-[40px] border-t border-main-border flex items-center justify-between gap-2 pt-1">
-          {/* Include Files Toggle */}
-          <div className="w-full flex items-center justify-between">
+          {/* // Include Files Toggle */}
+          {/* <div className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="font-geist font-[500] text-sm text-[#171717]">
                 Include Files
@@ -734,7 +734,7 @@ export function ModelSwitchDialog({
                 className="cursor-pointer"
               />
             </div>
-          </div>
+          </div> */}
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">

@@ -57,12 +57,30 @@ export default function TopBar({
     }
   };
 
-  // Allow Test/Run whenever the workflow has been saved at least once
-  // and passes configuration checks, even if there are current unsaved edits.
+  // Test/Run should only be enabled when:
+  // 1. The workflow has been saved at least once (has workflowId)
+  // 2. The workflow passes configuration checks (canTestWorkflow)
+  // 3. There are NO unsaved changes (hasUnsavedChanges === false)
   const hasSavedWorkflow = Boolean(workflowId);
-  const canUseTestOrRun = hasSavedWorkflow && canTestWorkflow;
+  const canUseTestOrRun = hasSavedWorkflow && canTestWorkflow && !hasUnsavedChanges;
   const isTestDisabled = isExecuting || !canUseTestOrRun;
   const isRunDisabled = !canUseTestOrRun;
+
+  // Determine tooltip messages
+  const getTestTooltip = () => {
+    if (isExecuting) return "Workflow is currently running";
+    if (!hasSavedWorkflow) return "Save workflow first, then test";
+    if (hasUnsavedChanges) return "Save your changes before testing";
+    if (!canTestWorkflow) return testDisabledReason || "Configure workflow before testing";
+    return "Open test chat (in-built)";
+  };
+
+  const getRunTooltip = () => {
+    if (!hasSavedWorkflow) return "Save workflow first, then run";
+    if (hasUnsavedChanges) return "Save your changes before running";
+    if (!canTestWorkflow) return testDisabledReason || "Configure workflow before running";
+    return "Run workflow";
+  };
 
   return (
     <div className="h-14 w-full bg-gradient-to-b from-[#F2F2F2] to-transparent flex items-center justify-between gap-6 px-6 absolute top-0 left-0 right-0 z-50">
@@ -128,11 +146,7 @@ export default function TopBar({
         <button
           onClick={onTest}
           disabled={isTestDisabled}
-          title={
-            isTestDisabled
-              ? testDisabledReason || (!hasSavedWorkflow ? "Save workflow first, then test." : "Configure workflow before testing.")
-              : "Open test chat (in-built)"
-          }
+          title={getTestTooltip()}
           className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           {isExecuting ? (
@@ -152,11 +166,7 @@ export default function TopBar({
         <button
           onClick={onRun}
           disabled={isRunDisabled}
-          title={
-            isRunDisabled
-              ? testDisabledReason || (!hasSavedWorkflow ? "Save workflow first." : "Configure workflow before running.")
-              : "Open workflow chat"
-          }
+          title={getRunTooltip()}
           className="z-10 cursor-pointer hover:text-white hover:bg-[#0A0A0A] text-black bg-transparent disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-2 rounded-lg transition-all duration-300"
         >
           <div className="flex items-center gap-2 border border-main-border rounded-[8px] px-3 py-2">
