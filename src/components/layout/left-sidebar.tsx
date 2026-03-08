@@ -14,6 +14,8 @@ import {
   PanelLeft,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
+  Plus,
   Workflow,
   UserRoundPen,
   LogIn,
@@ -59,6 +61,40 @@ import {
   fetchPersonas as fetchPersonasApi,
   type PersonaStatus,
 } from "@/lib/api/personas";
+import { toast } from "@/lib/toast-helper";
+import { renameChat } from "@/lib/api/chat";
+import { apiFetch } from "@/lib/api/client";
+import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
+
+// ─── Persona chat sessions ───────────────────────────────────────────────────
+const PERSONA_SESSIONS_KEY = "souvenir:persona-chat-sessions-v2";
+const personaMsgsKey = (chatId: string) => `souvenir:pcs-msgs:${chatId}`;
+
+interface PersonaChatSession {
+  id: string;
+  personaId: string;
+  name: string;
+  isStarred: boolean;
+  createdAt: string;
+  /** Backend chat ID — null until the first message is sent (lazy creation). */
+  backendChatId: string | null;
+}
+
+function loadPersonaSessions(): PersonaChatSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(PERSONA_SESSIONS_KEY);
+    return raw ? (JSON.parse(raw) as PersonaChatSession[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePersonaSessions(sessions: PersonaChatSession[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PERSONA_SESSIONS_KEY, JSON.stringify(sessions));
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -105,6 +141,14 @@ export function LeftSidebar({
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
+
+  // Persona chat sessions (localStorage-backed)
+  const [personaSessions, setPersonaSessions] = useState<PersonaChatSession[]>([]);
+  const [expandedPersonaIds, setExpandedPersonaIds] = useState<Set<string>>(new Set());
+  const [activePersonaChatSessionId, setActivePersonaChatSessionId] = useState<string | null>(null);
+  const [renamingPersonaChatId, setRenamingPersonaChatId] = useState<string | null>(null);
+  const [renamingPersonaChatText, setRenamingPersonaChatText] = useState("");
+  const personaChatRenameInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Track the displayed length of titles that are animating (typewriter effect)
   const [displayedTitleLengths, setDisplayedTitleLengths] = useState<
@@ -325,6 +369,159 @@ export function LeftSidebar({
       cancelled = true;
     };
   }, [isOnPersonaPage]);
+
+  // Load persona sessions from localStorage once on mount
+  React.useEffect(() => {
+    setPersonaSessions(loadPersonaSessions());
+  }, []);
+
+  // Sync active session id from URL query params whenever the pathname changes
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      setActivePersonaChatSessionId(params.get("chatId"));
+    }
+  }, [pathname]);
+
+  // Auto-expand the active persona in the sidebar when navigating to its chat
+  React.useEffect(() => {
+    if (activePersonaIdFromUrl) {
+      setExpandedPersonaIds((prev) => new Set([...prev, activePersonaIdFromUrl]));
+    }
+  }, [activePersonaIdFromUrl]);
+
+  // ─── Persona chat session handlers ────────────────────────────────────────
+  const handleCreatePersonaChat = (personaId: string, personaName: string) => {
+    const session: PersonaChatSession = {
+      id: `pcs-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      personaId,
+      name: "New chat",
+      isStarred: false,
+      createdAt: new Date().toISOString(),
+      backendChatId: null,
+    };
+    const updated = [session, ...personaSessions];
+    savePersonaSessions(updated);
+    setPersonaSessions(updated);
+    setExpandedPersonaIds((prev) => new Set([...prev, personaId]));
+    router.push(`/personaAdmin/chat/${personaId}?chatId=${session.id}`);
+
+    // Lazily create a backend chat record so CRUD ops (delete/star/rename) work
+    if (csrfToken !== undefined) {
+      apiFetch(
+        "/chats/",
+        {
+          method: "POST",
+          body: JSON.stringify({ title: `${personaName} – New chat`, message: "" }),
+          headers: { "Content-Type": "application/json" },
+        },
+        csrfToken,
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          const backendId = String(
+            data?.id ?? data?.chat?.id ?? "",
+          ).trim();
+          if (!backendId) return;
+          setPersonaSessions((prev) => {
+            const next = prev.map((s) =>
+              s.id === session.id ? { ...s, backendChatId: backendId } : s,
+            );
+            savePersonaSessions(next);
+            return next;
+          });
+        })
+        .catch(() => {/* backend chat creation failed — local-only session */});
+    }
+  };
+
+  const handleDeletePersonaChat = async (sessionId: string) => {
+    const session = personaSessions.find((s) => s.id === sessionId);
+    const updated = personaSessions.filter((s) => s.id !== sessionId);
+    savePersonaSessions(updated);
+    setPersonaSessions(updated);
+
+    // Remove persisted messages for this session
+    if (typeof window !== "undefined" && session) {
+      window.localStorage.removeItem(personaMsgsKey(session.id));
+      if (session.backendChatId) {
+        window.localStorage.removeItem(personaMsgsKey(session.backendChatId));
+      }
+    }
+
+    if (activePersonaChatSessionId === sessionId && session) {
+      router.push(`/personaAdmin/chat/${session.personaId}`);
+    }
+
+    // Backend delete
+    if (session?.backendChatId) {
+      try {
+        await apiFetch(
+          CHAT_DETAIL_ENDPOINT(session.backendChatId),
+          { method: "DELETE" },
+          csrfToken,
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
+    toast.success("Chat deleted", { description: "The conversation has been removed." });
+  };
+
+  const handleToggleStarPersonaChat = async (sessionId: string) => {
+    const session = personaSessions.find((s) => s.id === sessionId);
+    const nextStarred = !session?.isStarred;
+    const updated = personaSessions.map((s) =>
+      s.id === sessionId ? { ...s, isStarred: nextStarred } : s,
+    );
+    savePersonaSessions(updated);
+    setPersonaSessions(updated);
+
+    if (session?.backendChatId) {
+      try {
+        await apiFetch(
+          CHAT_STAR_ENDPOINT(session.backendChatId),
+          {
+            method: "PATCH",
+            body: JSON.stringify({ starred: nextStarred }),
+            headers: { "Content-Type": "application/json" },
+          },
+          csrfToken,
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
+    toast.success(nextStarred ? "Added to favorites" : "Removed from favorites");
+  };
+
+  const handleConfirmRenamePersonaChat = async () => {
+    if (!renamingPersonaChatId) return;
+    const trimmed = renamingPersonaChatText.trim();
+    if (!trimmed) return;
+    const session = personaSessions.find((s) => s.id === renamingPersonaChatId);
+    const updated = personaSessions.map((s) =>
+      s.id === renamingPersonaChatId ? { ...s, name: trimmed } : s,
+    );
+    savePersonaSessions(updated);
+    setPersonaSessions(updated);
+    setRenamingPersonaChatId(null);
+    setRenamingPersonaChatText("");
+
+    if (session?.backendChatId) {
+      try {
+        await renameChat(session.backendChatId, trimmed, csrfToken);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    toast.success("Chat renamed");
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   const normalizedWorkflowSearch = searchTerm.trim().toLowerCase();
   const workflowsToDisplay = useMemo(() => {
@@ -928,7 +1125,7 @@ export function LeftSidebar({
                 <div className="w-full h-[0.5] bg-main-border mt-3"></div>
               </div>
 
-              {/* 3. Chat / recent lists */}
+              {/* 3. Recent Chat Board / recent lists */}
               <div className="font-inter flex-1 w-full flex flex-col min-h-0">
                 <div className="px-0 pb-4.5 flex-1 flex flex-col min-h-0 overflow-hidden">
                   {/* Section header - accordion trigger style */}
@@ -1024,25 +1221,140 @@ export function LeftSidebar({
                           <div
                             id="recent-persona-chats"
                             className={cn(
-                              "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
+                              "flex-1 min-h-0 max-h-full space-y-0.5 overflow-y-auto pl-2 pr-2 mt-4 transition-all duration-500",
                               chatStyles.customScrollbar2,
                             )}
                           >
                             {personasToDisplay.map((persona) => {
-                              const isActive =
-                                activePersonaIdFromUrl === persona.id;
-                              const handleSelect = () => {
-                                router.push(`/personaAdmin/chat/${persona.id}`);
-                              };
+                              const isExpanded = expandedPersonaIds.has(persona.id);
+                              const sessions = personaSessions
+                                .filter((s) => s.personaId === persona.id)
+                                .sort((a, b) => {
+                                  if (a.isStarred !== b.isStarred) return a.isStarred ? -1 : 1;
+                                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                                });
+                              const sessionSearch = searchTerm.trim().toLowerCase();
+                              const sessionsToShow = sessionSearch
+                                ? sessions.filter((s) => s.name.toLowerCase().includes(sessionSearch))
+                                : sessions;
+                              const isPersonaRowActive =
+                                activePersonaIdFromUrl === persona.id && !activePersonaChatSessionId;
                               return (
                                 <div key={persona.id} className="snap-start">
-                                  <ChatHistoryItem
-                                    title={persona.name}
-                                    isSelected={isActive}
-                                    isStarred={false}
-                                    pinnedCount={0}
-                                    onSelect={handleSelect}
-                                  />
+                                  {/* Persona accordion header */}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedPersonaIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(persona.id)) next.delete(persona.id);
+                                        else next.add(persona.id);
+                                        return next;
+                                      })
+                                    }
+                                    className={cn(
+                                      "group flex h-8 w-full items-center gap-1 rounded-[6px] px-2 text-[13px] font-medium text-[#0A0A0A] transition-colors cursor-pointer select-none",
+                                      isPersonaRowActive ? "bg-[#E5E5E5]" : "hover:bg-[#F1F1F1]",
+                                    )}
+                                  >
+                                    <ChevronRight
+                                      size={13}
+                                      className={cn(
+                                        "shrink-0 text-[#737373] transition-transform duration-200",
+                                        isExpanded && "rotate-90",
+                                      )}
+                                    />
+                                    <span className="flex-1 min-w-0 truncate text-left leading-[18px]">
+                                      {persona.name}
+                                    </span>
+                                    {sessions.length > 0 && (
+                                      <span className="text-[11px] text-[#B3B3B3] font-normal shrink-0">
+                                        {sessions.length}
+                                      </span>
+                                    )}
+                                  </button>
+
+                                  {/* Expanded: new chat button + individual chat sessions */}
+                                  {isExpanded && (
+                                    <div className="ml-[18px] mt-0.5 flex flex-col gap-0.5">
+                                      {/* New Persona Chat */}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCreatePersonaChat(persona.id, persona.name)}
+                                        className="flex h-7 w-full items-center gap-1.5 rounded-[6px] px-2 text-[12px] text-[#525252] hover:bg-[#F1F1F1] transition-colors cursor-pointer"
+                                      >
+                                        <Plus size={12} className="shrink-0" />
+                                        <span>New Persona Chat</span>
+                                      </button>
+
+                                      {/* Session list */}
+                                      {sessionsToShow.length === 0 ? (
+                                        <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
+                                          No chats yet
+                                        </p>
+                                      ) : (
+                                        sessionsToShow.map((session) => {
+                                          const isActiveSession =
+                                            activePersonaChatSessionId === session.id;
+                                          const isRenamingThis =
+                                            renamingPersonaChatId === session.id;
+                                          return (
+                                            <ChatHistoryItem
+                                              key={session.id}
+                                              title={session.name}
+                                              isSelected={isActiveSession}
+                                              isStarred={session.isStarred}
+                                              pinnedCount={0}
+                                              onSelect={() =>
+                                                router.push(
+                                                  `/personaAdmin/chat/${persona.id}?chatId=${session.id}`,
+                                                )
+                                              }
+                                              onToggleStar={() =>
+                                                handleToggleStarPersonaChat(session.id)
+                                              }
+                                              onRename={() => {
+                                                setRenamingPersonaChatId(session.id);
+                                                setRenamingPersonaChatText(session.name);
+                                                requestAnimationFrame(() =>
+                                                  personaChatRenameInputRef.current?.focus(),
+                                                );
+                                              }}
+                                              onDelete={() => handleDeletePersonaChat(session.id)}
+                                              isRenaming={isRenamingThis}
+                                              renameValue={
+                                                isRenamingThis ? renamingPersonaChatText : undefined
+                                              }
+                                              onRenameChange={
+                                                isRenamingThis
+                                                  ? setRenamingPersonaChatText
+                                                  : undefined
+                                              }
+                                              onRenameSubmit={
+                                                isRenamingThis
+                                                  ? handleConfirmRenamePersonaChat
+                                                  : undefined
+                                              }
+                                              onRenameCancel={
+                                                isRenamingThis
+                                                  ? () => {
+                                                      setRenamingPersonaChatId(null);
+                                                      setRenamingPersonaChatText("");
+                                                    }
+                                                  : undefined
+                                              }
+                                              renameInputRef={
+                                                isRenamingThis
+                                                  ? personaChatRenameInputRef
+                                                  : undefined
+                                              }
+                                              isRenamePending={false}
+                                            />
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

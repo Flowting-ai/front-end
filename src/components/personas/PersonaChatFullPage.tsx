@@ -48,18 +48,34 @@ interface PersonaChatFullPageProps {
   personaId: string;
   persona: PersonaData;
   onEditPersona: () => void;
+  /** Backend or local session ID — used to persist/restore messages. */
+  chatId?: string | null;
 }
+
+const personaMsgsKey = (id: string) => `souvenir:pcs-msgs:${id}`;
 
 export function PersonaChatFullPage({
   personaId,
   persona,
   onEditPersona,
+  chatId,
 }: PersonaChatFullPageProps) {
   const layoutContext = useContext(AppLayoutContext);
   const { user, csrfToken } = useAuth();
   const [detailsSectionOpen, setDetailsSectionOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
+  const [displayMessages, setDisplayMessages] = useState<Message[]>(() => {
+    // Restore persisted messages for this session on mount
+    if (chatId && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(personaMsgsKey(chatId));
+        if (raw) return JSON.parse(raw) as Message[];
+      } catch {
+        /* ignore corrupt data */
+      }
+    }
+    return [];
+  });
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -96,6 +112,19 @@ export function PersonaChatFullPage({
       scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
     }
   }, [displayMessages]);
+
+  // Persist messages to localStorage whenever they change (for chat switching)
+  useEffect(() => {
+    if (!chatId || typeof window === "undefined") return;
+    // Don't persist while a response is still loading
+    const hasLoading = displayMessages.some((m) => m.isLoading || m.isThinkingInProgress);
+    if (hasLoading) return;
+    try {
+      window.localStorage.setItem(personaMsgsKey(chatId), JSON.stringify(displayMessages));
+    } catch {
+      /* ignore storage errors (quota etc.) */
+    }
+  }, [displayMessages, chatId]);
 
   useEffect(() => {
     if (textareaRef.current) {

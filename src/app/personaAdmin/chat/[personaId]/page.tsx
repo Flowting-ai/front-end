@@ -1,16 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import { PersonaChatFullPage } from "@/components/personas/PersonaChatFullPage";
 import { fetchPersonas, type BackendPersona, type PersonaStatus } from "@/lib/api/personas";
-import { API_BASE_URL } from "@/lib/config";
 
-export default function PersonaChatPage() {
+function PersonaChatPageInner() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const personaId = params?.personaId as string | undefined;
+  const chatId = searchParams?.get("chatId") ?? null;
   const [persona, setPersona] = React.useState<BackendPersona | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -88,6 +89,7 @@ export default function PersonaChatPage() {
     <AppLayout>
       <PersonaChatFullPage
         personaId={personaId}
+        chatId={chatId}
         persona={{
           id: persona.id,
           name: persona.name,
@@ -104,5 +106,13 @@ export default function PersonaChatPage() {
         onEditPersona={() => router.push(`/personas/${personaId}`)}
       />
     </AppLayout>
+  );
+}
+
+export default function PersonaChatPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <PersonaChatPageInner />
+    </React.Suspense>
   );
 }
