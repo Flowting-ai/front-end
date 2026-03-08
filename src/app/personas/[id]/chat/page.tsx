@@ -8,6 +8,14 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/lib/toast-helper';
 import { ChatInterface } from '@/components/chat/chat-interface';
+import { useAuth } from '@/context/auth-context';
+
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return 'your@email.com';
+  const atIndex = email.indexOf('@');
+  if (atIndex <= 3) return email;
+  return email.slice(0, 3) + '*'.repeat(atIndex - 3) + email.slice(atIndex);
+}
 
 interface PersonaData {
   id: string;
@@ -25,6 +33,7 @@ interface PersonaData {
 export default function PersonaChatPage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const [persona, setPersona] = useState<PersonaData | null>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
@@ -278,7 +287,7 @@ export default function PersonaChatPage() {
                         color: '#666666'
                       }}
                     >
-                      your@email.com
+                      {maskEmail(user?.email)}
                     </span>
                   </div>
                 </div>

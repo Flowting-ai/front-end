@@ -18,10 +18,14 @@ import {
   MoreVertical,
   Pause,
   Play,
+  Share2,
   Trash2,
   Workflow,
   MessageSquare,
 } from "lucide-react";
+import userAvatar from "@/avatars/userAvatar.png";
+import userAvatar2 from "@/avatars/userAvatar2.png";
+import userAvatar3 from "@/avatars/userAvatar3.png";
 
 export interface Consumer {
   id: string;
@@ -57,12 +61,13 @@ export interface WorkflowRowProps {
   onEdit?: () => void;
   onView?: () => void;
   onChat?: () => void;
+  onShare?: () => void;
 }
 
 export const WorkflowRow = React.forwardRef<
   HTMLTableRowElement,
   WorkflowRowProps
->(({ workflow, onPause, onResume, onDelete, onEdit, onView, onChat }, ref) => {
+>(({ workflow, onPause, onResume, onDelete, onEdit, onView, onChat, onShare }, ref) => {
   const formatCredits = (credits: number): string => {
     if (credits >= 1000000) {
       return `${(credits / 1000000).toFixed(2)}M credits`;
@@ -120,22 +125,40 @@ export const WorkflowRow = React.forwardRef<
           <div className="w-[180px] h-8 flex items-center justify-center">
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
-                {workflow.consumers.slice(0, 3).map((consumer) => (
-                  <Avatar
-                    key={consumer.id}
-                    className="h-8 w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
-                  >
-                    <AvatarImage src={consumer.avatar} alt={consumer.name} />
-                    <AvatarFallback className="text-xs">
-                      {consumer.name
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
+                {workflow.consumers.length > 0
+                  ? workflow.consumers.slice(0, 3).map((consumer) => (
+                      <Avatar
+                        key={consumer.id}
+                        className="h-8 w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
+                      >
+                        <AvatarImage src={consumer.avatar} alt={consumer.name} />
+                        <AvatarFallback className="text-xs">
+                          {consumer.name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))
+                  : [userAvatar2, userAvatar, userAvatar3].map((img, index) => {
+                      const src = (img as any)?.src ?? (img as unknown as string);
+                      return (
+                        <Avatar
+                          key={index}
+                          className="h-8 w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)] opacity-40"
+                        >
+                          <AvatarImage src={src} alt="Placeholder user" />
+                          <AvatarFallback className="text-xs bg-gray-200" />
+                        </Avatar>
+                      );
+                    })}
               </div>
+              {workflow.consumers.length === 0 && (
+                <span className="text-[11px] text-[#B3B3B3] whitespace-nowrap" style={{ fontFamily: 'var(--font-geist)' }}>
+                  No users yet
+                </span>
+              )}
               {workflow.consumersCount > 3 && (
                 <span className="text-xs text-muted-foreground">
                   +{workflow.consumersCount - 3}
@@ -240,6 +263,10 @@ export const WorkflowRow = React.forwardRef<
                       Resume
                     </>
                   )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onShare} className="cursor-pointer">
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onDelete} className="cursor-pointer text-red-600">
                   <Trash2 className="mr-2 h-4 w-4" />

@@ -127,7 +127,14 @@ function PersonaConfigurePageContent() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [hasFinishedBuilding, setHasFinishedBuilding] = useState(false);
-  const { csrfToken } = useAuth();
+  const { csrfToken, user } = useAuth();
+
+  const maskEmail = (email: string | null | undefined): string => {
+    if (!email) return "your@email.com";
+    const atIndex = email.indexOf("@");
+    if (atIndex <= 3) return email;
+    return email.slice(0, 3) + "*".repeat(atIndex - 3) + email.slice(atIndex);
+  };
 
   // Enhance mode state
   const [showEnhanceMode, setShowEnhanceMode] = useState(false);
@@ -1436,7 +1443,7 @@ function PersonaConfigurePageContent() {
                               {/* Loading State */}
                               {enhanceLoadingStep && (
                                 <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                                  <Sparkles size={60} className="text-[#7e6afe] animate-pulse" />
+                                  <Sparkles size={60} className="text-[#28231D] animate-pulse" />
                                   <div className="flex flex-col items-center gap-1.5">
                                     <h2
                                       className="font-clash font-semibold text-[20px] text-[#0A0A0A] tracking-[-0.02em] flex items-center gap-1"
@@ -1461,7 +1468,7 @@ function PersonaConfigurePageContent() {
                                       className="font-clash font-medium text-sm flex items-center gap-1.5"
                                       style={{
                                         letterSpacing: "-0.02em",
-                                        color: "#7e6afe",
+                                        color: "#28231D",
                                       }}
                                     >
                                           <Sparkles size={14} />
@@ -1999,14 +2006,14 @@ function PersonaConfigurePageContent() {
                                     {activeEnhanceTab === 6 && (
                                       <div className="h-full flex flex-col">
                                         <div className="flex flex-col items-center justify-center mb-3">
-                                          <div className="w-14 h-14 rounded-lg bg-[#7e6afe] border-3 border-white shadow-sm flex items-center justify-center mb-2">
+                                          <div className="w-14 h-14 rounded-lg bg-[#28231D] border-3 border-white shadow-sm flex items-center justify-center mb-2">
                                             <Check
                                               size={30}
                                               strokeWidth={4}
                                               className="text-white"
                                             />
                                           </div>
-                                          <h3 className="font-medium text-base text-[#0A0A0A] mb-1">
+                                          <h3 className="font-medium text-base text-[#28231D] mb-1">
                                             Ready to apply
                                           </h3>
                                           <p className="text-sm text-[#666666]">
@@ -2024,9 +2031,9 @@ function PersonaConfigurePageContent() {
                                               >
                                                 <Check
                                                   size={12}
-                                                  className="text-[#7e6afe] mt-0.5 shrink-0"
+                                                  className="text-[#28231D] mt-0.5 shrink-0"
                                                 />
-                                                <span className="text-sm text-[#0a0a0a]">
+                                                <span className="text-sm text-[#28231D]">
                                                   {improvement}
                                                 </span>
                                               </div>
@@ -2049,7 +2056,7 @@ function PersonaConfigurePageContent() {
                                           className={cn(
                                             "h-2 rounded-full transition-all duration-300",
                                             activeEnhanceTab === index
-                                              ? "w-12 bg-[#7e6afe]"
+                                              ? "w-12 bg-[#28231D]"
                                               : "w-2 bg-gray-300",
                                           )}
                                           aria-label={`Tab ${index + 1}`}
@@ -2494,11 +2501,11 @@ function PersonaConfigurePageContent() {
               {/* Loading State */}
               {enhanceLoadingStep && (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-6">
-                  <Sparkles size={120} color="#7e6afe" />
+                  <Sparkles size={120} color="#28231D" />
                   <div className="flex flex-col items-center gap-2">
                     <h2
                       className="font-clash font-semibold text-[32px] flex items-center gap-2"
-                      style={{ letterSpacing: '-0.02em', color: '#7e6afe' }}
+                      style={{ letterSpacing: '-0.02em', color: '#28231D' }}
                     >
                       {/* <Sparkles size={24} /> */}
                       Enhance Mode
@@ -2519,7 +2526,7 @@ function PersonaConfigurePageContent() {
                   <div className="flex items-center justify-between mb-6">
                     <h2
                       className="font-clash font-medium text-[24px] flex items-center gap-2"
-                      style={{ letterSpacing: '-0.02em', color: '#7e6afe' }}
+                      style={{ letterSpacing: '-0.02em', color: '#28231D' }}
                     >
                       <Sparkles size={20} />
                       Enhance Mode
@@ -2947,10 +2954,10 @@ function PersonaConfigurePageContent() {
                     {activeEnhanceTab === 6 && (
                       <div className="h-full flex flex-col">
                         <div className="flex flex-col items-center justify-center mb-6">
-                          <div className="w-16 h-16 rounded-lg bg-[#7e6afe] flex items-center justify-center mb-4">
+                          <div className="w-16 h-16 rounded-lg bg-[#28231D] flex items-center justify-center mb-4">
                             <Check size={32} className="text-white" />
                           </div>
-                          <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
+                          <h3 className="font-medium text-[20px] text-[#28231D] mb-2">
                             Ready to apply
                           </h3>
                           <p className="text-sm text-[#666666]">
@@ -2963,8 +2970,8 @@ function PersonaConfigurePageContent() {
                               key={index}
                               className="flex items-start gap-3 px-4 py-3 border border-[#D9D9D9] rounded-lg bg-white"
                             >
-                              <Check size={16} className="text-[#7e6afe] mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-[#0a0a0a]">{improvement}</span>
+                              <Check size={16} className="text-[#28231D] mt-0.5 flex-shrink-0" />
+                              <span className="text-sm text-[#28231D]">{improvement}</span>
                             </div>
                           ))}
                         </div>
@@ -2981,7 +2988,7 @@ function PersonaConfigurePageContent() {
                         className={cn(
                           'h-2 rounded-full transition-all duration-300',
                           activeEnhanceTab === index
-                            ? 'w-12 bg-[#7e6afe]'
+                            ? 'w-12 bg-[#28231D]'
                             : 'w-2 bg-gray-300'
                         )}
                         aria-label={`Tab ${index + 1}`}
@@ -3302,7 +3309,7 @@ function PersonaConfigurePageContent() {
                           color: "#666666",
                         }}
                       >
-                        your@email.com
+                        {maskEmail(user?.email)}
                       </span>
                     </div>
                   </div>

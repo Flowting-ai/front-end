@@ -20,6 +20,7 @@ import {
   MoreVertical, 
   Pause, 
   Play, 
+  Share2,
   Trash2 
 } from "lucide-react";
 import userAvatar from "@/avatars/userAvatar.png";
@@ -74,6 +75,7 @@ interface PersonaRowProps extends BaseRowProps {
   onToggleExpand?: () => void;
   onModifyConfig?: () => void;
   onChat?: () => void;
+  onShare?: () => void;
   selectedConsumerIds?: string[];
   onToggleConsumer?: (consumerId: string) => void;
   onSelectAllConsumers?: () => void;
@@ -310,23 +312,44 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
               {isPersona && personaProps && (
                 <div className="flex items-center relative">
                   <div className="flex -space-x-1 sm:-space-x-1.5 md:-space-x-2">
-                    {personaProps.consumers.slice(0, 3).map((consumer, index) => {
-                      const stack = [userAvatar2, userAvatar, userAvatar3];
-                      const img = stack[index % stack.length] as any;
-                      const src = img?.src ?? (img as unknown as string);
-                      return (
-                      <Avatar
-                        key={consumer.id}
-                        className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
-                      >
-                        <AvatarImage src={src} alt={consumer.name} />
-                        <AvatarFallback className="text-[8px] sm:text-[9px] md:text-[10px]">
-                          {consumer.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      );
-                    })}
+                    {personaProps.consumers.length > 0
+                      ? personaProps.consumers.slice(0, 3).map((consumer, index) => {
+                          const stack = [userAvatar2, userAvatar, userAvatar3];
+                          const img = stack[index % stack.length] as any;
+                          const src = img?.src ?? (img as unknown as string);
+                          return (
+                            <Avatar
+                              key={consumer.id}
+                              className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)]"
+                            >
+                              <AvatarImage src={src} alt={consumer.name} />
+                              <AvatarFallback className="text-[8px] sm:text-[9px] md:text-[10px]">
+                                {consumer.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          );
+                        })
+                      : [userAvatar2, userAvatar, userAvatar3].map((img, index) => {
+                          const src = (img as any)?.src ?? (img as unknown as string);
+                          return (
+                            <Avatar
+                              key={index}
+                              className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 border-2 border-[var(--general-input,#ffffff)] shadow-[0_2px_6px_rgba(15,23,42,0.12)] opacity-40"
+                            >
+                              <AvatarImage src={src} alt="Placeholder user" />
+                              <AvatarFallback className="text-[8px] sm:text-[9px] md:text-[10px] bg-gray-200" />
+                            </Avatar>
+                          );
+                        })}
                   </div>
+                  {personaProps.consumers.length === 0 && (
+                    <span
+                      className="ml-2 text-[11px] text-[#B3B3B3] whitespace-nowrap"
+                      style={{ fontFamily: 'var(--font-geist)' }}
+                    >
+                      No users yet
+                    </span>
+                  )}
                   {personaProps.consumersCount > 3 && (
                     <div
                       className="rounded-full flex items-center justify-center shadow-[0_2px_6px_rgba(15,23,42,0.12)] px-2"
@@ -556,6 +579,13 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                             Resume
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem 
+                          onClick={personaProps?.onShare}
+                          className="h-8 min-h-[32px] gap-2 rounded-[6px] px-0.5 py-[5.5px] text-[11px] sm:text-[12px] md:text-[13px] text-[#111827] hover:bg-[#E5E5E5] hover:text-black focus:bg-[#E5E5E5] focus:text-black cursor-pointer"
+                        >
+                          <Share2 className="h-3.5 w-3.5 md:h-4 md:w-4 ml-2 shrink-0" />
+                          <span className="truncate">Share</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={onDelete} 
                           className="h-8 min-h-[32px] gap-2 rounded-[6px] px-0.5 py-[5.5px] text-[11px] sm:text-[12px] md:text-[13px] text-[#111827] hover:bg-[#E5E5E5] hover:text-black focus:bg-[#E5E5E5] focus:text-black cursor-pointer"

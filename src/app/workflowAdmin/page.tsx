@@ -32,15 +32,24 @@ import {
   Plus,
   MessageSquareWarning,
   RefreshCw,
+  Search,
+  Share2,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowMetadata } from "@/components/workflows/types";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import userAvatar from "@/avatars/userAvatar.png";
 import userAvatar2 from "@/avatars/userAvatar2.png";
 import userAvatar3 from "@/avatars/userAvatar3.png";
 import Image from "next/image";
 import type { Consumer } from "@/components/workflows/workflow-row";
+import { useAuth } from "@/context/auth-context";
 
 const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Workflows" },
@@ -49,14 +58,31 @@ const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   // { value: "inactive", label: "Inactive Workflows" },
 ];
 
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return "your@email.com";
+  const atIndex = email.indexOf("@");
+  if (atIndex <= 3) return email;
+  return email.slice(0, 3) + "*".repeat(atIndex - 3) + email.slice(atIndex);
+}
+
 export default function WorkflowAdminPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const hasFetchedWorkflows = React.useRef(false);
   const [workflows, setWorkflows] = React.useState<WorkflowItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   // No updatingWorkflowIds needed
   const [statusFilter, setStatusFilter] = React.useState("all");
+  const [shareDialog, setShareDialog] = React.useState<{
+    open: boolean;
+    workflowName: string;
+    shareEmail: string;
+  }>({
+    open: false,
+    workflowName: "",
+    shareEmail: "",
+  });
   const [deleteDialog, setDeleteDialog] = React.useState<{
     open: boolean;
     title: string;
@@ -310,8 +336,8 @@ export default function WorkflowAdminPage() {
                     {/* Left - Total Credits */}
                     <StatCard
                       title="Credit Usage"
-                      value={(totalCredits / 1000).toFixed(1) + "K"}
-                      suffix="Credits"
+                      value={Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
+                      suffix="Used"
                       className="relative w-[400px] h-[148px] flex-none p-0!"
                     >
                       <div className="relative flex h-full w-full flex-col">
@@ -323,16 +349,16 @@ export default function WorkflowAdminPage() {
                         <div className="flex flex-col gap-2 ml-[14px] pt-2">
                           <div className="flex items-center gap-2">
                             <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
-                              {(totalCredits / 1000).toFixed(1) + "K"}
+                              {Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
                             </p>
                             <span className="font-inter font-normal leading-[154%] text-sm text-[#B3B3B3]">
-                              Credits
+                              Used
                             </span>
                           </div>
                         </div>
                         <button className="cursor-pointer absolute bottom-[14px] left-[14px] inline-flex h-[26px] min-h-[24px] w-[161px] items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E5E5] bg-white px-2 py-[3px] text-xs font-medium text-black transition-colors hover:bg-gray-100">
                           <TrendingUp className="h-3 w-3" />
-                          Across {workflows.length} workflows
+                          {user?.budgetRemaining ? `$${user.budgetRemaining} remaining` : "Budget usage"}
                         </button>
                       </div>
                       <div className="absolute top-3.5 right-3.5 w-[34px] h-[34px] border border-main-border rounded-[8px] flex items-center justify-center">
@@ -364,13 +390,13 @@ export default function WorkflowAdminPage() {
                           </div>
                         </div>
                         {/* Avatar Stack */}
-                        <div className="absolute bottom-[14px] left-[14px] flex -space-x-2">
+                        <div className="absolute bottom-[14px] left-[14px] flex items-center -space-x-2">
                           {[userAvatar2, userAvatar, userAvatar3].map(
                             (src, index) => (
                               <div
                                 key={index}
                                 className="h-8 w-8 rounded-full border border-white overflow-hidden"
-                                style={{ zIndex: 0 + index, opacity: 1 }}
+                                style={{ zIndex: 0 + index, opacity: activeConsumers === 0 ? 0.35 : 1 }}
                               >
                                 <Image
                                   src={src}
@@ -381,6 +407,11 @@ export default function WorkflowAdminPage() {
                                 />
                               </div>
                             )
+                          )}
+                          {activeConsumers === 0 && (
+                            <span className="ml-3 text-[11px] text-[#B3B3B3] whitespace-nowrap font-geist">
+                              No users yet
+                            </span>
                           )}
                         </div>
                       </div>
@@ -501,6 +532,13 @@ export default function WorkflowAdminPage() {
                                 onEdit={() => handleEditWorkflow(workflow.id)}
                                 onView={() => handleViewWorkflow(workflow.id)}
                                 onChat={() => handleChatWorkflow(workflow.id)}
+                                onShare={() =>
+                                  setShareDialog({
+                                    open: true,
+                                    workflowName: workflow.name,
+                                    shareEmail: "",
+                                  })
+                                }
                               />
                             ))
                           )}
@@ -512,6 +550,143 @@ export default function WorkflowAdminPage() {
               </>
             )}
           </div>
+
+          {/* Workflow Share Dialog */}
+          <Dialog
+            open={shareDialog.open}
+            onOpenChange={(open) => setShareDialog({ ...shareDialog, open })}
+          >
+            <DialogContent
+              className="border-none p-2 gap-3"
+              style={{
+                width: "420px",
+                maxWidth: "420px",
+                borderRadius: "10px",
+                padding: "8px",
+              }}
+            >
+              <DialogTitle className="sr-only">Share Workflow</DialogTitle>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between px-1">
+                  <h3
+                    style={{
+                      fontFamily: "Clash Grotesk Variable",
+                      fontWeight: 400,
+                      fontSize: "24px",
+                      lineHeight: "120%",
+                      letterSpacing: "-2%",
+                      color: "#0A0A0A",
+                    }}
+                  >
+                    Share &quot;{shareDialog.workflowName}&quot;
+                  </h3>
+                </div>
+
+                {/* Email Input */}
+                <div className="w-full min-h-[36px] text-black border border-main-border rounded-[8px] flex items-center gap-2 pl-3">
+                  <Search size={16} className="text-[#525252]" />
+                  <Input
+                    type="email"
+                    placeholder="Enter email for adding people"
+                    value={shareDialog.shareEmail}
+                    onChange={(e) =>
+                      setShareDialog({ ...shareDialog, shareEmail: e.target.value })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && shareDialog.shareEmail.trim()) {
+                        setShareDialog({ ...shareDialog, shareEmail: "" });
+                      }
+                    }}
+                    className="flex-1 h-full border-none py-[7.5px]"
+                  />
+                </div>
+
+                {/* User List */}
+                <div
+                  className="flex flex-col gap-3"
+                  style={{ width: "404px", height: "196px", overflowY: "auto" }}
+                >
+                  {/* Owner row */}
+                  <div
+                    className="flex items-center justify-between"
+                    style={{ width: "404px", height: "40px", paddingRight: "8px", paddingLeft: "8px" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          backgroundColor: "#F5F5F5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Share2 size={18} className="text-[#B3B3B3]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span style={{ fontWeight: 600, fontSize: "12px", lineHeight: "140%", textTransform: "capitalize", color: "#0A0A0A" }}>
+                          You
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#666666" }}>
+                          {maskEmail(user?.email)}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-full"
+                      style={{
+                        width: "86px",
+                        height: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#FBEEB1",
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        color: "#B47800",
+                      }}
+                    >
+                      Owner
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="font-geist font-medium mr-2 flex gap-2 justify-end">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShareDialog({ ...shareDialog, open: false })}
+                    style={{ fontSize: "14px", color: "#666666", padding: "8px 16px" }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (shareDialog.shareEmail.trim()) {
+                        setShareDialog({ ...shareDialog, shareEmail: "" });
+                      }
+                    }}
+                    style={{
+                      width: "51px",
+                      height: "32px",
+                      borderRadius: "8px",
+                      padding: "5.5px 3px",
+                      backgroundColor: "#171717",
+                      color: "#FAFAFA",
+                      marginTop: "3px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Delete Confirmation Dialog */}
           <AlertDialog

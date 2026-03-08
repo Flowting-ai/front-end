@@ -16,9 +16,9 @@ const Toaster = () => {
       newestOnTop={false}
       closeOnClick
       rtl={false}
-      pauseOnFocusLoss
+      pauseOnFocusLoss={false}
+      pauseOnHover={false}
       draggable
-      pauseOnHover
       theme={resolvedTheme as "light" | "dark"}
       className="font-geist"
       transition={Slide}
