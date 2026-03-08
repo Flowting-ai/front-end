@@ -1,5 +1,5 @@
-﻿"use client";
-import React, { useState, useEffect, useRef, type JSX } from "react";
+"use client";
+import React, { useState, useEffect, useLayoutEffect, useRef, type JSX } from "react";
 import { getJwtToken } from "@/lib/jwt-utils";
 import styles from "./compareModels.module.css";
 import {
@@ -624,7 +624,33 @@ export default function CompareModelsPage({
     new Set(),
   );
   const abortControllerRef = useRef<AbortController | null>(null);
+  const promptInputRef = useRef<HTMLTextAreaElement>(null);
+  const [promptInputCollapsed, setPromptInputCollapsed] = useState(false);
   const { csrfToken } = useAuth();
+
+  // Auto-grow prompt textarea: 1–7 lines, then overflow-y-auto with customScrollbar2.
+  // When collapsed (after send), keep at 1 line; when user focuses textarea, expand to content height.
+  useLayoutEffect(() => {
+    if (!showResults) return;
+    const el = promptInputRef.current;
+    if (!el) return;
+    const minHeight = 36;
+    const maxHeight = 21 * 7; // 147px for 7 lines
+    if (promptInputCollapsed) {
+      el.style.height = `${minHeight}px`;
+      el.classList.remove("overflow-y-auto", "customScrollbar2");
+      return;
+    }
+    el.style.height = "auto";
+    const scrollHeight = el.scrollHeight;
+    if (scrollHeight > maxHeight) {
+      el.style.height = `${maxHeight}px`;
+      el.classList.add("overflow-y-auto", "customScrollbar2");
+    } else {
+      el.style.height = `${Math.max(minHeight, scrollHeight)}px`;
+      el.classList.remove("overflow-y-auto", "customScrollbar2");
+    }
+  }, [prompt, showResults, promptInputCollapsed]);
 
   // Store full AIModel data alongside CompareModel
   const [fullModels, setFullModels] = useState<AIModel[]>([]);
@@ -685,6 +711,7 @@ export default function CompareModelsPage({
   const handleTestModels = async () => {
     if (!prompt.trim() || selectedModels.length < 2 || isTesting) return;
 
+    setPromptInputCollapsed(true);
     setIsTesting(true);
     setTestResponses({}); // Clear previous responses
     setStreamingModels(new Set()); // Clear streaming state
@@ -952,9 +979,9 @@ export default function CompareModelsPage({
           {modelsToShow.map((model, idx) => (
             <div
               key={model.id}
+              className="mb-24"
               style={{
                 width: columnWidth,
-                height: "auto",
                 flex: 1,
                 minHeight: 0,
                 borderRadius: 12,
@@ -1067,38 +1094,16 @@ export default function CompareModelsPage({
         </div>
         {/* Prompt Input Area in Footer */}
         <div
-          style={{
-            width: 1006,
-            minHeight: 82,
-            height: "auto",
-            padding: 16,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            background: "#fff",
-            boxSizing: "border-box",
-          }}
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 box-border w-[1006px] min-h-[82px] h-auto bg-transparent flex items-end justify-center p-4"
         >
           <div
-            style={{
-              width: 756,
-              minHeight: 60,
-              height: "auto",
-              padding: 12,
-              gap: 12,
-              borderRadius: 16,
-              border: "1px solid var(--general-border, #E5E5E5)",
-              background: "var(--general-input, #FFFFFF)",
-              boxShadow: "0px 1px 2px 0px #0000000D",
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              margin: "0 auto",
-            }}
+            className="w-[756px] mx-auto min-h-15 h-auto bg-white border border-[#E5E5E5] rounded-[16px] shadow-sm flex items-end justify-center gap-3 p-3"
           >
             <textarea
+              ref={promptInputRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              onFocus={() => setPromptInputCollapsed(false)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -1110,10 +1115,8 @@ export default function CompareModelsPage({
               rows={1}
               style={{
                 minHeight: 36,
-                maxHeight: 84,
-                height: "auto",
                 borderRadius: 12,
-                padding: "8px 16px",
+                padding: "8px 8px 8px 16px",
                 border: "none",
                 flex: 1,
                 fontSize: 14,
@@ -1123,7 +1126,6 @@ export default function CompareModelsPage({
                 background: "#fff",
                 opacity: isTesting ? 0.6 : 1,
                 resize: "none",
-                overflowY: "auto",
                 fontFamily: "inherit",
               }}
             />

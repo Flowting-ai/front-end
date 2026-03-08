@@ -27,3 +27,62 @@
 .hideAvatar :global(.flex-row) > span[class*="h-9"][class*="w-9"] {
   display: none !important;
 }
+
+/* Vertical timeline for Node Outputs */
+.nodeOutputsTimeline {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.nodeOutputsTimeline::before {
+  content: "";
+  position: absolute;
+  left: 5px; /* align with center of 12px dot: 6px - 1px half line */
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background: linear-gradient(to bottom, #c7d2fe 0%, #a5b4fc 50%, #818cf8 100%);
+  border-radius: 1px;
+}
+
+.timelineItem {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.timelineItem:last-child {
+  padding-bottom: 0;
+}
+
+.timelineItem::before {
+  content: "";
+  position: absolute;
+  /* center 12px dot on timeline line: line at 5px, so dot left = 5px - 6px = -1px from container; item is after 1.5rem padding */
+  left: calc(-1.5rem + 5px - 6px);
+  top: 0.625rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #6366f1;
+  border: 3px solid #eef2ff;
+  box-shadow: 0 0 0 1px #a5b4fc;
+  z-index: 1;
+}
+
+.timelineItem[data-status="running"]::before {
+  background: #3b82f6;
+  border-color: #dbeafe;
+  box-shadow: 0 0 0 1px #93c5fd;
+}
+
+.timelineItem[data-status="success"]::before {
+  background: #22c55e;
+  border-color: #dcfce7;
+  box-shadow: 0 0 0 1px #86efac;
+}
+
+.timelineItem[data-status="error"]::before {
+  background: #ef4444;
+  border-color: #fee2e2;
+  box-shadow: 0 0 0 1px #fca5a5;
+}

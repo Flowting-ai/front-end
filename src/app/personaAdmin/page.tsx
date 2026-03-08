@@ -589,7 +589,7 @@ export default function PersonaAdminPage() {
                 <CommandCenter
                   statusFilter={statusFilter}
                   onStatusFilterChange={setStatusFilter}
-                  className="max-w-[1040px] mx-auto w-full gap-0"
+                  className="max-w-[1040px] mx-auto w-full gap-0 overflow-hidden"
                 >
                   <div className="mx-auto flex w-full  flex-col overflow-x-auto md:overflow-x-visible p-0">
                     <Table className="w-full border-collapse">

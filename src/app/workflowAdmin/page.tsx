@@ -704,7 +704,7 @@ export default function WorkflowAdminPage() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={deleteDialog.onConfirm}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-red-600 text-white hover:bg-red-600/90"
                 >
                   Delete
                 </AlertDialogAction>

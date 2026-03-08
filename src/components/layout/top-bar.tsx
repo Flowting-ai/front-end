@@ -62,7 +62,7 @@ export function Topbar({
           {isPersonaAdminChatPage && (
             <Button
               onClick={() => router.push("/personaAdmin")}
-              className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg"
+              className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
             >
               <ChevronLeft className="h-4 w-4" />
               Back

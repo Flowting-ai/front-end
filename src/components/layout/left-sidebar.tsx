@@ -38,6 +38,7 @@ import Image from "next/image";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ChatHistoryItem } from "./chat-history-item";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -143,10 +144,18 @@ export function LeftSidebar({
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
 
   // Persona chat sessions (localStorage-backed)
-  const [personaSessions, setPersonaSessions] = useState<PersonaChatSession[]>([]);
-  const [expandedPersonaIds, setExpandedPersonaIds] = useState<Set<string>>(new Set());
-  const [activePersonaChatSessionId, setActivePersonaChatSessionId] = useState<string | null>(null);
-  const [renamingPersonaChatId, setRenamingPersonaChatId] = useState<string | null>(null);
+  const [personaSessions, setPersonaSessions] = useState<PersonaChatSession[]>(
+    [],
+  );
+  const [expandedPersonaIds, setExpandedPersonaIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [activePersonaChatSessionId, setActivePersonaChatSessionId] = useState<
+    string | null
+  >(null);
+  const [renamingPersonaChatId, setRenamingPersonaChatId] = useState<
+    string | null
+  >(null);
   const [renamingPersonaChatText, setRenamingPersonaChatText] = useState("");
   const personaChatRenameInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -386,7 +395,9 @@ export function LeftSidebar({
   // Auto-expand the active persona in the sidebar when navigating to its chat
   React.useEffect(() => {
     if (activePersonaIdFromUrl) {
-      setExpandedPersonaIds((prev) => new Set([...prev, activePersonaIdFromUrl]));
+      setExpandedPersonaIds(
+        (prev) => new Set([...prev, activePersonaIdFromUrl]),
+      );
     }
   }, [activePersonaIdFromUrl]);
 
@@ -412,7 +423,10 @@ export function LeftSidebar({
         "/chats/",
         {
           method: "POST",
-          body: JSON.stringify({ title: `${personaName} – New chat`, message: "" }),
+          body: JSON.stringify({
+            title: `${personaName} – New chat`,
+            message: "",
+          }),
           headers: { "Content-Type": "application/json" },
         },
         csrfToken,
@@ -420,9 +434,7 @@ export function LeftSidebar({
         .then(async (res) => {
           if (!res.ok) return;
           const data = await res.json();
-          const backendId = String(
-            data?.id ?? data?.chat?.id ?? "",
-          ).trim();
+          const backendId = String(data?.id ?? data?.chat?.id ?? "").trim();
           if (!backendId) return;
           setPersonaSessions((prev) => {
             const next = prev.map((s) =>
@@ -432,7 +444,9 @@ export function LeftSidebar({
             return next;
           });
         })
-        .catch(() => {/* backend chat creation failed — local-only session */});
+        .catch(() => {
+          /* backend chat creation failed — local-only session */
+        });
     }
   };
 
@@ -467,7 +481,9 @@ export function LeftSidebar({
       }
     }
 
-    toast.success("Chat deleted", { description: "The conversation has been removed." });
+    toast.success("Chat deleted", {
+      description: "The conversation has been removed.",
+    });
   };
 
   const handleToggleStarPersonaChat = async (sessionId: string) => {
@@ -495,7 +511,9 @@ export function LeftSidebar({
       }
     }
 
-    toast.success(nextStarred ? "Added to favorites" : "Removed from favorites");
+    toast.success(
+      nextStarred ? "Added to favorites" : "Removed from favorites",
+    );
   };
 
   const handleConfirmRenamePersonaChat = async () => {
@@ -862,7 +880,9 @@ export function LeftSidebar({
                 </Button>
                 {/* 2. Usage & Billing */}
                 <Button
-                  ref={isUsageAndBillingRoute ? activeSettingsItemRef : undefined}
+                  ref={
+                    isUsageAndBillingRoute ? activeSettingsItemRef : undefined
+                  }
                   type="button"
                   onClick={() => router.push("/settings/usage-and-billing")}
                   className={cn(
@@ -894,7 +914,9 @@ export function LeftSidebar({
                 </Button>
                 {/* 4. Memory & Context */}
                 <Button
-                  ref={isMemoryAndContextRoute ? activeSettingsItemRef : undefined}
+                  ref={
+                    isMemoryAndContextRoute ? activeSettingsItemRef : undefined
+                  }
                   type="button"
                   onClick={() => router.push("/settings/memory-and-context")}
                   className={cn(
@@ -1130,11 +1152,22 @@ export function LeftSidebar({
                 <div className="px-0 pb-4.5 flex-1 flex flex-col min-h-0 overflow-hidden">
                   {/* Section header - accordion trigger style */}
                   <div className="flex h-[31px] w-full items-center gap-2 shrink-0 px-4">
-                    <p className="px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]">
+                    <p
+                      className={cn(
+                        "px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]",
+                        ((isOnPersonaPage && personaListLoading) ||
+                          (isOnWorkflowPage && workflowListLoading)) &&
+                          "animate-pulse",
+                      )}
+                    >
                       {isOnPersonaPage
-                        ? "Recent Persona chats"
+                        ? personaListLoading
+                          ? "Loading Persona chats"
+                          : "Recent Persona chats"
                         : isOnWorkflowPage
-                          ? "Recent Workflow chats"
+                          ? workflowListLoading
+                            ? "Loading Workflow chats"
+                            : "Recent Workflow chats"
                           : "Recent Chat boards"}
                     </p>
                     <button
@@ -1168,17 +1201,29 @@ export function LeftSidebar({
                                   ? "Search workflow chats"
                                   : "Search chats"
                             }
-                            className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0"
+                            className="h-9 w-full rounded-[8px] border border-[#E5E5E5] bg-white pl-9 pr-3 text-sm text-[#1E1E1E] placeholder:text-[#9F9F9F] focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-60 disabled:cursor-not-allowed"
                             type="search"
                             aria-label="Search chats"
+                            disabled={
+                              (isOnPersonaPage && personaListLoading) ||
+                              (isOnWorkflowPage && workflowListLoading)
+                            }
                           />
                         </div>
                       </div>
 
                       {isOnWorkflowPage ? (
                         workflowListLoading ? (
-                          <div className="mt-8 px-4 text-sm text-[#6F6F6F]">
-                            Loading workflows...
+                          <div className="relative text-center mt-6 px-4">
+                            <div className="flex w-full flex-col gap-2">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <div
+                                  key={i}
+                                  className="h-7.5 w-full rounded-[6px] bg-zinc-200 animate-pulse"
+                                  style={{ width: `${[72, 85, 58, 91, 66][i % 5]}%` }}
+                                />
+                              ))}
+                            </div>
                           </div>
                         ) : workflowsToDisplay.length > 0 ? (
                           <div
@@ -1214,8 +1259,16 @@ export function LeftSidebar({
                         )
                       ) : isOnPersonaPage ? (
                         personaListLoading ? (
-                          <div className="mt-8 px-4 text-sm text-[#6F6F6F]">
-                            Loading personas...
+                          <div className="relative text-center mt-6 px-4">
+                            <div className="flex w-full flex-col gap-2">
+                              {[1, 2, 3, 4, 5].map((i) => (
+                                <div
+                                  key={i}
+                                  className="h-7.5 w-full rounded-[6px] bg-zinc-200 animate-pulse"
+                                  style={{ width: `${[72, 85, 58, 91, 66][i % 5]}%` }}
+                                />
+                              ))}
+                            </div>
                           </div>
                         ) : personasToDisplay.length > 0 ? (
                           <div
@@ -1226,19 +1279,32 @@ export function LeftSidebar({
                             )}
                           >
                             {personasToDisplay.map((persona) => {
-                              const isExpanded = expandedPersonaIds.has(persona.id);
+                              const isExpanded = expandedPersonaIds.has(
+                                persona.id,
+                              );
                               const sessions = personaSessions
                                 .filter((s) => s.personaId === persona.id)
                                 .sort((a, b) => {
-                                  if (a.isStarred !== b.isStarred) return a.isStarred ? -1 : 1;
-                                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                                  if (a.isStarred !== b.isStarred)
+                                    return a.isStarred ? -1 : 1;
+                                  return (
+                                    new Date(b.createdAt).getTime() -
+                                    new Date(a.createdAt).getTime()
+                                  );
                                 });
-                              const sessionSearch = searchTerm.trim().toLowerCase();
+                              const sessionSearch = searchTerm
+                                .trim()
+                                .toLowerCase();
                               const sessionsToShow = sessionSearch
-                                ? sessions.filter((s) => s.name.toLowerCase().includes(sessionSearch))
+                                ? sessions.filter((s) =>
+                                    s.name
+                                      .toLowerCase()
+                                      .includes(sessionSearch),
+                                  )
                                 : sessions;
                               const isPersonaRowActive =
-                                activePersonaIdFromUrl === persona.id && !activePersonaChatSessionId;
+                                activePersonaIdFromUrl === persona.id &&
+                                !activePersonaChatSessionId;
                               return (
                                 <div key={persona.id} className="snap-start">
                                   {/* Persona accordion header */}
@@ -1247,14 +1313,17 @@ export function LeftSidebar({
                                     onClick={() =>
                                       setExpandedPersonaIds((prev) => {
                                         const next = new Set(prev);
-                                        if (next.has(persona.id)) next.delete(persona.id);
+                                        if (next.has(persona.id))
+                                          next.delete(persona.id);
                                         else next.add(persona.id);
                                         return next;
                                       })
                                     }
                                     className={cn(
                                       "group flex h-8 w-full items-center gap-1 rounded-[6px] px-2 text-[13px] font-medium text-[#0A0A0A] transition-colors cursor-pointer select-none",
-                                      isPersonaRowActive ? "bg-[#E5E5E5]" : "hover:bg-[#F1F1F1]",
+                                      isPersonaRowActive
+                                        ? "bg-[#E5E5E5]"
+                                        : "hover:bg-[#F1F1F1]",
                                     )}
                                   >
                                     <ChevronRight
@@ -1280,7 +1349,12 @@ export function LeftSidebar({
                                       {/* New Persona Chat */}
                                       <button
                                         type="button"
-                                        onClick={() => handleCreatePersonaChat(persona.id, persona.name)}
+                                        onClick={() =>
+                                          handleCreatePersonaChat(
+                                            persona.id,
+                                            persona.name,
+                                          )
+                                        }
                                         className="flex h-7 w-full items-center gap-1.5 rounded-[6px] px-2 text-[12px] text-[#525252] hover:bg-[#F1F1F1] transition-colors cursor-pointer"
                                       >
                                         <Plus size={12} className="shrink-0" />
@@ -1295,9 +1369,11 @@ export function LeftSidebar({
                                       ) : (
                                         sessionsToShow.map((session) => {
                                           const isActiveSession =
-                                            activePersonaChatSessionId === session.id;
+                                            activePersonaChatSessionId ===
+                                            session.id;
                                           const isRenamingThis =
-                                            renamingPersonaChatId === session.id;
+                                            renamingPersonaChatId ===
+                                            session.id;
                                           return (
                                             <ChatHistoryItem
                                               key={session.id}
@@ -1311,19 +1387,31 @@ export function LeftSidebar({
                                                 )
                                               }
                                               onToggleStar={() =>
-                                                handleToggleStarPersonaChat(session.id)
+                                                handleToggleStarPersonaChat(
+                                                  session.id,
+                                                )
                                               }
                                               onRename={() => {
-                                                setRenamingPersonaChatId(session.id);
-                                                setRenamingPersonaChatText(session.name);
+                                                setRenamingPersonaChatId(
+                                                  session.id,
+                                                );
+                                                setRenamingPersonaChatText(
+                                                  session.name,
+                                                );
                                                 requestAnimationFrame(() =>
                                                   personaChatRenameInputRef.current?.focus(),
                                                 );
                                               }}
-                                              onDelete={() => handleDeletePersonaChat(session.id)}
+                                              onDelete={() =>
+                                                handleDeletePersonaChat(
+                                                  session.id,
+                                                )
+                                              }
                                               isRenaming={isRenamingThis}
                                               renameValue={
-                                                isRenamingThis ? renamingPersonaChatText : undefined
+                                                isRenamingThis
+                                                  ? renamingPersonaChatText
+                                                  : undefined
                                               }
                                               onRenameChange={
                                                 isRenamingThis
@@ -1338,8 +1426,12 @@ export function LeftSidebar({
                                               onRenameCancel={
                                                 isRenamingThis
                                                   ? () => {
-                                                      setRenamingPersonaChatId(null);
-                                                      setRenamingPersonaChatText("");
+                                                      setRenamingPersonaChatId(
+                                                        null,
+                                                      );
+                                                      setRenamingPersonaChatText(
+                                                        "",
+                                                      );
                                                     }
                                                   : undefined
                                               }
@@ -1368,7 +1460,7 @@ export function LeftSidebar({
                         <div
                           id="recent-chat-boards"
                           className={cn(
-                            "flex-1 min-h-0 max-h-full space-y-2 overflow-y-auto pl-4 pr-2 mt-4 transition-all duration-500",
+                            "flex-1 min-h-0 max-h-full space-y-1 overflow-y-auto pl-4 pr-1 mt-4 mr-1 transition-all duration-500",
                             chatStyles.customScrollbar2,
                           )}
                         >
@@ -1498,8 +1590,10 @@ export function LeftSidebar({
                   <Avatar className="w-8 h-8 bg-white border border-main-border rounded-full flex items-center justify-center">
                     <AvatarFallback className="font-clash font-medium flex items-center justify-center w-11 h-11 rounded-full text-lsb-button-active-bg bg-white text-xs">
                       {(() => {
-                        const firstLetter = user?.firstName?.trim().charAt(0) ?? "";
-                        const lastLetter = user?.lastName?.trim().charAt(0) ?? "";
+                        const firstLetter =
+                          user?.firstName?.trim().charAt(0) ?? "";
+                        const lastLetter =
+                          user?.lastName?.trim().charAt(0) ?? "";
                         const combo = (firstLetter + lastLetter).toUpperCase();
                         return combo || "GU";
                       })()}

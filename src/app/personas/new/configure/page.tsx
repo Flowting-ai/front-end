@@ -1070,11 +1070,11 @@ function PersonaConfigurePageContent() {
                               );
                             }
                           }}
-                          className={styles.backButton}
+                          className={`${styles.backButton} px-3!`}
                         >
-                          <ArrowLeft className="h-4 w-4" />
+                          <ChevronLeft className="h-4 w-4" />
                           {searchParams.get("personaId")
-                            ? "Back "
+                            ? "Back"
                             : hasFinishedBuilding
                               ? "Go to home"
                               : "Back"}

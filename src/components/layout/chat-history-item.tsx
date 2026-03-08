@@ -63,9 +63,9 @@ export function ChatHistoryItem({
       onClick={isRenaming ? undefined : onSelect}
       onKeyDown={isRenaming ? undefined : handleKeyDown}
       className={cn(
-        "group flex h-8 w-full items-center justify-between rounded-[6px] text-[13px] text-black transition-colors pr-1",
+        "group flex h-7.5 w-full items-center justify-between rounded-[6px] text-[13px] text-black transition-colors pr-1",
         isRenaming ? "cursor-default" : "cursor-pointer select-none",
-        isSelected ? "bg-[#E5E5E5]" : "bg-transparent hover:bg-[#F1F1F1]"
+        isSelected ? "bg-[#E5E5E5] hover:bg-[#D5D5D5]" : "bg-transparent hover:bg-[#E5E5E5]"
       )}
     >
       {isRenaming ? (
@@ -127,7 +127,7 @@ export function ChatHistoryItem({
           {!isRenaming && pinnedCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-[#5B5B5B] text-[9px] font-semibold text-white">
+                <span className={`${pinnedCount > 9 ? "w-4.5 h-4.5" : "w-4 h-4"} font-semibold text-[10px] text-white flex items-center justify-center rounded-full bg-[#5B5B5B]`}>
                   {pinnedCount}
                 </span>
               </TooltipTrigger>

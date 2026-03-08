@@ -923,28 +923,15 @@ export const PinItem = ({
             tags.length < MAX_TAG_LINES * ESTIMATED_TAGS_PER_LINE && (
               <div className="relative flex items-center">
                 <Tag
-                  className="absolute text-[#1e1e1e] pointer-events-none"
-                  style={{ left: "6px", height: "7.25px", width: "7.25px" }}
+                  className="absolute left-[6px] w-2 h-2 text-[#1e1e1e] pointer-events-none"
                 />
                 <input
                   type="text"
                   placeholder="Add Tag"
-                  className="border border-[#d4d4d4] bg-transparent text-[#1e1e1e] placeholder:text-[#9F9F9F] focus:outline-none focus:ring-0"
+                  className="w-15 h-4 min-h-4  bg-transparent text-[9px] text-[#1e1e1e] placeholder:text-[#9F9F9F] border border-[#d4d4d4] rounded-full gap-1 focus:outline-none focus:ring-0 py-0.5 pl-4 pr-0"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  style={{
-                    width: "60.37px",
-                    height: "17.86px",
-                    minHeight: "17.86px",
-                    borderRadius: "7680.2px",
-                    paddingTop: "2.23px",
-                    paddingBottom: "2.23px",
-                    paddingLeft: "16px",
-                    paddingRight: "8px",
-                    fontSize: "9px",
-                    gap: "4.46px",
-                  }}
+                  onKeyDown={handleTagKeyDown}                  
                 />
               </div>
             )}

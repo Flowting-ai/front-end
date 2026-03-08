@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import chatStyles from "./workflow-chat-interface.module.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, X, Loader2, Square, Mic, Maximize2, Minimize2, ChevronDown } from "lucide-react";
+import { Send, X, Loader2, Square, Mic, Maximize2, Minimize2, ChevronDown, ChevronUp } from "lucide-react";
 import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import type { AIModel } from "@/types/ai-model";
 import { getModelIcon } from "@/lib/model-icons";
@@ -911,7 +911,8 @@ export function WorkflowChatInterface({
                   />
                 ))}
 
-                {outputItems.length > 0 && (
+                {/* OLD NODE REASONING */}
+                {/* {outputItems.length > 0 && (
                   <div className="mt-6 rounded-2xl border border-[#E7E7E7] bg-[#FAFAFA] p-4">
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6F6F6F]">
                       Node Outputs ({outputItems.length})
@@ -990,7 +991,123 @@ export function WorkflowChatInterface({
                       })}
                     </div>
                   </div>
+                )} */}
+
+{outputItems.length > 0 && (
+                  <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4 sm:p-5">
+                    <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-[#475569]">
+                      Node Outputs ({outputItems.length})
+                    </h3>
+                    <div className={chatStyles.nodeOutputsTimeline}>
+                      {outputItems.map((output) => {
+                        const isExpanded = expandedNodeOutputId === output.nodeId;
+                        return (
+                          <div
+                            key={output.nodeId}
+                            className={chatStyles.timelineItem}
+                            data-status={output.status}
+                          >
+                            <div className="rounded-xl border border-[#E2E8F0] bg-white shadow-sm overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedNodeOutputId((prev) =>
+                                    prev === output.nodeId ? null : output.nodeId
+                                  )
+                                }
+                                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-slate-50/80 transition-colors rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                                aria-expanded={isExpanded}
+                                aria-controls={`node-output-content-${output.nodeId}`}
+                                id={`node-output-trigger-${output.nodeId}`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="truncate text-sm font-semibold text-[#1E293B]">
+                                      {output.nodeName || output.nodeId}
+                                    </span>
+                                    {output.nodeType && (
+                                      <span className="shrink-0 rounded-md bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 uppercase">
+                                        {output.nodeType}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {!isExpanded && (
+                                    <p className="truncate text-xs text-[#64748B] mt-0.5">
+                                      {getCollapsedPreview(output.content)}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span
+                                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${getOutputStatusClass(
+                                      output.status
+                                    )}`}
+                                    aria-label={`Status: ${output.status}`}
+                                  >
+                                    {output.status}
+                                  </span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-[#64748B]" aria-hidden />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-[#64748B]" aria-hidden />
+                                  )}
+                                </div>
+                              </button>
+                              {/* Token usage & cost - always visible for accessibility */}
+                              {(output.tokens !== undefined || output.cost !== undefined || output.durationMs !== undefined) && (
+                                <div
+                                  className="px-3 py-1.5 border-t border-[#F1F5F9] bg-[#F8FAFC] flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-[#475569]"
+                                  role="region"
+                                  aria-label="Usage and cost"
+                                >
+                                  {output.tokens !== undefined && output.tokens > 0 && (
+                                    <span><strong className="font-semibold text-[#334155]">Tokens:</strong> {output.tokens}</span>
+                                  )}
+                                  {output.cost !== undefined && output.cost > 0 && (
+                                    <span><strong className="font-semibold text-[#334155]">Cost:</strong> ${output.cost.toFixed(4)}</span>
+                                  )}
+                                  {output.durationMs !== undefined && (
+                                    <span><strong className="font-semibold text-[#334155]">Duration:</strong> {(output.durationMs / 1000).toFixed(2)}s</span>
+                                  )}
+                                </div>
+                              )}
+                              {isExpanded && (
+                                <div
+                                  id={`node-output-content-${output.nodeId}`}
+                                  role="region"
+                                  aria-labelledby={`node-output-trigger-${output.nodeId}`}
+                                  className="border-t border-[#E2E8F0] px-3 py-3 break-words bg-white"
+                                >
+                                  {(() => {
+                                    const { visibleText, thinkingText } = extractThinkingContent(output.content);
+                                    return (
+                                      <>
+                                        {thinkingText && (
+                                          <NodeReasoningBlock
+                                            text={thinkingText}
+                                            isStreaming={output.isStreaming}
+                                          />
+                                        )}
+                                        <div className="text-xs leading-relaxed text-[#334155] break-words">
+                                          {visibleText
+                                            ? renderMarkdownContent(visibleText)
+                                            : output.isStreaming
+                                              ? <span className="text-slate-400 italic">Generating…</span>
+                                              : <span className="text-slate-400 italic">No output yet</span>}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
+
               </div>
             </div>
           </div>
