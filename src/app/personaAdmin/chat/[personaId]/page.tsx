@@ -4,7 +4,7 @@ import * as React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import { PersonaChatFullPage } from "@/components/personas/PersonaChatFullPage";
-import { fetchPersonas, type BackendPersona, type PersonaStatus } from "@/lib/api/personas";
+import { fetchPersonaById, type BackendPersona, type PersonaStatus } from "@/lib/api/personas";
 
 function PersonaChatPageInner() {
   const params = useParams();
@@ -16,6 +16,8 @@ function PersonaChatPageInner() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Only re-fetch when the personaId changes, not on every chatId change.
+  // Use fetchPersonaById to avoid fetching the full list just to find one entry.
   React.useEffect(() => {
     if (!personaId) {
       setLoading(false);
@@ -27,27 +29,18 @@ function PersonaChatPageInner() {
     setLoading(true);
     setError(null);
 
-    // Fetch the specific persona by ID
-    fetchPersonas()
-      .then((personas) => {
-        if (!cancelled) {
-          const found = personas.find((p) => p.id === personaId);
-          if (found) {
-            setPersona(found);
-          } else {
-            setError("Persona not found");
-          }
-        }
+    fetchPersonaById(personaId)
+      .then((found) => {
+        if (!cancelled) setPersona(found as unknown as BackendPersona);
       })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err?.message || "Failed to load persona");
-        }
+      .catch((err: unknown) => {
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "Failed to load persona",
+          );
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       });
 
     return () => {

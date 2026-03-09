@@ -141,6 +141,8 @@ interface AppLayoutContextType {
   updateChatTitleWithAnimation: (chatId: string, newTitle: string) => void;
   /** Get the currently animating title for a chat (if any) */
   getAnimatingTitle: (chatId: string) => { targetTitle: string; timestamp: number } | null;
+  /** Re-fetch a single chat from the backend and update its title (used after async title generation) */
+  refreshChatTitle: (chatId: string) => void;
   // Active personas (fetched once and shared across components)
   activePersonas: Persona[];
   setActivePersonas: React.Dispatch<React.SetStateAction<Persona[]>>;
@@ -638,6 +640,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
     localStorage.setItem('leftSidebarCollapsed', isLeftSidebarCollapsed.toString());
   }, [isLeftSidebarCollapsed]);
 
+  // Persist active chat ID so page refresh restores the same chat
+  useEffect(() => {
+    if (activeChatId && !activeChatId.startsWith('temp-')) {
+      localStorage.setItem('activeChatId', activeChatId);
+    }
+  }, [activeChatId]);
+
   // setActiveChatId without automatic reordering - chats only move to top when messages are sent
   const setActiveChatId = useCallback(
     (id: string | null | ((prev: string | null) => string | null)) => {
@@ -678,6 +687,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return next;
     });
   }, []);
+
+  // Fetch a single chat from the backend and update its title in the sidebar.
+  // Called after the SSE stream ends to pick up titles generated asynchronously.
+  const refreshChatTitle = useCallback((chatId: string) => {
+    if (!chatId || chatId.startsWith("temp-")) return;
+    void apiFetch(`/chats/${chatId}/`, { method: "GET" }, csrfTokenRef.current)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { title?: string; name?: string };
+        const title = (data?.title || data?.name || "").trim();
+        if (title) updateChatTitleWithAnimation(chatId, title);
+      })
+      .catch(() => { /* silently ignore */ });
+  }, [updateChatTitleWithAnimation]);
 
   // Get animating title info for a specific chat
   const getAnimatingTitle = useCallback((chatId: string) => {
@@ -921,6 +944,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
         if (prev && combinedBoards.some((chat) => chat.id === prev)) {
           return prev;
         }
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('activeChatId') : null;
+        if (savedId && combinedBoards.some((chat) => chat.id === savedId)) {
+          return savedId;
+        }
         return combinedBoards.length > 0 ? combinedBoards[0].id : null;
       });
     } catch (error) {
@@ -974,7 +1001,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     try {
       await renameChat(targetId, nextName, csrfTokenRef.current);
 
-      await loadChatBoards();
       handleRenameCancel();
       toast("Chat renamed", {
         description: "Name updated successfully.",
@@ -998,7 +1024,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     chatBoards,
     handleRenameCancel,
     isRenamingChatBoard,
-    loadChatBoards,
     renamingChatId,
     renamingText,
     resetRenameState,
@@ -1492,8 +1517,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const wasChatRouteBefore =
       prev === "/" || (prev !== null && prev.startsWith("/chat"));
 
-    // Only trigger when entering chat routes from non-chat routes.
-    if (isChatRouteNow && !wasChatRouteBefore) {
+    // Only trigger when navigating INTO chat routes from a non-chat route.
+    // Skip when prev === null (initial mount / page refresh) so we restore the
+    // previous chat from localStorage instead of always opening a blank new chat.
+    if (isChatRouteNow && !wasChatRouteBefore && prev !== null) {
       handleAddChatRef.current("chat");
     }
 
@@ -1593,6 +1620,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     },
     updateChatTitleWithAnimation,
     getAnimatingTitle,
+    refreshChatTitle,
     activePersonas,
     setActivePersonas,
   };

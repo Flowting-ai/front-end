@@ -1463,6 +1463,16 @@ export function ChatInterface({
               layoutContext.moveChatToTop(currentChatId);
             }
 
+            // Refresh chat title from backend after a short delay — the backend
+            // generates the title asynchronously after the stream ends, so the
+            // title won't be in the done event but will be available shortly after.
+            if (!isPersonaTest && currentChatId && layoutContext?.refreshChatTitle) {
+              const chatIdForTitle = currentChatId;
+              setTimeout(() => {
+                layoutContext.refreshChatTitle(chatIdForTitle);
+              }, 2500);
+            }
+
             setLastMessageId(loadingMessageId);
             setIsResponding(false);
             streamFinished = true;

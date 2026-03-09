@@ -31,6 +31,7 @@ import {
   Bell,
   UsersRound,
   MessageSquare,
+  Pause,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -73,6 +74,10 @@ const PERSONA_SESSIONS_KEY = "souvenir:persona-chat-sessions-v2";
 const personaMsgsKey = (chatId: string) => `souvenir:pcs-msgs:${chatId}`;
 
 const APP_BASE_TITLE = "Souvenir AI";
+
+// Module-level cache so persona list survives component remounts (e.g. when
+// navigating between different persona chats causes the page to re-render).
+let _personaListCache: Array<{ id: string; name: string; isActive: boolean }> = [];
 
 interface PersonaChatSession {
   id: string;
@@ -357,29 +362,31 @@ export function LeftSidebar({
     };
   }, [isOnWorkflowPage]);
 
-  // Fetch personas for "Recent Persona chats" when on persona pages
+  // Fetch personas for "Recent Persona chats" when on persona pages.
+  // Initial state comes from the module-level cache so the list is available
+  // immediately even when the component remounts (no flash of empty state).
   const [personaList, setPersonaList] = useState<
     Array<{ id: string; name: string; isActive: boolean }>
-  >([]);
+  >(_personaListCache);
   const [personaListLoading, setPersonaListLoading] = useState(false);
   useEffect(() => {
     if (!isOnPersonaPage) return;
     let cancelled = false;
-    setPersonaListLoading(true);
     fetchPersonasApi()
       .then((personas) => {
         if (!cancelled) {
-          // Map all personas for recent persona chats
-          const personasList = personas.map((p) => ({
+          const mapped = personas.map((p) => ({
             id: p.id,
             name: p.name,
-            isActive: true,
+            // Status semantics: "test" = active/running, "completed" = paused
+            isActive: p.status === "test",
           }));
-          setPersonaList(personasList);
+          _personaListCache = mapped;
+          setPersonaList(mapped);
         }
       })
       .catch(() => {
-        if (!cancelled) setPersonaList([]);
+        // On error, keep whatever is already in state (cache) — don't wipe the list.
       })
       .finally(() => {
         if (!cancelled) setPersonaListLoading(false);
@@ -562,10 +569,17 @@ export function LeftSidebar({
   const normalizedPersonaSearch = searchTerm.trim().toLowerCase();
   const personasToDisplay = useMemo(() => {
     if (!normalizedPersonaSearch) return personaList;
-    return personaList.filter((p) =>
-      p.name.toLowerCase().includes(normalizedPersonaSearch),
-    );
-  }, [personaList, normalizedPersonaSearch]);
+    return personaList.filter((p) => {
+      // Match on persona name
+      if (p.name.toLowerCase().includes(normalizedPersonaSearch)) return true;
+      // Also match if any of this persona's chat sessions match
+      return personaSessions.some(
+        (s) =>
+          s.personaId === p.id &&
+          s.name.toLowerCase().includes(normalizedPersonaSearch),
+      );
+    });
+  }, [personaList, normalizedPersonaSearch, personaSessions]);
 
   // Dynamic button text based on current page
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
@@ -1253,15 +1267,12 @@ export function LeftSidebar({
                     <p
                       className={cn(
                         "px-1 flex-1 text-sm font-medium leading-[150%] tracking-[0.01em] text-[#0A0A0A]",
-                        ((isOnPersonaPage && personaListLoading) ||
-                          (isOnWorkflowPage && workflowListLoading)) &&
+                        (isOnWorkflowPage && workflowListLoading) &&
                           "animate-pulse",
                       )}
                     >
                       {isOnPersonaPage
-                        ? personaListLoading
-                          ? "Loading Persona chats"
-                          : "Recent Persona chats"
+                        ? "Recent Persona chats"
                         : isOnWorkflowPage
                           ? workflowListLoading
                             ? "Loading Workflow chats"
@@ -1303,7 +1314,6 @@ export function LeftSidebar({
                             type="search"
                             aria-label="Search chats"
                             disabled={
-                              (isOnPersonaPage && personaListLoading) ||
                               (isOnWorkflowPage && workflowListLoading)
                             }
                           />
@@ -1358,21 +1368,7 @@ export function LeftSidebar({
                           </div>
                         )
                       ) : isOnPersonaPage ? (
-                        personaListLoading ? (
-                          <div className="relative text-center mt-6 px-4">
-                            <div className="flex w-full flex-col gap-2">
-                              {[1, 2, 3, 4, 5].map((i) => (
-                                <div
-                                  key={i}
-                                  className="h-7.5 w-full rounded-[6px] bg-zinc-200 animate-pulse"
-                                  style={{
-                                    width: `${[72, 85, 58, 91, 66][i % 5]}%`,
-                                  }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ) : personasToDisplay.length > 0 ? (
+                        personasToDisplay.length > 0 ? (
                           <div
                             id="recent-persona-chats"
                             className={cn(
@@ -1381,9 +1377,6 @@ export function LeftSidebar({
                             )}
                           >
                             {personasToDisplay.map((persona) => {
-                              const isExpanded = expandedPersonaIds.has(
-                                persona.id,
-                              );
                               const sessions = personaSessions
                                 .filter((s) => s.personaId === persona.id)
                                 .sort((a, b) => {
@@ -1404,6 +1397,16 @@ export function LeftSidebar({
                                       .includes(sessionSearch),
                                   )
                                 : sessions;
+                              // Auto-expand when a search term matches sessions under this persona
+                              const hasMatchingSession =
+                                !!sessionSearch &&
+                                sessionsToShow.length > 0 &&
+                                !persona.name
+                                  .toLowerCase()
+                                  .includes(sessionSearch);
+                              const isExpanded =
+                                expandedPersonaIds.has(persona.id) ||
+                                hasMatchingSession;
                               const isPersonaRowActive =
                                 activePersonaIdFromUrl === persona.id &&
                                 !activePersonaChatSessionId;
@@ -1437,6 +1440,18 @@ export function LeftSidebar({
                                     <span className="flex-1 min-w-0 truncate text-left leading-[18px] text-xs text-[#737373]">
                                       {persona.name}
                                     </span>
+                                    {!persona.isActive && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="shrink-0 flex items-center justify-center text-amber-500">
+                                            <Pause size={11} strokeWidth={2} />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="text-xs">
+                                          Persona is paused by the admin
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
                                     {sessions.length > 0 && (
                                       <span className="w-4 h-4 text-[10px] text-[#737373] shrink-0 flex items-center justify-center mr-2">
                                         {sessions.length}

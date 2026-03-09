@@ -306,6 +306,10 @@ export default function PersonaAdminPage() {
         p.id === personaId ? { ...p, status: newFrontendStatus } : p,
       ),
     );
+    // Notify sidebar immediately so it reflects the change without a refresh
+    window.dispatchEvent(new CustomEvent("persona:status-changed", {
+      detail: { personaId, status: newBackendStatus },
+    }));
 
     // Persist to backend
     try {
@@ -322,6 +326,10 @@ export default function PersonaAdminPage() {
           p.id === personaId ? { ...p, status: persona.status } : p,
         ),
       );
+      // Revert sidebar as well
+      window.dispatchEvent(new CustomEvent("persona:status-changed", {
+        detail: { personaId, status: persona.status === "active" ? "test" : "completed" },
+      }));
       // Optionally show error toast
     }
   };
