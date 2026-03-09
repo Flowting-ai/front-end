@@ -13,11 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +56,7 @@ import {
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/config";
+import Link from "next/link";
 
 // Helper to construct full avatar URL from relative or absolute paths
 const getFullAvatarUrl = (url: string | null | undefined): string | null => {
@@ -342,13 +339,13 @@ export default function PersonaAdminPage() {
             try {
               const dto = await workflowAPI.get(wf.id);
               const usesPersona = dto.nodes?.some(
-                (node) => node.data?.selectedPersona === personaId
+                (node) => node.data?.selectedPersona === personaId,
               );
               return usesPersona ? wf.name : null;
             } catch {
               return null;
             }
-          })
+          }),
         );
         const usedInWorkflows = usageResults.filter(Boolean) as string[];
         if (usedInWorkflows.length > 0) {
@@ -434,7 +431,7 @@ export default function PersonaAdminPage() {
   return (
     <AppLayout>
       <div
-        className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto border py-[20px]`}
+        className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto py-[20px]`}
       >
         <div className="scale-100 mx-auto w-full">
           <div className="w-full flex flex-col gap-6">
@@ -488,43 +485,127 @@ export default function PersonaAdminPage() {
                       title="Tokens Usage"
                       value={Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
                       suffix="Used"
-                      className="relative w-[400px] h-[148px] flex-none p-0!"
+                      className="relative w-[601px] h-[148px] flex-none p-0!"
                     >
                       <div className="relative flex h-full w-full flex-col">
-                        <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-base leading-[140%] tracking-tight text-black">
-                            Tokens Usage
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2 ml-[14px] pt-2">
-                          <div className="flex items-center gap-2">
-                            <p className="font-inter font-normal text-[32px] font-normal leading-[120%] text-black">
-                              {Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
-                            </p>
-                            <span className="font-inter font-normal leading-[154%] text-sm text-[#B3B3B3]">
-                              used
-                            </span>
+                        <div className="h-full flex flex-col justify-between mx-[14px] my-[14px]">
+                          {/* Top */}
+                          <div className="flex justify-between ">
+                            {/* Left */}
+                            <div className="flex flex-col">
+                              <p className="font-inter font-semibold text-base leading-[140%] tracking-tight text-black">
+                                Platform Usage
+                              </p>
+                              <p className="text-xs text-[#737373]">
+                                Shared across all features
+                              </p>
+                            </div>
+
+                            {/* Right */}
+                            <div className="flex items-end gap-2">
+                              <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
+                                {Math.round(user?.budgetConsumedPercent ?? 0) +
+                                  "%"}
+                              </p>
+                              <span className="font-inter font-normal leading-[154%] text-sm text-black">
+                                used
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Bottom */}
+                          <div className="mt-4 flex flex-col gap-2">
+                            {(() => {
+                              const monthlyPct = Math.min(
+                                user?.budgetConsumedPercent ?? 0,
+                                100,
+                              );
+                              const seg1 = +(monthlyPct * 0.4).toFixed(1);
+                              const seg2 = +(monthlyPct * 0.35).toFixed(1);
+                              const seg3 = +(
+                                monthlyPct - seg1 - seg2
+                              ).toFixed(1);
+
+                              return (
+                                <>
+                                  {/* Row 1 - Progress graph */}
+                                  <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex overflow-hidden">
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                  </div>
+
+                                  {/* Row 2 - Legend + reset info */}
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          Chat Board{" "}
+                                          <span className="font-medium text-black">
+                                            {seg1}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <p className="text-[#D4D4D4] text-xs">|</p>
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          AI Assistants{" "}
+                                          <span className="font-medium text-black">
+                                            {seg2}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <p className="text-[#D4D4D4] text-xs">|</p>
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          FlowBuilder{" "}
+                                          <span className="font-medium text-black">
+                                            {seg3}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="text-[11px] text-[#737373] whitespace-nowrap">
+                                      Resets 12:00AM UTC
+                                    </p>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
+
                         {/* <button className="cursor-pointer absolute bottom-[14px] left-[14px] inline-flex h-[26px] min-h-[24px] w-[161px] items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E5E5] bg-white px-2 py-[3px] text-xs font-medium text-black transition-colors hover:bg-gray-100">
-                          <TrendingUp className="h-3 w-3" />
-                          {user?.budgetRemaining ? `$${user.budgetRemaining} remaining` : "Budget usage"}
-                        </button> */}
+                            <TrendingUp className="h-3 w-3" />
+                            {user?.budgetRemaining ? `$${user.budgetRemaining} remaining` : "Budget usage"}
+                          </button> */}
                       </div>
-                      <div className="absolute top-3.5 right-3.5 w-[34px] h-[34px] border border-main-border rounded-[8px] flex items-center justify-center">
+                      {/* <div className="absolute top-3.5 right-3.5 w-[34px] h-[34px] border border-main-border rounded-[8px] flex items-center justify-center">
                         <ChartLine size={20} strokeWidth={1} />
-                      </div>
+                      </div> */}
                     </StatCard>
                     {/* Middle - Active Consumers */}
                     <StatCard
                       title="Active Consumers"
                       value={activeConsumers}
                       suffix="Users"
-                      className="w-[400px] h-[148px] flex-none !p-0"
+                      className="max-w-[200px] w-full h-[148px] flex-none !p-0"
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-base font-semibold leading-[140%] tracking-tight text-black">
+                          <p className="font-inter font-semibold text-base font-semibold leading-[140%] tracking-tight text-black">
                             Active Consumers
                           </p>
                         </div>
@@ -545,7 +626,10 @@ export default function PersonaAdminPage() {
                               <div
                                 key={index}
                                 className="h-8 w-8 rounded-full border border-white overflow-hidden"
-                                style={{ zIndex: 0 + index, opacity: activeConsumers === 0 ? 0.35 : 1 }}
+                                style={{
+                                  zIndex: 0 + index,
+                                  opacity: activeConsumers === 0 ? 0.35 : 1,
+                                }}
                               >
                                 <Image
                                   src={src}
@@ -617,6 +701,20 @@ export default function PersonaAdminPage() {
                       </div>
                     </StatCard>
                   </div>
+                  {Math.round(user?.budgetConsumedPercent ?? 0) >= 100 && (
+                    <div className="w-full h-auto flex items-center justify-start max-w-sm mt-2">
+                      <p className="text-sm text-[#D97757]">
+                        You&apos;ve reached this month&apos;s Standard credit
+                        limit. Add more credits to continue without
+                        interruption:{" "}
+                        <Link href="#">
+                          <span className="underline text-red-700">
+                            Upgrade
+                          </span>
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Command Center + Table */}
@@ -785,7 +883,10 @@ export default function PersonaAdminPage() {
                     placeholder="Enter email for adding people"
                     value={shareDialog.shareEmail}
                     onChange={(e) =>
-                      setShareDialog({ ...shareDialog, shareEmail: e.target.value })
+                      setShareDialog({
+                        ...shareDialog,
+                        shareEmail: e.target.value,
+                      })
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && shareDialog.shareEmail.trim()) {
@@ -804,7 +905,12 @@ export default function PersonaAdminPage() {
                   {/* Owner row */}
                   <div
                     className="flex items-center justify-between"
-                    style={{ width: "404px", height: "40px", paddingRight: "8px", paddingLeft: "8px" }}
+                    style={{
+                      width: "404px",
+                      height: "40px",
+                      paddingRight: "8px",
+                      paddingLeft: "8px",
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -822,7 +928,15 @@ export default function PersonaAdminPage() {
                         <Share2 size={18} className="text-[#B3B3B3]" />
                       </div>
                       <div className="flex flex-col">
-                        <span style={{ fontWeight: 600, fontSize: "12px", lineHeight: "140%", textTransform: "capitalize", color: "#0A0A0A" }}>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "12px",
+                            lineHeight: "140%",
+                            textTransform: "capitalize",
+                            color: "#0A0A0A",
+                          }}
+                        >
                           You
                         </span>
                         <span style={{ fontSize: "11px", color: "#666666" }}>
@@ -853,8 +967,14 @@ export default function PersonaAdminPage() {
                 <div className="font-geist font-medium mr-2 flex gap-2 justify-end">
                   <Button
                     variant="ghost"
-                    onClick={() => setShareDialog({ ...shareDialog, open: false })}
-                    style={{ fontSize: "14px", color: "#666666", padding: "8px 16px" }}
+                    onClick={() =>
+                      setShareDialog({ ...shareDialog, open: false })
+                    }
+                    style={{
+                      fontSize: "14px",
+                      color: "#666666",
+                      padding: "8px 16px",
+                    }}
                   >
                     Cancel
                   </Button>
@@ -899,7 +1019,7 @@ export default function PersonaAdminPage() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={deleteDialog.onConfirm}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-red-600 text-white hover:bg-red-600/90"
                 >
                   Delete
                 </AlertDialogAction>

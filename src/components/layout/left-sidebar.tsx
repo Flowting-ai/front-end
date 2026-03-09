@@ -30,6 +30,7 @@ import {
   Cable,
   Bell,
   UsersRound,
+  MessageSquare,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
 import { useRouter, usePathname } from "next/navigation";
@@ -70,6 +71,8 @@ import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
 // ─── Persona chat sessions ───────────────────────────────────────────────────
 const PERSONA_SESSIONS_KEY = "souvenir:persona-chat-sessions-v2";
 const personaMsgsKey = (chatId: string) => `souvenir:pcs-msgs:${chatId}`;
+
+const APP_BASE_TITLE = "Souvenir AI";
 
 interface PersonaChatSession {
   id: string;
@@ -142,6 +145,7 @@ export function LeftSidebar({
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
+  const [shouldAnimateSidebar, setShouldAnimateSidebar] = useState(false);
 
   // Persona chat sessions (localStorage-backed)
   const [personaSessions, setPersonaSessions] = useState<PersonaChatSession[]>(
@@ -232,6 +236,12 @@ export function LeftSidebar({
     } else {
       setIsChatBoardsExpanded(false);
     }
+  }, [pathname]);
+
+  // Disable sidebar width animation on route changes so it doesn't
+  // visibly transition between open/collapsed when navigating.
+  React.useEffect(() => {
+    setShouldAnimateSidebar(false);
   }, [pathname]);
 
   const userFirstName = user?.firstName?.trim() || "Guest";
@@ -579,6 +589,87 @@ export function LeftSidebar({
     return haystack.includes(normalizedSearch);
   });
 
+  const [documentTitle, setDocumentTitle] = useState(APP_BASE_TITLE);
+
+  // Derive the desired document title whenever navigation or selection changes.
+  // Avoid falling back to the base title while the user is clearly in a chat context.
+  useEffect(() => {
+    const inChatContext =
+      isOnChatBoard || isOnWorkflowChatPage || isOnPersonaChatPage;
+
+    let nextTitle: string = APP_BASE_TITLE;
+
+    // 1) Persona chats (highest precedence)
+    if (isOnPersonaChatPage && activePersonaIdFromUrl) {
+      const persona = personaList.find((p) => p.id === activePersonaIdFromUrl);
+
+      if (activePersonaChatSessionId) {
+        const session = personaSessions.find(
+          (s) => s.id === activePersonaChatSessionId,
+        );
+        if (session?.name) {
+          nextTitle = persona?.name
+            ? `${persona.name} – ${session.name}`
+            : session.name;
+        }
+      } else if (persona?.name) {
+        nextTitle = persona.name;
+      }
+    }
+
+    // 2) Workflow chats
+    if (
+      nextTitle === APP_BASE_TITLE &&
+      isOnWorkflowChatPage &&
+      activeWorkflowIdFromUrl
+    ) {
+      const activeWorkflow = workflowList.find(
+        (wf) => wf.id === activeWorkflowIdFromUrl,
+      );
+      if (activeWorkflow?.name) {
+        nextTitle = activeWorkflow.name;
+      }
+    }
+
+    // 3) Main chat boards on "/" or "/chat"
+    if (nextTitle === APP_BASE_TITLE && isOnChatBoard && activeChatId) {
+      const activeBoard = chatBoards.find((board) => board.id === activeChatId);
+      if (activeBoard?.name) {
+        nextTitle = activeBoard.name;
+      }
+    }
+
+    // If we're in a chat-related route but couldn't yet resolve a specific
+    // title (e.g. async data still loading), keep the existing title instead
+    // of flashing back to the app base title.
+    if (inChatContext && nextTitle === APP_BASE_TITLE) {
+      return;
+    }
+
+    if (nextTitle !== documentTitle) {
+      setDocumentTitle(nextTitle);
+    }
+  }, [
+    isOnChatBoard,
+    isOnWorkflowChatPage,
+    isOnPersonaChatPage,
+    activeChatId,
+    chatBoards,
+    activeWorkflowIdFromUrl,
+    workflowList,
+    activePersonaIdFromUrl,
+    activePersonaChatSessionId,
+    personaList,
+    personaSessions,
+    documentTitle,
+  ]);
+
+  // Apply the resolved title to the browser tab.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.title = documentTitle;
+  }, [documentTitle]);
+
   const handleLogout = () => {
     logout();
     router.push("/auth/login");
@@ -587,7 +678,8 @@ export function LeftSidebar({
   return (
     <section
       className={cn(
-        "max-w-[240px] w-full h-screen bg-lsb-bg border-r border-main-border transition-all duration-500 overflow-hidden",
+        "max-w-[240px] w-full h-screen bg-lsb-bg border-r border-main-border overflow-hidden",
+        shouldAnimateSidebar && "transition-all duration-500",
         isCollapsed && "max-w-[72px]",
       )}
     >
@@ -601,7 +693,10 @@ export function LeftSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={onToggle}
+                    onClick={() => {
+                      setShouldAnimateSidebar(true);
+                      onToggle();
+                    }}
                     className="cursor-pointer absolute top-[50%] left-[50%] -translate-1/2 w-full max-h-[56px] h-full flex items-center justify-center gap-2 group-hover:opacity-0 transition-all duration-500"
                   >
                     <Image
@@ -826,7 +921,10 @@ export function LeftSidebar({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={onToggle}
+                      onClick={() => {
+                        setShouldAnimateSidebar(true);
+                        onToggle();
+                      }}
                       className="cursor-pointer text-lsb-panelleft-normal hover:text-lsb-panelleft-active hover:bg-zinc-200 rounded-sm flex items-center justify-center p-1 transition-all duration-300"
                     >
                       <PanelLeft size={20} strokeWidth={1.3} />
@@ -1220,7 +1318,9 @@ export function LeftSidebar({
                                 <div
                                   key={i}
                                   className="h-7.5 w-full rounded-[6px] bg-zinc-200 animate-pulse"
-                                  style={{ width: `${[72, 85, 58, 91, 66][i % 5]}%` }}
+                                  style={{
+                                    width: `${[72, 85, 58, 91, 66][i % 5]}%`,
+                                  }}
                                 />
                               ))}
                             </div>
@@ -1265,7 +1365,9 @@ export function LeftSidebar({
                                 <div
                                   key={i}
                                   className="h-7.5 w-full rounded-[6px] bg-zinc-200 animate-pulse"
-                                  style={{ width: `${[72, 85, 58, 91, 66][i % 5]}%` }}
+                                  style={{
+                                    width: `${[72, 85, 58, 91, 66][i % 5]}%`,
+                                  }}
                                 />
                               ))}
                             </div>
@@ -1306,7 +1408,10 @@ export function LeftSidebar({
                                 activePersonaIdFromUrl === persona.id &&
                                 !activePersonaChatSessionId;
                               return (
-                                <div key={persona.id} className="snap-start">
+                                <div
+                                  key={persona.id}
+                                  className="snap-start ml-2"
+                                >
                                   {/* Persona accordion header */}
                                   <button
                                     type="button"
@@ -1323,29 +1428,32 @@ export function LeftSidebar({
                                       "group flex h-8 w-full items-center gap-1 rounded-[6px] px-2 text-[13px] font-medium text-[#0A0A0A] transition-colors cursor-pointer select-none",
                                       isPersonaRowActive
                                         ? "bg-[#E5E5E5]"
-                                        : "hover:bg-[#F1F1F1]",
+                                        : "hover:bg-[#E5E5E5]",
+                                      isExpanded
+                                        ? "font-semibold bg-[#E5E5E5] rounded-bl-none"
+                                        : "",
                                     )}
                                   >
-                                    <ChevronRight
-                                      size={13}
-                                      className={cn(
-                                        "shrink-0 text-[#737373] transition-transform duration-200",
-                                        isExpanded && "rotate-90",
-                                      )}
-                                    />
-                                    <span className="flex-1 min-w-0 truncate text-left leading-[18px]">
+                                    <span className="flex-1 min-w-0 truncate text-left leading-[18px] text-xs text-[#737373]">
                                       {persona.name}
                                     </span>
                                     {sessions.length > 0 && (
-                                      <span className="text-[11px] text-[#B3B3B3] font-normal shrink-0">
+                                      <span className="w-4 h-4 text-[10px] text-[#737373] shrink-0 flex items-center justify-center mr-2">
                                         {sessions.length}
                                       </span>
                                     )}
+                                    <ChevronDown
+                                      size={13}
+                                      className={cn(
+                                        "shrink-0 text-[#737373] transition-transform duration-500",
+                                        isExpanded && "rotate-180",
+                                      )}
+                                    />
                                   </button>
 
                                   {/* Expanded: new chat button + individual chat sessions */}
                                   {isExpanded && (
-                                    <div className="ml-[18px] mt-0.5 flex flex-col gap-0.5">
+                                    <div className="bg-linear-to-r from-zinc-100 to-transparent border-l-2 rounded-bl-[8px] flex flex-col gap-1 mt-0 mx-0 px-1 py-1">
                                       {/* New Persona Chat */}
                                       <button
                                         type="button"
@@ -1355,10 +1463,16 @@ export function LeftSidebar({
                                             persona.name,
                                           )
                                         }
-                                        className="flex h-7 w-full items-center gap-1.5 rounded-[6px] px-2 text-[12px] text-[#525252] hover:bg-[#F1F1F1] transition-colors cursor-pointer"
+                                        className="flex h-7 w-full items-center justify-start gap-1.5 rounded-[6px] px-1 text-[12px] text-[#737373] hover:text-[#0A0A0A] hover:bg-[#E5E5E5] transition-colors cursor-pointer"
                                       >
-                                        <Plus size={12} className="shrink-0" />
-                                        <span>New Persona Chat</span>
+                                        <Plus
+                                          size={12}
+                                          strokeWidth={2.3}
+                                          className="rounded-full shrink-0"
+                                        />
+                                        <span className="font-medium">
+                                          New Persona Chat
+                                        </span>
                                       </button>
 
                                       {/* Session list */}

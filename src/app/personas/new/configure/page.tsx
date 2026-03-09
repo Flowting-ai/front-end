@@ -138,7 +138,8 @@ function PersonaConfigurePageContent() {
 
   // Enhance mode state
   const [showEnhanceMode, setShowEnhanceMode] = useState(false);
-  const [enhanceLoadingStep, setEnhanceLoadingStep] = useState<'analyzing' | 'enhancing' | null>(null);
+  type EnhanceLoadingStep = 'analyzing' | 'drafting' | 'enhancing';
+  const [enhanceLoadingStep, setEnhanceLoadingStep] = useState<EnhanceLoadingStep | null>(null);
   const [activeEnhanceTab, setActiveEnhanceTab] = useState(0);
   const [canContinueTab, setCanContinueTab] = useState(false);
   
@@ -476,7 +477,10 @@ function PersonaConfigurePageContent() {
       setEnhanceLoadingStep('analyzing');
 
       // Simulate analyzing phase
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 900));
+      setEnhanceLoadingStep('drafting');
+      // Simulate drafting phase
+      await new Promise(resolve => setTimeout(resolve, 900));
       setEnhanceLoadingStep('enhancing');
 
       // Call enhance API
@@ -1056,29 +1060,20 @@ function PersonaConfigurePageContent() {
                     {/* Header Row with Back and Actions - Left */}
                     <div className={styles.headerRow}>
                       <div className={styles.headerLeft}>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            const personaId = searchParams.get("personaId");
-                            if (personaId) {
-                              router.push("/personaAdmin");
-                            } else {
+                        {!searchParams.get("personaId") && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
                               router.push(
-                                hasFinishedBuilding
-                                  ? "/personas"
-                                  : "/personas/new",
+                                hasFinishedBuilding ? "/personas" : "/personas/new",
                               );
-                            }
-                          }}
-                          className={`${styles.backButton} px-3!`}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          {searchParams.get("personaId")
-                            ? "Back"
-                            : hasFinishedBuilding
-                              ? "Go to home"
-                              : "Back"}
-                        </Button>
+                            }}
+                            className={`${styles.backButton} px-3!`}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            {hasFinishedBuilding ? "Go to home" : "Back"}
+                          </Button>
+                        )}
                       </div>
                       <div className={styles.headerActions}>
                         {/* <Button
@@ -1442,19 +1437,53 @@ function PersonaConfigurePageContent() {
                             >
                               {/* Loading State */}
                               {enhanceLoadingStep && (
-                                <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                                  <Sparkles size={60} className="text-[#28231D] animate-pulse" />
-                                  <div className="flex flex-col items-center gap-1.5">
-                                    <h2
-                                      className="font-clash font-semibold text-[20px] text-[#0A0A0A] tracking-[-0.02em] flex items-center gap-1"
-                                    >
-                                      Enhance Mode
-                                    </h2>
-                                    <p className="text-[12px] text-[#666666] animate-pulse">
-                                      {enhanceLoadingStep === "analyzing"
-                                        ? "Analysing the prompt..."
-                                        : "Looking for gaps to enhance..."}
-                                    </p>
+                                <div className="w-full h-full flex items-center justify-center p-6">
+                                  <div className="w-full max-w-[440px] rounded-2xl border border-[#E7E7E7] bg-white/80 backdrop-blur-sm shadow-sm p-5">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 rounded-xl bg-[#0A0A0A] text-white flex items-center justify-center">
+                                        <Sparkles className="h-5 w-5 animate-pulse" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-clash font-semibold text-[16px] tracking-[-0.02em] text-[#0A0A0A]">
+                                          Enhance Mode
+                                        </div>
+                                        <div className="text-[12px] text-[#666666]">
+                                          {enhanceLoadingStep === 'analyzing'
+                                            ? 'Analysing the prompt…'
+                                            : enhanceLoadingStep === 'drafting'
+                                              ? 'Drafting smarter improvements…'
+                                              : 'Applying enhancements…'}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                      <div className="h-1.5 w-full rounded-full bg-[#EFEFEF] overflow-hidden">
+                                        <div
+                                          className="h-full bg-[#0A0A0A] transition-all duration-500"
+                                          style={{
+                                            width:
+                                              enhanceLoadingStep === 'analyzing'
+                                                ? '33%'
+                                                : enhanceLoadingStep === 'drafting'
+                                                  ? '66%'
+                                                  : '92%',
+                                          }}
+                                        />
+                                      </div>
+
+                                      <div className="mt-3 flex items-center justify-between text-[11px]">
+                                        <span className={enhanceLoadingStep === 'analyzing' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                                          Analyse
+                                        </span>
+                                        <span className={enhanceLoadingStep === 'drafting' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                                          Draft
+                                        </span>
+                                        <span className={enhanceLoadingStep === 'enhancing' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                                          Enhance
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -2500,21 +2529,52 @@ function PersonaConfigurePageContent() {
             >
               {/* Loading State */}
               {enhanceLoadingStep && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-6">
-                  <Sparkles size={120} color="#28231D" />
-                  <div className="flex flex-col items-center gap-2">
-                    <h2
-                      className="font-clash font-semibold text-[32px] flex items-center gap-2"
-                      style={{ letterSpacing: '-0.02em', color: '#28231D' }}
-                    >
-                      {/* <Sparkles size={24} /> */}
-                      Enhance Mode
-                    </h2>
-                    <p className="text-base text-[#666666] animate-pulse">
-                      {enhanceLoadingStep === 'analyzing' 
-                        ? 'Analysing the prompt...' 
-                        : 'Looking for gaps to enhance...'}
-                    </p>
+                <div className="w-full h-full flex items-center justify-center p-10">
+                  <div className="w-full max-w-[520px] rounded-3xl border border-[#E7E7E7] bg-white/80 backdrop-blur-sm shadow-sm p-7">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-2xl bg-[#0A0A0A] text-white flex items-center justify-center">
+                        <Sparkles className="h-6 w-6 animate-pulse" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-clash font-semibold text-[20px] tracking-[-0.02em] text-[#0A0A0A]">
+                          Enhance Mode
+                        </div>
+                        <div className="text-[13px] text-[#666666]">
+                          {enhanceLoadingStep === 'analyzing'
+                            ? 'Analysing the prompt…'
+                            : enhanceLoadingStep === 'drafting'
+                              ? 'Drafting smarter improvements…'
+                              : 'Applying enhancements…'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <div className="h-2 w-full rounded-full bg-[#EFEFEF] overflow-hidden">
+                        <div
+                          className="h-full bg-[#0A0A0A] transition-all duration-500"
+                          style={{
+                            width:
+                              enhanceLoadingStep === 'analyzing'
+                                ? '33%'
+                                : enhanceLoadingStep === 'drafting'
+                                  ? '66%'
+                                  : '92%',
+                          }}
+                        />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-[12px]">
+                        <span className={enhanceLoadingStep === 'analyzing' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                          Analyse
+                        </span>
+                        <span className={enhanceLoadingStep === 'drafting' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                          Draft
+                        </span>
+                        <span className={enhanceLoadingStep === 'enhancing' ? 'text-[#0A0A0A] font-medium' : 'text-[#8A8A8A]'}>
+                          Enhance
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2810,7 +2870,7 @@ function PersonaConfigurePageContent() {
                     {activeEnhanceTab === 4 && (
                       <div className="h-full flex flex-col">
                         <h3 className="font-medium text-[20px] text-[#0A0A0A] mb-2">
-                          When the persona doesn't know something...
+                          When the persona doesn&apos;t know something...
                         </h3>
                         <p className="text-sm text-[#666666] mb-6">
                           How it handles gaps matters for trust.

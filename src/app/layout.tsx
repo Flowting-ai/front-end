@@ -21,10 +21,10 @@ const geist = Geist({
   weight: ["400", "500", "600", "700"],
 });
 
-export const metadata: Metadata = {
-  title: "SouvenirAI",
-  description: "An intuitive AI collaboration platform.",
-};
+// export const metadata: Metadata = {
+//   title: "SouvenirAI",
+//   description: "An intuitive AI collaboration platform.",
+// };
 
 export default function RootLayout({
   children,

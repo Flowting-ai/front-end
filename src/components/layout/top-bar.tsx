@@ -8,7 +8,7 @@ import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "./right-sidebar";
 import { useTokenUsage } from "@/context/token-context";
 import { useAuth } from "@/context/auth-context";
-import { UserRoundPen, UserRoundPlus, Share2, ChevronLeft } from "lucide-react";
+import { UserRoundPen, UserRoundPlus, Share2, ChevronLeft, PenBox } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "@/lib/toast-helper";
@@ -56,6 +56,9 @@ export function Topbar({
   const isPersonasPage = pathname?.startsWith("/personas");
   const isPersonaAdminChatPage = pathname?.startsWith("/personaAdmin/chat/");
   const isWorkflowAdminChatPage = pathname?.startsWith("/workflowAdmin/chat/");
+  const personaIdFromPath = isPersonaAdminChatPage
+    ? pathname.split("/")[3] ?? null
+    : null;
 
   return (
     <header className="z-40 sticky top-0 w-full bg-main-bg1">
@@ -63,13 +66,30 @@ export function Topbar({
         <div className="min-w-0 flex-1 flex items-center gap-4 flex-wrap lg:flex-nowrap">
           {/* Left side content */}
           {isPersonaAdminChatPage && (
-            <Button
-              onClick={() => router.push("/personaAdmin")}
-              className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </Button>
+            <>
+              <Button
+                onClick={() => router.push("/personaAdmin")}
+                className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
+              >
+                {/* <ChevronLeft className="h-4 w-4" /> */}
+                Back to Command Center
+              </Button>
+              <Button
+                onClick={() => {
+                  if (personaIdFromPath) {
+                    router.push(
+                      `/personas/new/configure?personaId=${personaIdFromPath}`,
+                    );
+                  } else {
+                    router.push("/personaAdmin");
+                  }
+                }}
+                className="text-sm text-[#0A0A0A]30 bg-white hover:bg-zinc-100 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
+              >
+                <PenBox className="h-4 w-4" />
+                Edit Persona
+              </Button>
+            </>
           )}
           {isWorkflowAdminChatPage && (
             <Button

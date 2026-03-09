@@ -263,7 +263,7 @@ export default function WorkflowAdminPage() {
   return (
     <AppLayout>
       <div
-        className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto border py-[20px]`}
+        className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto py-[20px]`}
       >
         <div className="scale-100 max-w-[1040px] mx-auto w-full">
           <div className="w-full flex flex-col gap-6">
@@ -343,7 +343,7 @@ export default function WorkflowAdminPage() {
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-base leading-[140%] tracking-tight text-black">
+                          <p className="font-inter font-semibold text-base leading-[140%] tracking-tight text-black">
                             Credit Usage
                           </p>
                         </div>
@@ -376,7 +376,7 @@ export default function WorkflowAdminPage() {
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-[600] text-base font-semibold leading-[140%] tracking-tight text-black">
+                          <p className="font-inter font-semibold text-base font-semibold leading-[140%] tracking-tight text-black">
                             Active Consumers
                           </p>
                         </div>

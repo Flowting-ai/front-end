@@ -1015,17 +1015,13 @@ export function ChatMessage({
   useHighlightJs(message.content);
 
   useEffect(() => {
-    if (!isUser && !message.isLoading) {
+    if (!isUser) {
       const id = requestAnimationFrame(() => {
         setAvatarVisible(true);
       });
       return () => cancelAnimationFrame(id);
     }
-
-    if (message.isLoading) {
-      setAvatarVisible(false);
-    }
-  }, [isUser, message.isLoading]);
+  }, [isUser]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -1434,17 +1430,47 @@ export function ChatMessage({
     return extractInitials(hint, "AI");
   })();
 
+  const isLogoAvatar = (() => {
+    const url = message.avatarUrl;
+    if (!url) return false;
+    const lower = url.toLowerCase();
+
+    // Known framework/user logo paths
+    if (lower === "/new-logos/souvenir-logo.svg") return true;
+    if (lower === "/personas/useravatar.png") return true;
+
+    // Treat generic SVG/model/icon assets as logos, but exclude persona/workflow folders
+    if (
+      lower.endsWith(".svg") &&
+      !lower.includes("/personas/") &&
+      !lower.includes("/workflows/")
+    ) {
+      return true;
+    }
+
+    if (
+      lower.includes("/models/") ||
+      lower.includes("/icons/") ||
+      lower.includes("logo")
+    ) {
+      return true;
+    }
+
+    return false;
+  })();
+
   const AvatarComponent = (
     <Avatar
       className={cn(
-        "h-9 w-9 text-xs font-semibold",
-        "border border-transparent rounded-none! bg-transparent text-[#111827]",
+        "h-9 w-9 text-xs font-semibold border border-transparent bg-transparent text-[#111827]",
+        isLogoAvatar ? "rounded-none!" : "rounded-full",
       )}
     >
       {message.avatarUrl && (
         <AvatarImage
           src={message.avatarUrl}
           alt={isUser ? "User" : "AI"}
+          className="object-cover"
           data-ai-hint={message.avatarHint}
         />
       )}
@@ -1483,35 +1509,16 @@ export function ChatMessage({
               message.avatarUrl &&
               message.avatarUrl !== "/personas/userAvatar.png")) && (
             <div className="mt-4 shrink-0 h-9 w-9 relative flex items-center justify-center overflow-hidden">
-              {message.isLoading ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {/* <Lottie
-                    animationData={frameworkLoadingAnimation}
-                    loop
-                    autoplay
-                    className="h-16 w-16 scale-300"
-                    rendererSettings={{ preserveAspectRatio: "xMidYMid slice" }}
-                  /> */}
-                  <Image
-                    src="/new-logos/souvenir-logo.svg"
-                    width={64}
-                    height={64}
-                    alt="Souvenir AI Framework"
-                    className="w-full h-full object-contain animate-pulse"
-                  />
-                </div>
-              ) : (
-                <div
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center",
-                    avatarVisible
-                      ? "opacity-100 translate-y-0 transition-all duration-500"
-                      : "opacity-0 -translate-y-[5px] transition-all duration-500",
-                  )}
-                >
-                  {AvatarComponent}
-                </div>
-              )}
+              <div
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center",
+                  avatarVisible
+                    ? "opacity-100 translate-y-0 transition-all duration-500"
+                    : "opacity-0 -translate-y-[5px] transition-all duration-500",
+                )}
+              >
+                {AvatarComponent}
+              </div>
             </div>
           )}
         </div>

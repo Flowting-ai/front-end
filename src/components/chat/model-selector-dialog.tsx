@@ -33,6 +33,7 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 // Using Radix primitives directly for tight style control
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
@@ -245,7 +246,7 @@ export function ModelSelectorDialog({
         {/* Flowting AI Framework */}
         <div className="font-inter w-full h-[116px] flex px-3 my-3">
           <button
-            className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] border ${frameworkSelected ? "border-[#0A0A0A]" : "border-main-border"} hover:border-[#0A0A0A] rounded-[7px] flex transition-all duration-300`}
+            className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] border ${frameworkSelected ? "border-[#0A0A0A]" : "border-main-border"} hover:border-[#0A0A0A] rounded-[8px] flex transition-all duration-300`}
             onClick={() => setFrameworkSelected((s) => !s)}
             aria-pressed={frameworkSelected}
           >
@@ -259,17 +260,25 @@ export function ModelSelectorDialog({
               />
             </div>
             <div className="w-full flex flex-col pl-1 pr-3 py-3">
-              <div className="flex items-center mb-1">
-                <div className="font-[600] text-base flex items-center gap-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-semibold text-base flex items-center gap-2">
                   Souvenir AI Framework
-                  <span className="font-geist font-[500] text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
-                    {frameworkSelected ? "Default" : "Recommended"}
+                  <span className="font-geist font-medium text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
+                    {frameworkSelected ? "Active" : "Recommended"}
                   </span>
                 </div>
 
-                {frameworkSelected && (
-                  <CircleCheckBig className="absolute top-3 right-3 w-[20px] h-[20px] text-[#0A0A0A]" />
-                )}
+                <div
+                  className="absolute top-3 right-3 flex items-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Switch
+                    checked={frameworkSelected}
+                    onCheckedChange={setFrameworkSelected}
+                    className="bg-[#E5E5E5] data-[state=checked]:bg-[#0A0A0A]"
+                    aria-label="Toggle Souvenir AI Framework"
+                  />
+                </div>
               </div>
               <p className="font-normal text-sm text-left">
                 A smart blend of AI models for high-quality results. Souvenir

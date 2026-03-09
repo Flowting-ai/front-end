@@ -343,7 +343,7 @@ export function ModelSwitchDialog({
           <div className="w-full">
             <div className="font-inter w-full h-[116px] flex px-0">
               <button
-                className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] rounded-[7px] flex transition-all duration-300 h-[116px] items-start border ${
+                className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] rounded-[8px] flex transition-all duration-300 h-[116px] items-start border ${
                   frameworkSelected ? "border-[#0A0A0A]" : "border-[#E6E6E6]"
                 }`}
                 onClick={() => {
@@ -364,17 +364,25 @@ export function ModelSwitchDialog({
                   />
                 </div>
                 <div className="w-full flex flex-col pl-1 pr-3 py-3">
-                  <div className="flex items-center mb-1">
-                    <div className="font-[600] text-base flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-semibold text-base flex items-center gap-2">
                       Souvenir AI Framework
-                      <span className="font-geist font-[500] text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
-                        {frameworkSelected ? "Default" : "Recommended"}
+                      <span className="font-geist font-medium text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
+                        {frameworkSelected ? "Active" : "Recommended"}
                       </span>
                     </div>
 
-                    {frameworkSelected && (
-                      <CircleCheckBig className="absolute top-3 right-3 w-[20px] h-[20px] text-[#0A0A0A]" />
-                    )}
+                    <div
+                      className="absolute top-3 right-3 flex items-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Switch
+                        checked={frameworkSelected}
+                        onCheckedChange={setFrameworkSelected}
+                        className="bg-[#E5E5E5] data-[state=checked]:bg-[#0A0A0A]"
+                        aria-label="Toggle Souvenir AI Framework"
+                      />
+                    </div>
                   </div>
                   <p className="font-geist font-normal text-sm text-left">
                     A smart blend of AI models for high-quality results.
@@ -620,7 +628,7 @@ export function ModelSwitchDialog({
           {/* Chat Memory (split layout) */}
           <div className="w-full h-[77px] flex items-center gap-4">
             <div className="w-1/2">
-              <div className="font-geist font-[500] text-sm text-[#171717]">
+              <div className="font-geist font-medium text-sm text-[#171717]">
                 Chat Memory
               </div>
               <div className="font-geist font-normal text-balance text-[10px] text-[#8a8a8a] mt-1">
@@ -662,7 +670,7 @@ export function ModelSwitchDialog({
           {/* Include Pins (split row) - commented out for now, might use in future */}
           {/* <div className="w-full flex items-center justify-between gap-4">
             <div className="w-1/2">
-              <div className="font-geist font-[500] text-sm text-[#171717]">
+              <div className="font-geist font-medium text-sm text-[#171717]">
                 Include Pins
               </div>
               <div className="font-geist font-normal text-balance text-[10px] text-[#8a8a8a] mt-1">
@@ -811,7 +819,7 @@ export function ModelSwitchDialog({
           {/* // Include Files Toggle */}
           {/* <div className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="font-geist font-[500] text-sm text-[#171717]">
+              <div className="font-geist font-medium text-sm text-[#171717]">
                 Include Files
               </div>
               <Switch
