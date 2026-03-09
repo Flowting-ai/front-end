@@ -23,6 +23,7 @@ import {
   Workflow,
   MessageSquare,
 } from "lucide-react";
+import Image from "next/image";
 import userAvatar from "@/avatars/userAvatar.png";
 import userAvatar2 from "@/avatars/userAvatar2.png";
 import userAvatar3 from "@/avatars/userAvatar3.png";
@@ -51,6 +52,7 @@ export interface WorkflowItem {
   updatedAt: string;
   version?: string;
   tags?: string[];
+  thumbnail?: string;
 }
 
 export interface WorkflowRowProps {
@@ -97,8 +99,21 @@ export const WorkflowRow = React.forwardRef<
 
           {/* Workflow Unit */}
           <div className="w-[180px] h-[55px] flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-blue-400 to-blue-600 text-white flex-shrink-0">
-              <Workflow className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-[8px] flex-shrink-0 overflow-hidden">
+              {workflow.thumbnail ? (
+                <Image
+                  src={workflow.thumbnail}
+                  alt={workflow.name}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-cover rounded-[8px]"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+                  <Workflow className="h-5 w-5" />
+                </div>
+              )}
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">

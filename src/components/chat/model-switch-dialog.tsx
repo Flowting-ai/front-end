@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getJwtToken } from "@/lib/jwt-utils";
 import {
   Dialog,
@@ -29,14 +29,16 @@ import {
   MessageSquare,
   CircleCheckBig,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
 import { getModelIcon } from "@/lib/model-icons";
-import { MODELS_ENDPOINT } from "@/lib/config";
+import { MODELS_ENDPOINT, CHAT_MESSAGES_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
 import { renderInlineMarkdown, formatPinTitle } from "@/lib/markdown-utils";
+import { apiFetch } from "@/lib/api/client";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 
 interface ModelSwitchDialogProps {
@@ -48,12 +50,18 @@ interface ModelSwitchDialogProps {
   onFrameworkSelect?: () => void;
   chatBoards?: Array<{ id: string; name: string }>;
   pins?: PinType[];
+  /** The active chat ID, used to fetch real message count for smart memory default */
+  activeChatId?: string | null;
+  /** Pre-loaded message count (if already known by parent, avoids extra fetch) */
+  knownMessageCount?: number;
 }
 
 export interface ModelSwitchConfig {
   model: AIModel;
-  chatMemory: number;
-  includePins: string[]; // Array of pin IDs
+  chatMemory: number;       // percentage 0–100
+  chatMemoryMessages: number; // actual number of messages to include
+  totalMessages: number;    // total messages in chat (for backend context)
+  includePins: string[];    // Array of pin IDs
   includeFiles: boolean;
 }
 
@@ -66,6 +74,8 @@ export function ModelSwitchDialog({
   onFrameworkSelect,
   chatBoards = [],
   pins = [],
+  activeChatId,
+  knownMessageCount,
 }: ModelSwitchDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,8 +84,11 @@ export function ModelSwitchDialog({
   );
   const [showFree, setShowFree] = useState(true);
   const [showPaid, setShowPaid] = useState(true);
-  // Chat memory slider value - default set to 0
-  const [chatMemory, setChatMemory] = useState(0);
+  // Total messages fetched from backend for the active chat
+  const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
+  // Chat memory slider value — driven by smart default once message count is known
+  const [chatMemory, setChatMemory] = useState(20);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
@@ -88,6 +101,20 @@ export function ModelSwitchDialog({
   const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
   const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
   const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
+
+  /** Compute smart default % based on how many messages exist in this chat */
+  const computeSmartDefault = (count: number): number => {
+    if (count === 0) return 0;
+    if (count <= 2) return 5;
+    if (count <= 5) return 10;
+    return 20; // 6+ messages: standard 20%
+  };
+
+  /** How many messages will actually be sent as context at the current slider value */
+  const includedMessages = useMemo(
+    () => Math.round((chatMemory / 100) * totalMessages),
+    [chatMemory, totalMessages],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -134,6 +161,52 @@ export function ModelSwitchDialog({
     fetchModels();
   }, [open]);
 
+  // Fetch real message count for the active chat to drive the smart default
+  useEffect(() => {
+    if (!open) return;
+
+    // Use pre-supplied count when parent already knows it
+    if (knownMessageCount !== undefined) {
+      setTotalMessages(knownMessageCount);
+      setChatMemory(computeSmartDefault(knownMessageCount));
+      return;
+    }
+
+    if (!activeChatId) {
+      // No chat context — use the standard 20% default
+      setTotalMessages(0);
+      setChatMemory(20);
+      return;
+    }
+
+    const fetchMessageCount = async () => {
+      setIsFetchingMessages(true);
+      try {
+        const res = await apiFetch(CHAT_MESSAGES_ENDPOINT(activeChatId), { method: "GET" });
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = await res.json();
+        // Backend may return { results: [...] } or a bare array
+        const msgs: unknown[] = Array.isArray(data)
+          ? data
+          : Array.isArray((data as { results?: unknown[] }).results)
+          ? (data as { results: unknown[] }).results
+          : [];
+        const count = msgs.length;
+        setTotalMessages(count);
+        setChatMemory(computeSmartDefault(count));
+      } catch {
+        // Fallback: keep 20% default — no disruption to UX
+        setTotalMessages(0);
+        setChatMemory(20);
+      } finally {
+        setIsFetchingMessages(false);
+      }
+    };
+
+    fetchMessageCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeChatId, knownMessageCount]);
+
   // Reset when dialog opens
   useEffect(() => {
     if (open) {
@@ -141,7 +214,7 @@ export function ModelSwitchDialog({
       setSelectedModel(modelToSelect);
       // If no model is selected, default to framework
       setFrameworkSelected(!modelToSelect);
-      setChatMemory(0);
+      // chatMemory & totalMessages are reset by the fetch effect above
       setSelectedPinIds([]);
       setExpandedChatIds([]);
       setIncludeFiles(false);
@@ -187,6 +260,8 @@ export function ModelSwitchDialog({
     onModelSwitch({
       model: selectedModel,
       chatMemory,
+      chatMemoryMessages: includedMessages,
+      totalMessages,
       includePins: selectedPinIds,
       includeFiles,
     });
@@ -554,8 +629,19 @@ export function ModelSwitchDialog({
               </div>
             </div>
             <div className="w-1/2 flex flex-col justify-center">
-              <div className="flex justify-end items-center mb-2 text-sm text-[#8a8a8a]">
-                {chatMemory}%
+              <div className="flex justify-end items-center mb-2 gap-2">
+                {isFetchingMessages ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-[#8a8a8a]" />
+                ) : totalMessages > 0 ? (
+                  <span className="text-xs text-[#8a8a8a]">
+                    ~{includedMessages} of {totalMessages} msgs
+                  </span>
+                ) : (
+                  <span className="text-xs text-[#8a8a8a]">
+                    {chatMemory === 0 ? "No context" : "New chat"}
+                  </span>
+                )}
+                <span className="text-sm text-[#8a8a8a]">{chatMemory}%</span>
               </div>
               <Slider
                 value={[chatMemory]}
@@ -563,6 +649,7 @@ export function ModelSwitchDialog({
                 min={0}
                 max={100}
                 step={1}
+                disabled={isFetchingMessages}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-[#8a8a8a] mt-1">

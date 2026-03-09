@@ -13,6 +13,7 @@ interface Persona {
   description?: string;
   image?: string;
   modelId?: string;
+  status?: "active" | "paused";
 }
 
 interface Model {

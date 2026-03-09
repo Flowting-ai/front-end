@@ -10,6 +10,7 @@ interface Persona {
   description?: string;
   image?: string;
   modelId?: string;
+  status?: "active" | "paused";
 }
 
 interface AddPersonaDialogProps {
@@ -156,14 +157,20 @@ export function AddPersonaDialog({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {filteredPersonas.map((persona) => (
+              {filteredPersonas.map((persona) => {
+                const isPaused = persona.status === "paused";
+                return (
                 <button
                   key={persona.id}
-                  onClick={() => handleSelectPersona(persona.id)}
-                  className={`flex items-start gap-3 p-2 rounded-lg transition-colors duration-300 cursor-pointer ${
-                    selectedPersonaId === persona.id
-                      ? "bg-blue-50 border border-blue-300"
-                      : "border border-[#E5E5E5] hover:bg-[#F5F5F5]"
+                  onClick={() => !isPaused && handleSelectPersona(persona.id)}
+                  disabled={isPaused}
+                  title={isPaused ? "This persona is paused and cannot be selected" : undefined}
+                  className={`flex items-start gap-3 p-2 rounded-lg transition-colors duration-300 ${
+                    isPaused
+                      ? "border border-[#E5E5E5] bg-[#F5F5F5] opacity-50 cursor-not-allowed"
+                      : selectedPersonaId === persona.id
+                        ? "bg-blue-50 border border-blue-300 cursor-pointer"
+                        : "border border-[#E5E5E5] hover:bg-[#F5F5F5] cursor-pointer"
                   }`}
                 >
                   {/* Persona Image or Initials */}
@@ -195,9 +202,16 @@ export function AddPersonaDialog({
 
                   {/* Persona Name and Description */}
                   <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-medium text-black truncate">
-                      {persona.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-black truncate">
+                        {persona.name}
+                      </p>
+                      {isPaused && (
+                        <span className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          Paused
+                        </span>
+                      )}
+                    </div>
                     {persona.description && (
                       <p className="text-xs text-[#757575] line-clamp-2">
                         {persona.description}
@@ -222,7 +236,8 @@ export function AddPersonaDialog({
                     </div>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

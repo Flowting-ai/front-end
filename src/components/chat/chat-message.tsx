@@ -1616,12 +1616,12 @@ export function ChatMessage({
               ) : (
                 // <LoadingState />
                 <div className="flex flex-col gap-4 text-sm">
-                  {contentSegments.length === 0 && (
+                  {!isMediaGeneration && contentSegments.length === 0 && (
                     <p className="whitespace-pre-wrap leading-relaxed">
                       {contentToDisplay}
                     </p>
                   )}
-                  {contentSegments.map((segment, index) => {
+                  {!isMediaGeneration && contentSegments.map((segment, index) => {
                     if (segment.type === "code") {
                       return (
                         <div

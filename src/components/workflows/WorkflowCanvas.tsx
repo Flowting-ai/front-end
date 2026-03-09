@@ -188,7 +188,7 @@ function WorkflowCanvasInner() {
   // Pin data fetched from API
   const [allPins, setAllPins] = useState<Array<{ id: string; name: string; pinnedDate?: string; title?: string; tags?: string[]; folderId?: string; folderName?: string }>>([]);
   // Persona data fetched from API
-  const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string; modelId?: string }>>([]);
+  const [allPersonas, setAllPersonas] = useState<Array<{ id: string; name: string; description?: string; image?: string; modelId?: string; status?: "active" | "paused" }>>([]);
   // Model data fetched from API
   const [allModels, setAllModels] = useState<
     Array<{
@@ -206,6 +206,9 @@ function WorkflowCanvasInner() {
   const [executionOrder, setExecutionOrder] = useState<string[]>([]);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  // Raw File waiting to be uploaded to the backend on next save
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const isInitialMount = useRef(true);
   const hasLoadedQueryWorkflow = useRef(false);
   const hasJustSaved = useRef(false);
@@ -697,8 +700,9 @@ function WorkflowCanvasInner() {
   // Track unsaved changes by comparing the current structural snapshot against
   // the last saved/loaded snapshot. This prevents transient runtime updates
   // (status/output/model hydration) from marking the workflow as dirty.
+  // Thumbnail is appended so thumbnail changes also trigger the dirty flag.
   useEffect(() => {
-    const snapshot = buildWorkflowSnapshot(workflowName, nodes as WorkflowNode[], edges as WorkflowEdge[]);
+    const snapshot = buildWorkflowSnapshot(workflowName, nodes as WorkflowNode[], edges as WorkflowEdge[]) + `|t:${thumbnail ?? ''}`;
 
     // Initialize baseline snapshot on first render if it hasn't been set yet.
     if (isInitialMount.current && lastSavedSnapshotRef.current === null) {
@@ -720,7 +724,7 @@ function WorkflowCanvasInner() {
 
     const isDirty = snapshot !== lastSavedSnapshotRef.current;
     setHasUnsavedChanges(isDirty);
-  }, [workflowName, nodes, edges, buildWorkflowSnapshot]);
+  }, [workflowName, nodes, edges, thumbnail, buildWorkflowSnapshot]);
 
   // Auto-hide the save status indicator after 3 seconds
   useEffect(() => {
@@ -855,8 +859,8 @@ function WorkflowCanvasInner() {
   };
 
   // Add node
-  // IMPORTANT: This function must NEVER remove, replace, or modify existing nodes
-  // It should only add the new node and remove the phantom placeholder if present
+  // INVARIANT: This function MUST NEVER remove, replace, or modify any existing node.
+  // It only adds the new node and removes the phantom placeholder if present.
   const addNode = useCallback((type: NodeType, position?: { x: number; y: number }) => {
     const baseName = `${type.charAt(0).toUpperCase() + type.slice(1)}`;
     
@@ -890,11 +894,24 @@ function WorkflowCanvasInner() {
       const maxCounter = Math.max(...existingCounters);
       nodeName = `${baseName} (${maxCounter + 1})`;
     }
+
+    // Resolve drop position; nudge if it exactly overlaps an existing node
+    const realNodes = nodes.filter((n) => n.id !== 'phantom-node');
+    let resolvedPosition = position || { x: 300 + realNodes.length * 20, y: 300 + realNodes.length * 20 };
+    const OVERLAP_THRESHOLD = 30;
+    const hasExactOverlap = realNodes.some(
+      (n) =>
+        Math.abs(n.position.x - resolvedPosition.x) < OVERLAP_THRESHOLD &&
+        Math.abs(n.position.y - resolvedPosition.y) < OVERLAP_THRESHOLD,
+    );
+    if (hasExactOverlap) {
+      resolvedPosition = { x: resolvedPosition.x + 40, y: resolvedPosition.y + 40 };
+    }
     
     const newNode = {
       id: getId(),
       type: "custom",
-      position: position || { x: Math.random() * 400, y: Math.random() * 400 },
+      position: resolvedPosition,
       data: {
         label: nodeName,
         name: nodeName,
@@ -905,24 +922,19 @@ function WorkflowCanvasInner() {
       } as WorkflowNodeData,
     };
 
-    // CRITICAL: Only remove phantom node, preserve all other existing nodes
-    // This ensures non-destructive node addition
+    // CRITICAL: Only remove phantom node, preserve ALL other existing nodes.
+    // The resulting count must be exactly (non-phantom count) + 1.
     setNodes((currentNodes) => {
-      // Keep all nodes except phantom (phantom is just a placeholder)
-      const existingNodes = currentNodes.filter((n) => n.id !== 'phantom-node');
-      
-      // Verify we're not accidentally removing nodes
-      if (currentNodes.length > 0 && existingNodes.length === 0 && currentNodes.every(n => n.id !== 'phantom-node')) {
-        console.error('WARNING: All nodes would be removed! This should never happen.');
-        // Return current nodes without changes to prevent data loss
-        return [...currentNodes, newNode];
+      const realExisting = currentNodes.filter((n) => n.id !== 'phantom-node');
+      // Safety assertion: none of the real nodes should have the new node's id
+      if (realExisting.some((n) => n.id === newNode.id)) {
+        console.error('Node id collision detected – generating a safe fallback id.');
+        newNode.id = `node_fallback_${Date.now()}`;
       }
-      
-      // Add the new node to the existing nodes array
-      return [...existingNodes, newNode];
+      return [...realExisting, newNode];
     });
     
-    // Remove any edges connected to phantom node
+    // Remove any edges connected to phantom node only
     setEdges((eds) => eds.filter((e) => e.source !== 'phantom-node' && e.target !== 'phantom-node'));
     
     // Record this action in history for undo/redo
@@ -1119,12 +1131,26 @@ function WorkflowCanvasInner() {
       setSaveStatus("Saving...");
       const viewport = getViewport();
       const workflowDTO = serializeWorkflow(trimmedName, nodes, edges, viewport);
+      if (thumbnail) workflowDTO.thumbnail = thumbnail;
       const saved = await workflowAPI.upsert(workflowId, workflowDTO);
+      const effectiveId = saved.id || workflowId;
       if (saved.id && saved.id !== workflowId) {
         setWorkflowId(saved.id);
       }
-      // Update baseline snapshot to the just-saved structural state
-      lastSavedSnapshotRef.current = buildWorkflowSnapshot(trimmedName, nodes as WorkflowNode[], edges as WorkflowEdge[]);
+
+      // Upload thumbnail file to backend (FormData PATCH to /thumbnail/).
+      let finalThumbnail = thumbnail;
+      if (thumbnailFile && effectiveId) {
+        const uploadedUrl = await workflowAPI.uploadThumbnail(effectiveId, thumbnailFile);
+        if (uploadedUrl) {
+          finalThumbnail = uploadedUrl;
+          setThumbnail(uploadedUrl);
+          setThumbnailFile(null);
+        }
+      }
+
+      // Update baseline snapshot to the just-saved structural state (including thumbnail)
+      lastSavedSnapshotRef.current = buildWorkflowSnapshot(trimmedName, nodes as WorkflowNode[], edges as WorkflowEdge[]) + `|t:${finalThumbnail ?? ''}`;
       setHasUnsavedChanges(false);
       setSaveStatus("Saved");
       return true;
@@ -1136,7 +1162,7 @@ function WorkflowCanvasInner() {
     } finally {
       setIsSaving(false);
     }
-  }, [workflowId, nodes, edges, workflowName, getViewport, canTestWorkflow, testWorkflowDisabledReason, buildWorkflowSnapshot]);
+  }, [workflowId, nodes, edges, workflowName, thumbnail, thumbnailFile, getViewport, canTestWorkflow, testWorkflowDisabledReason, buildWorkflowSnapshot]);
 
   // Load workflow
   const handleLoad = useCallback(() => {
@@ -1158,7 +1184,7 @@ function WorkflowCanvasInner() {
         workflow.name || "Untitled Workflow",
         (workflow.nodes || []) as WorkflowNode[],
         (workflow.edges || []) as WorkflowEdge[],
-      );
+      ) + `|t:`;
       setHasUnsavedChanges(false);
       saveToHistory();
     }
@@ -1174,6 +1200,9 @@ function WorkflowCanvasInner() {
       setEdges(workflowDTO.edges || []);
       setWorkflowName(workflowDTO.name || "Untitled Workflow");
       setWorkflowId(workflowId);
+      // Load thumbnail from backend only
+      const loadedThumbnail = workflowDTO.thumbnail || null;
+      setThumbnail(loadedThumbnail);
 
       if (workflowDTO.viewport) {
         setViewport(workflowDTO.viewport);
@@ -1187,7 +1216,7 @@ function WorkflowCanvasInner() {
         workflowDTO.name || "Untitled Workflow",
         (workflowDTO.nodes || []) as WorkflowNode[],
         (workflowDTO.edges || []) as WorkflowEdge[],
-      );
+      ) + `|t:${loadedThumbnail ?? ''}`;
       setHasUnsavedChanges(false);
       saveToHistory();
 
@@ -1611,6 +1640,11 @@ function WorkflowCanvasInner() {
         canTestWorkflow={canTestWorkflow}
         testDisabledReason={testWorkflowDisabledReason}
         saveStatus={saveStatus}
+        thumbnail={thumbnail}
+        onThumbnailChange={(preview, file) => {
+          setThumbnail(preview);
+          setThumbnailFile(file ?? null);
+        }}
       />
 
       {/* Main Canvas */}

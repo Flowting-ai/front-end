@@ -46,6 +46,7 @@ interface BackendWorkflowCreatePayload {
   name: string;
   description?: string;
   is_active?: boolean;
+  thumbnail?: string;
   nodes: BackendWorkflowNodePayload[];
   edges: BackendWorkflowEdgePayload[];
 }
@@ -60,6 +61,7 @@ interface BackendWorkflowListItem {
   runs_count: number;
   created_at: string;
   updated_at: string;
+  thumbnail?: string;
 }
 
 interface BackendWorkflowNode {
@@ -88,6 +90,7 @@ interface BackendWorkflowDetail {
   name: string;
   description?: string;
   is_active?: boolean;
+  thumbnail?: string;
   created_at?: string;
   updated_at?: string;
   nodes: BackendWorkflowNode[];
@@ -527,6 +530,10 @@ const toBackendWorkflowPayload = (
     payload.is_active = workflow.isActive;
   }
 
+  if ("thumbnail" in workflow && workflow.thumbnail) {
+    payload.thumbnail = workflow.thumbnail;
+  }
+
   return payload;
 };
 
@@ -544,6 +551,7 @@ const toWorkflowMetadata = (
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
     runsCount: Number(workflow.runs_count || 0),
+    thumbnail: workflow.thumbnail,
   };
 };
 
@@ -636,6 +644,7 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     updatedAt: workflow.updated_at,
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
+    thumbnail: workflow.thumbnail,
   };
 };
 
@@ -1053,6 +1062,29 @@ export const workflowAPI = {
       tags: workflow.tags,
       isPublic: workflow.isPublic,
     });
+  },
+
+  /**
+   * Upload a thumbnail image for a workflow.
+   * Sends multipart/form-data to PATCH /api/workflows/<id>/thumbnail/.
+   * Returns the stored URL from the backend, or null if the endpoint is
+   * unavailable — callers should fall back to localStorage in that case.
+   */
+  uploadThumbnail: async (workflowId: string, file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("thumbnail", file);
+      const response = await fetchWithTimeout(
+        `${WORKFLOWS_ENDPOINT}${encodeURIComponent(workflowId)}/thumbnail/`,
+        { method: "PATCH", body: formData },
+        DEFAULT_TIMEOUT
+      );
+      if (!response.ok) return null;
+      const data = (await parseJsonSafe(response)) as Record<string, unknown>;
+      return typeof data?.thumbnail === "string" ? data.thumbnail : null;
+    } catch {
+      return null;
+    }
   },
 
   delete: async (id: string): Promise<void> => {
@@ -1480,6 +1512,7 @@ export const workflowAPI = {
       description?: string;
       image?: string;
       modelId?: string;
+      status?: "active" | "paused";
     }>
   > => {
     try {
@@ -1518,8 +1551,11 @@ export const workflowAPI = {
               ? rawImageUrl
               : `${API_BASE_URL}${rawImageUrl.startsWith("/") ? "" : "/"}${rawImageUrl}`
             : undefined;
+          // Backend uses "completed" for paused, "test" for active
+          const status: "active" | "paused" =
+            persona.status === "completed" ? "paused" : "active";
 
-          return { id, name, description, modelId, image };
+          return { id, name, description, modelId, image, status };
         })
         .filter((persona: { id: string }) => Boolean(persona.id));
     } catch {

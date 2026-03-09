@@ -23,6 +23,8 @@ interface TopbarProps {
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
   hasMessages?: boolean;
+  /** Total message count for the active chat (drives smart memory default) */
+  messageCount?: number;
   pins?: PinType[];
 }
 
@@ -36,6 +38,7 @@ export function Topbar({
   chatBoards = [],
   activeChatId,
   hasMessages = false,
+  messageCount,
   pins = [],
 }: TopbarProps) {
   const { usagePercent, isLoading } = useTokenUsage();
@@ -90,6 +93,7 @@ export function Topbar({
               chatBoards={chatBoards}
               activeChatId={activeChatId}
               hasMessages={hasMessages}
+              messageCount={messageCount}
               pins={pins}
             />
           )}

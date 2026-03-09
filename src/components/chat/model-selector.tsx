@@ -18,6 +18,8 @@ interface ModelSelectorProps {
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
   hasMessages?: boolean;
+  /** Total message count for the active chat (used for smart memory default) */
+  messageCount?: number;
   pins?: PinType[];
 }
 
@@ -30,6 +32,7 @@ export function ModelSelector({
   chatBoards = [],
   activeChatId,
   hasMessages = false,
+  messageCount,
   pins = [],
 }: ModelSelectorProps) {
   const [isSelectorDialogOpen, setIsSelectorDialogOpen] = useState(false);
@@ -169,6 +172,8 @@ export function ModelSelector({
         onFrameworkSelect={handleFrameworkSelect}
         chatBoards={chatBoards}
         pins={pins}
+        activeChatId={activeChatId}
+        knownMessageCount={messageCount}
       />
     </>
   );

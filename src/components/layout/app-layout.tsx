@@ -1659,6 +1659,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     ? (chatHistory[activeChatId]?.length || 0) > 0
                     : false
                 }
+                messageCount={
+                  activeChatId ? (chatHistory[activeChatId]?.length || 0) : 0
+                }
                 pins={pins}
                 onPinsSelect={setSelectedPinIdsForNextMessage}
               >
@@ -1780,6 +1783,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 activeChatId
                   ? (chatHistory[activeChatId]?.length || 0) > 0
                   : false
+              }
+              messageCount={
+                activeChatId ? (chatHistory[activeChatId]?.length || 0) : 0
               }
               pins={pins}
               onPinsSelect={setSelectedPinIdsForNextMessage}

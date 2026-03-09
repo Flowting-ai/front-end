@@ -121,6 +121,7 @@ export default function WorkflowAdminPage() {
         updatedAt: wf.updatedAt,
         tags: wf.tags,
         version: "v1.0",
+        thumbnail: wf.thumbnail || undefined,
       }));
 
       setWorkflows(transformedWorkflows);

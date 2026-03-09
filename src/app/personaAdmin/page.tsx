@@ -57,6 +57,7 @@ import {
   type BackendPersona,
   type PersonaStatus,
 } from "@/lib/api/personas";
+import { workflowAPI } from "@/components/workflows/workflow-api";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -328,9 +329,43 @@ export default function PersonaAdminPage() {
     }
   };
 
-  const handleDeletePersona = (personaId: string) => {
+  const handleDeletePersona = async (personaId: string) => {
     const persona = personas.find((p) => p.id === personaId);
     if (!persona) return;
+
+    // Check if persona is used in any workflow before allowing deletion
+    try {
+      const { workflows } = await workflowAPI.list();
+      if (workflows.length > 0) {
+        const usageResults = await Promise.all(
+          workflows.map(async (wf) => {
+            try {
+              const dto = await workflowAPI.get(wf.id);
+              const usesPersona = dto.nodes?.some(
+                (node) => node.data?.selectedPersona === personaId
+              );
+              return usesPersona ? wf.name : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        const usedInWorkflows = usageResults.filter(Boolean) as string[];
+        if (usedInWorkflows.length > 0) {
+          setDeleteDialog({
+            open: true,
+            title: "Cannot Delete Persona",
+            description: `"${persona.name}" is used in ${usedInWorkflows.length} workflow${usedInWorkflows.length > 1 ? "s" : ""}: ${usedInWorkflows.join(", ")}. Remove it from those workflows before deleting.`,
+            onConfirm: () =>
+              setDeleteDialog((prev) => ({ ...prev, open: false })),
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to check workflow usage:", error);
+      // If the check fails, proceed with normal delete flow
+    }
 
     setDeleteDialog({
       open: true,
@@ -340,11 +375,10 @@ export default function PersonaAdminPage() {
         try {
           await deletePersonaApi(personaId, csrfTokenRef.current);
           setPersonas((prev) => prev.filter((p) => p.id !== personaId));
-          setDeleteDialog({ ...deleteDialog, open: false });
+          setDeleteDialog((prev) => ({ ...prev, open: false }));
         } catch (error) {
           console.error("Failed to delete persona:", error);
-          // Optionally show error toast to user
-          setDeleteDialog({ ...deleteDialog, open: false });
+          setDeleteDialog((prev) => ({ ...prev, open: false }));
         }
       },
     });

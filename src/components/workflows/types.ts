@@ -92,6 +92,7 @@ export interface WorkflowDTO {
   tags?: string[];
   isPublic?: boolean;
   isActive?: boolean;
+  thumbnail?: string;
   createdAt?: string;
   updatedAt?: string;
   preprocessedKnowledge?: Record<string, PreprocessedKnowledgeItem>;
@@ -154,6 +155,7 @@ export interface WorkflowMetadata {
   isPublic: boolean;
   isActive?: boolean;
   runsCount?: number;
+  thumbnail?: string;
 }
 
 export interface NodePaletteItem {
