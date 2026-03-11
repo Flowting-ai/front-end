@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getJwtToken } from "@/lib/jwt-utils";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   Dialog,
   DialogContent,
@@ -134,14 +134,9 @@ export function ModelSwitchDialog({
     const fetchModels = async () => {
       setIsLoading(true);
       try {
-        const headers: Record<string, string> = {};
-        const jwtToken = getJwtToken();
-        if (jwtToken) {
-          headers["Authorization"] = `Bearer ${jwtToken}`;
-        }
         const response = await fetch(MODELS_ENDPOINT, {
           credentials: "include",
-          headers,
+          headers: getAuthHeaders(),
         });
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.status}`);

@@ -27,13 +27,11 @@ export interface BackendPin {
 }
 
 export async function fetchPins(
-  chatId: string,
-  csrfToken?: string | null
+  chatId: string
 ): Promise<BackendPin[]> {
   const response = await apiFetch(
     CHAT_PINS_ENDPOINT(chatId),
-    { method: "GET" },
-    csrfToken
+    { method: "GET" }
   );
   if (!response.ok) {
     throw new Error(`Failed to load pins for chat ${chatId}`);
@@ -48,7 +46,6 @@ export async function fetchPins(
 export async function createPin(
   chatId: string,
   messageId: string,
-  csrfToken?: string | null,
   options?: { folderId?: string | null; tags?: string[]; comments?: string[]; content?: string }
 ): Promise<BackendPin> {
   const payload: Record<string, unknown> = {
@@ -73,8 +70,7 @@ export async function createPin(
     {
       method: "POST",
       body: JSON.stringify(payload),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -86,13 +82,11 @@ export async function createPin(
 }
 
 export async function deletePin(
-  pinId: string,
-  csrfToken?: string | null
+  pinId: string
 ): Promise<void> {
   const response = await apiFetch(
     PIN_DETAIL_ENDPOINT(pinId),
-    { method: "DELETE" },
-    csrfToken
+    { method: "DELETE" }
   );
 
   if (!response.ok) {
@@ -102,16 +96,14 @@ export async function deletePin(
 
 export async function updatePinComments(
   pinId: string,
-  comments: string[],
-  csrfToken?: string | null
+  comments: string[]
 ): Promise<BackendPin> {
   const response = await apiFetch(
     PIN_DETAIL_ENDPOINT(pinId),
     {
       method: "PATCH",
       body: JSON.stringify({ comments }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -122,8 +114,8 @@ export async function updatePinComments(
   return (await response.json()) as BackendPin;
 }
 
-export async function fetchAllPins(csrfToken?: string | null): Promise<BackendPin[]> {
-  const response = await apiFetch(PINS_ENDPOINT, { method: "GET" }, csrfToken);
+export async function fetchAllPins(): Promise<BackendPin[]> {
+  const response = await apiFetch(PINS_ENDPOINT, { method: "GET" });
   if (!response.ok) {
     throw new Error("Failed to load pins");
   }
@@ -142,8 +134,8 @@ export interface PinFolder {
   updated_at?: string;
 }
 
-export async function fetchPinFolders(csrfToken?: string | null): Promise<PinFolder[]> {
-  const response = await apiFetch(PIN_FOLDERS_ENDPOINT, { method: "GET" }, csrfToken);
+export async function fetchPinFolders(): Promise<PinFolder[]> {
+  const response = await apiFetch(PIN_FOLDERS_ENDPOINT, { method: "GET" });
   if (!response.ok) {
     throw new Error("Failed to load pin folders");
   }
@@ -152,14 +144,13 @@ export async function fetchPinFolders(csrfToken?: string | null): Promise<PinFol
   return data as PinFolder[];
 }
 
-export async function createPinFolder(name: string, csrfToken?: string | null): Promise<PinFolder> {
+export async function createPinFolder(name: string): Promise<PinFolder> {
   const response = await apiFetch(
     PIN_FOLDERS_ENDPOINT,
     {
       method: "POST",
       body: JSON.stringify({ name }),
-    },
-    csrfToken
+    }
   );
   if (!response.ok) {
     const msg = await response.text();
@@ -170,16 +161,14 @@ export async function createPinFolder(name: string, csrfToken?: string | null): 
 
 export async function renamePinFolder(
   folderId: string,
-  name: string,
-  csrfToken?: string | null
+  name: string
 ): Promise<PinFolder> {
   const response = await apiFetch(
     PIN_FOLDER_DETAIL_ENDPOINT(folderId),
     {
       method: "PATCH",
       body: JSON.stringify({ name }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -191,13 +180,11 @@ export async function renamePinFolder(
 }
 
 export async function deletePinFolder(
-  folderId: string,
-  csrfToken?: string | null
+  folderId: string
 ): Promise<void> {
   const response = await apiFetch(
     PIN_FOLDER_DETAIL_ENDPOINT(folderId),
-    { method: "DELETE" },
-    csrfToken
+    { method: "DELETE" }
   );
 
   if (!response.ok) {
@@ -208,16 +195,14 @@ export async function deletePinFolder(
 
 export async function movePinToFolder(
   pinId: string,
-  folderId: string | null,
-  csrfToken?: string | null
+  folderId: string | null
 ): Promise<void> {
   const response = await apiFetch(
     PIN_DETAIL_ENDPOINT(pinId),
     {
       method: "PATCH",
       body: JSON.stringify({ folderId }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {

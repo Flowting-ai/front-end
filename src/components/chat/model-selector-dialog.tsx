@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getJwtToken } from "@/lib/jwt-utils";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   Dialog,
   DialogContent,
@@ -113,14 +113,9 @@ export function ModelSelectorDialog({
       setIsLoading(true);
       let raw: AIModel[] = [];
       try {
-        const headers: Record<string, string> = {};
-        const jwtToken = getJwtToken();
-        if (jwtToken) {
-          headers["Authorization"] = `Bearer ${jwtToken}`;
-        }
         const response = await fetch(MODELS_ENDPOINT, {
           credentials: "include",
-          headers,
+          headers: getAuthHeaders(),
         });
         if (!response.ok) {
           console.warn(

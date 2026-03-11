@@ -141,16 +141,6 @@ export function clearSensitiveData(obj: Record<string, unknown>): void {
 }
 
 /**
- * Validate CSRF token format
- */
-export function isValidCSRFToken(token: string | null): boolean {
-  if (!token) return false;
-  
-  // CSRF tokens should be alphanumeric and of reasonable length
-  return /^[a-zA-Z0-9-_]{32,128}$/.test(token);
-}
-
-/**
  * Sanitize JSON input to prevent injection
  */
 export function sanitizeJSON(json: string): unknown {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useContext } from "react";
-import { getJwtToken } from "@/lib/jwt-utils";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   ChevronDown,
   ChevronUp,
@@ -61,7 +61,7 @@ export function PersonaChatFullPage({
   chatId,
 }: PersonaChatFullPageProps) {
   const layoutContext = useContext(AppLayoutContext);
-  const { user, csrfToken } = useAuth();
+  const { user } = useAuth();
   const [detailsSectionOpen, setDetailsSectionOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [displayMessages, setDisplayMessages] = useState<Message[]>(() => {
@@ -178,19 +178,9 @@ export function PersonaChatFullPage({
       }));
 
       // Call persona test endpoint with streaming support
-      const headers: Record<string, string> = {
+      const headers = getAuthHeaders({
         "Content-Type": "application/json",
-      };
-      
-      if (csrfToken) {
-        headers["X-CSRFToken"] = csrfToken;
-      }
-
-      // Add JWT authorization
-      const jwtToken = getJwtToken();
-      if (jwtToken) {
-        headers["Authorization"] = `Bearer ${jwtToken}`;
-      }
+      });
 
       const controller = new AbortController();
       abortControllerRef.current = controller;

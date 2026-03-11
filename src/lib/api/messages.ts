@@ -17,20 +17,17 @@ export async function addReaction({
   chatId,
   messageId,
   reaction,
-  csrfToken,
 }: {
   chatId: string;
   messageId: string;
   reaction: ReactionType;
-  csrfToken?: string | null;
 }) {
   const response = await apiFetch(
     MESSAGE_REACTION_ENDPOINT(chatId, messageId),
     {
       method: "PATCH",
       body: JSON.stringify({ reaction }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -48,16 +45,13 @@ export async function addReaction({
 export async function removeReaction({
   chatId,
   messageId,
-  csrfToken,
 }: {
   chatId: string;
   messageId: string;
-  csrfToken?: string | null;
 }) {
   const response = await apiFetch(
     MESSAGE_REACTION_ENDPOINT(chatId, messageId),
-    { method: "DELETE" },
-    csrfToken
+    { method: "DELETE" }
   );
 
   if (!response.ok && response.status !== 204) {

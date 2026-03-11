@@ -71,35 +71,13 @@ export interface BackendMessage {
   }>;
 }
 
-const extractCsrfToken = (data: unknown): string | undefined => {
-  if (
-    data &&
-    typeof data === "object" &&
-    "csrfToken" in data &&
-    typeof (data as Record<string, unknown>).csrfToken === "string"
-  ) {
-    return (data as Record<string, string>).csrfToken;
-  }
-  if (
-    data &&
-    typeof data === "object" &&
-    "csrf_token" in data &&
-    typeof (data as Record<string, unknown>).csrf_token === "string"
-  ) {
-    return (data as Record<string, string>).csrf_token;
-  }
-  return undefined;
-};
 
 export interface FetchChatBoardsResult {
   chats: BackendChat[];
-  csrfToken?: string;
 }
 
-export async function fetchChatBoards(
-  csrfToken?: string | null
-): Promise<FetchChatBoardsResult> {
-  const response = await apiFetch("/chats/", { method: "GET" }, csrfToken);
+export async function fetchChatBoards(): Promise<FetchChatBoardsResult> {
+  const response = await apiFetch("/chats/", { method: "GET" });
   if (!response.ok) {
     throw new Error(`Failed to load chats: ${response.statusText}`);
   }
@@ -113,20 +91,15 @@ export async function fetchChatBoards(
     chats = data.chats as BackendChat[];
   }
 
-  return {
-    chats,
-    csrfToken: extractCsrfToken(data),
-  };
+  return { chats };
 }
 
 export async function fetchChatMessages(
-  chatId: string | number,
-  csrfToken?: string | null
+  chatId: string | number
 ) {
   const response = await apiFetch(
     `/chats/${chatId}/messages/`,
-    { method: "GET" },
-    csrfToken
+    { method: "GET" }
   );
   if (!response.ok) {
     let body = "";
@@ -172,7 +145,6 @@ export interface CreateChatPayload {
 
 export interface CreateChatResult {
   chat: BackendChat;
-  csrfToken?: string;
   initialResponse?: string | null;
   initialMessageId?: string | null;
   initialMessageMetadata?: Record<string, unknown> | null;
@@ -180,8 +152,7 @@ export interface CreateChatResult {
 }
 
 export async function createChat(
-  payload: CreateChatPayload,
-  csrfToken?: string | null
+  payload: CreateChatPayload
 ): Promise<CreateChatResult> {
   const modelId =
     payload.modelId ??
@@ -229,8 +200,7 @@ export async function createChat(
       method: "POST",
       body,
       headers,
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -266,7 +236,6 @@ export async function createChat(
       : undefined;
   return {
     chat,
-    csrfToken: extractCsrfToken(data),
     initialResponse: initialResponse ?? null,
     initialMessageId: initialMessageId ?? null,
     initialMessageMetadata:
@@ -279,8 +248,7 @@ export async function createChat(
 
 export async function renameChat(
   chatId: string,
-  newTitle: string,
-  csrfToken?: string | null
+  newTitle: string
 ): Promise<BackendChat> {
   const response = await apiFetch(
     `/chats/${chatId}/rename/`,
@@ -288,8 +256,7 @@ export async function renameChat(
       method: "PATCH",
       body: JSON.stringify({ title: newTitle }),
       headers: { "Content-Type": "application/json" },
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {

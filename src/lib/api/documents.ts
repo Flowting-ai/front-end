@@ -16,14 +16,12 @@ interface UploadDocumentParams {
   file: File;
   chatId: string;
   sourceUrl?: string;
-  csrfToken?: string | null;
 }
 
 export async function uploadDocument({
   file,
   chatId,
   sourceUrl,
-  csrfToken,
 }: UploadDocumentParams): Promise<{
   documentId: string | null;
   fileLink: string | null;
@@ -56,8 +54,7 @@ export async function uploadDocument({
         text: fileText,
         fileContent,
       }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {
@@ -89,12 +86,10 @@ export async function searchDocuments({
   query,
   chatId,
   topK,
-  csrfToken,
 }: {
   query: string;
   chatId?: string;
   topK?: number;
-  csrfToken?: string | null;
 }): Promise<DocumentSearchResult[]> {
   const params = new URLSearchParams();
   params.set("q", query);
@@ -108,8 +103,7 @@ export async function searchDocuments({
 
   const response = await apiFetch(
     url,
-    { method: "GET" },
-    csrfToken
+    { method: "GET" }
   );
 
   if (!response.ok) {

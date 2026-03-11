@@ -11,9 +11,6 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`;
 
 // Backend routes (see backend docs in API_DOCUMENTATION.md).
 const PATHS = {
-  csrfInit: "/api/csrf-init/",
-  login: "/login/",
-  signup: "/signup/",
   user: "/user/",
   tokens: "/tokens/",
   budget: "/budget/",
@@ -44,13 +41,8 @@ const PATHS = {
   personaDetail: (personaId: string | number) => `/personas/${personaId}/`,
   personaAnalyze: "/personas/analyze/",
   personaTest: "/personas/test/",
-  tokenRefresh: "/token/refresh/",
-  logout: "/logout/",
 } as const;
 
-export const CSRF_INIT_ENDPOINT = withBase(PATHS.csrfInit);
-export const LOGIN_ENDPOINT = withBase(PATHS.login);
-export const SIGNUP_ENDPOINT = withBase(PATHS.signup);
 export const USER_ENDPOINT = withBase(PATHS.user);
 export const TOKENS_ENDPOINT = withBase(PATHS.tokens);
 export const BUDGET_ENDPOINT = withBase(PATHS.budget);
@@ -94,7 +86,5 @@ export const PERSONA_DETAIL_ENDPOINT = (personaId: string | number) =>
   withBase(PATHS.personaDetail(personaId));
 export const PERSONA_ANALYZE_ENDPOINT = withBase(PATHS.personaAnalyze);
 export const PERSONA_TEST_ENDPOINT = withBase(PATHS.personaTest);
-export const TOKEN_REFRESH_ENDPOINT = withBase(PATHS.tokenRefresh);
-export const LOGOUT_ENDPOINT = withBase(PATHS.logout);
 
 export const allTags = ["Finance Research", "Product Analysis Q4", "Marketing Strategy"];

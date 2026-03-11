@@ -1,76 +1,23 @@
 /**
- * JWT token management via cookies.
- * Cookies persist across refreshes and new tabs without hydration race conditions.
+ * Auth utilities — ready for Auth0 integration.
+ *
+ * TODO: When @auth0/nextjs-auth0 is installed:
+ *   1. Remove this file.
+ *   2. Use `useAuth0()` in components to get `getAccessTokenSilently`.
+ *   3. Replace `getAuthHeaders()` calls with Auth0's access token retrieval.
  */
-
-const JWT_COOKIE_NAME = "jwt";
-const JWT_MAX_AGE_DAYS = 7; // Cookie lifespan â€” actual JWT expires in 10 min (enforced server-side)
-const REFRESH_TOKEN_KEY = "auth:refreshToken";
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
 
 /**
- * Get JWT token from cookie
+ * Returns Authorization headers for API requests.
+ * Replace this implementation with Auth0's access token when integrating:
+ *
+ *   const { getAccessTokenSilently } = useAuth0();
+ *   const token = await getAccessTokenSilently();
+ *   return { Authorization: `Bearer ${token}`, ...additionalHeaders };
  */
-export function getJwtToken(): string | null {
-  return readCookie(JWT_COOKIE_NAME);
-}
-
-/**
- * Set JWT token as a cookie
- */
-export function setJwtCookie(token: string): void {
-  if (typeof document === "undefined") return;
-  const maxAge = JWT_MAX_AGE_DAYS * 24 * 60 * 60;
-  document.cookie = `${JWT_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax; Secure`;
-}
-
-/**
- * Remove JWT token cookie
- */
-export function removeJwtCookie(): void {
-  if (typeof document === "undefined") return;
-  document.cookie = `${JWT_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
-}
-
-/**
- * Get opaque refresh token from localStorage
- */
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-/**
- * Store opaque refresh token in localStorage
- */
-export function setRefreshToken(token: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
-}
-
-/**
- * Remove refresh token from localStorage
- */
-export function removeRefreshToken(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-}
-
-/**
- * Get authorization headers with JWT token
- */
-export function getAuthHeaders(additionalHeaders: Record<string, string> = {}): Record<string, string> {
-  const jwtToken = getJwtToken();
-  const headers: Record<string, string> = { ...additionalHeaders };
-
-  if (jwtToken) {
-    headers["Authorization"] = `Bearer ${jwtToken}`;
-  }
-
-  return headers;
+export function getAuthHeaders(
+  additionalHeaders: Record<string, string> = {}
+): Record<string, string> {
+  // TODO: Populate with Auth0 access token.
+  return { ...additionalHeaders };
 }

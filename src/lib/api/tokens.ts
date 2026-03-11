@@ -15,10 +15,8 @@ export interface BudgetStats {
   nextBillingDate: string;
 }
 
-export async function fetchBudgetStats(
-  csrfToken?: string | null
-): Promise<BudgetStats | null> {
-  const response = await apiFetch(BUDGET_ENDPOINT, { method: "GET" }, csrfToken);
+export async function fetchBudgetStats(): Promise<BudgetStats | null> {
+  const response = await apiFetch(BUDGET_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
   return response.json();
 }

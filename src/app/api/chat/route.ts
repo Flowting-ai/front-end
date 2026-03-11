@@ -5,8 +5,6 @@ export async function POST(req: Request) {
 
   const targetUrl = new URL("/chat/", baseUrl);
   const incomingHeaders = new Headers(req.headers);
-  const csrfToken =
-    incomingHeaders.get("x-csrftoken") || incomingHeaders.get("X-CSRFToken");
 
   try {
     const payload = await req.json();
@@ -14,9 +12,8 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
-        ...(incomingHeaders.get("cookie")
-          ? { cookie: incomingHeaders.get("cookie") as string }
+        ...(incomingHeaders.get("authorization")
+          ? { authorization: incomingHeaders.get("authorization") as string }
           : {}),
       },
       body: JSON.stringify(payload),

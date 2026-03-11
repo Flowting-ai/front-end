@@ -498,7 +498,7 @@ export function ChatInterface({
   const [isResponding, setIsResponding] = useState(false);
   const layoutContext = useContext(AppLayoutContext);
   const displayMessages = messages;
-  const { user, csrfToken } = useAuth();
+  const { user } = useAuth();
 
   // References panel: from last AI message (metadata.sources or links parsed from content).
   // Prefer source titles extracted from the chat (e.g. [Title](url)) when available; otherwise use generic (API/fetched/hostname).
@@ -608,12 +608,6 @@ export function ChatInterface({
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
   }, [layoutContext?.pins]);
-  const getCsrfToken = () => {
-    if (csrfToken) return csrfToken;
-    if (typeof document === "undefined") return null;
-    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
-  };
 
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
@@ -651,7 +645,7 @@ export function ChatInterface({
   useEffect(() => {
     const loadPersonas = async () => {
       try {
-        const backendPersonas = await fetchPersonasApi(undefined, csrfToken);
+      const backendPersonas = await fetchPersonasApi(undefined);
         // Transform backend personas to match the dropdown format
         // Status mapping: "test" → active, "completed" → paused (but we only want active)
         const activeOnly = backendPersonas
@@ -678,7 +672,7 @@ export function ChatInterface({
       }
     };
     loadPersonas();
-  }, [csrfToken]);
+  }, []);
 
   // Clear input, reference, mentions, and attachments when switching chats
   useEffect(() => {
@@ -898,8 +892,6 @@ export function ChatInterface({
         console.warn("No model selected  backend may need to use a default.");
       }
 
-      const token = getCsrfToken();
-
       const isPersonaTest = Boolean(personaTestConfig);
       const isExistingChat = Boolean(
         !isPersonaTest && chatId && !chatId.startsWith("temp-"),
@@ -1051,11 +1043,7 @@ export function ChatInterface({
         headers["Content-Type"] = "application/json";
       }
 
-      if (token) {
-        headers["X-CSRFToken"] = token;
-      }
-
-      // Add JWT authorization header
+      // Add auth headers
       const authHeaders = getAuthHeaders(headers);
 
       const response = await fetch(endpoint, {
@@ -2089,7 +2077,6 @@ export function ChatInterface({
         file: uploadFile,
         chatId: layoutContext.activeChatId,
         sourceUrl: uploadSourceUrl || undefined,
-        csrfToken,
       });
       toast("Document uploaded", {
         description:
@@ -2341,10 +2328,6 @@ export function ChatInterface({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      const token = getCsrfToken();
-      if (token) {
-        headers["X-CSRFToken"] = token;
-      }
 
       const response = await fetch(
         DELETE_MESSAGE_ENDPOINT(chatId, identifier),
@@ -2409,10 +2392,6 @@ export function ChatInterface({
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      const token = getCsrfToken();
-      if (token) {
-        headers["X-CSRFToken"] = token;
-      }
 
       const response = await fetch(CHAT_DETAIL_ENDPOINT(chatId), {
         method: "DELETE",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from "react";
-import { getJwtToken } from "@/lib/jwt-utils";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import { useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -127,7 +127,7 @@ function PersonaConfigurePageContent() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [hasFinishedBuilding, setHasFinishedBuilding] = useState(false);
-  const { csrfToken, user } = useAuth();
+  const { user } = useAuth();
 
   const maskEmail = (email: string | null | undefined): string => {
     if (!email) return "your@email.com";
@@ -316,11 +316,7 @@ function PersonaConfigurePageContent() {
 
       setIsLoadingModels(true);
       try {
-        const headers: Record<string, string> = {};
-        const jwtToken = getJwtToken();
-        if (jwtToken) {
-          headers["Authorization"] = `Bearer ${jwtToken}`;
-        }
+        const headers: Record<string, string> = getAuthHeaders();
         const response = await fetch(MODELS_ENDPOINT, {
           credentials: "include",
           headers,
@@ -398,7 +394,7 @@ function PersonaConfigurePageContent() {
 
       const loadPersonaData = async () => {
         try {
-          const personaData = await fetchPersonaById(personaIdParam, csrfToken);
+          const personaData = await fetchPersonaById(personaIdParam);
 
           console.log("📥 Loading persona data:", personaData);
 
@@ -445,7 +441,7 @@ function PersonaConfigurePageContent() {
 
       loadPersonaData();
     }
-  }, [searchParams, csrfToken, models.length, isLoadingModels, setInstruction]);
+  }, [searchParams, models.length, isLoadingModels, setInstruction]);
 
   const resolvedSelectedModel = useMemo<AIModel | null>(() => {
     if (!selectedModel) return null;
@@ -484,7 +480,7 @@ function PersonaConfigurePageContent() {
       setEnhanceLoadingStep('enhancing');
 
       // Call enhance API
-      const analysis = await enhance(currentInstruction, csrfToken);
+      const analysis = await enhance(currentInstruction);
 
       // Complete loading
       setEnhanceLoadingStep(null);
@@ -801,7 +797,7 @@ function PersonaConfigurePageContent() {
       if (createdPersonaId) {
         // Update existing persona
         console.log("Updating persona:", createdPersonaId);
-        result = await updatePersona(createdPersonaId, personaPayload, csrfToken);
+        result = await updatePersona(createdPersonaId, personaPayload);
         console.log("Persona updated successfully!");
         
         // Show success toast for update
@@ -815,7 +811,7 @@ function PersonaConfigurePageContent() {
         }, 1000);
       } else {
         // Create new persona
-        result = await createPersona(personaPayload, csrfToken);
+        result = await createPersona(personaPayload);
         console.log("Persona created successfully!");
         
         setCreatedPersonaId(result.id);

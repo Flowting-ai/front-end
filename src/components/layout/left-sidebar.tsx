@@ -146,7 +146,7 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout, csrfToken } = useAuth();
+  const { user, logout } = useAuth();
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
@@ -435,19 +435,17 @@ export function LeftSidebar({
     router.push(`/personaAdmin/chat/${personaId}?chatId=${session.id}`);
 
     // Lazily create a backend chat record so CRUD ops (delete/star/rename) work
-    if (csrfToken !== undefined) {
-      apiFetch(
-        "/chats/",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            title: `${personaName} – New chat`,
-            message: "",
-          }),
-          headers: { "Content-Type": "application/json" },
-        },
-        csrfToken,
-      )
+    apiFetch(
+      "/chats/",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          title: `${personaName} – New chat`,
+          message: "",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }
+    )
         .then(async (res) => {
           if (!res.ok) return;
           const data = await res.json();
@@ -464,7 +462,6 @@ export function LeftSidebar({
         .catch(() => {
           /* backend chat creation failed — local-only session */
         });
-    }
   };
 
   const handleDeletePersonaChat = async (sessionId: string) => {
@@ -490,8 +487,7 @@ export function LeftSidebar({
       try {
         await apiFetch(
           CHAT_DETAIL_ENDPOINT(session.backendChatId),
-          { method: "DELETE" },
-          csrfToken,
+          { method: "DELETE" }
         );
       } catch {
         /* ignore */
@@ -520,8 +516,7 @@ export function LeftSidebar({
             method: "PATCH",
             body: JSON.stringify({ starred: nextStarred }),
             headers: { "Content-Type": "application/json" },
-          },
-          csrfToken,
+          }
         );
       } catch {
         /* ignore */
@@ -548,7 +543,7 @@ export function LeftSidebar({
 
     if (session?.backendChatId) {
       try {
-        await renameChat(session.backendChatId, trimmed, csrfToken);
+        await renameChat(session.backendChatId, trimmed);
       } catch {
         /* ignore */
       }

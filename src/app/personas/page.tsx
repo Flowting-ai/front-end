@@ -175,14 +175,14 @@ function PersonasPageContent() {
   const [statusFilterValue] = useState<PersonaStatus>("test");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personaToDelete, setPersonaToDelete] = useState<PersonaSummary | null>(null);
-  const { csrfToken } = useAuth();
+  const { } = useAuth();
 
   // Load personas from backend
   useEffect(() => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const list = await fetchPersonas(statusFilterValue, csrfToken);
+        const list = await fetchPersonas(statusFilterValue);
         setPersonas(
           list.map((p) => {
             const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
@@ -203,7 +203,7 @@ function PersonasPageContent() {
       }
     };
     load();
-  }, [csrfToken, statusFilterValue]);
+  }, [statusFilterValue]);
 
   // Refresh personas when the component becomes visible (e.g., after navigating back)
   useEffect(() => {
@@ -212,7 +212,7 @@ function PersonasPageContent() {
         // Page is visible, refresh personas
         const refreshPersonas = async () => {
           try {
-            const list = await fetchPersonas(statusFilterValue, csrfToken);
+            const list = await fetchPersonas(statusFilterValue);
             setPersonas(
               list.map((p) => {
                 const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
@@ -236,7 +236,7 @@ function PersonasPageContent() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [csrfToken, statusFilterValue]);
+  }, [statusFilterValue]);
 
   const filteredPersonas = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -300,7 +300,7 @@ function PersonasPageContent() {
 
   const handleDeletePersona = async (personaId: string) => {
     try {
-      await deletePersonaApi(personaId, csrfToken);
+      await deletePersonaApi(personaId);
       setPersonas((prev) => prev.filter((p) => p.id !== personaId));
       setUserPersonas((prev) => prev.filter((p) => p.id !== personaId));
     } catch (error) {

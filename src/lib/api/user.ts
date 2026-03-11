@@ -22,10 +22,8 @@ export interface UserProfile {
   nextBillingDate?: string | null;
 }
 
-export async function fetchCurrentUser(
-  csrfToken?: string | null
-): Promise<UserProfile | null> {
-  const response = await apiFetch(USER_ENDPOINT, { method: "GET" }, csrfToken);
+export async function fetchCurrentUser(): Promise<UserProfile | null> {
+  const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
   if (!response.ok) {
     return null;
   }

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useLayoutEffect, useRef, type JSX } from "react";
-import { getJwtToken } from "@/lib/jwt-utils";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 import styles from "./compareModels.module.css";
 import {
   X,
@@ -24,7 +24,6 @@ import { MODELS_ENDPOINT, MODEL_TEST_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
 import { getModelIcon } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
-import { useAuth } from "@/context/auth-context";
 import chatStyles from "../chat/chat-interface.module.css";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -626,7 +625,6 @@ export default function CompareModelsPage({
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptInputRef = useRef<HTMLTextAreaElement>(null);
   const [promptInputCollapsed, setPromptInputCollapsed] = useState(false);
-  const { csrfToken } = useAuth();
 
   // Auto-grow prompt textarea: 1–7 lines, then overflow-y-auto with customScrollbar2.
   // When collapsed (after send), keep at 1 line; when user focuses textarea, expand to content height.
@@ -660,11 +658,7 @@ export default function CompareModelsPage({
     const fetchModels = async () => {
       setIsLoading(true);
       try {
-        const headers: Record<string, string> = {};
-        const jwtToken = getJwtToken();
-        if (jwtToken) {
-          headers["Authorization"] = `Bearer ${jwtToken}`;
-        }
+        const headers = getAuthHeaders();
         const response = await fetch(MODELS_ENDPOINT, {
           credentials: "include",
           headers,
@@ -741,8 +735,7 @@ export default function CompareModelsPage({
             message: prompt,
           }),
           signal: controller.signal,
-        },
-        csrfToken,
+        }
       );
 
       if (!response.ok) {

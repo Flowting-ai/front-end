@@ -12,14 +12,7 @@ interface FetchOptions extends RequestInit {
   retryDelay?: number;
 }
 
-/**
- * Get JWT token from cookie
- */
-function getJwtToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|; )jwt=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
+import { getAuthHeaders } from './jwt-utils';
 
 // Global rate limiters for different endpoint types
 const apiRateLimiter = new RateLimiter(100, 60000); // 100 requests per minute
@@ -69,11 +62,11 @@ export async function secureFetch<T = unknown>(
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-          // Add JWT token to headers if available
-          const jwtToken = getJwtToken();
+          // Add auth headers (will carry Auth0 token once integrated)
+          const authHeaders = getAuthHeaders();
           const headers = new Headers(fetchOptions.headers);
-          if (jwtToken) {
-            headers.set('Authorization', `Bearer ${jwtToken}`);
+          for (const [key, val] of Object.entries(authHeaders)) {
+            headers.set(key, val);
           }
 
           const response = await fetch(url, {
@@ -122,24 +115,18 @@ export const throttledApiCall = throttle(
 );
 
 /**
- * Secure POST request with CSRF protection
+ * Secure POST request
  */
 export async function securePost<T = unknown>(
   url: string,
   data: unknown,
-  csrfToken: string | null,
   options: FetchOptions = {}
 ): Promise<T> {
-  if (!csrfToken) {
-    logger.warn('CSRF token missing for POST request');
-  }
-
   return secureFetch<T>(url, {
     ...options,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-CSRFToken': csrfToken || '',
       ...options.headers,
     },
     body: JSON.stringify(data),
@@ -167,7 +154,6 @@ export async function secureGet<T = unknown>(
 export async function secureUpload<T = unknown>(
   url: string,
   file: File,
-  csrfToken: string | null,
   options: FetchOptions = {}
 ): Promise<T> {
   // Validate file size (10MB max by default)
@@ -189,7 +175,6 @@ export async function secureUpload<T = unknown>(
     ...options,
     method: 'POST',
     headers: {
-      'X-CSRFToken': csrfToken || '',
       ...options.headers,
     },
     body: formData,

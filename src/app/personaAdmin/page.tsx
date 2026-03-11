@@ -82,9 +82,8 @@ function maskEmail(email: string | null | undefined): string {
 
 export default function PersonaAdminPage() {
   const router = useRouter();
-  const { csrfToken, user } = useAuth();
+  const { user } = useAuth();
   const hasFetchedPersonas = React.useRef(false);
-  const csrfTokenRef = React.useRef(csrfToken);
   const [personas, setPersonas] = React.useState<Persona[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [expandedPersonaIds, setExpandedPersonaIds] = React.useState<string[]>(
@@ -118,8 +117,8 @@ export default function PersonaAdminPage() {
 
   // Keep csrfTokenRef in sync
   React.useEffect(() => {
-    csrfTokenRef.current = csrfToken;
-  }, [csrfToken]);
+    // TODO: Auth0 - sync access token here if needed
+  }, []);
 
   // Fetch personas from backend
   React.useEffect(() => {
@@ -132,7 +131,6 @@ export default function PersonaAdminPage() {
       try {
         const backendPersonas = await fetchPersonas(
           undefined,
-          csrfTokenRef.current,
         );
         hasFetchedPersonas.current = true;
 
@@ -316,7 +314,6 @@ export default function PersonaAdminPage() {
       await updatePersona(
         personaId,
         { status: newBackendStatus },
-        csrfTokenRef.current,
       );
     } catch (error) {
       console.error("Failed to update persona status:", error);
@@ -378,7 +375,7 @@ export default function PersonaAdminPage() {
       description: `Are you sure you want to delete "${persona.name}"? This action cannot be undone and will affect ${persona.consumersCount} consumer(s).`,
       onConfirm: async () => {
         try {
-          await deletePersonaApi(personaId, csrfTokenRef.current);
+          await deletePersonaApi(personaId);
           setPersonas((prev) => prev.filter((p) => p.id !== personaId));
           setDeleteDialog((prev) => ({ ...prev, open: false }));
         } catch (error) {

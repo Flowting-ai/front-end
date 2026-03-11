@@ -76,9 +76,9 @@ const normalizePersona = (persona: BackendPersona) => ({
   updatedAt: persona.updatedAt ?? null,
 });
 
-export async function fetchPersonas(status?: PersonaStatus, csrfToken?: string | null) {
+export async function fetchPersonas(status?: PersonaStatus) {
   const url = status ? `${PERSONAS_ENDPOINT}?status=${encodeURIComponent(status)}` : PERSONAS_ENDPOINT;
-  const response = await apiFetch(url, { method: "GET" }, csrfToken);
+  const response = await apiFetch(url, { method: "GET" });
   if (!response.ok) {
     throw new Error(`Failed to load personas (${response.status})`);
   }
@@ -91,11 +91,10 @@ export async function fetchPersonas(status?: PersonaStatus, csrfToken?: string |
   return list.map(normalizePersona);
 }
 
-export async function fetchPersonaById(personaId: string, csrfToken?: string | null) {
+export async function fetchPersonaById(personaId: string) {
   const response = await apiFetch(
     PERSONA_DETAIL_ENDPOINT(personaId),
-    { method: "GET" },
-    csrfToken
+    { method: "GET" }
   );
   if (!response.ok) {
     throw new Error(`Failed to load persona (${response.status})`);
@@ -110,7 +109,7 @@ const toNumericModelId = (value?: number | string | null) => {
   return Number.isFinite(num) ? num : undefined;
 };
 
-export async function createPersona(payload: PersonaInput, csrfToken?: string | null) {
+export async function createPersona(payload: PersonaInput) {
   let body: FormData | string;
   let headers: Record<string, string> | undefined;
 
@@ -151,8 +150,7 @@ export async function createPersona(payload: PersonaInput, csrfToken?: string | 
       method: "POST",
       body,
       headers,
-    },
-    csrfToken
+    }
   );
   if (!response.ok) {
     const text = await response.text();
@@ -164,8 +162,7 @@ export async function createPersona(payload: PersonaInput, csrfToken?: string | 
 
 export async function updatePersona(
   personaId: string,
-  payload: PersonaUpdateInput,
-  csrfToken?: string | null
+  payload: PersonaUpdateInput
 ) {
   let body: FormData | string;
   let headers: Record<string, string> | undefined;
@@ -214,8 +211,7 @@ export async function updatePersona(
       method: "PATCH",
       body,
       headers,
-    },
-    csrfToken
+    }
   );
   if (!response.ok) {
     const text = await response.text();
@@ -225,11 +221,10 @@ export async function updatePersona(
   return normalizePersona(data);
 }
 
-export async function deletePersona(personaId: string, csrfToken?: string | null) {
+export async function deletePersona(personaId: string) {
   const response = await apiFetch(
     PERSONA_DETAIL_ENDPOINT(personaId),
-    { method: "DELETE" },
-    csrfToken
+    { method: "DELETE" }
   );
   if (!response.ok && response.status !== 204) {
     const text = await response.text();
@@ -239,16 +234,14 @@ export async function deletePersona(personaId: string, csrfToken?: string | null
 }
 
 export async function analyzePersona(
-  prompt: string,
-  csrfToken?: string | null
+  prompt: string
 ) {
   const response = await apiFetch(
     PERSONA_ANALYZE_ENDPOINT,
     {
       method: "POST",
       body: JSON.stringify({ prompt }),
-    },
-    csrfToken
+    }
   );
   if (!response.ok) {
     const text = await response.text();
@@ -272,8 +265,7 @@ export interface TestPersonaStreamCallbacks {
  */
 export async function testPersona(
   input: TestPersonaInput,
-  callbacks: TestPersonaStreamCallbacks,
-  csrfToken?: string | null
+  callbacks: TestPersonaStreamCallbacks
 ): Promise<() => void> {
   const controller = new AbortController();
 
@@ -283,8 +275,7 @@ export async function testPersona(
       method: "POST",
       body: JSON.stringify(input),
       signal: controller.signal,
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {

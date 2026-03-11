@@ -12,18 +12,18 @@ interface TokenContextValue {
 const TokenContext = createContext<TokenContextValue | undefined>(undefined);
 
 export function TokenProvider({ children }: { children: ReactNode }) {
-  const { csrfToken, jwtToken, isHydrated, user, setUser } = useAuth();
+  const { isHydrated, user, setUser } = useAuth();
   const [usagePercent, setUsagePercent] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isHydrated || !jwtToken) return;
+    if (!isHydrated) return;
 
     let isMounted = true;
     const loadStats = async () => {
       setIsLoading(true);
       try {
-        const profile = await fetchCurrentUser(csrfToken);
+        const profile = await fetchCurrentUser();
         if (isMounted && profile) {
           setUsagePercent(Math.min(100, Math.round(profile.budgetConsumedPercent ?? 0)));
           if (user === null || Object.keys(user).length === 0) {
@@ -42,7 +42,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [isHydrated, jwtToken, csrfToken, setUser, user]);
+  }, [isHydrated, setUser, user]);
 
   return (
     <TokenContext.Provider value={{ usagePercent, isLoading }}>

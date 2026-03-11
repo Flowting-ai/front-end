@@ -8,7 +8,6 @@ export interface GenerateImageParams {
   chatId?: string;
   width?: number;
   height?: number;
-  csrfToken?: string | null;
 }
 
 export interface GenerateImageResponse {
@@ -21,7 +20,6 @@ export async function generateImage({
   chatId,
   width,
   height,
-  csrfToken,
 }: GenerateImageParams): Promise<GenerateImageResponse> {
   const response = await apiFetch(
     IMAGE_GENERATION_ENDPOINT,
@@ -33,8 +31,7 @@ export async function generateImage({
         width,
         height,
       }),
-    },
-    csrfToken
+    }
   );
 
   if (!response.ok) {

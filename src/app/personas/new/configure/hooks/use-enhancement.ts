@@ -10,7 +10,7 @@ interface UseEnhancementReturn {
   isEnhancing: boolean;
   hasEnhancedContent: boolean;
   originalInstruction: string;
-  enhance: (currentInstruction: string, csrfToken?: string | null) => Promise<PersonaAnalyzeResponse>;
+  enhance: (currentInstruction: string) => Promise<PersonaAnalyzeResponse>;
   reset: () => void;
 }
 
@@ -21,14 +21,13 @@ export function useEnhancement(): UseEnhancementReturn {
 
   const enhance = useCallback(
     async (
-      currentInstruction: string,
-      csrfToken?: string | null
+      currentInstruction: string
     ): Promise<PersonaAnalyzeResponse> => {
       setIsEnhancing(true);
       setOriginalInstruction(currentInstruction);
 
       try {
-        const enhanced = await analyzePersona(currentInstruction, csrfToken);
+        const enhanced = await analyzePersona(currentInstruction);
         setHasEnhancedContent(true);
         return enhanced;
       } catch (error) {

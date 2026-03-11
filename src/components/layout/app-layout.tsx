@@ -692,7 +692,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // Called after the SSE stream ends to pick up titles generated asynchronously.
   const refreshChatTitle = useCallback((chatId: string) => {
     if (!chatId || chatId.startsWith("temp-")) return;
-    void apiFetch(`/chats/${chatId}/`, { method: "GET" }, csrfTokenRef.current)
+    void apiFetch(`/chats/${chatId}/`, { method: "GET" })
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json() as { title?: string; name?: string };
@@ -726,8 +726,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isWorkflowAdminOverviewRoute = pathname === "/workflowAdmin";
   const isPersonaChatRoute = pathname?.startsWith("/personaAdmin/chat");
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
-  const { user, csrfToken, setCsrfToken } = useAuth();
-  const csrfTokenRef = useRef<string | null>(csrfToken);
+  const { user } = useAuth();
   const hasFetchedChats = useRef(false);
 
   // Guard: redirect to login if not authenticated and not on auth pages
@@ -795,10 +794,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   }, [renamingChatId]);
 
-  useEffect(() => {
-    csrfTokenRef.current = csrfToken;
-  }, [csrfToken]);
-
   const handleDeleteClick = (board: ChatBoard) => {
     setChatToDelete(board);
   };
@@ -847,8 +842,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       const response = await apiFetch(
         CHAT_DETAIL_ENDPOINT(chatId),
-        { method: "DELETE" },
-        csrfTokenRef.current
+        { method: "DELETE" }
       );
 
       if (!response.ok) {
@@ -894,13 +888,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
       return;
     }
     try {
-      const { chats: backendChats, csrfToken: freshToken } =
-        await fetchChatBoards(csrfTokenRef.current);
+      const { chats: backendChats } =
+        await fetchChatBoards();
       hasFetchedChats.current = true;
-      if (freshToken && freshToken !== csrfTokenRef.current) {
-        csrfTokenRef.current = freshToken;
-        setCsrfToken(freshToken);
-      }
       const normalizedWithSort = backendChats.map((chat) => {
         const board = normalizeChatBoard(chat);
         const timestamp = Date.parse(
@@ -953,7 +943,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     } catch (error) {
       console.error("Failed to load chats from backend", error);
     }
-  }, [setCsrfToken, user]);
+  }, [user]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;
@@ -999,7 +989,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
 
     try {
-      await renameChat(targetId, nextName, csrfTokenRef.current);
+      await renameChat(targetId, nextName);
 
       handleRenameCancel();
       toast("Chat renamed", {
@@ -1063,7 +1053,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
             method: "PATCH",
             body: JSON.stringify({ starred: nextValue }),
           },
-          csrfTokenRef.current
         );
 
         if (!response.ok) {
@@ -1115,10 +1104,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const loadMessagesForChat = useCallback(async (chatId: string) => {
     try {
-      const backendMessages = await fetchChatMessages(
-        chatId,
-        csrfTokenRef.current
-      );
+      const backendMessages = await fetchChatMessages(chatId);
       // DEBUG: Log raw backend messages to inspect attachments shape
       console.log("[DEBUG] Raw backend messages:", JSON.stringify(backendMessages, null, 2));
       const normalized = backendMessages.flatMap(convertBackendEntryToMessages);
@@ -1140,7 +1126,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       const cachedById = new Map(cachedPins.map((pin) => [pin.id, pin]));
 
       try {
-        const backendPins = await fetchAllPins(csrfTokenRef.current);
+        const backendPins = await fetchAllPins();
         const normalized = backendPins.map((backendPin) =>
           backendPinToLegacy(backendPin, cachedById.get(backendPin.id))
         );
@@ -1182,7 +1168,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     const loadPersonas = async () => {
       try {
-        const backendPersonas = await fetchPersonasApi(undefined, csrfTokenRef.current);
+        const backendPersonas = await fetchPersonasApi(undefined);
         const activeOnly = backendPersonas
           .filter((bp) => bp.status === "test") // Only show "test" personas as active
           .map((bp) => ({
@@ -1239,7 +1225,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         const backendPin = await createPin(
           chatId,
           messageId,
-          csrfTokenRef.current,
           {
             folderId: pinRequest.folderId ?? null,
             tags: pinRequest.tags,
@@ -1290,7 +1275,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       }
 
       try {
-        await deletePin(pinToRemove.id, csrfTokenRef.current);
+        await deletePin(pinToRemove.id);
         setPins((prevPins) =>
           prevPins.filter((pin) => pin.id !== pinToRemove.id)
         );
@@ -1354,16 +1339,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       try {
         const {
           chat: created,
-          csrfToken: freshToken,
           initialResponse,
           initialMessageId,
           initialMessageMetadata,
           message,
-        } = await createChat(payload, csrfTokenRef.current);
-        if (freshToken && freshToken !== csrfTokenRef.current) {
-          csrfTokenRef.current = freshToken;
-          setCsrfToken(freshToken);
-        }
+        } = await createChat(payload);
         const normalized = normalizeChatBoard(created, chatType);
         const tempMessages =
           isTempChat && currentActiveId
@@ -1409,7 +1389,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, chatBoards, chatHistory, loadPinsForChat, setCsrfToken, user]
+    [activeChatId, chatBoards, chatHistory, loadPinsForChat, user]
   );
 
   const handleAddChat = (typeOverride?: ChatBoardType | null) => {

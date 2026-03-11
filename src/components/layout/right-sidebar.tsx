@@ -43,7 +43,6 @@ import { CitationsPanel } from "../chat/citations-panel";
 import { AppLayoutContext } from "./app-layout";
 import { Separator } from "../ui/separator";
 import { OrganizePinsDialog } from "../pinboard/organize-pins-dialog";
-import { useAuth } from "@/context/auth-context";
 import { toast } from "@/lib/toast-helper";
 import {
   createPin,
@@ -195,7 +194,6 @@ export function RightSidebar({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const layoutContext = useContext(AppLayoutContext);
   const activeChatId = layoutContext?.activeChatId;
-  const { csrfToken } = useAuth();
 
   const pinsToDisplay = pins;
 
@@ -211,7 +209,7 @@ export function RightSidebar({
         prevComments.length !== nextComments.length ||
         prevComments.some((val, idx) => val !== nextComments[idx]);
       if (commentsChanged && updatedPin.id) {
-        updatePinComments(updatedPin.id, nextComments, csrfToken).catch((error) =>
+        updatePinComments(updatedPin.id, nextComments).catch((error) =>
           console.error("Failed to update pin comments", error)
         );
       }
@@ -235,13 +233,13 @@ export function RightSidebar({
   const handleDeletePin = useCallback(
     async (pinId: string) => {
       try {
-        await deletePin(pinId, csrfToken);
+        await deletePin(pinId);
       } catch (error) {
         console.error("Failed to delete pin", error);
       }
       setPins((prevPins) => prevPins.filter((p) => p.id !== pinId));
     },
-    [csrfToken, setPins]
+    [setPins]
   );
 
   const handleDuplicatePin = useCallback(
@@ -255,7 +253,6 @@ export function RightSidebar({
         const newPin = await createPin(
           pin.sourceChatId,
           pin.sourceMessageId,
-          csrfToken,
           {
             folderId: pin.folderId || null,
             tags: [...pin.tags],
@@ -291,13 +288,13 @@ export function RightSidebar({
         console.error("Failed to duplicate pin", error);
       }
     },
-    [csrfToken, setPins]
+    [setPins]
   );
 
   const handleMovePin = useCallback(
     async (pinId: string, folderId: string | null) => {
       try {
-        await movePinToFolder(pinId, folderId, csrfToken);
+        await movePinToFolder(pinId, folderId);
         
         setPins((prevPins) =>
           prevPins.map((p) =>
@@ -316,7 +313,7 @@ export function RightSidebar({
         console.error("Failed to move pin", error);
       }
     },
-    [csrfToken, setPins, pinFolders]
+    [setPins, pinFolders]
   );
 
   const allTags = useMemo(() => {
@@ -328,7 +325,7 @@ export function RightSidebar({
   const loadFolders = useCallback(async () => {
     if (!isOpen) return;
     try {
-      const folders = await fetchPinFolders(csrfToken);
+      const folders = await fetchPinFolders();
       setPinFolders(folders);
     } catch (error) {
       console.error("Failed to load pin folders", error);
@@ -336,7 +333,7 @@ export function RightSidebar({
         prev.length > 0 ? prev : [{ id: "unorganized", name: "Unorganized" }]
       );
     }
-  }, [csrfToken, isOpen]);
+  }, [isOpen]);
 
   useEffect(() => {
     loadFolders();
@@ -398,11 +395,11 @@ export function RightSidebar({
 
   const handleCreateFolder = useCallback(
     async (name: string) => {
-      const created = await createPinFolder(name, csrfToken);
+      const created = await createPinFolder(name);
       setPinFolders((prev) => [...prev, created]);
       return created;
     },
-    [csrfToken]
+    []
   );
 
   const handleRenameFolderRemote = useCallback(
@@ -410,13 +407,13 @@ export function RightSidebar({
       if (folderId === "unorganized") {
         return { id: folderId, name };
       }
-      const updated = await renamePinFolder(folderId, name, csrfToken);
+      const updated = await renamePinFolder(folderId, name);
       setPinFolders((prev) =>
         prev.map((folder) => (folder.id === folderId ? updated : folder))
       );
       return { id: updated.id, name: updated.name };
     },
-    [csrfToken]
+    []
   );
 
   const handleDeleteFolderRemote = useCallback(
@@ -429,7 +426,7 @@ export function RightSidebar({
       const pinsInFolder = pins.filter((pin) => pin.folderId === folderId);
       if (pinsInFolder.length > 0) {
         await Promise.all(
-          pinsInFolder.map((pin) => movePinToFolder(pin.id, null, csrfToken))
+          pinsInFolder.map((pin) => movePinToFolder(pin.id, null))
         );
         setPins((prev) =>
           prev.map((pin) =>
@@ -440,10 +437,10 @@ export function RightSidebar({
         );
       }
 
-      await deletePinFolder(folderId, csrfToken);
+      await deletePinFolder(folderId);
       setPinFolders((prev) => prev.filter((folder) => folder.id !== folderId));
     },
-    [csrfToken, pins, setPins]
+    [pins, setPins]
   );
 
   const handleOrganizePinsUpdate = useCallback(
@@ -466,7 +463,7 @@ export function RightSidebar({
               !move.folderId || move.folderId === "unorganized"
                 ? null
                 : move.folderId;
-            await movePinToFolder(move.pinId, folderIdToSend, csrfToken);
+            await movePinToFolder(move.pinId, folderIdToSend);
           }
           loadFolders();
         } catch (error) {
@@ -476,7 +473,7 @@ export function RightSidebar({
 
       setPins(updatedPins);
     },
-    [csrfToken, loadFolders, pins, setPins]
+    [loadFolders, pins, setPins]
   );
 
   const handleInsertPin = useCallback(

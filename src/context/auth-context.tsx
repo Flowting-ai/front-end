@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * Auth context — Auth0-ready stub.
+ *
+ * TODO: When @auth0/nextjs-auth0 is installed:
+ *   1. Wrap the app with `<UserProvider>` from @auth0/nextjs-auth0/client in layout.tsx.
+ *   2. Replace `useAuth()` with `useUser()` from @auth0/nextjs-auth0/client.
+ *   3. Map the Auth0 `User` object to `AuthUser` as needed.
+ *   4. Implement `logout()` by redirecting to `/api/auth/logout`.
+ */
+
 import {
   createContext,
   useCallback,
@@ -9,15 +19,6 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { TOKEN_REFRESH_ENDPOINT, LOGOUT_ENDPOINT } from "@/lib/config";
-import {
-  getJwtToken,
-  setJwtCookie,
-  removeJwtCookie,
-  getRefreshToken,
-  setRefreshToken as storeRefreshToken,
-  removeRefreshToken,
-} from "@/lib/jwt-utils";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -40,170 +41,35 @@ export interface AuthUser {
 
 interface AuthContextValue {
   user: AuthUser | null;
-  csrfToken: string | null;
-  jwtToken: string | null;
-  refreshToken: string | null;
   isHydrated: boolean;
   setUser: (user: AuthUser | null) => void;
-  setCsrfToken: (token: string | null) => void;
-  setJwtToken: (token: string | null) => void;
-  setRefreshToken: (token: string | null) => void;
   clearAuth: () => void;
   logout: () => void;
 }
-
-const USER_STORAGE_KEY = "auth:user";
-const CSRF_STORAGE_KEY = "auth:csrftoken";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
-  const [jwtToken, setJwtTokenState] = useState<string | null>(null);
-  const [refreshToken, setRefreshTokenState] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Wrapper: syncs access token to cookie
-  const setJwtToken = useCallback((token: string | null) => {
-    if (token) {
-      setJwtCookie(token);
-    } else {
-      removeJwtCookie();
-    }
-    setJwtTokenState(token);
-  }, []);
-
-  // Wrapper: syncs refresh token to localStorage
-  const setRefreshToken = useCallback((token: string | null) => {
-    if (token) {
-      storeRefreshToken(token);
-    } else {
-      removeRefreshToken();
-    }
-    setRefreshTokenState(token);
-  }, []);
-
-  // Hydrate auth state on mount
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-      const storedJwt = getJwtToken();
-      const storedRefresh = getRefreshToken();
-
-      // Migrate any old localStorage JWT to cookie
-      const legacyJwt = localStorage.getItem("token");
-      if (legacyJwt && !storedJwt) {
-        setJwtCookie(legacyJwt);
-        setJwtTokenState(legacyJwt);
-        localStorage.removeItem("token");
-      } else if (storedJwt) {
-        setJwtTokenState(storedJwt);
-      }
-      if (storedJwt && legacyJwt) {
-        localStorage.removeItem("token");
-      }
-
-      if (storedRefresh) setRefreshTokenState(storedRefresh);
-      if (storedUser) setUser(JSON.parse(storedUser));
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("Failed to hydrate auth state", error);
-      }
-    }
     setIsHydrated(true);
   }, []);
 
-  // Startup refresh: if JWT cookie expired but refresh token exists, get a new access token
-  useEffect(() => {
-    if (!isHydrated) return;
-    if (getJwtToken()) return; // Access token still in cookie
-
-    const storedRefresh = getRefreshToken();
-    if (!storedRefresh) return;
-
-    fetch(TOKEN_REFRESH_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: storedRefresh }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.token) setJwtToken(data.token);
-        if (data?.refreshToken) setRefreshToken(data.refreshToken);
-        if (!data) {
-          removeRefreshToken();
-          setRefreshTokenState(null);
-        }
-      })
-      .catch(() => {
-        removeRefreshToken();
-        setRefreshTokenState(null);
-      });
-  }, [isHydrated]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync user to localStorage
-  useEffect(() => {
-    if (typeof window === "undefined" || !isHydrated) return;
-    if (user) {
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(USER_STORAGE_KEY);
-    }
-  }, [user, isHydrated]);
-
   const clearAuth = useCallback(() => {
     setUser(null);
-    setCsrfToken(null);
-    setJwtTokenState(null);
-    setRefreshTokenState(null);
-    removeJwtCookie();
-    removeRefreshToken();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(USER_STORAGE_KEY);
-      localStorage.removeItem(CSRF_STORAGE_KEY);
-      sessionStorage.removeItem(CSRF_STORAGE_KEY);
-      localStorage.removeItem("token");
-      localStorage.removeItem("isLoggedIn");
-    }
   }, []);
 
-  // Server-side logout: invalidates the refresh token in the DB
   const logout = useCallback(() => {
-    const currentRefreshToken = getRefreshToken();
-    clearAuth(); // Clear state immediately for instant UI response
-    if (currentRefreshToken) {
-      fetch(LOGOUT_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: currentRefreshToken }),
-      }).catch(() => {});
-    }
-  }, [clearAuth]);
-
-  // Listen for session-expired events from the API client (failed token refresh on 401)
-  useEffect(() => {
-    const handleExpired = () => clearAuth();
-    window.addEventListener("auth:session-expired", handleExpired);
-    return () => window.removeEventListener("auth:session-expired", handleExpired);
+    clearAuth();
+    // TODO: Replace with Auth0 logout redirect:
+    //   router.push("/api/auth/logout");
   }, [clearAuth]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      csrfToken,
-      jwtToken,
-      refreshToken,
-      isHydrated,
-      setUser,
-      setCsrfToken,
-      setJwtToken,
-      setRefreshToken,
-      clearAuth,
-      logout,
-    }),
-    [user, csrfToken, jwtToken, refreshToken, isHydrated, setJwtToken, setRefreshToken, clearAuth, logout]
+    () => ({ user, isHydrated, setUser, clearAuth, logout }),
+    [user, isHydrated, clearAuth, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
