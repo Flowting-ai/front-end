@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, Geist, Poppins } from "next/font/google";
+import { Inter, Space_Grotesk, Geist, Poppins, Besley } from "next/font/google";
 import "./globals.css";
 import "highlight.js/styles/github.css";
 import { Toaster } from "@/components/ui/sonner" // react-toastify
@@ -19,6 +19,12 @@ const geist = Geist({
   subsets: ["latin"],
   variable: "--font-geist",
   weight: ["400", "500", "600", "700"],
+});
+
+const besley = Besley({
+  subsets: ["latin"],
+  variable: "--font-besley",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 // export const metadata: Metadata = {
@@ -41,6 +47,7 @@ export default function RootLayout({
           inter.variable,
           spaceGrotesk.variable,
           geist.variable,
+          besley.variable,
         )}
       >
         <AuthProvider>

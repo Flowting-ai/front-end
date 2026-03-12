@@ -587,7 +587,7 @@ export function LeftSidebar({
 
   const handleLogout = () => {
     logout();
-    router.push("/auth/login");
+    router.push("/auth/logout");
   };
 
   return (
