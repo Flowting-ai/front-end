@@ -6,24 +6,19 @@ import { apiFetch } from "./client";
 import type { BackendPin } from "./pins";
 
 export interface BackendChat {
-  id: number | string;
+  id: string;
+  starred: boolean;
+  chat_title: string;
+  message_count: number;
+  pins_count: number;
+  // legacy fields kept for compatibility
   title?: string;
   name?: string;
   updated_at?: string;
   created_at?: string;
   is_starred?: boolean;
   isStarred?: boolean;
-  starMessageId?: string | number | null;
   pin_count?: number;
-  pinCount?: number;
-  metadata?: {
-    messageCount?: number;
-    lastMessageAt?: string | null;
-    pinCount?: number;
-    starred?: boolean;
-    starMessageId?: string | number | null;
-    [key: string]: unknown;
-  };
 }
 
 export interface BackendMessage {
@@ -31,6 +26,15 @@ export interface BackendMessage {
   message_id?: number | string;
   chat_id?: number | string;
   sender?: string;
+  // New API fields (FastAPI backend)
+  input?: string;
+  output?: string;
+  image_links?: (string | null)[] | null;
+  generated_images?: (string | null)[] | null;
+  file_links?: (string | null)[] | null;
+  pin_ids?: (string | null)[] | null;
+  reference_id?: string | null;
+  // Legacy / common fields
   role?: string;
   content?: string;
   message?: string;
@@ -39,36 +43,12 @@ export interface BackendMessage {
   response?: string;
   model_name?: string;
   modelName?: string;
-  llm_model_name?: string;
   provider_name?: string;
-  providerName?: string;
-  company_name?: string;
-  companyName?: string;
-  input_tokens?: number;
-  output_tokens?: number;
   metadata?: Record<string, unknown>;
-  pins_tagged?: unknown[];
-  document_id?: string | number | null;
-  document_url?: string | null;
-  is_pinned?: boolean;
   pin?: BackendPin | null;
-  referenced_message_id?: string | number | null;
+  referenced_message_id?: string | null;
   reasoning?: string | null;
   thinking_content?: string | null;
-  tokens_input?: number;
-  tokens_output?: number;
-  cost?: number;
-  latency_ms?: number;
-  citations?: Array<{
-    url: string;
-    title: string;
-    start_index?: number;
-    end_index?: number;
-  }>;
-  memory_results?: Array<{
-    name: string;
-    chats: Array<{ chat_id: string | number; title: string }>;
-  }>;
 }
 
 
@@ -77,7 +57,7 @@ export interface FetchChatBoardsResult {
 }
 
 export async function fetchChatBoards(): Promise<FetchChatBoardsResult> {
-  const response = await apiFetch("/chats/", { method: "GET" });
+  const response = await apiFetch("/chats", { method: "GET" });
   if (!response.ok) {
     throw new Error(`Failed to load chats: ${response.statusText}`);
   }
@@ -98,7 +78,7 @@ export async function fetchChatMessages(
   chatId: string | number
 ) {
   const response = await apiFetch(
-    `/chats/${chatId}/messages/`,
+    `/chats/${chatId}/messages`,
     { method: "GET" }
   );
   if (!response.ok) {
@@ -159,49 +139,22 @@ export async function createChat(
     payload.model?.modelId ??
     (payload.model?.id !== undefined ? payload.model.id : null);
 
-  let body: FormData | string;
-  let headers: Record<string, string> | undefined;
-
+  const formData = new FormData();
+  formData.append("input", payload.firstMessage);
+  if (modelId !== null && modelId !== undefined) {
+    formData.append("model_id", String(modelId));
+  }
+  if (payload.pinIds && payload.pinIds.length > 0) {
+    formData.append("pin_ids", JSON.stringify(payload.pinIds));
+  }
   if (payload.file) {
-    // Use FormData when uploading a file
-    const formData = new FormData();
-    formData.append("message", payload.firstMessage);
-    if (modelId !== null && modelId !== undefined) {
-      formData.append("modelId", String(modelId));
-    }
-    if (payload.useFramework !== undefined) {
-      formData.append("useFramework", String(payload.useFramework));
-    }
-    if (payload.user) {
-      formData.append("user", JSON.stringify(payload.user));
-    }
-    if (payload.pinIds && payload.pinIds.length > 0) {
-      formData.append("pinIds", JSON.stringify(payload.pinIds));
-    }
-    if (payload.title) {
-      formData.append("title", payload.title);
-    }
-    formData.append("file", payload.file);
-    body = formData;
-    // Don't set Content-Type - browser sets it with boundary for FormData
-  } else {
-    // Use JSON when no file
-    body = JSON.stringify({
-      ...payload,
-      message: payload.firstMessage,
-      modelId,
-    });
-    headers = { "Content-Type": "application/json" };
+    formData.append("files", payload.file);
   }
 
-  const response = await apiFetch(
-    "/chats/",
-    {
-      method: "POST",
-      body,
-      headers,
-    }
-  );
+  const response = await apiFetch("/chats/create", {
+    method: "POST",
+    body: formData,
+  });
 
   if (!response.ok) {
     const msg = await response.text();
@@ -215,21 +168,16 @@ export async function createChat(
   const initialResponse =
     typeof data?.response === "string"
       ? data.response
-      : typeof data?.chat?.response === "string"
-      ? data.chat.response
       : typeof messagePayload?.response === "string"
       ? messagePayload.response
       : typeof messagePayload?.content === "string"
       ? messagePayload.content
-      : typeof messagePayload?.message === "string"
-      ? messagePayload.message
       : undefined;
   const initialMessageIdRaw =
-    data?.messageId ??
     data?.message_id ??
-    data?.chat?.messageId ??
-    data?.chat?.message_id ??
-    (messagePayload?.message_id ?? messagePayload?.id);
+    data?.messageId ??
+    messagePayload?.message_id ??
+    messagePayload?.id;
   const initialMessageId =
     initialMessageIdRaw !== undefined && initialMessageIdRaw !== null
       ? String(initialMessageIdRaw)
@@ -238,32 +186,22 @@ export async function createChat(
     chat,
     initialResponse: initialResponse ?? null,
     initialMessageId: initialMessageId ?? null,
-    initialMessageMetadata:
-      messagePayload && typeof messagePayload.metadata === "object"
-        ? (messagePayload.metadata as Record<string, unknown>)
-        : null,
+    initialMessageMetadata: null,
     message: messagePayload,
   };
 }
 
 export async function renameChat(
   chatId: string,
-  newTitle: string
-): Promise<BackendChat> {
-  const response = await apiFetch(
-    `/chats/${chatId}/rename/`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ title: newTitle }),
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+  chat_title: string
+): Promise<void> {
+  const response = await apiFetch("/chats/rename", {
+    method: "PATCH",
+    body: JSON.stringify({ chat_id: chatId, chat_title }),
+  });
 
   if (!response.ok) {
     const msg = await response.text();
     throw new Error(msg || "Failed to rename chat");
   }
-
-  const data = await response.json();
-  return (data?.chat ?? data) as BackendChat;
 }

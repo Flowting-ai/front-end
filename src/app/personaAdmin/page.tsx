@@ -115,10 +115,7 @@ export default function PersonaAdminPage() {
   });
   const [tokenUsage, setTokenUsage] = React.useState(0);
 
-  // Keep csrfTokenRef in sync
-  React.useEffect(() => {
-    // TODO: Auth0 - sync access token here if needed
-  }, []);
+  // Auth0: access token is handled by the auth context/jwt-utils helpers.
 
   // Fetch personas from backend
   React.useEffect(() => {

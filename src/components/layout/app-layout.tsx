@@ -53,11 +53,10 @@ import {
   fetchAllPins,
   type BackendPin,
 } from "@/lib/api/pins";
-import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
+import { CHATS_ENDPOINT, CHAT_STAR_ENDPOINT, API_BASE_URL } from "@/lib/config";
 import { toast } from "@/lib/toast-helper";
 import { extractThinkingContent } from "@/lib/thinking";
 import { fetchPersonas as fetchPersonasApi, type BackendPersona } from "@/lib/api/personas";
-import { API_BASE_URL } from "@/lib/config";
 
 interface AppLayoutProps {
   children: React.ReactElement;
@@ -215,13 +214,13 @@ const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "cha
 
   return {
     id: extractChatId(chat),
-    name: chat.title || chat.name || "Untitled Chat",
+    name: chat.chat_title || chat.title || chat.name || "Untitled Chat",
     time: formatRelativeTime(chat.updated_at || chat.created_at),
     isStarred:
       resolvedStarred !== undefined
         ? resolvedStarred
-        : Boolean(chat.is_starred ?? chat.isStarred ?? false),
-    pinCount: metadata?.pinCount ?? chat.pin_count ?? chat.pinCount ?? 0,
+        : Boolean(chat.starred ?? chat.is_starred ?? chat.isStarred ?? false),
+    pinCount: metadata?.pinCount ?? chat.pins_count ?? chat.pin_count ?? chat.pinCount ?? 0,
     type: chatType,
     metadata,
   };
@@ -352,6 +351,8 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
   const baseContent =
     msg.content ||
     msg.message ||
+    msg.output ||
+    msg.input ||
     (msg as { response?: string }).response ||
     (msg as { prompt?: string }).prompt ||
     "";
@@ -400,6 +401,7 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
     chatMessageId:
       rawId !== null && rawId !== undefined ? String(rawId) : undefined,
     referencedMessageId:
+      (msg as BackendMessage).reference_id ??
       (msg as { referenced_message_id?: string | null })
         .referenced_message_id ?? null,
   };
@@ -408,6 +410,15 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
 const getImagesFromBackendMessage = (
   entry: BackendMessage,
 ): { images?: Array<{ url: string; alt?: string }>; imageUrl?: string } => {
+  // New API: image_links is an array of URLs
+  const imageLinks = entry.image_links;
+  if (Array.isArray(imageLinks) && imageLinks.length > 0) {
+    const images = imageLinks
+      .filter((url): url is string => typeof url === "string" && url.length > 0)
+      .map((url) => ({ url }));
+    if (images.length > 0) return { images };
+  }
+  // Legacy: images array or single image_url
   const raw = (entry as Record<string, unknown>).images;
   if (Array.isArray(raw) && raw.length > 0) {
     return {
@@ -429,9 +440,13 @@ const getImagesFromBackendMessage = (
 };
 
 const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
-  const hasPrompt = typeof entry.prompt === "string" && entry.prompt.length > 0;
-  const hasResponse =
-    typeof entry.response === "string" && entry.response.length > 0;
+  // New API: input = user message, output = AI response
+  // Legacy API: prompt = user message, response = AI response
+  const userText = entry.input ?? (entry as { prompt?: string }).prompt;
+  const aiText = entry.output ?? (entry as { response?: string }).response;
+
+  const hasPrompt = typeof userText === "string" && userText.length > 0;
+  const hasResponse = typeof aiText === "string" && aiText.length > 0;
   const { images: entryImages, imageUrl: entryImageUrl } = getImagesFromBackendMessage(entry);
   const hasImages = !!(entryImages?.length || entryImageUrl);
 
@@ -456,39 +471,20 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
 
   if (hasPrompt) {
     promptMetadata = extractMetadata(entry);
-    // Parse attachments from backend onto user message
-    const rawAttachments = (entry as { attachments?: unknown[] }).attachments;
-    if (Array.isArray(rawAttachments) && rawAttachments.length > 0 && promptMetadata) {
-      promptMetadata.attachments = rawAttachments
-        .filter((a): a is Record<string, unknown> => a !== null && typeof a === "object")
-        .map((a, i) => ({
-          id: String(a.id ?? `att-${i}`),
-          type: (String(a.type ?? a.file_type ?? "image").startsWith("image") ||
-                 String(a.name ?? a.file_name ?? "").match(/\.(png|jpe?g|gif|webp|svg|bmp)$/i))
-            ? "image" as const
-            : "pdf" as const,
-          name: String(a.name ?? a.file_name ?? a.filename ?? "attachment"),
-          url: String(a.url ?? a.file_url ?? a.file ?? ""),
-        }))
-        .filter((a) => a.url);
-    }
     messages.push({
       id: `${baseId}-prompt`,
       sender: "user",
-      content: entry.prompt as string,
+      content: userText as string,
       chatMessageId,
       metadata: promptMetadata,
     });
   }
 
   if (hasResponse || hasImages) {
-    const sanitized = extractThinkingContent((entry.response as string) || "");
+    const sanitized = extractThinkingContent((aiText as string) || "");
     const images = entryImages;
     const imageUrl = entryImageUrl;
-    const entryReasoning =
-      (entry as { reasoning?: string | null }).reasoning ??
-      (entry as { thinking_content?: string | null }).thinking_content ??
-      null;
+    const entryReasoning = entry.reasoning ?? entry.thinking_content ?? null;
     const responseReasoning = entryReasoning || sanitized.thinkingText;
 
     messages.push({
@@ -496,15 +492,13 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       sender: "ai",
       content:
         sanitized.visibleText ||
-        (responseReasoning ? "" : (entry.response as string)),
+        (responseReasoning ? "" : (aiText as string)),
       thinkingContent: responseReasoning,
       isThinkingInProgress: false,
       chatMessageId,
       pinId,
       metadata: promptMetadata,
-      referencedMessageId:
-        (entry as { referenced_message_id?: string | null })
-          .referenced_message_id ?? null,
+      referencedMessageId: entry.reference_id ?? entry.referenced_message_id ?? null,
       ...(images && { images }),
       ...(imageUrl && !images && { imageUrl }),
     });
@@ -729,22 +723,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const hasFetchedChats = useRef(false);
 
-  // Guard: redirect to login if not authenticated and not on auth pages
-  useEffect(() => {
-    const isAuthRoute =
-      pathname?.startsWith("/auth/login") ||
-      pathname?.startsWith("/auth/signup");
-    if (isAuthRoute) return;
-
-    const hasUser = Boolean(user);
-    const hasStoredLogin =
-      typeof window !== "undefined" &&
-      localStorage.getItem("isLoggedIn") === "true";
-
-    if (!hasUser && !hasStoredLogin) {
-      router.replace("/auth/login");
-    }
-  }, [pathname, router, user]);
 
   // Helper to save pins to localStorage
   const savePinsToCache = useCallback((chatId: string, pinsData: PinType[]) => {
@@ -840,10 +818,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
         return;
       }
 
-      const response = await apiFetch(
-        CHAT_DETAIL_ENDPOINT(chatId),
-        { method: "DELETE" }
-      );
+      const response = await apiFetch(CHATS_ENDPOINT, {
+        method: "DELETE",
+        body: JSON.stringify({ chat_id: chatId }),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();

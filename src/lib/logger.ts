@@ -21,7 +21,6 @@ class Logger {
           'api_key',
           'secret',
           'csrf',
-          'csrfToken',
           'authorization',
           'cookie',
           'session',

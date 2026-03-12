@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useContext } from "react";
+import { useRouter } from "next/navigation";
 import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   ChevronDown,
@@ -25,10 +26,11 @@ import { toast } from "@/lib/toast-helper";
 import { AppLayoutContext } from "@/components/layout/app-layout";
 import chatStyles from "./persona-chat-interface.module.css";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL, PERSONA_TEST_ENDPOINT, CHAT_COMPLETION_ENDPOINT } from "@/lib/config";
+import { API_BASE_URL } from "@/lib/config";
 import { getModelIcon } from "@/lib/model-icons";
 import { useAuth } from "@/context/auth-context";
 import { extractThinkingContent } from "@/lib/thinking";
+import { fetchPersonaChatMessages } from "@/lib/api/personas";
 
 interface PersonaData {
   id: string;
@@ -52,8 +54,6 @@ interface PersonaChatFullPageProps {
   chatId?: string | null;
 }
 
-const personaMsgsKey = (id: string) => `souvenir:pcs-msgs:${id}`;
-
 export function PersonaChatFullPage({
   personaId,
   persona,
@@ -62,20 +62,15 @@ export function PersonaChatFullPage({
 }: PersonaChatFullPageProps) {
   const layoutContext = useContext(AppLayoutContext);
   const { user } = useAuth();
+  const router = useRouter();
   const [detailsSectionOpen, setDetailsSectionOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [displayMessages, setDisplayMessages] = useState<Message[]>(() => {
-    // Restore persisted messages for this session on mount
-    if (chatId && typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(personaMsgsKey(chatId));
-        if (raw) return JSON.parse(raw) as Message[];
-      } catch {
-        /* ignore corrupt data */
-      }
-    }
-    return [];
-  });
+  const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
+  const isValidUUID = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const [activeChatId, setActiveChatId] = useState<string | null>(
+    chatId && isValidUUID(chatId) ? chatId : null
+  );
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -107,24 +102,47 @@ export function PersonaChatFullPage({
       : `${API_BASE_URL}${persona.avatar.startsWith("/") ? "" : "/"}${persona.avatar}`
     : null;
 
+  // Load existing messages from backend when opening a saved chat
+  useEffect(() => {
+    if (!activeChatId) return;
+    let cancelled = false;
+    fetchPersonaChatMessages(personaId, activeChatId).then((msgs) => {
+      if (cancelled || msgs.length === 0) return;
+      const converted: Message[] = msgs.flatMap((m) => {
+        const items: Message[] = [];
+        if (m.input) {
+          items.push({
+            id: `${m.id}-user`,
+            sender: "user",
+            content: m.input,
+            avatarUrl: "/personas/userAvatar.png",
+            avatarHint: "User",
+          });
+        }
+        if (m.output) {
+          const sanitized = extractThinkingContent(m.output);
+          items.push({
+            id: `${m.id}-ai`,
+            sender: "ai",
+            content: sanitized.visibleText || m.output,
+            thinkingContent: m.reasoning || sanitized.thinkingText || null,
+            avatarUrl: avatarUrl || "/new-logos/souvenir-logo.svg",
+            avatarHint: personaName,
+          });
+        }
+        return items;
+      });
+      setDisplayMessages(converted);
+    }).catch(() => {/* silently ignore */});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId, personaId]);
+
   useEffect(() => {
     if (scrollViewportRef.current) {
       scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
     }
   }, [displayMessages]);
-
-  // Persist messages to localStorage whenever they change (for chat switching)
-  useEffect(() => {
-    if (!chatId || typeof window === "undefined") return;
-    // Don't persist while a response is still loading
-    const hasLoading = displayMessages.some((m) => m.isLoading || m.isThinkingInProgress);
-    if (hasLoading) return;
-    try {
-      window.localStorage.setItem(personaMsgsKey(chatId), JSON.stringify(displayMessages));
-    } catch {
-      /* ignore storage errors (quota etc.) */
-    }
-  }, [displayMessages, chatId]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -177,25 +195,36 @@ export function PersonaChatFullPage({
         content: msg.content,
       }));
 
-      // Call persona test endpoint with streaming support
-      const headers = getAuthHeaders({
-        "Content-Type": "application/json",
-      });
-
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const response = await fetch(PERSONA_TEST_ENDPOINT, {
+      const formData = new FormData();
+      formData.append("input", trimmedContent);
+
+      const currentChatId = activeChatId;
+      const endpoint = currentChatId
+        ? `${API_BASE_URL}/persona/${personaId}/chats/${currentChatId}/stream`
+        : `${API_BASE_URL}/persona/${personaId}/chats/create`;
+
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers,
+        headers: getAuthHeaders({}),
         credentials: "include",
         signal: controller.signal,
-        body: JSON.stringify({
-          personaId: personaId,
-          message: trimmedContent,
-          chatHistory: chatHistory,
-        }),
+        body: formData,
       });
+
+      // Capture chatId from header for new chats
+      if (!currentChatId) {
+        const newChatId = response.headers.get("X-Chat-Id");
+        if (newChatId) {
+          setActiveChatId(newChatId);
+          router.replace(`/personaAdmin/chat/${personaId}?chatId=${newChatId}`);
+          window.dispatchEvent(
+            new CustomEvent("persona-chats-updated", { detail: { personaId } })
+          );
+        }
+      }
 
       if (!response.ok || !response.body) {
         const errorText = await response.text();
@@ -216,104 +245,113 @@ export function PersonaChatFullPage({
 
       const reader = response.body.getReader();
 
+      let streamFinished = false;
       try {
         while (true) {
           const { done, value } = await reader.read();
 
-          if (done) break;
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            const events = buffer.split("\n\n");
+            buffer = events.pop() ?? "";
 
-          buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split("\n\n");
-          buffer = events.pop() ?? "";
+            for (const eventChunk of events) {
+              const lines = eventChunk.split("\n");
+              let eventName = "";
+              let dataStr = "";
 
-          for (const eventChunk of events) {
-            const lines = eventChunk.split("\n");
-            let eventName = "";
-            let dataStr = "";
-
-            for (const line of lines) {
-              if (line.startsWith("event:")) {
-                eventName = line.slice(6).trim();
-              } else if (line.startsWith("data:")) {
-                dataStr += line.slice(5).trim();
+              for (const line of lines) {
+                if (line.startsWith("event:")) {
+                  eventName = line.slice(6).trim();
+                } else if (line.startsWith("data:")) {
+                  dataStr += line.slice(5).trim();
+                }
               }
-            }
 
-            if (!dataStr) continue;
+              if (!dataStr) continue;
 
-            let parsed: any;
-            try {
-              parsed = JSON.parse(dataStr);
-            } catch (err) {
-              console.warn("Failed to parse SSE data", err, dataStr);
-              continue;
-            }
+              let parsed: any;
+              try {
+                parsed = JSON.parse(dataStr);
+              } catch (err) {
+                console.warn("Failed to parse SSE data", err, dataStr);
+                continue;
+              }
 
-            if (eventName === "metadata") {
-              // Handle metadata if needed
-              continue;
-            }
+              // Normalize type-based format (no event name, uses parsed.type instead)
+              if (!eventName && parsed.type) {
+                if (parsed.type === "content") {
+                  eventName = "chunk";
+                  if (typeof parsed.content === "string" && !("delta" in parsed)) {
+                    parsed = { ...parsed, delta: parsed.content };
+                  }
+                } else {
+                  eventName = parsed.type;
+                }
+              }
 
-            if (eventName === "reasoning") {
-              const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-              reasoningContent += delta;
-              updateAiMessage({
-                thinkingContent: reasoningContent,
-                isThinkingInProgress: true,
-                isLoading: false,
-              });
-              continue;
-            }
+              if (eventName === "metadata") {
+                continue;
+              }
 
-            if (eventName === "chunk") {
-              const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-              assistantContent += delta;
-              const sanitized = extractThinkingContent(assistantContent);
-              updateAiMessage({
-                content: sanitized.visibleText || "",
-                thinkingContent: reasoningContent || sanitized.thinkingText,
-                isThinkingInProgress: false,
-                isLoading: false,
-              });
-              continue;
-            }
-
-            if (eventName === "image") {
-              const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-              const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
-              if (imageUrl) {
+              if (eventName === "reasoning") {
+                const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+                reasoningContent += delta;
                 updateAiMessage({
-                  imageUrl,
-                  imageAlt,
+                  thinkingContent: reasoningContent,
+                  isThinkingInProgress: true,
+                  isLoading: false,
                 });
+                continue;
               }
-              continue;
-            }
 
-            if (eventName === "done") {
-              const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
-              const sanitized = extractThinkingContent(finalContent);
-              const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
-              updateAiMessage({
-                content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
-                thinkingContent: finalReasoning || null,
-                isThinkingInProgress: false,
-                isLoading: false,
-                metadata: {
-                  modelName: persona.modelName,
-                  providerName: persona.providerName,
-                },
-              });
-              break;
+              if (eventName === "chunk") {
+                const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+                assistantContent += delta;
+                const sanitized = extractThinkingContent(assistantContent);
+                updateAiMessage({
+                  content: sanitized.visibleText || "",
+                  thinkingContent: reasoningContent || sanitized.thinkingText,
+                  isThinkingInProgress: false,
+                  isLoading: false,
+                });
+                continue;
+              }
+
+              if (eventName === "image") {
+                const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
+                const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+                if (imageUrl) {
+                  updateAiMessage({ imageUrl, imageAlt });
+                }
+                continue;
+              }
+
+              if (eventName === "done") {
+                const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
+                const sanitized = extractThinkingContent(finalContent);
+                const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
+                updateAiMessage({
+                  content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
+                  thinkingContent: finalReasoning || null,
+                  isThinkingInProgress: false,
+                  isLoading: false,
+                  metadata: {
+                    modelName: persona.modelName,
+                    providerName: persona.providerName,
+                  },
+                });
+                streamFinished = true;
+                break;
+              }
             }
           }
+
+          if (done || streamFinished) break;
         }
       } finally {
         reader.cancel().catch(() => {});
       }
-
-      // Release the HTTP connection to prevent connection pool exhaustion
-      reader.cancel().catch(() => {});
 
       // Ensure we have a final message even if stream ended without "done" event
       if (assistantContent) {

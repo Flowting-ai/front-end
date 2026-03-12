@@ -62,48 +62,19 @@ import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowMetadata } from "@/components/workflows/types";
 import {
   fetchPersonas as fetchPersonasApi,
-  type PersonaStatus,
+  fetchPersonaChats,
+  deletePersonaChat,
+  renamePersonaChat,
+  type PersonaChat,
 } from "@/lib/api/personas";
 import { toast } from "@/lib/toast-helper";
-import { renameChat } from "@/lib/api/chat";
 import { apiFetch } from "@/lib/api/client";
-import { CHAT_DETAIL_ENDPOINT, CHAT_STAR_ENDPOINT } from "@/lib/config";
-
-// ─── Persona chat sessions ───────────────────────────────────────────────────
-const PERSONA_SESSIONS_KEY = "souvenir:persona-chat-sessions-v2";
-const personaMsgsKey = (chatId: string) => `souvenir:pcs-msgs:${chatId}`;
+import { CHATS_ENDPOINT } from "@/lib/config";
 
 const APP_BASE_TITLE = "Souvenir AI";
 
-// Module-level cache so persona list survives component remounts (e.g. when
-// navigating between different persona chats causes the page to re-render).
+// Module-level cache so persona list survives component remounts
 let _personaListCache: Array<{ id: string; name: string; isActive: boolean }> = [];
-
-interface PersonaChatSession {
-  id: string;
-  personaId: string;
-  name: string;
-  isStarred: boolean;
-  createdAt: string;
-  /** Backend chat ID — null until the first message is sent (lazy creation). */
-  backendChatId: string | null;
-}
-
-function loadPersonaSessions(): PersonaChatSession[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(PERSONA_SESSIONS_KEY);
-    return raw ? (JSON.parse(raw) as PersonaChatSession[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function savePersonaSessions(sessions: PersonaChatSession[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(PERSONA_SESSIONS_KEY, JSON.stringify(sessions));
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
   isCollapsed: boolean;
@@ -152,10 +123,9 @@ export function LeftSidebar({
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
   const [shouldAnimateSidebar, setShouldAnimateSidebar] = useState(false);
 
-  // Persona chat sessions (localStorage-backed)
-  const [personaSessions, setPersonaSessions] = useState<PersonaChatSession[]>(
-    [],
-  );
+  // Persona chats (backend-fetched, keyed by personaId)
+  const [personaChats, setPersonaChats] = useState<Record<string, PersonaChat[]>>({});
+  const [loadingPersonaChats, setLoadingPersonaChats] = useState<Set<string>>(new Set());
   const [expandedPersonaIds, setExpandedPersonaIds] = useState<Set<string>>(
     new Set(),
   );
@@ -378,8 +348,7 @@ export function LeftSidebar({
           const mapped = personas.map((p) => ({
             id: p.id,
             name: p.name,
-            // Status semantics: "test" = active/running, "completed" = paused
-            isActive: p.status === "test",
+            isActive: p.is_active,
           }));
           _personaListCache = mapped;
           setPersonaList(mapped);
@@ -396,12 +365,7 @@ export function LeftSidebar({
     };
   }, [isOnPersonaPage]);
 
-  // Load persona sessions from localStorage once on mount
-  React.useEffect(() => {
-    setPersonaSessions(loadPersonaSessions());
-  }, []);
-
-  // Sync active session id from URL query params whenever the pathname changes
+  // Sync active chat id from URL query params
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -409,146 +373,92 @@ export function LeftSidebar({
     }
   }, [pathname]);
 
-  // Auto-expand the active persona in the sidebar when navigating to its chat
+  // Auto-expand and fetch chats when navigating to a persona chat
   React.useEffect(() => {
     if (activePersonaIdFromUrl) {
-      setExpandedPersonaIds(
-        (prev) => new Set([...prev, activePersonaIdFromUrl]),
-      );
+      setExpandedPersonaIds((prev) => new Set([...prev, activePersonaIdFromUrl]));
+      if (!personaChats[activePersonaIdFromUrl]) {
+        loadPersonaChats(activePersonaIdFromUrl);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePersonaIdFromUrl]);
 
-  // ─── Persona chat session handlers ────────────────────────────────────────
-  const handleCreatePersonaChat = (personaId: string, personaName: string) => {
-    const session: PersonaChatSession = {
-      id: `pcs-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      personaId,
-      name: "New chat",
-      isStarred: false,
-      createdAt: new Date().toISOString(),
-      backendChatId: null,
+  // Re-fetch chats when PersonaChatFullPage signals a new chat was created
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const personaId = (e as CustomEvent<{ personaId: string }>).detail?.personaId;
+      if (personaId) loadPersonaChats(personaId);
     };
-    const updated = [session, ...personaSessions];
-    savePersonaSessions(updated);
-    setPersonaSessions(updated);
+    window.addEventListener("persona-chats-updated", handler);
+    return () => window.removeEventListener("persona-chats-updated", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Persona chat handlers ─────────────────────────────────────────────────
+  const loadPersonaChats = React.useCallback(async (personaId: string) => {
+    setLoadingPersonaChats((prev) => new Set([...prev, personaId]));
+    try {
+      const chats = await fetchPersonaChats(personaId);
+      setPersonaChats((prev) => ({ ...prev, [personaId]: chats }));
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingPersonaChats((prev) => {
+        const next = new Set(prev);
+        next.delete(personaId);
+        return next;
+      });
+    }
+  }, []);
+
+  const handleCreatePersonaChat = (personaId: string) => {
     setExpandedPersonaIds((prev) => new Set([...prev, personaId]));
-    router.push(`/personaAdmin/chat/${personaId}?chatId=${session.id}`);
-
-    // Lazily create a backend chat record so CRUD ops (delete/star/rename) work
-    apiFetch(
-      "/chats/",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          title: `${personaName} – New chat`,
-          message: "",
-        }),
-        headers: { "Content-Type": "application/json" },
-      }
-    )
-        .then(async (res) => {
-          if (!res.ok) return;
-          const data = await res.json();
-          const backendId = String(data?.id ?? data?.chat?.id ?? "").trim();
-          if (!backendId) return;
-          setPersonaSessions((prev) => {
-            const next = prev.map((s) =>
-              s.id === session.id ? { ...s, backendChatId: backendId } : s,
-            );
-            savePersonaSessions(next);
-            return next;
-          });
-        })
-        .catch(() => {
-          /* backend chat creation failed — local-only session */
-        });
+    router.push(`/personaAdmin/chat/${personaId}`);
   };
 
-  const handleDeletePersonaChat = async (sessionId: string) => {
-    const session = personaSessions.find((s) => s.id === sessionId);
-    const updated = personaSessions.filter((s) => s.id !== sessionId);
-    savePersonaSessions(updated);
-    setPersonaSessions(updated);
-
-    // Remove persisted messages for this session
-    if (typeof window !== "undefined" && session) {
-      window.localStorage.removeItem(personaMsgsKey(session.id));
-      if (session.backendChatId) {
-        window.localStorage.removeItem(personaMsgsKey(session.backendChatId));
-      }
+  const handleDeletePersonaChat = async (personaId: string, chatId: string) => {
+    // Optimistic remove
+    setPersonaChats((prev) => ({
+      ...prev,
+      [personaId]: (prev[personaId] ?? []).filter((c) => c.id !== chatId),
+    }));
+    if (activePersonaChatSessionId === chatId) {
+      router.push(`/personaAdmin/chat/${personaId}`);
     }
-
-    if (activePersonaChatSessionId === sessionId && session) {
-      router.push(`/personaAdmin/chat/${session.personaId}`);
+    try {
+      await deletePersonaChat(personaId, chatId);
+    } catch {
+      loadPersonaChats(personaId);
     }
-
-    // Backend delete
-    if (session?.backendChatId) {
-      try {
-        await apiFetch(
-          CHAT_DETAIL_ENDPOINT(session.backendChatId),
-          { method: "DELETE" }
-        );
-      } catch {
-        /* ignore */
-      }
-    }
-
-    toast.success("Chat deleted", {
-      description: "The conversation has been removed.",
-    });
-  };
-
-  const handleToggleStarPersonaChat = async (sessionId: string) => {
-    const session = personaSessions.find((s) => s.id === sessionId);
-    const nextStarred = !session?.isStarred;
-    const updated = personaSessions.map((s) =>
-      s.id === sessionId ? { ...s, isStarred: nextStarred } : s,
-    );
-    savePersonaSessions(updated);
-    setPersonaSessions(updated);
-
-    if (session?.backendChatId) {
-      try {
-        await apiFetch(
-          CHAT_STAR_ENDPOINT(session.backendChatId),
-          {
-            method: "PATCH",
-            body: JSON.stringify({ starred: nextStarred }),
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      } catch {
-        /* ignore */
-      }
-    }
-
-    toast.success(
-      nextStarred ? "Added to favorites" : "Removed from favorites",
-    );
+    toast.success("Chat deleted", { description: "The conversation has been removed." });
   };
 
   const handleConfirmRenamePersonaChat = async () => {
     if (!renamingPersonaChatId) return;
     const trimmed = renamingPersonaChatText.trim();
     if (!trimmed) return;
-    const session = personaSessions.find((s) => s.id === renamingPersonaChatId);
-    const updated = personaSessions.map((s) =>
-      s.id === renamingPersonaChatId ? { ...s, name: trimmed } : s,
+    const personaId = Object.keys(personaChats).find((pid) =>
+      personaChats[pid].some((c) => c.id === renamingPersonaChatId),
     );
-    savePersonaSessions(updated);
-    setPersonaSessions(updated);
+    // Optimistic update
+    if (personaId) {
+      setPersonaChats((prev) => ({
+        ...prev,
+        [personaId]: (prev[personaId] ?? []).map((c) =>
+          c.id === renamingPersonaChatId ? { ...c, chat_title: trimmed } : c,
+        ),
+      }));
+    }
     setRenamingPersonaChatId(null);
     setRenamingPersonaChatText("");
-
-    if (session?.backendChatId) {
+    if (personaId) {
       try {
-        await renameChat(session.backendChatId, trimmed);
+        await renamePersonaChat(personaId, renamingPersonaChatId, trimmed);
       } catch {
-        /* ignore */
+        loadPersonaChats(personaId);
       }
     }
-
     toast.success("Chat renamed");
   };
   // ──────────────────────────────────────────────────────────────────────────
@@ -565,16 +475,12 @@ export function LeftSidebar({
   const personasToDisplay = useMemo(() => {
     if (!normalizedPersonaSearch) return personaList;
     return personaList.filter((p) => {
-      // Match on persona name
       if (p.name.toLowerCase().includes(normalizedPersonaSearch)) return true;
-      // Also match if any of this persona's chat sessions match
-      return personaSessions.some(
-        (s) =>
-          s.personaId === p.id &&
-          s.name.toLowerCase().includes(normalizedPersonaSearch),
+      return (personaChats[p.id] ?? []).some((c) =>
+        c.chat_title.toLowerCase().includes(normalizedPersonaSearch),
       );
     });
-  }, [personaList, normalizedPersonaSearch, personaSessions]);
+  }, [personaList, normalizedPersonaSearch, personaChats]);
 
   // Dynamic button text based on current page
   const chatBoardButtonText = isOnChatBoard ? "New Chat Board" : "Chat Board";
@@ -612,14 +518,14 @@ export function LeftSidebar({
     if (isOnPersonaChatPage && activePersonaIdFromUrl) {
       const persona = personaList.find((p) => p.id === activePersonaIdFromUrl);
 
-      if (activePersonaChatSessionId) {
-        const session = personaSessions.find(
-          (s) => s.id === activePersonaChatSessionId,
+      if (activePersonaChatSessionId && activePersonaIdFromUrl) {
+        const chat = (personaChats[activePersonaIdFromUrl] ?? []).find(
+          (c) => c.id === activePersonaChatSessionId,
         );
-        if (session?.name) {
+        if (chat?.chat_title) {
           nextTitle = persona?.name
-            ? `${persona.name} – ${session.name}`
-            : session.name;
+            ? `${persona.name} – ${chat.chat_title}`
+            : chat.chat_title;
         }
       } else if (persona?.name) {
         nextTitle = persona.name;
@@ -669,7 +575,7 @@ export function LeftSidebar({
     activePersonaIdFromUrl,
     activePersonaChatSessionId,
     personaList,
-    personaSessions,
+    personaChats,
     documentTitle,
   ]);
 
@@ -1372,27 +1278,18 @@ export function LeftSidebar({
                             )}
                           >
                             {personasToDisplay.map((persona) => {
-                              const sessions = personaSessions
-                                .filter((s) => s.personaId === persona.id)
-                                .sort((a, b) => {
-                                  if (a.isStarred !== b.isStarred)
-                                    return a.isStarred ? -1 : 1;
-                                  return (
-                                    new Date(b.createdAt).getTime() -
-                                    new Date(a.createdAt).getTime()
-                                  );
-                                });
+                              const chats = personaChats[persona.id] ?? [];
                               const sessionSearch = searchTerm
                                 .trim()
                                 .toLowerCase();
                               const sessionsToShow = sessionSearch
-                                ? sessions.filter((s) =>
-                                    s.name
+                                ? chats.filter((c) =>
+                                    c.chat_title
                                       .toLowerCase()
                                       .includes(sessionSearch),
                                   )
-                                : sessions;
-                              // Auto-expand when a search term matches sessions under this persona
+                                : chats;
+                              // Auto-expand when a search term matches chats under this persona
                               const hasMatchingSession =
                                 !!sessionSearch &&
                                 sessionsToShow.length > 0 &&
@@ -1413,15 +1310,20 @@ export function LeftSidebar({
                                   {/* Persona accordion header */}
                                   <button
                                     type="button"
-                                    onClick={() =>
+                                    onClick={() => {
                                       setExpandedPersonaIds((prev) => {
                                         const next = new Set(prev);
-                                        if (next.has(persona.id))
+                                        if (next.has(persona.id)) {
                                           next.delete(persona.id);
-                                        else next.add(persona.id);
+                                        } else {
+                                          next.add(persona.id);
+                                          if (!personaChats[persona.id]) {
+                                            loadPersonaChats(persona.id);
+                                          }
+                                        }
                                         return next;
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className={cn(
                                       "group flex h-8 w-full items-center gap-1 rounded-[6px] px-2 text-[13px] font-medium text-[#0A0A0A] transition-colors cursor-pointer select-none",
                                       isPersonaRowActive
@@ -1447,9 +1349,9 @@ export function LeftSidebar({
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
-                                    {sessions.length > 0 && (
+                                    {chats.length > 0 && (
                                       <span className="w-4 h-4 text-[10px] text-[#737373] shrink-0 flex items-center justify-center mr-2">
-                                        {sessions.length}
+                                        {chats.length}
                                       </span>
                                     )}
                                     <ChevronDown
@@ -1470,7 +1372,6 @@ export function LeftSidebar({
                                         onClick={() =>
                                           handleCreatePersonaChat(
                                             persona.id,
-                                            persona.name,
                                           )
                                         }
                                         className="flex h-7 w-full items-center justify-start gap-1.5 rounded-[6px] px-1 text-[12px] text-[#737373] hover:text-[#0A0A0A] hover:bg-[#E5E5E5] transition-colors cursor-pointer"
@@ -1486,41 +1387,39 @@ export function LeftSidebar({
                                       </button>
 
                                       {/* Session list */}
-                                      {sessionsToShow.length === 0 ? (
+                                      {loadingPersonaChats.has(persona.id) ? (
+                                        <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
+                                          Loading...
+                                        </p>
+                                      ) : sessionsToShow.length === 0 ? (
                                         <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
                                           No chats yet
                                         </p>
                                       ) : (
-                                        sessionsToShow.map((session) => {
+                                        sessionsToShow.map((chat) => {
                                           const isActiveSession =
                                             activePersonaChatSessionId ===
-                                            session.id;
+                                            chat.id;
                                           const isRenamingThis =
-                                            renamingPersonaChatId ===
-                                            session.id;
+                                            renamingPersonaChatId === chat.id;
                                           return (
                                             <ChatHistoryItem
-                                              key={session.id}
-                                              title={session.name}
+                                              key={chat.id}
+                                              title={chat.chat_title}
                                               isSelected={isActiveSession}
-                                              isStarred={session.isStarred}
+                                              isStarred={false}
                                               pinnedCount={0}
                                               onSelect={() =>
                                                 router.push(
-                                                  `/personaAdmin/chat/${persona.id}?chatId=${session.id}`,
-                                                )
-                                              }
-                                              onToggleStar={() =>
-                                                handleToggleStarPersonaChat(
-                                                  session.id,
+                                                  `/personaAdmin/chat/${persona.id}?chatId=${chat.id}`,
                                                 )
                                               }
                                               onRename={() => {
                                                 setRenamingPersonaChatId(
-                                                  session.id,
+                                                  chat.id,
                                                 );
                                                 setRenamingPersonaChatText(
-                                                  session.name,
+                                                  chat.chat_title,
                                                 );
                                                 requestAnimationFrame(() =>
                                                   personaChatRenameInputRef.current?.focus(),
@@ -1528,7 +1427,8 @@ export function LeftSidebar({
                                               }}
                                               onDelete={() =>
                                                 handleDeletePersonaChat(
-                                                  session.id,
+                                                  persona.id,
+                                                  chat.id,
                                                 )
                                               }
                                               isRenaming={isRenamingThis}

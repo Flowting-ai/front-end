@@ -1,6 +1,17 @@
 import type { AIModel } from "@/types/ai-model";
 
 type BackendModel = {
+  // FastAPI snake_case fields (from GetModels schema)
+  model_id?: string;
+  model_name?: string;
+  model_provider?: string;
+  model_plan_type?: string;
+  model_description?: string;
+  model_context_window?: number;
+  model_output_size?: number;
+  model_inputs?: string[];
+  model_outputs?: string[];
+  // Legacy camelCase fields
   id?: number | string;
   modelId?: number | string;
   companyName?: string;
@@ -41,24 +52,24 @@ const toNumber = (value: unknown, fallback = 0) => {
 };
 
 const normalizeModel = (model: BackendModel): AIModel => ({
-  id: model.id ?? model.modelId,
-  modelId: model.modelId ?? model.id,
+  id: model.model_id ?? model.id ?? model.modelId,
+  modelId: model.model_id ?? model.modelId ?? model.id,
   companyName:
-    model.companyName ?? model.providerName ?? model.provider ?? "Unknown",
-  modelName: model.modelName ?? model.name ?? "Unknown Model",
-  modelType: normalizeModelType(model.planType ?? model.plan, model.callType),
-  inputLimit: toNumber(model.inputLimit, 0),
-  outputLimit: toNumber(model.outputLimit, 0),
+    model.model_provider ?? model.companyName ?? model.providerName ?? model.provider ?? "Unknown",
+  modelName: model.model_name ?? model.modelName ?? model.name ?? "Unknown Model",
+  modelType: normalizeModelType(model.model_plan_type ?? model.planType ?? model.plan, model.callType),
+  inputLimit: toNumber(model.model_context_window ?? model.inputLimit, 0),
+  outputLimit: toNumber(model.model_output_size ?? model.outputLimit, 0),
   version: model.version,
-  description: model.description,
-  planType: model.planType ?? model.plan,
+  description: model.model_description ?? model.description,
+  planType: model.model_plan_type ?? model.planType ?? model.plan,
   callType: model.callType,
   providerId: model.providerId,
   sdkLibrary: model.sdkLibrary,
   huggingfaceProvider: model.huggingfaceProvider,
   deploymentName: model.deploymentName,
-  inputModalities: model.inputModalities,
-  outputModalities: model.outputModalities,
+  inputModalities: model.model_inputs ?? model.inputModalities,
+  outputModalities: model.model_outputs ?? model.outputModalities,
 });
 
 export const normalizeModels = (payload: unknown): AIModel[] => {

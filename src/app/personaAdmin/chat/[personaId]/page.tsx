@@ -87,13 +87,13 @@ function PersonaChatPageInner() {
           id: persona.id,
           name: persona.name,
           description: persona.prompt || undefined,
-          avatar: persona.imageUrl || undefined,
-          modelName: persona.modelName || undefined,
-          providerName: persona.providerName || undefined,
+          avatar: persona.image_url || undefined,
+          modelName: undefined,
+          providerName: undefined,
           temperature: undefined,
           maxTokens: undefined,
           systemPrompt: persona.prompt || undefined,
-          createdAt: persona.createdAt || undefined,
+          createdAt: persona.created_at || undefined,
           isActive: persona.status === ("completed" as PersonaStatus),
         }}
         onEditPersona={() => router.push(`/personas/${personaId}`)}

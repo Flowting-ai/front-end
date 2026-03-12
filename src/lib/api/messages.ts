@@ -1,7 +1,6 @@
 "use client";
 
-import { MESSAGE_REACTION_ENDPOINT } from "@/lib/config";
-import { apiFetch } from "./client";
+// Message reactions are not available in the current backend — stubbed.
 
 export type ReactionType =
   | "like"
@@ -13,51 +12,15 @@ export type ReactionType =
   | "angry"
   | "dislike";
 
-export async function addReaction({
-  chatId,
-  messageId,
-  reaction,
-}: {
+export async function addReaction(_params: {
   chatId: string;
   messageId: string;
   reaction: ReactionType;
-}) {
-  const response = await apiFetch(
-    MESSAGE_REACTION_ENDPOINT(chatId, messageId),
-    {
-      method: "PATCH",
-      body: JSON.stringify({ reaction }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Failed to add reaction");
-  }
-
-  return response.json() as Promise<{
-    messageId: string;
-    reaction: ReactionType;
-    updatedAt?: string;
-  }>;
+}): Promise<{ messageId: string; reaction: ReactionType; updatedAt?: string }> {
+  throw new Error("Message reactions are not supported in the current backend.");
 }
 
-export async function removeReaction({
-  chatId,
-  messageId,
-}: {
+export async function removeReaction(_params: {
   chatId: string;
   messageId: string;
-}) {
-  const response = await apiFetch(
-    MESSAGE_REACTION_ENDPOINT(chatId, messageId),
-    { method: "DELETE" }
-  );
-
-  if (!response.ok && response.status !== 204) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Failed to remove reaction");
-  }
-
-  return;
-}
+}): Promise<void> {}

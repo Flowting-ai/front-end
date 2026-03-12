@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * Auth context — Auth0-ready stub.
- *
- * TODO: When @auth0/nextjs-auth0 is installed:
- *   1. Wrap the app with `<UserProvider>` from @auth0/nextjs-auth0/client in layout.tsx.
- *   2. Replace `useAuth()` with `useUser()` from @auth0/nextjs-auth0/client.
- *   3. Map the Auth0 `User` object to `AuthUser` as needed.
- *   4. Implement `logout()` by redirecting to `/api/auth/logout`.
- */
-
 import {
   createContext,
   useCallback,
@@ -19,6 +9,11 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import {
+  getAuth0AccessToken,
+  clearInMemoryAccessToken,
+  setInMemoryAccessToken,
+} from "@/lib/jwt-utils";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -41,8 +36,10 @@ export interface AuthUser {
 
 interface AuthContextValue {
   user: AuthUser | null;
+  jwtToken: string | null;
   isHydrated: boolean;
   setUser: (user: AuthUser | null) => void;
+  setJwtToken: (token: string | null) => void;
   clearAuth: () => void;
   logout: () => void;
 }
@@ -51,25 +48,80 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [jwtToken, setJwtTokenState] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  const setJwtToken = useCallback((token: string | null) => {
+    setInMemoryAccessToken(token);
+    setJwtTokenState(token);
+  }, []);
+
   useEffect(() => {
-    setIsHydrated(true);
+    if (typeof window === "undefined") return;
+    let mounted = true;
+
+    const hydrate = async () => {
+      try {
+        const token = await getAuth0AccessToken();
+        if (mounted) {
+          setJwtToken(token);
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Failed to hydrate auth state", error);
+        }
+      } finally {
+        if (mounted) {
+          setIsHydrated(true);
+        }
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const clearAuth = useCallback(() => {
     setUser(null);
+    setJwtTokenState(null);
+    clearInMemoryAccessToken();
   }, []);
 
   const logout = useCallback(() => {
     clearAuth();
-    // TODO: Replace with Auth0 logout redirect:
-    //   router.push("/api/auth/logout");
+    if (typeof window !== "undefined") {
+      const returnTo = encodeURIComponent(window.location.origin + "/auth/login");
+      window.location.href = `/auth/logout?returnTo=${returnTo}`;
+    }
+  }, [clearAuth]);
+
+  useEffect(() => {
+    const handleExpired = () => clearAuth();
+    window.addEventListener("auth:session-expired", handleExpired);
+    return () => window.removeEventListener("auth:session-expired", handleExpired);
   }, [clearAuth]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isHydrated, setUser, clearAuth, logout }),
-    [user, isHydrated, clearAuth, logout]
+    () => ({
+      user,
+      jwtToken,
+      isHydrated,
+      setUser,
+      setJwtToken,
+      clearAuth,
+      logout,
+    }),
+    [
+      user,
+      jwtToken,
+      isHydrated,
+      setJwtToken,
+      clearAuth,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

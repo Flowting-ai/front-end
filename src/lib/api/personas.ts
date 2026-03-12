@@ -4,279 +4,171 @@ import { apiFetch } from "./client";
 import {
   PERSONAS_ENDPOINT,
   PERSONA_DETAIL_ENDPOINT,
-  PERSONA_ANALYZE_ENDPOINT,
+  PERSONA_ENHANCE_ENDPOINT,
   PERSONA_TEST_ENDPOINT,
+  PERSONA_CHATS_ENDPOINT,
+  PERSONA_CHATS_CREATE_ENDPOINT,
+  PERSONA_CHAT_MESSAGES_ENDPOINT,
+  PERSONA_CHAT_STREAM_ENDPOINT,
+  PERSONA_CHAT_STOP_ENDPOINT,
+  PERSONA_CHATS_RENAME_ENDPOINT,
+  PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
-
-export type PersonaStatus = "test" | "completed";
 
 export interface BackendPersona {
   id: string;
   name: string;
-  imageUrl: string | null;
   prompt: string;
-  modelId: number | null;
-  modelName: string | null;
-  providerName: string | null;
-  status: PersonaStatus;
-  temperature?: number;
-  createdAt: string;
-  updatedAt: string;
+  status: string;
+  is_active: boolean;
+  model_id: string | null;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PersonaChat {
+  id: string;
+  chat_title: string;
+  message_count: number;
+}
+
+export interface PersonaMessage {
+  id: string;
+  input: string;
+  output: string;
+  reasoning?: string | null;
 }
 
 export interface PersonaInput {
   name: string;
-  prompt: string;
-  modelId?: number | string | null;
-  status?: PersonaStatus;
-  temperature?: number;
+  model_id: string;
+  prompt?: string;
   image?: File;
 }
 
 export interface PersonaUpdateInput {
   name?: string;
   prompt?: string;
-  modelId?: number | string | null;
-  status?: PersonaStatus;
-  temperature?: number;
+  model_id?: string | null;
   image?: File;
-  clearImage?: boolean;
 }
 
-export interface TestPersonaInput {
-  personaId?: string;
-  prompt?: string;
-  message: string;
-  modelId?: number;
-  chatHistory?: Array<{ role: "user" | "assistant"; content: string }>;
-}
+// ── CRUD ─────────────────────────────────────────────────────────────────────
 
-export interface PersonaAnalyzeResponse {
-  prompt?: string;
-  tone?: string;
-  tone_description?: string;
-  dos?: string[];
-  donts?: string[];
-  summary?: string; // deprecated, use prompt
-  suggestions?: string[];
-  error?: string;
-}
-
-const normalizePersona = (persona: BackendPersona) => ({
-  id: String(persona.id),
-  name: persona.name ?? "Untitled Persona",
-  imageUrl: persona.imageUrl ?? null,
-  prompt: persona.prompt ?? "",
-  modelId: persona.modelId ?? null,
-  modelName: persona.modelName ?? null,
-  providerName: persona.providerName ?? null,
-  status: persona.status ?? "test",
-  temperature: persona.temperature ?? undefined,
-  createdAt: persona.createdAt ?? null,
-  updatedAt: persona.updatedAt ?? null,
-});
-
-export async function fetchPersonas(status?: PersonaStatus) {
-  const url = status ? `${PERSONAS_ENDPOINT}?status=${encodeURIComponent(status)}` : PERSONAS_ENDPOINT;
-  const response = await apiFetch(url, { method: "GET" });
-  if (!response.ok) {
-    throw new Error(`Failed to load personas (${response.status})`);
-  }
+export async function fetchPersonas(): Promise<BackendPersona[]> {
+  const response = await apiFetch(PERSONAS_ENDPOINT, { method: "GET" });
+  if (!response.ok) return [];
   const data = await response.json();
-  const list = Array.isArray(data)
-    ? data
-    : Array.isArray((data as { results?: unknown[] })?.results)
-    ? ((data as { results: unknown[] }).results as BackendPersona[])
-    : [];
-  return list.map(normalizePersona);
+  return Array.isArray(data) ? (data as BackendPersona[]) : [];
 }
 
-export async function fetchPersonaById(personaId: string) {
-  const response = await apiFetch(
-    PERSONA_DETAIL_ENDPOINT(personaId),
-    { method: "GET" }
-  );
-  if (!response.ok) {
-    throw new Error(`Failed to load persona (${response.status})`);
-  }
-  const data = (await response.json()) as BackendPersona;
-  return normalizePersona(data);
+export async function fetchPersonaById(personaId: string): Promise<BackendPersona | null> {
+  const response = await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), {
+    method: "GET",
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as BackendPersona;
 }
 
-const toNumericModelId = (value?: number | string | null) => {
-  if (value === null || value === undefined) return undefined;
-  const num = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(num) ? num : undefined;
-};
+export async function createPersona(payload: PersonaInput): Promise<BackendPersona> {
+  const formData = new FormData();
+  formData.append("name", payload.name);
+  const modelId = payload.model_id ?? (payload as Record<string, unknown>).modelId as string | undefined;
+  if (modelId) formData.append("model_id", String(modelId));
+  if (payload.prompt) formData.append("prompt", payload.prompt);
+  if (payload.image) formData.append("image", payload.image);
 
-export async function createPersona(payload: PersonaInput) {
-  let body: FormData | string;
-  let headers: Record<string, string> | undefined;
-
-  if (payload.image) {
-    // Use FormData when uploading an image
-    const formData = new FormData();
-    formData.append("name", payload.name);
-    formData.append("prompt", payload.prompt);
-    const numericModelId = toNumericModelId(payload.modelId);
-    if (numericModelId !== undefined) {
-      formData.append("modelId", String(numericModelId));
-    }
-    if (payload.status) {
-      formData.append("status", payload.status);
-    }
-    if (payload.temperature !== undefined) {
-      formData.append("temperature", String(payload.temperature));
-    }
-    formData.append("image", payload.image);
-    body = formData;
-    // Don't set Content-Type - browser will set it with boundary for FormData
-  } else {
-    // Use JSON when no image
-    const numericModelId = toNumericModelId(payload.modelId);
-    body = JSON.stringify({
-      name: payload.name,
-      prompt: payload.prompt,
-      modelId: numericModelId !== undefined ? numericModelId : null,
-      status: payload.status,
-      temperature: payload.temperature,
-    });
-    headers = { "Content-Type": "application/json" };
-  }
-
-  const response = await apiFetch(
-    PERSONAS_ENDPOINT,
-    {
-      method: "POST",
-      body,
-      headers,
-    }
-  );
+  const response = await apiFetch(PERSONAS_ENDPOINT, {
+    method: "POST",
+    body: formData,
+  });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || "Failed to create persona");
   }
-  const data = (await response.json()) as BackendPersona;
-  return normalizePersona(data);
+  return (await response.json()) as BackendPersona;
 }
 
 export async function updatePersona(
   personaId: string,
   payload: PersonaUpdateInput
-) {
-  let body: FormData | string;
-  let headers: Record<string, string> | undefined;
+): Promise<BackendPersona> {
+  const formData = new FormData();
+  if (payload.name !== undefined) formData.append("name", payload.name);
+  if (payload.prompt !== undefined) formData.append("prompt", payload.prompt);
+  const updateModelId = payload.model_id ?? (payload as Record<string, unknown>).modelId as string | undefined;
+  if (updateModelId !== undefined && updateModelId !== null)
+    formData.append("model_id", String(updateModelId));
+  if (payload.image) formData.append("image", payload.image);
 
-  if (payload.image) {
-    // Use FormData when uploading a new image
-    const formData = new FormData();
-    if (payload.name !== undefined) {
-      formData.append("name", payload.name);
-    }
-    if (payload.prompt !== undefined) {
-      formData.append("prompt", payload.prompt);
-    }
-    const numericModelId = toNumericModelId(payload.modelId);
-    if (numericModelId !== undefined) {
-      formData.append("modelId", String(numericModelId));
-    }
-    if (payload.status !== undefined) {
-      formData.append("status", payload.status);
-    }
-    if (payload.temperature !== undefined) {
-      formData.append("temperature", String(payload.temperature));
-    }
-    formData.append("image", payload.image);
-    body = formData;
-    // Don't set Content-Type - browser will set it with boundary for FormData
-  } else {
-    // Use JSON when no image upload
-    const jsonPayload: Record<string, unknown> = {};
-    if (payload.name !== undefined) jsonPayload.name = payload.name;
-    if (payload.prompt !== undefined) jsonPayload.prompt = payload.prompt;
-    if (payload.modelId !== undefined) {
-      const numericModelId = toNumericModelId(payload.modelId);
-      jsonPayload.modelId = numericModelId !== undefined ? numericModelId : null;
-    }
-    if (payload.status !== undefined) jsonPayload.status = payload.status;
-    if (payload.temperature !== undefined) jsonPayload.temperature = payload.temperature;
-    if (payload.clearImage) jsonPayload.clearImage = true;
-    body = JSON.stringify(jsonPayload);
-    headers = { "Content-Type": "application/json" };
-  }
-
-  const response = await apiFetch(
-    PERSONA_DETAIL_ENDPOINT(personaId),
-    {
-      method: "PATCH",
-      body,
-      headers,
-    }
-  );
+  const response = await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), {
+    method: "PATCH",
+    body: formData,
+  });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || "Failed to update persona");
   }
-  const data = (await response.json()) as BackendPersona;
-  return normalizePersona(data);
+  return (await response.json()) as BackendPersona;
 }
 
-export async function deletePersona(personaId: string) {
-  const response = await apiFetch(
-    PERSONA_DETAIL_ENDPOINT(personaId),
-    { method: "DELETE" }
-  );
-  if (!response.ok && response.status !== 204) {
-    const text = await response.text();
-    throw new Error(text || "Failed to delete persona");
-  }
-  return true;
+export async function deletePersona(personaId: string): Promise<void> {
+  await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), { method: "DELETE" });
 }
 
-export async function analyzePersona(
-  prompt: string
-) {
-  const response = await apiFetch(
-    PERSONA_ANALYZE_ENDPOINT,
-    {
-      method: "POST",
-      body: JSON.stringify({ prompt }),
-    }
-  );
+export interface PersonaAnalyzeResponse {
+  prompt?: string;
+  summary?: string;
+  tone?: string;
+  dos?: string[];
+  donts?: string[];
+}
+
+/** Enhance/analyze a persona prompt. Returns the improved prompt text. */
+export async function enhancePersonaPrompt(prompt: string): Promise<string> {
+  const body = new URLSearchParams({ prompt });
+  const response = await apiFetch(PERSONA_ENHANCE_ENDPOINT, {
+    method: "POST",
+    body: body.toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || "Failed to analyze persona");
+    throw new Error(text || "Failed to enhance persona prompt");
   }
-  return (await response.json()) as PersonaAnalyzeResponse;
+  const data = await response.json();
+  return typeof data === "string" ? data : (data?.enhanced_prompt ?? "");
 }
 
+/** Analyze a persona prompt, returning structured enhancement data. */
+export async function analyzePersona(prompt: string): Promise<PersonaAnalyzeResponse> {
+  const enhanced = await enhancePersonaPrompt(prompt);
+  return { prompt: enhanced };
+}
+
+// ── Persona test stream ───────────────────────────────────────────────────────
+
 export interface TestPersonaStreamCallbacks {
-  onMetadata?: (data: { modelId: number; modelName: string; provider: string }) => void;
-  onStart?: () => void;
   onChunk?: (delta: string) => void;
-  onEnd?: () => void;
-  onDone?: (data: { response: string; inputTokens: number; outputTokens: number }) => void;
+  onDone?: () => void;
   onError?: (error: string) => void;
 }
 
-/**
- * Test a persona with streaming response.
- * Returns a function to abort the stream.
- */
 export async function testPersona(
-  input: TestPersonaInput,
+  personaId: string,
+  input: string,
   callbacks: TestPersonaStreamCallbacks
 ): Promise<() => void> {
   const controller = new AbortController();
+  const body = new URLSearchParams({ input });
 
-  const response = await apiFetch(
-    PERSONA_TEST_ENDPOINT,
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-      signal: controller.signal,
-    }
-  );
+  const response = await apiFetch(PERSONA_TEST_ENDPOINT(personaId), {
+    method: "POST",
+    body: body.toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    signal: controller.signal,
+  });
 
   if (!response.ok) {
     const text = await response.text();
@@ -297,51 +189,37 @@ export async function testPersona(
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        let currentEventType = "";
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEventType = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              switch (currentEventType) {
-                case "metadata":
-                  callbacks.onMetadata?.(data);
-                  break;
-                case "start":
-                  callbacks.onStart?.();
-                  break;
-                case "chunk":
-                  callbacks.onChunk?.(data.delta);
-                  break;
-                case "end":
-                  callbacks.onEnd?.();
-                  break;
-                case "done":
-                  callbacks.onDone?.(data);
-                  break;
-                case "error":
-                  callbacks.onError?.(data.error);
-                  break;
-              }
-            } catch {
-              // Ignore JSON parse errors for incomplete data
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
+          for (const eventChunk of events) {
+            const lines = eventChunk.split("\n");
+            let eventName = "";
+            let dataStr = "";
+            for (const line of lines) {
+              if (line.startsWith("event:")) eventName = line.slice(6).trim();
+              else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
             }
+            if (!dataStr) continue;
+            let parsed: Record<string, unknown>;
+            try { parsed = JSON.parse(dataStr); } catch { continue; }
+            if (!eventName && parsed.type) {
+              eventName = parsed.type === "content" ? "chunk" : String(parsed.type);
+              if (parsed.type === "content" && !("delta" in parsed))
+                parsed = { ...parsed, delta: parsed.content };
+            }
+            if (eventName === "chunk") callbacks.onChunk?.(typeof parsed.delta === "string" ? parsed.delta : "");
+            if (eventName === "done") { callbacks.onDone?.(); return; }
+            if (eventName === "error") callbacks.onError?.(typeof parsed.error === "string" ? parsed.error : "Stream error");
           }
         }
+        if (done) break;
       }
-
-      // Release the HTTP connection to prevent connection pool exhaustion
-      reader.cancel().catch(() => {});
+      callbacks.onDone?.();
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
-        callbacks.onError?.((error as Error).message || "Stream error");
+        callbacks.onError?.((error as Error).message ?? "Stream error");
       }
     } finally {
       reader.cancel().catch(() => {});
@@ -349,9 +227,167 @@ export async function testPersona(
   };
 
   processStream();
-
   return () => controller.abort();
 }
 
-// Expose test endpoint constant for backwards compatibility
-export const PERSONA_TEST_STREAM_ENDPOINT = PERSONA_TEST_ENDPOINT;
+// ── Persona chats ─────────────────────────────────────────────────────────────
+
+export async function fetchPersonaChats(personaId: string): Promise<PersonaChat[]> {
+  const response = await apiFetch(PERSONA_CHATS_ENDPOINT(personaId), {
+    method: "GET",
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? (data as PersonaChat[]) : [];
+}
+
+export async function createPersonaChat(
+  personaId: string,
+  input: string
+): Promise<{ chatId: string | null; response: Response }> {
+  const formData = new FormData();
+  formData.append("input", input);
+  const response = await apiFetch(PERSONA_CHATS_CREATE_ENDPOINT(personaId), {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Failed to create persona chat");
+  }
+  const chatId = response.headers.get("X-Chat-Id");
+  return { chatId, response };
+}
+
+export async function deletePersonaChat(
+  personaId: string,
+  chatId: string
+): Promise<void> {
+  await apiFetch(PERSONA_CHATS_ENDPOINT(personaId), {
+    method: "DELETE",
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+export async function fetchPersonaChatMessages(
+  personaId: string,
+  chatId: string
+): Promise<PersonaMessage[]> {
+  const response = await apiFetch(
+    PERSONA_CHAT_MESSAGES_ENDPOINT(personaId, chatId),
+    { method: "GET" }
+  );
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? (data as PersonaMessage[]) : [];
+}
+
+export async function streamPersonaMessage(
+  personaId: string,
+  chatId: string,
+  input: string,
+  callbacks: TestPersonaStreamCallbacks
+): Promise<() => void> {
+  const controller = new AbortController();
+  const body = new URLSearchParams({ input });
+
+  const response = await apiFetch(
+    PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId),
+    {
+      method: "POST",
+      body: body.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      signal: controller.signal,
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    callbacks.onError?.(text || "Failed to stream message");
+    return () => controller.abort();
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const processStream = async () => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
+          for (const eventChunk of events) {
+            const lines = eventChunk.split("\n");
+            let eventName = "";
+            let dataStr = "";
+            for (const line of lines) {
+              if (line.startsWith("event:")) eventName = line.slice(6).trim();
+              else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+            }
+            if (!dataStr) continue;
+            let parsed: Record<string, unknown>;
+            try { parsed = JSON.parse(dataStr); } catch { continue; }
+            if (!eventName && parsed.type) {
+              eventName = parsed.type === "content" ? "chunk" : String(parsed.type);
+              if (parsed.type === "content" && !("delta" in parsed))
+                parsed = { ...parsed, delta: parsed.content };
+            }
+            if (eventName === "chunk") callbacks.onChunk?.(typeof parsed.delta === "string" ? parsed.delta : "");
+            if (eventName === "done") { callbacks.onDone?.(); return; }
+            if (eventName === "error") callbacks.onError?.(typeof parsed.error === "string" ? parsed.error : "Stream error");
+          }
+        }
+        if (done) break;
+      }
+      callbacks.onDone?.();
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        callbacks.onError?.((error as Error).message ?? "Stream error");
+      }
+    } finally {
+      reader.cancel().catch(() => {});
+    }
+  };
+
+  processStream();
+  return () => controller.abort();
+}
+
+export async function stopPersonaChat(
+  personaId: string,
+  chatId: string
+): Promise<void> {
+  await apiFetch(PERSONA_CHAT_STOP_ENDPOINT(personaId, chatId), {
+    method: "POST",
+  });
+}
+
+export async function renamePersonaChat(
+  personaId: string,
+  chatId: string,
+  chat_title: string
+): Promise<void> {
+  await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(personaId), {
+    method: "PATCH",
+    body: JSON.stringify({ chat_id: chatId, chat_title }),
+  });
+}
+
+export async function deletePersonaChatMessage(
+  personaId: string,
+  chatId: string,
+  messageId: string
+): Promise<void> {
+  await apiFetch(
+    PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT(personaId, chatId, messageId),
+    { method: "DELETE" }
+  );
+}

@@ -3,12 +3,19 @@ import {
   API_BASE_URL,
   MODELS_ENDPOINT,
   PERSONAS_ENDPOINT,
-  PINS_ENDPOINT as CONFIG_PINS_ENDPOINT,
+  PINS_ENDPOINT,
+  CHATS_ENDPOINT,
+  WORKFLOWS_ENDPOINT,
+  WORKFLOW_DETAIL_ENDPOINT,
+  WORKFLOW_CHATS_ENDPOINT,
+  WORKFLOW_CHATS_CREATE_ENDPOINT,
+  WORKFLOW_CHAT_MESSAGES_ENDPOINT,
+  WORKFLOW_CHAT_STREAM_ENDPOINT,
+  WORKFLOW_CHAT_STOP_ENDPOINT,
+  WORKFLOW_CHATS_RENAME_ENDPOINT,
+  WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "@/lib/api/client";
-
-const WORKFLOWS_ENDPOINT = `${API_BASE_URL}/api/workflows/`;
-const PINS_ENDPOINT = CONFIG_PINS_ENDPOINT;
 
 type FrontendNodeType =
   | "start"
@@ -37,8 +44,8 @@ interface BackendWorkflowNodePayload {
 }
 
 interface BackendWorkflowEdgePayload {
-  source_node_id: string;
-  target_node_id: string;
+  source: string;
+  target: string;
   label?: string;
 }
 
@@ -58,10 +65,9 @@ interface BackendWorkflowListItem {
   is_active: boolean;
   nodes_count: number;
   edges_count: number;
-  runs_count: number;
+  chats_count: number;
   created_at: string;
   updated_at: string;
-  thumbnail?: string;
 }
 
 interface BackendWorkflowNode {
@@ -131,22 +137,22 @@ interface BackendWorkflowRunSummary {
 // =============================================================================
 
 export type StreamEventType =
-  // New event types from updated backend API
+  // Current backend API event types
+  | "workflow_start"
+  | "node_start"
+  | "content"
+  | "node_complete"
+  | "workflow_complete"
+  | "node_failed"
+  | "error"
+  // Legacy / fallback event types
   | "metadata"
   | "start"
   | "node_success"
   | "end"
   | "done"
-  | "node_failed"
-  // Shared event types (present in both old and new API)
-  | "node_start"
   | "chunk"
-  | "error"
-  // Legacy event types (kept for backward compatibility)
-  | "workflow_start"
   | "node_end"
-  | "node_complete"
-  | "workflow_complete"
   | "ask_user";
 
 export interface StreamEventBase {
@@ -157,9 +163,12 @@ export interface StreamEventBase {
 
 export interface WorkflowStartEvent extends StreamEventBase {
   event: "workflow_start";
-  run_id: string;
-  workflow_id: string;
-  input_text: string;
+  workflow_id?: string;
+  workflow_name?: string;
+  node_count?: number;
+  // legacy fields
+  run_id?: string;
+  input_text?: string;
 }
 
 export interface NodeStartEvent extends StreamEventBase {
@@ -195,13 +204,15 @@ export interface NodeCompleteEvent extends StreamEventBase {
   event: "node_complete";
   node_id: string;
   node_type: string;
-  output: string;
+  name?: string;
+  output?: string;
 }
 
 export interface WorkflowCompleteEvent extends StreamEventBase {
   event: "workflow_complete";
-  run_id: string;
   final_output: string;
+  // legacy fields
+  run_id?: string;
   images?: Array<{ url: string; alt?: string }>;
   total_cost?: number;
   total_tokens?: number;
@@ -247,28 +258,36 @@ export interface StreamCallbacks {
   onError?: (event: StreamErrorEvent) => void;
 }
 
-// Chat session returned by GET /api/workflows/<uuid>/chats/
+// Chat session returned by GET /workflow/{id}/chats
 export interface WorkflowChatSession {
-  id: string;
-  title: string;
-  created_at?: string;
-  updated_at?: string;
+  id: string;        // maps from chat_id
+  title: string;     // maps from chat_title
+  message_count?: number;
+}
+
+// Message returned by GET /workflow/{id}/chats/{chat_id}/messages
+export interface WorkflowChatMessage {
+  message_id: string;
+  input: string;
+  output: string;
+  reasoning?: string;
 }
 
 const STREAM_EVENT_TYPES = new Set<StreamEventType>([
+  "workflow_start",
+  "node_start",
+  "content",
+  "node_complete",
+  "workflow_complete",
+  "node_failed",
+  "error",
   "metadata",
   "start",
-  "node_start",
   "chunk",
   "node_success",
   "end",
   "done",
-  "node_failed",
-  "error",
-  "workflow_start",
   "node_end",
-  "node_complete",
-  "workflow_complete",
   "ask_user",
 ]);
 
@@ -380,23 +399,6 @@ const fetchWithTimeout = async (
   }
 };
 
-const workflowDetailEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/`;
-
-const workflowExecuteEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/execute/`;
-
-const workflowExecuteStreamEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/execute/stream/`;
-
-const workflowRunsEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/runs/`;
-
-const workflowChatsEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/chats/`;
-
-const workflowChatEndpoint = (id: string) =>
-  `${WORKFLOWS_ENDPOINT}${encodeURIComponent(id)}/chat/`;
 
 // =============================================================================
 // NODE TYPE MAPPING
@@ -515,8 +517,8 @@ const toBackendWorkflowPayload = (
         backendNodeIds.has(edge.source) && backendNodeIds.has(edge.target)
     )
     .map((edge) => ({
-      source_node_id: edge.source,
-      target_node_id: edge.target,
+      source: edge.source,
+      target: edge.target,
     }));
 
   const payload: BackendWorkflowCreatePayload = {
@@ -550,8 +552,7 @@ const toWorkflowMetadata = (
     updatedAt: workflow.updated_at,
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
-    runsCount: Number(workflow.runs_count || 0),
-    thumbnail: workflow.thumbnail,
+    runsCount: Number(workflow.chats_count || 0),
   };
 };
 
@@ -625,14 +626,23 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     };
   });
 
-  const allEdges: WorkflowDTO["edges"] = workflow.edges.map((edge, index) => ({
-    id:
-      edge.id ||
-      `e-${edge.source_node_id}-${edge.target_node_id}-${String(index + 1)}`,
-    source: edge.source_node_id,
-    target: edge.target_node_id,
-    type: "default",
-  }));
+  // Build a map from node DB UUID → node_id (React Flow node id)
+  const nodeUuidToNodeId = new Map<string, string>(
+    workflow.nodes
+      .filter((n) => n.id && n.node_id)
+      .map((n) => [n.id!, n.node_id])
+  );
+
+  const allEdges: WorkflowDTO["edges"] = workflow.edges.map((edge, index) => {
+    const source = nodeUuidToNodeId.get(edge.source_node_id) ?? edge.source_node_id;
+    const target = nodeUuidToNodeId.get(edge.target_node_id) ?? edge.target_node_id;
+    return {
+      id: edge.id || `e-${source}-${target}-${String(index + 1)}`,
+      source,
+      target,
+      type: "default",
+    };
+  });
 
   return {
     id: workflow.id,
@@ -644,7 +654,6 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     updatedAt: workflow.updated_at,
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
-    thumbnail: workflow.thumbnail,
   };
 };
 
@@ -746,18 +755,26 @@ const processSseStream = async (
       switch (eventType) {
         // ── New API events ───────────────────────────────────────────────────
 
-        case "metadata":
-          // Fires at the start of the stream with workflow/run identifiers
+        // ── workflow_start (current API) ─────────────────────────────────
+        case "workflow_start":
           callbacks.onWorkflowStart?.({
             event: "workflow_start",
-            run_id: String(event.run_id ?? ""),
-            workflow_id: String(event.workflow_id ?? ""),
-            input_text: "",
+            workflow_id: typeof event.workflow_id === "string" ? event.workflow_id : undefined,
+            workflow_name: typeof event.workflow_name === "string" ? event.workflow_name : undefined,
+            node_count: typeof event.node_count === "number" ? event.node_count : undefined,
+          });
+          break;
+
+        // ── Legacy: metadata → onWorkflowStart ──────────────────────────
+        case "metadata":
+          callbacks.onWorkflowStart?.({
+            event: "workflow_start",
+            run_id: typeof event.run_id === "string" ? event.run_id : undefined,
+            workflow_id: typeof event.workflow_id === "string" ? event.workflow_id : undefined,
           });
           break;
 
         case "start":
-          // Execution has begun; metadata already covered this — no-op
           break;
 
         case "node_start": {
@@ -780,36 +797,62 @@ const processSseStream = async (
           break;
         }
 
+        // ── content (current API) / chunk (legacy) ───────────────────────
+        case "content":
         case "chunk": {
-          // Normalize "delta" (new API) → "content" (legacy callback field)
           const adapted: ChunkEvent = {
             event: "chunk",
             node_id: String(event.node_id ?? ""),
             content: String(event.content ?? event.delta ?? ""),
             delta: typeof event.delta === "string" ? event.delta : undefined,
             chunk_index:
-              typeof event.chunk_index === "number"
-                ? event.chunk_index
-                : undefined,
+              typeof event.chunk_index === "number" ? event.chunk_index : undefined,
           };
           callbacks.onChunk?.(adapted);
           break;
         }
 
+        // ── node_complete (current API) ──────────────────────────────────
+        case "node_complete":
+          callbacks.onNodeComplete?.({
+            event: "node_complete",
+            node_id: String(event.node_id ?? ""),
+            node_type: String(event.node_type ?? ""),
+            name: typeof event.name === "string" ? event.name : undefined,
+            output: typeof event.output === "string" ? event.output : undefined,
+          });
+          break;
+
+        // ── workflow_complete (current API) ──────────────────────────────
+        case "workflow_complete":
+          callbacks.onWorkflowComplete?.({
+            event: "workflow_complete",
+            final_output: String(event.final_output ?? event.response ?? ""),
+            run_id: typeof event.run_id === "string" ? event.run_id : undefined,
+            total_cost: typeof event.total_cost === "number" ? event.total_cost : undefined,
+          });
+          break;
+
+        // ── node_failed ──────────────────────────────────────────────────
+        case "node_failed":
+          callbacks.onError?.({
+            event: "error",
+            node_id: typeof event.node_id === "string" ? event.node_id : undefined,
+            error: String(event.error ?? "Node execution failed"),
+          });
+          break;
+
+        // ── Legacy: node_success → onNodeEnd + onNodeComplete ────────────
         case "node_success": {
-          // Maps to both onNodeEnd (for LLM cost/token data) and onNodeComplete
           const nodeId = String(event.node_id ?? "");
           const tokensIn = typeof event.tokens_input === "number" ? event.tokens_input : 0;
           const tokensOut = typeof event.tokens_output === "number" ? event.tokens_output : 0;
-          const cost =
-            typeof event.cost === "number" ? event.cost : undefined;
-
           callbacks.onNodeEnd?.({
             event: "node_end",
             node_id: nodeId,
             output: String(event.output ?? ""),
             tokens_used: tokensIn + tokensOut,
-            cost,
+            cost: typeof event.cost === "number" ? event.cost : undefined,
           });
           callbacks.onNodeComplete?.({
             event: "node_complete",
@@ -820,8 +863,8 @@ const processSseStream = async (
           break;
         }
 
+        // ── Legacy: done → onWorkflowComplete ───────────────────────────
         case "done": {
-          // Final event with the aggregated response
           const tokensIn = typeof event.tokens_input === "number" ? event.tokens_input : 0;
           const tokensOut = typeof event.tokens_output === "number" ? event.tokens_output : 0;
           const doneImages = Array.isArray(event.images)
@@ -830,43 +873,19 @@ const processSseStream = async (
           callbacks.onWorkflowComplete?.({
             event: "workflow_complete",
             run_id: String(event.run_id ?? ""),
-            final_output: String(event.response ?? ""),
+            final_output: String(event.response ?? event.final_output ?? ""),
             ...(doneImages?.length ? { images: doneImages } : {}),
-            total_cost:
-              typeof event.total_cost === "number" ? event.total_cost : undefined,
+            total_cost: typeof event.total_cost === "number" ? event.total_cost : undefined,
             total_tokens: tokensIn + tokensOut,
           });
           break;
         }
 
-        case "node_failed":
-          callbacks.onError?.({
-            event: "error",
-            node_id: typeof event.node_id === "string" ? event.node_id : undefined,
-            error: String(event.error ?? "Node execution failed"),
-          });
-          break;
-
-        case "end":
-          // Signals end of stream before the done event — no action needed
-          break;
-
-        // ── Legacy API events (backward compatibility) ────────────────────
-
-        case "workflow_start":
-          callbacks.onWorkflowStart?.(event as unknown as WorkflowStartEvent);
-          break;
-
         case "node_end":
           callbacks.onNodeEnd?.(event as unknown as NodeEndEvent);
           break;
 
-        case "node_complete":
-          callbacks.onNodeComplete?.(event as unknown as NodeCompleteEvent);
-          break;
-
-        case "workflow_complete":
-          callbacks.onWorkflowComplete?.(event as unknown as WorkflowCompleteEvent);
+        case "end":
           break;
 
         case "ask_user":
@@ -878,8 +897,7 @@ const processSseStream = async (
             event: "error",
             node_id: typeof event.node_id === "string" ? event.node_id : undefined,
             error: String(event.error ?? "Unknown error"),
-            error_code:
-              typeof event.error_code === "string" ? event.error_code : undefined,
+            error_code: typeof event.error_code === "string" ? event.error_code : undefined,
           });
           break;
       }
@@ -930,7 +948,7 @@ export const workflowAPI = {
   },
 
   get: async (id: string): Promise<WorkflowDTO> => {
-    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
       method: "GET",
     });
     const data = await handleResponse<BackendWorkflowDetail>(response);
@@ -1004,7 +1022,7 @@ export const workflowAPI = {
 
     if (id && isUuid(id)) {
       const payload = toBackendWorkflowPayload(workflow);
-      const putResponse = await fetchWithTimeout(workflowDetailEndpoint(id), {
+      const putResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1075,7 +1093,7 @@ export const workflowAPI = {
       const formData = new FormData();
       formData.append("thumbnail", file);
       const response = await fetchWithTimeout(
-        `${WORKFLOWS_ENDPOINT}${encodeURIComponent(workflowId)}/thumbnail/`,
+        `${WORKFLOW_DETAIL_ENDPOINT(workflowId)}/thumbnail`,
         { method: "PATCH", body: formData },
         DEFAULT_TIMEOUT
       );
@@ -1088,7 +1106,7 @@ export const workflowAPI = {
   },
 
   delete: async (id: string): Promise<void> => {
-    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
       method: "DELETE",
     });
 
@@ -1106,7 +1124,7 @@ export const workflowAPI = {
   activate: async (id: string): Promise<void> => {
     const workflow = await workflowAPI.get(id);
     const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
-    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1117,7 +1135,7 @@ export const workflowAPI = {
   deactivate: async (id: string): Promise<void> => {
     const workflow = await workflowAPI.get(id);
     const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
-    const response = await fetchWithTimeout(workflowDetailEndpoint(id), {
+    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1128,36 +1146,35 @@ export const workflowAPI = {
   execute: async (
     id: string,
     options?: {
+      input?: string;
       inputText?: string;
       input_text?: string;
-      webSearch?: boolean;
+      modelId?: string;
+      model_id?: string;
     }
   ): Promise<ExecutionResult> => {
     const inputText = (
+      options?.input ||
       options?.input_text ||
       options?.inputText ||
       ""
     ).trim();
+    const modelId = options?.model_id || options?.modelId || "";
 
     if (!inputText) {
       throw new WorkflowAPIError(
-        "input_text is required to execute a workflow.",
+        "input is required to execute a workflow.",
         400,
         "INVALID_INPUT"
       );
     }
 
-    const payload: Record<string, unknown> = { input_text: inputText };
-    if (options?.webSearch) {
-      payload.webSearch = true;
-    }
-
     const response = await fetchWithTimeout(
-      workflowExecuteEndpoint(id),
+      `${WORKFLOW_DETAIL_ENDPOINT(id)}/execute`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ input: inputText, model_id: modelId }),
       },
       60000
     );
@@ -1179,7 +1196,7 @@ export const workflowAPI = {
 
     if (!trimmedInput) {
       throw new WorkflowAPIError(
-        "input_text is required to execute a workflow.",
+        "input is required to execute a workflow.",
         400,
         "INVALID_INPUT"
       );
@@ -1189,13 +1206,13 @@ export const workflowAPI = {
 
     (async () => {
       try {
-        const response = await apiFetch(workflowExecuteStreamEndpoint(id), {
+        const response = await apiFetch(`${WORKFLOW_DETAIL_ENDPOINT(id)}/execute/stream`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
           },
-          body: JSON.stringify({ input_text: trimmedInput }),
+          body: JSON.stringify({ input: trimmedInput }),
           signal: controller.signal,
         });
 
@@ -1228,7 +1245,7 @@ export const workflowAPI = {
   getExecutions: async (
     id: string
   ): Promise<{ executions: ExecutionResult[]; total: number }> => {
-    const response = await fetchWithTimeout(workflowRunsEndpoint(id), {
+    const response = await fetchWithTimeout(`${WORKFLOW_DETAIL_ENDPOINT(id)}/runs`, {
       method: "GET",
     });
     const data = await handleResponse<BackendWorkflowRunSummary[]>(response);
@@ -1247,53 +1264,106 @@ export const workflowAPI = {
   // ===========================================================================
 
   /**
-   * List all chatboard sessions for a workflow.
-   * GET /api/workflows/<uuid>/chats/
+   * List all chat sessions for a workflow.
+   * GET /workflow/{id}/chats
    */
   listChats: async (workflowId: string): Promise<WorkflowChatSession[]> => {
-    const response = await fetchWithTimeout(workflowChatsEndpoint(workflowId), {
+    const response = await fetchWithTimeout(WORKFLOW_CHATS_ENDPOINT(workflowId), {
       method: "GET",
     });
     const data = await handleResponse<unknown[]>(response);
     if (!Array.isArray(data)) return [];
     return data.map((item: any) => ({
-      id: String(item.id || item.chat_id || ""),
-      title: String(item.title || item.chat_title || item.name || "Untitled"),
-      created_at: item.created_at,
-      updated_at: item.updated_at,
+      id: String(item.chat_id || ""),
+      title: String(item.chat_title || "Untitled"),
+      message_count: typeof item.message_count === "number" ? item.message_count : undefined,
     })).filter((s) => Boolean(s.id));
   },
 
   /**
-   * Start a new chatboard conversation.
-   * POST /api/workflows/<uuid>/chats/ — returns an SSE stream.
-   * The chat_id and chat_title are included in the "metadata" and "done" events.
+   * Start a new chat conversation for a workflow.
+   * POST /workflow/{id}/chats/create — returns an SSE stream.
+   * The chat_id is included in the X-Chat-Id response header.
    */
   chatNew: async (
     workflowId: string,
-    message: string,
-    callbacks: StreamCallbacks
+    input: string,
+    modelId: string,
+    callbacks: StreamCallbacks & { onChatCreated?: (chatId: string) => void }
   ): Promise<{ abort: () => void }> => {
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
-      throw new WorkflowAPIError(
-        "message is required.",
-        400,
-        "INVALID_INPUT"
-      );
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+      throw new WorkflowAPIError("input is required.", 400, "INVALID_INPUT");
     }
 
     const controller = new AbortController();
 
     (async () => {
       try {
-        const response = await apiFetch(workflowChatsEndpoint(workflowId), {
+        const response = await apiFetch(WORKFLOW_CHATS_CREATE_ENDPOINT(workflowId), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
           },
-          body: JSON.stringify({ message: trimmedMessage }),
+          body: JSON.stringify({ input: trimmedInput, model_id: modelId }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          callbacks.onError?.({
+            event: "error",
+            error: errorText || `HTTP ${response.status}`,
+            error_code: `HTTP_${response.status}`,
+          });
+          return;
+        }
+
+        const chatId = response.headers.get("X-Chat-Id") || "";
+        if (chatId) callbacks.onChatCreated?.(chatId);
+
+        await processSseStream(response, callbacks, controller.signal);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        callbacks.onError?.({
+          event: "error",
+          error: error instanceof Error ? error.message : "Stream failed",
+          error_code: "STREAM_ERROR",
+        });
+      }
+    })();
+
+    return { abort: () => controller.abort() };
+  },
+
+  /**
+   * Continue an existing chat conversation.
+   * POST /workflow/{id}/chats/{chat_id}/stream — returns an SSE stream.
+   */
+  chatContinue: async (
+    workflowId: string,
+    chatId: string,
+    input: string,
+    modelId: string,
+    callbacks: StreamCallbacks
+  ): Promise<{ abort: () => void }> => {
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+      throw new WorkflowAPIError("input is required.", 400, "INVALID_INPUT");
+    }
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const response = await apiFetch(WORKFLOW_CHAT_STREAM_ENDPOINT(workflowId, chatId), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+          },
+          body: JSON.stringify({ input: trimmedInput, model_id: modelId }),
           signal: controller.signal,
         });
 
@@ -1322,60 +1392,83 @@ export const workflowAPI = {
   },
 
   /**
-   * Continue an existing chatboard conversation.
-   * POST /api/workflows/<uuid>/chat/ — returns an SSE stream.
+   * Get all messages for a workflow chat.
+   * GET /workflow/{id}/chats/{chat_id}/messages
    */
-  chatContinue: async (
+  getChatMessages: async (
+    workflowId: string,
+    chatId: string
+  ): Promise<WorkflowChatMessage[]> => {
+    const response = await fetchWithTimeout(
+      WORKFLOW_CHAT_MESSAGES_ENDPOINT(workflowId, chatId),
+      { method: "GET" }
+    );
+    const data = await handleResponse<WorkflowChatMessage[]>(response);
+    return Array.isArray(data) ? data : [];
+  },
+
+  /**
+   * Stop an in-progress workflow chat generation.
+   * POST /workflow/{id}/chats/{chat_id}/stop
+   */
+  stopChat: async (workflowId: string, chatId: string): Promise<void> => {
+    const response = await fetchWithTimeout(
+      WORKFLOW_CHAT_STOP_ENDPOINT(workflowId, chatId),
+      { method: "POST", headers: { "Content-Type": "application/json" } }
+    );
+    await handleResponse(response);
+  },
+
+  /**
+   * Rename a workflow chat.
+   * PATCH /workflow/{id}/chats/rename
+   */
+  renameChat: async (
     workflowId: string,
     chatId: string,
-    message: string,
-    callbacks: StreamCallbacks
-  ): Promise<{ abort: () => void }> => {
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
-      throw new WorkflowAPIError(
-        "message is required.",
-        400,
-        "INVALID_INPUT"
-      );
-    }
-
-    const controller = new AbortController();
-
-    (async () => {
-      try {
-        const response = await apiFetch(workflowChatEndpoint(workflowId), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          },
-          body: JSON.stringify({ message: trimmedMessage, chatId }),
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          callbacks.onError?.({
-            event: "error",
-            error: errorText || `HTTP ${response.status}`,
-            error_code: `HTTP_${response.status}`,
-          });
-          return;
-        }
-
-        await processSseStream(response, callbacks, controller.signal);
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return;
-        callbacks.onError?.({
-          event: "error",
-          error: error instanceof Error ? error.message : "Stream failed",
-          error_code: "STREAM_ERROR",
-        });
+    chatTitle: string
+  ): Promise<void> => {
+    const response = await fetchWithTimeout(
+      WORKFLOW_CHATS_RENAME_ENDPOINT(workflowId),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, chat_title: chatTitle }),
       }
-    })();
+    );
+    await handleResponse(response);
+  },
 
-    return { abort: () => controller.abort() };
+  /**
+   * Delete a workflow chat.
+   * DELETE /workflow/{id}/chats
+   */
+  deleteChat: async (workflowId: string, chatId: string): Promise<void> => {
+    const response = await fetchWithTimeout(
+      WORKFLOW_CHATS_ENDPOINT(workflowId),
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId }),
+      }
+    );
+    await handleResponse(response);
+  },
+
+  /**
+   * Delete a message from a workflow chat.
+   * DELETE /workflow/{id}/chats/{chat_id}/message/{message_id}
+   */
+  deleteChatMessage: async (
+    workflowId: string,
+    chatId: string,
+    messageId: string
+  ): Promise<void> => {
+    const response = await fetchWithTimeout(
+      WORKFLOW_CHAT_DELETE_MESSAGE_ENDPOINT(workflowId, chatId, messageId),
+      { method: "DELETE" }
+    );
+    await handleResponse(response);
   },
 
   // ===========================================================================
@@ -1412,24 +1505,17 @@ export const workflowAPI = {
     Array<{ id: string; name: string; pinnedDate?: string }>
   > => {
     try {
-      const response = await apiFetch("/chats/", { method: "GET" });
+      const response = await fetchWithTimeout(CHATS_ENDPOINT, { method: "GET" });
       if (!response.ok) return [];
 
       const rawData = await response.json();
-      const chatList = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.results)
-        ? rawData.results
-        : Array.isArray(rawData?.chats)
-        ? rawData.chats
-        : [];
+      const chatList = Array.isArray(rawData) ? rawData : [];
 
       return chatList
         .map((chat: Record<string, unknown>) => ({
-          id: String(chat.id || chat.chatId || ""),
-          name: chat.name || chat.title || `Chat ${chat.id || ""}`,
-          pinnedDate:
-            chat.pinnedDate || chat.createdAt || chat.updated_at || undefined,
+          id: String(chat.id || ""),
+          name: String(chat.chat_title || chat.id || "Untitled Chat"),
+          pinnedDate: typeof chat.updated_at === "string" ? chat.updated_at : undefined,
         }))
         .filter((chat: { id: string }) => Boolean(chat.id));
     } catch {
@@ -1458,45 +1544,26 @@ export const workflowAPI = {
       if (!response.ok) return [];
 
       const rawData = await response.json();
-      const modelList = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.results)
-        ? rawData.results
-        : Array.isArray(rawData?.models)
-        ? rawData.models
-        : [];
+      const modelList = Array.isArray(rawData) ? rawData : [];
 
       return modelList
         .map((model: Record<string, unknown>) => {
-          const id = String(model.id || model.modelId || "");
-          const modelTypeRaw = String(
-            model.modelType || model.model_plan_type || model.planType || ""
-          ).toLowerCase();
+          const id = String(model.model_id || "");
+          const modelTypeRaw = String(model.model_plan_type || "").toLowerCase();
 
           return {
             id,
-            modelId: String(model.modelId || model.id || ""),
-            name: model.modelName || model.name || "Unknown Model",
-            companyName:
-              model.companyName || model.providerName || model.provider || "Unknown",
-            description: model.description || "",
-            logo: model.logo || "",
-            modelType: modelTypeRaw.includes("free") ? "free" : "paid",
-            sdkLibrary: model.sdkLibrary || "",
-            inputModalities: model.inputModalities || [],
-            outputModalities: model.outputModalities || [],
-            inputLimit:
-              typeof model.inputLimit === "number"
-                ? model.inputLimit
-                : typeof model.input_token_limit === "number"
-                ? model.input_token_limit
-                : 0,
-            outputLimit:
-              typeof model.outputLimit === "number"
-                ? model.outputLimit
-                : typeof model.output_token_limit === "number"
-                ? model.output_token_limit
-                : 0,
+            modelId: id,
+            name: String(model.model_name || "Unknown Model"),
+            companyName: String(model.model_provider || "Unknown"),
+            description: String(model.model_description || ""),
+            logo: "",
+            modelType: (modelTypeRaw.includes("free") ? "free" : "paid") as "free" | "paid",
+            sdkLibrary: "",
+            inputModalities: Array.isArray(model.model_inputs) ? model.model_inputs : [],
+            outputModalities: Array.isArray(model.model_outputs) ? model.model_outputs : [],
+            inputLimit: typeof model.model_context_window === "number" ? model.model_context_window : 0,
+            outputLimit: typeof model.model_output_size === "number" ? model.model_output_size : 0,
           };
         })
         .filter((model: { id: string }) => Boolean(model.id));
@@ -1535,15 +1602,19 @@ export const workflowAPI = {
             typeof persona.prompt === "string" ? persona.prompt : "";
           const description = prompt.slice(0, 140);
           const modelId =
-            persona.modelId !== undefined && persona.modelId !== null
+            persona.model_id !== undefined && persona.model_id !== null
+              ? String(persona.model_id)
+              : persona.modelId !== undefined && persona.modelId !== null
               ? String(persona.modelId)
               : undefined;
           const rawImageUrl =
-            typeof persona.imageUrl === "string"
-              ? persona.imageUrl
-              : typeof persona.image === "string"
-                ? persona.image
-                : "";
+            typeof persona.image_url === "string"
+              ? persona.image_url
+              : typeof persona.imageUrl === "string"
+                ? persona.imageUrl
+                : typeof persona.image === "string"
+                  ? persona.image
+                  : "";
           const image = rawImageUrl
             ? rawImageUrl.startsWith("http") ||
               rawImageUrl.startsWith("data:") ||

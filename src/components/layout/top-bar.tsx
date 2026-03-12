@@ -42,7 +42,7 @@ export function Topbar({
   pins = [],
 }: TopbarProps) {
   const { usagePercent, isLoading } = useTokenUsage();
-  const { user } = useAuth();
+  const { user, isHydrated } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const showUpgradePlan = !isLoading && usagePercent >= 80;
@@ -168,7 +168,7 @@ export function Topbar({
               <span>Share</span>
             </Button>
           )}
-          {isHomePage && !user && (
+          {isHomePage && isHydrated && !user && (
             <Link href="/auth/login">
               <Button
                 className="cursor-pointer w-[122px] h-[38px] font-inter font-normal text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"

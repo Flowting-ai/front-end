@@ -25,9 +25,15 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await fetchCurrentUser();
         if (isMounted && profile) {
-          setUsagePercent(Math.min(100, Math.round(profile.budgetConsumedPercent ?? 0)));
+          setUsagePercent(0);
           if (user === null || Object.keys(user).length === 0) {
-            setUser(profile as unknown as Parameters<typeof setUser>[0]);
+            setUser({
+              email: profile.email,
+              firstName: profile.first_name,
+              lastName: profile.last_name,
+              name: `${profile.first_name} ${profile.last_name}`.trim(),
+              phoneNumber: profile.phone_number ?? null,
+            });
           }
         }
       } catch (error) {

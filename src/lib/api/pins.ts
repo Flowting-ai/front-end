@@ -1,212 +1,136 @@
 "use client";
 
 import {
-  CHAT_PINS_ENDPOINT,
-  PIN_DETAIL_ENDPOINT,
-  PIN_FOLDERS_ENDPOINT,
-  PIN_FOLDER_DETAIL_ENDPOINT,
   PINS_ENDPOINT,
+  PIN_DETAIL_ENDPOINT,
+  CREATE_PIN_ENDPOINT,
+  PIN_FOLDERS_ENDPOINT,
+  PIN_FOLDERS_CREATE_ENDPOINT,
+  PIN_MOVE_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "./client";
 
+export interface TagResponse {
+  id: string;
+  tag_name: string;
+}
+
+export interface CommentResponse {
+  id: string;
+  comment_text: string;
+  created_at: string;
+}
+
 export interface BackendPin {
   id: string;
-  chat?: string;
-  sourceChatId?: string | null;
-  sourceMessageId?: string | null;
-  folderId?: string | null;
-  folder_id?: string | null;
-  folderName?: string | null;
-  title?: string | null;
-  content?: string | null;
-  formattedContent?: string | null;
-  tags?: string[];
-  comments?: string[];
-  model_name?: string;
-  created_at?: string;
-}
-
-export async function fetchPins(
-  chatId: string
-): Promise<BackendPin[]> {
-  const response = await apiFetch(
-    CHAT_PINS_ENDPOINT(chatId),
-    { method: "GET" }
-  );
-  if (!response.ok) {
-    throw new Error(`Failed to load pins for chat ${chatId}`);
-  }
-  const data = await response.json();
-  if (Array.isArray(data)) {
-    return data as BackendPin[];
-  }
-  return [];
-}
-
-export async function createPin(
-  chatId: string,
-  messageId: string,
-  options?: { folderId?: string | null; tags?: string[]; comments?: string[]; content?: string }
-): Promise<BackendPin> {
-  const payload: Record<string, unknown> = {
-    messageId,
-  };
-  if (options?.folderId !== undefined) {
-    payload.folderId = options.folderId;
-  }
-  if (options?.tags) {
-    payload.tags = options.tags;
-  }
-  if (options?.comments) {
-    payload.comments = options.comments;
-  }
-  // Pass content explicitly to ensure full message is saved
-  if (options?.content !== undefined) {
-    payload.content = options.content;
-  }
-
-  const response = await apiFetch(
-    CHAT_PINS_ENDPOINT(chatId),
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Failed to create pin");
-  }
-
-  return (await response.json()) as BackendPin;
-}
-
-export async function deletePin(
-  pinId: string
-): Promise<void> {
-  const response = await apiFetch(
-    PIN_DETAIL_ENDPOINT(pinId),
-    { method: "DELETE" }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to delete pin");
-  }
-}
-
-export async function updatePinComments(
-  pinId: string,
-  comments: string[]
-): Promise<BackendPin> {
-  const response = await apiFetch(
-    PIN_DETAIL_ENDPOINT(pinId),
-    {
-      method: "PATCH",
-      body: JSON.stringify({ comments }),
-    }
-  );
-
-  if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(msg || "Failed to update pin comments");
-  }
-
-  return (await response.json()) as BackendPin;
-}
-
-export async function fetchAllPins(): Promise<BackendPin[]> {
-  const response = await apiFetch(PINS_ENDPOINT, { method: "GET" });
-  if (!response.ok) {
-    throw new Error("Failed to load pins");
-  }
-  const data = await response.json();
-  if (Array.isArray(data)) {
-    return data as BackendPin[];
-  }
-  return [];
+  pins_title: string;
+  message_id: string;
+  folder_id: string;
+  content: string;
+  tags?: TagResponse[];
+  comments?: CommentResponse[];
+  created_at: string;
 }
 
 export interface PinFolder {
   id: string;
-  name: string;
-  isDefault?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  folder_name: string;
+  name: string; // alias for folder_name — for UI compatibility
+  pin_count?: number;
+  created_at: string;
 }
+
+export async function fetchAllPins(): Promise<BackendPin[]> {
+  const response = await apiFetch(PINS_ENDPOINT, { method: "GET" });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? (data as BackendPin[]) : [];
+}
+
+export async function fetchPinById(pinId: string): Promise<BackendPin | null> {
+  const response = await apiFetch(PIN_DETAIL_ENDPOINT(pinId), { method: "GET" });
+  if (!response.ok) return null;
+  return (await response.json()) as BackendPin;
+}
+
+/** Create a pin from a message. Only messageId is used; extra options are ignored by the new backend. */
+export async function createPin(
+  _chatIdOrMessageId: string,
+  messageId?: string,
+  _options?: { folderId?: string | null; tags?: string[]; comments?: string[]; content?: string }
+): Promise<BackendPin> {
+  // New API: POST /pins/message/{message_id}
+  // If called with (messageId) — single arg form
+  // If called with (chatId, messageId, options) — legacy form
+  const id = messageId ?? _chatIdOrMessageId;
+  const response = await apiFetch(CREATE_PIN_ENDPOINT(id), {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Failed to create pin");
+  }
+  return (await response.json()) as BackendPin;
+}
+
+export async function deletePin(pinId: string): Promise<void> {
+  await apiFetch(PIN_DETAIL_ENDPOINT(pinId), { method: "DELETE" });
+}
+
+const normalizeFolder = (f: { id: string; folder_name: string; pin_count?: number; created_at: string }): PinFolder => ({
+  ...f,
+  name: f.folder_name,
+});
 
 export async function fetchPinFolders(): Promise<PinFolder[]> {
   const response = await apiFetch(PIN_FOLDERS_ENDPOINT, { method: "GET" });
-  if (!response.ok) {
-    throw new Error("Failed to load pin folders");
-  }
+  if (!response.ok) return [];
   const data = await response.json();
-  if (!Array.isArray(data)) return [];
-  return data as PinFolder[];
+  return Array.isArray(data) ? data.map(normalizeFolder) : [];
 }
 
-export async function createPinFolder(name: string): Promise<PinFolder> {
-  const response = await apiFetch(
-    PIN_FOLDERS_ENDPOINT,
-    {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    }
-  );
+export async function createPinFolder(folder_name: string): Promise<PinFolder> {
+  const response = await apiFetch(PIN_FOLDERS_CREATE_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ folder_name }),
+  });
   if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(msg || "Failed to create pin folder");
+    const text = await response.text();
+    throw new Error(text || "Failed to create pin folder");
   }
-  return (await response.json()) as PinFolder;
-}
-
-export async function renamePinFolder(
-  folderId: string,
-  name: string
-): Promise<PinFolder> {
-  const response = await apiFetch(
-    PIN_FOLDER_DETAIL_ENDPOINT(folderId),
-    {
-      method: "PATCH",
-      body: JSON.stringify({ name }),
-    }
-  );
-
-  if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(msg || "Failed to rename pin folder");
-  }
-
-  return (await response.json()) as PinFolder;
-}
-
-export async function deletePinFolder(
-  folderId: string
-): Promise<void> {
-  const response = await apiFetch(
-    PIN_FOLDER_DETAIL_ENDPOINT(folderId),
-    { method: "DELETE" }
-  );
-
-  if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(msg || "Failed to delete pin folder");
-  }
+  return normalizeFolder(await response.json());
 }
 
 export async function movePinToFolder(
   pinId: string,
-  folderId: string | null
-): Promise<void> {
-  const response = await apiFetch(
-    PIN_DETAIL_ENDPOINT(pinId),
-    {
-      method: "PATCH",
-      body: JSON.stringify({ folderId }),
-    }
-  );
-
+  folderId: string
+): Promise<BackendPin> {
+  const response = await apiFetch(PIN_MOVE_ENDPOINT(pinId), {
+    method: "PATCH",
+    body: JSON.stringify({ folder_id: folderId }),
+  });
   if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(msg || "Failed to move pin");
+    const text = await response.text();
+    throw new Error(text || "Failed to move pin");
   }
+  return (await response.json()) as BackendPin;
+}
+
+// Not available in current backend — stubs for UI compatibility
+export async function renamePinFolder(
+  _folderId: string,
+  _name: string
+): Promise<PinFolder> {
+  throw new Error("Rename folder is not supported in the current backend.");
+}
+
+export async function deletePinFolder(_folderId: string): Promise<void> {
+  throw new Error("Delete folder is not supported in the current backend.");
+}
+
+export async function updatePinComments(
+  _pinId: string,
+  _comments: string[]
+): Promise<BackendPin> {
+  throw new Error("Pin comments are not supported in the current backend.");
 }

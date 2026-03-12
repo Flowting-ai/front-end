@@ -337,7 +337,9 @@ export function ModelSwitchDialog({
           {/* Flowting AI Framework (quick select) */}
           <div className="w-full">
             <div className="font-inter w-full h-[116px] flex px-0">
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] rounded-[8px] flex transition-all duration-300 h-[116px] items-start border ${
                   frameworkSelected ? "border-[#0A0A0A]" : "border-[#E6E6E6]"
                 }`}
@@ -345,6 +347,13 @@ export function ModelSwitchDialog({
                   setFrameworkSelected((s) => !s);
                   if (!frameworkSelected) {
                     setSelectedModel(null);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setFrameworkSelected((s) => !s);
+                    if (!frameworkSelected) setSelectedModel(null);
                   }
                 }}
                 aria-pressed={frameworkSelected}
@@ -385,10 +394,10 @@ export function ModelSwitchDialog({
                     you work, keeping your context intact and you in control.
                   </p>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
-         
+
           {/* Model Dropdown + Free/Paid checkboxes (compact row) */}
           <div className="flex items-center justify-between gap-3 h-[36px]">
             <div className="flex items-center gap-3">
@@ -439,7 +448,7 @@ export function ModelSwitchDialog({
                       ) : (
                         filteredModels.map((model) => (
                           <DropdownMenuItem
-                            key={`${model.companyName}-${model.modelName}`}
+                            key={String(model.modelId ?? model.id ?? `${model.companyName}-${model.modelName}`)}
                             onClick={() => {
                               setSelectedModel(model);
                               setFrameworkSelected(false);

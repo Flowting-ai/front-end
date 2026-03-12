@@ -20,7 +20,7 @@ import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { AIModel } from "@/types/ai-model";
-import { MODELS_ENDPOINT, MODEL_TEST_ENDPOINT } from "@/lib/config";
+import { MODELS_ENDPOINT } from "@/lib/config";
 import { normalizeModels } from "@/lib/ai-models";
 import { getModelIcon } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
@@ -726,8 +726,11 @@ export default function CompareModelsPage({
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // Model comparison test endpoint is not available in the current backend.
+      throw new Error("Model comparison is not supported in the current backend.");
+      // eslint-disable-next-line no-unreachable
       const response = await apiFetch(
-        MODEL_TEST_ENDPOINT,
+        MODELS_ENDPOINT,
         {
           method: "POST",
           body: JSON.stringify({

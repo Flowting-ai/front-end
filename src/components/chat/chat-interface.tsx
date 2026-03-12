@@ -36,7 +36,6 @@ import {
   stripMarkdown,
 } from "@/lib/markdown-utils";
 import { fetchPersonas as fetchPersonasApi } from "@/lib/api/personas";
-import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   AlertDialog,
@@ -66,17 +65,13 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { useTokenUsage } from "@/context/token-context";
 import {
-  CHAT_COMPLETION_ENDPOINT,
+  API_BASE_URL,
   CHATS_ENDPOINT,
-  CHAT_TURN_ENDPOINT,
-  PERSONA_TEST_ENDPOINT,
-  CHAT_DETAIL_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
   MODELS_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { getModelIcon } from "@/lib/model-icons";
-import { uploadDocument } from "@/lib/api/documents";
 import { normalizeModels } from "@/lib/ai-models";
 import Image from "next/image";
 
@@ -621,9 +616,7 @@ export function ChatInterface({
   const [isChatDeleteDialogOpen, setIsChatDeleteDialogOpen] = useState(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [uploadingDocument, setUploadingDocument] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadSourceUrl, setUploadSourceUrl] = useState("");
   const composerPlaceholder =
     selectedModel || layoutContext?.useFramework
       ? "Let's Play..."
@@ -896,11 +889,11 @@ export function ChatInterface({
       const isExistingChat = Boolean(
         !isPersonaTest && chatId && !chatId.startsWith("temp-"),
       );
-      const endpoint = isPersonaTest
-        ? PERSONA_TEST_ENDPOINT
-        : isExistingChat
-          ? CHAT_TURN_ENDPOINT
-          : CHATS_ENDPOINT;
+      const endpoint = isPersonaTest && personaTestConfig?.personaId
+        ? `${API_BASE_URL}/persona/${personaTestConfig.personaId}/test`
+        : isExistingChat && chatId
+          ? `${API_BASE_URL}/chats/${chatId}/stream`
+          : `${API_BASE_URL}/chats/create`;
 
       const modelId =
         modelForRequest?.modelId ??
@@ -921,126 +914,61 @@ export function ChatInterface({
       const imageFiles =
         files?.filter((f) => f.type.startsWith("image/")) ?? [];
 
-      if (nonImageFiles.length > 0 && !isPersonaTest) {
-        // Use FormData for non-image file uploads
+      if (isPersonaTest) {
+        // Persona test: form-urlencoded with just `input`
+        const params = new URLSearchParams({ input: userMessage });
+        body = params.toString();
+        headers["Content-Type"] = "application/x-www-form-urlencoded";
+      } else if (nonImageFiles.length > 0) {
+        // Use FormData for file uploads
         const formData = new FormData();
-        formData.append("message", userMessage);
+        formData.append("input", userMessage);
         if (modelId !== null && modelId !== undefined) {
-          formData.append("modelId", String(modelId));
-        }
-        formData.append(
-          "useFramework",
-          String(layoutContext?.useFramework ?? false),
-        );
-        if (user) {
-          formData.append(
-            "user",
-            JSON.stringify({
-              id: user.id ?? null,
-              email: user.email ?? null,
-              name: user.name ?? null,
-            }),
-          );
-        }
-        if (isExistingChat && chatId) {
-          formData.append("chatId", chatId);
-        }
-        // Send referencedMessageId — use replyToMessageId as fallback
-        const resolvedRefIdFD = referencedMessageId || replyToMessageId || null;
-        if (resolvedRefIdFD) {
-          formData.append("referencedMessageId", resolvedRefIdFD);
-        }
-        if (regenerateMessageId) {
-          formData.append("regenerateMessageId", regenerateMessageId);
-        }
-        if (userMessageBackendId) {
-          formData.append("userMessageId", userMessageBackendId);
-        }
-        if (pinIds && pinIds.length > 0) {
-          formData.append("pinIds", JSON.stringify(pinIds));
+          formData.append("model_id", String(modelId));
         }
         if (webSearchEnabled) {
-          formData.append("webSearch", "true");
+          formData.append("web_search", "true");
         }
-        // Convert image files to base64 and include in FormData as JSON array
-        if (imageFiles.length > 0) {
-          const imgUrls: string[] = [];
-          for (const file of imageFiles) {
-            const dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-            });
-            imgUrls.push(dataUrl);
-          }
-          formData.append("images", JSON.stringify(imgUrls));
+        if (pinIds && pinIds.length > 0) {
+          formData.append("pin_ids", pinIds.join(","));
         }
-        // Append non-image files
-        nonImageFiles.forEach((file) => {
+        // Send reference_message_id for stream endpoint
+        const resolvedRefIdFD = referencedMessageId || replyToMessageId || null;
+        if (resolvedRefIdFD && isExistingChat) {
+          formData.append("reference_message_id", resolvedRefIdFD);
+        }
+        // Append all files (images + documents)
+        [...imageFiles, ...nonImageFiles].forEach((file) => {
           formData.append("files", file);
         });
         body = formData;
         // Don't set Content-Type header - browser sets it with boundary for FormData
       } else {
-        // Use JSON when no file
-        const payload: Record<string, unknown> = {
-          message: userMessage,
-          modelId,
-          useFramework: layoutContext?.useFramework ?? false,
-          user: user
-            ? {
-                id: user.id ?? null,
-                email: user.email ?? null,
-                name: user.name ?? null,
-              }
-            : null,
-        };
-
-        if (isExistingChat && chatId) {
-          payload.chatId = chatId;
-        }
-        if (isPersonaTest && personaTestConfig?.personaId) {
-          payload.personaId = personaTestConfig.personaId;
-        }
-        if (isPersonaTest && personaTestConfig?.prompt) {
-          payload.prompt = personaTestConfig.prompt;
-        }
-        if (isPersonaTest && personaChatHistory) {
-          payload.chatHistory = personaChatHistory;
-        }
-        // Send referencedMessageId — use replyToMessageId as fallback
-        const resolvedRefId = referencedMessageId || replyToMessageId || null;
-        if (resolvedRefId) {
-          payload.referencedMessageId = resolvedRefId;
-        }
-        if (regenerateMessageId) {
-          payload.regenerateMessageId = regenerateMessageId;
-        }
-        if (userMessageBackendId) {
-          payload.userMessageId = userMessageBackendId;
-        }
-        if (pinIds && pinIds.length > 0) {
-          payload.pinIds = pinIds;
+        // Use FormData (multipart) even without files — required by the API
+        const formData = new FormData();
+        formData.append("input", userMessage);
+        if (modelId !== null && modelId !== undefined) {
+          formData.append("model_id", String(modelId));
         }
         if (webSearchEnabled) {
-          payload.webSearch = true;
+          formData.append("web_search", "true");
         }
-        // Convert image files to base64 data URLs for the images field
+        if (pinIds && pinIds.length > 0) {
+          formData.append("pin_ids", pinIds.join(","));
+        }
+        const resolvedRefId = referencedMessageId || replyToMessageId || null;
+        if (resolvedRefId && isExistingChat) {
+          formData.append("reference_message_id", resolvedRefId);
+        }
+        // Convert image files to File objects and append
         if (imageFiles.length > 0) {
-          const imageDataUrls: string[] = [];
-          for (const file of imageFiles) {
-            const dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-            });
-            imageDataUrls.push(dataUrl);
-          }
-          payload.images = imageDataUrls;
+          imageFiles.forEach((file) => {
+            formData.append("files", file);
+          });
         }
-
-        body = JSON.stringify(payload);
-        headers["Content-Type"] = "application/json";
+        body = formData;
+        // Remove Content-Type so browser sets multipart boundary
+        delete headers["Content-Type"];
       }
 
       // Add auth headers
@@ -1134,6 +1062,17 @@ export function ChatInterface({
           } catch (err) {
             console.warn("Failed to parse SSE data", err, dataStr);
             continue;
+          }
+          // Normalize type-based format (no event name, uses parsed.type instead)
+          if (!eventName && parsed.type) {
+            if (parsed.type === "content") {
+              eventName = "chunk";
+              if (typeof parsed.content === "string" && !("delta" in parsed)) {
+                parsed = { ...parsed, delta: parsed.content };
+              }
+            } else {
+              eventName = parsed.type;
+            }
           }
 
           if (eventName === "metadata") {
@@ -1485,20 +1424,38 @@ export function ChatInterface({
       // Read the stream
       while (true) {
         const { value, done } = await streamReader.read();
-        if (done || streamFinished) break;
         if (value) processChunk(value);
+        if (done || streamFinished) break;
+      }
+
+      // Flush any remaining data left in the buffer (stream may end without trailing \n\n)
+      if (buffer.trim() && !streamFinished) {
+        // Append a double newline so the last event gets parsed by processChunk
+        buffer += "\n\n";
+        processChunk(new Uint8Array(0));
       }
 
       // Release the connection so the browser can reuse the slot
       streamReader.cancel().catch(() => {});
 
-      // If stream ended without a done/error event, treat as interrupted
+      // If stream ended without a done/error event, treat accumulated content as complete
       if (!streamFinished) {
-        updateAiMessage({
-          content: "Generation interrupted. Please retry.",
-          thinkingContent: null,
-          isLoading: false,
-        });
+        if (assistantContent) {
+          const sanitized = extractThinkingContent(assistantContent);
+          const finalReasoning = reasoningContent || sanitized.thinkingText;
+          updateAiMessage({
+            content: sanitized.visibleText || assistantContent,
+            thinkingContent: finalReasoning || null,
+            isThinkingInProgress: false,
+            isLoading: false,
+          });
+        } else {
+          updateAiMessage({
+            content: "Generation interrupted. Please retry.",
+            thinkingContent: null,
+            isLoading: false,
+          });
+        }
         setIsResponding(false);
       }
     } catch (error) {
@@ -2058,45 +2015,47 @@ export function ChatInterface({
     setIsUploadDialogOpen(true);
   };
 
-  const handleUploadDocument = async () => {
-    if (!layoutContext?.activeChatId) {
-      toast.error("Open or start a chat", {
-        description: "Select a chat before uploading a document.",
-      });
-      return;
-    }
+  const handleUploadDocument = () => {
     if (!uploadFile) {
       toast.error("Choose a file", {
         description: "Select a document to upload.",
       });
       return;
     }
-    setUploadingDocument(true);
-    try {
-      const result = await uploadDocument({
-        file: uploadFile,
-        chatId: layoutContext.activeChatId,
-        sourceUrl: uploadSourceUrl || undefined,
+
+    const isPdf =
+      uploadFile.type === "application/pdf" ||
+      uploadFile.name.toLowerCase().endsWith(".pdf");
+    const isImage = uploadFile.type.startsWith("image/");
+
+    if (!isPdf && !isImage) {
+      toast.error(`${uploadFile.name} not supported`, {
+        description: "Please upload PDF or image files only.",
       });
-      toast("Document uploaded", {
-        description:
-          result.message ||
-          `Saved as ${result.documentId ?? "document"}${
-            result.fileLink ? ` (${result.fileLink})` : ""
-          }`,
-      });
-      setIsUploadDialogOpen(false);
-      setUploadFile(null);
-      setUploadSourceUrl("");
-    } catch (error) {
-      console.error("Document upload failed", error);
-      toast.error("Upload failed", {
-        description:
-          error instanceof Error ? error.message : "Unable to upload document.",
-      });
-    } finally {
-      setUploadingDocument(false);
+      return;
     }
+
+    const attachmentId = crypto.randomUUID();
+    const objectUrl = URL.createObjectURL(uploadFile);
+    setAttachments((prev) => [
+      ...prev,
+      {
+        id: attachmentId,
+        type: isPdf ? "pdf" : "image",
+        name: uploadFile.name,
+        url: objectUrl,
+        file: uploadFile,
+        isUploading: false,
+        uploadProgress: 100,
+      },
+    ]);
+
+    toast("File attached", {
+      description: `${uploadFile.name} will be sent with your next message.`,
+    });
+    setIsUploadDialogOpen(false);
+    setUploadFile(null);
+    setUploadSourceUrl("");
   };
 
   const handleClearReference = () => {
@@ -2393,10 +2352,11 @@ export function ChatInterface({
         "Content-Type": "application/json",
       };
 
-      const response = await fetch(CHAT_DETAIL_ENDPOINT(chatId), {
+      const response = await fetch(CHATS_ENDPOINT, {
         method: "DELETE",
         headers: getAuthHeaders(headers),
         credentials: "include",
+        body: JSON.stringify({ chat_id: chatId }),
       });
 
       if (!response.ok) {
@@ -3492,16 +3452,14 @@ export function ChatInterface({
       <Dialog
         open={isUploadDialogOpen}
         onOpenChange={(open) => {
-          if (!open && !uploadingDocument) {
-            setIsUploadDialogOpen(false);
-          }
+          if (!open) setIsUploadDialogOpen(false);
         }}
       >
         <DialogContent className="rounded-[8px]">
           <DialogHeader>
-            <DialogTitle>Upload document</DialogTitle>
+            <DialogTitle>Attach document</DialogTitle>
             <DialogDescription>
-              Attach a file to this chat so the backend can use it for RAG.
+              Select a PDF or image file to attach to your next message.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -3510,7 +3468,7 @@ export function ChatInterface({
               <Input
                 id="chat-upload-file"
                 type="file"
-                accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls"
+                accept=".pdf,image/*"
                 onChange={(event) =>
                   setUploadFile(event.target.files?.item(0) ?? null)
                 }
@@ -3521,34 +3479,21 @@ export function ChatInterface({
                 </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="chat-upload-source">Source URL (optional)</Label>
-              <Input
-                id="chat-upload-source"
-                placeholder="https://example.com/document"
-                value={uploadSourceUrl}
-                onChange={(e) => setUploadSourceUrl(e.target.value)}
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button
               variant="ghost"
               className="rounded-[8px]"
               onClick={() => setIsUploadDialogOpen(false)}
-              disabled={uploadingDocument}
             >
               Cancel
             </Button>
             <Button
               className="rounded-[8px]"
               onClick={handleUploadDocument}
-              disabled={uploadingDocument}
+              disabled={!uploadFile}
             >
-              {uploadingDocument && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {uploadingDocument ? "Uploading..." : "Upload"}
+              Attach
             </Button>
           </DialogFooter>
         </DialogContent>

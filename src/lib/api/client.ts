@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/jwt-utils";
+import { getAuthHeaders, getAuth0AccessToken, getInMemoryAccessToken } from "@/lib/jwt-utils";
 
 type ApiFetchOptions = RequestInit & { skipJson?: boolean };
 
@@ -21,7 +21,6 @@ async function doFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  // TODO: Once Auth0 is wired, getAuthHeaders() will inject { Authorization: "Bearer <token>" }
   const authHeaders = getAuthHeaders();
   for (const [key, value] of Object.entries(authHeaders)) {
     headers.set(key, value);
@@ -34,6 +33,12 @@ export async function apiFetch(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<Response> {
+  // On page refresh the in-memory token is gone — fetch a fresh one before
+  // making any API call so we don't fire a 401 on the first request.
+  if (!getInMemoryAccessToken()) {
+    await getAuth0AccessToken();
+  }
+
   const response = await doFetch(path, options);
 
   if (response.status === 401 && typeof window !== "undefined") {

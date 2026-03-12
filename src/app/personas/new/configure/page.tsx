@@ -74,7 +74,6 @@ import {
   createPersona,
   updatePersona,
   fetchPersonaById,
-  PERSONA_TEST_STREAM_ENDPOINT,
 } from "@/lib/api/personas";
 import { useAuth } from "@/context/auth-context";
 import { API_BASE_URL } from "@/lib/config";
@@ -844,9 +843,16 @@ function PersonaConfigurePageContent() {
       // Try to parse JSON error response
       try {
         const parsed = JSON.parse(errorMessage);
-        if (parsed.name || parsed.detail || parsed.message) {
-          errorMessage =
-            parsed.name?.[0] || parsed.detail || parsed.message || errorMessage;
+        // FastAPI returns detail as an array of validation error objects
+        const detail = parsed.detail;
+        if (Array.isArray(detail) && detail.length > 0) {
+          errorMessage = detail.map((d: Record<string, unknown>) => d.msg ?? d.message ?? String(d)).join(", ");
+        } else if (typeof detail === "string") {
+          errorMessage = detail;
+        } else if (parsed.message) {
+          errorMessage = String(parsed.message);
+        } else if (Array.isArray(parsed.name) && parsed.name.length > 0) {
+          errorMessage = String(parsed.name[0]);
         }
       } catch {
         // Not JSON, use as-is
