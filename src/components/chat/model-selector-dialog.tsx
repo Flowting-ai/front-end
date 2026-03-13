@@ -240,9 +240,17 @@ export function ModelSelectorDialog({
 
         {/* Flowting AI Framework */}
         <div className="font-inter w-full h-[116px] flex px-3 my-3">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] border ${frameworkSelected ? "border-[#0A0A0A]" : "border-main-border"} hover:border-[#0A0A0A] rounded-[8px] flex transition-all duration-300`}
             onClick={() => setFrameworkSelected((s) => !s)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setFrameworkSelected((s) => !s);
+              }
+            }}
             aria-pressed={frameworkSelected}
           >
             <div className="p-3">
@@ -281,7 +289,7 @@ export function ModelSelectorDialog({
                 keeping your context intact and you in control.
               </p>
             </div>
-          </button>
+          </div>
         </div>
 
         {/* Search Bar and Filters Row */}

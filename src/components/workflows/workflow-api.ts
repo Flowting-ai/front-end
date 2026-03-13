@@ -27,7 +27,7 @@ type FrontendNodeType =
   | "model"
   | "phantom";
 
-type BackendNodeType = "start" | "end" | "model" | "persona" | "chat" | "pin_folder" | "pin";
+type BackendNodeType = "start" | "end" | "document" | "model" | "persona" | "chat" | "pin_folder" | "pin";
 
 // =============================================================================
 // BACKEND API TYPES (Request / Response shapes)
@@ -38,6 +38,7 @@ interface BackendWorkflowNodePayload {
   name: string;
   node_type: BackendNodeType;
   reference_id?: string;
+  documents?: string[];
   instructions: string;
   position_x: number;
   position_y: number;
@@ -76,6 +77,7 @@ interface BackendWorkflowNode {
   name: string;
   node_type: BackendNodeType;
   reference_id: string;
+  documents?: string[];
   instructions: string;
   position_x: number;
   position_y: number;
@@ -405,12 +407,13 @@ const fetchWithTimeout = async (
 // =============================================================================
 
 /** Node types that have no backend equivalent — excluded from the payload */
-const UNSUPPORTED_FRONTEND_TYPES = new Set<string>(["document", "phantom"]);
+const UNSUPPORTED_FRONTEND_TYPES = new Set<string>(["phantom"]);
 
 const toBackendNodeType = (frontendType: string): BackendNodeType | null => {
   switch (frontendType) {
     case "start":   return "start";
     case "end":     return "end";
+    case "document": return "document";
     case "model":   return "model";
     case "persona": return "persona";
     case "chat":    return "chat";
@@ -423,6 +426,7 @@ const fromBackendNodeType = (backendType: string): FrontendNodeType => {
   switch (backendType) {
     case "start":      return "start";
     case "end":        return "end";
+    case "document":   return "document";
     case "model":      return "model";
     case "persona":    return "persona";
     case "chat":       return "chat";
@@ -436,6 +440,13 @@ const fromBackendNodeType = (backendType: string): FrontendNodeType => {
 const getNodeReferenceId = (node: WorkflowDTO["nodes"][0]): string => {
   const type = (node.data?.type ?? "") as FrontendNodeType;
   switch (type) {
+    case "document": {
+      const files = Array.isArray(node.data?.files) ? node.data?.files : [];
+      const firstId = files?.find((file) => Boolean((file as any).fileId)) as
+        | { fileId?: string }
+        | undefined;
+      return firstId?.fileId ? String(firstId.fileId) : "";
+    }
     case "chat":
       return asString(node.data?.selectedChats) || "";
     case "pin":
@@ -505,6 +516,14 @@ const toBackendWorkflowPayload = (
 
     // Only include reference_id when non-empty (start/end nodes must not have it)
     if (refId) nodePayload.reference_id = refId;
+    if (frontendType === "document") {
+      const fileIds = Array.isArray(node.data?.files)
+        ? node.data?.files
+            .map((file) => (file as { fileId?: string }).fileId)
+            .filter((id): id is string => Boolean(id))
+        : [];
+      if (fileIds.length > 0) nodePayload.documents = fileIds;
+    }
 
     backendNodes.push(nodePayload);
   }
@@ -556,6 +575,77 @@ const toWorkflowMetadata = (
   };
 };
 
+const ensureDocumentFilesUploaded = async (
+  workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt"> | WorkflowDTO,
+  uploadFn: (file: File) => Promise<{ fileId: string; url: string }>
+): Promise<typeof workflow> => {
+  if (!Array.isArray(workflow.nodes) || workflow.nodes.length === 0) {
+    return workflow;
+  }
+
+  let changed = false;
+
+  const nodes = await Promise.all(
+    workflow.nodes.map(async (node) => {
+      const nodeType = (node.data?.type ?? "") as FrontendNodeType;
+      if (nodeType !== "document") return node;
+
+      const files = Array.isArray(node.data?.files) ? node.data?.files : [];
+      if (files.length === 0) return node;
+
+      let filesChanged = false;
+
+      const nextFiles = await Promise.all(
+        files.map(async (file) => {
+          const typedFile = file as {
+            fileId?: string;
+            file?: File;
+            url?: string;
+            isUploading?: boolean;
+            uploadProgress?: number;
+          };
+
+          if (typedFile.fileId || !typedFile.file) return file;
+
+          try {
+            const result = await uploadFn(typedFile.file);
+            filesChanged = true;
+            return {
+              ...file,
+              fileId: result.fileId,
+              url: result.url || typedFile.url,
+              isUploading: false,
+              uploadProgress: 100,
+            };
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Unable to upload file.";
+            throw new WorkflowAPIError(message, 400, "DOCUMENT_UPLOAD_FAILED");
+          }
+        })
+      );
+
+      if (!filesChanged) return node;
+      changed = true;
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          files: nextFiles,
+        },
+      };
+    })
+  );
+
+  if (!changed) return workflow;
+
+  return {
+    ...workflow,
+    nodes,
+  };
+};
+
 /**
  * Convert a backend workflow detail response into the frontend WorkflowDTO.
  *
@@ -578,6 +668,17 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
 
     // Populate type-specific reference fields
     switch (frontendType) {
+      case "document":
+        if (Array.isArray(node.documents) && node.documents.length > 0) {
+          data.files = node.documents.map((fileId) => ({
+            id: fileId,
+            name: fileId,
+            size: 0,
+            type: "document",
+            fileId,
+          }));
+        }
+        break;
       case "chat":
         if (node.reference_id) {
           data.selectedChats = node.reference_id;
@@ -685,6 +786,79 @@ const toExecutionSummary = (
   endTime: run.completed_at || undefined,
   error: run.error_message || undefined,
 });
+
+interface WorkflowRequestPreparation {
+  workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">;
+  body: string;
+  headers: HeadersInit;
+}
+
+const toBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+};
+
+const encodeInlineDocumentToken = async (file: File): Promise<string> => {
+  const base64 = toBase64(await file.arrayBuffer());
+  const safeName = encodeURIComponent(file.name || "document");
+  const safeType = encodeURIComponent(file.type || "application/octet-stream");
+  return `inline:${safeName}:${safeType}:${base64}`;
+};
+
+const prepareWorkflowRequest = async (
+  workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
+): Promise<WorkflowRequestPreparation> => {
+
+  const normalizedWorkflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt"> = {
+    ...workflow,
+    nodes: await Promise.all(workflow.nodes.map(async (node) => {
+      const nodeType = (node.data?.type ?? "") as FrontendNodeType;
+      if (nodeType !== "document") return node;
+
+      const files = Array.isArray(node.data?.files) ? node.data.files : [];
+      if (files.length === 0) return node;
+
+      const normalizedFiles = await Promise.all(files.map(async (file) => {
+        const typedFile = file as {
+          fileId?: string;
+          file?: File;
+        };
+
+        if (typedFile.fileId || !typedFile.file) return file;
+        const inlineToken = await encodeInlineDocumentToken(typedFile.file);
+
+        return {
+          ...file,
+          fileId: inlineToken,
+        };
+      }));
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          files: normalizedFiles,
+        },
+      };
+    })),
+  };
+
+  const payload = toBackendWorkflowPayload(normalizedWorkflow);
+
+  return {
+    workflow: normalizedWorkflow,
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  };
+};
 
 // =============================================================================
 // SSE STREAM HELPERS
@@ -958,11 +1132,11 @@ export const workflowAPI = {
   create: async (
     workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
   ): Promise<WorkflowDTO> => {
-    const payload = toBackendWorkflowPayload(workflow);
+    const prepared = await prepareWorkflowRequest(workflow);
     const response = await fetchWithTimeout(WORKFLOWS_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: prepared.headers,
+      body: prepared.body,
     });
 
     const created = await handleResponse<BackendWorkflowCreateResponse>(response);
@@ -978,6 +1152,7 @@ export const workflowAPI = {
     id: string | null,
     workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
   ): Promise<WorkflowDTO> => {
+    const prepared = await prepareWorkflowRequest(workflow);
     const createOrReuseExistingWorkflow = async (): Promise<WorkflowDTO> => {
       try {
         return await workflowAPI.create(workflow);
@@ -1021,11 +1196,10 @@ export const workflowAPI = {
     };
 
     if (id && isUuid(id)) {
-      const payload = toBackendWorkflowPayload(workflow);
       const putResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: prepared.headers,
+        body: prepared.body,
       });
 
       if (putResponse.ok) {

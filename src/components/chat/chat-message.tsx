@@ -193,7 +193,6 @@ const renderBoldInlineContent = (text: string, keyPrefix: string) => {
 interface LinkPreviewProps {
   url: string;
   label?: string;
-  k: string;
 }
 
 const linkPreviewCache = new Map<
@@ -201,7 +200,7 @@ const linkPreviewCache = new Map<
   { siteName: string; faviconUrl: string; title?: string; description?: string }
 >();
 
-const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
+const LinkPreview = ({ url, label }: LinkPreviewProps) => {
   const normalizedUrl = url.trim();
   const hostname = getHostname(normalizedUrl) || normalizedUrl;
   const [showCard, setShowCard] = useState(false);
@@ -269,7 +268,6 @@ const LinkPreview = ({ url, label, k }: LinkPreviewProps) => {
 
   return (
     <span
-      key={k}
       className="relative inline-flex"
       onMouseEnter={() => {
         setShowCard(true);
@@ -378,7 +376,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const url = match[2];
       nodes.push(
         <LinkPreview
-          k={`${keyPrefix}-link-${partIndex++}`}
+          key={`${keyPrefix}-link-${partIndex++}`}
           url={url}
           label={label}
         />,
@@ -390,7 +388,10 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
+        <LinkPreview
+          key={`${keyPrefix}-link-${partIndex++}`}
+          url={trimmedUrl}
+        />,
       );
 
       if (trailing) {
@@ -408,7 +409,10 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview k={`${keyPrefix}-link-${partIndex++}`} url={trimmedUrl} />,
+        <LinkPreview
+          key={`${keyPrefix}-link-${partIndex++}`}
+          url={trimmedUrl}
+        />,
       );
 
       if (trailing) {

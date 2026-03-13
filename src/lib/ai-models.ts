@@ -52,8 +52,11 @@ const toNumber = (value: unknown, fallback = 0) => {
 };
 
 const normalizeModel = (model: BackendModel): AIModel => ({
-  id: model.model_id ?? model.id ?? model.modelId,
-  modelId: model.model_id ?? model.modelId ?? model.id,
+  // Prefer canonical backend `id` for UI/entity identity.
+  // Some providers may expose `model_id` as a human-readable label.
+  id: model.id ?? model.modelId ?? model.model_id,
+  // Keep modelId for provider/model routing metadata.
+  modelId: model.modelId ?? model.model_id ?? model.id,
   companyName:
     model.model_provider ?? model.companyName ?? model.providerName ?? model.provider ?? "Unknown",
   modelName: model.model_name ?? model.modelName ?? model.name ?? "Unknown Model",

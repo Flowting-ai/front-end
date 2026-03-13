@@ -57,10 +57,12 @@ export const renderInlineMarkdown = (text: string): React.ReactNode => {
 };
 
 // Helper function to strip markdown symbols for plain text display
-export const stripMarkdown = (text: string): string => {
-  if (!text) return text;
+export const stripMarkdown = (text: unknown): string => {
+  if (text === null || text === undefined) return "";
+  const normalizedText = typeof text === "string" ? text : String(text);
+  if (!normalizedText) return "";
   
-  return text
+  return normalizedText
     // Remove heading markers
     .replace(/^#+\s+/gm, '')
     // Remove bold markers
@@ -75,8 +77,10 @@ export const stripMarkdown = (text: string): string => {
 };
 
 // Helper function to format pin title by removing heading markers
-export const formatPinTitle = (text: string): string => {
-  if (!text) return text;
+export const formatPinTitle = (text: unknown): string => {
+  if (text === null || text === undefined) return "";
+  const normalizedText = typeof text === "string" ? text : String(text);
+  if (!normalizedText) return "";
   // Remove heading markers
-  return text.replace(/^#+\s+/, '');
+  return normalizedText.replace(/^#+\s+/, '');
 };

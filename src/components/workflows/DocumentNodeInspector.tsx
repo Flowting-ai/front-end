@@ -13,6 +13,8 @@ interface DocumentFile {
   url: string;
   file: File;
   uploadProgress?: number;
+  isUploading?: boolean;
+  fileId?: string;
 }
 
 interface DocumentNodeInspectorProps {
@@ -41,7 +43,7 @@ export function DocumentNodeInspector({
     setNodeName(nodeData.name || "");
   }, [nodeData]);
 
-  const handleFileSelect = (selectedFiles: FileList | null) => {
+  const handleFileSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -74,12 +76,20 @@ export function DocumentNodeInspector({
         type: fileType,
         url: objectUrl,
         file: file,
-        uploadProgress: 100, // Simulated - already "uploaded"
+        uploadProgress: 0,
+        isUploading: true,
       });
     }
 
     if (newFiles.length > 0) {
-      setFiles((prev) => [...prev, ...newFiles]);
+      setFiles((prev) => [
+        ...prev,
+        ...newFiles.map((file) => ({
+          ...file,
+          isUploading: false,
+          uploadProgress: undefined,
+        })),
+      ]);
     }
 
     // Reset input

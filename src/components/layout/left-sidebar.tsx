@@ -34,7 +34,7 @@ import {
   Pause,
 } from "lucide-react";
 import { TableColumnIcon } from "@/components/icons/table-column";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from "next/image";
 import { Button } from "../ui/button";
@@ -117,6 +117,7 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, logout } = useAuth();
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
@@ -365,13 +366,10 @@ export function LeftSidebar({
     };
   }, [isOnPersonaPage]);
 
-  // Sync active chat id from URL query params
+  // Sync active persona chat id from URL query params (includes query-only navigations)
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      setActivePersonaChatSessionId(params.get("chatId"));
-    }
-  }, [pathname]);
+    setActivePersonaChatSessionId(searchParams?.get("chatId") ?? null);
+  }, [pathname, searchParams]);
 
   // Auto-expand and fetch chats when navigating to a persona chat
   React.useEffect(() => {
@@ -423,6 +421,44 @@ export function LeftSidebar({
     };
     window.addEventListener("persona-chat-title-updated", handler);
     return () => window.removeEventListener("persona-chat-title-updated", handler);
+  }, []);
+
+  // Replace temporary persona chat IDs with resolved backend IDs.
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const { personaId, tempChatId, chatId } =
+        (e as CustomEvent<{ personaId: string; tempChatId: string; chatId: string }>).detail ?? {};
+      if (!personaId || !tempChatId || !chatId) return;
+
+      setPersonaChats((prev) => {
+        const existing = prev[personaId] ?? [];
+        if (existing.length === 0) return prev;
+
+        const hasResolved = existing.some((c) => c.id === chatId);
+        const next = existing
+          .map((c) =>
+            c.id === tempChatId
+              ? {
+                  ...c,
+                  id: chatId,
+                }
+              : c,
+          )
+          .filter((c) => !(hasResolved && c.id === chatId && c.chat_title === "New Chat"));
+
+        return {
+          ...prev,
+          [personaId]: next,
+        };
+      });
+
+      setActivePersonaChatSessionId((prev) =>
+        prev === tempChatId ? chatId : prev,
+      );
+    };
+
+    window.addEventListener("persona-chat-id-resolved", handler);
+    return () => window.removeEventListener("persona-chat-id-resolved", handler);
   }, []);
 
   // ─── Persona chat handlers ─────────────────────────────────────────────────

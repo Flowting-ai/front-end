@@ -68,6 +68,25 @@ const formatTimestamp = (time: Date) => {
   return formatDistanceToNow(pinTime, { addSuffix: true });
 };
 
+const normalizeTagList = (rawTags: unknown): string[] => {
+  if (!Array.isArray(rawTags)) return [];
+  return rawTags
+    .map((tag) => {
+      if (typeof tag === "string") return tag.trim();
+      if (!tag || typeof tag !== "object") return "";
+      const candidate = tag as {
+        tag_name?: unknown;
+        name?: unknown;
+        label?: unknown;
+        text?: unknown;
+      };
+      const value =
+        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((tag) => tag.length > 0);
+};
+
 export const PinItem = ({
   pin,
   onUpdatePin,
@@ -89,7 +108,7 @@ export const PinItem = ({
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const TRUNCATE_TITLE_LEN = 50;
   const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>(pin.tags);
+  const [tags, setTags] = useState<string[]>(normalizeTagList(pin.tags));
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(pin.title ?? pin.text);
   const [showComments, setShowComments] = useState(false);
@@ -158,7 +177,7 @@ export const PinItem = ({
 
   useEffect(() => {
     // Only update when incoming tags differ to avoid redundant state updates
-    const incoming = pin.tags || [];
+    const incoming = normalizeTagList(pin.tags);
     if (
       tags.length !== incoming.length ||
       incoming.some((t, i) => t !== tags[i])
@@ -936,6 +955,7 @@ export const PinItem = ({
               </div>
             )}
           {tags.map((tag, tagIndex) => {
+            const safeTag = typeof tag === "string" ? tag : String(tag ?? "");
             // Generate color based on first 2 letters of tag
             const getTagColor = (tagText: string) => {
               const colors = ["#E55959", "#9A6FF1", "#756AF2"];
@@ -956,13 +976,13 @@ export const PinItem = ({
                   variant="secondary"
                   className="rounded-md px-2 text-[10px] font-normal text-white border-0"
                   style={{
-                    backgroundColor: getTagColor(tag),
+                    backgroundColor: getTagColor(safeTag),
                     height: "17.85px",
                     display: "flex",
                     alignItems: "center",
                   }}
                 >
-                  {tag}
+                  {safeTag}
                 </Badge>
                 {hoveredTagIndex === tagIndex && (
                   <button

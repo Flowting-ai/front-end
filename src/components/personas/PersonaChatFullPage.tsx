@@ -30,7 +30,8 @@ import { API_BASE_URL } from "@/lib/config";
 import { getModelIcon } from "@/lib/model-icons";
 import { useAuth } from "@/context/auth-context";
 import { extractThinkingContent } from "@/lib/thinking";
-import { fetchPersonaChatMessages } from "@/lib/api/personas";
+import { mergeStreamingText } from "@/lib/streaming";
+import { fetchPersonaChatMessages, fetchPersonaChats } from "@/lib/api/personas";
 
 interface PersonaData {
   id: string;
@@ -66,21 +67,27 @@ export function PersonaChatFullPage({
   const [detailsSectionOpen, setDetailsSectionOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
-  const isValidUUID = (id: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const normalizeChatId = (id: string | null | undefined): string | null => {
+    if (!id) return null;
+    const normalized = id.trim();
+    return normalized.length > 0 ? normalized : null;
+  };
   const [activeChatId, setActiveChatId] = useState<string | null>(
-    chatId && isValidUUID(chatId) ? chatId : null
+    normalizeChatId(chatId)
   );
 
   // Sync activeChatId when the chatId prop changes (user navigates between saved chats).
   // Uses a functional updater so it can read fresh state: if activeChatId already matches
   // (e.g. the URL just caught up after handleSend set it internally), we do nothing.
   useEffect(() => {
-    const resolved = chatId && isValidUUID(chatId) ? chatId : null;
+    const resolved = normalizeChatId(chatId);
     setActiveChatId((prev) => {
       if (prev === resolved) return prev;
-      // Genuine external navigation to a different chat — clear stale messages.
-      setDisplayMessages([]);
+      // Keep local in-flight messages when a brand new chat gets its first backend id.
+      // Only clear when switching between two concrete chat sessions.
+      if (prev && resolved && prev !== resolved) {
+        setDisplayMessages([]);
+      }
       return resolved;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,7 +153,9 @@ export function PersonaChatFullPage({
         }
         return items;
       });
-      setDisplayMessages(converted);
+      // Preserve already-rendered local conversation (e.g. streaming on new chat id adoption)
+      // and only hydrate when the viewport is empty.
+      setDisplayMessages((prev) => (prev.length > 0 ? prev : converted));
     }).catch(() => {/* silently ignore */});
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,6 +227,55 @@ export function PersonaChatFullPage({
       formData.append("input", trimmedContent);
 
       let resolvedChatId = activeChatId;
+      let tempSidebarChatId: string | null = null;
+
+      if (!resolvedChatId) {
+        tempSidebarChatId = `temp-${Date.now()}`;
+        window.dispatchEvent(
+          new CustomEvent("persona-chat-title-updated", {
+            detail: {
+              personaId,
+              chatId: tempSidebarChatId,
+              title: "New Chat",
+            },
+          })
+        );
+      }
+
+      const resolveChatIdFromPayload = (payload: unknown): string | null => {
+        if (!payload || typeof payload !== "object") return null;
+        const candidate = payload as {
+          chat_id?: string | number | null;
+          chatId?: string | number | null;
+        };
+        const raw = candidate.chat_id ?? candidate.chatId ?? null;
+        if (raw === null || raw === undefined) return null;
+        const normalized = String(raw).trim();
+        return normalized ? normalized : null;
+      };
+
+      const applyResolvedChatId = (nextChatId: string) => {
+        const normalizedChatId = nextChatId.trim();
+        if (!normalizedChatId || normalizedChatId === resolvedChatId) {
+          return;
+        }
+        if (tempSidebarChatId && tempSidebarChatId !== normalizedChatId) {
+          window.dispatchEvent(
+            new CustomEvent("persona-chat-id-resolved", {
+              detail: {
+                personaId,
+                tempChatId: tempSidebarChatId,
+                chatId: normalizedChatId,
+              },
+            })
+          );
+          tempSidebarChatId = null;
+        }
+        resolvedChatId = normalizedChatId;
+        setActiveChatId(normalizedChatId);
+        router.replace(`/personaAdmin/chat/${personaId}?chatId=${normalizedChatId}`);
+      };
+
       const endpoint = resolvedChatId
         ? `${API_BASE_URL}/persona/${personaId}/chats/${resolvedChatId}/stream`
         : `${API_BASE_URL}/persona/${personaId}/chats/create`;
@@ -234,18 +292,7 @@ export function PersonaChatFullPage({
       if (!resolvedChatId) {
         const newChatId = response.headers.get("X-Chat-Id");
         if (newChatId) {
-          resolvedChatId = newChatId;
-          setActiveChatId(newChatId);
-          router.replace(`/personaAdmin/chat/${personaId}?chatId=${newChatId}`);
-          window.dispatchEvent(
-            new CustomEvent("persona-chats-updated", { detail: { personaId } })
-          );
-          // Immediately update the sidebar title with the first message content
-          window.dispatchEvent(
-            new CustomEvent("persona-chat-title-updated", {
-              detail: { personaId, chatId: newChatId, title: trimmedContent.slice(0, 60) || "New Chat" },
-            })
-          );
+          applyResolvedChatId(newChatId);
         }
       }
 
@@ -268,7 +315,229 @@ export function PersonaChatFullPage({
 
       const reader = response.body.getReader();
 
-      let streamFinished = false;
+      const tryResolveChatIdFromServer = (titleHint?: string, retries = 3) => {
+        if (resolvedChatId) return;
+        const normalizedTitleHint = (titleHint || "").trim().toLowerCase();
+        const inputPrefix = trimmedContent.slice(0, 50).toLowerCase();
+
+        void fetchPersonaChats(personaId)
+          .then((chats) => {
+            if (!chats || chats.length === 0) {
+              if (retries > 0) {
+                setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+              }
+              return;
+            }
+
+            const candidates = chats.map((chat) => ({
+              id: String(chat.id),
+              title: String(chat.chat_title || "").trim(),
+            }));
+
+            let matched =
+              normalizedTitleHint.length > 0
+                ? candidates.find((chat) => chat.title.toLowerCase() === normalizedTitleHint)
+                : undefined;
+
+            if (!matched && inputPrefix.length > 0) {
+              matched = candidates.find((chat) =>
+                chat.title.toLowerCase().startsWith(inputPrefix),
+              );
+            }
+
+            const fallback = candidates[0];
+            const resolved = (matched || fallback)?.id;
+            if (!resolved) {
+              if (retries > 0) {
+                setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+              }
+              return;
+            }
+
+            if (!resolvedChatId) {
+              applyResolvedChatId(resolved);
+            }
+          })
+          .catch(() => {
+            if (retries > 0) {
+              setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+            }
+          });
+      };
+
+      const updateSidebarTitle = (title: string) => {
+        const normalizedTitle = title.trim();
+        if (!normalizedTitle) return;
+        const targetChatId = resolvedChatId || tempSidebarChatId;
+        if (!targetChatId) {
+          tryResolveChatIdFromServer(normalizedTitle);
+          return;
+        }
+        window.dispatchEvent(
+          new CustomEvent("persona-chat-title-updated", {
+            detail: {
+              personaId,
+              chatId: targetChatId,
+              title: normalizedTitle,
+            },
+          })
+        );
+      };
+
+      const applySavedMessageId = (payload: Record<string, unknown>) => {
+        const rawMessageId = payload.message_id ?? payload.messageId ?? null;
+        if (rawMessageId === null || rawMessageId === undefined) return;
+        const messageId = String(rawMessageId).trim();
+        if (!messageId) return;
+
+        const role =
+          typeof payload.role === "string"
+            ? payload.role.toLowerCase()
+            : typeof payload.sender === "string"
+              ? payload.sender.toLowerCase()
+              : "";
+
+        if (role === "user") {
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId ? { ...msg, chatMessageId: messageId } : msg,
+            ),
+          );
+          return;
+        }
+
+        updateAiMessage({ chatMessageId: messageId });
+      };
+
+      const processEventChunk = (eventChunk: string) => {
+        if (!eventChunk.trim()) return;
+        const lines = eventChunk.split("\n");
+        let eventName = "";
+        let dataStr = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            dataStr += line.slice(5).trim();
+          }
+        }
+
+        if (!dataStr) return;
+
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(dataStr) as Record<string, unknown>;
+        } catch (err) {
+          console.warn("Failed to parse SSE data", err, dataStr);
+          return;
+        }
+
+        // Normalize type-based format (no event name, uses parsed.type instead)
+        if (!eventName && parsed.type) {
+          if (parsed.type === "content") {
+            eventName = "chunk";
+            if (typeof parsed.content === "string" && !("delta" in parsed)) {
+              parsed = { ...parsed, delta: parsed.content };
+            }
+          } else {
+            eventName = String(parsed.type);
+          }
+        }
+
+        const chatIdFromPayload = resolveChatIdFromPayload(parsed);
+        if (!resolvedChatId && chatIdFromPayload) {
+          applyResolvedChatId(chatIdFromPayload);
+        }
+
+        if (eventName === "metadata") {
+          return;
+        }
+
+        if (eventName === "reasoning") {
+          const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+          reasoningContent = mergeStreamingText(reasoningContent, delta);
+          updateAiMessage({
+            thinkingContent: reasoningContent,
+            isThinkingInProgress: true,
+            isLoading: false,
+          });
+          return;
+        }
+
+        if (eventName === "chunk") {
+          const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+          assistantContent = mergeStreamingText(assistantContent, delta);
+          const sanitized = extractThinkingContent(assistantContent);
+          updateAiMessage({
+            content: sanitized.visibleText || "",
+            thinkingContent: reasoningContent || sanitized.thinkingText,
+            isThinkingInProgress: false,
+            isLoading: false,
+          });
+          return;
+        }
+
+        if (eventName === "image") {
+          const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
+          const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+          if (imageUrl) {
+            updateAiMessage({ imageUrl, imageAlt });
+          }
+          return;
+        }
+
+        if (eventName === "title") {
+          const streamTitleCandidate =
+            typeof parsed.title === "string"
+              ? parsed.title
+              : typeof parsed.chat_title === "string"
+                ? parsed.chat_title
+                : "";
+          if (streamTitleCandidate) {
+            updateSidebarTitle(streamTitleCandidate);
+          } else if (!resolvedChatId) {
+            tryResolveChatIdFromServer();
+          }
+          return;
+        }
+
+        if (eventName === "message_saved") {
+          applySavedMessageId(parsed);
+          return;
+        }
+
+        if (eventName === "done") {
+          applySavedMessageId(parsed);
+          if (!resolvedChatId) {
+            const doneTitleCandidate =
+              typeof parsed.title === "string"
+                ? parsed.title
+                : typeof parsed.chat_title === "string"
+                  ? parsed.chat_title
+                  : "";
+            tryResolveChatIdFromServer(doneTitleCandidate);
+          }
+          const finalContent =
+            typeof parsed.content === "string" ? parsed.content : assistantContent;
+          const sanitized = extractThinkingContent(finalContent);
+          const finalReasoning =
+            reasoningContent ||
+            (typeof parsed.reasoning === "string" ? parsed.reasoning : "") ||
+            sanitized.thinkingText;
+          updateAiMessage({
+            content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
+            thinkingContent: finalReasoning || null,
+            isThinkingInProgress: false,
+            isLoading: false,
+            metadata: {
+              modelName: persona.modelName,
+              providerName: persona.providerName,
+            },
+          });
+        }
+      };
+
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -279,113 +548,20 @@ export function PersonaChatFullPage({
             buffer = events.pop() ?? "";
 
             for (const eventChunk of events) {
-              const lines = eventChunk.split("\n");
-              let eventName = "";
-              let dataStr = "";
-
-              for (const line of lines) {
-                if (line.startsWith("event:")) {
-                  eventName = line.slice(6).trim();
-                } else if (line.startsWith("data:")) {
-                  dataStr += line.slice(5).trim();
-                }
-              }
-
-              if (!dataStr) continue;
-
-              let parsed: any;
-              try {
-                parsed = JSON.parse(dataStr);
-              } catch (err) {
-                console.warn("Failed to parse SSE data", err, dataStr);
-                continue;
-              }
-
-              // Normalize type-based format (no event name, uses parsed.type instead)
-              if (!eventName && parsed.type) {
-                if (parsed.type === "content") {
-                  eventName = "chunk";
-                  if (typeof parsed.content === "string" && !("delta" in parsed)) {
-                    parsed = { ...parsed, delta: parsed.content };
-                  }
-                } else {
-                  eventName = parsed.type;
-                }
-              }
-
-              if (eventName === "metadata") {
-                // Extract chat_id from metadata event (primary source for new chats)
-                if (!resolvedChatId && parsed.chat_id) {
-                  resolvedChatId = String(parsed.chat_id);
-                  setActiveChatId(resolvedChatId);
-                  router.replace(`/personaAdmin/chat/${personaId}?chatId=${resolvedChatId}`);
-                  window.dispatchEvent(
-                    new CustomEvent("persona-chats-updated", { detail: { personaId } })
-                  );
-                  // Immediately update the sidebar title with the first message content
-                  window.dispatchEvent(
-                    new CustomEvent("persona-chat-title-updated", {
-                      detail: { personaId, chatId: resolvedChatId, title: trimmedContent.slice(0, 60) || "New Chat" },
-                    })
-                  );
-                }
-                continue;
-              }
-
-              if (eventName === "reasoning") {
-                const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-                reasoningContent += delta;
-                updateAiMessage({
-                  thinkingContent: reasoningContent,
-                  isThinkingInProgress: true,
-                  isLoading: false,
-                });
-                continue;
-              }
-
-              if (eventName === "chunk") {
-                const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-                assistantContent += delta;
-                const sanitized = extractThinkingContent(assistantContent);
-                updateAiMessage({
-                  content: sanitized.visibleText || "",
-                  thinkingContent: reasoningContent || sanitized.thinkingText,
-                  isThinkingInProgress: false,
-                  isLoading: false,
-                });
-                continue;
-              }
-
-              if (eventName === "image") {
-                const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-                const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
-                if (imageUrl) {
-                  updateAiMessage({ imageUrl, imageAlt });
-                }
-                continue;
-              }
-
-              if (eventName === "done") {
-                const finalContent = typeof parsed.content === "string" ? parsed.content : assistantContent;
-                const sanitized = extractThinkingContent(finalContent);
-                const finalReasoning = reasoningContent || parsed.reasoning || sanitized.thinkingText;
-                updateAiMessage({
-                  content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
-                  thinkingContent: finalReasoning || null,
-                  isThinkingInProgress: false,
-                  isLoading: false,
-                  metadata: {
-                    modelName: persona.modelName,
-                    providerName: persona.providerName,
-                  },
-                });
-                streamFinished = true;
-                break;
-              }
+              processEventChunk(eventChunk);
             }
           }
 
-          if (done || streamFinished) break;
+          if (done) {
+            if (buffer.trim()) {
+              const trailingEvents = `${buffer}\n\n`.split("\n\n");
+              for (const trailingChunk of trailingEvents) {
+                processEventChunk(trailingChunk);
+              }
+              buffer = "";
+            }
+            break;
+          }
         }
       } finally {
         reader.cancel().catch(() => {});

@@ -787,6 +787,9 @@ function PersonaConfigurePageContent() {
         temperature: temperature[0],
         image: imageFile,
       };
+      const documentFiles = uploadedFiles
+        .filter((file) => file.type === "pdf")
+        .map((file) => file.file);
 
       let result;
       
@@ -808,7 +811,10 @@ function PersonaConfigurePageContent() {
         }, 1000);
       } else {
         // Create new persona
-        result = await createPersona(personaPayload);
+        result = await createPersona({
+          ...personaPayload,
+          documents: documentFiles,
+        });
         console.log("Persona created successfully!");
         
         setCreatedPersonaId(result.id);

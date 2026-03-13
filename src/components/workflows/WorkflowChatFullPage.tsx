@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
@@ -101,7 +100,6 @@ export function WorkflowChatFullPage({
   onEditWorkflow,
   chatId,
 }: WorkflowChatFullPageProps) {
-  const router = useRouter();
   const isValidUUID = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const [activeChatId, setActiveChatId] = useState<string | null>(
@@ -404,31 +402,13 @@ export function WorkflowChatFullPage({
           },
       };
 
-      let streamResult: { abort: () => void };
-      if (activeChatId) {
-        // Continue an existing chat session
-        streamResult = await workflowAPI.chatContinue(
-          workflowId,
-          activeChatId,
-          trimmedContent,
-          "",
-          streamCallbacks,
-        );
-      } else {
-        // Create a new chat session
-        streamResult = await workflowAPI.chatNew(
-          workflowId,
-          trimmedContent,
-          "",
-          {
-            ...streamCallbacks,
-            onChatCreated: (newChatId: string) => {
-              setActiveChatId(newChatId);
-              router.replace(`/workflowAdmin/chat/${workflowId}?chatId=${newChatId}`);
-            },
-          },
-        );
-      }
+      // Use the same backend endpoint as Test Workflow to avoid
+      // workflow chat endpoint schema mismatches.
+      const streamResult = await workflowAPI.executeStream(
+        workflowId,
+        trimmedContent,
+        streamCallbacks,
+      );
       abortRef.current = streamResult.abort;
     } catch (error) {
       const message =
