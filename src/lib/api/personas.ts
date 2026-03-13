@@ -15,16 +15,27 @@ import {
   PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 
+export type PersonaStatus = "draft" | "test" | "completed";
+
 export interface BackendPersona {
   id: string;
   name: string;
   prompt: string;
-  status: string;
+  status: PersonaStatus;
   is_active: boolean;
+  isActive?: boolean;
   model_id: string | null;
+  modelId?: string | null;
+  model_name?: string | null;
+  modelName?: string | null;
+  provider_name?: string | null;
+  providerName?: string | null;
   image_url: string | null;
+  imageUrl?: string | null;
   created_at: string;
+  createdAt?: string;
   updated_at: string;
+  updatedAt?: string;
 }
 
 export interface PersonaChat {
@@ -43,21 +54,28 @@ export interface PersonaMessage {
 export interface PersonaInput {
   name: string;
   model_id: string;
+  modelId?: string;
   prompt?: string;
   image?: File;
+  documents?: File[];
 }
 
 export interface PersonaUpdateInput {
   name?: string;
   prompt?: string;
   model_id?: string | null;
+  modelId?: string | null;
+  status?: PersonaStatus;
   image?: File;
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
-export async function fetchPersonas(): Promise<BackendPersona[]> {
-  const response = await apiFetch(PERSONAS_ENDPOINT, { method: "GET" });
+export async function fetchPersonas(status?: PersonaStatus): Promise<BackendPersona[]> {
+  const endpoint = status
+    ? `${PERSONAS_ENDPOINT}?status=${encodeURIComponent(status)}`
+    : PERSONAS_ENDPOINT;
+  const response = await apiFetch(endpoint, { method: "GET" });
   if (!response.ok) return [];
   const data = await response.json();
   return Array.isArray(data) ? (data as BackendPersona[]) : [];
@@ -74,10 +92,15 @@ export async function fetchPersonaById(personaId: string): Promise<BackendPerson
 export async function createPersona(payload: PersonaInput): Promise<BackendPersona> {
   const formData = new FormData();
   formData.append("name", payload.name);
-  const modelId = payload.model_id ?? (payload as Record<string, unknown>).modelId as string | undefined;
+  const modelId = payload.model_id ?? payload.modelId;
   if (modelId) formData.append("model_id", String(modelId));
   if (payload.prompt) formData.append("prompt", payload.prompt);
   if (payload.image) formData.append("image", payload.image);
+  if (payload.documents && payload.documents.length > 0) {
+    payload.documents.forEach((file) => {
+      formData.append("documents", file);
+    });
+  }
 
   const response = await apiFetch(PERSONAS_ENDPOINT, {
     method: "POST",
@@ -97,7 +120,8 @@ export async function updatePersona(
   const formData = new FormData();
   if (payload.name !== undefined) formData.append("name", payload.name);
   if (payload.prompt !== undefined) formData.append("prompt", payload.prompt);
-  const updateModelId = payload.model_id ?? (payload as Record<string, unknown>).modelId as string | undefined;
+  if (payload.status !== undefined) formData.append("status", payload.status);
+  const updateModelId = payload.model_id ?? payload.modelId;
   if (updateModelId !== undefined && updateModelId !== null)
     formData.append("model_id", String(updateModelId));
   if (payload.image) formData.append("image", payload.image);

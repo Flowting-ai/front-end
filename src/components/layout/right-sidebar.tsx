@@ -111,6 +111,41 @@ const PANEL_METADATA: Record<RightSidebarPanel, { title: string; description?: s
   },
 };
 
+const normalizeTagStrings = (raw: unknown): string[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tag) => {
+      if (typeof tag === "string") return tag.trim();
+      if (!tag || typeof tag !== "object") return "";
+      const candidate = tag as {
+        tag_name?: unknown;
+        name?: unknown;
+        label?: unknown;
+        text?: unknown;
+      };
+      const value =
+        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((tag) => tag.length > 0);
+};
+
+const normalizeCommentStrings = (raw: unknown): string[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((comment) => {
+      if (typeof comment === "string") return comment.trim();
+      if (!comment || typeof comment !== "object") return "";
+      const candidate = comment as {
+        comment_text?: unknown;
+        text?: unknown;
+      };
+      const value = candidate.comment_text ?? candidate.text;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((comment) => comment.length > 0);
+};
+
 const EMPTY_PLACEHOLDERS: Record<Exclude<RightSidebarPanel, "pinboard" | "references">, { title: string; description: string }> = {
   files: {
     title: "No files yet",
@@ -265,12 +300,14 @@ export function RightSidebar({
         const resolvedChatId = newPin.chat || newPin.sourceChatId || pin.sourceChatId || "";
         const resolvedTitle = newPin.title || pin.title || pin.text || "Untitled Pin";
         const resolvedFolderId = newPin.folderId || newPin.folder_id || pin.folderId || undefined;
+        const normalizedTags = normalizeTagStrings(newPin.tags);
+        const normalizedComments = normalizeCommentStrings(newPin.comments);
         
         const formattedPin: PinType = {
           id: newPin.id,
           text: resolvedTitle,
           title: resolvedTitle,
-          tags: newPin.tags || [...pin.tags],
+          tags: normalizedTags.length > 0 ? normalizedTags : [...pin.tags],
           notes: pin.notes || "",
           chatId: resolvedChatId,
           time: createdAt,
@@ -280,7 +317,10 @@ export function RightSidebar({
           sourceChatId: newPin.sourceChatId || pin.sourceChatId || null,
           sourceMessageId: newPin.sourceMessageId || pin.sourceMessageId || null,
           formattedContent: newPin.formattedContent || pin.formattedContent || null,
-          comments: newPin.comments || [...(pin.comments || [])],
+          comments:
+            normalizedComments.length > 0
+              ? normalizedComments
+              : [...(pin.comments || [])],
         };
         
         setPins((prevPins) => [formattedPin, ...prevPins]);
@@ -330,7 +370,16 @@ export function RightSidebar({
     } catch (error) {
       console.error("Failed to load pin folders", error);
       setPinFolders((prev) =>
-        prev.length > 0 ? prev : [{ id: "unorganized", name: "Unorganized" }]
+        prev.length > 0
+          ? prev
+          : [
+              {
+                id: "unorganized",
+                folder_name: "Unorganized",
+                name: "Unorganized",
+                created_at: new Date(0).toISOString(),
+              },
+            ]
       );
     }
   }, [isOpen]);

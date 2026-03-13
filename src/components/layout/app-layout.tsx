@@ -1,6 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import React, {
+  Suspense,
   useState,
   createContext,
   useEffect,
@@ -67,7 +68,7 @@ export type Persona = {
   name: string;
   avatar: string | null;
   prompt: string;
-  modelId: number | null;
+  modelId: string | number | null;
   modelName: string | null;
   providerName: string | null;
   status: "active" | "paused";
@@ -234,6 +235,8 @@ const extractMetadata = (msg: BackendMessage) => {
     ? ((msg as { taggedPins: unknown[] }).taggedPins as unknown[])
     : Array.isArray((msg as { pins_tagged?: unknown[] }).pins_tagged)
     ? ((msg as { pins_tagged: unknown[] }).pins_tagged as unknown[])
+    : Array.isArray((msg as { pin_ids?: unknown[] }).pin_ids)
+    ? ((msg as { pin_ids: unknown[] }).pin_ids as unknown[])
     : Array.isArray((meta as { pinIds?: unknown[] }).pinIds)
     ? ((meta as { pinIds: unknown[] }).pinIds as unknown[])
     : Array.isArray((meta as { pin_ids?: unknown[] }).pin_ids)
@@ -407,13 +410,55 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
   };
 };
 
+const extractUserAttachmentsFromEntry = (
+  entry: BackendMessage,
+): Array<{ id: string; type: "pdf" | "image"; name: string; url: string }> => {
+  const out: Array<{ id: string; type: "pdf" | "image"; name: string; url: string }> = [];
+
+  const addAttachment = (
+    url: unknown,
+    fallbackType: "pdf" | "image",
+    index: number,
+  ) => {
+    if (typeof url !== "string" || url.trim().length === 0) return;
+    const cleanUrl = url.trim();
+    const lowerUrl = cleanUrl.toLowerCase();
+    const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/.test(lowerUrl);
+    const isPdf = /\.pdf(\?|$)/.test(lowerUrl);
+    const type: "pdf" | "image" = isImage
+      ? "image"
+      : isPdf
+        ? "pdf"
+        : fallbackType;
+    out.push({
+      id: `att-${index}-${type}`,
+      type,
+      name: type === "image" ? `Image ${index + 1}` : `Document ${index + 1}`,
+      url: cleanUrl,
+    });
+  };
+
+  const imageLinks = entry.image_links;
+  if (Array.isArray(imageLinks)) {
+    imageLinks.forEach((url, i) => addAttachment(url, "image", i));
+  }
+
+  const fileLinks = entry.file_links;
+  if (Array.isArray(fileLinks)) {
+    const offset = out.length;
+    fileLinks.forEach((url, i) => addAttachment(url, "pdf", offset + i));
+  }
+
+  return out;
+};
+
 const getImagesFromBackendMessage = (
   entry: BackendMessage,
 ): { images?: Array<{ url: string; alt?: string }>; imageUrl?: string } => {
-  // New API: image_links is an array of URLs
-  const imageLinks = entry.image_links;
-  if (Array.isArray(imageLinks) && imageLinks.length > 0) {
-    const images = imageLinks
+  // New API: generated_images is an array of model-produced image URLs
+  const generatedImages = entry.generated_images;
+  if (Array.isArray(generatedImages) && generatedImages.length > 0) {
+    const images = generatedImages
       .filter((url): url is string => typeof url === "string" && url.length > 0)
       .map((url) => ({ url }));
     if (images.length > 0) return { images };
@@ -471,6 +516,10 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
 
   if (hasPrompt) {
     promptMetadata = extractMetadata(entry);
+    const userAttachments = extractUserAttachmentsFromEntry(entry);
+    if (promptMetadata && userAttachments.length > 0) {
+      promptMetadata.attachments = userAttachments;
+    }
     messages.push({
       id: `${baseId}-prompt`,
       sender: "user",
@@ -525,11 +574,14 @@ const backendPinToLegacy = (
     "";
   const resolvedMessageId =
     (pin as { sourceMessageId?: string | null }).sourceMessageId ??
+    (pin as { message_id?: string | null }).message_id ??
+    (pin as { messageId?: string | null }).messageId ??
     fallback?.sourceMessageId ??
     fallback?.messageId ??
     null;
   const resolvedTitle =
     (pin as { title?: string | null }).title ??
+    (pin as { pins_title?: string | null }).pins_title ??
     fallback?.title ??
     fallback?.text ??
     "Untitled Pin";
@@ -543,7 +595,16 @@ const backendPinToLegacy = (
     id: pin.id,
     text: resolvedText, // Full content, not just title
     title: resolvedTitle,
-    tags: pin.tags ?? fallback?.tags ?? [],
+    tags:
+      Array.isArray(pin.tags)
+        ? pin.tags
+            .map((tag) =>
+              typeof tag === "string"
+                ? tag
+                : (tag as { tag_name?: unknown }).tag_name,
+            )
+            .filter((tag): tag is string => typeof tag === "string")
+        : (fallback?.tags ?? []),
     notes: fallback?.notes ?? "",
     chatId: resolvedChatId,
     time: createdAt,
@@ -555,8 +616,51 @@ const backendPinToLegacy = (
     formattedContent:
       (pin as { formattedContent?: string | null }).formattedContent ?? null,
     comments:
-      (pin as { comments?: string[] }).comments ?? fallback?.comments ?? [],
+      Array.isArray((pin as { comments?: unknown[] }).comments)
+        ? ((pin as { comments: unknown[] }).comments
+            .map((comment) =>
+              typeof comment === "string"
+                ? comment
+                : (comment as { comment_text?: unknown }).comment_text,
+            )
+            .filter((comment): comment is string => typeof comment === "string"))
+        : (fallback?.comments ?? []),
   };
+};
+
+const normalizePinTagStrings = (raw: unknown): string[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tag) => {
+      if (typeof tag === "string") return tag.trim();
+      if (!tag || typeof tag !== "object") return "";
+      const candidate = tag as {
+        tag_name?: unknown;
+        name?: unknown;
+        label?: unknown;
+        text?: unknown;
+      };
+      const value =
+        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((tag) => tag.length > 0);
+};
+
+const normalizePinCommentStrings = (raw: unknown): string[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((comment) => {
+      if (typeof comment === "string") return comment.trim();
+      if (!comment || typeof comment !== "object") return "";
+      const candidate = comment as {
+        comment_text?: unknown;
+        text?: unknown;
+      };
+      const value = candidate.comment_text ?? candidate.text;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter((comment) => comment.length > 0);
 };
 
 const PINS_CACHE_KEY = "chat-pins-cache";
@@ -744,6 +848,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         return cachedPins.map((pin) => ({
           ...pin,
           time: new Date(pin.time),
+          tags: normalizePinTagStrings(pin.tags),
+          comments: normalizePinCommentStrings(pin.comments),
         }));
       }
     } catch (error) {
@@ -1160,9 +1266,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 : `${API_BASE_URL}${bp.imageUrl.startsWith("/") ? "" : "/"}${bp.imageUrl}`
               : null,
             prompt: bp.prompt,
-            modelId: bp.modelId,
-            modelName: bp.modelName,
-            providerName: bp.providerName,
+            modelId: bp.modelId ?? bp.model_id ?? null,
+            modelName: bp.modelName ?? bp.model_name ?? null,
+            providerName: bp.providerName ?? bp.provider_name ?? null,
             status: "active" as const,
           }));
         setActivePersonas(activeOnly);
@@ -1303,7 +1409,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         firstMessage,
         model: selectedModel
           ? {
-              modelId: selectedModel.modelId ?? selectedModel.id,
+              modelId: selectedModel.id ?? selectedModel.modelId,
               companyName: selectedModel.companyName,
               modelName: selectedModel.modelName,
               version: selectedModel.version,
@@ -1664,14 +1770,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
                     side="left"
                     className="chat-layout-mobile-sheet"
                   >
-                    <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                    <Suspense fallback={null}>
+                      <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                    </Suspense>
                   </SheetContent>
                 </Sheet>
               </Topbar>
             )}
             {isSettingsSectionRoute && (
               <div className="w-full h-full flex">
-                <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                <Suspense fallback={null}>
+                  <LeftSidebar {...sidebarProps} isCollapsed={false} />
+                </Suspense>
                 <main className="flex-1 h-full" />
               </div>
             )}
@@ -1755,7 +1865,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <AppLayoutContext.Provider value={contextValue}>
       <div className="chat-layout-shell--full">
-        <LeftSidebar {...sidebarProps} />
+        <Suspense fallback={null}>
+          <LeftSidebar {...sidebarProps} />
+        </Suspense>
         <div className="chat-layout-sidebar-area">
           {!isSettingsSectionRoute && (
             <Topbar

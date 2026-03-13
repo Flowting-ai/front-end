@@ -31,6 +31,7 @@ import "katex/dist/katex.min.css";
 // Transform AIModel to compare model format
 interface CompareModel {
   id: string;
+  requestModelId: string | null;
   name: string;
   description: string;
   meta: string;
@@ -39,9 +40,34 @@ interface CompareModel {
   type: string;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const UUID_URN_PREFIX = "urn:uuid:";
+
+const normalizeIdCandidate = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const normalizeUuid = (value: unknown): string | null => {
+  const raw = normalizeIdCandidate(value);
+  if (!raw) return null;
+  const withoutUrn = raw.toLowerCase().startsWith(UUID_URN_PREFIX)
+    ? raw.slice(UUID_URN_PREFIX.length)
+    : raw;
+  return UUID_REGEX.test(withoutUrn) ? withoutUrn : null;
+};
+
+const resolveRequestModelId = (model: AIModel): string | null => {
+  return normalizeUuid(model.id) ?? normalizeUuid(model.modelId);
+};
+
 const transformModelForCompare = (model: AIModel): CompareModel => {
   const provider = model.companyName || "Unknown";
   const modelName = model.modelName || "Unknown Model";
+  const requestModelId = resolveRequestModelId(model);
 
   // Format name: only include provider if it's not empty/unknown
   const displayName =
@@ -68,7 +94,8 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
   const planLabel = model.planType || model.callType || model.modelType;
 
   return {
-    id: String(model.modelId || model.id || modelName),
+    id: `${provider}:${modelName}:${String(model.id ?? model.modelId ?? "unknown")}`,
+    requestModelId,
     name: displayName,
     description: model.description || (model.version ? `Version ${model.version}` : modelName),
     meta: `${planLabel || "Standard"} / In ${inputLimit.toLocaleString()} · Out ${outputLimit.toLocaleString()}`,
@@ -693,8 +720,9 @@ export default function CompareModelsPage({
     category === "all" ? models : models.filter((m) => m.type === category);
 
   const handleSelect = (model: CompareModel) => {
-    if (selectedModels.length < 3 && !selectedModels.includes(model.id)) {
-      setSelectedModels([...selectedModels, model.id]);
+    if (!model.requestModelId) return;
+    if (selectedModels.length < 3 && !selectedModels.includes(model.requestModelId)) {
+      setSelectedModels([...selectedModels, model.requestModelId]);
     }
   };
 
@@ -711,33 +739,49 @@ export default function CompareModelsPage({
     setStreamingModels(new Set()); // Clear streaming state
 
     try {
-      // Convert selectedModels (string IDs) to numeric modelIds
+      // Keep model IDs as strings (UUIDs supported).
       const modelIds = selectedModels
-        .map((id) => {
-          const model = models.find((m) => m.id === id);
-          return model ? parseInt(id, 10) : null;
-        })
-        .filter((id): id is number => id !== null && !isNaN(id));
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
 
-      if (modelIds.length === 0) {
+      const validModelIds = modelIds.filter((id) => UUID_REGEX.test(id));
+      const invalidModelIds = modelIds.filter((id) => !UUID_REGEX.test(id));
+
+      if (validModelIds.length === 0) {
         throw new Error("No valid model IDs found");
+      }
+
+      if (invalidModelIds.length > 0) {
+        const invalidText = invalidModelIds.join(", ");
+        const errorResponses: Record<string, string> = {};
+        selectedModels.forEach((id) => {
+          errorResponses[id] = `Error: Invalid model ID selected (${invalidText})`;
+        });
+        setTestResponses(errorResponses);
+        setStreamingModels(new Set());
+        return;
       }
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // Model comparison test endpoint is not available in the current backend.
-      throw new Error("Model comparison is not supported in the current backend.");
-      // eslint-disable-next-line no-unreachable
+      const trimmedPrompt = prompt.trim();
       const response = await apiFetch(
-        MODELS_ENDPOINT,
+        `${MODELS_ENDPOINT}/test`,
         {
           method: "POST",
           body: JSON.stringify({
-            modelIds,
-            message: prompt,
+            // New backend contract
+            model_ids: validModelIds,
+            prompt: trimmedPrompt,
+            // Backward compatibility with older contract
+            modelIds: validModelIds,
+            message: trimmedPrompt,
           }),
           signal: controller.signal,
+          headers: {
+            Accept: "text/event-stream",
+          },
         }
       );
 
@@ -755,91 +799,174 @@ export default function CompareModelsPage({
         const decoder = new TextDecoder();
         let buffer = "";
         const streamingResponses: Record<string, string> = {};
+        const selectedModelSet = new Set(selectedModels);
 
         // Initialize empty responses for each model
         selectedModels.forEach((stringId) => {
           streamingResponses[stringId] = "";
         });
 
+        const resolveModelIdFromPayload = (
+          payload: Record<string, unknown>,
+        ): string | null => {
+          const raw = payload.model_id ?? payload.modelId ?? null;
+          if (raw === null || raw === undefined) return null;
+          const resolved = String(raw).trim();
+          return resolved.length > 0 ? resolved : null;
+        };
+
+        const resolveEventType = (
+          explicitEvent: string,
+          payload: Record<string, unknown>,
+        ): string => {
+          if (explicitEvent) return explicitEvent;
+          const rawType = payload.type;
+          return typeof rawType === "string" ? rawType.trim().toLowerCase() : "";
+        };
+
+        const handleEvent = (
+          eventType: string,
+          payload: Record<string, unknown>,
+        ) => {
+          const modelIdStr = resolveModelIdFromPayload(payload);
+          if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
+
+          if (!(modelIdStr in streamingResponses)) {
+            streamingResponses[modelIdStr] = "";
+          }
+
+          switch (eventType) {
+            case "metadata":
+            case "start": {
+              setStreamingModels((prev) => new Set(prev).add(modelIdStr));
+              break;
+            }
+            case "content":
+            case "chunk": {
+              const chunk =
+                typeof payload.content === "string"
+                  ? payload.content
+                  : typeof payload.delta === "string"
+                    ? payload.delta
+                    : "";
+              if (!chunk) return;
+              streamingResponses[modelIdStr] =
+                (streamingResponses[modelIdStr] || "") + chunk;
+              setStreamingModels((prev) => new Set(prev).add(modelIdStr));
+              setTestResponses({ ...streamingResponses });
+              break;
+            }
+            case "reasoning": {
+              // Intentionally ignored in compare response body for now.
+              break;
+            }
+            case "image": {
+              const imageUrl =
+                typeof payload.url === "string" ? payload.url.trim() : "";
+              if (!imageUrl) return;
+              streamingResponses[modelIdStr] = `${streamingResponses[modelIdStr] || ""}\n\n![image](${imageUrl})`;
+              setTestResponses({ ...streamingResponses });
+              break;
+            }
+            case "done":
+            case "end": {
+              const finalResponse =
+                typeof payload.response === "string"
+                  ? payload.response
+                  : "";
+              if (finalResponse) {
+                streamingResponses[modelIdStr] = finalResponse;
+                setTestResponses({ ...streamingResponses });
+              }
+              setStreamingModels((prev) => {
+                const next = new Set(prev);
+                next.delete(modelIdStr);
+                return next;
+              });
+              break;
+            }
+            case "error": {
+              const errorText =
+                typeof payload.error === "string"
+                  ? payload.error
+                  : "Unknown error";
+              streamingResponses[modelIdStr] = `Error: ${errorText}`;
+              setTestResponses({ ...streamingResponses });
+              setStreamingModels((prev) => {
+                const next = new Set(prev);
+                next.delete(modelIdStr);
+                return next;
+              });
+              break;
+            }
+            default:
+              break;
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
 
-          let currentEventType = "";
-          for (const line of lines) {
-            if (line.startsWith("event: ")) {
-              currentEventType = line.slice(7).trim();
-            } else if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                const modelIdStr = String(data.modelId);
+          for (const eventChunk of events) {
+            const lines = eventChunk.split("\n");
+            let explicitEvent = "";
+            let dataStr = "";
 
-                switch (currentEventType) {
-                  case "metadata":
-                    // Model metadata received
-                    console.log(`Model ${modelIdStr} metadata:`, data);
-                    break;
-
-                  case "start":
-                    // Model started generating
-                    streamingResponses[modelIdStr] = "";
-                    setStreamingModels((prev) => new Set(prev).add(modelIdStr));
-                    setTestResponses({ ...streamingResponses });
-                    break;
-
-                  case "chunk":
-                    // Append streaming chunk
-                    if (data.delta) {
-                      streamingResponses[modelIdStr] =
-                        (streamingResponses[modelIdStr] || "") + data.delta;
-                      setTestResponses({ ...streamingResponses });
-                    }
-                    break;
-
-                  case "end":
-                    // Model finished streaming
-                    setStreamingModels((prev) => {
-                      const next = new Set(prev);
-                      next.delete(modelIdStr);
-                      return next;
-                    });
-                    console.log(`Model ${modelIdStr} finished streaming`);
-                    break;
-
-                  case "done":
-                    // Final response with token usage
-                    streamingResponses[modelIdStr] =
-                      data.response || streamingResponses[modelIdStr];
-                    setTestResponses({ ...streamingResponses });
-                    console.log(`Model ${modelIdStr} tokens:`, {
-                      input: data.inputTokens,
-                      output: data.outputTokens,
-                    });
-                    break;
-
-                  case "error":
-                    // Handle error for specific model
-                    streamingResponses[modelIdStr] =
-                      `Error: ${data.error || "Unknown error"}`;
-                    setTestResponses({ ...streamingResponses });
-                    break;
-
-                  case "complete":
-                    // All models completed
-                    console.log("All models completed");
-                    break;
-                }
-              } catch (e) {
-                // Ignore JSON parse errors for incomplete data
-                console.warn("Failed to parse SSE data:", e);
+            for (const line of lines) {
+              if (line.startsWith("event:")) {
+                explicitEvent = line.slice(6).trim().toLowerCase();
+              } else if (line.startsWith("data:")) {
+                dataStr += line.slice(5).trim();
               }
+            }
+
+            if (!dataStr) continue;
+
+            try {
+              const payload = JSON.parse(dataStr) as Record<string, unknown>;
+              const eventType = resolveEventType(explicitEvent, payload);
+              handleEvent(eventType, payload);
+            } catch {
+              // Ignore incomplete/invalid chunks.
             }
           }
         }
+
+        // Drain a trailing partial event if present.
+        if (buffer.trim()) {
+          const trailing = `${buffer}\n\n`.split("\n\n");
+          for (const eventChunk of trailing) {
+            const lines = eventChunk.split("\n");
+            let explicitEvent = "";
+            let dataStr = "";
+
+            for (const line of lines) {
+              if (line.startsWith("event:")) {
+                explicitEvent = line.slice(6).trim().toLowerCase();
+              } else if (line.startsWith("data:")) {
+                dataStr += line.slice(5).trim();
+              }
+            }
+
+            if (!dataStr) continue;
+
+            try {
+              const payload = JSON.parse(dataStr) as Record<string, unknown>;
+              const eventType = resolveEventType(explicitEvent, payload);
+              handleEvent(eventType, payload);
+            } catch {
+              // Ignore incomplete/invalid chunks.
+            }
+          }
+        }
+
+        // Ensure no model remains stuck in streaming state.
+        setStreamingModels(new Set());
       } finally {
         reader.cancel().catch(() => {});
       }
@@ -867,12 +994,17 @@ export default function CompareModelsPage({
   // Handle selecting a model from compare results
   const handleSelectModel = (modelId: string) => {
     // Find the full AIModel data
-    const fullModel = fullModels.find(
-      (m) => String(m.modelId || m.id) === modelId,
-    );
+    const fullModel = fullModels.find((m) => resolveRequestModelId(m) === modelId);
 
     if (fullModel && onModelSelect) {
-      onModelSelect(fullModel);
+      const requestModelId = resolveRequestModelId(fullModel);
+      if (!requestModelId) return;
+
+      onModelSelect({
+        ...fullModel,
+        id: requestModelId,
+        modelId: requestModelId,
+      });
       // Parent will handle closing and confirmation if needed
     }
   };
@@ -896,7 +1028,7 @@ export default function CompareModelsPage({
     const columnHeight =
       fixedHeight - (headerHeight + footerHeight + verticalPadding);
     const modelsToShow = selectedModels
-      .map((id) => models.find((m) => m.id === id))
+      .map((id) => models.find((m) => m.requestModelId === id))
       .filter((candidate): candidate is CompareModel => Boolean(candidate));
     return (
       // Compare Results Page
@@ -972,7 +1104,12 @@ export default function CompareModelsPage({
             minHeight: 0,
           }}
         >
-          {modelsToShow.map((model, idx) => (
+          {modelsToShow.map((model, idx) => {
+            const responseKey = model.requestModelId ?? model.id;
+            const modelResponse = testResponses[responseKey];
+            const isModelStreaming = streamingModels.has(responseKey);
+
+            return (
             <div
               key={model.id}
               className="mb-24"
@@ -1016,7 +1153,7 @@ export default function CompareModelsPage({
                   {model.name}
                 </div>
                 <button
-                  onClick={() => handleSelectModel(model.id)}
+                  onClick={() => handleSelectModel(model.requestModelId ?? model.id)}
                   className="cursor-pointer h-[28px] text-[12px] bg-white hover:bg-zinc-100 border border-[#E5E7EB] rounded-[6px] shadow-sm shadow-zinc-300 mt-0 transition-all duration-300"
                 >
                   ✓ Select this model
@@ -1027,20 +1164,20 @@ export default function CompareModelsPage({
               <div
                 className={`min-h-0 flex-1 flex flex-col overflow-y-auto overflow-x-auto ${chatStyles.customScrollbar}`}
                 style={{
-                  alignItems: testResponses[model.id] ? "flex-start" : "center",
-                  justifyContent: testResponses[model.id]
+                  alignItems: modelResponse ? "flex-start" : "center",
+                  justifyContent: modelResponse
                     ? "flex-start"
                     : "center",
-                  padding: testResponses[model.id] ? "12px" : "0",
+                  padding: modelResponse ? "12px" : "0",
                 }}
               >
-                {streamingModels.has(model.id) ? (
+                {isModelStreaming ? (
                   // Currently streaming - show raw text with cursor
                   <div className="w-full text-sm leading-relaxed text-[#171717] whitespace-pre-wrap break-words">
-                    {testResponses[model.id] || ""}
+                    {modelResponse || ""}
                     <span className={styles.streamingCursor} />
                   </div>
-                ) : isTesting && !testResponses[model.id] ? (
+                ) : isTesting && !modelResponse ? (
                   // Waiting to start
                   <>
                     <Sparkles
@@ -1058,11 +1195,11 @@ export default function CompareModelsPage({
                       Waiting to generate...
                     </div>
                   </>
-                ) : testResponses[model.id] ? (
+                ) : modelResponse ? (
                   // Response complete - render formatted markdown
                   <FormattedResponse
-                    content={testResponses[model.id]}
-                    modelId={model.id}
+                    content={modelResponse}
+                    modelId={responseKey}
                   />
                 ) : (
                   // Empty state
@@ -1086,7 +1223,8 @@ export default function CompareModelsPage({
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         {/* Prompt Input Area in Footer */}
         <div
@@ -1208,7 +1346,7 @@ export default function CompareModelsPage({
       <div className={styles.selectedModels}>
         {[0, 1, 2].map((i) => {
           const modelId = selectedModels[i];
-          const model = models.find((m) => m.id === modelId);
+          const model = models.find((m) => m.requestModelId === modelId);
           return (
             <div
               key={i}
@@ -1265,7 +1403,7 @@ export default function CompareModelsPage({
                       styles.removeBtn,
                       "absolute top-1/2 -translate-y-1/2 right-2",
                     )}
-                    onClick={() => handleRemove(model.id)}
+                    onClick={() => handleRemove(modelId)}
                     aria-label="Remove"
                   >
                     <X size={16} />
@@ -1456,12 +1594,14 @@ export default function CompareModelsPage({
               }}
             >
               {filteredModels.map((model) => {
-                const isSelected = selectedModels.includes(model.id);
+                const isSelected =
+                  !!model.requestModelId && selectedModels.includes(model.requestModelId);
                 const isDisabled = selectedModels.length >= 3 && !isSelected;
+                const isNotSelectable = !model.requestModelId;
                 return (
                   <div
                     key={model.id}
-                    onClick={() => !isDisabled && handleSelect(model)}
+                    onClick={() => !isDisabled && !isNotSelectable && handleSelect(model)}
                     onMouseEnter={() => setHoveredModel(model.id)}
                     onMouseLeave={() => setHoveredModel(null)}
                     style={{
@@ -1480,12 +1620,17 @@ export default function CompareModelsPage({
                           ? "#F5F5F5"
                           : "#fff",
                       alignItems: "flex-start",
-                      opacity: isDisabled ? 0.5 : 1,
+                      opacity: isDisabled || isNotSelectable ? 0.5 : 1,
                       boxSizing: "border-box",
-                      cursor: isDisabled ? "not-allowed" : "pointer",
+                      cursor: isDisabled || isNotSelectable ? "not-allowed" : "pointer",
                       transition: "background 0.2s, border 0.2s, opacity 0.2s",
                       position: "relative",
                     }}
+                    title={
+                      isNotSelectable
+                        ? "This model is missing a backend model ID and cannot be tested."
+                        : undefined
+                    }
                   >
                     {isSelected && (
                       <CircleCheckBig

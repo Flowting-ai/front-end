@@ -35,6 +35,7 @@ import {
   formatPinTitle,
   stripMarkdown,
 } from "@/lib/markdown-utils";
+import { fetchChatBoards } from "@/lib/api/chat";
 import { fetchPersonas as fetchPersonasApi } from "@/lib/api/personas";
 import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
@@ -71,6 +72,7 @@ import {
   MODELS_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
+import { mergeStreamingText } from "@/lib/streaming";
 import { getModelIcon } from "@/lib/model-icons";
 import { normalizeModels } from "@/lib/ai-models";
 import Image from "next/image";
@@ -119,6 +121,26 @@ const toOptionalTrimmedString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const UUID_V4_LIKE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const normalizeUuidReference = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const withoutUrn = raw.toLowerCase().startsWith("urn:uuid:")
+    ? raw.slice("urn:uuid:".length)
+    : raw;
+  if (UUID_V4_LIKE_RE.test(withoutUrn)) return withoutUrn;
+
+  // Some UI-local ids append a role suffix (e.g. <uuid>-assistant).
+  // Recover the UUID prefix so backend endpoints still receive a valid id.
+  const withSuffixMatch = withoutUrn.match(
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})-[a-z0-9_-]+$/i,
+  );
+  return withSuffixMatch ? withSuffixMatch[1] : null;
 };
 
 const normalizeClarificationPrompt = (
@@ -881,6 +903,127 @@ export function ChatInterface({
 
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     try {
+      let currentChatId = chatId;
+
+      const getResolvedChatId = (payload: unknown): string | null => {
+        if (!payload || typeof payload !== "object") return null;
+        const candidate = payload as {
+          chat_id?: string | number | null;
+          chatId?: string | number | null;
+        };
+        const raw = candidate.chat_id ?? candidate.chatId ?? null;
+        if (raw === null || raw === undefined) return null;
+        const resolved = String(raw).trim();
+        return resolved.length > 0 ? resolved : null;
+      };
+
+      const adoptResolvedChatId = (resolved: string) => {
+        if (isPersonaTest || !layoutContext?.setActiveChatId) return;
+        const previousChatId = currentChatId;
+        if (previousChatId === resolved) return;
+
+        currentChatId = resolved;
+        layoutContext.setActiveChatId(resolved);
+        if (messageBufferRef.current.length > 0) {
+          setMessages(messageBufferRef.current, resolved);
+        }
+
+        if (
+          previousChatId &&
+          previousChatId.startsWith("temp-") &&
+          layoutContext.setChatBoards
+        ) {
+          layoutContext.setChatBoards((prev) => {
+            const tempBoard = prev.find((b) => b.id === previousChatId);
+            if (!tempBoard) return prev;
+            const realBoard = {
+              ...tempBoard,
+              id: resolved,
+            };
+            return prev.map((b) =>
+              b.id === previousChatId ? realBoard : b,
+            );
+          });
+        }
+      };
+
+      const tryResolveTempChatIdFromServer = (
+        titleHint?: string,
+        retries = 2,
+      ) => {
+        if (isPersonaTest || !currentChatId || !currentChatId.startsWith("temp-")) {
+          return;
+        }
+        const tempIdSnapshot = currentChatId;
+        const normalizedTitleHint = (titleHint || "").trim().toLowerCase();
+        const inputPrefix = userMessage.trim().slice(0, 50).toLowerCase();
+
+        void fetchChatBoards()
+          .then(({ chats }) => {
+            if (!chats || chats.length === 0) {
+              if (retries > 0) {
+                setTimeout(
+                  () => tryResolveTempChatIdFromServer(titleHint, retries - 1),
+                  500,
+                );
+              }
+              return;
+            }
+
+            if (currentChatId !== tempIdSnapshot) return;
+
+            const candidates = chats.map((chat) => {
+              const rawTitle =
+                chat.chat_title ||
+                (chat as { title?: string }).title ||
+                (chat as { name?: string }).name ||
+                "";
+              return {
+                id: String(chat.id),
+                title: rawTitle.trim(),
+              };
+            });
+
+            let matched =
+              normalizedTitleHint.length > 0
+                ? candidates.find(
+                    (chat) =>
+                      chat.title.toLowerCase() === normalizedTitleHint,
+                  )
+                : undefined;
+
+            if (!matched && inputPrefix.length > 0) {
+              matched = candidates.find((chat) =>
+                chat.title.toLowerCase().startsWith(inputPrefix),
+              );
+            }
+
+            const fallback = candidates[0];
+            const resolvedId = (matched || fallback)?.id;
+            if (!resolvedId) {
+              if (retries > 0) {
+                setTimeout(
+                  () => tryResolveTempChatIdFromServer(titleHint, retries - 1),
+                  500,
+                );
+              }
+              return;
+            }
+
+            if (currentChatId === tempIdSnapshot) {
+              adoptResolvedChatId(resolvedId);
+            }
+          })
+          .catch(() => {
+            if (retries > 0) {
+              setTimeout(
+                () => tryResolveTempChatIdFromServer(titleHint, retries - 1),
+                500,
+              );
+            }
+          });
+      };
+
       if (!modelForRequest) {
         console.warn("No model selected  backend may need to use a default.");
       }
@@ -896,10 +1039,13 @@ export function ChatInterface({
           : `${API_BASE_URL}/chats/create`;
 
       const modelId =
-        modelForRequest?.modelId ??
         modelForRequest?.id ??
+        modelForRequest?.modelId ??
         personaTestConfig?.modelId ??
         null;
+      const useAlgorithm =
+        (modelId === null || modelId === undefined) &&
+        Boolean(layoutContext?.useFramework);
 
       // Build request body - use FormData when file is present, JSON otherwise
       let body: FormData | string;
@@ -915,10 +1061,27 @@ export function ChatInterface({
         files?.filter((f) => f.type.startsWith("image/")) ?? [];
 
       if (isPersonaTest) {
-        // Persona test: form-urlencoded with just `input`
-        const params = new URLSearchParams({ input: userMessage });
-        body = params.toString();
-        headers["Content-Type"] = "application/x-www-form-urlencoded";
+        // Persona test: allow files via FormData, otherwise use urlencoded input
+        if ((files?.length ?? 0) > 0) {
+          const formData = new FormData();
+          formData.append("input", userMessage);
+          if (modelId !== null && modelId !== undefined) {
+            formData.append("model_id", String(modelId));
+          }
+          if (webSearchEnabled) {
+            formData.append("web_search", "true");
+          }
+          // Append all files (images + documents)
+          [...imageFiles, ...nonImageFiles].forEach((file) => {
+            formData.append("files", file);
+          });
+          body = formData;
+          // Don't set Content-Type header - browser sets it with boundary for FormData
+        } else {
+          const params = new URLSearchParams({ input: userMessage });
+          body = params.toString();
+          headers["Content-Type"] = "application/x-www-form-urlencoded";
+        }
       } else if (nonImageFiles.length > 0) {
         // Use FormData for file uploads
         const formData = new FormData();
@@ -926,14 +1089,19 @@ export function ChatInterface({
         if (modelId !== null && modelId !== undefined) {
           formData.append("model_id", String(modelId));
         }
+        if (useAlgorithm) {
+          formData.append("use_algorithm", "true");
+        }
         if (webSearchEnabled) {
           formData.append("web_search", "true");
         }
         if (pinIds && pinIds.length > 0) {
-          formData.append("pin_ids", pinIds.join(","));
+          formData.append("pin_ids", JSON.stringify(pinIds));
         }
         // Send reference_message_id for stream endpoint
-        const resolvedRefIdFD = referencedMessageId || replyToMessageId || null;
+        const resolvedRefIdFD = normalizeUuidReference(
+          referencedMessageId || replyToMessageId || null,
+        );
         if (resolvedRefIdFD && isExistingChat) {
           formData.append("reference_message_id", resolvedRefIdFD);
         }
@@ -950,13 +1118,18 @@ export function ChatInterface({
         if (modelId !== null && modelId !== undefined) {
           formData.append("model_id", String(modelId));
         }
+        if (useAlgorithm) {
+          formData.append("use_algorithm", "true");
+        }
         if (webSearchEnabled) {
           formData.append("web_search", "true");
         }
         if (pinIds && pinIds.length > 0) {
-          formData.append("pin_ids", pinIds.join(","));
+          formData.append("pin_ids", JSON.stringify(pinIds));
         }
-        const resolvedRefId = referencedMessageId || replyToMessageId || null;
+        const resolvedRefId = normalizeUuidReference(
+          referencedMessageId || replyToMessageId || null,
+        );
         if (resolvedRefId && isExistingChat) {
           formData.append("reference_message_id", resolvedRefId);
         }
@@ -987,15 +1160,33 @@ export function ChatInterface({
         throw new Error(errorText || "API request failed");
       }
 
+      // Fallback: some backends return the chat id in response headers for new chats.
+      if (!isPersonaTest && layoutContext?.setActiveChatId) {
+        const headerChatId =
+          response.headers.get("X-Chat-Id") ||
+          response.headers.get("x-chat-id");
+        const shouldAdoptHeaderId =
+          headerChatId &&
+          (!currentChatId || currentChatId.startsWith("temp-"));
+        if (shouldAdoptHeaderId) {
+          adoptResolvedChatId(String(headerChatId));
+        }
+      }
+
       const decoder = new TextDecoder();
       let buffer = "";
       let assistantContent = "";
       let reasoningContent = "";
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
-      let currentChatId = chatId;
+      let shouldStopReading = false;
+      const AI_UPDATE_INTERVAL_MS = 33;
+      let pendingAiFields: Partial<Message> | null = null;
+      let aiUpdateRafId: number | null = null;
+      let aiUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+      let lastAiFlushAt = 0;
 
-      const updateAiMessage = (fields: Partial<Message>) => {
+      const applyAiMessageUpdate = (fields: Partial<Message>) => {
         setMessages((prev = []) => {
           const next = prev.map((msg) => {
             if (msg.id !== loadingMessageId) return msg;
@@ -1008,6 +1199,99 @@ export function ChatInterface({
               };
             }
             return { ...msg, ...mergedFields };
+          });
+          messageBufferRef.current = next;
+          return next;
+        }, currentChatId ?? undefined);
+      };
+
+      const clearScheduledAiUpdate = () => {
+        if (aiUpdateRafId !== null) {
+          cancelAnimationFrame(aiUpdateRafId);
+          aiUpdateRafId = null;
+        }
+        if (aiUpdateTimer !== null) {
+          clearTimeout(aiUpdateTimer);
+          aiUpdateTimer = null;
+        }
+      };
+
+      const flushQueuedAiUpdate = () => {
+        if (!pendingAiFields) return;
+        const nextFields = pendingAiFields;
+        pendingAiFields = null;
+        clearScheduledAiUpdate();
+        lastAiFlushAt = Date.now();
+        applyAiMessageUpdate(nextFields);
+      };
+
+      const queueAiMessageUpdate = (
+        fields: Partial<Message>,
+        immediate = false,
+      ) => {
+        if (pendingAiFields) {
+          pendingAiFields = {
+            ...pendingAiFields,
+            ...fields,
+            metadata:
+              pendingAiFields.metadata || fields.metadata
+                ? {
+                    ...(pendingAiFields.metadata || {}),
+                    ...(fields.metadata || {}),
+                  }
+                : undefined,
+          };
+        } else {
+          pendingAiFields = fields;
+        }
+
+        if (immediate) {
+          flushQueuedAiUpdate();
+          return;
+        }
+
+        if (aiUpdateRafId !== null || aiUpdateTimer !== null) return;
+
+        const elapsed = Date.now() - lastAiFlushAt;
+        if (elapsed >= AI_UPDATE_INTERVAL_MS) {
+          aiUpdateRafId = requestAnimationFrame(() => {
+            aiUpdateRafId = null;
+            flushQueuedAiUpdate();
+          });
+        } else {
+          aiUpdateTimer = setTimeout(() => {
+            aiUpdateTimer = null;
+            flushQueuedAiUpdate();
+          }, AI_UPDATE_INTERVAL_MS - elapsed);
+        }
+      };
+
+      const appendAiImages = (
+        incoming: Array<{ url: string; alt?: string }>,
+      ) => {
+        if (incoming.length === 0) return;
+        setMessages((prev = []) => {
+          const next = prev.map((msg) => {
+            if (msg.id !== loadingMessageId) return msg;
+            const existing = Array.isArray(msg.images)
+              ? msg.images
+              : msg.imageUrl
+                ? [{ url: msg.imageUrl, alt: msg.imageAlt }]
+                : [];
+            const seen = new Set(existing.map((img) => img.url));
+            const merged = [...existing];
+            incoming.forEach((img) => {
+              if (!seen.has(img.url)) {
+                merged.push(img);
+                seen.add(img.url);
+              }
+            });
+            return {
+              ...msg,
+              images: merged,
+              imageUrl: merged[0]?.url,
+              imageAlt: merged[0]?.alt,
+            };
           });
           messageBufferRef.current = next;
           return next;
@@ -1075,44 +1359,39 @@ export function ChatInterface({
             }
           }
 
+          if (
+            eventName === "content" &&
+            typeof parsed.content === "string" &&
+            !("delta" in parsed)
+          ) {
+            parsed = { ...parsed, delta: parsed.content };
+            eventName = "chunk";
+          }
+
+          if (
+            eventName === "reasoning" &&
+            typeof parsed.content === "string" &&
+            !("delta" in parsed)
+          ) {
+            parsed = { ...parsed, delta: parsed.content };
+          }
+
           if (eventName === "metadata") {
             streamMetadata = parsed;
-            if (
-              !isPersonaTest &&
-              parsed.chat_id &&
-              layoutContext?.setActiveChatId
-            ) {
-              const resolved = String(parsed.chat_id);
-              const previousChatId = currentChatId;
-              currentChatId = resolved;
-              layoutContext.setActiveChatId(resolved);
-              // Re-sync buffered messages to the resolved chat id
-              if (messageBufferRef.current.length > 0) {
-                setMessages(messageBufferRef.current, resolved);
-              }
-              // Replace temp board in chatBoards with the real one
-              if (
-                previousChatId &&
-                previousChatId.startsWith("temp-") &&
-                layoutContext.setChatBoards
-              ) {
-                layoutContext.setChatBoards((prev) => {
-                  const tempBoard = prev.find(
-                    (b) => b.id === previousChatId,
-                  );
-                  if (!tempBoard) return prev;
-                  const realBoard = {
-                    ...tempBoard,
-                    id: resolved,
-                    name:
-                      parsed.title ||
-                      parsed.chat_title ||
-                      tempBoard.name,
-                  };
-                  return prev.map((b) =>
-                    b.id === previousChatId ? realBoard : b,
-                  );
-                });
+            const metadataChatId = getResolvedChatId(parsed);
+            if (metadataChatId) {
+              adoptResolvedChatId(metadataChatId);
+              if (layoutContext?.setChatBoards) {
+                layoutContext.setChatBoards((prev) =>
+                  prev.map((b) =>
+                    b.id === metadataChatId
+                      ? {
+                          ...b,
+                          name: parsed.title || parsed.chat_title || b.name,
+                        }
+                      : b,
+                  ),
+                );
               }
             }
 
@@ -1134,8 +1413,8 @@ export function ChatInterface({
 
           if (eventName === "reasoning") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-            reasoningContent += delta;
-            updateAiMessage({
+            reasoningContent = mergeStreamingText(reasoningContent, delta);
+            queueAiMessageUpdate({
               thinkingContent: reasoningContent,
               isThinkingInProgress: true,
               isLoading: false,
@@ -1143,14 +1422,51 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "model_selected") {
+            const modelName =
+              typeof parsed.model_name === "string"
+                ? parsed.model_name
+                : typeof parsed.modelName === "string"
+                  ? parsed.modelName
+                  : undefined;
+            const providerName =
+              typeof parsed.company === "string"
+                ? parsed.company
+                : typeof parsed.provider_name === "string"
+                  ? parsed.provider_name
+                  : typeof parsed.providerName === "string"
+                    ? parsed.providerName
+                    : undefined;
+            const avatarUrl = getModelIcon(providerName, modelName);
+            const avatarHint = [modelName, providerName]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            queueAiMessageUpdate({
+              avatarUrl,
+              avatarHint: avatarHint || undefined,
+              metadata: {
+                modelName,
+                providerName,
+                llmModelId:
+                  parsed.model_id ??
+                  parsed.modelId ??
+                  parsed.llm_model_id ??
+                  parsed.llmModelId ??
+                  null,
+              },
+            }, true);
+            continue;
+          }
+
           if (eventName === "chunk") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
-            assistantContent += delta;
+            assistantContent = mergeStreamingText(assistantContent, delta);
             const sanitized = extractThinkingContent(assistantContent);
             const hasOpenThink = /<think>/i.test(assistantContent);
             const hasCloseThink = /<\/think>/i.test(assistantContent);
             const stillThinking = hasOpenThink && !hasCloseThink;
-            updateAiMessage({
+            queueAiMessageUpdate({
               content: sanitized.visibleText || "",
               thinkingContent: reasoningContent || sanitized.thinkingText,
               isThinkingInProgress: stillThinking && !reasoningContent,
@@ -1160,14 +1476,67 @@ export function ChatInterface({
           }
 
           if (eventName === "image") {
-            const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-            const imageAlt =
-              typeof parsed.alt === "string" ? parsed.alt : undefined;
-            if (imageUrl) {
-              updateAiMessage({
-                imageUrl,
-                imageAlt,
+            const eventImages = Array.isArray(parsed.images)
+              ? parsed.images
+              : typeof parsed.url === "string" && parsed.url
+                ? [parsed.url]
+                : [];
+            const normalizedImages = eventImages
+              .map((img: unknown): { url: string; alt?: string } | null => {
+                if (typeof img === "string") {
+                  const trimmed = img.trim();
+                  return trimmed ? { url: trimmed } : null;
+                }
+                if (img && typeof img === "object") {
+                  const obj = img as { url?: unknown; alt?: unknown };
+                  const url =
+                    typeof obj.url === "string" ? obj.url.trim() : "";
+                  if (!url) return null;
+                  return {
+                    url,
+                    alt: typeof obj.alt === "string" ? obj.alt : undefined,
+                  };
+                }
+                return null;
+              })
+              .filter((img: { url: string; alt?: string } | null): img is { url: string; alt?: string } => Boolean(img));
+
+            appendAiImages(normalizedImages);
+            if (normalizedImages.length > 0) {
+              queueAiMessageUpdate({
+                metadata: {
+                  isImageGeneration: true,
+                },
               });
+            }
+            continue;
+          }
+
+          if (eventName === "title") {
+            const titleChatId = getResolvedChatId(parsed);
+            if (titleChatId) {
+              adoptResolvedChatId(titleChatId);
+            }
+            const titleCandidate =
+              typeof parsed.title === "string"
+                ? parsed.title
+                : typeof parsed.chat_title === "string"
+                  ? parsed.chat_title
+                  : "";
+            const streamTitle = titleCandidate.trim();
+            if (
+              !isPersonaTest &&
+              streamTitle &&
+              currentChatId &&
+              layoutContext?.updateChatTitleWithAnimation
+            ) {
+              layoutContext.updateChatTitleWithAnimation(
+                currentChatId,
+                streamTitle,
+              );
+            }
+            if (!titleChatId) {
+              tryResolveTempChatIdFromServer(streamTitle);
             }
             continue;
           }
@@ -1178,17 +1547,9 @@ export function ChatInterface({
               continue;
             }
 
-            if (
-              !isPersonaTest &&
-              parsed.chat_id &&
-              layoutContext?.setActiveChatId
-            ) {
-              const resolved = String(parsed.chat_id);
-              currentChatId = resolved;
-              layoutContext.setActiveChatId(resolved);
-              if (messageBufferRef.current.length > 0) {
-                setMessages(messageBufferRef.current, resolved);
-              }
+            const askUserChatId = getResolvedChatId(parsed);
+            if (askUserChatId) {
+              adoptResolvedChatId(askUserChatId);
             }
 
             const askUserTitle = parsed.title || parsed.chat_title;
@@ -1217,6 +1578,22 @@ export function ChatInterface({
             setLastMessageId(loadingMessageId);
             setIsResponding(false);
             streamFinished = true;
+            shouldStopReading = true;
+            continue;
+          }
+
+          if (eventName === "message_saved") {
+            const savedMessageId = normalizeUuidReference(
+              parsed.message_id ?? parsed.messageId ?? null,
+            );
+            if (savedMessageId) {
+              queueAiMessageUpdate(
+                {
+                  chatMessageId: savedMessageId,
+                },
+                true,
+              );
+            }
             continue;
           }
 
@@ -1300,20 +1677,36 @@ export function ChatInterface({
             );
 
             // Extract image data from done event if present
-            const doneImageUrl =
-              Array.isArray(parsed.images) && parsed.images.length > 0
-                ? parsed.images[0]?.url
-                : undefined;
-            const doneImageAlt =
-              Array.isArray(parsed.images) && parsed.images.length > 0
-                ? parsed.images[0]?.alt
-                : undefined;
+            const doneImages = Array.isArray(parsed.images)
+              ? parsed.images
+                  .map((img: unknown): { url: string; alt?: string } | null => {
+                    if (typeof img === "string") {
+                      const trimmed = img.trim();
+                      return trimmed ? { url: trimmed } : null;
+                    }
+                    if (img && typeof img === "object") {
+                      const obj = img as { url?: unknown; alt?: unknown };
+                      const url =
+                        typeof obj.url === "string" ? obj.url.trim() : "";
+                      if (!url) return null;
+                      return {
+                        url,
+                        alt: typeof obj.alt === "string" ? obj.alt : undefined,
+                      };
+                    }
+                    return null;
+                  })
+                  .filter(
+                    (img: { url: string; alt?: string } | null): img is { url: string; alt?: string } => Boolean(img),
+                  )
+              : [];
 
             // Use reasoning from dedicated events if available, otherwise from <think> tags
             const finalReasoning =
               reasoningContent || parsed.reasoning || sanitized.thinkingText;
 
-            updateAiMessage({
+            flushQueuedAiUpdate();
+            queueAiMessageUpdate({
               content:
                 sanitized.visibleText ||
                 (finalReasoning ? "" : "API didn't respond"),
@@ -1325,46 +1718,40 @@ export function ChatInterface({
                   : undefined,
               metadata,
               isLoading: false,
-              ...(doneImageUrl && { imageUrl: doneImageUrl }),
-              ...(doneImageAlt && { imageAlt: doneImageAlt }),
-            });
+            }, true);
 
-            if (
-              !isPersonaTest &&
-              parsed.chat_id &&
-              layoutContext?.setActiveChatId
-            ) {
-              const resolved = String(parsed.chat_id);
-              const previousDoneChatId = currentChatId;
-              currentChatId = resolved;
-              layoutContext.setActiveChatId(resolved);
-              if (messageBufferRef.current.length > 0) {
-                setMessages(messageBufferRef.current, resolved);
+            if (doneImages.length > 0) {
+              appendAiImages(doneImages);
+              queueAiMessageUpdate({
+                metadata: {
+                  isImageGeneration: true,
+                },
+              }, true);
+            }
+
+            const doneChatId = getResolvedChatId(parsed);
+            if (doneChatId) {
+              adoptResolvedChatId(doneChatId);
+              if (layoutContext?.setChatBoards) {
+                layoutContext.setChatBoards((prev) =>
+                  prev.map((b) =>
+                    b.id === doneChatId
+                      ? {
+                          ...b,
+                          name: parsed.title || parsed.chat_title || b.name,
+                        }
+                      : b,
+                  ),
+                );
               }
-              // Replace temp board in chatBoards with the real one (fallback if metadata event didn't handle it)
-              if (
-                previousDoneChatId &&
-                previousDoneChatId.startsWith("temp-") &&
-                layoutContext.setChatBoards
-              ) {
-                layoutContext.setChatBoards((prev) => {
-                  const tempBoard = prev.find(
-                    (b) => b.id === previousDoneChatId,
-                  );
-                  if (!tempBoard) return prev;
-                  const realBoard = {
-                    ...tempBoard,
-                    id: resolved,
-                    name:
-                      parsed.title ||
-                      parsed.chat_title ||
-                      tempBoard.name,
-                  };
-                  return prev.map((b) =>
-                    b.id === previousDoneChatId ? realBoard : b,
-                  );
-                });
-              }
+            } else {
+              const doneTitleHint =
+                typeof parsed.title === "string"
+                  ? parsed.title
+                  : typeof parsed.chat_title === "string"
+                    ? parsed.chat_title
+                    : "";
+              tryResolveTempChatIdFromServer(doneTitleHint);
             }
 
             // Update chat title if provided in done event (works for both new and existing chats)
@@ -1390,16 +1777,6 @@ export function ChatInterface({
               layoutContext.moveChatToTop(currentChatId);
             }
 
-            // Refresh chat title from backend after a short delay — the backend
-            // generates the title asynchronously after the stream ends, so the
-            // title won't be in the done event but will be available shortly after.
-            if (!isPersonaTest && currentChatId && layoutContext?.refreshChatTitle) {
-              const chatIdForTitle = currentChatId;
-              setTimeout(() => {
-                layoutContext.refreshChatTitle(chatIdForTitle);
-              }, 2500);
-            }
-
             setLastMessageId(loadingMessageId);
             setIsResponding(false);
             streamFinished = true;
@@ -1410,13 +1787,15 @@ export function ChatInterface({
               typeof parsed.error === "string"
                 ? parsed.error
                 : "Unexpected error from model";
-            updateAiMessage({
+            flushQueuedAiUpdate();
+            queueAiMessageUpdate({
               content: errorMessage,
               thinkingContent: null,
               isLoading: false,
-            });
+            }, true);
             setIsResponding(false);
             streamFinished = true;
+            shouldStopReading = true;
           }
         }
       };
@@ -1425,7 +1804,7 @@ export function ChatInterface({
       while (true) {
         const { value, done } = await streamReader.read();
         if (value) processChunk(value);
-        if (done || streamFinished) break;
+        if (done || shouldStopReading) break;
       }
 
       // Flush any remaining data left in the buffer (stream may end without trailing \n\n)
@@ -1437,24 +1816,25 @@ export function ChatInterface({
 
       // Release the connection so the browser can reuse the slot
       streamReader.cancel().catch(() => {});
+      flushQueuedAiUpdate();
 
       // If stream ended without a done/error event, treat accumulated content as complete
       if (!streamFinished) {
         if (assistantContent) {
           const sanitized = extractThinkingContent(assistantContent);
           const finalReasoning = reasoningContent || sanitized.thinkingText;
-          updateAiMessage({
+          queueAiMessageUpdate({
             content: sanitized.visibleText || assistantContent,
             thinkingContent: finalReasoning || null,
             isThinkingInProgress: false,
             isLoading: false,
-          });
+          }, true);
         } else {
-          updateAiMessage({
+          queueAiMessageUpdate({
             content: "Generation interrupted. Please retry.",
             thinkingContent: null,
             isLoading: false,
-          });
+          }, true);
         }
         setIsResponding(false);
       }
@@ -2055,7 +2435,6 @@ export function ChatInterface({
     });
     setIsUploadDialogOpen(false);
     setUploadFile(null);
-    setUploadSourceUrl("");
   };
 
   const handleClearReference = () => {
@@ -2074,10 +2453,13 @@ export function ChatInterface({
   const handlePin = async (message: Message) => {
     if (!layoutContext || !layoutContext.activeChatId) return;
 
-    const identifier = message.chatMessageId ?? message.id;
+    const identifier = normalizeUuidReference(
+      message.chatMessageId ?? message.id,
+    );
     if (!identifier) {
       toast.error("Unable to pin", {
-        description: "Please wait for the response to finish generating.",
+        description:
+          "This response is still syncing. Please wait a moment and try again.",
       });
       return;
     }
@@ -2289,7 +2671,7 @@ export function ChatInterface({
       };
 
       const response = await fetch(
-        DELETE_MESSAGE_ENDPOINT(chatId, identifier),
+        DELETE_MESSAGE_ENDPOINT(identifier),
         {
           method: "DELETE",
           headers: getAuthHeaders(headers),
@@ -3110,7 +3492,6 @@ export function ChatInterface({
                             handleAttachClick();
                             setShowAttachMenu(false);
                           }}
-                          // text-color was #1E1E1E - changed to #808080 during testing
                           className="pointer-events-none flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium text-[#808080] transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />

@@ -19,6 +19,7 @@ export interface BackendChat {
   is_starred?: boolean;
   isStarred?: boolean;
   pin_count?: number;
+  pinCount?: number;
 }
 
 export interface BackendMessage {
@@ -118,6 +119,8 @@ export interface CreateChatPayload {
     | null;
   modelId?: number | string | null;
   useFramework?: boolean;
+  useAlgorithm?: boolean;
+  webSearch?: boolean;
   user?: AuthUser | null;
   pinIds?: string[];
   file?: File | null;
@@ -136,13 +139,22 @@ export async function createChat(
 ): Promise<CreateChatResult> {
   const modelId =
     payload.modelId ??
-    payload.model?.modelId ??
-    (payload.model?.id !== undefined ? payload.model.id : null);
+    (payload.model?.id !== undefined ? payload.model.id : null) ??
+    payload.model?.modelId;
+  const useAlgorithm =
+    (payload.useAlgorithm ?? payload.useFramework) &&
+    (modelId === null || modelId === undefined);
 
   const formData = new FormData();
   formData.append("input", payload.firstMessage);
   if (modelId !== null && modelId !== undefined) {
     formData.append("model_id", String(modelId));
+  }
+  if (useAlgorithm) {
+    formData.append("use_algorithm", "true");
+  }
+  if (payload.webSearch) {
+    formData.append("web_search", "true");
   }
   if (payload.pinIds && payload.pinIds.length > 0) {
     formData.append("pin_ids", JSON.stringify(payload.pinIds));

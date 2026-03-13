@@ -145,8 +145,8 @@ export default function PersonaAdminPage() {
           tokensUsed: 0, // TODO: Backend doesn't provide this yet
           consumersCount: 0, // TODO: Backend doesn't provide this yet
           consumers: [], // TODO: Backend doesn't provide this yet
-          createdAt: bp.createdAt,
-          lastActivity: formatRelativeTime(bp.updatedAt),
+          createdAt: bp.createdAt ?? bp.created_at,
+          lastActivity: formatRelativeTime(bp.updatedAt ?? bp.updated_at),
           version: "v1.0",
         }));
 

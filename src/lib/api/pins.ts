@@ -23,34 +23,101 @@ export interface CommentResponse {
 
 export interface BackendPin {
   id: string;
-  pins_title: string;
+  title?: string;
+  pins_title?: string;
   message_id: string;
+  messageId?: string;
+  sourceMessageId?: string;
+  chat?: string;
+  sourceChatId?: string;
   folder_id: string;
+  folderId?: string;
+  folderName?: string;
   content: string;
+  formattedContent?: string;
   tags?: TagResponse[];
   comments?: CommentResponse[];
   created_at: string;
 }
 
+const normalizeBackendPin = (raw: unknown): BackendPin => {
+  const pin = (raw ?? {}) as Record<string, unknown>;
+  return {
+    id: String(pin.id ?? ""),
+    title:
+      typeof pin.title === "string"
+        ? pin.title
+        : typeof pin.pins_title === "string"
+          ? pin.pins_title
+          : undefined,
+    pins_title:
+      typeof pin.pins_title === "string"
+        ? pin.pins_title
+        : typeof pin.title === "string"
+          ? pin.title
+          : undefined,
+    message_id: String(pin.message_id ?? pin.messageId ?? ""),
+    messageId: String(pin.messageId ?? pin.message_id ?? ""),
+    sourceMessageId: String(pin.sourceMessageId ?? pin.messageId ?? pin.message_id ?? ""),
+    chat:
+      typeof pin.chat === "string"
+        ? pin.chat
+        : typeof pin.sourceChatId === "string"
+          ? pin.sourceChatId
+          : undefined,
+    sourceChatId:
+      typeof pin.sourceChatId === "string"
+        ? pin.sourceChatId
+        : typeof pin.chat === "string"
+          ? pin.chat
+          : undefined,
+    folder_id: String(pin.folder_id ?? pin.folderId ?? ""),
+    folderId: String(pin.folderId ?? pin.folder_id ?? ""),
+    folderName:
+      typeof pin.folderName === "string"
+        ? pin.folderName
+        : typeof pin.folder_name === "string"
+          ? pin.folder_name
+          : undefined,
+    content: typeof pin.content === "string" ? pin.content : "",
+    formattedContent:
+      typeof pin.formattedContent === "string"
+        ? pin.formattedContent
+        : typeof pin.content === "string"
+          ? pin.content
+          : undefined,
+    tags: Array.isArray(pin.tags)
+      ? (pin.tags as TagResponse[])
+      : undefined,
+    comments: Array.isArray(pin.comments)
+      ? (pin.comments as CommentResponse[])
+      : undefined,
+    created_at:
+      typeof pin.created_at === "string"
+        ? pin.created_at
+        : new Date().toISOString(),
+  };
+};
+
 export interface PinFolder {
   id: string;
-  folder_name: string;
+  folder_name?: string;
   name: string; // alias for folder_name — for UI compatibility
   pin_count?: number;
-  created_at: string;
+  created_at?: string;
 }
 
 export async function fetchAllPins(): Promise<BackendPin[]> {
   const response = await apiFetch(PINS_ENDPOINT, { method: "GET" });
   if (!response.ok) return [];
   const data = await response.json();
-  return Array.isArray(data) ? (data as BackendPin[]) : [];
+  return Array.isArray(data) ? data.map(normalizeBackendPin) : [];
 }
 
 export async function fetchPinById(pinId: string): Promise<BackendPin | null> {
   const response = await apiFetch(PIN_DETAIL_ENDPOINT(pinId), { method: "GET" });
   if (!response.ok) return null;
-  return (await response.json()) as BackendPin;
+  return normalizeBackendPin(await response.json());
 }
 
 /** Create a pin from a message. Only messageId is used; extra options are ignored by the new backend. */
@@ -70,7 +137,7 @@ export async function createPin(
     const text = await response.text();
     throw new Error(text || "Failed to create pin");
   }
-  return (await response.json()) as BackendPin;
+  return normalizeBackendPin(await response.json());
 }
 
 export async function deletePin(pinId: string): Promise<void> {
@@ -103,7 +170,7 @@ export async function createPinFolder(folder_name: string): Promise<PinFolder> {
 
 export async function movePinToFolder(
   pinId: string,
-  folderId: string
+  folderId: string | null
 ): Promise<BackendPin> {
   const response = await apiFetch(PIN_MOVE_ENDPOINT(pinId), {
     method: "PATCH",
@@ -113,7 +180,7 @@ export async function movePinToFolder(
     const text = await response.text();
     throw new Error(text || "Failed to move pin");
   }
-  return (await response.json()) as BackendPin;
+  return normalizeBackendPin(await response.json());
 }
 
 // Not available in current backend — stubs for UI compatibility
