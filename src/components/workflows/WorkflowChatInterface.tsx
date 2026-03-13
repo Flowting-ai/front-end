@@ -1181,7 +1181,7 @@ export function WorkflowChatInterface({
                       className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full bg-zinc-300 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                       title="Voice input"
                     >
-                      <Mic
+                      <Send
                         className="h-[25px] w-[25px]"
                         strokeWidth={2}
                         style={{ minWidth: "18px", minHeight: "20px" }}
