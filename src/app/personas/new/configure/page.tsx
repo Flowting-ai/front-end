@@ -397,19 +397,18 @@ function PersonaConfigurePageContent() {
 
           console.log("📥 Loading persona data:", personaData);
 
+          if (!personaData) {
+            toast.error("Persona not found");
+            return;
+          }
+
           // Populate fields with existing data
           setPersonaName(personaData.name);
           setInstruction(personaData.prompt);
 
-          // Set temperature if available
-          if (personaData.temperature !== undefined) {
-            console.log("🌡️ Setting temperature:", personaData.temperature);
-            setTemperature([personaData.temperature]);
-          }
-
           // Set model if available - ensure models are loaded
-          if (personaData.modelId) {
-            const modelIdStr = String(personaData.modelId);
+          if (personaData.model_id) {
+            const modelIdStr = String(personaData.model_id);
             console.log("🔍 Setting model ID:", modelIdStr);
             console.log(
               "📋 Available models:",
@@ -419,12 +418,12 @@ function PersonaConfigurePageContent() {
           }
 
           // Set avatar if available (only when editing existing persona)
-          if (personaData.imageUrl) {
+          if (personaData.image_url) {
             console.log(
               "✅ Loading existing persona avatar:",
-              personaData.imageUrl,
+              personaData.image_url,
             );
-            const fullUrl = getFullAvatarUrl(personaData.imageUrl);
+            const fullUrl = getFullAvatarUrl(personaData.image_url);
             console.log("✅ Full avatar URL:", fullUrl);
             setAvatarUrl(fullUrl); // Use full URL instead of relative path
           } else {
@@ -779,12 +778,11 @@ function PersonaConfigurePageContent() {
       const personaPayload = {
         name: personaName.trim(),
         prompt: currentInstruction.trim(),
-        modelId:
+        model_id: String(
           resolvedSelectedModel?.modelId ??
           resolvedSelectedModel?.id ??
-          (Number.isFinite(Number(selectedModel))
-            ? Number(selectedModel)
-            : null),
+          (Number.isFinite(Number(selectedModel)) ? Number(selectedModel) : "")
+        ),
         status: "test" as const,
         temperature: temperature[0],
         image: imageFile,
@@ -819,8 +817,8 @@ function PersonaConfigurePageContent() {
       }
 
       console.log("✅ Persona ID:", result.id);
-      console.log("✅ Persona imageUrl:", result.imageUrl);
-      console.log("✅ Full imageUrl:", getFullAvatarUrl(result.imageUrl));
+      console.log("✅ Persona imageUrl:", result.image_url);
+      console.log("✅ Full imageUrl:", getFullAvatarUrl(result.image_url));
 
       // Clean up avatar from sessionStorage after successful save
       try {
@@ -3118,7 +3116,7 @@ function PersonaConfigurePageContent() {
         )}
 
         {/* Success Dialog */}
-        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <Dialog open={showSuccessDialog} onOpenChange={(open) => { if (!open) { setShowSuccessDialog(false); router.push("/personaAdmin"); } }}>
           <DialogContent
             className="border-none p-0 gap-0"
             style={{
@@ -3223,11 +3221,11 @@ function PersonaConfigurePageContent() {
                 <Button
                   onClick={() => {
                     setShowSuccessDialog(false);
-                    router.push("/personaAdmin");
+                    setShowShareDialog(true);
                   }}
                   className="w-[138px] h-11 rounded-lg bg-[#171717] hover:bg-[#000000] text-white font-medium"
                 >
-                  Go to Personas
+                  <Share2 className="h-4 w-4 mr-2" />Share
                 </Button>
               </div>
             </div>

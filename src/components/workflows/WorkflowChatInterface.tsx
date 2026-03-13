@@ -283,9 +283,11 @@ export function WorkflowChatInterface({
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
+      const maxHeight = 200;
       textareaRef.current.style.height = "auto";
       const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
 

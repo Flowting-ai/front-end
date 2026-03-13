@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
@@ -30,6 +31,8 @@ import {
   type NodeEndEvent,
   type NodeCompleteEvent,
   type WorkflowCompleteEvent,
+  type WorkflowChatMessage,
+  type StreamErrorEvent,
 } from "./workflow-api";
 import type { WorkflowDTO, NodeStatus } from "./types";
 import { extractThinkingContent } from "@/lib/thinking";
@@ -88,13 +91,22 @@ interface WorkflowChatFullPageProps {
   workflowId: string;
   workflow: WorkflowDTO;
   onEditWorkflow: () => void;
+  /** Existing chat session ID (from URL search param). When provided, loads history. */
+  chatId?: string | null;
 }
 
 export function WorkflowChatFullPage({
   workflowId,
   workflow,
   onEditWorkflow,
+  chatId,
 }: WorkflowChatFullPageProps) {
+  const router = useRouter();
+  const isValidUUID = (id: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const [activeChatId, setActiveChatId] = useState<string | null>(
+    chatId && isValidUUID(chatId) ? chatId : null
+  );
   const [nodesSectionOpen, setNodesSectionOpen] = useState(false);
   const [displayMessages, setDisplayMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -129,6 +141,55 @@ export function WorkflowChatFullPage({
   const { connectedCount, byType } = countNodes(workflow);
   const workflowName = workflow?.name?.trim() || "Untitled Workflow";
 
+  // Sync activeChatId with prop — handles navigating between workflow chat sessions.
+  // Functional updater avoids clearing messages when handleSend already set activeChatId
+  // and the URL is just catching up.
+  useEffect(() => {
+    const resolved = chatId && isValidUUID(chatId) ? chatId : null;
+    setActiveChatId((prev) => {
+      if (prev === resolved) return prev;
+      setDisplayMessages([]);
+      return resolved;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
+  // Load message history when a saved chatId is available.
+  useEffect(() => {
+    if (!activeChatId) return;
+    let cancelled = false;
+    workflowAPI.getChatMessages(workflowId, activeChatId).then((msgs: WorkflowChatMessage[]) => {
+      if (cancelled || msgs.length === 0) return;
+      const converted: Message[] = msgs.flatMap((m) => {
+        const items: Message[] = [];
+        if (m.input) {
+          items.push({
+            id: `${m.message_id}-user`,
+            sender: "user",
+            content: m.input,
+            avatarUrl: "/personas/userAvatar.png",
+            avatarHint: "User",
+          });
+        }
+        if (m.output) {
+          const sanitized = extractThinkingContent(m.output);
+          items.push({
+            id: `${m.message_id}-ai`,
+            sender: "ai",
+            content: sanitized.visibleText || m.output,
+            thinkingContent: m.reasoning || sanitized.thinkingText || null,
+            avatarUrl: flowtingLogoUrl,
+            avatarHint: workflowName,
+          });
+        }
+        return items;
+      });
+      setDisplayMessages(converted);
+    }).catch(() => { /* silently ignore */ });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId, workflowId]);
+
   useEffect(() => {
     if (scrollViewportRef.current) {
       scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
@@ -137,9 +198,11 @@ export function WorkflowChatFullPage({
 
   useEffect(() => {
     if (textareaRef.current) {
+      const maxHeight = 200;
       textareaRef.current.style.height = "auto";
       const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
 
@@ -178,10 +241,7 @@ export function WorkflowChatFullPage({
     setExpandedNodeOutputId(null);
 
     try {
-      const { abort } = await workflowAPI.executeStream(
-        workflowId,
-        trimmedContent,
-        {
+      const streamCallbacks = {
           onNodeStart: (event: NodeStartEvent) => {
             const nodeId = event.node_id;
             const nodeName = event.node_name || event.name || nodeId;
@@ -322,7 +382,7 @@ export function WorkflowChatFullPage({
             abortRef.current = null;
           },
 
-          onError: (event) => {
+          onError: (event: StreamErrorEvent) => {
             if (event.node_id) {
               setNodeOutputs((prev) => {
                 const next = new Map(prev);
@@ -342,9 +402,34 @@ export function WorkflowChatFullPage({
             setIsResponding(false);
             abortRef.current = null;
           },
-        }
-      );
-      abortRef.current = abort;
+      };
+
+      let streamResult: { abort: () => void };
+      if (activeChatId) {
+        // Continue an existing chat session
+        streamResult = await workflowAPI.chatContinue(
+          workflowId,
+          activeChatId,
+          trimmedContent,
+          "",
+          streamCallbacks,
+        );
+      } else {
+        // Create a new chat session
+        streamResult = await workflowAPI.chatNew(
+          workflowId,
+          trimmedContent,
+          "",
+          {
+            ...streamCallbacks,
+            onChatCreated: (newChatId: string) => {
+              setActiveChatId(newChatId);
+              router.replace(`/workflowAdmin/chat/${workflowId}?chatId=${newChatId}`);
+            },
+          },
+        );
+      }
+      abortRef.current = streamResult.abort;
     } catch (error) {
       const message =
         error instanceof Error

@@ -71,6 +71,20 @@ export function PersonaChatFullPage({
   const [activeChatId, setActiveChatId] = useState<string | null>(
     chatId && isValidUUID(chatId) ? chatId : null
   );
+
+  // Sync activeChatId when the chatId prop changes (user navigates between saved chats).
+  // Uses a functional updater so it can read fresh state: if activeChatId already matches
+  // (e.g. the URL just caught up after handleSend set it internally), we do nothing.
+  useEffect(() => {
+    const resolved = chatId && isValidUUID(chatId) ? chatId : null;
+    setActiveChatId((prev) => {
+      if (prev === resolved) return prev;
+      // Genuine external navigation to a different chat — clear stale messages.
+      setDisplayMessages([]);
+      return resolved;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -146,9 +160,11 @@ export function PersonaChatFullPage({
 
   useEffect(() => {
     if (textareaRef.current) {
+      const maxHeight = 200;
       textareaRef.current.style.height = "auto";
       const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
 
@@ -201,9 +217,9 @@ export function PersonaChatFullPage({
       const formData = new FormData();
       formData.append("input", trimmedContent);
 
-      const currentChatId = activeChatId;
-      const endpoint = currentChatId
-        ? `${API_BASE_URL}/persona/${personaId}/chats/${currentChatId}/stream`
+      let resolvedChatId = activeChatId;
+      const endpoint = resolvedChatId
+        ? `${API_BASE_URL}/persona/${personaId}/chats/${resolvedChatId}/stream`
         : `${API_BASE_URL}/persona/${personaId}/chats/create`;
 
       const response = await fetch(endpoint, {
@@ -214,14 +230,21 @@ export function PersonaChatFullPage({
         body: formData,
       });
 
-      // Capture chatId from header for new chats
-      if (!currentChatId) {
+      // Capture chatId from response header for new chats (fallback)
+      if (!resolvedChatId) {
         const newChatId = response.headers.get("X-Chat-Id");
         if (newChatId) {
+          resolvedChatId = newChatId;
           setActiveChatId(newChatId);
           router.replace(`/personaAdmin/chat/${personaId}?chatId=${newChatId}`);
           window.dispatchEvent(
             new CustomEvent("persona-chats-updated", { detail: { personaId } })
+          );
+          // Immediately update the sidebar title with the first message content
+          window.dispatchEvent(
+            new CustomEvent("persona-chat-title-updated", {
+              detail: { personaId, chatId: newChatId, title: trimmedContent.slice(0, 60) || "New Chat" },
+            })
           );
         }
       }
@@ -291,6 +314,21 @@ export function PersonaChatFullPage({
               }
 
               if (eventName === "metadata") {
+                // Extract chat_id from metadata event (primary source for new chats)
+                if (!resolvedChatId && parsed.chat_id) {
+                  resolvedChatId = String(parsed.chat_id);
+                  setActiveChatId(resolvedChatId);
+                  router.replace(`/personaAdmin/chat/${personaId}?chatId=${resolvedChatId}`);
+                  window.dispatchEvent(
+                    new CustomEvent("persona-chats-updated", { detail: { personaId } })
+                  );
+                  // Immediately update the sidebar title with the first message content
+                  window.dispatchEvent(
+                    new CustomEvent("persona-chat-title-updated", {
+                      detail: { personaId, chatId: resolvedChatId, title: trimmedContent.slice(0, 60) || "New Chat" },
+                    })
+                  );
+                }
                 continue;
               }
 

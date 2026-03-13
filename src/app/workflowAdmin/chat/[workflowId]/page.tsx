@@ -1,16 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import { WorkflowChatFullPage } from "@/components/workflows/WorkflowChatFullPage";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowDTO } from "@/components/workflows/types";
 
-export default function WorkflowChatPage() {
+function WorkflowChatPageInner() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const workflowId = params?.workflowId as string | undefined;
+  const chatId = searchParams?.get("chatId") ?? null;
   const [workflow, setWorkflow] = React.useState<WorkflowDTO | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -104,8 +106,17 @@ export default function WorkflowChatPage() {
       <WorkflowChatFullPage
         workflowId={workflowId}
         workflow={workflow}
+        chatId={chatId}
         onEditWorkflow={() => router.push(`/workflows?id=${workflowId}`)}
       />
     </AppLayout>
+  );
+}
+
+export default function WorkflowChatPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <WorkflowChatPageInner />
+    </React.Suspense>
   );
 }

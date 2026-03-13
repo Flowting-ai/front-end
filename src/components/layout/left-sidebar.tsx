@@ -388,11 +388,41 @@ export function LeftSidebar({
   React.useEffect(() => {
     const handler = (e: Event) => {
       const personaId = (e as CustomEvent<{ personaId: string }>).detail?.personaId;
-      if (personaId) loadPersonaChats(personaId);
+      if (personaId) {
+        loadPersonaChats(personaId);
+      }
     };
     window.addEventListener("persona-chats-updated", handler);
     return () => window.removeEventListener("persona-chats-updated", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Immediately update chat title in sidebar when PersonaChatFullPage dispatches it
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const { personaId, chatId, title } = (e as CustomEvent<{ personaId: string; chatId: string; title: string }>).detail ?? {};
+      if (personaId && chatId && title) {
+        setPersonaChats((prev) => {
+          const existing = prev[personaId] ?? [];
+          const hasEntry = existing.some((c) => c.id === chatId);
+          if (hasEntry) {
+            return {
+              ...prev,
+              [personaId]: existing.map((c) =>
+                c.id === chatId ? { ...c, chat_title: title } : c,
+              ),
+            };
+          }
+          // Prepend the new chat entry so it appears at the top
+          return {
+            ...prev,
+            [personaId]: [{ id: chatId, chat_title: title, message_count: 1 }, ...existing],
+          };
+        });
+      }
+    };
+    window.addEventListener("persona-chat-title-updated", handler);
+    return () => window.removeEventListener("persona-chat-title-updated", handler);
   }, []);
 
   // ─── Persona chat handlers ─────────────────────────────────────────────────
@@ -1391,12 +1421,24 @@ export function LeftSidebar({
                                         <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
                                           Loading...
                                         </p>
-                                      ) : sessionsToShow.length === 0 ? (
-                                        <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
-                                          No chats yet
-                                        </p>
                                       ) : (
-                                        sessionsToShow.map((chat) => {
+                                        <>
+                                          {/* Pending "New Chat" placeholder – shown until first message is sent */}
+                                          {activePersonaIdFromUrl === persona.id && isOnPersonaChatPage && !activePersonaChatSessionId && (
+                                            <ChatHistoryItem
+                                              title="New Chat"
+                                              isSelected={true}
+                                              isStarred={false}
+                                              pinnedCount={0}
+                                              onSelect={() => router.push(`/personaAdmin/chat/${persona.id}`)}
+                                            />
+                                          )}
+                                          {sessionsToShow.length === 0 && !(activePersonaIdFromUrl === persona.id && isOnPersonaChatPage && !activePersonaChatSessionId) ? (
+                                            <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
+                                              No chats yet
+                                            </p>
+                                          ) : (
+                                            sessionsToShow.map((chat) => {
                                           const isActiveSession =
                                             activePersonaChatSessionId ===
                                             chat.id;
@@ -1468,6 +1510,8 @@ export function LeftSidebar({
                                             />
                                           );
                                         })
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   )}
