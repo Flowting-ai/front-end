@@ -186,7 +186,7 @@ function PersonasPageContent() {
         setPersonas(
           list.map((p) => {
             const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
-            console.log(`Persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
+            console.debug(`Persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
             return {
               id: p.id,
               name: p.name,
@@ -216,7 +216,7 @@ function PersonasPageContent() {
             setPersonas(
               list.map((p) => {
                 const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
-                console.log(`Refreshed persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
+                console.debug(`Refreshed persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
                 return {
                   id: p.id,
                   name: p.name,

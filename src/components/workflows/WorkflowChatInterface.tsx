@@ -385,7 +385,7 @@ export function WorkflowChatInterface({
       // Streaming callbacks
       const callbacks: StreamCallbacks = {
         onWorkflowStart: (event) => {
-          console.log("[Stream] Workflow started:", event.run_id);
+          console.debug("[Stream] Workflow started:", event.run_id);
           setDisplayMessages((prev) =>
             prev.map((msg) =>
               msg.id === aiMessageId
@@ -396,7 +396,7 @@ export function WorkflowChatInterface({
         },
 
         onNodeStart: (event: NodeStartEvent) => {
-          console.log(
+          console.debug(
             "[Stream] Node started:",
             event.node_id,
             "Name:",
@@ -447,7 +447,7 @@ export function WorkflowChatInterface({
           const nodeId = event.node_id || "unknown_node";
           const chunkContent = event.content || "";
 
-          console.log("[Stream] Chunk received:", {
+          console.debug("[Stream] Chunk received:", {
             node_id: nodeId,
             content: chunkContent,
             chunk_index: event.chunk_index,
@@ -465,7 +465,7 @@ export function WorkflowChatInterface({
           const newContent = currentContent + chunkContent;
           streamingContentRef.current.set(nodeId, newContent);
 
-          console.log("[Stream] Updated content:", newContent.slice(0, 100) + "...");
+          console.debug("[Stream] Updated content:", newContent.slice(0, 100) + "...");
 
           // Append chunk to node output state
           setNodeOutputs((prev) => {
@@ -523,7 +523,7 @@ export function WorkflowChatInterface({
         },
 
         onNodeEnd: (event: NodeEndEvent) => {
-          console.log("[Stream] Node ended:", event.node_id, "Cost:", event.cost);
+          console.debug("[Stream] Node ended:", event.node_id, "Cost:", event.cost);
           setActiveNodeId(null);
           const fallbackContent =
             streamingContentRef.current.get(event.node_id) || "";
@@ -566,7 +566,7 @@ export function WorkflowChatInterface({
         },
 
         onNodeComplete: (event) => {
-          console.log("[Stream] Node complete (non-LLM):", event.node_id, "Type:", event.node_type);
+          console.debug("[Stream] Node complete (non-LLM):", event.node_id, "Type:", event.node_type);
           setNodeOutputs((prev) => {
             const next = new Map(prev);
             const existing = next.get(event.node_id);
@@ -595,7 +595,7 @@ export function WorkflowChatInterface({
         },
 
         onWorkflowComplete: (event: WorkflowCompleteEvent) => {
-          console.log("[Stream] Workflow complete! Total cost:", event.total_cost);
+          console.debug("[Stream] Workflow complete! Total cost:", event.total_cost);
 
           // Prefer backend final_output, but if it's missing, synthesize a rich summary
           // from individual node outputs so the user always sees a meaningful result.

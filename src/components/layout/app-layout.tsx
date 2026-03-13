@@ -52,6 +52,7 @@ import {
   createPin,
   deletePin,
   fetchAllPins,
+  fetchPinById,
   type BackendPin,
 } from "@/lib/api/pins";
 import { CHATS_ENDPOINT, CHAT_STAR_ENDPOINT, API_BASE_URL } from "@/lib/config";
@@ -560,6 +561,42 @@ const backendPinToLegacy = (
   pin: BackendPin,
   fallback?: Partial<PinType>
 ): PinType => {
+  const toTagStrings = (raw: unknown): string[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((tag) => {
+        if (typeof tag === "string") return tag.trim();
+        if (!tag || typeof tag !== "object") return "";
+        const candidate = tag as {
+          tag_name?: unknown;
+          name?: unknown;
+          label?: unknown;
+          text?: unknown;
+        };
+        const value =
+          candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
+        return typeof value === "string" ? value.trim() : "";
+      })
+      .filter((tag) => tag.length > 0);
+  };
+
+  const toCommentStrings = (raw: unknown): string[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((comment) => {
+        if (typeof comment === "string") return comment.trim();
+        if (!comment || typeof comment !== "object") return "";
+        const candidate = comment as {
+          comment_text?: unknown;
+          text?: unknown;
+          content?: unknown;
+        };
+        const value = candidate.comment_text ?? candidate.text ?? candidate.content;
+        return typeof value === "string" ? value.trim() : "";
+      })
+      .filter((comment) => comment.length > 0);
+  };
+
   const createdAt = pin.created_at ? new Date(pin.created_at) : new Date();
   const resolvedFolder =
     (pin as { folderId?: string | null }).folderId ??
@@ -595,16 +632,7 @@ const backendPinToLegacy = (
     id: pin.id,
     text: resolvedText, // Full content, not just title
     title: resolvedTitle,
-    tags:
-      Array.isArray(pin.tags)
-        ? pin.tags
-            .map((tag) =>
-              typeof tag === "string"
-                ? tag
-                : (tag as { tag_name?: unknown }).tag_name,
-            )
-            .filter((tag): tag is string => typeof tag === "string")
-        : (fallback?.tags ?? []),
+    tags: toTagStrings(pin.tags).length > 0 ? toTagStrings(pin.tags) : (fallback?.tags ?? []),
     notes: fallback?.notes ?? "",
     chatId: resolvedChatId,
     time: createdAt,
@@ -616,21 +644,24 @@ const backendPinToLegacy = (
     formattedContent:
       (pin as { formattedContent?: string | null }).formattedContent ?? null,
     comments:
-      Array.isArray((pin as { comments?: unknown[] }).comments)
-        ? ((pin as { comments: unknown[] }).comments
-            .map((comment) =>
-              typeof comment === "string"
-                ? comment
-                : (comment as { comment_text?: unknown }).comment_text,
-            )
-            .filter((comment): comment is string => typeof comment === "string"))
+      toCommentStrings((pin as { comments?: unknown[] }).comments).length > 0
+        ? toCommentStrings((pin as { comments?: unknown[] }).comments)
         : (fallback?.comments ?? []),
   };
 };
 
 const normalizePinTagStrings = (raw: unknown): string[] => {
-  if (!Array.isArray(raw)) return [];
-  return raw
+  const source =
+    Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0)
+        : [];
+  if (!Array.isArray(source)) return [];
+  return source
     .map((tag) => {
       if (typeof tag === "string") return tag.trim();
       if (!tag || typeof tag !== "object") return "";
@@ -648,16 +679,18 @@ const normalizePinTagStrings = (raw: unknown): string[] => {
 };
 
 const normalizePinCommentStrings = (raw: unknown): string[] => {
-  if (!Array.isArray(raw)) return [];
-  return raw
+  const source = Array.isArray(raw) ? raw : typeof raw === "string" ? [raw] : [];
+  if (!Array.isArray(source)) return [];
+  return source
     .map((comment) => {
       if (typeof comment === "string") return comment.trim();
       if (!comment || typeof comment !== "object") return "";
       const candidate = comment as {
         comment_text?: unknown;
         text?: unknown;
+        content?: unknown;
       };
-      const value = candidate.comment_text ?? candidate.text;
+      const value = candidate.comment_text ?? candidate.text ?? candidate.content;
       return typeof value === "string" ? value.trim() : "";
     })
     .filter((comment) => comment.length > 0);
@@ -963,12 +996,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const loadChatBoards = useCallback(async (force = false) => {
     if (!user) {
-      console.log("[loadChatBoards] Skipped: No user logged in");
+      console.debug("[loadChatBoards] Skipped: No user logged in");
       return;
     }
     // Skip if already fetched unless force reload
     if (hasFetchedChats.current && !force) {
-      console.log("[loadChatBoards] Skipped: Already fetched. Use force=true to reload.");
+      console.debug("[loadChatBoards] Skipped: Already fetched. Use force=true to reload.");
       return;
     }
     try {
@@ -1002,7 +1035,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             !normalized.some((chat) => chat.id === board.id)
         );
         combinedBoards = [...tempBoards, ...normalized];
-        console.log(
+        console.debug(
           "[loadChatBoards] Previous boards:",
           prev.length,
           "Backend chats:",
@@ -1027,7 +1060,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     } catch (error) {
       console.error("Failed to load chats from backend", error);
     }
-  }, [user]);
+    }, [user]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;
@@ -1190,14 +1223,50 @@ export default function AppLayout({ children }: AppLayoutProps) {
     try {
       const backendMessages = await fetchChatMessages(chatId);
       // DEBUG: Log raw backend messages to inspect attachments shape
-      console.log("[DEBUG] Raw backend messages:", JSON.stringify(backendMessages, null, 2));
+      console.debug("[DEBUG] Raw backend messages:", JSON.stringify(backendMessages, null, 2));
       const normalized = backendMessages.flatMap(convertBackendEntryToMessages);
-      console.log("[DEBUG] Normalized messages:", normalized.map(m => ({ id: m.id, sender: m.sender, attachments: m.metadata?.attachments, thinkingContent: m.thinkingContent?.slice(0, 50) })));
+      console.debug("[DEBUG] Normalized messages:", normalized.map(m => ({ id: m.id, sender: m.sender, attachments: m.metadata?.attachments, thinkingContent: m.thinkingContent?.slice(0, 50) })));
       setChatHistory((prev) => ({ ...prev, [chatId]: normalized }));
+
+      // Some pin payloads omit chat identifiers; recover link from message ids.
+      const messageIds = new Set(
+        normalized
+          .map((msg) => {
+            const rawId = msg.chatMessageId ?? msg.id;
+            return rawId !== undefined && rawId !== null ? String(rawId) : "";
+          })
+          .filter((id) => id.length > 0),
+      );
+
+      if (messageIds.size > 0) {
+        setPins_((prevPins) => {
+          let changed = false;
+          const nextPins = prevPins.map((pin) => {
+            const linkedChatId = String(pin.chatId || pin.sourceChatId || "");
+            if (linkedChatId.length > 0) return pin;
+
+            const pinMessageId = String(pin.messageId || pin.sourceMessageId || "");
+            if (!pinMessageId || !messageIds.has(pinMessageId)) return pin;
+
+            changed = true;
+            return {
+              ...pin,
+              chatId,
+              sourceChatId: pin.sourceChatId ?? chatId,
+            };
+          });
+
+          if (changed && pinsChatId) {
+            savePinsToCache(pinsChatId, nextPins);
+          }
+
+          return changed ? nextPins : prevPins;
+        });
+      }
     } catch (error) {
       console.error(`Failed to load messages for chat ${chatId}`, error);
     }
-  }, []);
+  }, [pinsChatId, savePinsToCache]);
 
   const loadPinsForChat = useCallback(
     async (_chatId: string | null = null) => {
@@ -1211,16 +1280,68 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       try {
         const backendPins = await fetchAllPins();
-        const normalized = backendPins.map((backendPin) =>
+        const detailedPins = await Promise.all(
+          backendPins.map(async (backendPin) => {
+            const detail = await fetchPinById(backendPin.id).catch(() => null);
+            if (!detail) return backendPin;
+
+            // Detail payloads may omit list-only linkage fields like chat_id.
+            // Keep linkage from list response while enriching with detail metadata.
+            return {
+              ...backendPin,
+              ...detail,
+              chat: detail.chat ?? backendPin.chat,
+              sourceChatId: detail.sourceChatId ?? backendPin.sourceChatId,
+              message_id: detail.message_id || backendPin.message_id,
+              messageId: detail.messageId ?? backendPin.messageId,
+              sourceMessageId: detail.sourceMessageId ?? backendPin.sourceMessageId,
+            };
+          }),
+        );
+
+        const normalized = detailedPins.map((backendPin) =>
           backendPinToLegacy(backendPin, cachedById.get(backendPin.id))
         );
-        setPins_(normalized);
+
+        // /pins list/detail may not include chat identifiers; recover linkage for
+        // the active chat by matching pin message IDs against loaded chat messages.
+        const activeMessageIds = _chatId
+          ? new Set(
+              (chatHistory[_chatId] ?? [])
+                .map((msg) => {
+                  const rawId = msg.chatMessageId ?? msg.id;
+                  return rawId !== undefined && rawId !== null
+                    ? String(rawId)
+                    : "";
+                })
+                .filter((id) => id.length > 0),
+            )
+          : new Set<string>();
+
+        const normalizedWithChatLink = normalized.map((pin) => {
+          const existingChatId = String(pin.chatId || pin.sourceChatId || "");
+          if (existingChatId.length > 0 || !_chatId || activeMessageIds.size === 0) {
+            return pin;
+          }
+
+          const pinMessageId = String(pin.messageId || pin.sourceMessageId || "");
+          if (!pinMessageId || !activeMessageIds.has(pinMessageId)) {
+            return pin;
+          }
+
+          return {
+            ...pin,
+            chatId: _chatId,
+            sourceChatId: pin.sourceChatId ?? _chatId,
+          };
+        });
+        setPins_(normalizedWithChatLink);
         setPinsChatId(cacheKey);
-        savePinsToCache(cacheKey, normalized);
+        savePinsToCache(cacheKey, normalizedWithChatLink);
         setChatBoards_((prev) =>
           prev.map((board) =>
             board.id === _chatId
-              ? { ...board, pinCount: normalized.length }
+              ? { ...board, pinCount: normalizedWithChatLink.length }
               : board
           )
         );
@@ -1232,7 +1353,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         }
       }
     },
-    [loadPinsFromCache, savePinsToCache]
+    [chatHistory, loadPinsFromCache, savePinsToCache]
   );
 
   useEffect(() => {
@@ -1541,7 +1662,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     // Add new chat while preserving all existing chats
     setChatBoards_((prev) => {
-      console.log(
+      console.debug(
         "[handleAddChat] Current boards:",
         prev.length,
         "Adding new temp chat:",

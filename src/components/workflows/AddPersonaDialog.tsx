@@ -37,7 +37,7 @@ export function AddPersonaDialog({
       
       // Use provided personas if available
       if (propPersonas.length > 0) {
-        console.log('Using provided personas:', propPersonas);
+        console.debug('Using provided personas:', propPersonas);
         setPersonas(propPersonas);
         setIsLoading(false);
         return;
@@ -48,7 +48,7 @@ export function AddPersonaDialog({
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as Persona[];
-          console.log('Using cached personas:', parsed);
+          console.debug('Using cached personas:', parsed);
           if (parsed.length > 0) {
             setPersonas(parsed);
             setIsLoading(false);
@@ -61,9 +61,9 @@ export function AddPersonaDialog({
 
       // Fetch from API
       try {
-        console.log('Fetching personas from API...');
+        console.debug('Fetching personas from API...');
         const data = await workflowAPI.fetchPersonas();
-        console.log('Fetched personas:', data);
+        console.debug('Fetched personas:', data);
         setPersonas(data);
         if (data.length > 0) {
           sessionStorage.setItem("allPersonas", JSON.stringify(data));

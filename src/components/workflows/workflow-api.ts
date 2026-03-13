@@ -4,6 +4,7 @@ import {
   MODELS_ENDPOINT,
   PERSONAS_ENDPOINT,
   PINS_ENDPOINT,
+  PIN_FOLDERS_ENDPOINT,
   CHATS_ENDPOINT,
   WORKFLOWS_ENDPOINT,
   WORKFLOW_DETAIL_ENDPOINT,
@@ -381,9 +382,9 @@ const fetchWithTimeout = async (
   try {
     if (process.env.NODE_ENV === "development" && method !== "GET") {
       try {
-        console.log(`[WorkflowAPI] ${method} ${url}`, JSON.parse(options.body as string));
+        console.debug(`[WorkflowAPI] ${method} ${url}`, JSON.parse(options.body as string));
       } catch {
-        console.log(`[WorkflowAPI] ${method} ${url}`, options.body);
+        console.debug(`[WorkflowAPI] ${method} ${url}`, options.body);
       }
     }
     const response = await apiFetch(url, {
@@ -924,7 +925,7 @@ const processSseStream = async (
 
       if (!eventType) return;
 
-      console.log("[SSE] Event:", eventType);
+      console.debug("[SSE] Event:", eventType);
 
       switch (eventType) {
         // ── New API events ───────────────────────────────────────────────────
@@ -1857,7 +1858,18 @@ export const workflowAPI = {
                 ? String(pin.folder_id)
                 : undefined;
           const folderName =
-            typeof pin.folderName === "string" ? pin.folderName : undefined;
+            typeof pin.folderName === "string"
+              ? pin.folderName
+              : typeof pin.folder_name === "string"
+                ? pin.folder_name
+                : typeof pin.folder === "object" && pin.folder !== null
+                  ? (() => {
+                      const folder = pin.folder as Record<string, unknown>;
+                      if (typeof folder.name === "string") return folder.name;
+                      if (typeof folder.folder_name === "string") return folder.folder_name;
+                      return undefined;
+                    })()
+                  : undefined;
           const chatId =
             pin.chat !== undefined && pin.chat !== null
               ? String(pin.chat)
@@ -1882,6 +1894,59 @@ export const workflowAPI = {
           };
         })
         .filter((pin: { id: string }) => Boolean(pin.id));
+    } catch {
+      return [];
+    }
+  },
+
+  fetchPinFolders: async (): Promise<
+    Array<{
+      id: string;
+      name: string;
+      folder_name?: string;
+      pin_count?: number;
+      created_at?: string;
+    }>
+  > => {
+    try {
+      const response = await fetchWithTimeout(PIN_FOLDERS_ENDPOINT, {
+        method: "GET",
+      });
+      if (!response.ok) return [];
+
+      const rawData = await response.json();
+      const folders = Array.isArray(rawData) ? rawData : [];
+
+      return folders
+        .map((folder: Record<string, unknown>) => {
+          const id = String(folder.id || "");
+          const folderName =
+            typeof folder.folder_name === "string"
+              ? folder.folder_name
+              : typeof folder.name === "string"
+                ? folder.name
+                : "";
+
+          return {
+            id,
+            name: folderName,
+            folder_name:
+              typeof folder.folder_name === "string"
+                ? folder.folder_name
+                : folderName,
+            pin_count:
+              typeof folder.pin_count === "number"
+                ? folder.pin_count
+                : undefined,
+            created_at:
+              typeof folder.created_at === "string"
+                ? folder.created_at
+                : undefined,
+          };
+        })
+        .filter((folder: { id: string; name: string }) => {
+          return folder.id.length > 0 && folder.name.trim().length > 0;
+        });
     } catch {
       return [];
     }

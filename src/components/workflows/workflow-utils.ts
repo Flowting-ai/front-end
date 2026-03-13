@@ -118,6 +118,30 @@ export const validateWorkflow = (
     connectedNodes.add(edge.target);
   });
 
+  // Pin nodes must reference either a folder UUID or at least one pin UUID.
+  nodes.forEach((node) => {
+    if (node.data.type !== "pin") return;
+
+    const selectedFolderId =
+      typeof node.data.selectedFolder?.id === "string"
+        ? node.data.selectedFolder.id.trim()
+        : "";
+    const selectedPinId =
+      Array.isArray(node.data.selectedPins) && node.data.selectedPins.length > 0
+        ? String(node.data.selectedPins[0] ?? "").trim()
+        : "";
+
+    if (!selectedFolderId && !selectedPinId) {
+      const nodeLabel =
+        typeof node.data.name === "string" && node.data.name.trim().length > 0
+          ? node.data.name
+          : typeof node.data.label === "string" && node.data.label.trim().length > 0
+            ? node.data.label
+            : node.id;
+      errors.push(`Pin node '${nodeLabel}' must have a selected folder or pin before saving.`);
+    }
+  });
+
   if (startNode && !connectedNodes.has(startNode.id) && nodes.length > 1) {
     errors.push('Start node is not connected');
   }

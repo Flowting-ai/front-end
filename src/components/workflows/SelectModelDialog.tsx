@@ -62,7 +62,7 @@ export function SelectModelDialog({
       
       // Use provided models if available
       if (propModels.length > 0) {
-        console.log('Using provided models:', propModels);
+        console.debug('Using provided models:', propModels);
         setModels(propModels);
         setIsLoading(false);
         return;
@@ -73,7 +73,7 @@ export function SelectModelDialog({
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as Model[];
-          console.log('Using cached models:', parsed);
+          console.debug('Using cached models:', parsed);
           if (parsed.length > 0) {
             setModels(parsed);
             setIsLoading(false);
@@ -86,9 +86,9 @@ export function SelectModelDialog({
 
       // Fetch from API
       try {
-        console.log('Fetching models from API...');
+        console.debug('Fetching models from API...');
         const data = await workflowAPI.fetchModels();
-        console.log('Fetched models:', data);
+        console.debug('Fetched models:', data);
         setModels(data);
         if (data.length > 0) {
           sessionStorage.setItem("allModels", JSON.stringify(data));

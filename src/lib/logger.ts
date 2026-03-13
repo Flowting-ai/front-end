@@ -40,7 +40,7 @@ class Logger {
   
   log(...args: unknown[]): void {
     if (this.isDevelopment) {
-      console.log(...this.sanitizeArgs(args));
+      console.debug(...this.sanitizeArgs(args));
     }
   }
   

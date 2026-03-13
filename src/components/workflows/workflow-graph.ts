@@ -322,39 +322,39 @@ export const toBackendPayload = (
 // =============================================================================
 
 export const printGraph = (graph: WorkflowGraph): void => {
-  console.log('\n=== WORKFLOW GRAPH ===\n');
+  console.debug('\n=== WORKFLOW GRAPH ===\n');
 
-  console.log('NODES:');
+  console.debug('NODES:');
   graph.nodes.forEach(node => {
     const type = node.node_type === 'process'
       ? (node.persona_id ? 'persona' : 'model')
       : node.node_type;
     const id = node.persona_id || node.model_id || '-';
-    console.log(`  [${node.node_id.slice(0, 8)}] ${type} (${id})`);
+    console.debug(`  [${node.node_id.slice(0, 8)}] ${type} (${id})`);
 
     if (node.knowledge_bases.length > 0) {
       node.knowledge_bases.forEach(kb => {
-        console.log(`    └─ ${kb.kb_type}: ${kb.kb_id} ${kb.instruction ? `"${kb.instruction}"` : ''}`);
+        console.debug(`    └─ ${kb.kb_type}: ${kb.kb_id} ${kb.instruction ? `"${kb.instruction}"` : ''}`);
       });
     }
   });
 
-  console.log('\nADJACENCY LIST (Reasoning Nodes Only):');
+  console.debug('\nADJACENCY LIST (Reasoning Nodes Only):');
   const { list } = buildAdjacencyList(graph);
   list.forEach((targets, source) => {
     const targetStr = targets.length > 0
       ? targets.map(t => t.slice(0, 8)).join(', ')
       : '(none)';
-    console.log(`  ${source.slice(0, 8)} → [${targetStr}]`);
+    console.debug(`  ${source.slice(0, 8)} → [${targetStr}]`);
   });
 
-  console.log('\nEXECUTION ORDER:');
+  console.debug('\nEXECUTION ORDER:');
   const order = topologicalSort(graph);
   if (order) {
-    console.log(`  ${order.map(id => id.slice(0, 8)).join(' → ')}`);
+    console.debug(`  ${order.map(id => id.slice(0, 8)).join(' → ')}`);
   } else {
-    console.log('  ERROR: Cycle detected!');
+    console.debug('  ERROR: Cycle detected!');
   }
 
-  console.log('\n');
+  console.debug('\n');
 };

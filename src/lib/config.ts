@@ -6,7 +6,7 @@ export const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE ?? "";
 
 // Debug: log API URL on load
 if (typeof window !== "undefined") {
-  console.log("[Config] API_BASE_URL:", API_BASE_URL);
+  console.debug("[Config] API_BASE_URL:", API_BASE_URL);
 }
 
 const withBase = (path: string) => `${API_BASE_URL}${path}`;

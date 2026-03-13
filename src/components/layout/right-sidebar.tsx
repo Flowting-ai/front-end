@@ -146,6 +146,9 @@ const normalizeCommentStrings = (raw: unknown): string[] => {
     .filter((comment) => comment.length > 0);
 };
 
+const normalizeTagForFilter = (tag: string) =>
+  stripMarkdown(tag).trim().toLowerCase();
+
 const EMPTY_PLACEHOLDERS: Record<Exclude<RightSidebarPanel, "pinboard" | "references">, { title: string; description: string }> = {
   files: {
     title: "No files yet",
@@ -204,7 +207,7 @@ export function RightSidebar({
       window.localStorage.setItem('pinboardDevState', state === 'empty' ? 'empty' : 'auto');
       setForceEmptyPinboard(state === 'empty');
       // eslint-disable-next-line no-console
-      console.log('Pinboard dev state set to', state);
+      console.debug('Pinboard dev state set to', state);
     };
 
     return () => {
@@ -557,9 +560,11 @@ export function RightSidebar({
     }
 
     if (selectedTags.length > 0) {
-      filtered = filtered.filter((pin) =>
-        selectedTags.every((tag) => pin.tags.includes(tag))
-      );
+      const normalizedSelectedTags = selectedTags.map(normalizeTagForFilter);
+      filtered = filtered.filter((pin) => {
+        const normalizedPinTags = pin.tags.map(normalizeTagForFilter);
+        return normalizedSelectedTags.every((tag) => normalizedPinTags.includes(tag));
+      });
     }
 
     if (selectedFolders.length > 0) {
@@ -579,9 +584,15 @@ export function RightSidebar({
             (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
           );
         }
-        return filtered
-          .filter((p) => p.chatId === activeChatId.toString())
-          .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        {
+          const activeId = String(activeChatId);
+          return filtered
+            .filter((p) => {
+              const linkedChatId = String(p.chatId || p.sourceChatId || "");
+              return linkedChatId.length > 0 && linkedChatId === activeId;
+            })
+            .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        }
       case "newest":
         return [...filtered].sort(
           (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
@@ -903,6 +914,7 @@ export function RightSidebar({
                 onSelect={() => {
                   setFilterMode("all");
                   setSelectedTags([]);
+                  setSelectedFolders([]);
                 }}
               >
                 Show All Pins
@@ -912,25 +924,38 @@ export function RightSidebar({
                 onSelect={() => {
                   setFilterMode("current-chat");
                   setSelectedTags([]);
+                  setSelectedFolders([]);
                 }}
               >
                 Filter by Current Chat
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]"
-                onSelect={() => setFilterMode("newest")}
+                onSelect={() => {
+                  setFilterMode("newest");
+                  setSelectedTags([]);
+                  setSelectedFolders([]);
+                }}
               >
                 Sort by Newest
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]"
-                onSelect={() => setFilterMode("oldest")}
+                onSelect={() => {
+                  setFilterMode("oldest");
+                  setSelectedTags([]);
+                  setSelectedFolders([]);
+                }}
               >
                 Sort by Oldest
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer rounded-md px-3 py-2 text-[#171717] hover:bg-[#f5f5f5]"
-                onSelect={() => setFilterMode("unorganized")}
+                onSelect={() => {
+                  setFilterMode("unorganized");
+                  setSelectedTags([]);
+                  setSelectedFolders([]);
+                }}
               >
                 Filter by Unorganized Pins
               </DropdownMenuItem>

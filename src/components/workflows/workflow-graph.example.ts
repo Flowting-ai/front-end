@@ -79,65 +79,65 @@ const graph: WorkflowGraph = {
 // STEP 3: BUILD ADJACENCY LIST (REASONING NODES ONLY)
 // =============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log('STEP 3: ADJACENCY LIST (Reasoning Nodes Only)');
-console.log('='.repeat(60));
+console.debug('\n' + '='.repeat(60));
+console.debug('STEP 3: ADJACENCY LIST (Reasoning Nodes Only)');
+console.debug('='.repeat(60));
 
 const { list, inDegree } = buildAdjacencyList(graph);
 
-console.log('\nAdjacency List:');
+console.debug('\nAdjacency List:');
 list.forEach((targets, source) => {
-  console.log(`  ${source} → [${targets.join(', ') || 'none'}]`);
+  console.debug(`  ${source} → [${targets.join(', ') || 'none'}]`);
 });
 
-console.log('\nIn-Degree:');
+console.debug('\nIn-Degree:');
 inDegree.forEach((degree, nodeId) => {
-  console.log(`  ${nodeId}: ${degree}`);
+  console.debug(`  ${nodeId}: ${degree}`);
 });
 
 // =============================================================================
 // STEP 4: TOPOLOGICAL SORT (EXECUTION ORDER)
 // =============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log('STEP 4: EXECUTION ORDER');
-console.log('='.repeat(60));
+console.debug('\n' + '='.repeat(60));
+console.debug('STEP 4: EXECUTION ORDER');
+console.debug('='.repeat(60));
 
 const executionOrder = topologicalSort(graph);
 if (executionOrder) {
-  console.log('\nExecution order:');
+  console.debug('\nExecution order:');
   executionOrder.forEach((nodeId, index) => {
     const node = graph.nodes.find(n => n.node_id === nodeId);
     const type = node?.persona_id ? 'persona' : 'model';
     const refId = node?.persona_id || node?.model_id;
-    console.log(`  ${index + 1}. [${type}] ${refId}`);
+    console.debug(`  ${index + 1}. [${type}] ${refId}`);
   });
 } else {
-  console.log('\nERROR: Graph contains cycles!');
+  console.debug('\nERROR: Graph contains cycles!');
 }
 
 // =============================================================================
 // STEP 5: VALIDATE GRAPH
 // =============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log('STEP 5: VALIDATION');
-console.log('='.repeat(60));
+console.debug('\n' + '='.repeat(60));
+console.debug('STEP 5: VALIDATION');
+console.debug('='.repeat(60));
 
 const validation = validateGraph(graph);
-console.log(`\nValid: ${validation.valid}`);
+console.debug(`\nValid: ${validation.valid}`);
 if (validation.errors.length > 0) {
-  console.log('Errors:');
-  validation.errors.forEach(err => console.log(`  - ${err}`));
+  console.debug('Errors:');
+  validation.errors.forEach(err => console.debug(`  - ${err}`));
 }
 
 // =============================================================================
 // STEP 6: TRANSFORM TO BACKEND PAYLOAD
 // =============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log('STEP 6: BACKEND PAYLOAD');
-console.log('='.repeat(60));
+console.debug('\n' + '='.repeat(60));
+console.debug('STEP 6: BACKEND PAYLOAD');
+console.debug('='.repeat(60));
 
 const backendPayload = toBackendPayload(
   graph,
@@ -145,15 +145,15 @@ const backendPayload = toBackendPayload(
   'Generate marketing content using brand guidelines'
 );
 
-console.log('\n📤 SENDING TO BACKEND:\n');
-console.log(JSON.stringify(backendPayload, null, 2));
+console.debug('\n📤 SENDING TO BACKEND:\n');
+console.debug(JSON.stringify(backendPayload, null, 2));
 
 // =============================================================================
 // VISUAL SUMMARY
 // =============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log('VISUAL SUMMARY');
-console.log('='.repeat(60));
+console.debug('\n' + '='.repeat(60));
+console.debug('VISUAL SUMMARY');
+console.debug('='.repeat(60));
 
 printGraph(graph);

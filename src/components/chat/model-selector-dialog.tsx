@@ -124,7 +124,7 @@ export function ModelSelectorDialog({
         } else {
           const data = await response.json();
           raw = normalizeModels(data);
-          console.log("Raw models from backend:", raw);
+          console.debug("Raw models from backend:", raw);
         }
       } catch (fetchError) {
         console.warn("Failed to fetch models from backend:", fetchError);

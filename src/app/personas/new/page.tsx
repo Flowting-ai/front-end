@@ -72,7 +72,7 @@ export default function NewPersonaPage() {
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      console.log("📸 Avatar upload started:", file.name, file.size, "bytes");
+      console.debug("📸 Avatar upload started:", file.name, file.size, "bytes");
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -84,13 +84,13 @@ export default function NewPersonaPage() {
       try {
         // Compress the image to reduce storage size
         // Max dimensions: 800x800, quality: 0.8
-        console.log("🔄 Compressing image...");
+        console.debug("🔄 Compressing image...");
         const compressedImage = await compressImage(file, 800, 800, 0.8);
         
         // Check size after compression
         const size = getDataUrlSize(compressedImage);
-        console.log(`✅ Compressed image size: ${formatBytes(size)}`);
-        console.log("✅ Compressed preview:", compressedImage.substring(0, 100));
+        console.debug(`✅ Compressed image size: ${formatBytes(size)}`);
+        console.debug("✅ Compressed preview:", compressedImage.substring(0, 100));
         
         // SessionStorage typically has a 5-10MB limit
         // Warn if still too large (4MB threshold to be safe)
@@ -99,13 +99,13 @@ export default function NewPersonaPage() {
         }
         
         setAvatarUrl(compressedImage);
-        console.log("✅ Avatar set in state");
+        console.debug("✅ Avatar set in state");
       } catch (error) {
         console.error('❌ Failed to compress image:', error);
         // Fallback to original if compression fails
         const reader = new FileReader();
         reader.onloadend = () => {
-          console.log("✅ Using uncompressed image as fallback");
+          console.debug("✅ Using uncompressed image as fallback");
           setAvatarUrl(reader.result as string);
         };
         reader.readAsDataURL(file);
@@ -144,24 +144,24 @@ export default function NewPersonaPage() {
     // Store avatar in sessionStorage to persist across navigation
     if (avatarUrl) {
       try {
-        console.log("✅ Storing avatar in sessionStorage, size:", avatarUrl.length);
-        console.log("✅ Avatar preview:", avatarUrl.substring(0, 100));
+        console.debug("✅ Storing avatar in sessionStorage, size:", avatarUrl.length);
+        console.debug("✅ Avatar preview:", avatarUrl.substring(0, 100));
         sessionStorage.setItem('personaAvatar', avatarUrl);
-        console.log("✅ Avatar stored successfully");
+        console.debug("✅ Avatar stored successfully");
       } catch (error) {
         // If still exceeds quota, clear old data and try again
         console.error('❌ Failed to store avatar:', error);
         try {
           sessionStorage.clear();
           sessionStorage.setItem('personaAvatar', avatarUrl);
-          console.log("✅ Avatar stored after clearing storage");
+          console.debug("✅ Avatar stored after clearing storage");
         } catch (retryError) {
           console.error('❌ Failed to store avatar even after clearing storage:', retryError);
           // Continue without avatar in worst case
         }
       }
     } else {
-      console.log("ℹ️ No avatar to store");
+      console.debug("ℹ️ No avatar to store");
     }
     
     router.push(`/personas/new/configure?${params.toString()}`);
@@ -190,7 +190,7 @@ export default function NewPersonaPage() {
                 <AvatarImage 
                   src={avatarUrl || undefined} 
                   alt=""
-                  onLoad={() => console.log("✅ Avatar image loaded successfully")}
+                  onLoad={() => console.debug("✅ Avatar image loaded successfully")}
                   onError={(e) => console.error("❌ Avatar image failed to load:", e)}
                 />
                 <AvatarFallback className={styles.avatarFallback}>

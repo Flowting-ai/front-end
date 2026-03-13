@@ -237,7 +237,7 @@ function PersonaConfigurePageContent() {
       personaName.trim() !== "Persona name" &&
       selectedModel !== "" &&
       currentInstruction.trim() !== "";
-    console.log("isPersonaReady check:", {
+    console.debug("isPersonaReady check:", {
       personaName: personaName.trim(),
       selectedModel,
       instructionLength: currentInstruction.trim().length,
@@ -355,15 +355,15 @@ function PersonaConfigurePageContent() {
       try {
         const savedAvatar = sessionStorage.getItem("personaAvatar");
         if (savedAvatar) {
-          console.log(
+          console.debug(
             "✅ Loaded avatar from sessionStorage, size:",
             savedAvatar.length,
             "bytes",
           );
-          console.log("✅ Avatar preview:", savedAvatar.substring(0, 100));
+          console.debug("✅ Avatar preview:", savedAvatar.substring(0, 100));
           setAvatarUrl(savedAvatar);
         } else {
-          console.log("ℹ️ No avatar in sessionStorage");
+          console.debug("ℹ️ No avatar in sessionStorage");
         }
       } catch (error) {
         console.error("❌ Failed to load avatar from sessionStorage:", error);
@@ -395,7 +395,7 @@ function PersonaConfigurePageContent() {
         try {
           const personaData = await fetchPersonaById(personaIdParam);
 
-          console.log("📥 Loading persona data:", personaData);
+          console.debug("📥 Loading persona data:", personaData);
 
           if (!personaData) {
             toast.error("Persona not found");
@@ -409,8 +409,8 @@ function PersonaConfigurePageContent() {
           // Set model if available - ensure models are loaded
           if (personaData.model_id) {
             const modelIdStr = String(personaData.model_id);
-            console.log("🔍 Setting model ID:", modelIdStr);
-            console.log(
+            console.debug("🔍 Setting model ID:", modelIdStr);
+            console.debug(
               "📋 Available models:",
               models.map((m) => ({ id: m.modelId, name: m.modelName })),
             );
@@ -419,18 +419,18 @@ function PersonaConfigurePageContent() {
 
           // Set avatar if available (only when editing existing persona)
           if (personaData.image_url) {
-            console.log(
+            console.debug(
               "✅ Loading existing persona avatar:",
               personaData.image_url,
             );
             const fullUrl = getFullAvatarUrl(personaData.image_url);
-            console.log("✅ Full avatar URL:", fullUrl);
+            console.debug("✅ Full avatar URL:", fullUrl);
             setAvatarUrl(fullUrl); // Use full URL instead of relative path
           } else {
-            console.log("ℹ️ No avatar for existing persona");
+            console.debug("ℹ️ No avatar for existing persona");
           }
 
-          console.log("✅ Persona data loaded successfully");
+          console.debug("✅ Persona data loaded successfully");
         } catch (error) {
           console.error("❌ Failed to load persona:", error);
           toast.error("Failed to load persona data");
@@ -699,7 +699,7 @@ function PersonaConfigurePageContent() {
   // Action handlers
   const handleShare = () => {
     // TODO: Implement share functionality
-    console.log("Share clicked");
+    console.debug("Share clicked");
   };
 
   const handleSaveToTest = async () => {
@@ -724,7 +724,7 @@ function PersonaConfigurePageContent() {
         donts: [...selectedDonts, dontsText].filter(Boolean),
       };
 
-      console.log("Saving persona for testing:", personaData);
+      console.debug("Saving persona for testing:", personaData);
 
       // Enable testing mode
       setIsTesting(true);
@@ -752,11 +752,11 @@ function PersonaConfigurePageContent() {
 
       // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
       if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
-        console.log("Converting data URL to file for persona avatar");
-        console.log("Data URL preview:", avatarUrl.substring(0, 100));
+        console.debug("Converting data URL to file for persona avatar");
+        console.debug("Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
         if (imageFile) {
-          console.log(
+          console.debug(
             "Converted to file:",
             imageFile.name,
             imageFile.size,
@@ -768,7 +768,7 @@ function PersonaConfigurePageContent() {
         }
       }
 
-      console.log(
+      console.debug(
         "Saving persona with image:",
         imageFile
           ? `${imageFile.name} (${imageFile.size} bytes, type: ${imageFile.type})`
@@ -796,9 +796,9 @@ function PersonaConfigurePageContent() {
       // Check if we're updating an existing persona or creating a new one
       if (createdPersonaId) {
         // Update existing persona
-        console.log("Updating persona:", createdPersonaId);
+        console.debug("Updating persona:", createdPersonaId);
         result = await updatePersona(createdPersonaId, personaPayload);
-        console.log("Persona updated successfully!");
+        console.debug("Persona updated successfully!");
         
         // Show success toast for update
         toast("Persona Updated", {
@@ -815,21 +815,21 @@ function PersonaConfigurePageContent() {
           ...personaPayload,
           documents: documentFiles,
         });
-        console.log("Persona created successfully!");
+        console.debug("Persona created successfully!");
         
         setCreatedPersonaId(result.id);
         setHasFinishedBuilding(true);
         setShowSuccessDialog(true);
       }
 
-      console.log("✅ Persona ID:", result.id);
-      console.log("✅ Persona imageUrl:", result.image_url);
-      console.log("✅ Full imageUrl:", getFullAvatarUrl(result.image_url));
+      console.debug("✅ Persona ID:", result.id);
+      console.debug("✅ Persona imageUrl:", result.image_url);
+      console.debug("✅ Full imageUrl:", getFullAvatarUrl(result.image_url));
 
       // Clean up avatar from sessionStorage after successful save
       try {
         sessionStorage.removeItem("personaAvatar");
-        console.log("Cleaned up avatar from sessionStorage");
+        console.debug("Cleaned up avatar from sessionStorage");
       } catch (error) {
         console.error("Failed to clean up sessionStorage:", error);
       }
@@ -996,7 +996,7 @@ function PersonaConfigurePageContent() {
                               uploadedImage ||
                               resolvedAvatar ||
                               "/avatars/personaAvatarPlaceHolder.svg";
-                            console.log(
+                            console.debug(
                               "🖼️ Avatar display - uploaded:",
                               !!uploadedImage,
                               "avatar:",

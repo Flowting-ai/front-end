@@ -27,6 +27,11 @@ interface Pin {
   pinnedDate?: string;
 }
 
+interface PinFolder {
+  id: string;
+  name: string;
+}
+
 interface SelectPinsDialogProps {
   allPins: Pin[];
   selectedPinIds?: string[];
@@ -69,6 +74,7 @@ export function SelectPinsDialog({
   const [localSelectedPinIds, setLocalSelectedPinIds] = useState<string[]>(selectedPinIds);
   const [localSelectedFolder, setLocalSelectedFolder] = useState<{ id: string; name: string; pinIds: string[] } | undefined>(selectedFolder);
   const [pins, setPins] = useState<Pin[]>(propPins);
+  const [pinFolders, setPinFolders] = useState<PinFolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
@@ -85,43 +91,48 @@ export function SelectPinsDialog({
       
       // Use provided pins if available
       if (propPins.length > 0) {
-        console.log('Using provided pins:', propPins);
+        console.debug('Using provided pins:', propPins);
         setPins(propPins);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check sessionStorage cache
-      const cached = sessionStorage.getItem("allPins");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as Pin[];
-          console.log('Using cached pins:', parsed);
-          if (parsed.length > 0) {
-            setPins(parsed);
-            setIsLoading(false);
-            return;
+      } else {
+        // Check sessionStorage cache
+        const cached = sessionStorage.getItem("allPins");
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as Pin[];
+            console.debug('Using cached pins:', parsed);
+            if (parsed.length > 0) {
+              setPins(parsed);
+            }
+          } catch (e) {
+            console.error('Failed to parse cached pins:', e);
           }
-        } catch (e) {
-          console.error('Failed to parse cached pins:', e);
+        }
+
+        // Fetch from API
+        try {
+          console.debug('Fetching pins from API...');
+          const data = await workflowAPI.fetchPins();
+          console.debug('Fetched pins:', data);
+          setPins(data);
+          if (data.length > 0) {
+            sessionStorage.setItem("allPins", JSON.stringify(data));
+          }
+        } catch (error) {
+          console.error("Failed to fetch pins:", error);
+          setPins([]);
         }
       }
 
-      // Fetch from API
+      // Use same folder source as chat: /pins/folders/all
       try {
-        console.log('Fetching pins from API...');
-        const data = await workflowAPI.fetchPins();
-        console.log('Fetched pins:', data);
-        setPins(data);
-        if (data.length > 0) {
-          sessionStorage.setItem("allPins", JSON.stringify(data));
-        }
+        const folders = await workflowAPI.fetchPinFolders();
+        setPinFolders(folders.map((folder) => ({ id: folder.id, name: folder.name })));
       } catch (error) {
-        console.error("Failed to fetch pins:", error);
-        setPins([]);
-      } finally {
-        setIsLoading(false);
+        console.error('Failed to fetch pin folders:', error);
+        setPinFolders([]);
       }
+
+      setIsLoading(false);
     };
 
     fetchPinData();
@@ -140,10 +151,16 @@ export function SelectPinsDialog({
 
   // Get all unique folders from pins
   const allFolders = useMemo(() => {
+    if (pinFolders.length > 0) {
+      return [...pinFolders].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     const folderMap = new Map<string, string>();
     pins.forEach((pin) => {
-      if (pin.folderId && pin.folderName) {
-        folderMap.set(pin.folderId, pin.folderName);
+      if (!pin.folderId || !pin.folderName?.trim()) return;
+      const normalizedName = pin.folderName?.trim();
+      if (normalizedName) {
+        folderMap.set(pin.folderId, normalizedName);
       }
     });
     const folders = Array.from(folderMap.entries()).map(([id, name]) => ({
@@ -151,7 +168,7 @@ export function SelectPinsDialog({
       name,
     }));
     return folders.sort((a, b) => a.name.localeCompare(b.name));
-  }, [pins]);
+  }, [pinFolders, pins]);
 
   // Filter tags based on search
   const filteredTags = useMemo(() => {

@@ -56,7 +56,7 @@ export function SelectChatsDialog({
       
       // Use provided chats if available
       if (propChats.length > 0) {
-        console.log('Using provided chats:', propChats);
+        console.debug('Using provided chats:', propChats);
         setChats(propChats);
         setIsLoading(false);
         return;
@@ -67,7 +67,7 @@ export function SelectChatsDialog({
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as Chat[];
-          console.log('Using cached chats:', parsed);
+          console.debug('Using cached chats:', parsed);
           if (parsed.length > 0) {
             setChats(parsed);
             setIsLoading(false);
@@ -80,9 +80,9 @@ export function SelectChatsDialog({
 
       // Fetch from API
       try {
-        console.log('Fetching chats from API...');
+        console.debug('Fetching chats from API...');
         const data = await workflowAPI.fetchChats();
-        console.log('Fetched chats:', data);
+        console.debug('Fetched chats:', data);
         setChats(data);
         if (data.length > 0) {
           sessionStorage.setItem("allChats", JSON.stringify(data));

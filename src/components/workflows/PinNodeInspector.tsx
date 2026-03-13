@@ -51,12 +51,28 @@ export function PinNodeInspector({
   const handleAddPins = (pinIds: string[]) => {
     setSelectedPins(pinIds);
     setSelectedFolder(undefined); // Clear folder when selecting individual pins
+    onUpdate({
+      selectedPins: pinIds,
+      selectedFolder: undefined,
+    });
     setShowSelectPinsDialog(false);
   };
 
   const handleAddFolder = (folder: { id: string; name: string; pinIds: string[] }) => {
+    const folderId = folder.id?.trim();
+    if (!folderId) {
+      toast.error("Invalid folder selection", {
+        description: "Selected folder is missing an ID. Please reselect the folder.",
+      });
+      return;
+    }
+
     setSelectedFolder(folder);
     setSelectedPins([]); // Clear individual pins when selecting folder
+    onUpdate({
+      selectedFolder: { ...folder, id: folderId },
+      selectedPins: [],
+    });
     setShowSelectPinsDialog(false);
   };
 

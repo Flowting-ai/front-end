@@ -275,10 +275,10 @@ function WorkflowCanvasInner() {
           workflowAPI.fetchPersonas(),
           workflowAPI.fetchModels(),
         ]);
-        console.log('Fetched chats for workflow:', chatsData);
-        console.log('Fetched pins for workflow:', pinsData);
-        console.log('Fetched personas for workflow:', personasData);
-        console.log('Fetched models for workflow:', modelsData);
+        console.debug('Fetched chats for workflow:', chatsData);
+        console.debug('Fetched pins for workflow:', pinsData);
+        console.debug('Fetched personas for workflow:', personasData);
+        console.debug('Fetched models for workflow:', modelsData);
         setAllChats(chatsData);
         setAllPins(pinsData);
         setAllPersonas(personasData);
@@ -1220,7 +1220,7 @@ function WorkflowCanvasInner() {
       setHasUnsavedChanges(false);
       saveToHistory();
 
-      console.log('Workflow loaded successfully:', workflowDTO.name);
+      console.debug('Workflow loaded successfully:', workflowDTO.name);
     } catch (error) {
       console.error('Failed to load workflow:', error);
       toast.error("Failed to load workflow", {
