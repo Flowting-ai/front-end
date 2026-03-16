@@ -25,7 +25,8 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
   ];
 
 // Build CSP connect-src with backend origins
-const connectSrcOrigins = [backendOrigin, backendWsOrigin, "https://app.flowtingai.com"];
+const auth0Domain = process.env.AUTH0_DOMAIN ? `https://${process.env.AUTH0_DOMAIN}` : "";
+const connectSrcOrigins = [backendOrigin, backendWsOrigin, "https://app.flowtingai.com", ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"])];
 
 // In development, also allow localhost connections
 if (process.env.NODE_ENV === "development") {
@@ -40,9 +41,9 @@ if (process.env.NODE_ENV === "development") {
 const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https: http:",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' ${connectSrcOrigins.join(" ")}`,
   "media-src 'self'",
   "object-src 'none'",
