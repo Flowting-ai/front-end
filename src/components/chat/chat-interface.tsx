@@ -3453,7 +3453,7 @@ export function ChatInterface({
                   placeholder={
                     disableInput
                       ? "Save to start chatting..."
-                      : "Ask your persona .... "
+                      : "Use @ to attach your saved pins .... "
                   }
                   className="min-h-[40px] w-full resize-none border-0 bg-transparent px-0 py-2 text-[15px] leading-relaxed text-[#1E1E1E] placeholder:text-[#AAAAAA] focus-visible:ring-0 focus-visible:ring-offset-0 scrollbar-light-grey shadow-none!"
                   rows={1}
@@ -3492,7 +3492,7 @@ export function ChatInterface({
                             handleAttachClick();
                             setShowAttachMenu(false);
                           }}
-                          className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium text-[#808080] transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
+                          className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
                           <span>Attach Images and Files</span>
@@ -3513,7 +3513,7 @@ export function ChatInterface({
                             );
                           }}
                           className={cn(
-                            "flex items-center gap-1.5 rounded-lg border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
+                            "flex items-center gap-1.5 rounded-lg cursor-pointer border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
                             webSearchEnabled
                               ? "border-blue-500 bg-blue-50 text-blue-700"
                               : "border-none bg-white text-[#1E1E1E]",
@@ -3811,8 +3811,8 @@ export function ChatInterface({
                       className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full bg-zinc-300 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:bg-[#0A0A0A]"
                       title="Voice input"
                     >
-                      {/* mic icon button  */}
-                      <Mic
+                      {/* mic icon button replaced to send icon */}
+                      <Send
                         className="h-[25px] w-[25px]"
                         strokeWidth={2}
                         style={{ minWidth: "18px", minHeight: "20px" }}

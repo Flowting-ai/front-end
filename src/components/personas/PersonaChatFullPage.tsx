@@ -31,7 +31,10 @@ import { getModelIcon } from "@/lib/model-icons";
 import { useAuth } from "@/context/auth-context";
 import { extractThinkingContent } from "@/lib/thinking";
 import { mergeStreamingText } from "@/lib/streaming";
-import { fetchPersonaChatMessages, fetchPersonaChats } from "@/lib/api/personas";
+import {
+  fetchPersonaChatMessages,
+  fetchPersonaChats,
+} from "@/lib/api/personas";
 
 interface PersonaData {
   id: string;
@@ -73,7 +76,7 @@ export function PersonaChatFullPage({
     return normalized.length > 0 ? normalized : null;
   };
   const [activeChatId, setActiveChatId] = useState<string | null>(
-    normalizeChatId(chatId)
+    normalizeChatId(chatId),
   );
 
   // Sync activeChatId when the chatId prop changes (user navigates between saved chats).
@@ -90,7 +93,7 @@ export function PersonaChatFullPage({
       }
       return resolved;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
@@ -106,19 +109,25 @@ export function PersonaChatFullPage({
   // Click outside to close attach menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target as Node)) {
+      if (
+        attachMenuRef.current &&
+        !attachMenuRef.current.contains(event.target as Node)
+      ) {
         setShowAttachMenu(false);
       }
     };
     if (showAttachMenu) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showAttachMenu]);
 
   const personaName = persona?.name?.trim() || "Untitled Persona";
   const avatarUrl = persona?.avatar
-    ? persona.avatar.startsWith("http") || persona.avatar.startsWith("data:") || persona.avatar.startsWith("blob:")
+    ? persona.avatar.startsWith("http") ||
+      persona.avatar.startsWith("data:") ||
+      persona.avatar.startsWith("blob:")
       ? persona.avatar
       : `${API_BASE_URL}${persona.avatar.startsWith("/") ? "" : "/"}${persona.avatar}`
     : null;
@@ -127,43 +136,50 @@ export function PersonaChatFullPage({
   useEffect(() => {
     if (!activeChatId) return;
     let cancelled = false;
-    fetchPersonaChatMessages(personaId, activeChatId).then((msgs) => {
-      if (cancelled || msgs.length === 0) return;
-      const converted: Message[] = msgs.flatMap((m) => {
-        const items: Message[] = [];
-        if (m.input) {
-          items.push({
-            id: `${m.id}-user`,
-            sender: "user",
-            content: m.input,
-            avatarUrl: "/personas/userAvatar.png",
-            avatarHint: "User",
-          });
-        }
-        if (m.output) {
-          const sanitized = extractThinkingContent(m.output);
-          items.push({
-            id: `${m.id}-ai`,
-            sender: "ai",
-            content: sanitized.visibleText || m.output,
-            thinkingContent: m.reasoning || sanitized.thinkingText || null,
-            avatarUrl: avatarUrl || "/new-logos/souvenir-logo.svg",
-            avatarHint: personaName,
-          });
-        }
-        return items;
+    fetchPersonaChatMessages(personaId, activeChatId)
+      .then((msgs) => {
+        if (cancelled || msgs.length === 0) return;
+        const converted: Message[] = msgs.flatMap((m) => {
+          const items: Message[] = [];
+          if (m.input) {
+            items.push({
+              id: `${m.id}-user`,
+              sender: "user",
+              content: m.input,
+              avatarUrl: "/personas/userAvatar.png",
+              avatarHint: "User",
+            });
+          }
+          if (m.output) {
+            const sanitized = extractThinkingContent(m.output);
+            items.push({
+              id: `${m.id}-ai`,
+              sender: "ai",
+              content: sanitized.visibleText || m.output,
+              thinkingContent: m.reasoning || sanitized.thinkingText || null,
+              avatarUrl: avatarUrl || "/new-logos/souvenir-logo.svg",
+              avatarHint: personaName,
+            });
+          }
+          return items;
+        });
+        // Preserve already-rendered local conversation (e.g. streaming on new chat id adoption)
+        // and only hydrate when the viewport is empty.
+        setDisplayMessages((prev) => (prev.length > 0 ? prev : converted));
+      })
+      .catch(() => {
+        /* silently ignore */
       });
-      // Preserve already-rendered local conversation (e.g. streaming on new chat id adoption)
-      // and only hydrate when the viewport is empty.
-      setDisplayMessages((prev) => (prev.length > 0 ? prev : converted));
-    }).catch(() => {/* silently ignore */});
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChatId, personaId]);
 
   useEffect(() => {
     if (scrollViewportRef.current) {
-      scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
+      scrollViewportRef.current.scrollTop =
+        scrollViewportRef.current.scrollHeight;
     }
   }, [displayMessages]);
 
@@ -173,7 +189,8 @@ export function PersonaChatFullPage({
       textareaRef.current.style.height = "auto";
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
-      textareaRef.current.style.overflowY = scrollHeight > maxHeight ? "auto" : "hidden";
+      textareaRef.current.style.overflowY =
+        scrollHeight > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
 
@@ -216,7 +233,8 @@ export function PersonaChatFullPage({
     try {
       // Build chat history for persona test
       const chatHistory = displayMessages.map((msg) => ({
-        role: msg.sender === "user" ? "user" as const : "assistant" as const,
+        role:
+          msg.sender === "user" ? ("user" as const) : ("assistant" as const),
         content: msg.content,
       }));
 
@@ -238,7 +256,7 @@ export function PersonaChatFullPage({
               chatId: tempSidebarChatId,
               title: "New Chat",
             },
-          })
+          }),
         );
       }
 
@@ -267,13 +285,15 @@ export function PersonaChatFullPage({
                 tempChatId: tempSidebarChatId,
                 chatId: normalizedChatId,
               },
-            })
+            }),
           );
           tempSidebarChatId = null;
         }
         resolvedChatId = normalizedChatId;
         setActiveChatId(normalizedChatId);
-        router.replace(`/personaAdmin/chat/${personaId}?chatId=${normalizedChatId}`);
+        router.replace(
+          `/personaAdmin/chat/${personaId}?chatId=${normalizedChatId}`,
+        );
       };
 
       const endpoint = resolvedChatId
@@ -309,7 +329,9 @@ export function PersonaChatFullPage({
 
       const updateAiMessage = (fields: Partial<Message>) => {
         setDisplayMessages((prev) =>
-          prev.map((msg) => (msg.id === aiMessageId ? { ...msg, ...fields } : msg))
+          prev.map((msg) =>
+            msg.id === aiMessageId ? { ...msg, ...fields } : msg,
+          ),
         );
       };
 
@@ -324,7 +346,10 @@ export function PersonaChatFullPage({
           .then((chats) => {
             if (!chats || chats.length === 0) {
               if (retries > 0) {
-                setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+                setTimeout(
+                  () => tryResolveChatIdFromServer(titleHint, retries - 1),
+                  500,
+                );
               }
               return;
             }
@@ -336,7 +361,9 @@ export function PersonaChatFullPage({
 
             let matched =
               normalizedTitleHint.length > 0
-                ? candidates.find((chat) => chat.title.toLowerCase() === normalizedTitleHint)
+                ? candidates.find(
+                    (chat) => chat.title.toLowerCase() === normalizedTitleHint,
+                  )
                 : undefined;
 
             if (!matched && inputPrefix.length > 0) {
@@ -349,7 +376,10 @@ export function PersonaChatFullPage({
             const resolved = (matched || fallback)?.id;
             if (!resolved) {
               if (retries > 0) {
-                setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+                setTimeout(
+                  () => tryResolveChatIdFromServer(titleHint, retries - 1),
+                  500,
+                );
               }
               return;
             }
@@ -360,7 +390,10 @@ export function PersonaChatFullPage({
           })
           .catch(() => {
             if (retries > 0) {
-              setTimeout(() => tryResolveChatIdFromServer(titleHint, retries - 1), 500);
+              setTimeout(
+                () => tryResolveChatIdFromServer(titleHint, retries - 1),
+                500,
+              );
             }
           });
       };
@@ -380,7 +413,7 @@ export function PersonaChatFullPage({
               chatId: targetChatId,
               title: normalizedTitle,
             },
-          })
+          }),
         );
       };
 
@@ -400,7 +433,9 @@ export function PersonaChatFullPage({
         if (role === "user") {
           setDisplayMessages((prev) =>
             prev.map((msg) =>
-              msg.id === userMessageId ? { ...msg, chatMessageId: messageId } : msg,
+              msg.id === userMessageId
+                ? { ...msg, chatMessageId: messageId }
+                : msg,
             ),
           );
           return;
@@ -480,7 +515,8 @@ export function PersonaChatFullPage({
 
         if (eventName === "image") {
           const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-          const imageAlt = typeof parsed.alt === "string" ? parsed.alt : undefined;
+          const imageAlt =
+            typeof parsed.alt === "string" ? parsed.alt : undefined;
           if (imageUrl) {
             updateAiMessage({ imageUrl, imageAlt });
           }
@@ -519,14 +555,18 @@ export function PersonaChatFullPage({
             tryResolveChatIdFromServer(doneTitleCandidate);
           }
           const finalContent =
-            typeof parsed.content === "string" ? parsed.content : assistantContent;
+            typeof parsed.content === "string"
+              ? parsed.content
+              : assistantContent;
           const sanitized = extractThinkingContent(finalContent);
           const finalReasoning =
             reasoningContent ||
             (typeof parsed.reasoning === "string" ? parsed.reasoning : "") ||
             sanitized.thinkingText;
           updateAiMessage({
-            content: sanitized.visibleText || (finalReasoning ? "" : "No response from persona."),
+            content:
+              sanitized.visibleText ||
+              (finalReasoning ? "" : "No response from persona."),
             thinkingContent: finalReasoning || null,
             isThinkingInProgress: false,
             isLoading: false,
@@ -581,7 +621,6 @@ export function PersonaChatFullPage({
           },
         });
       }
-
     } catch (error) {
       // If aborted by user, show stopped message instead of error
       if (error instanceof Error && error.name === "AbortError") {
@@ -591,16 +630,19 @@ export function PersonaChatFullPage({
             const baseContent = msg.content || "";
             const marker = "Generation Stopped By User";
             const hasMarker = baseContent.includes(marker);
-            const suffix = baseContent.length > 0
-              ? hasMarker ? "" : `\n\n${marker}`
-              : marker;
+            const suffix =
+              baseContent.length > 0
+                ? hasMarker
+                  ? ""
+                  : `\n\n${marker}`
+                : marker;
             return {
               ...msg,
               content: `${baseContent}${suffix}`,
               isLoading: false,
               isThinkingInProgress: false,
             };
-          })
+          }),
         );
       } else {
         const message =
@@ -616,7 +658,7 @@ export function PersonaChatFullPage({
         };
 
         setDisplayMessages((prev) =>
-          prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg))
+          prev.map((msg) => (msg.id === aiMessageId ? errorMessage : msg)),
         );
       }
     } finally {
@@ -631,7 +673,7 @@ export function PersonaChatFullPage({
   };
 
   return (
-    <div className="px-12 py-4 max-h-[95vh] h-full flex flex-col w-full"> 
+    <div className="px-12 py-4 max-h-[95vh] h-full flex flex-col w-full">
       {/* Row 2 - Persona details (toggleable) */}
       {detailsSectionOpen && (
         <div className="w-full flex items-center gap-6 shrink-0 min-h-[28px] py-1 flex-wrap mb-3 text-sm">
@@ -687,25 +729,28 @@ export function PersonaChatFullPage({
             </div>
             {persona.description && (
               <div className="mt-1 max-w-md text-center">
-                <p 
+                <p
                   className={`text-sm text-[#8B8B8B] leading-relaxed font-geist transition-all duration-300 ${
-                    isDescriptionExpanded 
-                      ? 'max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100' 
-                      : 'max-h-[48px]'
+                    isDescriptionExpanded
+                      ? "max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                      : "max-h-[48px]"
                   }`}
-                  style={isDescriptionExpanded ? { scrollbarWidth: 'thin' } : {}}
+                  style={
+                    isDescriptionExpanded ? { scrollbarWidth: "thin" } : {}
+                  }
                 >
-                  {isDescriptionExpanded 
-                    ? persona.description 
+                  {isDescriptionExpanded
+                    ? persona.description
                     : persona.description.length > 100
                       ? `${persona.description.slice(0, 100)}...`
-                      : persona.description
-                  }
+                      : persona.description}
                 </p>
                 {persona.description.length > 100 && (
                   <button
                     type="button"
-                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    onClick={() =>
+                      setIsDescriptionExpanded(!isDescriptionExpanded)
+                    }
                     className="mt-2 text-xs text-[#3C6CFF] hover:text-[#2651CC] font-medium transition-colors"
                   >
                     {isDescriptionExpanded ? "Show less" : "Read more"}
@@ -764,11 +809,7 @@ export function PersonaChatFullPage({
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (
-                        e.key === "Enter" &&
-                        !e.shiftKey &&
-                        !isResponding
-                      ) {
+                      if (e.key === "Enter" && !e.shiftKey && !isResponding) {
                         e.preventDefault();
                         handleSend();
                       }
@@ -790,7 +831,8 @@ export function PersonaChatFullPage({
                         const files = e.target.files;
                         if (files?.length) {
                           toast.info("Attachments", {
-                            description: "File attachment coming soon for persona chats.",
+                            description:
+                              "File attachment coming soon for persona chats.",
                           });
                         }
                         e.target.value = "";
@@ -804,7 +846,7 @@ export function PersonaChatFullPage({
                     >
                       <Plus className="h-5 w-5 text-[#555555]" />
                     </Button>
-                    {showAttachMenu && (
+                    {/* {showAttachMenu && (
                       <div
                         className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
                         style={{ width: "160px" }}
@@ -855,6 +897,58 @@ export function PersonaChatFullPage({
                           )}
                         </button>
                       </div>
+                    )} */}
+                    {showAttachMenu && (
+                      <div
+                        className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
+                        style={{ width: "auto" }}
+                      >
+                        <button
+                          onClick={() => {
+                            fileInputRef.current?.click();
+                            setShowAttachMenu(false);
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
+                          <span>Attach Images and Files</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setWebSearchEnabled(!webSearchEnabled);
+                            setShowAttachMenu(false);
+                            toast(
+                              webSearchEnabled
+                                ? "Web search disabled"
+                                : "Web search enabled",
+                              {
+                                description: webSearchEnabled
+                                  ? "Results will not include web search"
+                                  : "Results will include web search",
+                              },
+                            );
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg cursor-pointer border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
+                            webSearchEnabled
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-none bg-white text-[#1E1E1E]",
+                          )}
+                        >
+                          <Globe
+                            className={cn(
+                              "h-3.5 w-3.5",
+                              webSearchEnabled
+                                ? "text-blue-600"
+                                : "text-[#666666]",
+                            )}
+                          />
+                          <span>Web Search</span>
+                          {webSearchEnabled && (
+                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600"></div>
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
                   {webSearchEnabled && (
@@ -898,7 +992,7 @@ export function PersonaChatFullPage({
                         className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-full bg-zinc-300 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
                         title="Voice input"
                       >
-                        <Mic
+                        <Send
                           className="h-[25px] w-[25px]"
                           strokeWidth={2}
                           style={{ minWidth: "18px", minHeight: "20px" }}
