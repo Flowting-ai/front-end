@@ -292,7 +292,7 @@ export function PersonaChatFullPage({
         resolvedChatId = normalizedChatId;
         setActiveChatId(normalizedChatId);
         router.replace(
-          `/personaAdmin/chat/${personaId}?chatId=${normalizedChatId}`,
+          `/personas/${personaId}/chat?chatId=${normalizedChatId}`,
         );
       };
 

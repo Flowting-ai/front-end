@@ -99,10 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearAuth]);
 
   useEffect(() => {
-    const handleExpired = () => clearAuth();
+    const handleExpired = () => logout();
     window.addEventListener("auth:session-expired", handleExpired);
     return () => window.removeEventListener("auth:session-expired", handleExpired);
-  }, [clearAuth]);
+  }, [logout]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

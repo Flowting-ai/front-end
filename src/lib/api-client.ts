@@ -210,8 +210,15 @@ export async function handleStream(
   onError?: (error: Error) => void
 ): Promise<void> {
   try {
+    const authHeaders = getAuthHeaders();
+    const headers = new Headers(options.headers);
+    for (const [key, val] of Object.entries(authHeaders)) {
+      headers.set(key, val);
+    }
+
     const response = await fetch(url, {
       ...options,
+      headers,
       credentials: 'include',
     });
 

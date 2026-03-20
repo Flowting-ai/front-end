@@ -852,10 +852,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const isChatRoute = pathname === "/";
   const isPersonasRoute =
-    pathname?.startsWith("/personas") || pathname?.startsWith("/personaAdmin");
-  const isWorkflowChatRoute = pathname?.startsWith("/workflowAdmin/chat");
-  const isWorkflowAdminOverviewRoute = pathname === "/workflowAdmin";
-  const isPersonaChatRoute = pathname?.startsWith("/personaAdmin/chat");
+    pathname?.startsWith("/personas") || pathname?.startsWith("/personas/admin");
+  const isWorkflowChatRoute = !!pathname?.match(/^\/workflows\/[^/]+\/chat/);
+  const isWorkflowAdminOverviewRoute = pathname === "/workflows/admin";
+  const isPersonaChatRoute = !!pathname?.match(/^\/personas\/[^/]+\/chat/);
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
   const { user } = useAuth();
   const hasFetchedChats = useRef(false);
@@ -1602,9 +1602,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     // Determine the type based on explicit override or current route
     const isOnPersonaPage =
-      pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+      pathname?.startsWith("/personas/admin") || pathname?.startsWith("/personas");
     const isOnWorkflowPage =
-      pathname?.startsWith("/workflowAdmin") || pathname?.startsWith("/workflows");
+      pathname?.startsWith("/workflows/admin") || pathname?.startsWith("/workflows");
 
     const chatType: ChatBoardType =
       typeOverride ??
@@ -1698,9 +1698,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
     const prev = prevPathRef.current;
 
     const isChatRouteNow =
-      current === "/" || (current !== null && current.startsWith("/chat"));
+      current === "/" || (current !== null && current.startsWith("/chats"));
     const wasChatRouteBefore =
-      prev === "/" || (prev !== null && prev.startsWith("/chat"));
+      prev === "/" || (prev !== null && prev.startsWith("/chats"));
 
     // Only trigger when navigating INTO chat routes from a non-chat route.
     // Skip when prev === null (initial mount / page refresh) so we restore the

@@ -203,11 +203,11 @@ export function LeftSidebar({
   // Expand "Recent chats" when on workflow or persona pages (including chat pages)
   React.useEffect(() => {
     if (
-      pathname?.startsWith("/workflowAdmin") ||
-      pathname?.startsWith("/personaAdmin")
+      pathname?.startsWith("/workflows/admin") ||
+      pathname?.startsWith("/personas/admin")
     ) {
       setIsChatBoardsExpanded(true);
-    } else if (pathname === "/" || pathname?.startsWith("/chat")) {
+    } else if (pathname === "/" || pathname?.startsWith("/chats")) {
       setIsChatBoardsExpanded(true);
     } else {
       setIsChatBoardsExpanded(false);
@@ -224,24 +224,24 @@ export function LeftSidebar({
   const userLastName = user?.lastName?.trim() || "User";
 
   // Determine if user is on chat board route
-  const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chat");
+  const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chats");
 
   // Determine if user is on persona pages
   const isOnPersonaPage =
-    pathname?.startsWith("/personaAdmin") || pathname?.startsWith("/personas");
+    pathname?.startsWith("/personas/admin") || pathname?.startsWith("/personas");
 
   // Determine if user is on workflow pages
   const isOnWorkflowPage =
-    pathname?.startsWith("/workflowAdmin") ||
+    pathname?.startsWith("/workflows/admin") ||
     pathname?.startsWith("/workflows");
-  const isOnWorkflowChatPage = pathname?.startsWith("/workflowAdmin/chat");
+  const isOnWorkflowChatPage = !!pathname?.match(/^\/workflows\/[^/]+\/chat/);
   const activeWorkflowIdFromUrl =
-    pathname?.match(/\/workflowAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+    pathname?.match(/\/workflows\/([^/]+)\/chat/)?.[1] ?? null;
 
   // Determine if user is on persona chat page
-  const isOnPersonaChatPage = pathname?.startsWith("/personaAdmin/chat");
+  const isOnPersonaChatPage = !!pathname?.match(/^\/personas\/[^/]+\/chat/);
   const activePersonaIdFromUrl =
-    pathname?.match(/\/personaAdmin\/chat\/([^/]+)/)?.[1] ?? null;
+    pathname?.match(/\/personas\/([^/]+)\/chat/)?.[1] ?? null;
 
   // Determine if user is on settings-related pages
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
@@ -480,7 +480,7 @@ export function LeftSidebar({
 
   const handleCreatePersonaChat = (personaId: string) => {
     setExpandedPersonaIds((prev) => new Set([...prev, personaId]));
-    router.push(`/personaAdmin/chat/${personaId}`);
+    router.push(`/personas/${personaId}/chat`);
   };
 
   const handleDeletePersonaChat = async (personaId: string, chatId: string) => {
@@ -490,7 +490,7 @@ export function LeftSidebar({
       [personaId]: (prev[personaId] ?? []).filter((c) => c.id !== chatId),
     }));
     if (activePersonaChatSessionId === chatId) {
-      router.push(`/personaAdmin/chat/${personaId}`);
+      router.push(`/personas/${personaId}/chat`);
     }
     try {
       await deletePersonaChat(personaId, chatId);
@@ -741,7 +741,7 @@ export function LeftSidebar({
                   size="icon"
                   aria-label="AI Personas"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
-                  onClick={() => router.push("/personaAdmin")}
+                  onClick={() => router.push("/personas/admin")}
                 >
                   <UserRoundPen
                     className={cn(
@@ -768,12 +768,12 @@ export function LeftSidebar({
                   size="icon"
                   aria-label="Flow Builder"
                   className="cursor-pointer h-10 w-10 bg-white hover:bg-white border border-main-border hover:border-lsb-button-active-bg rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none flex items-center justify-center"
-                  onClick={() => router.push("/workflowAdmin")}
+                  onClick={() => router.push("/workflows/admin")}
                 >
                   {/* <BotMessageSquare
                     className={cn(
                       "h-5 w-5",
-                      pathname?.startsWith("/workflowAdmin") ? "text-[#303030]" : "text-[#303030]"
+                      pathname?.startsWith("/workflows/admin") ? "text-[#303030]" : "text-[#303030]"
                     )}
                   /> */}
                   <Workflow
@@ -1189,7 +1189,7 @@ export function LeftSidebar({
 
                 {/* Personas */}
                 <Button
-                  onClick={() => router.push("/personaAdmin")}
+                  onClick={() => router.push("/personas/admin")}
                   className={cn(
                     "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     !isOnChatBoard &&
@@ -1206,7 +1206,7 @@ export function LeftSidebar({
 
                 {/* Workflows */}
                 <Button
-                  onClick={() => router.push("/workflowAdmin")}
+                  onClick={() => router.push("/workflows/admin")}
                   className={cn(
                     "cursor-pointer max-h-[210px] w-full min-h-[41px] h-full text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
                     isOnWorkflowPage &&
@@ -1314,7 +1314,7 @@ export function LeftSidebar({
                               const isActive =
                                 activeWorkflowIdFromUrl === wf.id;
                               const handleSelect = () => {
-                                router.push(`/workflowAdmin/chat/${wf.id}`);
+                                router.push(`/workflows/${wf.id}/chat`);
                               };
                               return (
                                 <div key={wf.id} className="snap-start">
@@ -1466,7 +1466,7 @@ export function LeftSidebar({
                                               isSelected={true}
                                               isStarred={false}
                                               pinnedCount={0}
-                                              onSelect={() => router.push(`/personaAdmin/chat/${persona.id}`)}
+                                              onSelect={() => router.push(`/personas/${persona.id}/chat`)}
                                             />
                                           )}
                                           {sessionsToShow.length === 0 && !(activePersonaIdFromUrl === persona.id && isOnPersonaChatPage && !activePersonaChatSessionId) ? (
@@ -1489,7 +1489,7 @@ export function LeftSidebar({
                                               pinnedCount={0}
                                               onSelect={() =>
                                                 router.push(
-                                                  `/personaAdmin/chat/${persona.id}?chatId=${chat.id}`,
+                                                  `/personas/${persona.id}/chat?chatId=${chat.id}`,
                                                 )
                                               }
                                               onRename={() => {

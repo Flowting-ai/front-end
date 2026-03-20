@@ -19,9 +19,8 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
       hostname: "sfo3.digitaloceanspaces.com",
       pathname: "/**",
     },
-    // Allow images from any remote URL (e.g. citation cards, link previews)
+    // Allow images from any HTTPS remote URL (e.g. citation cards, link previews)
     { protocol: "https", hostname: "**", pathname: "/**" },
-    { protocol: "http", hostname: "**", pathname: "/**" },
   ];
 
 // Build CSP connect-src with backend origins
@@ -40,7 +39,9 @@ if (process.env.NODE_ENV === "development") {
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, consider nonce-based CSP
+  process.env.NODE_ENV === "development"
+    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https: http:",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -61,6 +62,60 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     remotePatterns: backendRemotePattern,
+  },
+  async redirects() {
+    return [
+      // Legacy /chat/:id → removed (no chat sharing)
+      {
+        source: '/chat/:chatId',
+        destination: '/',
+        permanent: true,
+      },
+      // Legacy /personaAdmin → /personas/admin
+      {
+        source: '/personaAdmin',
+        destination: '/personas/admin',
+        permanent: true,
+      },
+      {
+        source: '/personaAdmin/chat/:personaId',
+        destination: '/personas/:personaId/chat',
+        permanent: true,
+      },
+      {
+        source: '/personaAdmin/:path*',
+        destination: '/personas/admin/:path*',
+        permanent: true,
+      },
+      // Legacy /personas/admin/chat/:id → /personas/:id/chat
+      {
+        source: '/personas/admin/chat/:personaId',
+        destination: '/personas/:personaId/chat',
+        permanent: true,
+      },
+      // Legacy /workflowAdmin → /workflows/admin
+      {
+        source: '/workflowAdmin',
+        destination: '/workflows/admin',
+        permanent: true,
+      },
+      {
+        source: '/workflowAdmin/chat/:workflowId',
+        destination: '/workflows/:workflowId/chat',
+        permanent: true,
+      },
+      {
+        source: '/workflowAdmin/:path*',
+        destination: '/workflows/admin/:path*',
+        permanent: true,
+      },
+      // Legacy /workflows/admin/chat/:id → /workflows/:id/chat
+      {
+        source: '/workflows/admin/chat/:workflowId',
+        destination: '/workflows/:workflowId/chat',
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [

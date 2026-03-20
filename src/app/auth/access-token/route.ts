@@ -3,15 +3,12 @@ import { auth0 } from "@/lib/auth0";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const audience = searchParams.get("audience") ?? undefined;
-  const scope = searchParams.get("scope") ?? undefined;
+export async function GET() {
+  const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
 
   try {
     const { token } = await auth0.getAccessToken({
       audience,
-      scope,
     });
 
     return NextResponse.json({ token });

@@ -1284,7 +1284,7 @@ function WorkflowCanvasInner() {
   // Run workflow - navigate to dedicated workflow chat page (highlighted in recent workflows board)
   const handleRun = useCallback(() => {
     if (!workflowId) return;
-    router.push(`/workflowAdmin/chat/${workflowId}`);
+    router.push(`/workflows/${workflowId}/chat`);
   }, [workflowId, router]);
 
   // Back: show leave dialog if unsaved, else navigate to workflowAdmin
@@ -1292,7 +1292,7 @@ function WorkflowCanvasInner() {
     if (hasUnsavedChanges) {
       setShowLeaveConfirm(true);
     } else {
-      router.push("/workflowAdmin");
+      router.push("/workflows/admin");
     }
   }, [hasUnsavedChanges, router]);
 
@@ -1983,7 +1983,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
               className="rounded-[8px] bg-white border border-[#D4D4D4] text-black hover:bg-[#f5f5f5]"
               onClick={() => {
                 setShowLeaveConfirm(false);
-                router.push("/workflowAdmin");
+                router.push("/workflows/admin");
               }}
             >
               Don&apos;t save
@@ -1994,7 +1994,7 @@ Please provide clear, specific, and well-structured instructions to ensure accur
                 const saved = await handleSave();
                 if (saved) {
                   setShowLeaveConfirm(false);
-                  router.push("/workflowAdmin");
+                  router.push("/workflows/admin");
                 }
               }}
             >

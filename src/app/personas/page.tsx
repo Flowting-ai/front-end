@@ -661,7 +661,7 @@ function PersonasPageContent() {
                       <div 
                         key={`${persona.id}-${persona.thumbnail}`} 
                         className={cn(styles.personaCard, "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02]")}
-                        onClick={() => router.push(`/personaAdmin/chat/${persona.id}`)}
+                        onClick={() => router.push(`/personas/${persona.id}/chat`)}
                       >
                         <img
                           src={persona.thumbnail}

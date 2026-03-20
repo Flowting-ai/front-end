@@ -249,7 +249,7 @@ export default function WorkflowAdminPage() {
 
   const handleChatWorkflow = (workflowId: string) => {
     // Navigate to dedicated workflow chat page
-    router.push(`/workflowAdmin/chat/${workflowId}`);
+    router.push(`/workflows/${workflowId}/chat`);
   };
 
 

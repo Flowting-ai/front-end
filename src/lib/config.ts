@@ -5,7 +5,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API!.replace(/\/+$/, "");
 export const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE ?? "";
 
 // Debug: log API URL on load
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
   console.debug("[Config] API_BASE_URL:", API_BASE_URL);
 }
 

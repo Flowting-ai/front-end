@@ -807,7 +807,7 @@ function PersonaConfigurePageContent() {
         
         // Navigate to persona chat page after update
         setTimeout(() => {
-          router.push(`/personaAdmin/chat/${createdPersonaId}`);
+          router.push(`/personas/${createdPersonaId}/chat`);
         }, 1000);
       } else {
         // Create new persona
@@ -891,7 +891,7 @@ function PersonaConfigurePageContent() {
     const chatMode = searchParams.get("chatMode");
 
     if (hasFinishedBuilding || personaId || chatMode === "true" || isChatMode) {
-      router.push("/personaAdmin");
+      router.push("/personas/admin");
     } else {
       router.push("/personas/new");
     }
@@ -914,7 +914,7 @@ function PersonaConfigurePageContent() {
                   // If coming from personaAdmin (has personaId), go back to dashboard
                   const personaId = searchParams.get("personaId");
                   if (personaId) {
-                    router.push("/personaAdmin");
+                    router.push("/personas/admin");
                   } else {
                     setIsChatMode(false);
                   }
@@ -3122,7 +3122,7 @@ function PersonaConfigurePageContent() {
         )}
 
         {/* Success Dialog */}
-        <Dialog open={showSuccessDialog} onOpenChange={(open) => { if (!open) { setShowSuccessDialog(false); router.push("/personaAdmin"); } }}>
+        <Dialog open={showSuccessDialog} onOpenChange={(open) => { if (!open) { setShowSuccessDialog(false); router.push("/personas/admin"); } }}>
           <DialogContent
             className="border-none p-0 gap-0"
             style={{
@@ -3213,7 +3213,7 @@ function PersonaConfigurePageContent() {
                   onClick={() => {
                     setShowSuccessDialog(false);
                     if (createdPersonaId) {
-                      router.push(`/personaAdmin/chat/${createdPersonaId}`);
+                      router.push(`/personas/${createdPersonaId}/chat`);
                     }
                   }}
                   style={{

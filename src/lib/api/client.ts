@@ -42,8 +42,15 @@ export async function apiFetch(
   const response = await doFetch(path, options);
 
   if (response.status === 401 && typeof window !== "undefined") {
-    // Auth0 handles token refresh automatically via silent authentication.
-    // Dispatch the session-expired event so the app can redirect to login.
+    // Attempt one silent token refresh before giving up
+    const refreshedToken = await getAuth0AccessToken();
+    if (refreshedToken) {
+      const retryResponse = await doFetch(path, options);
+      if (retryResponse.status !== 401) {
+        return retryResponse;
+      }
+    }
+    // Token refresh failed or retry still 401 — session is truly expired
     window.dispatchEvent(new Event("auth:session-expired"));
   }
 

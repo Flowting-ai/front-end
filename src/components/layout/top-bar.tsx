@@ -52,12 +52,12 @@ export function Topbar({
     "User";
 
   const isHomePage = pathname === "/";
-  const isPersonaAdminPage = pathname === "/personaAdmin";
+  const isPersonaAdminPage = pathname === "/personas/admin";
   const isPersonasPage = pathname?.startsWith("/personas");
-  const isPersonaAdminChatPage = pathname?.startsWith("/personaAdmin/chat/");
-  const isWorkflowAdminChatPage = pathname?.startsWith("/workflowAdmin/chat/");
+  const isPersonaAdminChatPage = !!pathname?.match(/^\/personas\/[^/]+\/chat/);
+  const isWorkflowAdminChatPage = !!pathname?.match(/^\/workflows\/[^/]+\/chat/);
   const personaIdFromPath = isPersonaAdminChatPage
-    ? pathname.split("/")[3] ?? null
+    ? pathname.match(/\/personas\/([^/]+)\/chat/)?.[1] ?? null
     : null;
 
   return (
@@ -68,7 +68,7 @@ export function Topbar({
           {isPersonaAdminChatPage && (
             <>
               <Button
-                onClick={() => router.push("/personaAdmin")}
+                onClick={() => router.push("/personas/admin")}
                 className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
               >
                 {/* <ChevronLeft className="h-4 w-4" /> */}
@@ -81,7 +81,7 @@ export function Topbar({
                       `/personas/new/configure?personaId=${personaIdFromPath}`,
                     );
                   } else {
-                    router.push("/personaAdmin");
+                    router.push("/personas/admin");
                   }
                 }}
                 className="text-sm text-[#0A0A0A]30 bg-white hover:bg-zinc-100 border border-[#D4D4D4] rounded-[8px] shadow-sm flex items-center gap-2 px-4 h-9 transition-all duration-300"
@@ -93,7 +93,7 @@ export function Topbar({
           )}
           {isWorkflowAdminChatPage && (
             <Button
-              onClick={() => router.push("/workflowAdmin")}
+              onClick={() => router.push("/workflows/admin")}
               className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function Topbar({
                 <Button
                   variant="outline"
                   className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-[8px] border-main-border"
-                  onClick={() => window.location.href = '/personaAdmin'}
+                  onClick={() => window.location.href = '/personas/admin'}
                 >
                   Go to Command Center
                 </Button>

@@ -91,7 +91,7 @@ function WorkflowChatPageInner() {
             Please activate the workflow from the Workflow Admin page to use the chat interface
           </div>
           <button
-            onClick={() => router.push("/workflowAdmin")}
+            onClick={() => router.push("/workflows/admin")}
             className="mt-4 px-4 py-2 bg-[#111827] text-white rounded-md hover:bg-[#1f2937]"
           >
             Go to Workflow Admin
