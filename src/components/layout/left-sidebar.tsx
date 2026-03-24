@@ -852,7 +852,9 @@ export function LeftSidebar({
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem
-                      onClick={() => router.push("/auth/login")}
+                      onClick={() => {
+                        window.location.href = "/auth/login";
+                      }}
                       className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
                     >
                       <LogIn className="h-4 w-4 text-lsb-text" />
@@ -1756,7 +1758,9 @@ export function LeftSidebar({
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    onClick={() => router.push("/auth/login")}
+                    onClick={() => {
+                      window.location.href = "/auth/login";
+                    }}
                     className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
                   >
                     <LogIn className="h-4 w-4 text-lsb-text" />

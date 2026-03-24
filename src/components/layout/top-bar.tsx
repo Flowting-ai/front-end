@@ -169,7 +169,7 @@ export function Topbar({
             </Button>
           )}
           {isHomePage && isHydrated && !user && (
-            <Link href="/auth/login">
+            <Link href="/auth/login" prefetch={false}>
               <Button
                 className="cursor-pointer w-[122px] h-[38px] font-inter font-normal text-sm text-white bg-[#1E1E1E] hover:bg-[#2E2E2E] rounded-[7px] flex items-center justify-center gap-2 px-4 py-0 transition-all duration-300"
               >
