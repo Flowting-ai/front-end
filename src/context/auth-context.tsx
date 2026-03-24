@@ -38,6 +38,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   jwtToken: string | null;
   isHydrated: boolean;
+  /** True as soon as we have a valid Auth0 token — no backend round-trip needed */
+  isAuthenticated: boolean;
   setUser: (user: AuthUser | null) => void;
   setJwtToken: (token: string | null) => void;
   clearAuth: () => void;
@@ -104,11 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("auth:session-expired", handleExpired);
   }, [logout]);
 
+  const isAuthenticated = isHydrated && jwtToken !== null;
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       jwtToken,
       isHydrated,
+      isAuthenticated,
       setUser,
       setJwtToken,
       clearAuth,
@@ -118,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       jwtToken,
       isHydrated,
+      isAuthenticated,
       setJwtToken,
       clearAuth,
       logout,

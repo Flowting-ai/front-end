@@ -118,7 +118,7 @@ export function LeftSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const layoutContext = React.useContext(AppLayoutContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [isChatBoardsExpanded, setIsChatBoardsExpanded] = useState(true);
@@ -842,7 +842,7 @@ export function LeftSidebar({
                     <HelpCircle className="h-4 w-4 text-lsb-text" />
                     Help
                   </DropdownMenuItem>
-                  {user ? (
+                  {isAuthenticated ? (
                     <DropdownMenuItem
                       onClick={handleLogout}
                       className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
@@ -1718,7 +1718,7 @@ export function LeftSidebar({
                 className="bg-white border-[#E5E5E5] rounded-lg p-1.5"
                 style={{ width: "222px", gap: "8px" }}
               >
-                {user && (
+                {isAuthenticated && (
                   <DropdownMenuItem
                     disabled
                     className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
@@ -1748,7 +1748,7 @@ export function LeftSidebar({
                   <HelpCircle className="h-4 w-4 text-lsb-text" />
                   Help
                 </DropdownMenuItem>
-                {user ? (
+                {isAuthenticated ? (
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"

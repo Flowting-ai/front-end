@@ -857,7 +857,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isWorkflowAdminOverviewRoute = pathname === "/workflows/admin";
   const isPersonaChatRoute = !!pathname?.match(/^\/personas\/[^/]+\/chat/);
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const hasFetchedChats = useRef(false);
 
 
@@ -995,8 +995,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [resetRenameState, renameInputRef]);
 
   const loadChatBoards = useCallback(async (force = false) => {
-    if (!user) {
-      console.debug("[loadChatBoards] Skipped: No user logged in");
+    if (!isAuthenticated) {
+      console.debug("[loadChatBoards] Skipped: Not authenticated");
       return;
     }
     // Skip if already fetched unless force reload
@@ -1060,7 +1060,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     } catch (error) {
       console.error("Failed to load chats from backend", error);
     }
-    }, [user]);
+    }, [isAuthenticated]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renamingChatId || isRenamingChatBoard) return;
@@ -1358,10 +1358,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (!activeChatId) return;
-    if (!user) return;
+    if (!isAuthenticated) return;
     if (chatHistory[activeChatId]) return;
     loadMessagesForChat(activeChatId);
-  }, [activeChatId, chatHistory, loadMessagesForChat, user]);
+  }, [activeChatId, chatHistory, loadMessagesForChat, isAuthenticated]);
 
   useEffect(() => {
     if (!pinsChatId) {
@@ -1714,7 +1714,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // Load chat boards once when user is authenticated, then (optionally) start a fresh chat after login
   useEffect(() => {
-    if (!user || hasFetchedChats.current) return;
+    if (!isAuthenticated || hasFetchedChats.current) return;
 
     const shouldStartNewChat =
       typeof window !== "undefined" &&
@@ -1732,7 +1732,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loadChatBoards]);
+  }, [isAuthenticated, loadChatBoards]);
 
   const isRightSidebarVisible =
     !isPersonasRoute &&
