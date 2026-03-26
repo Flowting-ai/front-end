@@ -205,38 +205,7 @@ function PersonasPageContent() {
     load();
   }, [statusFilterValue]);
 
-  // Refresh personas when the component becomes visible (e.g., after navigating back)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page is visible, refresh personas
-        const refreshPersonas = async () => {
-          try {
-            const list = await fetchPersonas(statusFilterValue);
-            setPersonas(
-              list.map((p) => {
-                const thumbnailUrl = getFullAvatarUrl(p.imageUrl);
-                console.debug(`Refreshed persona ${p.name} - imageUrl:`, p.imageUrl, 'resolved:', thumbnailUrl);
-                return {
-                  id: p.id,
-                  name: p.name,
-                  description: p.prompt?.slice(0, 140) || "No description",
-                  thumbnail: thumbnailUrl || "/personas/persona1.png",
-                  temperature: undefined,
-                };
-              })
-            );
-          } catch (error) {
-            console.error("Failed to refresh personas:", error);
-          }
-        };
-        refreshPersonas();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [statusFilterValue]);
+  // Personas are already fetched on mount above — no need to re-fetch on every tab switch.
 
   const filteredPersonas = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   Dialog,
   DialogContent,
@@ -44,9 +43,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AIModel } from "@/types/ai-model";
-import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelIcon } from "@/lib/model-icons";
-import { normalizeModels } from "@/lib/ai-models";
+import { fetchModelsWithCache } from "@/lib/ai-models";
 import Image from "next/image";
 
 interface ModelSelectorDialogProps {
@@ -89,55 +87,19 @@ export function ModelSelectorDialog({
 
   useEffect(() => {
     if (!open) return;
-
-    // If we already have models in state, don't re-fetch
     if (models.length > 0) {
       setIsLoading(false);
       return;
     }
-
-    // Try sessionStorage first
-    const cached = sessionStorage.getItem("aiModels");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached) as AIModel[];
-        setModels(parsed);
+    let cancelled = false;
+    setIsLoading(true);
+    fetchModelsWithCache().then((result) => {
+      if (!cancelled) {
+        setModels(result);
         setIsLoading(false);
-        return;
-      } catch {
-        // ignore parse errors and fall through to fetch
       }
-    }
-
-    const fetchModels = async () => {
-      setIsLoading(true);
-      let raw: AIModel[] = [];
-      try {
-        const response = await fetch(MODELS_ENDPOINT, {
-          credentials: "include",
-          headers: getAuthHeaders(),
-        });
-        if (!response.ok) {
-          console.warn(
-            `Backend not available: ${response.status} ${response.statusText}`
-          );
-        } else {
-          const data = await response.json();
-          raw = normalizeModels(data);
-          console.debug("Raw models from backend:", raw);
-        }
-      } catch (fetchError) {
-        console.warn("Failed to fetch models from backend:", fetchError);
-      }
-
-      setModels(raw);
-      if (raw.length > 0) {
-        sessionStorage.setItem("aiModels", JSON.stringify(raw));
-      }
-      setIsLoading(false);
-    };
-
-    fetchModels();
+    });
+    return () => { cancelled = true; };
   }, [open, models.length]);
 
   useEffect(() => {

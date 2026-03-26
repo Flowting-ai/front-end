@@ -3,10 +3,9 @@
 import type { ReactNode } from "react";
 import { Button } from "../ui/button";
 import { ModelSelector } from "../chat/model-selector";
-import { TokenTracker } from "../chat/token-tracker";
+
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "./right-sidebar";
-import { useTokenUsage } from "@/context/token-context";
 import { useAuth } from "@/context/auth-context";
 import { UserRoundPen, UserRoundPlus, Share2, ChevronLeft, PenBox } from "lucide-react";
 import Link from "next/link";
@@ -41,11 +40,10 @@ export function Topbar({
   messageCount,
   pins = [],
 }: TopbarProps) {
-  const { usagePercent, isLoading } = useTokenUsage();
+
   const { user, isHydrated, isAuthenticated } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const showUpgradePlan = !isLoading && usagePercent >= 80;
   const firstName =
     (user?.firstName as string | undefined) ||
     (user?.name as string | undefined)?.split(" ")[0] ||
@@ -117,25 +115,15 @@ export function Topbar({
               pins={pins}
             />
           )}
-          {(isHomePage || isPersonaAdminPage || isPersonasPage) && (
+          {isPersonasPage && (
             <div className="flex items-center gap-3">
-              {showUpgradePlan ? (
-                <Button
-                  variant="secondary"
-                  className="cursor-pointer w-[122px] h-[33px] font-inter font-normal text-sm text-tb-button2-text bg-tb-button2-bg hover:text-tb-button2-text-hover hover:bg-tb-button2-bg-hover rounded-[8px] flex items-center justify-center px-4"
-                >
-                  Upgrade Plan
-                </Button>
-              ) : null}
-              {isPersonasPage && (
-                <Button
-                  variant="outline"
-                  className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-[8px] border-main-border"
-                  onClick={() => window.location.href = '/personas/admin'}
-                >
-                  Go to Command Center
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="cursor-pointer flex items-center gap-2 h-9 px-4 rounded-[8px] border-main-border"
+                onClick={() => window.location.href = '/personas/admin'}
+              >
+                Go to Command Center
+              </Button>
             </div>
           )}
         </div>

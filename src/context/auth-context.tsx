@@ -14,6 +14,7 @@ import {
   clearInMemoryAccessToken,
   setInMemoryAccessToken,
 } from "@/lib/jwt-utils";
+import { fetchCurrentUser } from "@/lib/api/user";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -105,6 +106,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("auth:session-expired", handleExpired);
     return () => window.removeEventListener("auth:session-expired", handleExpired);
   }, [logout]);
+
+  // Fetch user profile once after hydration
+  useEffect(() => {
+    if (!isHydrated || !jwtToken) return;
+    let mounted = true;
+
+    fetchCurrentUser()
+      .then((profile) => {
+        if (mounted && profile) {
+          setUser({
+            email: profile.email,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            name: `${profile.first_name} ${profile.last_name}`.trim(),
+            phoneNumber: profile.phone_number ?? null,
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load user profile", error);
+      });
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, jwtToken]);
 
   const isAuthenticated = isHydrated && jwtToken !== null;
 

@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, useLayoutEffect, useRef, type JSX } from "react";
-import { getAuthHeaders } from "@/lib/jwt-utils";
 import styles from "./compareModels.module.css";
 import {
   X,
@@ -20,8 +19,8 @@ import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { AIModel } from "@/types/ai-model";
+import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
-import { normalizeModels } from "@/lib/ai-models";
 import { getModelIcon } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import chatStyles from "../chat/chat-interface.module.css";
@@ -680,31 +679,22 @@ export default function CompareModelsPage({
   // Store full AIModel data alongside CompareModel
   const [fullModels, setFullModels] = useState<AIModel[]>([]);
 
-  // Fetch models from backend
+  // Fetch models from shared cache
   useEffect(() => {
-    const fetchModels = async () => {
-      setIsLoading(true);
-      try {
-        const headers = getAuthHeaders();
-        const response = await fetch(MODELS_ENDPOINT, {
-          credentials: "include",
-          headers,
-        });
-        if (!response.ok) throw new Error("Failed to fetch models");
-        const data = await response.json();
-        const normalizedModels = normalizeModels(data);
-        setFullModels(normalizedModels); // Store full model data
-        const compareModels = normalizedModels.map(transformModelForCompare);
-        setModels(compareModels);
-      } catch (error) {
-        console.error("Error fetching models:", error);
-        setModels([]);
-        setFullModels([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchModels();
+    let cancelled = false;
+    setIsLoading(true);
+    fetchModelsWithCache().then((normalizedModels) => {
+      if (cancelled) return;
+      setFullModels(normalizedModels);
+      setModels(normalizedModels.map(transformModelForCompare));
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setModels([]);
+      setFullModels([]);
+      setIsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

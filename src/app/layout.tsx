@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner" // react-toastify
 import { cn } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/context/auth-context";
-import { TokenProvider } from "@/context/token-context";
+
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
 const poppins = Poppins({ subsets: ["latin"], variable: "--font-poppins", weight: ["100","200","300", "400", "500", "600", "700", "800", "900"], });
@@ -51,12 +51,10 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <TokenProvider>
-            <SidebarProvider>
-              {children}
-              <Toaster />
-            </SidebarProvider>
-          </TokenProvider>
+          <SidebarProvider>
+            {children}
+            <Toaster />
+          </SidebarProvider>
         </AuthProvider>
       </body>
     </html>

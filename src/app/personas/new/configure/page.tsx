@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, Suspense, useMemo } from "react";
-import { getAuthHeaders } from "@/lib/jwt-utils";
 import { useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -66,8 +65,7 @@ import {
   TEMPERATURE_STEP,
   ACCEPTED_FILE_TYPES,
 } from "./constants";
-import { normalizeModels } from "@/lib/ai-models";
-import { MODELS_ENDPOINT } from "@/lib/config";
+import { fetchModelsWithCache } from "@/lib/ai-models";
 import { REFINEMENT_STEPS } from "./types";
 import { dataUrlToFile } from "./utils";
 import {
@@ -298,47 +296,18 @@ function PersonaConfigurePageContent() {
 
   // Load models first (priority - needed before loading persona data)
   useEffect(() => {
-    const loadModels = async () => {
-      // Try cache first
-      const cached = sessionStorage.getItem("aiModels");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as AIModel[];
-          setModels(parsed);
-          return; // Use cached models
-        } catch {
-          // ignore parse errors, continue to fetch
-        }
-      }
-
-      if (models.length > 0) return;
-
-      setIsLoadingModels(true);
-      try {
-        const headers: Record<string, string> = getAuthHeaders();
-        const response = await fetch(MODELS_ENDPOINT, {
-          credentials: "include",
-          headers,
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const normalized = normalizeModels(data);
-          setModels(normalized);
-          sessionStorage.setItem("aiModels", JSON.stringify(normalized));
-        } else {
-          console.warn(
-            "Failed to fetch models for persona configure",
-            response.status,
-          );
-        }
-      } catch (error) {
-        console.warn("Error fetching models for persona configure", error);
-      } finally {
+    if (models.length > 0) return;
+    let cancelled = false;
+    setIsLoadingModels(true);
+    fetchModelsWithCache().then((result) => {
+      if (!cancelled) {
+        setModels(result);
         setIsLoadingModels(false);
       }
-    };
-
-    loadModels();
+    }).catch(() => {
+      if (!cancelled) setIsLoadingModels(false);
+    });
+    return () => { cancelled = true; };
   }, [models.length]);
 
   // Track which persona we've loaded to prevent re-loading

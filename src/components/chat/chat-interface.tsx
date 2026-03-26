@@ -36,7 +36,7 @@ import {
   stripMarkdown,
 } from "@/lib/markdown-utils";
 import { fetchChatBoards } from "@/lib/api/chat";
-import { fetchPersonas as fetchPersonasApi } from "@/lib/api/personas";
+// Personas are fetched once in AppLayout and shared via context — no separate fetch needed here.
 import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   AlertDialog,
@@ -64,17 +64,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/auth-context";
-import { useTokenUsage } from "@/context/token-context";
+
 import {
   API_BASE_URL,
   CHATS_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
-  MODELS_ENDPOINT,
 } from "@/lib/config";
 import { extractThinkingContent } from "@/lib/thinking";
 import { mergeStreamingText } from "@/lib/streaming";
 import { getModelIcon } from "@/lib/model-icons";
-import { normalizeModels } from "@/lib/ai-models";
+import { fetchModelsWithCache } from "@/lib/ai-models";
 import Image from "next/image";
 
 interface ChatInterfaceProps {
@@ -354,6 +353,7 @@ export function ChatInterface({
   disablePinning = false,
   disableSources = false,
 }: ChatInterfaceProps) {
+  const layoutContext = useContext(AppLayoutContext);
   const [input, setInput] = useState("");
   // For pin mention dropdown keyboard navigation
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
@@ -381,7 +381,8 @@ export function ChatInterface({
   const [showPersonaDropdown, setShowPersonaDropdown] = useState(false);
   const [highlightedPersonaIndex, setHighlightedPersonaIndex] = useState(0);
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
-  const [activePersonas, setActivePersonas] = useState<any[]>([]);
+  // Use personas from AppLayout context instead of fetching again
+  const activePersonas = layoutContext?.activePersonas ?? [];
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const personaDropdownRef = useRef<HTMLDivElement>(null);
@@ -513,7 +514,6 @@ export function ChatInterface({
     return null;
   }
   const [isResponding, setIsResponding] = useState(false);
-  const layoutContext = useContext(AppLayoutContext);
   const displayMessages = messages;
   const { user } = useAuth();
 
@@ -557,7 +557,7 @@ export function ChatInterface({
     layoutContext?.setReferencesSources(sourcesForPanel);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when source content (key) changes
   }, [sourcesSyncKey]);
-  const { usagePercent, isLoading: isTokenUsageLoading } = useTokenUsage();
+
 
   const handleReact = (message: Message, reaction: string | null) => {
     if (message.sender !== "ai") return;
@@ -656,38 +656,7 @@ export function ChatInterface({
     }
   }, [input]);
 
-  // Fetch active personas
-  useEffect(() => {
-    const loadPersonas = async () => {
-      try {
-      const backendPersonas = await fetchPersonasApi(undefined);
-        // Transform backend personas to match the dropdown format
-        // Status mapping: "test" → active, "completed" → paused (but we only want active)
-        const activeOnly = backendPersonas
-          .filter((bp) => bp.status === "test") // Only show "test" personas as active
-          .map((bp) => ({
-            id: bp.id,
-            name: bp.name,
-            avatar: bp.imageUrl
-              ? bp.imageUrl.startsWith("http") ||
-                bp.imageUrl.startsWith("data:") ||
-                bp.imageUrl.startsWith("blob:")
-                ? bp.imageUrl
-                : `${API_BASE_URL}${bp.imageUrl.startsWith("/") ? "" : "/"}${bp.imageUrl}`
-              : null,
-            prompt: bp.prompt,
-            modelId: bp.modelId,
-            modelName: bp.modelName,
-            providerName: bp.providerName,
-            status: "active",
-          }));
-        setActivePersonas(activeOnly);
-      } catch (error) {
-        console.error("Failed to fetch personas:", error);
-      }
-    };
-    loadPersonas();
-  }, []);
+  // Active personas are provided by AppLayout context — no duplicate fetch needed.
 
   // Clear input, reference, mentions, and attachments when switching chats
   useEffect(() => {
@@ -2227,30 +2196,23 @@ export function ChatInterface({
     setShowPersonaDropdown(false);
     toast.success(`Persona selected: ${persona.name}`);
 
-    // If persona has a modelId, fetch models and update the selected model in topbar
+    // If persona has a modelId, look up from cached models and update selected model in topbar
     if (persona.modelId && layoutContext) {
       try {
-        const response = await fetch(MODELS_ENDPOINT, {
-          headers: getAuthHeaders(),
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const models = normalizeModels(data);
+        const models = await fetchModelsWithCache();
 
-          // Find the model matching the persona's modelId
-          const matchingModel = models.find(
-            (m) =>
-              String(m.id) === String(persona.modelId) ||
-              String(m.modelId) === String(persona.modelId),
-          );
+        // Find the model matching the persona's modelId
+        const matchingModel = models.find(
+          (m) =>
+            String(m.id) === String(persona.modelId) ||
+            String(m.modelId) === String(persona.modelId),
+        );
 
-          if (matchingModel) {
-            // Update the selected model in the topbar
-            layoutContext.setSelectedModel(matchingModel);
-            layoutContext.setUseFramework(false);
-            toast.info(`Switched to ${matchingModel.modelName}`);
-          }
+        if (matchingModel) {
+          // Update the selected model in the topbar
+          layoutContext.setSelectedModel(matchingModel);
+          layoutContext.setUseFramework(false);
+          toast.info(`Switched to ${matchingModel.modelName}`);
         }
       } catch (error) {
         console.error("Failed to fetch models for persona:", error);
@@ -3756,9 +3718,6 @@ export function ChatInterface({
                 </div>
 
                 <div className="flex flex-1 shrink-0 items-center justify-end gap-4">
-                  {/* <span className="text-sm font-medium text-[#888888]">
-                  {isTokenUsageLoading ? "--" : `${usagePercent}%`}
-                </span> */}
                   {isResponding ? (
                     <Button
                       type="button"

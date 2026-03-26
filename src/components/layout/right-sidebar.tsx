@@ -48,6 +48,7 @@ import {
   createPin,
   createPinFolder,
   fetchPinFolders,
+  fetchPinById,
   movePinToFolder,
   deletePin,
   renamePinFolder,
@@ -366,7 +367,7 @@ export function RightSidebar({
   }, [pinsToDisplay]);
 
   const loadFolders = useCallback(async () => {
-    if (!isOpen) return;
+    if (!isOpen || activePanel !== "pinboard") return;
     try {
       const folders = await fetchPinFolders();
       setPinFolders(folders);
@@ -385,11 +386,59 @@ export function RightSidebar({
             ]
       );
     }
-  }, [isOpen]);
+  }, [isOpen, activePanel]);
 
   useEffect(() => {
     loadFolders();
   }, [loadFolders]);
+
+  // Lazily enrich pins with tags/comments from detail endpoint when pinboard opens
+  const enrichedPinIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isOpen || activePanel !== "pinboard" || pins.length === 0) return;
+    let cancelled = false;
+    const unenriched = pins.filter((p) => !enrichedPinIdsRef.current.has(p.id));
+    if (unenriched.length === 0) return;
+
+    (async () => {
+      const updates = await Promise.all(
+        unenriched.map(async (pin) => {
+          try {
+            const detail = await fetchPinById(pin.id);
+            if (!detail || cancelled) return null;
+            const tags = normalizeTagStrings((detail as { tags?: unknown }).tags);
+            const comments = normalizeCommentStrings((detail as { comments?: unknown }).comments);
+            if (tags.length === 0 && comments.length === 0) return null;
+            return { id: pin.id, tags, comments };
+          } catch {
+            return null;
+          }
+        })
+      );
+      if (cancelled) return;
+      const validUpdates = updates.filter(Boolean) as { id: string; tags: string[]; comments: string[] }[];
+      if (validUpdates.length === 0) {
+        // Mark all as enriched even if no new data
+        unenriched.forEach((p) => enrichedPinIdsRef.current.add(p.id));
+        return;
+      }
+      const updateMap = new Map(validUpdates.map((u) => [u.id, u]));
+      setPins((prev) =>
+        prev.map((pin) => {
+          const upd = updateMap.get(pin.id);
+          if (!upd) return pin;
+          return {
+            ...pin,
+            tags: upd.tags.length > 0 ? upd.tags : pin.tags,
+            comments: upd.comments.length > 0 ? upd.comments : pin.comments,
+          };
+        })
+      );
+      unenriched.forEach((p) => enrichedPinIdsRef.current.add(p.id));
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activePanel, pins.length]);
 
   useEffect(() => {
     if (isOpen) return;

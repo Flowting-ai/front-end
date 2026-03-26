@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getAuthHeaders } from "@/lib/jwt-utils";
 import {
   Dialog,
   DialogContent,
@@ -35,8 +34,8 @@ import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
 import { getModelIcon } from "@/lib/model-icons";
-import { MODELS_ENDPOINT, CHAT_MESSAGES_ENDPOINT } from "@/lib/config";
-import { normalizeModels } from "@/lib/ai-models";
+import { CHAT_MESSAGES_ENDPOINT } from "@/lib/config";
+import { fetchModelsWithCache } from "@/lib/ai-models";
 import { renderInlineMarkdown, formatPinTitle } from "@/lib/markdown-utils";
 import { apiFetch } from "@/lib/api/client";
 import chatStyles from "@/components/chat/chat-interface.module.css";
@@ -118,42 +117,15 @@ export function ModelSwitchDialog({
 
   useEffect(() => {
     if (!open) return;
-
-    const cached = sessionStorage.getItem("aiModels");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached) as AIModel[];
-        setModels(parsed);
-        setIsLoading(false);
-        return;
-      } catch {
-        // ignore
-      }
-    }
-
-    const fetchModels = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(MODELS_ENDPOINT, {
-          credentials: "include",
-          headers: getAuthHeaders(),
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch models: ${response.status}`);
-        }
-        const data = await response.json();
-        const raw = normalizeModels(data);
-        setModels(raw);
-        sessionStorage.setItem("aiModels", JSON.stringify(raw));
-      } catch (error) {
-        console.error("Error fetching models:", error);
-        setModels([]);
-      } finally {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchModelsWithCache().then((result) => {
+      if (!cancelled) {
+        setModels(result);
         setIsLoading(false);
       }
-    };
-
-    fetchModels();
+    });
+    return () => { cancelled = true; };
   }, [open]);
 
   // Fetch real message count for the active chat to drive the smart default

@@ -1,4 +1,6 @@
 import type { AIModel } from "@/types/ai-model";
+import { MODELS_ENDPOINT } from "@/lib/config";
+import { getAuthHeaders } from "@/lib/jwt-utils";
 
 type BackendModel = {
   // FastAPI snake_case fields (from GetModels schema)
@@ -86,3 +88,53 @@ export const normalizeModels = (payload: unknown): AIModel[] => {
 
   return list.map((model) => normalizeModel(model as BackendModel));
 };
+
+// ---------------------------------------------------------------------------
+// Shared in-memory cache for models — avoids redundant fetches across dialogs
+// ---------------------------------------------------------------------------
+let _modelsCache: AIModel[] | null = null;
+let _modelsFetchPromise: Promise<AIModel[]> | null = null;
+const MODELS_CACHE_TTL = 60_000; // 1 minute
+let _modelsCacheTime = 0;
+
+/**
+ * Fetch models with a shared in-memory cache. All callers share one
+ * in-flight request and the same cached result for MODELS_CACHE_TTL ms.
+ * Pass `force: true` to bypass the cache.
+ */
+export async function fetchModelsWithCache(
+  opts?: { force?: boolean },
+): Promise<AIModel[]> {
+  const now = Date.now();
+  if (
+    !opts?.force &&
+    _modelsCache &&
+    now - _modelsCacheTime < MODELS_CACHE_TTL
+  ) {
+    return _modelsCache;
+  }
+
+  // Deduplicate concurrent requests
+  if (_modelsFetchPromise) return _modelsFetchPromise;
+
+  _modelsFetchPromise = (async () => {
+    try {
+      const response = await fetch(MODELS_ENDPOINT, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return _modelsCache ?? [];
+      const data = await response.json();
+      const models = normalizeModels(data);
+      _modelsCache = models;
+      _modelsCacheTime = Date.now();
+      return models;
+    } catch {
+      return _modelsCache ?? [];
+    } finally {
+      _modelsFetchPromise = null;
+    }
+  })();
+
+  return _modelsFetchPromise;
+}

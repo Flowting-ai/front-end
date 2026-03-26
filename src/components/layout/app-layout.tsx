@@ -52,7 +52,6 @@ import {
   createPin,
   deletePin,
   fetchAllPins,
-  fetchPinById,
   type BackendPin,
 } from "@/lib/api/pins";
 import { CHATS_ENDPOINT, CHAT_STAR_ENDPOINT, API_BASE_URL } from "@/lib/config";
@@ -1280,26 +1279,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       try {
         const backendPins = await fetchAllPins();
-        const detailedPins = await Promise.all(
-          backendPins.map(async (backendPin) => {
-            const detail = await fetchPinById(backendPin.id).catch(() => null);
-            if (!detail) return backendPin;
 
-            // Detail payloads may omit list-only linkage fields like chat_id.
-            // Keep linkage from list response while enriching with detail metadata.
-            return {
-              ...backendPin,
-              ...detail,
-              chat: detail.chat ?? backendPin.chat,
-              sourceChatId: detail.sourceChatId ?? backendPin.sourceChatId,
-              message_id: detail.message_id || backendPin.message_id,
-              messageId: detail.messageId ?? backendPin.messageId,
-              sourceMessageId: detail.sourceMessageId ?? backendPin.sourceMessageId,
-            };
-          }),
-        );
-
-        const normalized = detailedPins.map((backendPin) =>
+        const normalized = backendPins.map((backendPin) =>
           backendPinToLegacy(backendPin, cachedById.get(backendPin.id))
         );
 
@@ -1364,10 +1345,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [activeChatId, chatHistory, loadMessagesForChat, isAuthenticated]);
 
   useEffect(() => {
-    if (!pinsChatId) {
+    if (!pinsChatId && isChatRoute) {
       loadPinsForChat(activeChatId ?? null);
     }
-  }, [activeChatId, loadPinsForChat, pinsChatId]);
+  }, [activeChatId, loadPinsForChat, pinsChatId, isChatRoute]);
 
   // Fetch active personas once on mount
   useEffect(() => {
