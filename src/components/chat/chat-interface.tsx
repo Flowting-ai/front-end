@@ -1767,7 +1767,13 @@ export function ChatInterface({
                   )
               : [];
 
-            const generatedAttachmentPayload = Array.isArray(parsed.file_attachments)
+            type GeneratedAttachmentPayloadItem = {
+              url: string;
+              name?: string;
+              isImage: boolean;
+            };
+
+            const generatedAttachmentPayload: GeneratedAttachmentPayloadItem[] = Array.isArray(parsed.file_attachments)
               ? parsed.file_attachments
                   .map((item: unknown) => {
                     if (!item || typeof item !== "object") return null;
@@ -1816,8 +1822,8 @@ export function ChatInterface({
                   })
                   .filter(
                     (
-                      item,
-                    ): item is { url: string; name?: string; isImage: boolean } =>
+                      item: GeneratedAttachmentPayloadItem | null,
+                    ): item is GeneratedAttachmentPayloadItem =>
                       Boolean(item),
                   )
               : [];

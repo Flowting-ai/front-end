@@ -515,9 +515,9 @@ const extractFileAttachmentsFromEntry = (entry: BackendMessage) => {
           ): item is {
             id: string;
             url: string;
-            mimeType?: string;
+            mimeType: string | undefined;
             origin: "generated" | "uploaded" | null;
-            name?: string;
+            name: string | undefined;
             isImage: boolean;
           } => item !== null,
         )
