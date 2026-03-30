@@ -1767,6 +1767,93 @@ export function ChatInterface({
                   )
               : [];
 
+            const generatedAttachmentPayload = Array.isArray(parsed.file_attachments)
+              ? parsed.file_attachments
+                  .map((item: unknown) => {
+                    if (!item || typeof item !== "object") return null;
+                    const attachment = item as {
+                      file_link?: unknown;
+                      url?: unknown;
+                      link?: unknown;
+                      origin?: unknown;
+                      mime_type?: unknown;
+                      mimeType?: unknown;
+                      file_name?: unknown;
+                      fileName?: unknown;
+                      name?: unknown;
+                    };
+                    const rawUrl =
+                      attachment.file_link ?? attachment.url ?? attachment.link;
+                    const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+                    if (!url) return null;
+
+                    const origin =
+                      typeof attachment.origin === "string"
+                        ? attachment.origin.trim().toLowerCase()
+                        : "";
+                    if (origin !== "generated") return null;
+
+                    const mimeRaw = attachment.mime_type ?? attachment.mimeType;
+                    const mimeType =
+                      typeof mimeRaw === "string" ? mimeRaw.trim().toLowerCase() : "";
+                    const rawName =
+                      attachment.file_name ??
+                      attachment.fileName ??
+                      attachment.name;
+                    const name =
+                      typeof rawName === "string" && rawName.trim().length > 0
+                        ? rawName.trim()
+                        : undefined;
+                    const isImage =
+                      mimeType.startsWith("image/") ||
+                      /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+
+                    return {
+                      url,
+                      name,
+                      isImage,
+                    };
+                  })
+                  .filter(
+                    (
+                      item,
+                    ): item is { url: string; name?: string; isImage: boolean } =>
+                      Boolean(item),
+                  )
+              : [];
+
+            const generatedAttachmentImages = generatedAttachmentPayload
+              .filter((item) => item.isImage)
+              .map((item) => ({
+                url: item.url,
+                alt: item.name,
+              }));
+
+            const generatedAttachmentSources = generatedAttachmentPayload
+              .filter((item) => !item.isImage)
+              .map((item, index) => ({
+                title: item.name || `Generated File ${index + 1}`,
+                url: item.url,
+              }));
+
+            const mergedDoneImages = [...doneImages, ...generatedAttachmentImages];
+
+            const mergedSources = [
+              ...((metadata?.sources as MessageSource[] | undefined) || []),
+              ...generatedAttachmentSources,
+            ].filter((source, index, arr) => {
+              if (!source || typeof source.url !== "string") return false;
+              return arr.findIndex((candidate) => candidate.url === source.url) === index;
+            });
+
+            const finalMetadata: Message["metadata"] | undefined =
+              metadata || mergedSources.length > 0
+                ? {
+                    ...(metadata || {}),
+                    ...(mergedSources.length > 0 ? { sources: mergedSources } : {}),
+                  }
+                : undefined;
+
             // Use reasoning from dedicated events if available, otherwise from done payload or <think> tags
             const reasoningFromMeta =
               (messageMeta as { reasoning?: string; thoughts?: string })
@@ -1796,12 +1883,12 @@ export function ChatInterface({
                 resolvedMessageId !== null && resolvedMessageId !== undefined
                   ? String(resolvedMessageId)
                   : undefined,
-              metadata,
+              metadata: finalMetadata,
               isLoading: false,
             }, true);
 
-            if (doneImages.length > 0) {
-              appendAiImages(doneImages);
+            if (mergedDoneImages.length > 0) {
+              appendAiImages(mergedDoneImages);
               queueAiMessageUpdate({
                 metadata: {
                   isImageGeneration: true,

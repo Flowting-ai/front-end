@@ -33,6 +33,14 @@ export interface BackendMessage {
   image_links?: (string | null)[] | null;
   generated_images?: (string | null)[] | null;
   file_links?: (string | null)[] | null;
+  file_attachments?:
+    | Array<{
+        file_link?: string | null;
+        mime_type?: string | null;
+        origin?: string | null;
+        file_name?: string | null;
+      }>
+    | null;
   pin_ids?: (string | null)[] | null;
   reference_id?: string | null;
   // Legacy / common fields

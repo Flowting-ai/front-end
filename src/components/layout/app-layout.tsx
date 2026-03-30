@@ -452,9 +452,117 @@ const extractUserAttachmentsFromEntry = (
   return out;
 };
 
+type BackendFileAttachment = {
+  file_link?: unknown;
+  url?: unknown;
+  link?: unknown;
+  mime_type?: unknown;
+  mimeType?: unknown;
+  file_name?: unknown;
+  fileName?: unknown;
+  name?: unknown;
+  origin?: unknown;
+};
+
+const isImageAttachment = (url: string, mimeType?: string | null): boolean => {
+  if (typeof mimeType === "string" && mimeType.toLowerCase().startsWith("image/")) {
+    return true;
+  }
+  return /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+};
+
+const getAttachmentOrigin = (origin: unknown): "generated" | "uploaded" | null => {
+  if (typeof origin !== "string") return null;
+  const normalized = origin.trim().toLowerCase();
+  if (normalized === "generated") return "generated";
+  if (normalized === "uploaded" || normalized === "upload" || normalized === "user") {
+    return "uploaded";
+  }
+  return null;
+};
+
+const extractFileAttachmentsFromEntry = (entry: BackendMessage) => {
+  const rawAttachments = (entry as { file_attachments?: unknown }).file_attachments;
+  const parsed = Array.isArray(rawAttachments)
+    ? rawAttachments
+        .map((att, index) => {
+          if (!att || typeof att !== "object") return null;
+          const file = att as BackendFileAttachment;
+          const rawUrl = file.file_link ?? file.url ?? file.link;
+          const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+          if (!url) return null;
+
+          const mimeRaw = file.mime_type ?? file.mimeType;
+          const mimeType = typeof mimeRaw === "string" ? mimeRaw.trim() : undefined;
+          const origin = getAttachmentOrigin(file.origin);
+          const rawName = file.file_name ?? file.fileName ?? file.name;
+          const name = typeof rawName === "string" && rawName.trim().length > 0
+            ? rawName.trim()
+            : undefined;
+
+          return {
+            id: `file-att-${index}`,
+            url,
+            mimeType,
+            origin,
+            name,
+            isImage: isImageAttachment(url, mimeType),
+          };
+        })
+        .filter(
+          (
+            item,
+          ): item is {
+            id: string;
+            url: string;
+            mimeType?: string;
+            origin: "generated" | "uploaded" | null;
+            name?: string;
+            isImage: boolean;
+          } => item !== null,
+        )
+    : [];
+
+  const userAttachments = parsed
+    .filter((item) => item.origin === "uploaded")
+    .map((item, index) => ({
+      id: `${item.id}-user-${index}`,
+      type: item.isImage ? ("image" as const) : ("pdf" as const),
+      name:
+        item.name ||
+        (item.isImage ? `Image ${index + 1}` : `Document ${index + 1}`),
+      url: item.url,
+    }));
+
+  const generatedImages = parsed
+    .filter((item) => item.origin === "generated" && item.isImage)
+    .map((item) => ({
+      url: item.url,
+      alt: item.name,
+    }));
+
+  const generatedLinks = parsed
+    .filter((item) => item.origin === "generated" && !item.isImage)
+    .map((item, index) => ({
+      title: item.name || `Generated File ${index + 1}`,
+      url: item.url,
+    }));
+
+  return {
+    userAttachments,
+    generatedImages,
+    generatedLinks,
+  };
+};
+
 const getImagesFromBackendMessage = (
   entry: BackendMessage,
 ): { images?: Array<{ url: string; alt?: string }>; imageUrl?: string } => {
+  const fileAttachments = extractFileAttachmentsFromEntry(entry);
+  if (fileAttachments.generatedImages.length > 0) {
+    return { images: fileAttachments.generatedImages };
+  }
+
   // New API: generated_images is an array of model-produced image URLs
   const generatedImages = entry.generated_images;
   if (Array.isArray(generatedImages) && generatedImages.length > 0) {
@@ -493,6 +601,10 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
   const hasPrompt = typeof userText === "string" && userText.length > 0;
   const hasResponse = typeof aiText === "string" && aiText.length > 0;
   const { images: entryImages, imageUrl: entryImageUrl } = getImagesFromBackendMessage(entry);
+  const {
+    userAttachments: uploadedFileAttachments,
+    generatedLinks,
+  } = extractFileAttachmentsFromEntry(entry);
   const hasImages = !!(entryImages?.length || entryImageUrl);
 
   if (!hasPrompt && !hasResponse && !hasImages) {
@@ -517,8 +629,14 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
   if (hasPrompt) {
     promptMetadata = extractMetadata(entry);
     const userAttachments = extractUserAttachmentsFromEntry(entry);
-    if (promptMetadata && userAttachments.length > 0) {
-      promptMetadata.attachments = userAttachments;
+    const mergedUserAttachments = [...uploadedFileAttachments, ...userAttachments];
+    if (promptMetadata && mergedUserAttachments.length > 0) {
+      const seenUrls = new Set<string>();
+      promptMetadata.attachments = mergedUserAttachments.filter((attachment) => {
+        if (seenUrls.has(attachment.url)) return false;
+        seenUrls.add(attachment.url);
+        return true;
+      });
     }
     messages.push({
       id: `${baseId}-prompt`,
@@ -536,6 +654,17 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
     const entryReasoning = entry.reasoning ?? entry.thinking_content ?? null;
     const responseReasoning = entryReasoning || sanitized.thinkingText;
 
+    const aiMetadata: Message["metadata"] = {
+      ...(promptMetadata || {}),
+      sources:
+        generatedLinks.length > 0
+          ? [
+              ...((promptMetadata?.sources as MessageSource[] | undefined) || []),
+              ...generatedLinks,
+            ]
+          : promptMetadata?.sources,
+    };
+
     messages.push({
       id: `${baseId}-response`,
       sender: "ai",
@@ -546,7 +675,7 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
       isThinkingInProgress: false,
       chatMessageId,
       pinId,
-      metadata: promptMetadata,
+      metadata: aiMetadata,
       referencedMessageId: entry.reference_id ?? entry.referenced_message_id ?? null,
       ...(images && { images }),
       ...(imageUrl && !images && { imageUrl }),
