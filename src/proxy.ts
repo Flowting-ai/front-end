@@ -1,6 +1,9 @@
 import { auth0 } from "@/lib/auth0";
 
-const ONBOARDING_COOKIE = "onboarding_completed";
+/** Turn an Auth0 sub like "auth0|abc123" into a safe cookie name. */
+function onboardingCookieName(sub: string): string {
+  return `ob_${sub.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
 
 function cookieExists(request: Request, name: string): boolean {
   return (request.headers.get("cookie") ?? "")
@@ -21,7 +24,12 @@ export default async function proxy(request: Request) {
     return await auth0.middleware(request);
   }
 
-  const hasOnboarded = cookieExists(request, ONBOARDING_COOKIE);
+  // Get the current Auth0 session (needed for per-user onboarding check)
+  const session = await auth0.getSession();
+  const sub = session?.user?.sub as string | undefined;
+
+  // Onboarding is complete only if this specific user's cookie exists
+  const hasOnboarded = !!(sub && cookieExists(request, onboardingCookieName(sub)));
 
   // If the user already completed onboarding, don't let them back into the
   // onboarding flow — even if they type the URL manually.
@@ -35,12 +43,8 @@ export default async function proxy(request: Request) {
     return await auth0.middleware(request);
   }
 
-  // For all other app routes: if the onboarding cookie is missing, the user
-  // needs to authenticate first, then go through onboarding.
-  // Check if they have an Auth0 session — if not, let auth0.middleware
-  // redirect them to login (NOT onboarding).
+  // For all other app routes: if onboarding is incomplete, check auth first.
   if (!hasOnboarded) {
-    const session = await auth0.getSession();
     if (!session) {
       // No session → let auth0.middleware handle it (will redirect to login)
       return await auth0.middleware(request);

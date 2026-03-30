@@ -99,6 +99,7 @@ export function PersonaChatFullPage({
   const [isResponding, setIsResponding] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
@@ -177,11 +178,28 @@ export function PersonaChatFullPage({
   }, [activeChatId, personaId]);
 
   useEffect(() => {
-    if (scrollViewportRef.current) {
+    if (scrollViewportRef.current && isScrolledToBottom) {
       scrollViewportRef.current.scrollTop =
         scrollViewportRef.current.scrollHeight;
     }
-  }, [displayMessages]);
+  }, [displayMessages, isScrolledToBottom]);
+
+  const handleScroll = () => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      const isAtBottom =
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50;
+      setIsScrolledToBottom(isAtBottom);
+    }
+  };
+
+  const handleScrollToBottom = () => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+      setIsScrolledToBottom(true);
+    }
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -763,6 +781,7 @@ export function PersonaChatFullPage({
           <div
             className={`flex-1 min-h-0 overflow-y-auto ${chatStyles.customScrollbar ?? ""} ${chatStyles.hidePinButton ?? ""}`}
             ref={scrollViewportRef}
+            onScroll={handleScroll}
           >
             <div className="mx-auto w-full max-w-[850px] flex flex-col gap-3 pr-4 py-4">
               <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none">
@@ -789,6 +808,25 @@ export function PersonaChatFullPage({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Scroll to bottom button */}
+        {!isScrolledToBottom && displayMessages.length > 0 && (
+          <div className="relative pointer-events-none" style={{ height: 0 }}>
+            <button
+              type="button"
+              onClick={handleScrollToBottom}
+              className="cursor-pointer absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-white border border-[#D9D9D9] shadow-md hover:bg-[#F5F5F5] transition-colors h-10 w-10"
+              aria-label="Scroll to bottom"
+              style={{
+                bottom: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                pointerEvents: "auto",
+              }}
+            >
+              <ChevronDown className="h-5 w-5 text-[#555555]" />
+            </button>
           </div>
         )}
 
@@ -911,7 +949,7 @@ export function PersonaChatFullPage({
                           className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Images and Files</span>
+                          <span>Attach images or files</span>
                         </button>
                         <button
                           onClick={() => {

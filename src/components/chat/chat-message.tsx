@@ -788,35 +788,72 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   return nodes;
 };
 
-// Custom hook for typewriter effect
-const useTypewriter = (
-  text: string,
-  speed: number = 50,
+// Streaming-aware typewriter hook: reveals content word-by-word
+// without resetting when new streamed content arrives.
+const useStreamingTypewriter = (
+  fullText: string,
   enabled: boolean = true,
+  wordsPerTick: number = 2,
+  intervalMs: number = 30,
 ) => {
-  const [displayText, setDisplayText] = useState("");
+  const [revealedLen, setRevealedLen] = useState(enabled ? 0 : fullText.length);
+  const rafRef = useRef<number | null>(null);
+  const lastTickRef = useRef(0);
+  const enabledRef = useRef(enabled);
+
+  // When the effect becomes disabled (e.g. message is no longer "new"),
+  // snap to full content immediately.
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) {
+      setRevealedLen(fullText.length);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    }
+  }, [enabled, fullText.length]);
 
   useEffect(() => {
-    if (!enabled || !text) {
-      setDisplayText(text || "");
-      return;
-    }
+    if (!enabled) return;
 
-    let i = 0;
-    setDisplayText(""); // Reset on new text
-    const intervalId = setInterval(() => {
-      if (i < text.length) {
-        setDisplayText((prev) => prev + text.charAt(i));
-        i++;
-      } else {
-        clearInterval(intervalId);
+    const animate = (timestamp: number) => {
+      if (!enabledRef.current) return;
+      if (timestamp - lastTickRef.current >= intervalMs) {
+        lastTickRef.current = timestamp;
+        setRevealedLen((prev) => {
+          if (prev >= fullText.length) return prev;
+          // Advance by wordsPerTick words (find next word boundaries)
+          let target = prev;
+          let wordsFound = 0;
+          while (target < fullText.length && wordsFound < wordsPerTick) {
+            // Skip whitespace
+            while (target < fullText.length && /\s/.test(fullText[target])) {
+              target++;
+            }
+            // Skip non-whitespace (word characters)
+            while (target < fullText.length && !/\s/.test(fullText[target])) {
+              target++;
+            }
+            wordsFound++;
+          }
+          return target;
+        });
       }
-    }, speed);
+      rafRef.current = requestAnimationFrame(animate);
+    };
 
-    return () => clearInterval(intervalId);
-  }, [text, speed, enabled]);
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [fullText, enabled, wordsPerTick, intervalMs]);
 
-  return displayText;
+  if (!enabled) return fullText;
+  return fullText.slice(0, revealedLen);
 };
 
 export interface Message {
@@ -1008,13 +1045,7 @@ export function ChatMessage({
   const [editedContent, setEditedContent] = useState(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [avatarVisible, setAvatarVisible] = useState(false);
-  // Typewriter effect disabled - displaying content directly
-  // const typewriterSpeed = 7;
-  // const displayedContent = useTypewriter(
-  //   message.content,
-  //   typewriterSpeed,
-  //   isNewMessage && !isUser && !message.isLoading,
-  // );
+
 
   useHighlightJs(message.content);
 
@@ -1087,7 +1118,14 @@ export function ChatMessage({
     }
   };
 
-  const contentToDisplay = message.content;
+  const isTypewriterActive = isNewMessage && !isUser && !message.isLoading;
+  const revealedContent = useStreamingTypewriter(
+    message.content,
+    isTypewriterActive,
+    2,
+    30,
+  );
+  const contentToDisplay = revealedContent;
   const contentSegments = useMemo(
     () => parseContentSegments(contentToDisplay),
     [contentToDisplay],

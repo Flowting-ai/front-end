@@ -76,11 +76,11 @@ const APP_BASE_TITLE = "Souvenir AI";
 const SETTINGS_DATA = [
   { label: "Account", path: "/settings/account", icon: UserCog },
   { label: "Usage & Billing", path: "/settings/usage-and-billing", icon: CreditCard },
-  { label: "Routing", path: "/settings/routing", icon: Route },
+  // { label: "Routing", path: "/settings/routing", icon: Route },
   // { label: "Memory & Context", path: "/settings/memory-and-context", icon: Database },
   // { label: "Files & Data", path: "/settings/files-and-data", icon: Folder },
   // { label: "Automations", path: "/settings/automations", icon: Zap },
-  { label: "AI & Models", path: "/settings/ai-and-models", icon: Brain },
+  // { label: "AI & Models", path: "/settings/ai-and-models", icon: Brain },
   // { label: "Integrations", path: "/settings/integrations", icon: Cable },
   // { label: "Notifications", path: "/settings/notifications", icon: Bell },
   // { label: "Appearance", path: "/settings/appearance", icon: Palette },
@@ -236,8 +236,19 @@ export function LeftSidebar({
     setShouldAnimateSidebar(false);
   }, [pathname]);
 
-  const userFirstName = user?.firstName?.trim() || "Guest";
-  const userLastName = user?.lastName?.trim() || "User";
+  const userDisplayName = useMemo(() => {
+    if (!user) return "Guest";
+    // Use full name from backend (firstName + lastName)
+    const fullName = [user.firstName?.trim(), user.lastName?.trim()]
+      .filter(Boolean)
+      .join(" ");
+    if (fullName) return fullName;
+    // Fallback to name field (covers Google OAuth / Auth0 social logins)
+    if (user.name?.trim()) return user.name.trim();
+    // Last resort: email local part
+    if (user.email) return user.email.split("@")[0];
+    return "Guest";
+  }, [user]);
 
   // Determine if user is on chat board route
   const isOnChatBoard = pathname === "/" || pathname?.startsWith("/chats");
@@ -1513,7 +1524,7 @@ export function LeftSidebar({
                   </Avatar>
                   <div className="flex flex-col justify-center">
                     <span className="font-geist font-medium capitalize text-sm text-lsb-text whitespace-nowrap">
-                      {user ? `${userFirstName} ${userLastName}` : "Guest User"}
+                      {userDisplayName}
                     </span>
                   </div>
                 </button>

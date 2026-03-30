@@ -1,19 +1,24 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useCallback, Suspense } from "react";
+import React, { useCallback, useState, Suspense } from "react";
 import { CheckCircle } from "lucide-react";
 
 function ConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(false);
 
   const plan = searchParams.get("plan") ?? "your";
   const billing = searchParams.get("billing");
 
-  const handleContinue = useCallback(() => {
-    document.cookie =
-      "onboarding_completed=1; path=/; max-age=31536000; SameSite=Lax";
+  const handleContinue = useCallback(async () => {
+    setLoading(true);
+    try {
+      await fetch("/api/onboarding/complete", { method: "POST" });
+    } catch {
+      // Cookie will be set server-side; if it fails, proxy will redirect back
+    }
     router.push("/");
   }, [router]);
 

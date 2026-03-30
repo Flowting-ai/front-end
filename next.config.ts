@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   images: {
     remotePatterns: backendRemotePattern,
+    //adding the below two lines to fix logo svg file issues
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "inline",
+    // the above 2 lines allow SVG images to be loaded and displayed inline rather than as a download
   },
   async redirects() {
     return [

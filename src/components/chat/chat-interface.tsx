@@ -20,6 +20,8 @@ import {
   Paperclip,
   Reply,
   Globe,
+  Palette,
+  Check,
 } from "lucide-react";
 import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -75,6 +77,7 @@ import { mergeStreamingText } from "@/lib/streaming";
 import { getModelIcon } from "@/lib/model-icons";
 import { fetchModelsWithCache } from "@/lib/ai-models";
 import Image from "next/image";
+import { STYLE_TONES, type TonePreset } from "./chat-tones";
 
 interface ChatInterfaceProps {
   onPinMessage?: (pin: PinType) => Promise<void> | void;
@@ -384,6 +387,9 @@ export function ChatInterface({
   // Use personas from AppLayout context instead of fetching again
   const activePersonas = layoutContext?.activePersonas ?? [];
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [showStyleSubmenu, setShowStyleSubmenu] = useState(false);
+  const [selectedTone, setSelectedTone] = useState<TonePreset | null>(null);
+  const styleSubmenuTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const personaDropdownRef = useRef<HTMLDivElement>(null);
   const PIN_INSERT_EVENT = "pin-insert-to-chat";
@@ -1040,6 +1046,10 @@ export function ChatInterface({
           if (webSearchEnabled) {
             formData.append("web_search", "true");
           }
+          if (selectedTone) {
+            formData.append("tone_id", selectedTone.tone_id);
+            formData.append("tone_system_prompt", selectedTone.system_prompt);
+          }
           // Append all files (images + documents)
           [...imageFiles, ...nonImageFiles].forEach((file) => {
             formData.append("files", file);
@@ -1048,6 +1058,10 @@ export function ChatInterface({
           // Don't set Content-Type header - browser sets it with boundary for FormData
         } else {
           const params = new URLSearchParams({ input: userMessage });
+          if (selectedTone) {
+            params.append("tone_id", selectedTone.tone_id);
+            params.append("tone_system_prompt", selectedTone.system_prompt);
+          }
           body = params.toString();
           headers["Content-Type"] = "application/x-www-form-urlencoded";
         }
@@ -1063,6 +1077,10 @@ export function ChatInterface({
         }
         if (webSearchEnabled) {
           formData.append("web_search", "true");
+        }
+        if (selectedTone) {
+          formData.append("tone_id", selectedTone.tone_id);
+          formData.append("tone_system_prompt", selectedTone.system_prompt);
         }
         if (pinIds && pinIds.length > 0) {
           formData.append("pin_ids", JSON.stringify(pinIds));
@@ -1092,6 +1110,10 @@ export function ChatInterface({
         }
         if (webSearchEnabled) {
           formData.append("web_search", "true");
+        }
+        if (selectedTone) {
+          formData.append("tone_id", selectedTone.tone_id);
+          formData.append("tone_system_prompt", selectedTone.system_prompt);
         }
         if (pinIds && pinIds.length > 0) {
           formData.append("pin_ids", JSON.stringify(pinIds));
@@ -2407,7 +2429,7 @@ export function ChatInterface({
     const viewport = scrollViewportRef.current;
     if (viewport) {
       const isAtBottom =
-        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1;
+        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50;
       setIsScrolledToBottom(isAtBottom);
     }
   };
@@ -3457,7 +3479,7 @@ export function ChatInterface({
                           className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Images and Files</span>
+                          <span>Attach images or files</span>
                         </button>
                         <button
                           onClick={() => {
@@ -3494,6 +3516,110 @@ export function ChatInterface({
                             <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600"></div>
                           )}
                         </button>
+                        <div
+                          className="relative"
+                          onMouseEnter={() => {
+                            if (styleSubmenuTimeout.current) {
+                              clearTimeout(styleSubmenuTimeout.current);
+                              styleSubmenuTimeout.current = null;
+                            }
+                            setShowStyleSubmenu(true);
+                          }}
+                          onMouseLeave={() => {
+                            styleSubmenuTimeout.current = setTimeout(() => {
+                              setShowStyleSubmenu(false);
+                              styleSubmenuTimeout.current = null;
+                            }, 150);
+                          }}
+                        >
+                          <button
+                            onClick={() => setShowStyleSubmenu(!showStyleSubmenu)}
+                            className={cn(
+                              "w-full flex items-center gap-1.5 rounded-lg cursor-pointer border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
+                              selectedTone
+                                ? "border-purple-500 bg-purple-50 text-purple-700"
+                                : "border-none bg-white text-[#1E1E1E]",
+                            )}
+                          >
+                            <Palette
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                selectedTone
+                                  ? "text-purple-600"
+                                  : "text-[#666666]",
+                              )}
+                            />
+                            <span>Use Style</span>
+                            <ChevronRight
+                              className={cn(
+                                "h-3 w-3 ml-auto",
+                                selectedTone
+                                  ? "text-purple-600"
+                                  : "text-[#999999]",
+                              )}
+                            />
+                          </button>
+                          {showStyleSubmenu && (
+                            <div
+                              className="absolute w-[250px] max-h-[320px] left-full bottom-0 flex flex-col rounded-lg border border-[#E5E5E5] bg-white py-1 shadow-lg overflow-y-auto customScrollbar2"
+                              style={{ marginLeft: "-4px", paddingLeft: "4px" }}
+                            >
+                              {/* None option to clear selection */}
+                              <button
+                                onClick={() => {
+                                  setSelectedTone(null);
+                                  setShowStyleSubmenu(false);
+                                  setShowAttachMenu(false);
+                                  toast("Style removed", {
+                                    description: "Using default AI style",
+                                  });
+                                }}
+                                className={cn(
+                                  "cursor-pointer flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[#F5F5F5] w-full",
+                                  !selectedTone
+                                    ? "bg-[#F5F5F5] font-medium text-[#1E1E1E]"
+                                    : "text-[#666666]",
+                                )}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium">None</div>
+                                  <div className="text-[10px] text-[#888888]">Default AI behavior</div>
+                                </div>
+                                {!selectedTone && (
+                                  <Check className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                                )}
+                              </button>
+                              <div className="mx-2 my-1 h-px bg-[#E5E5E5]" />
+                              {STYLE_TONES.map((tone) => (
+                                <button
+                                  key={tone.tone_id}
+                                  onClick={() => {
+                                    setSelectedTone(tone);
+                                    setShowStyleSubmenu(false);
+                                    setShowAttachMenu(false);
+                                    toast(`Style: ${tone.label}`, {
+                                      description: tone.description,
+                                    });
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-[#F5F5F5] w-full",
+                                    selectedTone?.tone_id === tone.tone_id
+                                      ? "bg-purple-50 text-purple-700 font-medium"
+                                      : "text-[#1E1E1E]",
+                                  )}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium">{tone.label}</div>
+                                    <div className="text-[10px] text-[#888888] truncate">{tone.description}</div>
+                                  </div>
+                                  {selectedTone?.tone_id === tone.tone_id && (
+                                    <Check className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3712,6 +3838,24 @@ export function ChatInterface({
                     >
                       <Globe size={16} />
                       <p>Web Search</p>
+                      <X size={16} />
+                    </button>
+                  )}
+                  {/* Style/Tone indicator button */}
+                  {selectedTone && (
+                    <button
+                      type="button"
+                      aria-label="Remove style"
+                      onClick={() => {
+                        setSelectedTone(null);
+                        toast("Style removed", {
+                          description: "Using default AI style",
+                        });
+                      }}
+                      className="cursor-pointer w-auto h-[36px] font-geist font-medium text-sm text-[#9333EA] bg-transparent rounded-[8px] flex items-center justify-between gap-2 px-3 py-2"
+                    >
+                      <Palette size={16} />
+                      <p>{selectedTone.label}</p>
                       <X size={16} />
                     </button>
                   )}

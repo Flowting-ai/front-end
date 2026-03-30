@@ -115,11 +115,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchCurrentUser()
       .then((profile) => {
         if (mounted && profile) {
+          const firstName = profile.first_name?.trim() || "";
+          // Filter out placeholder last names set by Auth0 defaults
+          const rawLast = profile.last_name?.trim() || "";
+          const lastName = rawLast.toLowerCase() === "user" ? "" : rawLast;
+
           setUser({
             email: profile.email,
-            firstName: profile.first_name,
-            lastName: profile.last_name,
-            name: `${profile.first_name} ${profile.last_name}`.trim(),
+            firstName: firstName,
+            lastName: lastName,
+            name: [firstName, lastName].filter(Boolean).join(" "),
             phoneNumber: profile.phone_number ?? null,
           });
         }

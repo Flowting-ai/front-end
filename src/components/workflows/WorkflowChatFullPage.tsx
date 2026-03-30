@@ -843,7 +843,7 @@ export function WorkflowChatFullPage({
                           className="flex items-center gap-1.5 rounded-lg cursor-pointer bg-white p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap"
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Images and Files</span>
+                          <span>Attach images or files</span>
                         </button>
                         <button
                           onClick={() => {

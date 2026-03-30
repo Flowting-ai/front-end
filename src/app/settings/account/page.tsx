@@ -11,45 +11,39 @@ import { Button } from "@/components/ui/button";
 export default function SettingsAccountPage() {
   const { user } = useAuth();
 
-  const { fullNameDefault, displayNameDefault, email } = useMemo(() => {
-    const firstName =
-      (user?.firstName && user.firstName.trim()) ||
-      (user?.name && user.name.trim().split(/\s+/)[0]) ||
-      (user?.email && user.email.split("@")[0]) ||
-      "";
-
-    let lastName = "";
-    if (user?.lastName && user.lastName.trim()) {
-      lastName = user.lastName.trim();
-    } else if (user?.name) {
-      const parts = user.name.trim().split(/\s+/);
-      if (parts.length > 1) {
-        lastName = parts.slice(1).join(" ");
-      }
-    }
-
+  const { displayNameDefault, email } = useMemo(() => {
+    // Build display name from first + last name (from backend/Auth0)
+    const firstName = user?.firstName?.trim() || "";
+    const lastName = user?.lastName?.trim() || "";
     const fullName = [firstName, lastName].filter(Boolean).join(" ");
 
+    // Only use the full name if it doesn't look like an email local part
+    const emailLocal = user?.email?.split("@")[0] || "";
+    const displayName =
+      fullName && fullName.toLowerCase() !== emailLocal.toLowerCase()
+        ? fullName
+        : user?.name?.trim() &&
+            user.name.trim().toLowerCase() !== emailLocal.toLowerCase()
+          ? user.name.trim()
+          : "";
+
     return {
-      fullNameDefault: fullName,
-      displayNameDefault: firstName,
+      displayNameDefault: displayName,
       email: user?.email ?? "",
     };
   }, [user]);
 
-  const [fullName, setFullName] = useState(fullNameDefault);
   const [displayName, setDisplayName] = useState(displayNameDefault);
 
   const syncNamesFromDefaults = useEffectEvent(
-    (nextFullNameDefault: string, nextDisplayNameDefault: string) => {
-      setFullName(nextFullNameDefault);
+    (nextDisplayNameDefault: string) => {
       setDisplayName(nextDisplayNameDefault);
     }
   );
 
   useEffect(() => {
-    syncNamesFromDefaults(fullNameDefault, displayNameDefault);
-  }, [fullNameDefault, displayNameDefault]);
+    syncNamesFromDefaults(displayNameDefault);
+  }, [displayNameDefault]);
 
   const avatarInitials = useMemo(() => {
     if (user?.firstName || user?.lastName) {
@@ -109,27 +103,26 @@ export default function SettingsAccountPage() {
               </button>
             </div>
 
-            {/* Name fields */}
+            {/* Fields */}
             <div className="flex-1 flex flex-row gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-[#111827]">
-                  Full Name
+                  Email
                 </label>
                 <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Full Name"
-                  className="min-w-xs max-w-sm"
+                  value={email}
+                  readOnly
+                  className="min-w-xs max-w-sm bg-gray-50 cursor-default"
                 />
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-[#111827]">
-                  Display Name
+                  Username
                 </label>
                 <Input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Display Name"
+                  placeholder="Username"
                   className="min-w-xs max-w-md"
                 />
               </div>
