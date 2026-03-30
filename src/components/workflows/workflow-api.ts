@@ -441,13 +441,8 @@ const fromBackendNodeType = (backendType: string): FrontendNodeType => {
 const getNodeReferenceId = (node: WorkflowDTO["nodes"][0]): string => {
   const type = (node.data?.type ?? "") as FrontendNodeType;
   switch (type) {
-    case "document": {
-      const files = Array.isArray(node.data?.files) ? node.data?.files : [];
-      const firstId = files?.find((file) => Boolean((file as any).fileId)) as
-        | { fileId?: string }
-        | undefined;
-      return firstId?.fileId ? String(firstId.fileId) : "";
-    }
+    case "document":
+      return "";
     case "chat":
       return asString(node.data?.selectedChats) || "";
     case "pin":
@@ -517,14 +512,6 @@ const toBackendWorkflowPayload = (
 
     // Only include reference_id when non-empty (start/end nodes must not have it)
     if (refId) nodePayload.reference_id = refId;
-    if (frontendType === "document") {
-      const fileIds = Array.isArray(node.data?.files)
-        ? node.data?.files
-            .map((file) => (file as { fileId?: string }).fileId)
-            .filter((id): id is string => Boolean(id))
-        : [];
-      if (fileIds.length > 0) nodePayload.documents = fileIds;
-    }
 
     backendNodes.push(nodePayload);
   }
@@ -790,28 +777,27 @@ const toExecutionSummary = (
 
 interface WorkflowRequestPreparation {
   workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">;
-  body: string;
-  headers: HeadersInit;
+  body: FormData;
+  headers?: HeadersInit;
 }
 
-const toBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 0x8000;
+const extractDocumentFile = (
+  workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
+): File | null => {
+  for (const node of workflow.nodes) {
+    const nodeType = (node.data?.type ?? "") as FrontendNodeType;
+    if (nodeType !== "document") continue;
 
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+    const files = Array.isArray(node.data?.files) ? node.data.files : [];
+    for (const file of files) {
+      const typedFile = file as { file?: File };
+      if (typedFile.file instanceof File) {
+        return typedFile.file;
+      }
+    }
   }
 
-  return btoa(binary);
-};
-
-const encodeInlineDocumentToken = async (file: File): Promise<string> => {
-  const base64 = toBase64(await file.arrayBuffer());
-  const safeName = encodeURIComponent(file.name || "document");
-  const safeType = encodeURIComponent(file.type || "application/octet-stream");
-  return `inline:${safeName}:${safeType}:${base64}`;
+  return null;
 };
 
 const prepareWorkflowRequest = async (
@@ -827,20 +813,20 @@ const prepareWorkflowRequest = async (
       const files = Array.isArray(node.data?.files) ? node.data.files : [];
       if (files.length === 0) return node;
 
-      const normalizedFiles = await Promise.all(files.map(async (file) => {
+      const normalizedFiles = files.map((file) => {
         const typedFile = file as {
           fileId?: string;
           file?: File;
         };
 
         if (typedFile.fileId || !typedFile.file) return file;
-        const inlineToken = await encodeInlineDocumentToken(typedFile.file);
 
+        // Keep an explicit placeholder so backend can resolve the actual upload by workflow id.
         return {
           ...file,
-          fileId: inlineToken,
+          fileId: "uploaded_document",
         };
-      }));
+      });
 
       return {
         ...node,
@@ -853,11 +839,18 @@ const prepareWorkflowRequest = async (
   };
 
   const payload = toBackendWorkflowPayload(normalizedWorkflow);
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(payload));
+
+  const file = extractDocumentFile(workflow);
+  if (file) {
+    formData.append("file", file);
+  }
 
   return {
     workflow: normalizedWorkflow,
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" },
+    body: formData,
+    headers: undefined,
   };
 };
 
@@ -1140,12 +1133,19 @@ export const workflowAPI = {
       body: prepared.body,
     });
 
-    const created = await handleResponse<BackendWorkflowCreateResponse>(response);
+    const created = await handleResponse<
+      BackendWorkflowDetail | BackendWorkflowCreateResponse
+    >(response);
+
+    if ("nodes" in (created as BackendWorkflowDetail)) {
+      return toWorkflowDTO(created as BackendWorkflowDetail);
+    }
+
     return {
       ...workflow,
-      id: created.id,
-      createdAt: created.created_at,
-      updatedAt: created.updated_at,
+      id: (created as BackendWorkflowCreateResponse).id,
+      createdAt: (created as BackendWorkflowCreateResponse).created_at,
+      updatedAt: (created as BackendWorkflowCreateResponse).updated_at,
     };
   },
 

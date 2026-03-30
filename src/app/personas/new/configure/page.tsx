@@ -756,24 +756,26 @@ function PersonaConfigurePageContent() {
         temperature: temperature[0],
         image: imageFile,
       };
-      const documentFiles = uploadedFiles
-        .filter((file) => file.type === "pdf")
-        .map((file) => file.file);
+      const documentFile = uploadedFiles
+        .find((f) => f.type === "pdf")?.file;
 
       let result;
-      
+
       // Check if we're updating an existing persona or creating a new one
       if (createdPersonaId) {
         // Update existing persona
         console.debug("Updating persona:", createdPersonaId);
-        result = await updatePersona(createdPersonaId, personaPayload);
+        result = await updatePersona(createdPersonaId, {
+          ...personaPayload,
+          file: documentFile,
+        });
         console.debug("Persona updated successfully!");
-        
+
         // Show success toast for update
         toast("Persona Updated", {
           description: "Your persona has been updated successfully.",
         });
-        
+
         // Navigate to persona chat page after update
         setTimeout(() => {
           router.push(`/personas/${createdPersonaId}/chat`);
@@ -782,7 +784,7 @@ function PersonaConfigurePageContent() {
         // Create new persona
         result = await createPersona({
           ...personaPayload,
-          documents: documentFiles,
+          file: documentFile,
         });
         console.debug("Persona created successfully!");
         

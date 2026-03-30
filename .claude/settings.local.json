@@ -13,7 +13,8 @@
       "WebFetch(domain:uxwing.com)",
       "Bash(git commit:*)",
       "Bash(npm install:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(find /c/Users/jains/Desktop/front-end-workflow/src/app/auth -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | head -20)"
     ]
   }
 }

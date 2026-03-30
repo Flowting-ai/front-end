@@ -119,6 +119,11 @@ type ClarificationPromptPayload = {
   suggestions: ClarificationSuggestion[];
 };
 
+type WebSearchPayload = {
+  query: string;
+  links: string[];
+};
+
 const toOptionalTrimmedString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -184,6 +189,42 @@ const normalizeClarificationPrompt = (
     .filter((item): item is ClarificationSuggestion => Boolean(item));
 
   return { question, suggestions };
+};
+
+const normalizeWebSearchPayload = (raw: unknown): WebSearchPayload | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const payload = raw as Record<string, unknown>;
+  const query =
+    toOptionalTrimmedString(payload.query) ??
+    toOptionalTrimmedString(payload.search_query) ??
+    toOptionalTrimmedString(payload.searchQuery) ??
+    "";
+  if (!query) return null;
+
+  const rawLinks = Array.isArray(payload.links)
+    ? payload.links
+    : Array.isArray(payload.urls)
+      ? payload.urls
+      : Array.isArray(payload.results)
+        ? payload.results
+        : [];
+
+  const links = rawLinks
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const obj = item as Record<string, unknown>;
+        const url =
+          toOptionalTrimmedString(obj.url) ??
+          toOptionalTrimmedString(obj.link) ??
+          "";
+        return url;
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  return { query, links };
 };
 
 /** Normalize backend sources/citations into MessageSource shape */
@@ -1402,6 +1443,21 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "web_search") {
+            const webSearch = normalizeWebSearchPayload(parsed);
+            if (webSearch) {
+              queueAiMessageUpdate(
+                {
+                  metadata: {
+                    webSearch,
+                  },
+                },
+                true,
+              );
+            }
+            continue;
+          }
+
           if (eventName === "reasoning") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : "";
             reasoningContent = mergeStreamingText(reasoningContent, delta);
@@ -1599,8 +1655,20 @@ export function ChatInterface({
                 : null;
             const resolvedMessageId =
               parsed.message_id ?? parsed.messageId ?? null;
+            const webSearchFromDone =
+              normalizeWebSearchPayload(
+                (parsed as { web_search?: unknown; webSearch?: unknown })
+                  .web_search ??
+                  (parsed as { web_search?: unknown; webSearch?: unknown })
+                    .webSearch ??
+                  (messageMeta as { web_search?: unknown; webSearch?: unknown })
+                    ?.web_search ??
+                  (messageMeta as { web_search?: unknown; webSearch?: unknown })
+                    ?.webSearch ??
+                  null,
+              ) ?? undefined;
 
-            const metadata: Message["metadata"] | undefined = messageMeta
+            const metadataBase: Message["metadata"] | undefined = messageMeta
               ? {
                   modelName:
                     (messageMeta as { modelName?: string }).modelName ??
@@ -1662,6 +1730,13 @@ export function ChatInterface({
                   ),
                 }
               : undefined;
+            const metadata: Message["metadata"] | undefined =
+              metadataBase || webSearchFromDone
+                ? {
+                    ...(metadataBase || {}),
+                    ...(webSearchFromDone ? { webSearch: webSearchFromDone } : {}),
+                  }
+                : undefined;
 
             const sanitized = extractThinkingContent(
               messageText || assistantContent || "API didn't respond",
@@ -1692,9 +1767,23 @@ export function ChatInterface({
                   )
               : [];
 
-            // Use reasoning from dedicated events if available, otherwise from <think> tags
+            // Use reasoning from dedicated events if available, otherwise from done payload or <think> tags
+            const reasoningFromMeta =
+              (messageMeta as { reasoning?: string; thoughts?: string })
+                ?.reasoning ??
+              (messageMeta as { thinking?: string; analysis?: string })
+                ?.thinking ??
+              (messageMeta as { analysis?: string })?.analysis ??
+              (messageMeta as { thoughts?: string })?.thoughts ??
+              undefined;
+            const reasoningFromDone =
+              typeof parsed.reasoning === "string"
+                ? parsed.reasoning
+                : typeof reasoningFromMeta === "string"
+                  ? reasoningFromMeta
+                  : undefined;
             const finalReasoning =
-              reasoningContent || parsed.reasoning || sanitized.thinkingText;
+              reasoningContent || reasoningFromDone || sanitized.thinkingText;
 
             flushQueuedAiUpdate();
             queueAiMessageUpdate({

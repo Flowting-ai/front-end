@@ -2,9 +2,11 @@
 
 import { Check, Loader2 } from "lucide-react";
 import gsap from "gsap";
-import { useRouter } from "next/navigation";
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "@/context/auth-context";
+import {
+  createCheckoutSession,
+  type UserPlanType,
+} from "@/lib/api/user";
 
 type BillingPlan = "monthly" | "annual";
 
@@ -81,41 +83,23 @@ export const CARD_CONFIG: CardConfig[] = [
 ];
 
 const PricingPage = () => {
-  const router = useRouter();
-  const { isAuthenticated, isHydrated } = useAuth();
   const [billing, setBilling] = useState<BillingPlan>("monthly");
   const [loadingPlan, setLoadingPlan] = useState<CardConfig["id"] | null>(null);
 
+  const toApiPlanType = (planId: CardConfig["id"]): UserPlanType => {
+    if (planId === "starter") return "standard";
+    if (planId === "pro") return "pro";
+    return "power";
+  };
+
   const onSelectPlan = useCallback(
     async (planId: CardConfig["id"]) => {
-      if (!isHydrated) return;
-
-      if (!isAuthenticated) {
-        router.push("/auth/login");
-        return;
-      }
-
       setLoadingPlan(planId);
       try {
-        const res = await fetch("/api/stripe/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: planId, billing }),
-        });
+        const selectedPlan = toApiPlanType(planId);
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          if (res.status === 401) {
-            router.push("/auth/login");
-            return;
-          }
-          throw new Error(data.error || "Checkout failed");
-        }
-
-        if (data.url) {
-          window.location.href = data.url;
-        }
+        const checkout = await createCheckoutSession(selectedPlan);
+        window.location.href = checkout.checkout_url;
       } catch (err) {
         console.error("Checkout error:", err);
         alert(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -123,7 +107,7 @@ const PricingPage = () => {
         setLoadingPlan(null);
       }
     },
-    [isAuthenticated, isHydrated, billing, router],
+    [billing],
   );
 
   const cardsById = useMemo(() => {

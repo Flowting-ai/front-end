@@ -912,6 +912,16 @@ export interface Message {
     sources?: MessageSource[];
     /** True when web search was enabled for this message. */
     webSearchEnabled?: boolean;
+    /** Web search results emitted during streaming (query + link list). */
+    webSearch?:
+      | {
+          query: string;
+          links: string[];
+        }
+      | Array<{
+          query: string;
+          links: string[];
+        }>;
   };
 }
 
@@ -933,6 +943,11 @@ export type MessageSource = {
   imageUrl?: string;
   /** Website metadata: description (e.g. og:description). Fetched from link when not provided. */
   description?: string;
+};
+
+type WebSearchPayload = {
+  query: string;
+  links: string[];
 };
 
 function getHostname(url: string): string {
@@ -991,6 +1006,128 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
     </span>
   );
 }
+
+const normalizeWebSearches = (
+  input: Message["metadata"] extends { webSearch?: infer W } ? W : never,
+): WebSearchPayload[] => {
+  if (!input) return [];
+  const items = Array.isArray(input) ? input : [input];
+  return items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const payload = item as { query?: unknown; links?: unknown };
+      const query =
+        typeof payload.query === "string" ? payload.query.trim() : "";
+      if (!query) return null;
+      const links = Array.isArray(payload.links)
+        ? payload.links
+            .map((link) =>
+              typeof link === "string" ? link.trim() : String(link || "").trim(),
+            )
+            .filter(Boolean)
+        : [];
+      return { query, links };
+    })
+    .filter(
+      (item): item is WebSearchPayload => Boolean(item && item.query),
+    );
+};
+
+const formatWebSearchLabel = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, "");
+    const suffix = path && path !== "/" ? path : "";
+    return `${parsed.hostname}${suffix}`;
+  } catch {
+    return url;
+  }
+};
+
+const WebSearchCard = ({ searches }: { searches: WebSearchPayload[] }) => {
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (searches.length === 0) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+      >
+        <span className="flex items-center gap-2 text-xs font-semibold text-[#374151]">
+          <Globe className="h-3.5 w-3.5 text-[#6B7280]" />
+          <span>Searched the web</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-[#9CA3AF] transition-transform duration-200",
+            isOpen ? "rotate-180" : "",
+          )}
+        />
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-3">
+          {searches.map((search, searchIndex) => (
+            <div
+              key={`${search.query}-${searchIndex}`}
+              className={cn(
+                "pt-2",
+                searchIndex === 0 ? "pt-0" : "border-t border-[#E5E7EB] mt-2",
+              )}
+            >
+              <div className="flex items-center justify-between gap-3 text-xs text-[#6B7280]">
+                <span className="truncate">{search.query}</span>
+                <span className="shrink-0">
+                  {search.links.length} results
+                </span>
+              </div>
+              {search.links.length > 0 && (
+                <div className="mt-2 max-h-40 overflow-auto rounded-lg border border-[#E5E7EB] bg-white">
+                  <div className="divide-y divide-[#F0F0F0]">
+                    {search.links.map((link) => {
+                      const hostname = getHostname(link) || link;
+                      const faviconUrl = hostname
+                        ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
+                        : "";
+                      return (
+                        <a
+                          key={link}
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-3 px-3 py-2 text-xs text-[#111827] hover:bg-[#F9FAFB]"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            {faviconUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={faviconUrl}
+                                alt=""
+                                className="h-4 w-4 shrink-0 rounded-sm"
+                              />
+                            )}
+                            <span className="truncate">
+                              {formatWebSearchLabel(link)}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[11px] text-[#9CA3AF]">
+                            {hostname}
+                          </span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ChatMessageProps {
   message: Message;
@@ -1134,6 +1271,10 @@ export function ChatMessage({
     !isUser && Array.isArray(message.metadata?.clarification?.suggestions)
       ? (message.metadata?.clarification?.suggestions ?? [])
       : [];
+  const webSearches = useMemo(
+    () => normalizeWebSearches(message.metadata?.webSearch),
+    [message.metadata?.webSearch],
+  );
 
   const actionButtonClasses =
     "h-8 w-8 rounded-full text-[#6B7280] transition-colors hover:text-[#111827] hover:bg-[#E4E4E7]";
@@ -1625,6 +1766,9 @@ export function ChatMessage({
                   isNewMessage={isNewMessage && !isUser}
                   isThinkingInProgress={message.isThinkingInProgress}
                 />
+              )}
+              {!isUser && webSearches.length > 0 && (
+                <WebSearchCard searches={webSearches} />
               )}
 
               {isEditing && isUser ? (

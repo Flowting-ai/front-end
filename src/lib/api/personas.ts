@@ -56,8 +56,9 @@ export interface PersonaInput {
   model_id: string;
   modelId?: string;
   prompt?: string;
+  temperature?: number;
   image?: File;
-  documents?: File[];
+  file?: File;
 }
 
 export interface PersonaUpdateInput {
@@ -66,7 +67,9 @@ export interface PersonaUpdateInput {
   model_id?: string | null;
   modelId?: string | null;
   status?: PersonaStatus;
+  temperature?: number;
   image?: File;
+  file?: File;
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -95,12 +98,9 @@ export async function createPersona(payload: PersonaInput): Promise<BackendPerso
   const modelId = payload.model_id ?? payload.modelId;
   if (modelId) formData.append("model_id", String(modelId));
   if (payload.prompt) formData.append("prompt", payload.prompt);
+  if (payload.temperature !== undefined) formData.append("temperature", String(payload.temperature));
   if (payload.image) formData.append("image", payload.image);
-  if (payload.documents && payload.documents.length > 0) {
-    payload.documents.forEach((file) => {
-      formData.append("documents", file);
-    });
-  }
+  if (payload.file) formData.append("file", payload.file);
 
   const response = await apiFetch(PERSONAS_ENDPOINT, {
     method: "POST",
@@ -124,7 +124,9 @@ export async function updatePersona(
   const updateModelId = payload.model_id ?? payload.modelId;
   if (updateModelId !== undefined && updateModelId !== null)
     formData.append("model_id", String(updateModelId));
+  if (payload.temperature !== undefined) formData.append("temperature", String(payload.temperature));
   if (payload.image) formData.append("image", payload.image);
+  if (payload.file) formData.append("file", payload.file);
 
   const response = await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), {
     method: "PATCH",

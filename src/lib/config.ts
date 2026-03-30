@@ -14,6 +14,8 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`;
 // ── Users ────────────────────────────────────────────────────────────────────
 export const USER_ENDPOINT = withBase("/users/me");
 export const USER_CREATE_ENDPOINT = withBase("/users/create");
+export const USER_CHECKOUT_ENDPOINT = withBase("/users/me/checkout");
+export const USER_SUBSCRIPTION_ENDPOINT = withBase("/users/me/subscription");
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");

@@ -14,6 +14,12 @@ import {
   clearInMemoryAccessToken,
   setInMemoryAccessToken,
 } from "@/lib/jwt-utils";
+import type {
+  UserInvoice,
+  UserPaymentMethod,
+  UserUpcomingInvoice,
+  UserUsage,
+} from "@/lib/api/user";
 import { fetchCurrentUser } from "@/lib/api/user";
 
 export interface AuthUser {
@@ -23,7 +29,17 @@ export interface AuthUser {
   firstName?: string | null;
   lastName?: string | null;
   phoneNumber?: string | null;
+  planType?: "standard" | "pro" | "power" | null;
   planName?: string | null;
+  subscriptionStatus?: string | null;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  paymentMethods?: UserPaymentMethod[];
+  defaultPaymentMethod?: UserPaymentMethod | null;
+  invoices?: UserInvoice[];
+  upcomingInvoice?: UserUpcomingInvoice | null;
+  usage?: UserUsage | null;
+  billingPortalUrl?: string | null;
   budget?: string | null;
   budgetUsed?: string | null;
   budgetRemaining?: string | null;
@@ -119,13 +135,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Filter out placeholder last names set by Auth0 defaults
           const rawLast = profile.last_name?.trim() || "";
           const lastName = rawLast.toLowerCase() === "user" ? "" : rawLast;
+          const paymentMethods = profile.payment_methods ?? [];
+          const defaultPaymentMethod =
+            paymentMethods.find((method) => method.is_default) ??
+            paymentMethods[0] ??
+            null;
+          const normalizePct = (value: number | undefined) => {
+            if (typeof value !== "number" || Number.isNaN(value)) return null;
+            const pct = value <= 1 ? value * 100 : value;
+            return Math.max(0, Math.min(pct, 100));
+          };
+          const monthlyPctFromApi = normalizePct(profile.usage?.monthly_used_pct);
 
           setUser({
             email: profile.email,
             firstName: firstName,
             lastName: lastName,
-            name: [firstName, lastName].filter(Boolean).join(" "),
+            name:
+              [firstName, lastName].filter(Boolean).join(" ") ||
+              profile.email ||
+              null,
             phoneNumber: profile.phone_number ?? null,
+            planType: profile.plan_type ?? null,
+            planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
+            subscriptionStatus: profile.subscription_status ?? null,
+            currentPeriodEnd: profile.current_period_end ?? null,
+            cancelAtPeriodEnd: profile.cancel_at_period_end ?? false,
+            paymentMethods,
+            defaultPaymentMethod,
+            invoices: profile.invoices ?? [],
+            upcomingInvoice: profile.upcoming_invoice ?? null,
+            usage: profile.usage ?? null,
+            billingPortalUrl: profile.billing_portal_url ?? null,
+            budget: profile.usage ? String(profile.usage.monthly_limit) : null,
+            budgetUsed: profile.usage ? String(profile.usage.monthly_used) : null,
+            budgetRemaining: profile.usage ? String(profile.usage.monthly_remaining) : null,
+            budgetConsumedPercent:
+              monthlyPctFromApi !== null
+                ? monthlyPctFromApi
+                : profile.usage && profile.usage.monthly_limit > 0
+                ? Math.min(
+                    (profile.usage.monthly_used / profile.usage.monthly_limit) * 100,
+                    100,
+                  )
+                : 0,
+            dailyBudgetUsed: profile.usage ? String(profile.usage.daily_used) : null,
+            dailyBudgetLimit: profile.usage ? String(profile.usage.daily_limit) : null,
+            dailyBudgetAvailable: profile.usage
+              ? String(profile.usage.daily_remaining)
+              : null,
           });
         }
       })

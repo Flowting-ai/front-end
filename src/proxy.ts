@@ -30,10 +30,11 @@ export default async function proxy(request: Request) {
 
   // Onboarding is complete only if this specific user's cookie exists
   const hasOnboarded = !!(sub && cookieExists(request, onboardingCookieName(sub)));
+  const isPricingPage = pathname === "/onboarding/pricing";
 
   // If the user already completed onboarding, don't let them back into the
   // onboarding flow — even if they type the URL manually.
-  if (pathname.startsWith("/onboarding/") && hasOnboarded) {
+  if (pathname.startsWith("/onboarding/") && hasOnboarded && !isPricingPage) {
     return Response.redirect(new URL("/", request.url));
   }
 

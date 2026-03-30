@@ -218,6 +218,43 @@ export function PersonaChatFullPage({
     });
   };
 
+  const normalizeWebSearchPayload = (
+    raw: unknown,
+  ): { query: string; links: string[] } | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const payload = raw as Record<string, unknown>;
+    const query =
+      (typeof payload.query === "string" ? payload.query.trim() : "") ||
+      (typeof payload.search_query === "string"
+        ? payload.search_query.trim()
+        : "") ||
+      (typeof payload.searchQuery === "string"
+        ? payload.searchQuery.trim()
+        : "");
+    if (!query) return null;
+    const rawLinks = Array.isArray(payload.links)
+      ? payload.links
+      : Array.isArray(payload.urls)
+        ? payload.urls
+        : Array.isArray(payload.results)
+          ? payload.results
+          : [];
+    const links = rawLinks
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          const url =
+            (typeof obj.url === "string" ? obj.url.trim() : "") ||
+            (typeof obj.link === "string" ? obj.link.trim() : "");
+          return url;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return { query, links };
+  };
+
   const handleSend = async () => {
     const trimmedContent = input.trim();
     if (!trimmedContent || isResponding) return;
@@ -348,7 +385,16 @@ export function PersonaChatFullPage({
       const updateAiMessage = (fields: Partial<Message>) => {
         setDisplayMessages((prev) =>
           prev.map((msg) =>
-            msg.id === aiMessageId ? { ...msg, ...fields } : msg,
+            msg.id === aiMessageId
+              ? {
+                  ...msg,
+                  ...fields,
+                  metadata:
+                    msg.metadata || fields.metadata
+                      ? { ...(msg.metadata || {}), ...(fields.metadata || {}) }
+                      : undefined,
+                }
+              : msg,
           ),
         );
       };
@@ -504,6 +550,19 @@ export function PersonaChatFullPage({
         }
 
         if (eventName === "metadata") {
+          return;
+        }
+
+        if (eventName === "web_search") {
+          const webSearch = normalizeWebSearchPayload(parsed);
+          if (webSearch) {
+            updateAiMessage({
+              metadata: {
+                webSearch,
+              },
+              isLoading: false,
+            });
+          }
           return;
         }
 

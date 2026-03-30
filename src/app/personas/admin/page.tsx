@@ -83,6 +83,20 @@ function maskEmail(email: string | null | undefined): string {
 export default function PersonaAdminPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const normalizePct = (value: number | null | undefined) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return 0;
+    const pct = value <= 1 ? value * 100 : value;
+    return Math.max(0, Math.min(pct, 100));
+  };
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  };
   const hasFetchedPersonas = React.useRef(false);
   const [personas, setPersonas] = React.useState<Persona[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -518,15 +532,21 @@ export default function PersonaAdminPage() {
                           {/* Bottom */}
                           <div className="mt-4 flex flex-col gap-2">
                             {(() => {
-                              const monthlyPct = Math.min(
-                                user?.budgetConsumedPercent ?? 0,
-                                100,
-                              );
-                              const seg1 = +(monthlyPct * 0.4).toFixed(1);
-                              const seg2 = +(monthlyPct * 0.35).toFixed(1);
-                              const seg3 = +(
-                                monthlyPct - seg1 - seg2
-                              ).toFixed(1);
+                              const monthlyPct =
+                                user?.usage?.monthly_used_pct !== undefined
+                                  ? normalizePct(user.usage.monthly_used_pct)
+                                  : Math.min(user?.budgetConsumedPercent ?? 0, 100);
+                              const byCategory = user?.usage?.by_category;
+
+                              let seg1 = +(monthlyPct * 0.4).toFixed(1);
+                              let seg2 = +(monthlyPct * 0.35).toFixed(1);
+                              let seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
+
+                              if (byCategory) {
+                                seg1 = +normalizePct(byCategory.chat).toFixed(1);
+                                seg2 = +normalizePct(byCategory.persona).toFixed(1);
+                                seg3 = +normalizePct(byCategory.workflow).toFixed(1);
+                              }
 
                               return (
                                 <>
@@ -534,15 +554,15 @@ export default function PersonaAdminPage() {
                                   <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex overflow-hidden">
                                     <div
                                       className="h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90"
-                                      style={{ width: `20%` }}
+                                      style={{ width: `${seg1}%` }}
                                     />
                                     <div
                                       className="h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90"
-                                      style={{ width: `20%` }}
+                                      style={{ width: `${seg2}%` }}
                                     />
                                     <div
                                       className="h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90"
-                                      style={{ width: `20%` }}
+                                      style={{ width: `${seg3}%` }}
                                     />
                                   </div>
 
@@ -552,7 +572,7 @@ export default function PersonaAdminPage() {
                                       <div className="flex items-center gap-2 px-1 py-1">
                                         <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" />
                                         <p className="font-geist text-[11px] text-[#737373]">
-                                          Chat Board{" "}
+                                          Chat{" "}
                                           <span className="font-medium text-black">
                                             {seg1}%
                                           </span>
@@ -562,7 +582,7 @@ export default function PersonaAdminPage() {
                                       <div className="flex items-center gap-2 px-1 py-1">
                                         <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" />
                                         <p className="font-geist text-[11px] text-[#737373]">
-                                          AI Assistants{" "}
+                                          Persona{" "}
                                           <span className="font-medium text-black">
                                             {seg2}%
                                           </span>
@@ -572,7 +592,7 @@ export default function PersonaAdminPage() {
                                       <div className="flex items-center gap-2 px-1 py-1">
                                         <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" />
                                         <p className="font-geist text-[11px] text-[#737373]">
-                                          FlowBuilder{" "}
+                                          Workflow{" "}
                                           <span className="font-medium text-black">
                                             {seg3}%
                                           </span>
@@ -580,7 +600,9 @@ export default function PersonaAdminPage() {
                                       </div>
                                     </div>
                                     <p className="text-[11px] text-[#737373] whitespace-nowrap">
-                                      Resets 12:00AM UTC
+                                      {user?.usage?.last_reset_date
+                                        ? `Last reset ${formatDate(user.usage.last_reset_date)}`
+                                        : "Resets 12:00AM UTC"}
                                     </p>
                                   </div>
                                 </>
