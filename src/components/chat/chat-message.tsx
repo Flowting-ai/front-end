@@ -1008,7 +1008,7 @@ function SourceFaviconStack({ urls }: { urls: string[] }) {
 }
 
 const normalizeWebSearches = (
-  input: Message["metadata"] extends { webSearch?: infer W } ? W : never,
+  input: NonNullable<Message["metadata"]>["webSearch"] | undefined,
 ): WebSearchPayload[] => {
   if (!input) return [];
   const items = Array.isArray(input) ? input : [input];
