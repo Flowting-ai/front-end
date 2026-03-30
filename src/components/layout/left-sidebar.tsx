@@ -73,6 +73,22 @@ import { CHATS_ENDPOINT } from "@/lib/config";
 
 const APP_BASE_TITLE = "Souvenir AI";
 
+const SETTINGS_DATA = [
+  { label: "Account", path: "/settings/account", icon: UserCog },
+  { label: "Usage & Billing", path: "/settings/usage-and-billing", icon: CreditCard },
+  { label: "Routing", path: "/settings/routing", icon: Route },
+  // { label: "Memory & Context", path: "/settings/memory-and-context", icon: Database },
+  // { label: "Files & Data", path: "/settings/files-and-data", icon: Folder },
+  // { label: "Automations", path: "/settings/automations", icon: Zap },
+  { label: "AI & Models", path: "/settings/ai-and-models", icon: Brain },
+  // { label: "Integrations", path: "/settings/integrations", icon: Cable },
+  // { label: "Notifications", path: "/settings/notifications", icon: Bell },
+  // { label: "Appearance", path: "/settings/appearance", icon: Palette },
+  // { label: "Security", path: "/settings/security", icon: Shield },
+  // { label: "Teams & Roles", path: "/settings/teams-and-roles", icon: UsersRound },
+  { label: "Help & Legal", path: "/settings/help-and-legal", icon: CircleHelp },
+] as const;
+
 // Module-level cache so persona list survives component remounts
 let _personaListCache: Array<{ id: string; name: string; isActive: boolean }> = [];
 
@@ -245,25 +261,6 @@ export function LeftSidebar({
 
   // Determine if user is on settings-related pages
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
-  const isAccountRoute = pathname?.startsWith("/settings/account");
-  const isUsageAndBillingRoute = pathname?.startsWith(
-    "/settings/usage-and-billing",
-  );
-  const isRoutingRoute = pathname?.startsWith("/settings/routing");
-  const isMemoryAndContextRoute = pathname?.startsWith(
-    "/settings/memory-and-context",
-  );
-  const isFilesAndDataRoute = pathname?.startsWith("/settings/files-and-data");
-  const isAutomationsRoute = pathname?.startsWith("/settings/automations");
-  const isAIandModelsRoute = pathname?.startsWith("/settings/ai-and-models");
-  const isIntegrationsRoute = pathname?.startsWith("/settings/integrations");
-  const isNotificationsRoute = pathname?.startsWith("/settings/notifications");
-  const isAppearanceRoute = pathname?.startsWith("/settings/appearance");
-  const isSecurityRoute = pathname?.startsWith("/settings/security");
-  const isTeamsAndRolesRoute = pathname?.startsWith(
-    "/settings/teams-and-roles",
-  );
-  const isHelpAndLegalRoute = pathname?.startsWith("/settings/help-and-legal");
 
   // Persist settings nav scroll position across settings routes
   const settingsScrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -653,7 +650,6 @@ export function LeftSidebar({
 
   const handleLogout = () => {
     logout();
-    router.push("/auth/logout");
   };
 
   return (
@@ -943,218 +939,28 @@ export function LeftSidebar({
                 onScroll={handleSettingsScroll}
                 className="flex-1 flex flex-col gap-1 min-h-0 pl-4 pr-2 mr-1 mt-1 overflow-y-auto customScrollbar2"
               >
-                {/* 1. Account */}
-                <Button
-                  ref={isAccountRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/account")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isAccountRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <UserCog size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Account</p>
-                </Button>
-                {/* 2. Usage & Billing */}
-                <Button
-                  ref={
-                    isUsageAndBillingRoute ? activeSettingsItemRef : undefined
-                  }
-                  type="button"
-                  onClick={() => router.push("/settings/usage-and-billing")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isUsageAndBillingRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <CreditCard size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Usage &amp; Billing</p>
-                </Button>
-                {/* 3. Routing */}
-                <Button
-                  ref={isRoutingRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/routing")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isRoutingRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Route size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Routing</p>
-                </Button>
-                {/* 4. Memory & Context */}
-                <Button
-                  ref={
-                    isMemoryAndContextRoute ? activeSettingsItemRef : undefined
-                  }
-                  type="button"
-                  onClick={() => router.push("/settings/memory-and-context")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isMemoryAndContextRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Database size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Memory & Context</p>
-                </Button>
-                {/* 5. Files & Data */}
-                <Button
-                  ref={isFilesAndDataRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/files-and-data")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isFilesAndDataRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Folder size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Files & Data</p>
-                </Button>
-                {/* 6. Automations */}
-                <Button
-                  ref={isAutomationsRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/automations")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isAutomationsRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Zap size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Automations</p>
-                </Button>
-                {/* 7. AI & Models */}
-                <Button
-                  ref={isAIandModelsRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/ai-and-models")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isAIandModelsRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Brain size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">AI & Models</p>
-                </Button>
-                {/* 8. Integrations */}
-                <Button
-                  ref={isIntegrationsRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/integrations")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isIntegrationsRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Cable size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Integrations</p>
-                </Button>
-                {/* 9. Notifications */}
-                <Button
-                  ref={isNotificationsRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/notifications")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isNotificationsRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Bell size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Notifications</p>
-                </Button>
-                {/* 10. Appearance */}
-                <Button
-                  ref={isAppearanceRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/appearance")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isAppearanceRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Palette size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Appearance</p>
-                </Button>
-                {/* 11. Security */}
-                <Button
-                  ref={isSecurityRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/security")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isSecurityRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <Shield size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Security</p>
-                </Button>
-                {/* 12. Teams & Roles */}
-                <Button
-                  ref={isTeamsAndRolesRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/teams-and-roles")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isTeamsAndRolesRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <UsersRound size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Teams & Roles</p>
-                </Button>
-                {/* 13. Help & Legal */}
-                <Button
-                  ref={isHelpAndLegalRoute ? activeSettingsItemRef : undefined}
-                  type="button"
-                  onClick={() => router.push("/settings/help-and-legal")}
-                  className={cn(
-                    "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
-                    isHelpAndLegalRoute &&
-                      "text-lsb-button-active-text bg-lsb-button-active-bg",
-                  )}
-                >
-                  <div className="w-auto h-full flex items-center justify-center mr-2">
-                    <CircleHelp size={18} strokeWidth={1.7} />
-                  </div>
-                  <p className="font-normal text-[13px]">Help & Legal</p>
-                </Button>
+                {SETTINGS_DATA.map((item) => {
+                  const isActive = !!pathname?.startsWith(item.path);
+                  const Icon = item.icon;
+                  return (
+                    <Button
+                      key={item.path}
+                      ref={isActive ? activeSettingsItemRef : undefined}
+                      type="button"
+                      onClick={() => router.push(item.path)}
+                      className={cn(
+                        "cursor-pointer w-full min-h-[41px] h-[41px] text-lsb-black bg-transparent hover:text-white hover:bg-lsb-button-active-bg flex items-center justify-start px-4 transition-all duration-300",
+                        isActive &&
+                          "text-lsb-button-active-text bg-lsb-button-active-bg",
+                      )}
+                    >
+                      <div className="w-auto h-full flex items-center justify-center mr-2">
+                        <Icon size={18} strokeWidth={1.7} />
+                      </div>
+                      <p className="font-normal text-[13px]">{item.label}</p>
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           ) : (

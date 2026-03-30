@@ -157,7 +157,7 @@ export default function SettingsRoutingPage() {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="font-geist font-medium text-sm text-[#0A0A0A]">
-                    Souvenir algorithm
+                    Souvenir Algorithm
                   </span>
                   <span className="font-geist font-medium text-[11px] text-white bg-[#14AE5C] rounded-full px-2 py-0.5">
                     Pro Plan

@@ -83,14 +83,14 @@ export default function SettingsUsageAndBillingPage() {
                   <span className="text-[#1E1E1E]">{Math.round(dailyPct)}% Used</span>
                 </div>
                 <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex items-center overflow-hidden">
-                  <div className="max-w-full h-full bg-linear-to-b from-[#0A0A0A] via-[#0A0A0A]/70 via-25% to-[#0A0A0A]" style={{ width: `${seg1d}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#737373] via-[#737373]/70 via-25% to-[#737373]" style={{ width: `${seg2d}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#A3A3A3] via-[#A3A3A3]/30 via-25% to-[#A3A3A3]" style={{ width: `${seg3d}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" style={{ width: `${seg1d}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" style={{ width: `${seg2d}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" style={{ width: `${seg3d}%` }} />
                 </div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#0A0A0A] via-[#0A0A0A]/70 via-25% to-[#0A0A0A] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         Chat Board &ndash;{" "}
                         <span className="font-medium text-black">{seg1d}%</span>
@@ -98,7 +98,7 @@ export default function SettingsUsageAndBillingPage() {
                     </div>
                     <p className="text-[#D4D4D4]">|</p>
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#737373] via-[#737373]/70 via-25% to-[#737373] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         AI Assistants &ndash;{" "}
                         <span className="font-medium text-black">{seg2d}%</span>
@@ -106,7 +106,7 @@ export default function SettingsUsageAndBillingPage() {
                     </div>
                     <p className="text-[#D4D4D4]">|</p>
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#A3A3A3] via-[#A3A3A3]/30 via-25% to-[#A3A3A3] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         Flow Builder &ndash;{" "}
                         <span className="font-medium text-black">{seg3d}%</span>
@@ -132,14 +132,14 @@ export default function SettingsUsageAndBillingPage() {
                   <span className="text-[#1E1E1E]">{Math.round(monthlyPct)}% Used</span>
                 </div>
                 <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex items-center overflow-hidden">
-                  <div className="max-w-full h-full bg-linear-to-b from-[#0A0A0A] via-[#0A0A0A]/70 via-25% to-[#0A0A0A]" style={{ width: `${seg1m}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#737373] via-[#737373]/70 via-25% to-[#737373]" style={{ width: `${seg2m}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#A3A3A3] via-[#A3A3A3]/30 via-25% to-[#A3A3A3]" style={{ width: `${seg3m}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" style={{ width: `${seg1m}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" style={{ width: `${seg2m}%` }} />
+                  <div className="max-w-full h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" style={{ width: `${seg3m}%` }} />
                 </div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#0A0A0A] via-[#0A0A0A]/70 via-25% to-[#0A0A0A] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         Chat Board &ndash;{" "}
                         <span className="font-medium text-black">{seg1m}%</span>
@@ -147,7 +147,7 @@ export default function SettingsUsageAndBillingPage() {
                     </div>
                     <p className="text-[#D4D4D4]">|</p>
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#737373] via-[#737373]/70 via-25% to-[#737373] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         AI Assistants &ndash;{" "}
                         <span className="font-medium text-black">{seg2m}%</span>
@@ -155,7 +155,7 @@ export default function SettingsUsageAndBillingPage() {
                     </div>
                     <p className="text-[#D4D4D4]">|</p>
                     <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#A3A3A3] via-[#A3A3A3]/30 via-25% to-[#A3A3A3] rounded"></div>
+                      <div className="w-4 h-4 bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90 rounded"></div>
                       <p className="font-geist text-sm text-[#757575]">
                         Flow Builder &ndash;{" "}
                         <span className="font-medium text-black">{seg3m}%</span>

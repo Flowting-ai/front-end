@@ -336,34 +336,110 @@ export default function WorkflowAdminPage() {
                   <div className="flex w-full flex-col md:flex-row md:flex-nowrap gap-6 pb-0">
                     {/* Left - Total Credits */}
                     <StatCard
-                      title="Credit Usage"
+                      title="Tokens Usage"
                       value={Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
                       suffix="Used"
-                      className="relative w-[400px] h-[148px] flex-none p-0!"
+                      className="relative w-[601px] h-[148px] flex-none p-0!"
                     >
                       <div className="relative flex h-full w-full flex-col">
-                        <div className="flex flex-col ml-[14px] mt-[14px]">
-                          <p className="font-inter font-semibold text-base leading-[140%] tracking-tight text-black">
-                            Credit Usage
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2 ml-[14px] pt-2">
-                          <div className="flex items-center gap-2">
-                            <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
-                              {Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
-                            </p>
-                            <span className="font-inter font-normal leading-[154%] text-sm text-[#B3B3B3]">
-                              Used
-                            </span>
+                        <div className="h-full flex flex-col justify-between mx-[14px] my-[14px]">
+                          {/* Top */}
+                          <div className="flex justify-between ">
+                            {/* Left */}
+                            <div className="flex flex-col">
+                              <p className="font-inter font-semibold text-base leading-[140%] tracking-tight text-black">
+                                Platform Usage
+                              </p>
+                              <p className="text-xs text-[#737373]">
+                                Shared across all features
+                              </p>
+                            </div>
+
+                            {/* Right */}
+                            <div className="flex items-end gap-2">
+                              <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
+                                {Math.round(user?.budgetConsumedPercent ?? 0) +
+                                  "%"}
+                              </p>
+                              <span className="font-inter font-normal leading-[154%] text-sm text-black">
+                                used
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Bottom */}
+                          <div className="mt-4 flex flex-col gap-2">
+                            {(() => {
+                              const monthlyPct = Math.min(
+                                user?.budgetConsumedPercent ?? 0,
+                                100,
+                              );
+                              const seg1 = +(monthlyPct * 0.4).toFixed(1);
+                              const seg2 = +(monthlyPct * 0.35).toFixed(1);
+                              const seg3 = +(
+                                monthlyPct - seg1 - seg2
+                              ).toFixed(1);
+
+                              return (
+                                <>
+                                  {/* Row 1 - Progress graph */}
+                                  <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex overflow-hidden">
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                    <div
+                                      className="h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90"
+                                      style={{ width: `20%` }}
+                                    />
+                                  </div>
+
+                                  {/* Row 2 - Legend + reset info */}
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          Chat Board{" "}
+                                          <span className="font-medium text-black">
+                                            {seg1}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <p className="text-[#D4D4D4] text-xs">|</p>
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          AI Assistants{" "}
+                                          <span className="font-medium text-black">
+                                            {seg2}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <p className="text-[#D4D4D4] text-xs">|</p>
+                                      <div className="flex items-center gap-2 px-1 py-1">
+                                        <div className="w-3.5 h-3.5 rounded bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" />
+                                        <p className="font-geist text-[11px] text-[#737373]">
+                                          FlowBuilder{" "}
+                                          <span className="font-medium text-black">
+                                            {seg3}%
+                                          </span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <p className="text-[11px] text-[#737373] whitespace-nowrap">
+                                      Resets 12:00AM UTC
+                                    </p>
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
-                        <button className="cursor-pointer absolute bottom-[14px] left-[14px] inline-flex h-[26px] min-h-[24px] w-[161px] items-center justify-center gap-1.5 rounded-[8px] border border-[#E5E5E5] bg-white px-2 py-[3px] text-xs font-medium text-black transition-colors hover:bg-gray-100">
-                          <TrendingUp className="h-3 w-3" />
-                          {user?.budgetRemaining ? `$${user.budgetRemaining} remaining` : "Budget usage"}
-                        </button>
-                      </div>
-                      <div className="absolute top-3.5 right-3.5 w-[34px] h-[34px] border border-main-border rounded-[8px] flex items-center justify-center">
-                        <ChartLine size={20} strokeWidth={1} />
                       </div>
                     </StatCard>
 
@@ -372,7 +448,7 @@ export default function WorkflowAdminPage() {
                       title="Active Consumers"
                       value={activeConsumers}
                       suffix="Users"
-                      className="w-[400px] h-[148px] flex-none !p-0"
+                      className="max-w-[200px] w-full h-[148px] flex-none !p-0"
                     >
                       <div className="relative flex h-full w-full flex-col">
                         <div className="flex flex-col ml-[14px] mt-[14px]">
