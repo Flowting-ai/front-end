@@ -151,8 +151,8 @@ export interface PersonaAnalyzeResponse {
   donts?: string[];
 }
 
-/** Enhance/analyze a persona prompt. Returns the improved prompt text. */
-export async function enhancePersonaPrompt(prompt: string): Promise<string> {
+/** Analyze a persona prompt, returning structured enhancement data. */
+export async function analyzePersona(prompt: string): Promise<PersonaAnalyzeResponse> {
   const body = new URLSearchParams({ prompt });
   const response = await apiFetch(PERSONA_ENHANCE_ENDPOINT, {
     method: "POST",
@@ -164,13 +164,12 @@ export async function enhancePersonaPrompt(prompt: string): Promise<string> {
     throw new Error(text || "Failed to enhance persona prompt");
   }
   const data = await response.json();
-  return typeof data === "string" ? data : (data?.enhanced_prompt ?? "");
-}
-
-/** Analyze a persona prompt, returning structured enhancement data. */
-export async function analyzePersona(prompt: string): Promise<PersonaAnalyzeResponse> {
-  const enhanced = await enhancePersonaPrompt(prompt);
-  return { prompt: enhanced };
+  if (typeof data === "string") return { prompt: data };
+  return {
+    prompt: data?.enhanced_prompt ?? data?.prompt ?? "",
+    dos: Array.isArray(data?.dos) ? data.dos : undefined,
+    donts: Array.isArray(data?.donts) ? data.donts : undefined,
+  };
 }
 
 // ── Persona test stream ───────────────────────────────────────────────────────
