@@ -820,21 +820,23 @@ export function LeftSidebar({
                   style={{ width: "222px", gap: "8px" }}
                 >
                   {/* {!user && ( */}
-                  <DropdownMenuItem
+                  {/* commenting out the Profile menu item */}
+                  {/* <DropdownMenuItem
                     disabled
                     className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
                   >
                     <User className="h-4 w-4 text-lsb-text" />
                     Profile
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   {/* )} */}
-                  <DropdownMenuItem
+                  {/* commenting the Upgrade Plan menu item */}
+                  {/* <DropdownMenuItem
                     disabled
                     className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
                   >
                     <TrendingUp className="h-4 w-4 text-lsb-text" />
                     Upgrade Plan
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                   <DropdownMenuItem
                     onClick={() => router.push("/settings")}
                     className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
@@ -1535,7 +1537,8 @@ export function LeftSidebar({
                 className="bg-white border-[#E5E5E5] rounded-lg p-1.5"
                 style={{ width: "222px", gap: "8px" }}
               >
-                {isAuthenticated && (
+                {/* commenting out the Profile and upgrade plan menu item */}
+                {/* {isAuthenticated && (
                   <DropdownMenuItem
                     disabled
                     className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
@@ -1550,7 +1553,7 @@ export function LeftSidebar({
                 >
                   <TrendingUp className="h-4 w-4 text-lsb-text" />
                   Upgrade Plan
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem
                   onClick={() => router.push("/settings")}
                   className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"

@@ -17,6 +17,7 @@ import {
 import type {
   UserInvoice,
   UserPaymentMethod,
+  UserProfile,
   UserUpcomingInvoice,
   UserUsage,
 } from "@/lib/api/user";
@@ -49,6 +50,7 @@ export interface AuthUser {
   dailyBudgetLimit?: string | null;
   dailyBudgetAvailable?: string | null;
   nextBillingDate?: string | null;
+  active?: boolean | null;
 }
 
 interface AuthContextValue {
@@ -61,6 +63,64 @@ interface AuthContextValue {
   setJwtToken: (token: string | null) => void;
   clearAuth: () => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
+}
+
+function mapProfileToUser(profile: UserProfile): AuthUser {
+  const firstName = profile.first_name?.trim() || "";
+  const rawLast = profile.last_name?.trim() || "";
+  const lastName = rawLast.toLowerCase() === "user" ? "" : rawLast;
+  const paymentMethods = profile.payment_methods ?? [];
+  const defaultPaymentMethod =
+    paymentMethods.find((method) => method.is_default) ??
+    paymentMethods[0] ??
+    null;
+  const normalizePct = (value: number | undefined) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    const pct = value <= 1 ? value * 100 : value;
+    return Math.max(0, Math.min(pct, 100));
+  };
+  const monthlyPctFromApi = normalizePct(profile.usage?.monthly_used_pct);
+
+  return {
+    email: profile.email,
+    firstName,
+    lastName,
+    name:
+      [firstName, lastName].filter(Boolean).join(" ") ||
+      profile.email ||
+      null,
+    phoneNumber: profile.phone_number ?? null,
+    planType: profile.plan_type ?? null,
+    planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
+    subscriptionStatus: profile.subscription_status ?? null,
+    currentPeriodEnd: profile.current_period_end ?? null,
+    cancelAtPeriodEnd: profile.cancel_at_period_end ?? false,
+    paymentMethods,
+    defaultPaymentMethod,
+    invoices: profile.invoices ?? [],
+    upcomingInvoice: profile.upcoming_invoice ?? null,
+    usage: profile.usage ?? null,
+    billingPortalUrl: profile.billing_portal_url ?? null,
+    budget: profile.usage ? String(profile.usage.monthly_limit) : null,
+    budgetUsed: profile.usage ? String(profile.usage.monthly_used) : null,
+    budgetRemaining: profile.usage ? String(profile.usage.monthly_remaining) : null,
+    budgetConsumedPercent:
+      monthlyPctFromApi !== null
+        ? monthlyPctFromApi
+        : profile.usage && profile.usage.monthly_limit > 0
+        ? Math.min(
+            (profile.usage.monthly_used / profile.usage.monthly_limit) * 100,
+            100,
+          )
+        : 0,
+    dailyBudgetUsed: profile.usage ? String(profile.usage.daily_used) : null,
+    dailyBudgetLimit: profile.usage ? String(profile.usage.daily_limit) : null,
+    dailyBudgetAvailable: profile.usage
+      ? String(profile.usage.daily_remaining)
+      : null,
+    active: profile.active,
+  };
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -109,6 +169,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearInMemoryAccessToken();
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const profile = await fetchCurrentUser();
+      if (profile) {
+        setUser(mapProfileToUser(profile));
+      }
+    } catch (error) {
+      console.error("Failed to refresh user profile", error);
+    }
+  }, []);
+
   const logout = useCallback(() => {
     clearAuth();
     if (typeof window !== "undefined") {
@@ -131,60 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchCurrentUser()
       .then((profile) => {
         if (mounted && profile) {
-          const firstName = profile.first_name?.trim() || "";
-          // Filter out placeholder last names set by Auth0 defaults
-          const rawLast = profile.last_name?.trim() || "";
-          const lastName = rawLast.toLowerCase() === "user" ? "" : rawLast;
-          const paymentMethods = profile.payment_methods ?? [];
-          const defaultPaymentMethod =
-            paymentMethods.find((method) => method.is_default) ??
-            paymentMethods[0] ??
-            null;
-          const normalizePct = (value: number | undefined) => {
-            if (typeof value !== "number" || Number.isNaN(value)) return null;
-            const pct = value <= 1 ? value * 100 : value;
-            return Math.max(0, Math.min(pct, 100));
-          };
-          const monthlyPctFromApi = normalizePct(profile.usage?.monthly_used_pct);
-
-          setUser({
-            email: profile.email,
-            firstName: firstName,
-            lastName: lastName,
-            name:
-              [firstName, lastName].filter(Boolean).join(" ") ||
-              profile.email ||
-              null,
-            phoneNumber: profile.phone_number ?? null,
-            planType: profile.plan_type ?? null,
-            planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
-            subscriptionStatus: profile.subscription_status ?? null,
-            currentPeriodEnd: profile.current_period_end ?? null,
-            cancelAtPeriodEnd: profile.cancel_at_period_end ?? false,
-            paymentMethods,
-            defaultPaymentMethod,
-            invoices: profile.invoices ?? [],
-            upcomingInvoice: profile.upcoming_invoice ?? null,
-            usage: profile.usage ?? null,
-            billingPortalUrl: profile.billing_portal_url ?? null,
-            budget: profile.usage ? String(profile.usage.monthly_limit) : null,
-            budgetUsed: profile.usage ? String(profile.usage.monthly_used) : null,
-            budgetRemaining: profile.usage ? String(profile.usage.monthly_remaining) : null,
-            budgetConsumedPercent:
-              monthlyPctFromApi !== null
-                ? monthlyPctFromApi
-                : profile.usage && profile.usage.monthly_limit > 0
-                ? Math.min(
-                    (profile.usage.monthly_used / profile.usage.monthly_limit) * 100,
-                    100,
-                  )
-                : 0,
-            dailyBudgetUsed: profile.usage ? String(profile.usage.daily_used) : null,
-            dailyBudgetLimit: profile.usage ? String(profile.usage.daily_limit) : null,
-            dailyBudgetAvailable: profile.usage
-              ? String(profile.usage.daily_remaining)
-              : null,
-          });
+          setUser(mapProfileToUser(profile));
         }
       })
       .catch((error) => {
@@ -209,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setJwtToken,
       clearAuth,
       logout,
+      refreshUser,
     }),
     [
       user,
@@ -218,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setJwtToken,
       clearAuth,
       logout,
+      refreshUser,
     ],
   );
 

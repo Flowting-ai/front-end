@@ -40,6 +40,7 @@ export default function Page() {
               height={500}
               alt="Souvenir Logo"
               className="w-14 h-14"
+              unoptimized
             />
             <h3 className="font-besley text-4xl text-black">
               Which role fits you best?

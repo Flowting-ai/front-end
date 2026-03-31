@@ -2,51 +2,69 @@
 
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AlertTriangle, Check, Loader2, XCircle } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  cancelSubscription,
+  createCheckoutSession,
+  updateSubscriptionPlan,
+  type UserPlanType,
+} from "@/lib/api/user";
+import { toast } from "@/lib/toast-helper";
+
+const PLAN_OPTIONS: { id: UserPlanType; label: string; monthlyPrice: number }[] =
+  [
+    { id: "standard", label: "Standard", monthlyPrice: 12 },
+    { id: "pro", label: "Pro", monthlyPrice: 25 },
+    { id: "power", label: "Power", monthlyPrice: 100 },
+  ];
 
 export default function SettingsUsageAndBillingPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
-  const [isRedirectingToPricing, setIsRedirectingToPricing] = useState(false);
+
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [changingToPlan, setChangingToPlan] = useState<UserPlanType | null>(null);
+
   const now = new Date();
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
   ];
 
   const currentYear = now.getFullYear();
   const nextMonthName = monthNames[(now.getMonth() + 1) % 12];
+
   const normalizedPlanType = user?.planType ?? null;
   const hasActiveSubscription = Boolean(normalizedPlanType);
   const subscriptionStatus = user?.subscriptionStatus ?? (hasActiveSubscription ? "active" : "none");
   const cancelAtPeriodEnd = user?.cancelAtPeriodEnd ?? false;
+
   const planLabel =
     normalizedPlanType === "power"
       ? "Power"
       : normalizedPlanType === "pro"
-      ? "Pro"
-      : normalizedPlanType === "standard"
-        ? "Standard"
-        : "No Plan";
+        ? "Pro"
+        : normalizedPlanType === "standard"
+          ? "Standard"
+          : "No Plan";
 
   const formatDate = (value: unknown) => {
     if (!value) return "-";
-    if (typeof value !== "string" && typeof value !== "number") {
-      return "-";
-    }
+    if (typeof value !== "string" && typeof value !== "number") return "-";
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "-";
     return parsed.toLocaleDateString(undefined, {
@@ -73,24 +91,208 @@ export default function SettingsUsageAndBillingPage() {
     return Math.max(0, Math.min(pct, 100));
   };
 
-  const handleGoToPricing = () => {
-    if (isRedirectingToPricing) return;
-    setIsRedirectingToPricing(true);
-    router.push("/onboarding/pricing");
+  const handleCancelSubscription = async () => {
+    setIsCanceling(true);
+    try {
+      await cancelSubscription();
+      setShowCancelConfirm(false);
+      toast.success("Subscription canceled", {
+        description: `Your plan will remain active until ${formatDate(user?.currentPeriodEnd)}.`,
+      });
+      await refreshUser();
+    } catch (err) {
+      toast.error("Failed to cancel subscription", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setIsCanceling(false);
+    }
   };
 
-  const handleBillingAction = () => {
-    if (user?.billingPortalUrl) {
-      window.location.href = user.billingPortalUrl;
-      return;
+  const handleChangePlan = async (planType: UserPlanType) => {
+    setChangingToPlan(planType);
+    try {
+      if (hasActiveSubscription) {
+        const result = await updateSubscriptionPlan(planType);
+        if ("checkout_url" in result) {
+          window.location.href = result.checkout_url;
+          return;
+        }
+        setShowChangePlan(false);
+        toast.success("Plan updated", {
+          description: `You are now on the ${result.new_plan} plan.`,
+        });
+        await refreshUser();
+      } else {
+        const checkout = await createCheckoutSession(planType);
+        window.location.href = checkout.checkout_url;
+      }
+    } catch (err) {
+      toast.error("Failed to update plan", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setChangingToPlan(null);
     }
-    handleGoToPricing();
   };
+
+  // Status banners
+  const showPastDueBanner = subscriptionStatus === "past_due";
+  const showUnpaidBanner = subscriptionStatus === "unpaid";
+  const showCanceledBanner =
+    subscriptionStatus === "canceled" && !cancelAtPeriodEnd;
+  const showCancelAtEndBanner =
+    cancelAtPeriodEnd && subscriptionStatus !== "canceled";
 
   return (
     <AppLayout>
+      <>
+      {/* Cancel confirmation dialog */}
+      <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <DialogContent className="max-w-md bg-white p-6">
+          <DialogHeader>
+            <DialogTitle className="text-[#171717]">Cancel subscription?</DialogTitle>
+            <DialogDescription className="text-[#6B7280]">
+              Your plan will stay active until{" "}
+              <span className="font-medium text-[#171717]">
+                {formatDate(user?.currentPeriodEnd)}
+              </span>
+              . After that, you will lose access to paid features.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelConfirm(false)}
+              disabled={isCanceling}
+              className="border-[#E5E5E5] text-[#171717] hover:bg-[#F5F5F5]"
+            >
+              Keep plan
+            </Button>
+            <Button
+              onClick={handleCancelSubscription}
+              disabled={isCanceling}
+              className="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
+            >
+              {isCanceling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Canceling…
+                </>
+              ) : (
+                "Yes, cancel"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change plan dialog */}
+      <Dialog open={showChangePlan} onOpenChange={setShowChangePlan}>
+        <DialogContent className="max-w-md bg-white p-6">
+          <DialogHeader>
+            <DialogTitle className="text-[#171717]">Change plan</DialogTitle>
+            <DialogDescription className="text-[#6B7280]">
+              Select a new plan. Changes take effect immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 mt-2">
+            {PLAN_OPTIONS.map((plan) => {
+              const isCurrent = normalizedPlanType === plan.id;
+              const isLoading = changingToPlan === plan.id;
+              return (
+                <button
+                  key={plan.id}
+                  disabled={isCurrent || changingToPlan !== null}
+                  onClick={() => handleChangePlan(plan.id)}
+                  className={`flex items-center justify-between rounded-[8px] border px-4 py-3 text-left transition-colors ${
+                    isCurrent
+                      ? "border-[#171717] bg-[#F5F5F5] cursor-default"
+                      : "border-[#E5E5E5] hover:border-[#171717] hover:bg-[#FAFAFA] cursor-pointer"
+                  } disabled:opacity-60`}
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[#171717]">{plan.label}</p>
+                    <p className="text-xs text-[#6B7280]">${plan.monthlyPrice}/mo</p>
+                  </div>
+                  {isCurrent ? (
+                    <span className="text-xs font-medium text-[#6B7280]">Current</span>
+                  ) : isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-[#171717]" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="w-full h-full flex justify-center items-start py-10 px-4 overflow-y-auto customScrollbar2">
         <div className="w-full max-w-4xl flex flex-col gap-4">
+
+          {/* Status banners */}
+          {showPastDueBanner && (
+            <div className="flex items-start gap-3 rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-3 text-[#991B1B]">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Payment past due</p>
+                <p className="text-xs mt-0.5">
+                  Your last payment failed. Please update your payment method to
+                  keep your subscription active.
+                </p>
+              </div>
+            </div>
+          )}
+          {showUnpaidBanner && (
+            <div className="flex items-start gap-3 rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-3 text-[#991B1B]">
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Invoice unpaid</p>
+                <p className="text-xs mt-0.5">
+                  Your invoice is unpaid. Update your payment method to restore
+                  access.
+                </p>
+              </div>
+            </div>
+          )}
+          {showCanceledBanner && (
+            <div className="flex items-start gap-3 rounded-[8px] border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-[#92400E]">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Subscription canceled</p>
+                <p className="text-xs mt-0.5">
+                  Your subscription has ended. Subscribe to a plan to restore
+                  access.
+                </p>
+              </div>
+            </div>
+          )}
+          {showCancelAtEndBanner && (
+            <div className="flex items-start gap-3 rounded-[8px] border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-[#92400E]">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Plan cancels at period end</p>
+                <p className="text-xs mt-0.5">
+                  Your plan will be canceled on{" "}
+                  <span className="font-medium">{formatDate(user?.currentPeriodEnd)}</span>.
+                  You will not be charged again.
+                </p>
+              </div>
+            </div>
+          )}
+          {subscriptionStatus === "incomplete" && (
+            <div className="flex items-start gap-3 rounded-[8px] border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3 text-[#92400E]">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Payment pending</p>
+                <p className="text-xs mt-0.5">
+                  Your subscription payment is being processed. This usually
+                  resolves in a few minutes — refresh the page to check.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Current plan summary */}
           <div className="flex flex-col gap-4">
             <div className="text-[#F5F5F5] bg-[#2C2C2C] border border-[#767676] rounded-[8px] flex justify-between px-4 py-3">
@@ -104,18 +306,26 @@ export default function SettingsUsageAndBillingPage() {
                     : "No active subscription"}
                 </p>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center gap-2">
+                {hasActiveSubscription && !cancelAtPeriodEnd && subscriptionStatus === "active" && (
+                  <Button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="h-auto px-4 py-2 rounded-[8px] bg-transparent border border-[#767676] text-[#B3B3B3] hover:bg-[#3C3C3C] hover:text-white"
+                  >
+                    Cancel plan
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  onClick={handleBillingAction}
-                  disabled={isRedirectingToPricing}
+                  onClick={() =>
+                    hasActiveSubscription
+                      ? setShowChangePlan(true)
+                      : router.push("/onboarding/pricing")
+                  }
                   className="h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
                 >
-                  {isRedirectingToPricing
-                    ? "Opening Pricing..."
-                    : user?.billingPortalUrl
-                      ? "Manage Plan"
-                      : "Update Plan"}
+                  {hasActiveSubscription ? "Change plan" : "Get a plan"}
                 </Button>
               </div>
             </div>
@@ -143,7 +353,7 @@ export default function SettingsUsageAndBillingPage() {
             </div>
           </div>
 
-          {/* Token usage */}
+          {/* Daily usage */}
           {(() => {
             const usage = user?.usage;
             const dailyPct =
@@ -210,7 +420,7 @@ export default function SettingsUsageAndBillingPage() {
             );
           })()}
 
-          {/* Storage usage */}
+          {/* Monthly usage */}
           {(() => {
             const monthlyPct =
               user?.usage?.monthly_used_pct !== undefined
@@ -275,12 +485,13 @@ export default function SettingsUsageAndBillingPage() {
           {/* Add more usage */}
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
-              <p className="font-medium text-base  text-black">Add more Tokens</p>
-              <p className="text-sm text-[#757575]">
-                Need more usage this month?
-              </p>
+              <p className="font-medium text-base text-black">Add more Tokens</p>
+              <p className="text-sm text-[#757575]">Need more usage this month?</p>
             </div>
-            <Button className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]">
+            <Button
+              onClick={() => router.push("/onboarding/pricing")}
+              className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
+            >
               Add more Usage
             </Button>
           </div>
@@ -294,37 +505,58 @@ export default function SettingsUsageAndBillingPage() {
               </p>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                {user?.defaultPaymentMethod ? (
-                  <>
-                    <p className="text-sm font-medium text-black">
-                      {user.defaultPaymentMethod.brand.toUpperCase()} ending in {user.defaultPaymentMethod.last4}
-                    </p>
-                    <p className="text-xs text-[#757575]">
-                      Expires {String(user.defaultPaymentMethod.exp_month).padStart(2, "0")}/{user.defaultPaymentMethod.exp_year}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-black">No payment method</p>
-                    <p className="text-xs text-[#757575]">Add a paid plan to attach a card</p>
-                  </>
+            {user?.paymentMethods && user.paymentMethods.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {user.paymentMethods.map((pm) => (
+                  <div
+                    key={pm.id}
+                    className="flex items-center justify-between rounded-[8px] border border-[#E5E5E5] px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-sm font-medium text-black">
+                        {pm.brand.toUpperCase()} ending in {pm.last4}
+                        {pm.is_default && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-[#F0FDF4] px-2 py-0.5 text-xs font-medium text-[#15803D]">
+                            Default
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-[#757575]">
+                        Expires {String(pm.exp_month).padStart(2, "0")}/{pm.exp_year}
+                        {pm.funding && ` • ${pm.funding}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {user.billingPortalUrl && (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = user.billingPortalUrl!;
+                      }}
+                      className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
+                    >
+                      Manage Billing
+                    </Button>
+                  </div>
                 )}
               </div>
-              <Button
-                type="button"
-                onClick={handleBillingAction}
-                disabled={isRedirectingToPricing}
-                className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
-              >
-                {isRedirectingToPricing
-                  ? "Opening Pricing..."
-                  : user?.billingPortalUrl
-                    ? "Manage Billing"
-                    : "Change Card"}
-              </Button>
-            </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-black">No payment method</p>
+                  <p className="text-xs text-[#757575]">Add a paid plan to attach a card</p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => router.push("/onboarding/pricing")}
+                  className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
+                >
+                  Add a plan
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Invoice history */}
@@ -364,10 +596,18 @@ export default function SettingsUsageAndBillingPage() {
                             {invoice.number ? `${invoice.number} • ` : ""}
                             {formatDate(invoice.created)}
                           </td>
-                          <td className="px-4 py-2">{formatAmount(invoice.amount_paid, invoice.currency)}</td>
                           <td className="px-4 py-2">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#F5F5F5] px-2 py-1 text-xs font-medium text-[#14AE5C]">
-                              <Check className="h-3 w-3" />
+                            {formatAmount(invoice.amount_paid, invoice.currency)}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                                invoice.paid
+                                  ? "bg-[#F0FDF4] text-[#15803D]"
+                                  : "bg-[#FEF2F2] text-[#DC2626]"
+                              }`}
+                            >
+                              {invoice.paid && <Check className="h-3 w-3" />}
                               {invoice.status}
                             </span>
                           </td>
@@ -391,6 +631,7 @@ export default function SettingsUsageAndBillingPage() {
           </div>
         </div>
       </div>
+      </>
     </AppLayout>
   );
 }

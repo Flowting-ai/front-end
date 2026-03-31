@@ -1,16 +1,24 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import React, { useCallback, useState, Suspense } from "react";
+import React, { useCallback, useEffect, useState, Suspense } from "react";
 import { CheckCircle } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
 
 function ConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const plan = searchParams.get("plan") ?? "your";
   const billing = searchParams.get("billing");
+
+  // Fetch fresh user data as soon as the page mounts so the webhook has a
+  // chance to have processed by the time the user clicks "Continue".
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
 
   const handleContinue = useCallback(async () => {
     setLoading(true);
@@ -19,8 +27,12 @@ function ConfirmationContent() {
     } catch {
       // Cookie will be set server-side; if it fails, proxy will redirect back
     }
+    // Refresh once more before navigating so the app shell sees the updated
+    // plan immediately. If the webhook hasn't fired yet this is a no-op —
+    // the auth context will re-fetch again on the next page mount.
+    await refreshUser();
     router.push("/");
-  }, [router]);
+  }, [router, refreshUser]);
 
   const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
   const billingLabel = billing === "annual" ? "Annual" : "Monthly";
@@ -51,9 +63,10 @@ function ConfirmationContent() {
         <button
           type="button"
           onClick={handleContinue}
-          className="font-geist w-full max-w-xs cursor-pointer bg-black text-[#F2F2F0] rounded-[8px] py-3 text-sm font-medium hover:bg-[#0A0A0A] transition-colors"
+          disabled={loading}
+          className="font-geist w-full max-w-xs cursor-pointer bg-black text-[#F2F2F0] rounded-[8px] py-3 text-sm font-medium hover:bg-[#0A0A0A] transition-colors disabled:opacity-60"
         >
-          Continue to App
+          {loading ? "Setting up your workspace…" : "Continue to App"}
         </button>
       </div>
     </section>

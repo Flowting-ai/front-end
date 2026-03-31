@@ -216,7 +216,7 @@ export async function createCheckoutSession(
 
 export async function updateSubscriptionPlan(
   plan_type: UserPlanType,
-): Promise<UpdateSubscriptionResponse> {
+): Promise<UpdateSubscriptionResponse | CheckoutSessionResponse> {
   const response = await apiFetch(USER_SUBSCRIPTION_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify({ plan_type }),
@@ -224,13 +224,28 @@ export async function updateSubscriptionPlan(
 
   const data = (await response.json()) as
     | UpdateSubscriptionResponse
+    | CheckoutSessionResponse
     | { error?: string };
 
-  if (!response.ok || !("new_plan" in data)) {
+  if (!response.ok) {
     throw new Error(
       ("error" in data && data.error) || "Failed to update subscription.",
     );
   }
 
-  return data;
+  return data as UpdateSubscriptionResponse | CheckoutSessionResponse;
+}
+
+export async function cancelSubscription(): Promise<{ status: string }> {
+  const response = await apiFetch(USER_SUBSCRIPTION_ENDPOINT, {
+    method: "DELETE",
+  });
+
+  const data = (await response.json()) as { status?: string; detail?: string };
+
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to cancel subscription.");
+  }
+
+  return { status: data.status ?? "canceled" };
 }

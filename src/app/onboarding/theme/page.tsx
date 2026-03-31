@@ -25,6 +25,7 @@ export default function Page() {
               height={500}
               alt="Souvenir Logo"
               className="w-14 h-14"
+              unoptimized
             />
 
             <h3 className="font-besley text-4xl text-black">Pick Your Style</h3>
@@ -67,6 +68,7 @@ export default function Page() {
                   height={500}
                   alt="Souvenir Logo"
                   className="w-12 h-12"
+                  unoptimized
                 />
               </div>
             </label>
@@ -96,6 +98,7 @@ export default function Page() {
                   height={500}
                   alt="Souvenir Logo"
                   className="w-12 h-12"
+                  unoptimized
                 />
               </div>
             </label>
