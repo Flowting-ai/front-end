@@ -1,5 +1,6 @@
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 import { NextResponse } from "next/server";
+
 const audience = process.env.AUTH0_AUDIENCE?.trim();
 
 export const auth0 = new Auth0Client({
@@ -10,7 +11,7 @@ export const auth0 = new Auth0Client({
    * - Always send users to the app shell; middleware will route to onboarding
    *   if the backend says onboarding is incomplete.
    */
-  onCallback: async (error, ctx, session) => {
+  onCallback: async (error) => {
     const baseUrl = process.env.AUTH0_BASE_URL!;
 
     if (error) {

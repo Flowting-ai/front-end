@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import {
+  ArrowLeft,
   Building2,
   GraduationCap,
   Brush,
@@ -13,6 +14,7 @@ import {
   ChartNoAxesCombined,
   UsersRound,
 } from "lucide-react";
+import Link from "next/link";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { updateOnboardingState } from "@/lib/api/onboarding";
@@ -128,6 +130,14 @@ export default function Page() {
               Continue
             </button>
           </div>
+
+          <Link
+            href="https://getsouvenir.com/"
+            className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
+          >
+            <ArrowLeft size={16} strokeWidth={1.5} />
+            Log out &amp; return to website
+          </Link>
         </div>
       </div>
     </section>
