@@ -99,6 +99,7 @@ interface ChatInterfaceProps {
   };
   disablePinning?: boolean;
   disableSources?: boolean;
+  onBeforePersonaTest?: () => Promise<string | null>;
 }
 
 type MessageAvatar = Pick<Message, "avatarUrl" | "avatarHint">;
@@ -396,6 +397,7 @@ export function ChatInterface({
   personaTestConfig,
   disablePinning = false,
   disableSources = false,
+  onBeforePersonaTest,
 }: ChatInterfaceProps) {
   const layoutContext = useContext(AppLayoutContext);
   const [input, setInput] = useState("");
@@ -1045,11 +1047,18 @@ export function ChatInterface({
       }
 
       const isPersonaTest = Boolean(personaTestConfig);
+
+      // If persona test but no ID yet, call the callback to create/save the persona first
+      let resolvedPersonaId = personaTestConfig?.personaId ?? null;
+      if (isPersonaTest && !resolvedPersonaId && onBeforePersonaTest) {
+        resolvedPersonaId = await onBeforePersonaTest();
+      }
+
       const isExistingChat = Boolean(
         !isPersonaTest && chatId && !chatId.startsWith("temp-"),
       );
-      const endpoint = isPersonaTest && personaTestConfig?.personaId
-        ? `${API_BASE_URL}/persona/${personaTestConfig.personaId}/test`
+      const endpoint = isPersonaTest && resolvedPersonaId
+        ? `${API_BASE_URL}/persona/${resolvedPersonaId}/test`
         : isExistingChat && chatId
           ? `${API_BASE_URL}/chats/${chatId}/stream`
           : `${API_BASE_URL}/chats/create`;

@@ -671,33 +671,49 @@ function PersonaConfigurePageContent() {
     console.debug("Share clicked");
   };
 
+  /** Creates or updates the persona and returns its ID. Used before persona test chat. */
+  const savePersonaForTest = async (): Promise<string | null> => {
+    try {
+      let imageFile = uploadedFiles.find((f) => f.type === "image")?.file;
+      if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
+        imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
+      }
+      const personaPayload = {
+        name: personaName.trim(),
+        prompt: currentInstruction.trim(),
+        model_id: String(
+          resolvedSelectedModel?.modelId ??
+          resolvedSelectedModel?.id ??
+          (Number.isFinite(Number(selectedModel)) ? Number(selectedModel) : "")
+        ),
+        status: "test" as const,
+        temperature: temperature[0],
+        image: imageFile,
+      };
+      const documentFile = uploadedFiles.find((f) => f.type === "pdf")?.file;
+
+      if (createdPersonaId) {
+        await updatePersona(createdPersonaId, { ...personaPayload, file: documentFile });
+        return createdPersonaId;
+      } else {
+        const result = await createPersona({ ...personaPayload, file: documentFile });
+        setCreatedPersonaId(result.id);
+        return result.id;
+      }
+    } catch (error) {
+      console.error("Error saving persona for test:", error);
+      toast.error("Error", { description: "Failed to save persona. Please try again." });
+      return null;
+    }
+  };
+
   const handleSaveToTest = async () => {
     if (!isPersonaReady) return;
 
     setIsSaving(true);
     try {
-      // Collect all persona data for testing
-      const personaData = {
-        name: personaName,
-        model: selectedModel,
-        systemInstruction: currentInstruction,
-        temperature: temperature[0],
-        knowledgeFiles: uploadedFiles.map((f) => ({
-          id: f.id,
-          name: f.name,
-          url: f.url,
-          type: f.type,
-        })),
-        tone: selectedTone,
-        dos: [...selectedDos, dosText].filter(Boolean),
-        donts: [...selectedDonts, dontsText].filter(Boolean),
-      };
-
-      console.debug("Saving persona for testing:", personaData);
-
-      // Enable testing mode
+      await savePersonaForTest();
       setIsTesting(true);
-
       toast("Ready to test", {
         description: "You can now test your persona in the chat!",
       });
@@ -931,6 +947,7 @@ function PersonaConfigurePageContent() {
                 hideAttachButton={true}
                 disablePinning={true}
                 disableSources={true}
+                onBeforePersonaTest={savePersonaForTest}
                 personaTestConfig={{
                   personaId: createdPersonaId ?? undefined,
                   prompt: currentInstruction,
@@ -2341,6 +2358,7 @@ function PersonaConfigurePageContent() {
                         hideAttachButton={true}
                         disablePinning={true}
                         disableSources={true}
+                        onBeforePersonaTest={savePersonaForTest}
                         personaTestConfig={
                           isTesting || isChatMode
                             ? {
