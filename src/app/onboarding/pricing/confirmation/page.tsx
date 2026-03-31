@@ -14,9 +14,11 @@ function ConfirmationContent() {
   const plan = searchParams.get("plan") ?? "your";
   const billing = searchParams.get("billing");
 
-  // Fetch fresh user data as soon as the page mounts so the webhook has a
-  // chance to have processed by the time the user clicks "Continue".
+  // Mark onboarding complete as soon as the user lands here (Stripe redirect).
+  // This ensures the cookie is set even if the user closes the tab before
+  // clicking "Continue", which previously caused the login loop back to onboarding.
   useEffect(() => {
+    fetch("/api/onboarding/complete", { method: "POST" }).catch(() => {});
     void refreshUser();
   }, [refreshUser]);
 

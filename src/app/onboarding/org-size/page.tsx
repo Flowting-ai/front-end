@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useMemo, useState } from "react";
-import { Building2, User, UsersRound } from "lucide-react";
+import { ArrowLeft, Building2, User, UsersRound } from "lucide-react";
+import Link from "next/link";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -89,6 +90,14 @@ export default function Page() {
               Continue
             </button>
           </div>
+
+          <Link
+            href="/api/auth/logout?returnTo=https://getsouvenir.com"
+            className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
+          >
+            <ArrowLeft size={16} strokeWidth={1.5} />
+            Log out &amp; return to website
+          </Link>
         </div>
       </div>
     </section>

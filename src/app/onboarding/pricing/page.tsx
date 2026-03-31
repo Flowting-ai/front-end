@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import Link from "next/link";
 import gsap from "gsap";
 import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
@@ -407,6 +408,14 @@ const PricingPage = () => {
             </button>
           </div>
         </section> */}
+
+        <Link
+          href="/api/auth/logout?returnTo=https://getsouvenir.com"
+          className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
+        >
+          <ArrowLeft size={16} strokeWidth={1.5} />
+          Log out &amp; return to website
+        </Link>
       </div>
     </section>
   );
