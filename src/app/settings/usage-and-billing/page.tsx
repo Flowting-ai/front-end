@@ -323,11 +323,7 @@ export default function SettingsUsageAndBillingPage() {
                 )}
                 <Button
                   type="button"
-                  onClick={() =>
-                    hasActiveSubscription
-                      ? setShowChangePlan(true)
-                      : router.push("/onboarding/pricing")
-                  }
+                  onClick={() => router.push("/onboarding/pricing")}
                   className="h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
                 >
                   {hasActiveSubscription ? "Change plan" : "Get a plan"}
