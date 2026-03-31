@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
+import { updateOnboardingState } from "@/lib/api/onboarding";
+import { getOnboardingRoute } from "@/lib/onboarding";
 
 type ToneChoice =
   | "professional"
@@ -41,11 +43,26 @@ export default function Page() {
   const router = useRouter();
   const [tone, setTone] = useState<ToneChoice>("balanced");
   const [customTone, setCustomTone] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const nextHref = useMemo(() => "/onboarding/org-size", []);
-
-  const onContinue = () => {
-    router.push(nextHref);
+  const onContinue = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const toneValue = tone === "other" ? customTone.trim() : tone;
+      const updated = await updateOnboardingState({ ai_tone: toneValue || null });
+      if (updated) {
+        router.push(
+          getOnboardingRoute(updated.metadata.next_step, updated.completed),
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to update onboarding tone", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+    router.push("/onboarding/org-size");
   };
 
   const showCustom = tone === "other";
@@ -126,15 +143,17 @@ export default function Page() {
           <div className="w-full max-w-4xl flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => router.push(nextHref)}
-              className="cursor-pointer h-10 px-5 rounded-[8px] border border-black text-black bg-transparent hover:bg-white transition-colors"
+              onClick={onContinue}
+              disabled={isSubmitting}
+              className="cursor-pointer h-10 px-5 rounded-[8px] border border-black text-black bg-transparent hover:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Skip
             </button>
             <button
               type="button"
               onClick={onContinue}
-              className="cursor-pointer h-10 px-6 rounded-[8px] border border-black bg-black text-white hover:bg-[#0A0A0A] transition-colors"
+              disabled={isSubmitting}
+              className="cursor-pointer h-10 px-6 rounded-[8px] border border-black bg-black text-white hover:bg-[#0A0A0A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Continue
             </button>

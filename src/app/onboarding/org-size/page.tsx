@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Building2, User, UsersRound } from "lucide-react";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { updateOnboardingState } from "@/lib/api/onboarding";
+import { getOnboardingRoute } from "@/lib/onboarding";
 
 type OrgSizeChoice = "just_me" | "2_10" | "10_plus";
 
@@ -22,11 +24,25 @@ const ORG_OPTIONS: Array<{
 export default function Page() {
   const router = useRouter();
   const [orgSize, setOrgSize] = useState<OrgSizeChoice>("just_me");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const nextHref = useMemo(() => "/onboarding/pricing", []);
-
-  const onContinue = () => {
-    router.push(nextHref);
+  const onContinue = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const updated = await updateOnboardingState({ role_fit: orgSize });
+      if (updated) {
+        router.push(
+          getOnboardingRoute(updated.metadata.next_step, updated.completed),
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to update onboarding role fit", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+    router.push("/onboarding/pricing");
   };
 
   return (
@@ -76,15 +92,17 @@ export default function Page() {
           <div className="w-full max-w-3xl flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={() => router.push(nextHref)}
-              className="cursor-pointer h-10 px-5 rounded-[8px] border border-black text-black bg-transparent hover:bg-white transition-colors"
+              onClick={onContinue}
+              disabled={isSubmitting}
+              className="cursor-pointer h-10 px-5 rounded-[8px] border border-black text-black bg-transparent hover:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Skip
             </button>
             <button
               type="button"
               onClick={onContinue}
-              className="cursor-pointer h-10 px-6 rounded-[8px] border border-black bg-black text-white hover:bg-[#0A0A0A] transition-colors"
+              disabled={isSubmitting}
+              className="cursor-pointer h-10 px-6 rounded-[8px] border border-black bg-black text-white hover:bg-[#0A0A0A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Continue
             </button>

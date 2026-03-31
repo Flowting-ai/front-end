@@ -1,14 +1,37 @@
 import { auth0 } from "@/lib/auth0";
 
-/** Turn an Auth0 sub like "auth0|abc123" into a safe cookie name. */
-function onboardingCookieName(sub: string): string {
-  return `ob_${sub.replace(/[^a-zA-Z0-9]/g, "_")}`;
-}
+type OnboardingCheck = {
+  completed: boolean;
+};
 
-function cookieExists(request: Request, name: string): boolean {
-  return (request.headers.get("cookie") ?? "")
-    .split(";")
-    .some((c) => c.trim().startsWith(`${name}=`));
+const apiBaseUrl = process.env.SERVER_URL?.replace(/\/+$/, "");
+const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
+
+async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
+  try {
+    if (!apiBaseUrl) return null;
+    const { token } = await auth0.getAccessToken({ audience });
+    if (!token) return null;
+
+    const response = await fetch(`${apiBaseUrl}/users/me/onboarding`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return null;
+    const data = (await response.json()) as Record<string, unknown>;
+    const root =
+      (data.data && typeof data.data === "object"
+        ? data.data
+        : data.onboarding && typeof data.onboarding === "object"
+          ? data.onboarding
+          : data) as Record<string, unknown>;
+
+    return { completed: Boolean(root.completed) };
+  } catch (error) {
+    console.error("Failed to fetch onboarding state", error);
+    return null;
+  }
 }
 
 export default async function proxy(request: Request) {
@@ -24,13 +47,11 @@ export default async function proxy(request: Request) {
     return await auth0.middleware(request);
   }
 
-  // Get the current Auth0 session (needed for per-user onboarding check)
+  // Get the current Auth0 session (needed for onboarding check)
   const session = await auth0.getSession();
-  const sub = session?.user?.sub as string | undefined;
-
-  // Onboarding is complete only if this specific user's cookie exists
-  const hasOnboarded = !!(sub && cookieExists(request, onboardingCookieName(sub)));
-  const isPricingPage = pathname === "/onboarding/pricing";
+  const onboarding = session ? await fetchOnboardingState() : null;
+  const hasOnboarded = onboarding?.completed ?? false;
+  const isPricingPage = pathname.startsWith("/onboarding/pricing");
 
   // If the user already completed onboarding, don't let them back into the
   // onboarding flow — even if they type the URL manually.

@@ -23,14 +23,13 @@ function ConfirmationContent() {
   const handleContinue = useCallback(async () => {
     setLoading(true);
     try {
-      await fetch("/api/onboarding/complete", { method: "POST" });
-    } catch {
-      // Cookie will be set server-side; if it fails, proxy will redirect back
+      // Refresh once more before navigating so the app shell sees the updated
+      // plan immediately. If the webhook hasn't fired yet this is a no-op --
+      // the auth context will re-fetch again on the next page mount.
+      await refreshUser();
+    } finally {
+      setLoading(false);
     }
-    // Refresh once more before navigating so the app shell sees the updated
-    // plan immediately. If the webhook hasn't fired yet this is a no-op —
-    // the auth context will re-fetch again on the next page mount.
-    await refreshUser();
     router.push("/");
   }, [router, refreshUser]);
 
@@ -86,3 +85,4 @@ export default function ConfirmationPage() {
     </Suspense>
   );
 }
+

@@ -134,6 +134,40 @@ const toOptionalTrimmedString = (value: unknown): string | null => {
 const UUID_V4_LIKE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const normalizeImageUrlForDedup = (url: string): string => {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    parsed.search = "";
+    parsed.hash = "";
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return trimmed;
+  }
+};
+
+const shouldReplaceImageUrl = (existingUrl: string, incomingUrl: string): boolean => {
+  const existing = existingUrl.trim();
+  const incoming = incomingUrl.trim();
+  if (!existing) return true;
+  const isEphemeral = (value: string) =>
+    value.startsWith("blob:") || value.startsWith("data:");
+  if (isEphemeral(existing) && !isEphemeral(incoming)) return true;
+  if (!isEphemeral(existing) && isEphemeral(incoming)) return false;
+  try {
+    const existingHasQuery = new URL(existing).search.length > 0;
+    const incomingHasQuery = new URL(incoming).search.length > 0;
+    if (existingHasQuery && !incomingHasQuery) return true;
+  } catch {
+    // ignore URL parse errors
+  }
+  return false;
+};
+
 const normalizeUuidReference = (value: unknown): string | null => {
   if (value === null || value === undefined) return null;
   const raw = String(value).trim();
@@ -1319,12 +1353,30 @@ export function ChatInterface({
               : msg.imageUrl
                 ? [{ url: msg.imageUrl, alt: msg.imageAlt }]
                 : [];
-            const seen = new Set(existing.map((img) => img.url));
             const merged = [...existing];
+            const indexByKey = new Map<string, number>();
+            merged.forEach((img, idx) => {
+              const key = normalizeImageUrlForDedup(img.url);
+              if (key) indexByKey.set(key, idx);
+            });
             incoming.forEach((img) => {
-              if (!seen.has(img.url)) {
+              const key = normalizeImageUrlForDedup(img.url);
+              if (!key) return;
+              const existingIndex = indexByKey.get(key);
+              if (existingIndex === undefined) {
                 merged.push(img);
-                seen.add(img.url);
+                indexByKey.set(key, merged.length - 1);
+                return;
+              }
+              const existingImg = merged[existingIndex];
+              if (shouldReplaceImageUrl(existingImg.url, img.url)) {
+                merged[existingIndex] = {
+                  ...existingImg,
+                  ...img,
+                  alt: img.alt ?? existingImg.alt,
+                };
+              } else if (!existingImg.alt && img.alt) {
+                merged[existingIndex] = { ...existingImg, alt: img.alt };
               }
             });
             return {
