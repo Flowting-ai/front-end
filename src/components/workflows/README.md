@@ -260,7 +260,7 @@ if (!executionOrder) {
 
 ## Environment Variables
 ```env
-NEXT_PUBLIC_API_URL=https://api.example.com  # Backend API base URL
+SERVER_URL=https://api.example.com  # Backend API base URL
 ```
 
 ## Keyboard Shortcuts

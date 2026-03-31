@@ -301,11 +301,11 @@ const LinkPreview = ({ url, label }: LinkPreviewProps) => {
         />
       </a>
       {showCard && (
-        <div
+        <span
           className="absolute left-0 bottom-full mb-2 w-72 rounded-[12px] border border-zinc-200 bg-white shadow-xl z-50 overflow-hidden"
-          style={{ pointerEvents: "none" }}
+          style={{ pointerEvents: "none", display: "block" }}
         >
-          <div className="flex items-start gap-3 p-3">
+          <span className="flex items-start gap-3 p-3" style={{ display: "flex" }}>
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[#F4F4F5] border border-zinc-200 overflow-hidden mt-0.5">
               {faviconSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -320,7 +320,7 @@ const LinkPreview = ({ url, label }: LinkPreviewProps) => {
                 </span>
               )}
             </span>
-            <div className="flex flex-col min-w-0 gap-0.5">
+            <span className="flex flex-col min-w-0 gap-0.5" style={{ display: "flex" }}>
               <span className="text-[13px] font-semibold text-[#111827] line-clamp-2">
                 {preview?.title || label || hostname}
               </span>
@@ -333,9 +333,9 @@ const LinkPreview = ({ url, label }: LinkPreviewProps) => {
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 {hostname}
               </span>
-            </div>
-          </div>
-        </div>
+            </span>
+          </span>
+        </span>
       )}
     </span>
   );

@@ -2,13 +2,11 @@
 
 import { Check, Loader2 } from "lucide-react";
 import gsap from "gsap";
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   createCheckoutSession,
   type UserPlanType,
 } from "@/lib/api/user";
-
-type BillingPlan = "monthly" | "annual";
 
 export type CardConfig = {
   id: "starter" | "pro" | "power";
@@ -83,11 +81,10 @@ export const CARD_CONFIG: CardConfig[] = [
 ];
 
 const PricingPage = () => {
-  const [billing, setBilling] = useState<BillingPlan>("monthly");
   const [loadingPlan, setLoadingPlan] = useState<CardConfig["id"] | null>(null);
 
   const toApiPlanType = (planId: CardConfig["id"]): UserPlanType => {
-    if (planId === "starter") return "standard";
+    if (planId === "starter") return "starter";
     if (planId === "pro") return "pro";
     return "power";
   };
@@ -98,7 +95,7 @@ const PricingPage = () => {
       try {
         const selectedPlan = toApiPlanType(planId);
 
-        const checkout = await createCheckoutSession(selectedPlan);
+        const checkout = await createCheckoutSession(selectedPlan, "monthly");
         window.location.href = checkout.checkout_url;
       } catch (err) {
         console.error("Checkout error:", err);
@@ -107,7 +104,7 @@ const PricingPage = () => {
         setLoadingPlan(null);
       }
     },
-    [billing],
+    [],
   );
 
   const cardsById = useMemo(() => {
@@ -127,40 +124,11 @@ const PricingPage = () => {
     power: cardsById.power.monthlyPrice,
   }));
 
-  const toggleRef = useRef<HTMLDivElement | null>(null);
-  const sliderRef = useRef<HTMLDivElement | null>(null);
-  const monthlyBtnRef = useRef<HTMLButtonElement | null>(null);
-  const annualBtnRef = useRef<HTMLButtonElement | null>(null);
-
-  useLayoutEffect(() => {
-    const container = toggleRef.current;
-    const slider = sliderRef.current;
-    const monthlyBtn = monthlyBtnRef.current;
-    const annualBtn = annualBtnRef.current;
-    if (!container || !slider || !monthlyBtn || !annualBtn) return;
-
-    const activeBtn = billing === "monthly" ? monthlyBtn : annualBtn;
-
-    const x = activeBtn.offsetLeft;
-    const width = activeBtn.offsetWidth;
-
-    gsap.to(slider, {
-      x,
-      width,
-      duration: 0.35,
-      ease: "power3.out",
-    });
-  }, [billing]);
-
   useLayoutEffect(() => {
     const ids: CardConfig["id"][] = ["starter", "pro", "power"];
 
     ids.forEach((id) => {
-      const target =
-        billing === "annual"
-          ? cardsById[id].annualPrice
-          : cardsById[id].monthlyPrice;
-
+      const target = cardsById[id].monthlyPrice;
       const from = displayPrices[id];
       const obj = { value: from };
 
@@ -177,7 +145,7 @@ const PricingPage = () => {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billing, cardsById]);
+  }, [cardsById]);
 
   return (
     <section className="w-full h-auto bg-[#FAF9F8] flex items-center justify-center px-4 mb-10 lg:mb-20">
@@ -193,41 +161,7 @@ const PricingPage = () => {
           </p>
         </section>
 
-        {/* Section 2: Monthly / Annual toggle */}
-        <section className="font-geist flex justify-center">
-          <div
-            ref={toggleRef}
-            className="relative inline-flex items-center bg-white rounded-[12px] shadow-md px-1 py-1.5"
-          >
-            <div
-              ref={sliderRef}
-              className="absolute left-0 top-0 bottom-0 rounded-[8px] bg-[#171717] my-1.5"
-              style={{ width: "50%", transform: "translateX(0px)" }}
-            />
-            <button
-              type="button"
-              onClick={() => setBilling("monthly")}
-              ref={monthlyBtnRef}
-              className={`cursor-pointer relative z-10 px-4 py-2 text-sm font-medium rounded-[8px] transition-colors ${
-                billing === "monthly" ? "text-white" : "text-[#171717]"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setBilling("annual")}
-              ref={annualBtnRef}
-              className={`cursor-pointer relative z-10 px-4 py-2 text-sm font-medium rounded-[8px] transition-colors ${
-                billing === "annual" ? "text-white" : "text-[#171717]"
-              }`}
-            >
-              Annual
-            </button>
-          </div>
-        </section>
-
-        {/* Section 3: Pricing Cards */}
+        {/* Section 2: Pricing Cards */}
         <section className="w-full flex items-center justify-center">
           <div className="lg:min-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
             {CARD_CONFIG.map((card) => {

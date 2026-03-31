@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const baseUrl = process.env.NEXT_PUBLIC_API!;
+  const baseUrl = process.env.SERVER_URL!;
 
   const targetUrl = new URL("/chat/", baseUrl);
   const incomingHeaders = new Headers(req.headers);

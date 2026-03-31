@@ -103,7 +103,7 @@ deserializeWorkflow(dto: WorkflowDTO)
 
 #### Configuration:
 ```typescript
-BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
+BASE_URL = process.env.SERVER_URL || '/api'
 DEFAULT_TIMEOUT = 30000 (30s)
 ```
 
@@ -383,7 +383,7 @@ The workflow system is now **production-ready** with:
 
 Add to `.env.local`:
 ```env
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+SERVER_URL=https://api.yourdomain.com
 ```
 
 If not set, defaults to `/api` (Next.js API routes).

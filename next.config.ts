@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const backendUrl = new URL(process.env.NEXT_PUBLIC_API!);
+const backendUrl = new URL(process.env.SERVER_URL!);
 const backendOrigin = backendUrl.origin;
 const backendWsOrigin = `${
   backendUrl.protocol === "https:" ? "wss" : "ws"
@@ -60,6 +60,10 @@ if (process.env.NODE_ENV === "production") {
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  env: {
+    AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
+    SERVER_URL: process.env.SERVER_URL,
+  },
   images: {
     remotePatterns: backendRemotePattern,
     //adding the below two lines to fix logo svg file issues

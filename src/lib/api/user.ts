@@ -1,14 +1,15 @@
 "use client";
 
 import {
-  USER_CHECKOUT_ENDPOINT,
+  STRIPE_CHECKOUT_ENDPOINT,
+  STRIPE_SUBSCRIPTION_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
-  USER_SUBSCRIPTION_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "./client";
 
-export type UserPlanType = "standard" | "pro" | "power";
+export type UserPlanType = "starter" | "pro" | "power";
+export type BillingPlan = "monthly";
 
 export interface UserPaymentMethod {
   id: string;
@@ -84,6 +85,7 @@ export interface UserProfile {
   plan_type: UserPlanType | null;
   subscription_status?: string | null;
   current_period_end?: string | null;
+  next_billing_date?: string | null;
   cancel_at_period_end?: boolean;
   payment_methods?: UserPaymentMethod[];
   invoices?: UserInvoice[];
@@ -117,7 +119,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
     phone_number:
       typeof root.phone_number === "string" ? root.phone_number : null,
     plan_type:
-      root.plan_type === "standard" ||
+      root.plan_type === "starter" ||
       root.plan_type === "pro" ||
       root.plan_type === "power"
         ? root.plan_type
@@ -130,6 +132,14 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       typeof root.current_period_end === "string"
         ? root.current_period_end
         : null,
+    next_billing_date:
+      typeof root.next_billing_date === "string"
+        ? root.next_billing_date
+        : typeof root.next_billing_at === "string"
+          ? root.next_billing_at
+          : typeof root.next_billing === "string"
+            ? root.next_billing
+            : null,
     cancel_at_period_end: Boolean(root.cancel_at_period_end),
     payment_methods: paymentMethods,
     invoices: Array.isArray(root.invoices) ? (root.invoices as UserInvoice[]) : [],
@@ -160,6 +170,10 @@ export interface UpdateSubscriptionResponse {
   status: string;
   new_plan: UserPlanType;
 }
+
+export type UpdateSubscriptionResult =
+  | UpdateSubscriptionResponse
+  | CheckoutSessionResponse;
 
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
@@ -195,10 +209,11 @@ export async function deleteUser(): Promise<void> {
 
 export async function createCheckoutSession(
   plan_type: UserPlanType,
+  billing: BillingPlan = "monthly",
 ): Promise<CheckoutSessionResponse> {
-  const response = await apiFetch(USER_CHECKOUT_ENDPOINT, {
+  const response = await apiFetch(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ plan_type }),
+    body: JSON.stringify({ plan_type, billing }),
   });
 
   const data = (await response.json()) as
@@ -216,36 +231,35 @@ export async function createCheckoutSession(
 
 export async function updateSubscriptionPlan(
   plan_type: UserPlanType,
-): Promise<UpdateSubscriptionResponse | CheckoutSessionResponse> {
-  const response = await apiFetch(USER_SUBSCRIPTION_ENDPOINT, {
+): Promise<UpdateSubscriptionResult> {
+  const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify({ plan_type }),
   });
 
   const data = (await response.json()) as
-    | UpdateSubscriptionResponse
-    | CheckoutSessionResponse
+    | UpdateSubscriptionResult
     | { error?: string };
 
-  if (!response.ok) {
+  if (!response.ok || (!("new_plan" in data) && !("checkout_url" in data))) {
     throw new Error(
       ("error" in data && data.error) || "Failed to update subscription.",
     );
   }
 
-  return data as UpdateSubscriptionResponse | CheckoutSessionResponse;
+  return data as UpdateSubscriptionResult;
 }
 
 export async function cancelSubscription(): Promise<{ status: string }> {
-  const response = await apiFetch(USER_SUBSCRIPTION_ENDPOINT, {
+  const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, {
     method: "DELETE",
   });
 
-  const data = (await response.json()) as { status?: string; detail?: string };
+  const data = (await response.json()) as { status?: string; error?: string };
 
-  if (!response.ok) {
-    throw new Error(data.detail || "Failed to cancel subscription.");
+  if (!response.ok || !data.status) {
+    throw new Error(data.error || "Failed to cancel subscription.");
   }
 
-  return { status: data.status ?? "canceled" };
+  return { status: data.status };
 }

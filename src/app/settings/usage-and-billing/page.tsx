@@ -24,7 +24,7 @@ import { toast } from "@/lib/toast-helper";
 
 const PLAN_OPTIONS: { id: UserPlanType; label: string; monthlyPrice: number }[] =
   [
-    { id: "standard", label: "Standard", monthlyPrice: 12 },
+    { id: "starter", label: "Starter", monthlyPrice: 12 },
     { id: "pro", label: "Pro", monthlyPrice: 25 },
     { id: "power", label: "Power", monthlyPrice: 100 },
   ];
@@ -52,15 +52,20 @@ export default function SettingsUsageAndBillingPage() {
   const hasActiveSubscription = Boolean(normalizedPlanType);
   const subscriptionStatus = user?.subscriptionStatus ?? (hasActiveSubscription ? "active" : "none");
   const cancelAtPeriodEnd = user?.cancelAtPeriodEnd ?? false;
-
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextBillingDate =
+    user?.nextBillingDate ??
+    user?.upcomingInvoice?.next_payment_date ??
+    user?.currentPeriodEnd ??
+    nextMonthDate.toISOString();
   const planLabel =
     normalizedPlanType === "power"
       ? "Power"
       : normalizedPlanType === "pro"
-        ? "Pro"
-        : normalizedPlanType === "standard"
-          ? "Standard"
-          : "No Plan";
+      ? "Pro"
+      : normalizedPlanType === "starter"
+        ? "Starter"
+        : "No Plan";
 
   const formatDate = (value: unknown) => {
     if (!value) return "-";
@@ -302,7 +307,7 @@ export default function SettingsUsageAndBillingPage() {
                 </div>
                 <p className="text-sm text-[#B3B3B3]">
                   {hasActiveSubscription
-                    ? `Status: ${subscriptionStatus}${cancelAtPeriodEnd ? " (cancels at period end)" : ""} • Next billing: ${formatDate(user?.currentPeriodEnd)}`
+                    ? `Status: ${subscriptionStatus}${cancelAtPeriodEnd ? " (cancels at period end)" : ""} • Next billing: ${formatDate(nextBillingDate)}`
                     : "No active subscription"}
                 </p>
               </div>
@@ -376,46 +381,18 @@ export default function SettingsUsageAndBillingPage() {
               seg3d = +normalizePct(dailyByCategory.workflow).toFixed(1);
             }
             return (
-              <div className="flex flex-col gap-2 mb-4">
-                <div className="flex items-center justify-between text-sm text-black">
-                  <span>Daily Session</span>
-                  <span className="text-[#1E1E1E]">{Math.round(dailyPct)}% Used</span>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-36 shrink-0">
+                  <p className="text-sm font-medium text-black">Daily Session</p>
+                  <p className="text-xs text-[#757575]">Last reset {formatDate(user?.usage?.last_reset_date)}</p>
                 </div>
-                <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex items-center overflow-hidden">
-                  <div className="max-w-full h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" style={{ width: `${seg1d}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" style={{ width: `${seg2d}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" style={{ width: `${seg3d}%` }} />
+                <div className="flex-1 h-2.5 rounded-full bg-zinc-100 shadow-inner shadow-zinc-300 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#5A9CB5] transition-all duration-500"
+                    style={{ width: `${dailyPct}%` }}
+                  />
                 </div>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Chat &ndash;{" "}
-                        <span className="font-medium text-black">{seg1d}%</span>
-                      </p>
-                    </div>
-                    <p className="text-[#D4D4D4]">|</p>
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Persona &ndash;{" "}
-                        <span className="font-medium text-black">{seg2d}%</span>
-                      </p>
-                    </div>
-                    <p className="text-[#D4D4D4]">|</p>
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Workflow &ndash;{" "}
-                        <span className="font-medium text-black">{seg3d}%</span>
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-[#757575]">
-                    Last reset {formatDate(user?.usage?.last_reset_date)}
-                  </p>
-                </div>
+                <span className="w-20 shrink-0 text-right text-sm text-[#757575]">{Math.round(dailyPct)}% used</span>
               </div>
             );
           })()}
@@ -438,52 +415,24 @@ export default function SettingsUsageAndBillingPage() {
               seg3m = +normalizePct(byCategory.workflow).toFixed(1);
             }
             return (
-              <div className="flex flex-col gap-2 mb-4">
-                <div className="flex items-center justify-between text-sm text-black">
-                  <span>Monthly Limits</span>
-                  <span className="text-[#1E1E1E]">{Math.round(monthlyPct)}% Used</span>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-36 shrink-0">
+                  <p className="text-sm font-medium text-black">Monthly Limits</p>
+                  <p className="text-xs text-[#757575]">Resets {nextMonthName} 1, {currentYear}</p>
                 </div>
-                <div className="w-full h-2 rounded-[8px] bg-zinc-100 shadow-inner shadow-zinc-300 flex items-center overflow-hidden">
-                  <div className="max-w-full h-full bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90" style={{ width: `${seg1m}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90" style={{ width: `${seg2m}%` }} />
-                  <div className="max-w-full h-full bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90" style={{ width: `${seg3m}%` }} />
+                <div className="flex-1 h-2.5 rounded-full bg-zinc-100 shadow-inner shadow-zinc-300 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#5A9CB5] transition-all duration-500"
+                    style={{ width: `${monthlyPct}%` }}
+                  />
                 </div>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#5A9CB5] via-[#5A9CB5]/75 via-25% to-[#5A9CB5]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Chat &ndash;{" "}
-                        <span className="font-medium text-black">{seg1m}%</span>
-                      </p>
-                    </div>
-                    <p className="text-[#D4D4D4]">|</p>
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#FACE68] via-[#FACE68]/75 via-25% to-[#FACE68]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Persona &ndash;{" "}
-                        <span className="font-medium text-black">{seg2m}%</span>
-                      </p>
-                    </div>
-                    <p className="text-[#D4D4D4]">|</p>
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div className="w-4 h-4 bg-linear-to-b from-[#FA6868] via-[#FA6868]/60 via-25% to-[#FA6868]/90 rounded"></div>
-                      <p className="font-geist text-sm text-[#757575]">
-                        Workflow &ndash;{" "}
-                        <span className="font-medium text-black">{seg3m}%</span>
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-[#757575]">
-                    Resets {nextMonthName} 1, {currentYear}
-                  </p>
-                </div>
+                <span className="w-20 shrink-0 text-right text-sm text-[#757575]">{Math.round(monthlyPct)}% used</span>
               </div>
             );
           })()}
 
           {/* Add more usage */}
-          <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
               <p className="font-medium text-base text-black">Add more Tokens</p>
               <p className="text-sm text-[#757575]">Need more usage this month?</p>
@@ -494,70 +443,7 @@ export default function SettingsUsageAndBillingPage() {
             >
               Add more Usage
             </Button>
-          </div>
-
-          {/* Payment method */}
-          <div className="flex flex-col gap-3 pt-4 border-t border-[#E5E5E5]">
-            <div className="space-y-1 text-black">
-              <h2 className="font-clash text-xl">Payment method</h2>
-              <p className="font-geist text-sm text-[#4B5563]">
-                Manage your payment details.
-              </p>
-            </div>
-
-            {user?.paymentMethods && user.paymentMethods.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {user.paymentMethods.map((pm) => (
-                  <div
-                    key={pm.id}
-                    className="flex items-center justify-between rounded-[8px] border border-[#E5E5E5] px-4 py-3"
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-sm font-medium text-black">
-                        {pm.brand.toUpperCase()} ending in {pm.last4}
-                        {pm.is_default && (
-                          <span className="ml-2 inline-flex items-center rounded-full bg-[#F0FDF4] px-2 py-0.5 text-xs font-medium text-[#15803D]">
-                            Default
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-[#757575]">
-                        Expires {String(pm.exp_month).padStart(2, "0")}/{pm.exp_year}
-                        {pm.funding && ` • ${pm.funding}`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {user.billingPortalUrl && (
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        window.location.href = user.billingPortalUrl!;
-                      }}
-                      className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
-                    >
-                      Manage Billing
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium text-black">No payment method</p>
-                  <p className="text-xs text-[#757575]">Add a paid plan to attach a card</p>
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => router.push("/onboarding/pricing")}
-                  className="h-auto px-4 py-2 rounded-[8px] bg-[#171717] text-[#FAFAFA] hover:bg-[#0F0F0F]"
-                >
-                  Add a plan
-                </Button>
-              </div>
-            )}
-          </div>
+          </div> */}
 
           {/* Invoice history */}
           <div className="flex flex-col gap-3 pt-4 border-t border-[#E5E5E5]">

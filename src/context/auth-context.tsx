@@ -30,7 +30,7 @@ export interface AuthUser {
   firstName?: string | null;
   lastName?: string | null;
   phoneNumber?: string | null;
-  planType?: "standard" | "pro" | "power" | null;
+  planType?: "starter" | "pro" | "power" | null;
   planName?: string | null;
   subscriptionStatus?: string | null;
   currentPeriodEnd?: string | null;
@@ -95,6 +95,11 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
     subscriptionStatus: profile.subscription_status ?? null,
     currentPeriodEnd: profile.current_period_end ?? null,
+    nextBillingDate:
+      profile.next_billing_date ??
+      profile.current_period_end ??
+      profile.upcoming_invoice?.next_payment_date ??
+      null,
     cancelAtPeriodEnd: profile.cancel_at_period_end ?? false,
     paymentMethods,
     defaultPaymentMethod,

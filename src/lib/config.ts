@@ -1,8 +1,8 @@
 "use client";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API!.replace(/\/+$/, "");
+export const API_BASE_URL = process.env.SERVER_URL!.replace(/\/+$/, "");
 
-export const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE ?? "";
+export const audience = process.env.AUTH0_AUDIENCE ?? "";
 
 // Debug: log API URL on load
 if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
@@ -14,8 +14,8 @@ const withBase = (path: string) => `${API_BASE_URL}${path}`;
 // ── Users ────────────────────────────────────────────────────────────────────
 export const USER_ENDPOINT = withBase("/users/me");
 export const USER_CREATE_ENDPOINT = withBase("/users/create");
-export const USER_CHECKOUT_ENDPOINT = withBase("/users/me/checkout");
-export const USER_SUBSCRIPTION_ENDPOINT = withBase("/users/me/subscription");
+export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
+export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");

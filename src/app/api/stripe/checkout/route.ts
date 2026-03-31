@@ -17,7 +17,7 @@ const PRICE_MAP: Record<string, string | undefined> = {
 };
 
 const VALID_PLANS = ["starter", "pro", "power"] as const;
-const VALID_BILLING = ["monthly", "annual"] as const;
+const VALID_BILLING = ["monthly"] as const;
 
 export async function POST(req: Request) {
   // 1. Verify Auth0 session (server-side)
@@ -31,19 +31,19 @@ export async function POST(req: Request) {
   }
 
   // 2. Parse & validate body
-  let body: { plan?: string; billing?: string };
+  let body: { plan_type?: string; billing?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { plan, billing } = body;
+  const { plan_type, billing } = body;
 
   if (
-    !plan ||
+    !plan_type ||
     !billing ||
-    !VALID_PLANS.includes(plan as (typeof VALID_PLANS)[number]) ||
+    !VALID_PLANS.includes(plan_type as (typeof VALID_PLANS)[number]) ||
     !VALID_BILLING.includes(billing as (typeof VALID_BILLING)[number])
   ) {
     return NextResponse.json(
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const priceId = PRICE_MAP[`${plan}_${billing}`];
+  const priceId = PRICE_MAP[`${plan_type}_${billing}`];
   if (!priceId) {
     return NextResponse.json(
       { error: "Price not configured for this plan." },
@@ -65,19 +65,22 @@ export async function POST(req: Request) {
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
-      mode: billing === "annual" ? "subscription" : "subscription",
+      mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
       customer_email: session.user.email as string,
       metadata: {
         auth0_user_id: session.user.sub as string,
-        plan,
+        plan_type,
         billing,
       },
-      success_url: `${appBase}/onboarding/pricing/confirmation?plan=${plan}&billing=${billing}`,
+      success_url: `${appBase}/onboarding/pricing/confirmation?plan=${plan_type}&billing=${billing}`,
       cancel_url: `${appBase}/onboarding/pricing?checkout=cancelled`,
     });
 
-    return NextResponse.json({ url: checkoutSession.url });
+    return NextResponse.json({
+      checkout_url: checkoutSession.url,
+      session_id: checkoutSession.id,
+    });
   } catch (err) {
     console.error("Stripe checkout error:", err);
     return NextResponse.json(
