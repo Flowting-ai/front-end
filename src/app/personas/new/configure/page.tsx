@@ -690,13 +690,21 @@ function PersonaConfigurePageContent() {
         temperature: temperature[0],
         image: imageFile,
       };
-      const documentFile = uploadedFiles.find((f) => f.type === "pdf")?.file;
+      const documentFiles = uploadedFiles
+        .filter((f) => f.type === "pdf")
+        .map((f) => f.file);
 
       if (createdPersonaId) {
-        await updatePersona(createdPersonaId, { ...personaPayload, file: documentFile });
+        await updatePersona(createdPersonaId, {
+          ...personaPayload,
+          files: documentFiles,
+        });
         return createdPersonaId;
       } else {
-        const result = await createPersona({ ...personaPayload, file: documentFile });
+        const result = await createPersona({
+          ...personaPayload,
+          files: documentFiles,
+        });
         setCreatedPersonaId(result.id);
         return result.id;
       }
@@ -772,8 +780,9 @@ function PersonaConfigurePageContent() {
         temperature: temperature[0],
         image: imageFile,
       };
-      const documentFile = uploadedFiles
-        .find((f) => f.type === "pdf")?.file;
+      const documentFiles = uploadedFiles
+        .filter((f) => f.type === "pdf")
+        .map((f) => f.file);
 
       let result;
 
@@ -783,7 +792,7 @@ function PersonaConfigurePageContent() {
         console.debug("Updating persona:", createdPersonaId);
         result = await updatePersona(createdPersonaId, {
           ...personaPayload,
-          file: documentFile,
+          files: documentFiles,
         });
         console.debug("Persona updated successfully!");
 
@@ -800,7 +809,7 @@ function PersonaConfigurePageContent() {
         // Create new persona
         result = await createPersona({
           ...personaPayload,
-          file: documentFile,
+          files: documentFiles,
         });
         console.debug("Persona created successfully!");
         

@@ -139,18 +139,22 @@ export function ChatNodeInspector({
           <label className="font-geist font-medium text-sm text-[#0A0A0A]">
             Select Chat
           </label>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowSelectChatsDialog(true);
-            }}
-            className="cursor-pointer w-full h-8 px-3 py-2 rounded-[8px] border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
-          >
-            <span className="text-[#757575]">
-              {selectedChat ? "Change Chat" : "Add Chat"}
-            </span>
-            <ChevronRight className="h-4 w-4 text-[#757575]" />
-          </button>
+          {selectedChat ? (
+            <div className="rounded-[8px] border border-[#E5E5E5] bg-[#F9F9F9] px-3 py-2 text-xs text-[#757575]">
+              Remove the current chat to choose a different one.
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSelectChatsDialog(true);
+              }}
+              className="cursor-pointer w-full h-8 px-3 py-2 rounded-[8px] border border-[#D4D4D4] bg-white text-sm text-black hover:bg-[#F5F5F5] transition-colors flex items-center justify-between"
+            >
+              <span className="text-[#757575]">Add Chat</span>
+              <ChevronRight className="h-4 w-4 text-[#757575]" />
+            </button>
+          )}
         </div>
 
         {/* Selected Chat Card */}

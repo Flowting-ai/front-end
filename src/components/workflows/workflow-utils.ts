@@ -113,9 +113,13 @@ export const validateWorkflow = (
 
   // Check for disconnected nodes
   const connectedNodes = new Set<string>();
+  const nodeIncoming = new Set<string>();
+  const nodeOutgoing = new Set<string>();
   edges.forEach(edge => {
     connectedNodes.add(edge.source);
     connectedNodes.add(edge.target);
+    nodeOutgoing.add(edge.source);
+    nodeIncoming.add(edge.target);
   });
 
   // Pin nodes must reference either a folder UUID or at least one pin UUID.
@@ -145,6 +149,24 @@ export const validateWorkflow = (
   if (startNode && !connectedNodes.has(startNode.id) && nodes.length > 1) {
     errors.push('Start node is not connected');
   }
+
+  // Executable nodes (persona/model) must have both incoming and outgoing connections
+  const executableNodes = nodes.filter(n =>
+    ['persona', 'model'].includes(n.data.type as string)
+  );
+  executableNodes.forEach((node) => {
+    const hasIncoming = nodeIncoming.has(node.id);
+    const hasOutgoing = nodeOutgoing.has(node.id);
+    if (!hasIncoming || !hasOutgoing) {
+      const nodeLabel =
+        typeof node.data.name === "string" && node.data.name.trim().length > 0
+          ? node.data.name
+          : typeof node.data.label === "string" && node.data.label.trim().length > 0
+            ? node.data.label
+            : node.id;
+      errors.push(`Executable nodes must have connections: ${nodeLabel}`);
+    }
+  });
 
   return {
     valid: errors.length === 0,

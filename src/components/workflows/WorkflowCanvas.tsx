@@ -67,6 +67,17 @@ import { X } from "lucide-react";
 let id = 0;
 const getId = () => `node_${id++}`;
 
+/** Call after loading a workflow so getId() never collides with existing node IDs. */
+const syncIdCounter = (nodes: { id: string }[]) => {
+  for (const node of nodes) {
+    const match = node.id.match(/^node_(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10) + 1;
+      if (num > id) id = num;
+    }
+  }
+};
+
 function WorkflowCanvasInner() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
@@ -737,6 +748,7 @@ function WorkflowCanvasInner() {
     }
   }, [saveStatus]);
 
+
   // Prompt user when leaving with unsaved changes (browser close/refresh)
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -929,7 +941,7 @@ function WorkflowCanvasInner() {
       // Safety assertion: none of the real nodes should have the new node's id
       if (realExisting.some((n) => n.id === newNode.id)) {
         console.error('Node id collision detected – generating a safe fallback id.');
-        newNode.id = `node_fallback_${Date.now()}`;
+        newNode.id = `node_${crypto.randomUUID()}`;
       }
       return [...realExisting, newNode];
     });
@@ -1169,7 +1181,9 @@ function WorkflowCanvasInner() {
     const saved = localStorage.getItem("workflow");
     if (saved) {
       const workflow = JSON.parse(saved);
-      setNodes(workflow.nodes || []);
+      const localNodes = workflow.nodes || [];
+      syncIdCounter(localNodes);
+      setNodes(localNodes);
       setEdges(workflow.edges || []);
       setWorkflowName(workflow.name || "Untitled Workflow");
       if (workflow.id) {
@@ -1196,7 +1210,9 @@ function WorkflowCanvasInner() {
       const workflowDTO = await workflowAPI.get(workflowId);
 
       // Update canvas with loaded workflow
-      setNodes(workflowDTO.nodes || []);
+      const loadedNodes = workflowDTO.nodes || [];
+      syncIdCounter(loadedNodes);
+      setNodes(loadedNodes);
       setEdges(workflowDTO.edges || []);
       setWorkflowName(workflowDTO.name || "Untitled Workflow");
       setWorkflowId(workflowId);

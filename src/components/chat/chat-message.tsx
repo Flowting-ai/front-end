@@ -502,25 +502,42 @@ const renderReasoningContent = (text: string): JSX.Element[] => {
       continue;
     }
 
-    // Regular paragraph with bold support
+    // Regular paragraph with bold and link support
     const parts: (string | JSX.Element)[] = [];
-    const boldRegex = /(\*\*|__)(.+?)\1/g;
+    const inlineRegex = /(\*\*|__)(.+?)\1|\[([^\]]+)\]\(([^)]+)\)/g;
     let lastIdx = 0;
     let match;
     let boldCount = 0;
+    let linkCount = 0;
 
-    while ((match = boldRegex.exec(trimmed)) !== null) {
+    while ((match = inlineRegex.exec(trimmed)) !== null) {
       if (match.index > lastIdx) {
         parts.push(trimmed.slice(lastIdx, match.index));
       }
-      parts.push(
-        <strong
-          key={`reasoning-bold-${lineIndex}-${boldCount++}`}
-          className="font-semibold text-[#6b5fad]"
-        >
-          {match[2]}
-        </strong>,
-      );
+      if (match[1]) {
+        // Bold
+        parts.push(
+          <strong
+            key={`reasoning-bold-${lineIndex}-${boldCount++}`}
+            className="font-semibold text-[#6b5fad]"
+          >
+            {match[2]}
+          </strong>,
+        );
+      } else {
+        // Link
+        parts.push(
+          <a
+            key={`reasoning-link-${lineIndex}-${linkCount++}`}
+            href={match[4]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#6b5fad] underline underline-offset-2 hover:text-[#4e3fa8]"
+          >
+            {match[3]}
+          </a>,
+        );
+      }
       lastIdx = match.index + match[0].length;
     }
 

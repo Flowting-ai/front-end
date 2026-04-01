@@ -49,47 +49,51 @@ export function DocumentNodeInspector({
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const newFiles: DocumentFile[] = [];
 
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-
-      // Check for duplicate
-      if (files.some((f) => f.name === file.name)) {
-        continue;
-      }
-
-      if (file.size > MAX_FILE_SIZE) {
-        continue;
-      }
-
-      const fileId = crypto.randomUUID();
-      const objectUrl = URL.createObjectURL(file);
-
-      // Determine file type
-      const isPdf = file.type === "application/pdf";
-      const isImage = file.type.startsWith("image/");
-      const fileType = isPdf ? "pdf" : isImage ? "image" : "document";
-
-      newFiles.push({
-        id: fileId,
-        name: file.name,
-        size: file.size,
-        type: fileType,
-        url: objectUrl,
-        file: file,
-        uploadProgress: 0,
-        isUploading: true,
-      });
+    if (selectedFiles.length > 1) {
+      toast.info("Only one document is allowed. Using the first file.");
     }
 
+    const file = selectedFiles[0];
+
+    // Check for duplicate
+    if (files.some((f) => f.name === file.name)) {
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return;
+    }
+
+    const fileId = crypto.randomUUID();
+    const objectUrl = URL.createObjectURL(file);
+
+    // Determine file type
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+    const fileType = isPdf ? "pdf" : isImage ? "image" : "document";
+
+    newFiles.push({
+      id: fileId,
+      name: file.name,
+      size: file.size,
+      type: fileType,
+      url: objectUrl,
+      file: file,
+      uploadProgress: 0,
+      isUploading: true,
+    });
+
     if (newFiles.length > 0) {
-      setFiles((prev) => [
-        ...prev,
-        ...newFiles.map((file) => ({
+      setFiles((prev) => {
+        prev.forEach((f) => {
+          if (f.url) URL.revokeObjectURL(f.url);
+        });
+        return newFiles.map((file) => ({
           ...file,
           isUploading: false,
           uploadProgress: undefined,
-        })),
-      ]);
+        }));
+      });
     }
 
     // Reset input
@@ -203,40 +207,44 @@ export function DocumentNodeInspector({
         <h3 className="font-geist font-medium text-sm text-[#0A0A0A]">
           File Upload
         </h3>
-        {/* Dotted Upload Area */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`w-full h-[147px] rounded-[8px] border-2 border-dashed ${
-            isDragging ? "border-blue-500 bg-blue-50" : "border-[#E5E5E5]"
-          } p-3 flex flex-col items-center justify-center gap-3 transition-colors`}
-        >
-          <div className="flex flex-col items-center gap-2 text-center">
-            <Upload className="h-8 w-8 text-[#9F9F9F]" />
-            <p className="text-sm text-[#757575]">
-              Drag & drop files here or click to browse
-            </p>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleUploadClick();
-            }}
-            className="cursor-pointer h-8 min-h-[32px] rounded-lg border border-[#E5E5E5] px-3 py-[5.5px] flex items-center gap-1.5 text-xs font-medium text-black hover:bg-gray-50 transition-colors"
+        {files.length === 0 ? (
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`w-full h-[147px] rounded-[8px] border-2 border-dashed ${
+              isDragging ? "border-blue-500 bg-blue-50" : "border-[#E5E5E5]"
+            } p-3 flex flex-col items-center justify-center gap-3 transition-colors`}
           >
-            <Upload className="h-3.5 w-3.5" />
-            Upload file
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls,image/*"
-            onChange={(e) => handleFileSelect(e.target.files)}
-            className="hidden"
-          />
-        </div>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Upload className="h-8 w-8 text-[#9F9F9F]" />
+              <p className="text-sm text-[#757575]">
+                Drag & drop files here or click to browse
+              </p>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUploadClick();
+              }}
+              className="cursor-pointer h-8 min-h-[32px] rounded-lg border border-[#E5E5E5] px-3 py-[5.5px] flex items-center gap-1.5 text-xs font-medium text-black hover:bg-gray-50 transition-colors"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Upload file
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls,image/*"
+              onChange={(e) => handleFileSelect(e.target.files)}
+              className="hidden"
+            />
+          </div>
+        ) : (
+          <div className="rounded-[8px] border border-[#E5E5E5] bg-[#F9F9F9] px-3 py-2 text-xs text-[#757575]">
+            Remove the current file to upload a different one.
+          </div>
+        )}
       </div>
 
       {/* Uploaded Files Grid */}

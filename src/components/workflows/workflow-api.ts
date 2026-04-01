@@ -100,6 +100,7 @@ interface BackendWorkflowDetail {
   description?: string;
   is_active?: boolean;
   thumbnail?: string;
+  document_filename?: string | null;
   created_at?: string;
   updated_at?: string;
   nodes: BackendWorkflowNode[];
@@ -665,6 +666,20 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
             type: "document",
             fileId,
           }));
+        } else if (workflow.document_filename) {
+          const fileId =
+            typeof node.reference_id === "string" && node.reference_id.trim().length > 0
+              ? node.reference_id.trim()
+              : workflow.id;
+          data.files = [
+            {
+              id: fileId,
+              name: workflow.document_filename,
+              size: 0,
+              type: "document",
+              fileId,
+            },
+          ];
         }
         break;
       case "chat":
@@ -743,6 +758,8 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     updatedAt: workflow.updated_at,
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
+    thumbnail: workflow.thumbnail,
+    documentFilename: workflow.document_filename ?? undefined,
   };
 };
 

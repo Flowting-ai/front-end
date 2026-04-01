@@ -229,6 +229,62 @@ const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "cha
 
 const extractMetadata = (msg: BackendMessage) => {
   const meta = (msg as { metadata?: Record<string, unknown> }).metadata || {};
+  type WebSearchPayload = { query: string; links: string[] };
+
+  const toOptionalTrimmedString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeWebSearchPayload = (raw: unknown): WebSearchPayload | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const payload = raw as Record<string, unknown>;
+    const query =
+      toOptionalTrimmedString(payload.query) ??
+      toOptionalTrimmedString(payload.search_query) ??
+      toOptionalTrimmedString(payload.searchQuery) ??
+      "";
+    if (!query) return null;
+
+    const rawLinks = Array.isArray(payload.links)
+      ? payload.links
+      : Array.isArray(payload.urls)
+        ? payload.urls
+        : Array.isArray(payload.results)
+          ? payload.results
+          : [];
+
+    const links = rawLinks
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          const url =
+            toOptionalTrimmedString(obj.url) ??
+            toOptionalTrimmedString(obj.link) ??
+            "";
+          return url;
+        }
+        return "";
+      })
+      .filter(Boolean);
+
+    return { query, links };
+  };
+
+  const normalizeWebSearchInput = (
+    raw: unknown,
+  ): WebSearchPayload | WebSearchPayload[] | undefined => {
+    if (!raw) return undefined;
+    if (Array.isArray(raw)) {
+      const items = raw
+        .map((entry) => normalizeWebSearchPayload(entry))
+        .filter((item): item is WebSearchPayload => Boolean(item));
+      return items.length > 0 ? items : undefined;
+    }
+    return normalizeWebSearchPayload(raw) ?? undefined;
+  };
   const pinsRaw: unknown[] = Array.isArray(
     (msg as { taggedPins?: unknown[] }).taggedPins
   )
@@ -281,6 +337,24 @@ const extractMetadata = (msg: BackendMessage) => {
     })
     .filter((p): p is { id: string; label: string; text: string } => p !== null);
 
+  const webSearchRaw =
+    (msg as { web_search?: unknown }).web_search ??
+    (msg as { webSearch?: unknown }).webSearch ??
+    (msg as { web_searches?: unknown }).web_searches ??
+    (msg as { webSearches?: unknown }).webSearches ??
+    (meta as { web_search?: unknown }).web_search ??
+    (meta as { webSearch?: unknown }).webSearch ??
+    (meta as { web_searches?: unknown }).web_searches ??
+    (meta as { webSearches?: unknown }).webSearches ??
+    null;
+  const webSearch = normalizeWebSearchInput(webSearchRaw);
+  const webSearchEnabled =
+    (msg as { web_search_enabled?: unknown }).web_search_enabled ??
+    (msg as { webSearchEnabled?: unknown }).webSearchEnabled ??
+    (meta as { web_search_enabled?: unknown }).web_search_enabled ??
+    (meta as { webSearchEnabled?: unknown }).webSearchEnabled ??
+    undefined;
+
   return {
     modelName:
       (msg as { model_name?: string }).model_name ??
@@ -329,6 +403,10 @@ const extractMetadata = (msg: BackendMessage) => {
       null,
     pinIds,
     mentionedPins: mentionedPins.length > 0 ? mentionedPins : undefined,
+    ...(webSearch ? { webSearch } : {}),
+    ...(webSearchEnabled !== undefined
+      ? { webSearchEnabled: Boolean(webSearchEnabled) }
+      : {}),
     userReaction:
       (msg as { user_reaction?: string | null }).user_reaction ??
       (meta as { userReaction?: string | null }).userReaction ??

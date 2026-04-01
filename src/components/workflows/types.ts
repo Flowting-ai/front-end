@@ -95,6 +95,7 @@ export interface WorkflowDTO {
   thumbnail?: string;
   createdAt?: string;
   updatedAt?: string;
+  documentFilename?: string;
   preprocessedKnowledge?: Record<string, PreprocessedKnowledgeItem>;
 }
 
