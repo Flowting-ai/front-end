@@ -50,7 +50,7 @@ import {
   fetchPersonas,
   deletePersona as deletePersonaApi,
   updatePersona,
-  setPersonaActive,
+  togglePersonaPause,
   type BackendPersona,
 } from "@/lib/api/personas";
 import { workflowAPI } from "@/components/workflows/workflow-api";
@@ -329,8 +329,19 @@ export default function PersonaAdminPage() {
 
     // Persist to backend
     try {
-      await setPersonaActive(personaId, newIsActive);
-      if (newFrontendStatus === "paused") {
+      const result = await togglePersonaPause(personaId);
+      const resolvedStatus: "active" | "paused" =
+        result.is_active ? "active" : "paused";
+      // Align UI with backend response in case of drift
+      setPersonas((prev) =>
+        prev.map((p) =>
+          p.id === personaId ? { ...p, status: resolvedStatus } : p
+        )
+      );
+      window.dispatchEvent(new CustomEvent("persona:status-changed", {
+        detail: { personaId, is_active: result.is_active },
+      }));
+      if (resolvedStatus === "paused") {
         toast("Persona Paused", {
           description: `"${persona.name}" has been paused. This may affect workflows or chats using this persona.`,
         });

@@ -45,6 +45,8 @@ export const PERSONA_DETAIL_ENDPOINT = (personaId: string) =>
 export const PERSONA_ENHANCE_ENDPOINT = withBase("/persona/enhance-prompt");
 export const PERSONA_TEST_ENDPOINT = (personaId: string) =>
   withBase(`/persona/${personaId}/test`);
+export const PERSONA_PAUSE_ENDPOINT = (personaId: string) =>
+  withBase(`/persona/${personaId}/pause`);
 export const PERSONA_CHATS_ENDPOINT = (personaId: string) =>
   withBase(`/persona/${personaId}/chats`);
 export const PERSONA_CHATS_CREATE_ENDPOINT = (personaId: string) =>
@@ -82,6 +84,8 @@ export const PIN_MOVE_ENDPOINT = (pinId: string) =>
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");
 export const WORKFLOW_DETAIL_ENDPOINT = (workflowId: string) =>
   withBase(`/workflow/${workflowId}`);
+export const WORKFLOW_PAUSE_ENDPOINT = (workflowId: string) =>
+  withBase(`/workflow/${workflowId}/pause`);
 export const WORKFLOW_CHATS_ENDPOINT = (workflowId: string) =>
   withBase(`/workflow/${workflowId}/chats`);
 export const WORKFLOW_CHATS_CREATE_ENDPOINT = (workflowId: string) =>

@@ -22,6 +22,7 @@ import {
   Globe,
   Palette,
   Check,
+  ScanText,
 } from "lucide-react";
 import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -464,6 +465,7 @@ export function ChatInterface({
   // Use personas from AppLayout context instead of fetching again
   const activePersonas = layoutContext?.activePersonas ?? [];
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [useMistralOcr, setUseMistralOcr] = useState(false);
   const [showStyleSubmenu, setShowStyleSubmenu] = useState(false);
   const [selectedTone, setSelectedTone] = useState<TonePreset | null>(null);
   const styleSubmenuTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1131,8 +1133,10 @@ export function ChatInterface({
             formData.append("web_search", "true");
           }
           if (selectedTone) {
-            formData.append("tone_id", selectedTone.tone_id);
-            formData.append("tone_system_prompt", selectedTone.system_prompt);
+            formData.append("system_instruction", selectedTone.system_prompt);
+          }
+          if (useMistralOcr) {
+            formData.append("use_mistral_ocr", "true");
           }
           // Append all files (images + documents)
           [...imageFiles, ...nonImageFiles].forEach((file) => {
@@ -1143,8 +1147,7 @@ export function ChatInterface({
         } else {
           const params = new URLSearchParams({ input: userMessage });
           if (selectedTone) {
-            params.append("tone_id", selectedTone.tone_id);
-            params.append("tone_system_prompt", selectedTone.system_prompt);
+            params.append("system_instruction", selectedTone.system_prompt);
           }
           body = params.toString();
           headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -1163,8 +1166,10 @@ export function ChatInterface({
           formData.append("web_search", "true");
         }
         if (selectedTone) {
-          formData.append("tone_id", selectedTone.tone_id);
-          formData.append("tone_system_prompt", selectedTone.system_prompt);
+          formData.append("system_instruction", selectedTone.system_prompt);
+        }
+        if (useMistralOcr) {
+          formData.append("use_mistral_ocr", "true");
         }
         if (pinIds && pinIds.length > 0) {
           formData.append("pin_ids", JSON.stringify(pinIds));
@@ -1196,8 +1201,10 @@ export function ChatInterface({
           formData.append("web_search", "true");
         }
         if (selectedTone) {
-          formData.append("tone_id", selectedTone.tone_id);
-          formData.append("tone_system_prompt", selectedTone.system_prompt);
+          formData.append("system_instruction", selectedTone.system_prompt);
+        }
+        if (useMistralOcr) {
+          formData.append("use_mistral_ocr", "true");
         }
         if (pinIds && pinIds.length > 0) {
           formData.append("pin_ids", JSON.stringify(pinIds));
@@ -3759,6 +3766,43 @@ export function ChatInterface({
                             <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600"></div>
                           )}
                         </button>
+                        {user?.planType === "power" && (
+                          <button
+                            onClick={() => {
+                              setUseMistralOcr(!useMistralOcr);
+                              setShowAttachMenu(false);
+                              toast(
+                                useMistralOcr
+                                  ? "Mistral OCR disabled"
+                                  : "Mistral OCR enabled",
+                                {
+                                  description: useMistralOcr
+                                    ? "Using standard file processing"
+                                    : "Files will be processed with Mistral OCR",
+                                },
+                              );
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-lg cursor-pointer border p-2 text-left text-xs font-medium transition-colors hover:bg-[#E5E5E5] whitespace-nowrap",
+                              useMistralOcr
+                                ? "border-orange-500 bg-orange-50 text-orange-700"
+                                : "border-none bg-white text-[#1E1E1E]",
+                            )}
+                          >
+                            <ScanText
+                              className={cn(
+                                "h-3.5 w-3.5",
+                                useMistralOcr
+                                  ? "text-orange-600"
+                                  : "text-[#666666]",
+                              )}
+                            />
+                            <span>Mistral OCR</span>
+                            {useMistralOcr && (
+                              <div className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-600"></div>
+                            )}
+                          </button>
+                        )}
                         <div
                           className="relative"
                           onMouseEnter={() => {
@@ -4081,6 +4125,24 @@ export function ChatInterface({
                     >
                       <Globe size={16} />
                       <p>Web Search</p>
+                      <X size={16} />
+                    </button>
+                  )}
+                  {/* Mistral OCR indicator button */}
+                  {useMistralOcr && user?.planType === "power" && (
+                    <button
+                      type="button"
+                      aria-label="Disable Mistral OCR"
+                      onClick={() => {
+                        setUseMistralOcr(false);
+                        toast("Mistral OCR disabled", {
+                          description: "Using standard file processing",
+                        });
+                      }}
+                      className="cursor-pointer w-auto h-[36px] font-geist font-medium text-sm text-orange-600 bg-transparent rounded-[8px] flex items-center justify-between gap-2 px-3 py-2"
+                    >
+                      <ScanText size={16} />
+                      <p>Mistral OCR</p>
                       <X size={16} />
                     </button>
                   )}

@@ -6,6 +6,7 @@ import {
   PERSONA_DETAIL_ENDPOINT,
   PERSONA_ENHANCE_ENDPOINT,
   PERSONA_TEST_ENDPOINT,
+  PERSONA_PAUSE_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
   PERSONA_CHAT_MESSAGES_ENDPOINT,
@@ -165,19 +166,18 @@ export async function updatePersona(
  * Toggle a persona's active state via a JSON PATCH.
  * Sends `{ "is_active": true/false }` as JSON to avoid FormData string-parsing issues.
  */
-export async function setPersonaActive(
-  personaId: string,
-  isActive: boolean,
-): Promise<BackendPersona> {
-  const response = await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), {
+export async function togglePersonaPause(
+  personaId: string
+): Promise<{ is_active: boolean }> {
+  const response = await apiFetch(PERSONA_PAUSE_ENDPOINT(personaId), {
     method: "PATCH",
-    body: JSON.stringify({ is_active: isActive }),
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || "Failed to update persona active status");
+    throw new Error(text || "Failed to toggle persona status");
   }
-  return (await response.json()) as BackendPersona;
+  const data = (await response.json()) as { is_active?: boolean; isActive?: boolean };
+  return { is_active: Boolean(data?.is_active ?? data?.isActive) };
 }
 
 export async function deletePersona(personaId: string): Promise<void> {

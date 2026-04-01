@@ -206,13 +206,19 @@ export default function WorkflowAdminPage() {
 
     // Persist to backend
     try {
-      if (newFrontendStatus === "active") {
-        await workflowAPI.activate(workflowId);
+      const result = await workflowAPI.togglePause(workflowId);
+      const resolvedStatus: "active" | "paused" =
+        result.is_active ? "active" : "paused";
+      setWorkflows((prev) =>
+        prev.map((w) =>
+          w.id === workflowId ? { ...w, status: resolvedStatus } : w
+        )
+      );
+      if (resolvedStatus === "active") {
         toast("Workflow Resumed", {
           description: `"${workflow.name}" is now active again.`,
         });
       } else {
-        await workflowAPI.deactivate(workflowId);
         toast("Workflow Paused", {
           description: `"${workflow.name}" has been paused. This may affect any processes using this workflow.`,
         });

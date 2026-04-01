@@ -8,6 +8,7 @@ import {
   CHATS_ENDPOINT,
   WORKFLOWS_ENDPOINT,
   WORKFLOW_DETAIL_ENDPOINT,
+  WORKFLOW_PAUSE_ENDPOINT,
   WORKFLOW_CHATS_ENDPOINT,
   WORKFLOW_CHATS_CREATE_ENDPOINT,
   WORKFLOW_CHAT_MESSAGES_ENDPOINT,
@@ -1317,42 +1318,12 @@ export const workflowAPI = {
     await handleResponse(response);
   },
 
-  activate: async (id: string): Promise<void> => {
-    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
+  togglePause: async (id: string): Promise<{ is_active: boolean }> => {
+    const response = await fetchWithTimeout(WORKFLOW_PAUSE_ENDPOINT(id), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: true }),
     });
-    if (!response.ok) {
-      // Fallback: fetch full workflow and PUT it back with isActive toggled
-      const workflow = await workflowAPI.get(id);
-      const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
-      const fallbackResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      await handleResponse(fallbackResponse);
-    }
-  },
 
-  deactivate: async (id: string): Promise<void> => {
-    const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: false }),
-    });
-    if (!response.ok) {
-      // Fallback: fetch full workflow and PUT it back with isActive toggled
-      const workflow = await workflowAPI.get(id);
-      const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
-      const fallbackResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      await handleResponse(fallbackResponse);
-    }
+    return handleResponse<{ is_active: boolean }>(response);
   },
 
   execute: async (
