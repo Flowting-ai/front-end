@@ -75,12 +75,11 @@ export default function Page() {
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-8 px-6 py-10">
           <div className="max-w-2xl w-full text-center flex flex-col items-center gap-4">
             <Image
-              src="/new-logos/souvenir-logo.svg"
+              src="/new-logos/souvenir-logo-chat.svg"
               width={500}
               height={500}
               alt="Souvenir Logo"
-              className="w-14 h-14"
-              unoptimized
+              className="mix-blend-difference w-14 h-14"
             />
             <h3 className="font-besley text-4xl text-black">
               What best describes you?
