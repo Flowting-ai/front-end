@@ -19,7 +19,7 @@ export type PersonaStatus = "draft" | "test" | "completed";
 
 export interface BackendPersonaDocument {
   id: string;
-  filename: string;
+  document_filename: string;
   created_at: string;
 }
 
@@ -41,6 +41,7 @@ export interface BackendPersona {
   temperature?: number | null;
   document_filename?: string | null;
   documents?: BackendPersonaDocument[];
+  total_usage?: number;
   created_at: string;
   createdAt?: string;
   updated_at: string;

@@ -65,6 +65,8 @@ interface BackendWorkflowListItem {
   name: string;
   description: string;
   is_active: boolean;
+  document_filename: string | null;
+  total_usage: number;
   nodes_count: number;
   edges_count: number;
   chats_count: number;
@@ -101,6 +103,7 @@ interface BackendWorkflowDetail {
   is_active?: boolean;
   thumbnail?: string;
   document_filename?: string | null;
+  total_usage?: number;
   created_at?: string;
   updated_at?: string;
   nodes: BackendWorkflowNode[];
