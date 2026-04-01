@@ -65,6 +65,7 @@ const nextConfig: NextConfig = {
     SERVER_URL: process.env.SERVER_URL,
   },
   images: {
+    unoptimized: true,
     remotePatterns: backendRemotePattern,
     //adding the below two lines to fix logo svg file issues
     dangerouslyAllowSVG: true,
