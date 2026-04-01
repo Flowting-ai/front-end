@@ -80,7 +80,7 @@ export default function Page() {
       // Intentionally continue onboarding even if this fails
     }
 
-    router.push("/onboarding/theme");
+    router.push("/onboarding/role");
   };
 
   return (

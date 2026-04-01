@@ -5,52 +5,52 @@ import { SquareArrowOutUpRight } from "lucide-react";
 import Link from "next/link";
 
 const helpLinks = [
-  {
-    id: "help-center",
-    title: "Help Center",
-    description: "Optimize for cost or quality",
-    href: "/help-center",
-  },
+  // {
+  //   id: "help-center",
+  //   title: "Help Center",
+  //   description: "Optimize for cost or quality",
+  //   href: "/help-center",
+  // },
   {
     id: "contact-support",
     title: "Contact Support",
     description: "Reach our team via email",
-    href: "/contact-support",
+    href: "https://www.getsouvenir.com/contact",
   },
-  {
-    id: "feature-request",
-    title: "Feature Request",
-    description: "Suggest improvements",
-    href: "/feature-request",
-  },
-  {
-    id: "report-bug",
-    title: "Report a Bug",
-    description: "Let us know what's broken",
-    href: "/report-bug",
-  },
+  // {
+  //   id: "feature-request",
+  //   title: "Feature Request",
+  //   description: "Suggest improvements",
+  //   href: "/feature-request",
+  // },
+  // {
+  //   id: "report-bug",
+  //   title: "Report a Bug",
+  //   description: "Let us know what's broken",
+  //   href: "/report-bug",
+  // },
 ];
 
 const legalLinks = [
   {
     id: "terms",
     title: "Terms of Service",
-    href: "/legal/terms-of-service",
+    href: "https://www.getsouvenir.com/legal/platform-terms/terms-of-service",
   },
   {
     id: "privacy",
     title: "Privacy Policy",
-    href: "/legal/privacy-policy",
+    href: "https://www.getsouvenir.com/legal/privacy-data/privacy-policy",
   },
-  {
-    id: "dpa",
-    title: "Data Processing Agreement",
-    href: "/legal/data-processing-agreement",
-  },
+  // {
+  //   id: "dpa",
+  //   title: "Data Processing Agreement",
+  //   href: "/legal/data-processing-agreement",
+  // },
   {
     id: "cookies",
     title: "Cookie Policy",
-    href: "/legal/cookie-policy",
+    href: "https://www.getsouvenir.com/legal/privacy-data/cookie-policy",
   },
 ];
 
