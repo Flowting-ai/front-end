@@ -66,13 +66,6 @@ export function Topbar({
           {isPersonaAdminChatPage && (
             <>
               <Button
-                onClick={() => router.push("/personas/admin")}
-                className="flex items-center gap-2 h-9 px-4 bg-tb-button-bg text-tb-button-text hover:bg-tb-button-bg-hover rounded-lg ml-9"
-              >
-                {/* <ChevronLeft className="h-4 w-4" /> */}
-                Back to Command Center
-              </Button>
-              <Button
                 onClick={() => {
                   if (personaIdFromPath) {
                     router.push(
@@ -115,7 +108,7 @@ export function Topbar({
               pins={pins}
             />
           )}
-          {isPersonasPage && (
+          {isPersonasPage && !isPersonaAdminPage && (
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"

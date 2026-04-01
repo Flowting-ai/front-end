@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import type { NextPage } from "next";
 import styles from "./frame-1171275887.module.css";
+import { getGreeting, getSubheading } from "@/lib/greetings";
 
 interface Frame117Props {
   firstName?: string | null;
@@ -15,7 +17,13 @@ const Frame1171275887: NextPage<Frame117Props> = ({ firstName }) => {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   })();
 
-  const formattedName = `${normalized}?`;
+  const [greeting, setGreeting] = useState("");
+  const [subheading, setSubheading] = useState("");
+
+  useEffect(() => {
+    setGreeting(getGreeting(normalized));
+    setSubheading(getSubheading());
+  }, [normalized]);
 
   return (
     <div className={styles.frameParent}>
@@ -32,12 +40,10 @@ const Frame1171275887: NextPage<Frame117Props> = ({ firstName }) => {
       </div>
       <div className={styles.whatWouldYouLikeToExploreParent}>
         <div className={styles.whatWouldYou}>
-          What would you like to explore today,
-          <br />
-          {formattedName}
+          {greeting}
         </div>
         <div className={styles.yourIntelligentAssistant}>
-          Work smarter with pinned insights, tailored personas, and model-to-model conversations
+          {subheading}
         </div>
       </div>
     </div>

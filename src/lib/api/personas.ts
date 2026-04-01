@@ -65,6 +65,7 @@ export interface PersonaInput {
   model_id: string;
   modelId?: string;
   prompt?: string;
+  status?: PersonaStatus;
   temperature?: number;
   image?: File;
   files?: File[];
@@ -76,6 +77,7 @@ export interface PersonaUpdateInput {
   model_id?: string | null;
   modelId?: string | null;
   status?: PersonaStatus;
+  is_active?: boolean;
   temperature?: number;
   image?: File;
   files?: File[];
@@ -107,6 +109,7 @@ export async function createPersona(payload: PersonaInput): Promise<BackendPerso
   const modelId = payload.model_id ?? payload.modelId;
   if (modelId) formData.append("model_id", String(modelId));
   if (payload.prompt) formData.append("prompt", payload.prompt);
+  if (payload.status) formData.append("status", payload.status);
   if (payload.temperature !== undefined) formData.append("temperature", String(payload.temperature));
   if (payload.image) formData.append("image", payload.image);
   if (payload.files && payload.files.length > 0) {
@@ -134,6 +137,7 @@ export async function updatePersona(
   if (payload.name !== undefined) formData.append("name", payload.name);
   if (payload.prompt !== undefined) formData.append("prompt", payload.prompt);
   if (payload.status !== undefined) formData.append("status", payload.status);
+  if (payload.is_active !== undefined) formData.append("is_active", String(payload.is_active));
   const updateModelId = payload.model_id ?? payload.modelId;
   if (updateModelId !== undefined && updateModelId !== null)
     formData.append("model_id", String(updateModelId));
@@ -152,6 +156,25 @@ export async function updatePersona(
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || "Failed to update persona");
+  }
+  return (await response.json()) as BackendPersona;
+}
+
+/**
+ * Toggle a persona's active state via a JSON PATCH.
+ * Sends `{ "is_active": true/false }` as JSON to avoid FormData string-parsing issues.
+ */
+export async function setPersonaActive(
+  personaId: string,
+  isActive: boolean,
+): Promise<BackendPersona> {
+  const response = await apiFetch(PERSONA_DETAIL_ENDPOINT(personaId), {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: isActive }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Failed to update persona active status");
   }
   return (await response.json()) as BackendPersona;
 }

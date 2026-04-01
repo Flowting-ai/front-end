@@ -50,12 +50,13 @@ import {
   fetchPersonas,
   deletePersona as deletePersonaApi,
   updatePersona,
+  setPersonaActive,
   type BackendPersona,
-  type PersonaStatus,
 } from "@/lib/api/personas";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/config";
+import { toast } from "@/lib/toast-helper";
 import Link from "next/link";
 
 // Helper to construct full avatar URL from relative or absolute paths
@@ -146,16 +147,16 @@ export default function PersonaAdminPage() {
         hasFetchedPersonas.current = true;
 
         // Transform backend data to match frontend Persona interface
-        // Map backend status ("test" | "completed") to frontend status ("active" | "paused" | "inactive")
-        const transformedPersonas: Persona[] = backendPersonas.map((bp) => ({
+        // Filter out personas still in "test" (draft/building) phase — only show finished ones
+        // Map backend status to frontend status ("active" | "paused" | "inactive")
+        const transformedPersonas: Persona[] = backendPersonas
+          .filter((bp) => bp.status !== "test")
+          .map((bp) => ({
           id: bp.id,
           name: bp.name,
           description: bp.prompt?.slice(0, 100) || "No description",
           avatar: getFullAvatarUrl(bp.imageUrl) || "/personas/persona1.png",
-          // Dynamic status mapping:
-          // - "test" (newly created) → "active" (default for new personas)
-          // - "completed" (user has set) → "paused" (user explicitly paused it)
-          status: bp.status === "completed" ? "paused" : "active",
+          status: (bp.is_active === false ? "paused" : "active") as "active" | "paused",
           tokensUsed: 0, // TODO: Backend doesn't provide this yet
           consumersCount: 0, // TODO: Backend doesn't provide this yet
           consumers: [], // TODO: Backend doesn't provide this yet
@@ -302,12 +303,7 @@ export default function PersonaAdminPage() {
     // Calculate new frontend status
     const newFrontendStatus: "active" | "paused" =
       persona.status === "active" ? "paused" : "active";
-
-    // Map frontend status to backend status
-    // - "active" → "test" (active/default state)
-    // - "paused" → "completed" (user explicitly paused)
-    const newBackendStatus: PersonaStatus =
-      newFrontendStatus === "active" ? "test" : "completed";
+    const newIsActive = newFrontendStatus === "active";
 
     // Optimistically update UI
     setPersonas((prev) =>
@@ -317,17 +313,26 @@ export default function PersonaAdminPage() {
     );
     // Notify sidebar immediately so it reflects the change without a refresh
     window.dispatchEvent(new CustomEvent("persona:status-changed", {
-      detail: { personaId, status: newBackendStatus },
+      detail: { personaId, is_active: newIsActive },
     }));
 
     // Persist to backend
     try {
-      await updatePersona(
-        personaId,
-        { status: newBackendStatus },
-      );
+      await setPersonaActive(personaId, newIsActive);
+      if (newFrontendStatus === "paused") {
+        toast("Persona Paused", {
+          description: `"${persona.name}" has been paused. This may affect workflows or chats using this persona.`,
+        });
+      } else {
+        toast("Persona Resumed", {
+          description: `"${persona.name}" is now active again.`,
+        });
+      }
     } catch (error) {
       console.error("Failed to update persona status:", error);
+      toast.error("Failed to update status", {
+        description: "Could not update persona status. Please try again.",
+      });
       // Revert optimistic update on error
       setPersonas((prev) =>
         prev.map((p) =>
@@ -336,9 +341,8 @@ export default function PersonaAdminPage() {
       );
       // Revert sidebar as well
       window.dispatchEvent(new CustomEvent("persona:status-changed", {
-        detail: { personaId, status: persona.status === "active" ? "test" : "completed" },
+        detail: { personaId, is_active: persona.status === "active" },
       }));
-      // Optionally show error toast
     }
   };
 
@@ -541,11 +545,32 @@ export default function PersonaAdminPage() {
                               let seg1 = +(monthlyPct * 0.4).toFixed(1);
                               let seg2 = +(monthlyPct * 0.35).toFixed(1);
                               let seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
+                              // Display percentages for the legend (may differ from bar widths)
+                              let label1 = seg1;
+                              let label2 = seg2;
+                              let label3 = seg3;
 
                               if (byCategory) {
-                                seg1 = +normalizePct(byCategory.chat).toFixed(1);
-                                seg2 = +normalizePct(byCategory.persona).toFixed(1);
-                                seg3 = +normalizePct(byCategory.workflow).toFixed(1);
+                                const rawChat = normalizePct(byCategory.chat);
+                                const rawPersona = normalizePct(byCategory.persona);
+                                const rawWorkflow = normalizePct(byCategory.workflow);
+                                const rawTotal = rawChat + rawPersona + rawWorkflow;
+
+                                // Show actual category percentages in legend
+                                label1 = +rawChat.toFixed(1);
+                                label2 = +rawPersona.toFixed(1);
+                                label3 = +rawWorkflow.toFixed(1);
+
+                                if (rawTotal > 0) {
+                                  // Scale each segment so they sum to the total monthly usage
+                                  seg1 = +((rawChat / rawTotal) * monthlyPct).toFixed(1);
+                                  seg2 = +((rawPersona / rawTotal) * monthlyPct).toFixed(1);
+                                  seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
+                                } else {
+                                  seg1 = 0;
+                                  seg2 = 0;
+                                  seg3 = 0;
+                                }
                               }
 
                               return (
@@ -574,7 +599,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Chat{" "}
                                           <span className="font-medium text-black">
-                                            {seg1}%
+                                            {label1}%
                                           </span>
                                         </p>
                                       </div>
@@ -584,7 +609,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Persona{" "}
                                           <span className="font-medium text-black">
-                                            {seg2}%
+                                            {label2}%
                                           </span>
                                         </p>
                                       </div>
@@ -594,7 +619,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Workflow{" "}
                                           <span className="font-medium text-black">
-                                            {seg3}%
+                                            {label3}%
                                           </span>
                                         </p>
                                       </div>

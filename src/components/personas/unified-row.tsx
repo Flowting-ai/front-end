@@ -94,12 +94,7 @@ export type UnifiedRowProps = PersonaRowProps | ConsumerRowProps;
 
 // Shared utility functions
 const formatTokens = (tokens: number): string => {
-  if (tokens >= 1000000) {
-    return `${(tokens / 1000000).toFixed(2)}M tkns`;
-  } else if (tokens >= 1000) {
-    return `${Math.round(tokens / 1000)}K tkns`;
-  }
-  return `${tokens} tkns`;
+  return `${tokens}%`;
 };
 
 const statusStyles: Record<"active" | "paused" | "inactive", string> = {

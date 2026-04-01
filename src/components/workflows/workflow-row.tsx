@@ -71,12 +71,7 @@ export const WorkflowRow = React.forwardRef<
   WorkflowRowProps
 >(({ workflow, onPause, onResume, onDelete, onEdit, onView, onChat, onShare }, ref) => {
   const formatCredits = (credits: number): string => {
-    if (credits >= 1000000) {
-      return `${(credits / 1000000).toFixed(2)}M credits`;
-    } else if (credits >= 1000) {
-      return `${Math.round(credits / 1000)}K credits`;
-    }
-    return `${credits} credits`;
+    return `${credits}%`;
   };
 
   const statusStyles: Record<WorkflowItem["status"], string> = {

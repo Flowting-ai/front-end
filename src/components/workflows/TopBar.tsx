@@ -122,8 +122,8 @@ export default function TopBar({
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        {/* Thumbnail button */}
-        <button
+        {/* Workflow Thumbnail button */}
+        {/* <button
           type="button"
           onClick={handleThumbnailClick}
           title={thumbnail ? "Change workflow thumbnail" : "Add workflow thumbnail"}
@@ -134,7 +134,7 @@ export default function TopBar({
           ) : (
             <ImagePlus className="w-4 h-4 text-gray-400" />
           )}
-        </button>
+        </button> */}
         <input
           ref={thumbnailInputRef}
           type="file"

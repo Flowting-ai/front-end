@@ -1314,25 +1314,41 @@ export const workflowAPI = {
   },
 
   activate: async (id: string): Promise<void> => {
-    const workflow = await workflowAPI.get(id);
-    const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
     const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ is_active: true }),
     });
-    await handleResponse(response);
+    if (!response.ok) {
+      // Fallback: fetch full workflow and PUT it back with isActive toggled
+      const workflow = await workflowAPI.get(id);
+      const payload = toBackendWorkflowPayload({ ...workflow, isActive: true });
+      const fallbackResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      await handleResponse(fallbackResponse);
+    }
   },
 
   deactivate: async (id: string): Promise<void> => {
-    const workflow = await workflowAPI.get(id);
-    const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
     const response = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
-      method: "PUT",
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ is_active: false }),
     });
-    await handleResponse(response);
+    if (!response.ok) {
+      // Fallback: fetch full workflow and PUT it back with isActive toggled
+      const workflow = await workflowAPI.get(id);
+      const payload = toBackendWorkflowPayload({ ...workflow, isActive: false });
+      const fallbackResponse = await fetchWithTimeout(WORKFLOW_DETAIL_ENDPOINT(id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      await handleResponse(fallbackResponse);
+    }
   },
 
   execute: async (

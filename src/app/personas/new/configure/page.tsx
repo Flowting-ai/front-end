@@ -37,6 +37,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { getModelIcon } from "@/lib/model-icons";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-configure.module.css";
@@ -124,6 +125,8 @@ function PersonaConfigurePageContent() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [hasFinishedBuilding, setHasFinishedBuilding] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounterRef = useRef(0);
   const { user } = useAuth();
 
   const maskEmail = (email: string | null | undefined): string => {
@@ -164,7 +167,7 @@ function PersonaConfigurePageContent() {
   const [hasAppliedEnhancements, setHasAppliedEnhancements] = useState(false);
 
   // Custom hooks
-  const { uploadedFiles, handleFileUpload, removeFile, initWithExisting } = useFileUpload();
+  const { uploadedFiles, handleFileUpload, handleFileDrop, removeFile, initWithExisting } = useFileUpload();
 
   const { currentInstruction, canUndo, canRedo, setInstruction, undo, redo } =
     useInstructionHistory("");
@@ -790,7 +793,7 @@ function PersonaConfigurePageContent() {
           resolvedSelectedModel?.id ??
           (Number.isFinite(Number(selectedModel)) ? Number(selectedModel) : "")
         ),
-        status: "test" as const,
+        status: "completed" as const,
         temperature: temperature[0],
         image: imageFile,
       };
@@ -810,15 +813,19 @@ function PersonaConfigurePageContent() {
         });
         console.debug("Persona updated successfully!");
 
-        // Show success toast for update
-        toast("Persona Updated", {
-          description: "Your persona has been updated successfully.",
-        });
-
-        // Navigate to persona chat page after update
-        setTimeout(() => {
-          router.push(`/personas/${createdPersonaId}/chat`);
-        }, 1000);
+        if (!hasFinishedBuilding && !searchParams.get("personaId")) {
+          // First time finishing — show success dialog
+          setHasFinishedBuilding(true);
+          setShowSuccessDialog(true);
+        } else {
+          // Subsequent updates — toast and redirect
+          toast("Persona Updated", {
+            description: "Your persona has been updated successfully.",
+          });
+          setTimeout(() => {
+            router.push(`/personas/${createdPersonaId}/chat`);
+          }, 1000);
+        }
       } else {
         // Create new persona
         result = await createPersona({
@@ -1111,7 +1118,14 @@ function PersonaConfigurePageContent() {
                         <Label htmlFor="model" className={styles.label}>
                           Model
                         </Label>
-                        <Info className="h-4 w-4 text-[#000000]" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-[#000000] cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={4} className="max-w-[300px] text-xs leading-relaxed">
+                            Choose which AI model powers this persona. Each model has different strengths — some excel at creative writing, others at analysis or code. Your selection here sets the default model whenever this persona is used.
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
 
                       <Select
@@ -1201,7 +1215,14 @@ function PersonaConfigurePageContent() {
                         >
                           System Instruction
                         </Label>
-                        <Info className="h-4 w-4 text-[#000000]" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-[#000000] cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={4} className="max-w-[300px] text-xs leading-relaxed">
+                            Write the behavioral blueprint for your persona. Define its role, tone, expertise, what it should always do, and what it should never do. The more specific you are, the more consistent and useful your persona becomes.
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       <div
                         className={cn(
@@ -2177,9 +2198,19 @@ function PersonaConfigurePageContent() {
                     {/* Creativity Level */}
                     <div className={styles.fieldGroup}>
                       <div className={styles.sliderHeader}>
-                        <Label className={styles.label}>
-                          Creativity level (Temperature)
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label className={styles.label}>
+                            Creativity level (Temperature)
+                          </Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-[#000000] cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={4} className="max-w-[300px] text-xs leading-relaxed">
+                              Controls how predictable or inventive the AI&apos;s responses are. Lower values (closer to 0) produce focused, consistent, factual answers. Higher values (closer to 1) produce more varied and exploratory responses. Keep this low for task-focused or factual personas.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <span
                           className={cn(
                             styles.temperatureValue,
@@ -2227,8 +2258,50 @@ function PersonaConfigurePageContent() {
 
                     {/* Knowledge */}
                     <div className={styles.fieldGroup}>
-                      <Label className={styles.label}>Knowledge</Label>
-                      <div className={styles.uploadArea}>
+                      <div className="flex items-center gap-2">
+                        <Label className={styles.label}>Knowledge</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-[#000000] cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={4} className="max-w-[300px] text-xs leading-relaxed">
+                            Upload reference files your persona can draw from during conversations — such as brand guidelines, research papers, SOPs, or product docs. You can upload up to 10 documents.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div
+                        className={cn(
+                          styles.uploadArea,
+                          isDraggingFile && "border-[#22C55E] bg-[#F0FDF4]"
+                        )}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          dragCounterRef.current++;
+                          setIsDraggingFile(true);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          dragCounterRef.current--;
+                          if (dragCounterRef.current === 0) {
+                            setIsDraggingFile(false);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          dragCounterRef.current = 0;
+                          setIsDraggingFile(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            handleFileDrop(e.dataTransfer.files);
+                          }
+                        }}
+                      >
                         <input
                           type="file"
                           id="knowledge-upload"
@@ -2238,7 +2311,9 @@ function PersonaConfigurePageContent() {
                           className={styles.hiddenInput}
                         />
                         <p className={styles.uploadText}>
-                          Add files for your persona to reference
+                          {isDraggingFile
+                            ? "Drop files here"
+                            : "Add upto 10 files for your persona to reference"}
                         </p>
                         <Button
                           variant="outline"
@@ -2363,7 +2438,7 @@ function PersonaConfigurePageContent() {
                           <>
                             {/* {createdPersonaId ? null : <Rocket className="h-4 w-4" />} */}
                             <span className={styles.saveButtonText}>
-                              {createdPersonaId ? "Update Persona" : "Finish building"}
+                              {searchParams.get("personaId") ? "Update Persona" : "Finish building"}
                             </span>
                           </>
                         )}

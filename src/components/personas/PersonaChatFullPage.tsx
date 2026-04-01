@@ -86,10 +86,18 @@ export function PersonaChatFullPage({
     const resolved = normalizeChatId(chatId);
     setActiveChatId((prev) => {
       if (prev === resolved) return prev;
-      // Keep local in-flight messages when a brand new chat gets its first backend id.
-      // Only clear when switching between two concrete chat sessions.
-      if (prev && resolved && prev !== resolved) {
+      // Clear messages when:
+      // - Switching to a new empty chat (prev had a value, resolved is null)
+      // - Switching between two different saved chats
+      // Do NOT clear when going from null → a value (first message just assigned a backend ID)
+      if (prev && prev !== resolved) {
         setDisplayMessages([]);
+        setInput("");
+        setIsResponding(false);
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
       }
       return resolved;
     });
@@ -1000,7 +1008,8 @@ export function PersonaChatFullPage({
                         className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
                         style={{ width: "auto" }}
                       >
-                        <button
+                        {/* disabled attach file for persona chat */}
+                        {/* <button
                           onClick={() => {
                             fileInputRef.current?.click();
                             setShowAttachMenu(false);
@@ -1009,7 +1018,7 @@ export function PersonaChatFullPage({
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
                           <span>Attach images or files</span>
-                        </button>
+                        </button> */}
                         <button
                           onClick={() => {
                             setWebSearchEnabled(!webSearchEnabled);

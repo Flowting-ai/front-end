@@ -219,8 +219,8 @@ export function LeftSidebar({
   // Expand "Recent chats" when on workflow or persona pages (including chat pages)
   React.useEffect(() => {
     if (
-      pathname?.startsWith("/workflows/admin") ||
-      pathname?.startsWith("/personas/admin")
+      pathname?.startsWith("/workflows") ||
+      pathname?.startsWith("/personas")
     ) {
       setIsChatBoardsExpanded(true);
     } else if (pathname === "/" || pathname?.startsWith("/chats")) {
@@ -354,7 +354,10 @@ export function LeftSidebar({
     fetchPersonasApi()
       .then((personas) => {
         if (!cancelled) {
-          const mapped = personas.map((p) => ({
+          // Only show finished personas (exclude test/draft ones still being built)
+          const mapped = personas
+            .filter((p) => p.status !== "test")
+            .map((p) => ({
             id: p.id,
             name: p.name,
             isActive: p.is_active,
@@ -1279,9 +1282,23 @@ export function LeftSidebar({
                                           Loading...
                                         </p>
                                       ) : (
+                                        (() => {
+                                          // Show the "New Chat" placeholder only when we're on this persona's
+                                          // chat page without a session ID AND there's no temp/new entry already
+                                          // in the list (which gets added by the persona-chat-title-updated event).
+                                          const hasTempEntry = sessionsToShow.some(
+                                            (c) => c.id.startsWith("temp-") || c.chat_title === "New Chat",
+                                          );
+                                          const showPlaceholder =
+                                            activePersonaIdFromUrl === persona.id &&
+                                            isOnPersonaChatPage &&
+                                            !activePersonaChatSessionId &&
+                                            !hasTempEntry;
+
+                                          return (
                                         <>
                                           {/* Pending "New Chat" placeholder – shown until first message is sent */}
-                                          {activePersonaIdFromUrl === persona.id && isOnPersonaChatPage && !activePersonaChatSessionId && (
+                                          {showPlaceholder && (
                                             <ChatHistoryItem
                                               title="New Chat"
                                               isSelected={true}
@@ -1290,7 +1307,7 @@ export function LeftSidebar({
                                               onSelect={() => router.push(`/personas/${persona.id}/chat`)}
                                             />
                                           )}
-                                          {sessionsToShow.length === 0 && !(activePersonaIdFromUrl === persona.id && isOnPersonaChatPage && !activePersonaChatSessionId) ? (
+                                          {sessionsToShow.length === 0 && !showPlaceholder ? (
                                             <p className="px-2 py-1 text-[11px] text-[#B3B3B3]">
                                               No chats yet
                                             </p>
@@ -1369,6 +1386,8 @@ export function LeftSidebar({
                                         })
                                           )}
                                         </>
+                                          );
+                                        })()
                                       )}
                                     </div>
                                   )}

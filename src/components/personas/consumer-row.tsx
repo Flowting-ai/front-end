@@ -36,12 +36,7 @@ export interface ConsumerRowProps {
 export const ConsumerRow = React.forwardRef<HTMLTableRowElement, ConsumerRowProps>(
   ({ consumer, selected = false, onToggle, onPause, onResume, onDelete }, ref) => {
     const formatTokens = (tokens: number): string => {
-      if (tokens >= 1000000) {
-        return `${(tokens / 1000000).toFixed(2)}M tkns`;
-      } else if (tokens >= 1000) {
-        return `${Math.round(tokens / 1000)}K tkns`;
-      }
-      return `${tokens} tkns`;
+      return `${tokens}%`;
     };
 
     const statusStyles: Record<Consumer["status"], string> = {

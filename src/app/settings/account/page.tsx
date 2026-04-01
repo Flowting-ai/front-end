@@ -16,7 +16,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { updateUser, deleteUser } from "@/lib/api/user";
+import { fetchOnboardingState } from "@/lib/api/onboarding";
 import { toast } from "@/lib/toast-helper";
+
+const ROLE_LABELS: Record<string, string> = {
+  founder: "Founder",
+  student: "Student",
+  creator: "Creator",
+  engineer: "Engineer",
+  marketing_sales: "Marketing/Sales",
+  researcher: "Researcher",
+  enterprise: "Enterprise",
+  other: "Other",
+};
 
 export default function SettingsAccountPage() {
   const { user, refreshUser, logout } = useAuth();
@@ -26,6 +38,7 @@ export default function SettingsAccountPage() {
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -39,6 +52,12 @@ export default function SettingsAccountPage() {
   useEffect(() => {
     syncFromUser(user);
   }, [user]);
+
+  useEffect(() => {
+    fetchOnboardingState()
+      .then((state) => setUserRole(state?.user_role ?? null))
+      .catch(() => {});
+  }, []);
 
   const isDirty =
     firstName.trim() !== (user?.firstName ?? "").trim() ||
@@ -233,7 +252,7 @@ export default function SettingsAccountPage() {
                       className="min-w-[160px] max-w-xs"
                     />
                   </div>
-                  <div className="space-y-1">
+                  {/* <div className="space-y-1">
                     <label className="block text-sm font-medium text-[#111827]">
                       Phone number
                     </label>
@@ -244,7 +263,7 @@ export default function SettingsAccountPage() {
                       type="tel"
                       className="min-w-[180px] max-w-xs"
                     />
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="flex justify-end">
@@ -259,15 +278,25 @@ export default function SettingsAccountPage() {
                         Saving…
                       </>
                     ) : (
-                      "Save changes"
+                      "Save"
                     )}
                   </Button>
                 </div>
               </div>
             </div>
 
+            {/* Role */}
+            {userRole && (
+              <div className="flex items-center gap-4 border-b border-[#E5E5E5] pb-4">
+                <p className="text-sm font-medium text-[#111827]">Role</p>
+                <p className="text-sm text-[#4B5563]">
+                  {ROLE_LABELS[userRole] ?? userRole}
+                </p>
+              </div>
+            )}
+
             {/* Sign-in Methods */}
-            <section className="space-y-3">
+            {/* <section className="space-y-3">
               <h2 className="font-clash text-xl text-black">Sign-in Methods</h2>
               <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-4">
                 <div className="space-y-1">
@@ -282,7 +311,7 @@ export default function SettingsAccountPage() {
                   Edit
                 </Button>
               </div>
-            </section>
+            </section> */}
 
             {/* Danger Zone */}
             <section className="space-y-3">

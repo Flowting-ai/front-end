@@ -10,10 +10,12 @@ import {
   createFileObject,
   formatDuplicateFileMessage,
 } from '../utils';
+import { MAX_FILE_SIZE_MB, MAX_FILES } from '../constants';
 
 interface UseFileUploadReturn {
   uploadedFiles: UploadedFile[];
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleFileDrop: (files: FileList) => void;
   removeFile: (fileId: string) => void;
   clearFiles: () => void;
   initWithExisting: (files: { id: string; name: string }[]) => void;
@@ -47,16 +49,36 @@ export function useFileUpload(): UseFileUploadReturn {
     }, 200);
   }, []);
 
-  const handleFileUpload = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files;
-      if (!files || files.length === 0) return;
+  const processFiles = useCallback(
+    (files: FileList) => {
+      if (files.length === 0) return;
+
+      const maxSizeBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
+      const availableSlots = MAX_FILES - uploadedFiles.length;
+
+      if (availableSlots <= 0) {
+        toast.error('File limit reached', {
+          description: `You can upload a maximum of ${MAX_FILES} files.`,
+        });
+        return;
+      }
 
       const filesToAdd: UploadedFile[] = [];
       const duplicateFiles: string[] = [];
+      const oversizedFiles: string[] = [];
+      let skippedDueToLimit = 0;
 
-      // Check for duplicates and prepare files to add
       Array.from(files).forEach((file) => {
+        if (filesToAdd.length >= availableSlots) {
+          skippedDueToLimit++;
+          return;
+        }
+
+        if (file.size > maxSizeBytes) {
+          oversizedFiles.push(file.name);
+          return;
+        }
+
         if (isDuplicateFile(file.name, uploadedFiles, filesToAdd)) {
           duplicateFiles.push(file.name);
           return;
@@ -65,24 +87,52 @@ export function useFileUpload(): UseFileUploadReturn {
         filesToAdd.push(createFileObject(file));
       });
 
-      // Show toast for duplicate files
+      if (oversizedFiles.length > 0) {
+        toast.error(
+          oversizedFiles.length === 1 ? 'File too large' : 'Files too large',
+          {
+            description:
+              oversizedFiles.length === 1
+                ? `"${oversizedFiles[0]}" exceeds the ${MAX_FILE_SIZE_MB}MB limit.`
+                : `${oversizedFiles.length} files exceed the ${MAX_FILE_SIZE_MB}MB limit.`,
+          }
+        );
+      }
+
       if (duplicateFiles.length > 0) {
         const { title, description } = formatDuplicateFileMessage(duplicateFiles);
-        toast.error(title, {
-          description,
+        toast.error(title, { description });
+      }
+
+      if (skippedDueToLimit > 0) {
+        toast.error('File limit reached', {
+          description: `Only ${availableSlots} more file${availableSlots === 1 ? '' : 's'} can be added (max ${MAX_FILES}).`,
         });
       }
 
-      // Add valid files and simulate upload
       if (filesToAdd.length > 0) {
         setUploadedFiles((prev) => [...prev, ...filesToAdd]);
         filesToAdd.forEach(simulateUpload);
       }
-
-      // Reset input
-      event.target.value = '';
     },
     [uploadedFiles, simulateUpload]
+  );
+
+  const handleFileUpload = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files) return;
+      processFiles(files);
+      event.target.value = '';
+    },
+    [processFiles]
+  );
+
+  const handleFileDrop = useCallback(
+    (files: FileList) => {
+      processFiles(files);
+    },
+    [processFiles]
   );
 
   const removeFile = useCallback((fileId: string) => {
@@ -121,6 +171,7 @@ export function useFileUpload(): UseFileUploadReturn {
   return {
     uploadedFiles,
     handleFileUpload,
+    handleFileDrop,
     removeFile,
     clearFiles,
     initWithExisting,

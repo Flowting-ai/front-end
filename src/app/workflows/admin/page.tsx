@@ -50,6 +50,7 @@ import userAvatar3 from "@/avatars/userAvatar3.png";
 import Image from "next/image";
 import type { Consumer } from "@/components/workflows/workflow-row";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "@/lib/toast-helper";
 
 const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Workflows" },
@@ -125,7 +126,7 @@ export default function WorkflowAdminPage() {
         name: wf.name,
         description: wf.description,
         status: wf.isActive ? "active" : "paused",
-        creditUsage: wf.nodeCount * 1000 + wf.edgeCount * 500,
+        creditUsage: 0, // TODO: Backend doesn't provide this yet
         consumers: [],
         consumersCount: 0,
         nodeCount: wf.nodeCount,
@@ -204,25 +205,22 @@ export default function WorkflowAdminPage() {
 
     // Persist to backend
     try {
-      // Fetch full workflow from backend
-      const fullWorkflow = await workflowAPI.get(workflowId);
-      if (!fullWorkflow.nodes || fullWorkflow.nodes.length === 0) {
-        console.error("Cannot update workflow status: No nodes found in workflow", fullWorkflow);
-        // Revert optimistic update on error
-        setWorkflows((prev) =>
-          prev.map((w) =>
-            w.id === workflowId ? { ...w, status: workflow.status } : w
-          )
-        );
-        return;
+      if (newFrontendStatus === "active") {
+        await workflowAPI.activate(workflowId);
+        toast("Workflow Resumed", {
+          description: `"${workflow.name}" is now active again.`,
+        });
+      } else {
+        await workflowAPI.deactivate(workflowId);
+        toast("Workflow Paused", {
+          description: `"${workflow.name}" has been paused. This may affect any processes using this workflow.`,
+        });
       }
-      // Map frontend status to backend status
-      // - "active" → true
-      // - "paused" → false
-      const isActive = newFrontendStatus === "active";
-      await workflowAPI.upsert(workflowId, { ...fullWorkflow, isActive });
     } catch (error) {
       console.error("Failed to update workflow status:", error);
+      toast.error("Failed to update status", {
+        description: "Could not update workflow status. Please try again.",
+      });
       // Revert optimistic update on error
       setWorkflows((prev) =>
         prev.map((w) =>
@@ -393,11 +391,32 @@ export default function WorkflowAdminPage() {
                               let seg1 = +(monthlyPct * 0.4).toFixed(1);
                               let seg2 = +(monthlyPct * 0.35).toFixed(1);
                               let seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
+                              // Display percentages for the legend (may differ from bar widths)
+                              let label1 = seg1;
+                              let label2 = seg2;
+                              let label3 = seg3;
 
                               if (byCategory) {
-                                seg1 = +normalizePct(byCategory.chat).toFixed(1);
-                                seg2 = +normalizePct(byCategory.persona).toFixed(1);
-                                seg3 = +normalizePct(byCategory.workflow).toFixed(1);
+                                const rawChat = normalizePct(byCategory.chat);
+                                const rawPersona = normalizePct(byCategory.persona);
+                                const rawWorkflow = normalizePct(byCategory.workflow);
+                                const rawTotal = rawChat + rawPersona + rawWorkflow;
+
+                                // Show actual category percentages in legend
+                                label1 = +rawChat.toFixed(1);
+                                label2 = +rawPersona.toFixed(1);
+                                label3 = +rawWorkflow.toFixed(1);
+
+                                if (rawTotal > 0) {
+                                  // Scale each segment so they sum to the total monthly usage
+                                  seg1 = +((rawChat / rawTotal) * monthlyPct).toFixed(1);
+                                  seg2 = +((rawPersona / rawTotal) * monthlyPct).toFixed(1);
+                                  seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
+                                } else {
+                                  seg1 = 0;
+                                  seg2 = 0;
+                                  seg3 = 0;
+                                }
                               }
 
                               return (
@@ -426,7 +445,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Chat{" "}
                                           <span className="font-medium text-black">
-                                            {seg1}%
+                                            {label1}%
                                           </span>
                                         </p>
                                       </div>
@@ -436,7 +455,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Persona{" "}
                                           <span className="font-medium text-black">
-                                            {seg2}%
+                                            {label2}%
                                           </span>
                                         </p>
                                       </div>
@@ -446,7 +465,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Workflow{" "}
                                           <span className="font-medium text-black">
-                                            {seg3}%
+                                            {label3}%
                                           </span>
                                         </p>
                                       </div>
