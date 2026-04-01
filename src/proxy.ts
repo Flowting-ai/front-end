@@ -72,7 +72,7 @@ export default async function proxy(request: Request) {
       return await auth0.middleware(request);
     }
     // Authenticated but hasn't onboarded → send to onboarding start
-    return Response.redirect(new URL("/onboarding/role", request.url));
+    return Response.redirect(new URL("/onboarding/username", request.url));
   }
 
   return await auth0.middleware(request);
