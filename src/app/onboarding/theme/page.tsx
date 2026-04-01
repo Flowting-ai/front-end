@@ -23,7 +23,7 @@ export default function Page() {
           {/* Header */}
           <div className="max-w-2xl w-full text-center flex flex-col items-center gap-4">
             <Image
-              src="/new-logos/souvenir-logo.svg"
+              src="https://souvenirai-storage.s3.us-east-1.amazonaws.com/public/image.png"
               width={500}
               height={500}
               alt="Souvenir Logo"

@@ -73,7 +73,7 @@ export default function Page() {
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-8 px-6 py-10">
           <div className="max-w-2xl w-full text-center flex flex-col items-center gap-4">
             <Image
-              src="/new-logos/souvenir-logo.svg"
+              src="https://souvenirai-storage.s3.us-east-1.amazonaws.com/public/image.png"
               width={500}
               height={500}
               alt="Souvenir Logo"
