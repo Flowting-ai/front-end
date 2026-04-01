@@ -125,6 +125,7 @@ export default function WorkflowAdminPage() {
         id: wf.id,
         name: wf.name,
         description: wf.description,
+        documentFilename: wf.documentFilename ?? null,
         status: wf.isActive ? "active" : "paused",
         creditUsage: 0, // TODO: Backend doesn't provide this yet
         consumers: [],

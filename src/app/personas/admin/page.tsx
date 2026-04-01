@@ -151,19 +151,30 @@ export default function PersonaAdminPage() {
         // Map backend status to frontend status ("active" | "paused" | "inactive")
         const transformedPersonas: Persona[] = backendPersonas
           .filter((bp) => bp.status !== "test")
-          .map((bp) => ({
-          id: bp.id,
-          name: bp.name,
-          description: bp.prompt?.slice(0, 100) || "No description",
-          avatar: getFullAvatarUrl(bp.imageUrl) || "/personas/persona1.png",
-          status: (bp.is_active === false ? "paused" : "active") as "active" | "paused",
-          tokensUsed: 0, // TODO: Backend doesn't provide this yet
-          consumersCount: 0, // TODO: Backend doesn't provide this yet
-          consumers: [], // TODO: Backend doesn't provide this yet
-          createdAt: bp.createdAt ?? bp.created_at,
-          lastActivity: formatRelativeTime(bp.updatedAt ?? bp.updated_at),
-          version: "v1.0",
-        }));
+          .map((bp) => {
+            const documentFilename =
+              bp.document_filename ||
+              bp.documents?.[0]?.document_filename ||
+              null;
+            const avatarUrl =
+              getFullAvatarUrl(bp.imageUrl ?? bp.image_url) ||
+              "/personas/persona1.png";
+
+            return {
+              id: bp.id,
+              name: bp.name,
+              description: bp.prompt?.slice(0, 100) || "No description",
+              documentFilename,
+              avatar: avatarUrl,
+              status: (bp.is_active === false ? "paused" : "active") as "active" | "paused",
+              tokensUsed: 0, // TODO: Backend doesn't provide this yet
+              consumersCount: 0, // TODO: Backend doesn't provide this yet
+              consumers: [], // TODO: Backend doesn't provide this yet
+              createdAt: bp.createdAt ?? bp.created_at,
+              lastActivity: formatRelativeTime(bp.updatedAt ?? bp.updated_at),
+              version: "v1.0",
+            };
+          });
 
         setPersonas(transformedPersonas);
       } catch (error) {

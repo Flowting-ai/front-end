@@ -85,6 +85,7 @@ export const PersonaWrapper = React.forwardRef<HTMLTableRowElement, PersonaWrapp
           id={persona.id}
           name={persona.name}
           description={persona.description}
+          documentFilename={persona.documentFilename}
           avatar={persona.avatar}
           tokensUsed={persona.tokensUsed}
           status={persona.status}

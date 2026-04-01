@@ -42,6 +42,7 @@ export interface Persona {
   id: string;
   name: string;
   description?: string;
+  documentFilename?: string | null;
   avatar?: string;
   status: "active" | "paused" | "inactive";
   tokensUsed: number;
@@ -69,6 +70,7 @@ interface BaseRowProps {
 interface PersonaRowProps extends BaseRowProps {
   variant: "persona";
   description?: string;
+  documentFilename?: string | null;
   consumersCount: number;
   consumers: Consumer[];
   expanded?: boolean;
@@ -162,6 +164,11 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
     // Persona-specific props
     const personaProps = isPersona ? (props as PersonaRowProps) : null;
     const consumerProps = isConsumer ? (props as ConsumerRowProps) : null;
+    const personaDocLabel =
+      personaProps?.documentFilename && personaProps.documentFilename.trim().length > 0
+        ? `Document: ${personaProps.documentFilename}`
+        : "";
+    const personaSecondaryText = personaDocLabel || personaProps?.description || "";
 
     return (
       <TableRow
@@ -217,9 +224,9 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
                     <span className="font-semibold text-[12px] sm:text-[13px] md:text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
                       {name}
                     </span>
-                    {personaProps.description && (
+                    {personaSecondaryText && (
                       <span className="hidden md:block text-[11px] md:text-[12px] text-[var(--colors-gray-500,#6b7280)] truncate">
-                        {personaProps.description}
+                        {personaSecondaryText}
                       </span>
                     )}
                   </div>

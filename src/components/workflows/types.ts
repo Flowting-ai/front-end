@@ -147,6 +147,7 @@ export interface WorkflowMetadata {
   id: string;
   name: string;
   description?: string;
+  documentFilename?: string | null;
   nodeCount: number;
   edgeCount: number;
   lastExecuted?: string;

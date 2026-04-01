@@ -557,6 +557,7 @@ const toWorkflowMetadata = (
     id: workflow.id,
     name: workflow.name,
     description: workflow.description || "",
+    documentFilename: workflow.document_filename ?? null,
     nodeCount: Number(workflow.nodes_count || 0),
     edgeCount: Number(workflow.edges_count || 0),
     createdAt: workflow.created_at,

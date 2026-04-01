@@ -397,7 +397,7 @@ function PersonaConfigurePageContent() {
           // Set existing documents for display
           if (Array.isArray(personaData.documents) && personaData.documents.length > 0) {
             initWithExisting(
-              personaData.documents.map((d) => ({ id: d.id, name: d.filename }))
+              personaData.documents.map((d) => ({ id: d.id, name: d.document_filename }))
             );
           } else if (personaData.document_filename) {
             initWithExisting([{ id: personaData.id, name: personaData.document_filename }]);

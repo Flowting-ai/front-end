@@ -41,6 +41,7 @@ export interface WorkflowItem {
   id: string;
   name: string;
   description?: string;
+  documentFilename?: string | null;
   status: "active" | "paused" | "inactive";
   creditUsage: number;
   consumers: Consumer[];
@@ -73,6 +74,10 @@ export const WorkflowRow = React.forwardRef<
   const formatCredits = (credits: number): string => {
     return `${credits}%`;
   };
+  const secondaryText =
+    workflow.documentFilename && workflow.documentFilename.trim().length > 0
+      ? `Document: ${workflow.documentFilename}`
+      : workflow.description || "";
 
   const statusStyles: Record<WorkflowItem["status"], string> = {
     active: "bg-[#E4F5EC] text-[#166534]",
@@ -114,9 +119,9 @@ export const WorkflowRow = React.forwardRef<
               <span className="font-semibold text-sm leading-[17px] tracking-[-0.01em] text-[var(--colors-gray-900,#0f172a)] truncate">
                 {workflow.name}
               </span>
-              {workflow.description && (
+              {secondaryText && (
                 <span className="text-[12px] text-[var(--colors-gray-500,#6b7280)] line-clamp-1">
-                  {workflow.description}
+                  {secondaryText}
                 </span>
               )}
             </div>
