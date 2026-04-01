@@ -164,7 +164,7 @@ function PersonaConfigurePageContent() {
   const [hasAppliedEnhancements, setHasAppliedEnhancements] = useState(false);
 
   // Custom hooks
-  const { uploadedFiles, handleFileUpload, removeFile } = useFileUpload();
+  const { uploadedFiles, handleFileUpload, removeFile, initWithExisting } = useFileUpload();
 
   const { currentInstruction, canUndo, canRedo, setInstruction, undo, redo } =
     useInstructionHistory("");
@@ -386,6 +386,20 @@ function PersonaConfigurePageContent() {
             setSelectedModel(modelIdStr);
           }
 
+          // Set temperature if available
+          if (typeof personaData.temperature === "number") {
+            setTemperature([personaData.temperature]);
+          }
+
+          // Set existing documents for display
+          if (Array.isArray(personaData.documents) && personaData.documents.length > 0) {
+            initWithExisting(
+              personaData.documents.map((d) => ({ id: d.id, name: d.filename }))
+            );
+          } else if (personaData.document_filename) {
+            initWithExisting([{ id: personaData.id, name: personaData.document_filename }]);
+          }
+
           // Set avatar if available (only when editing existing persona)
           if (personaData.image_url) {
             console.debug(
@@ -408,7 +422,7 @@ function PersonaConfigurePageContent() {
 
       loadPersonaData();
     }
-  }, [searchParams, models.length, isLoadingModels, setInstruction]);
+  }, [searchParams, models.length, isLoadingModels, setInstruction, initWithExisting]);
 
   const resolvedSelectedModel = useMemo<AIModel | null>(() => {
     if (!selectedModel) return null;
@@ -691,7 +705,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf")
+        .filter((f) => f.type === "pdf" && !f.isExisting)
         .map((f) => f.file);
 
       if (createdPersonaId) {
@@ -781,7 +795,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf")
+        .filter((f) => f.type === "pdf" && !f.isExisting)
         .map((f) => f.file);
 
       let result;

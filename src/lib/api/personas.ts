@@ -17,6 +17,12 @@ import {
 
 export type PersonaStatus = "draft" | "test" | "completed";
 
+export interface BackendPersonaDocument {
+  id: string;
+  filename: string;
+  created_at: string;
+}
+
 export interface BackendPersona {
   id: string;
   name: string;
@@ -32,6 +38,9 @@ export interface BackendPersona {
   providerName?: string | null;
   image_url: string | null;
   imageUrl?: string | null;
+  temperature?: number | null;
+  document_filename?: string | null;
+  documents?: BackendPersonaDocument[];
   created_at: string;
   createdAt?: string;
   updated_at: string;

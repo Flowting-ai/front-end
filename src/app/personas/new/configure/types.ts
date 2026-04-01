@@ -10,6 +10,8 @@ export interface UploadedFile {
   file: File;
   isUploading?: boolean;
   uploadProgress?: number;
+  /** True for files already saved on the backend — skipped during upload */
+  isExisting?: boolean;
 }
 
 export interface PersonaModel {

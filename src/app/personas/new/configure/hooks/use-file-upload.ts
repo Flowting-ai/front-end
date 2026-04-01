@@ -16,6 +16,7 @@ interface UseFileUploadReturn {
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   removeFile: (fileId: string) => void;
   clearFiles: () => void;
+  initWithExisting: (files: { id: string; name: string }[]) => void;
 }
 
 export function useFileUpload(): UseFileUploadReturn {
@@ -103,11 +104,26 @@ export function useFileUpload(): UseFileUploadReturn {
     setUploadedFiles([]);
   }, [uploadedFiles]);
 
+  const initWithExisting = useCallback((files: { id: string; name: string }[]) => {
+    const existing: UploadedFile[] = files.map((f) => ({
+      id: f.id,
+      type: 'pdf',
+      name: f.name,
+      url: '',
+      file: new File([], f.name),
+      isUploading: false,
+      uploadProgress: 100,
+      isExisting: true,
+    }));
+    setUploadedFiles(existing);
+  }, []);
+
   return {
     uploadedFiles,
     handleFileUpload,
     removeFile,
     clearFiles,
+    initWithExisting,
   };
 }
 
