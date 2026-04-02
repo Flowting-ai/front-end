@@ -475,7 +475,7 @@ export default function PersonaAdminPage() {
       <div
         className={`${chatStyles.customScrollbar} w-full h-full flex items-start justify-center grow-0 overflow-y-auto py-[20px]`}
       >
-        <div className="scale-100 mx-auto w-full">
+        <div className="scale-100 max-w-[1040px] mx-auto w-full">
           <div className="w-full flex flex-col gap-6">
             {/* Header */}
             <div className="w-full flex justify-between items-start">
