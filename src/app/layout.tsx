@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Geist, Poppins, Besley } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import "highlight.js/styles/github.css";
 import { Toaster } from "@/components/ui/sonner" // react-toastify
@@ -39,6 +40,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Google Analytics tag added*/}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-BH0MSN0Z1J"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-BH0MSN0Z1J');
+          `}
+        </Script>
+      </head>
       <body
         suppressHydrationWarning
         className={cn(
