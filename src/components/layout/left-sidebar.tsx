@@ -570,16 +570,29 @@ export function LeftSidebar({
       : "chat";
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const boardsToDisplay = chatBoards.filter((board) => {
-    // Filter by type - default to "chat" if no type is set (for backward compatibility)
-    const boardType = board.type || "chat";
-    if (boardType !== currentBoardType) return false;
+  const boardsToDisplay = useMemo(() => {
+    const filtered = chatBoards.filter((board) => {
+      // Filter by type - default to "chat" if no type is set (for backward compatibility)
+      const boardType = board.type || "chat";
+      if (boardType !== currentBoardType) return false;
 
-    // Filter by search term
-    if (!normalizedSearch) return true;
-    const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
-    return haystack.includes(normalizedSearch);
-  });
+      // Filter by search term
+      if (!normalizedSearch) return true;
+      const haystack = `${board.name} ${board.time ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedSearch);
+    });
+
+    return filtered
+      .slice()
+      .sort((a, b) => {
+        const aTime = Date.parse(a.metadata?.lastMessageAt || "");
+        const bTime = Date.parse(b.metadata?.lastMessageAt || "");
+        const aSafe = Number.isNaN(aTime) ? 0 : aTime;
+        const bSafe = Number.isNaN(bTime) ? 0 : bTime;
+        if (aSafe !== bSafe) return bSafe - aSafe;
+        return a.name.localeCompare(b.name);
+      });
+  }, [chatBoards, currentBoardType, normalizedSearch]);
 
   const [documentTitle, setDocumentTitle] = useState(APP_BASE_TITLE);
 

@@ -182,10 +182,19 @@ const extractChatId = (chat: BackendChat): string => {
 };
 
 const normalizeChatBoard = (chat: BackendChat, defaultType: ChatBoardType = "chat"): ChatBoard => {
+  const lastMessageAt = chat.updated_at || chat.created_at || null;
   let metadata =
     "metadata" in chat && chat.metadata && typeof chat.metadata === "object"
       ? { ...(chat.metadata as ChatMetadata) }
       : undefined;
+
+  if (metadata) {
+    if (metadata.lastMessageAt === undefined || metadata.lastMessageAt === null) {
+      metadata.lastMessageAt = lastMessageAt;
+    }
+  } else {
+    metadata = { lastMessageAt };
+  }
 
   if (metadata && metadata.starMessageId === undefined) {
     const fromChat = (chat as { starMessageId?: string | number | null })
@@ -1845,7 +1854,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       isStarred: false,
       pinCount: 0,
       type: chatType,
-      metadata: { messageCount: 0, pinCount: 0 },
+      metadata: { messageCount: 0, pinCount: 0, lastMessageAt: new Date().toISOString() },
     };
 
     // Add new chat while preserving all existing chats

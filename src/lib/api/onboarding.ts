@@ -1,6 +1,6 @@
 "use client";
 
-import { USER_ONBOARDING_ENDPOINT } from "@/lib/config";
+import { USER_ENDPOINT, USER_ONBOARDING_ENDPOINT } from "@/lib/config";
 import { apiFetch } from "@/lib/api/client";
 import type { UserPlanType } from "@/lib/api/user";
 
@@ -91,7 +91,7 @@ function normalizeOnboardingState(raw: unknown): OnboardingState {
 }
 
 export async function fetchOnboardingState(): Promise<OnboardingState | null> {
-  const response = await apiFetch(USER_ONBOARDING_ENDPOINT, { method: "GET" });
+  const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
   const json = await response.json();
   return normalizeOnboardingState(json);

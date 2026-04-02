@@ -8,7 +8,7 @@ const apiBaseUrl = process.env.SERVER_URL?.replace(/\/+$/, "");
 const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
 let hasLoggedOnboardingFetchFailure = false;
 
-const ONBOARDING_ENDPOINT_PATHS = ["/users/me/onboarding", "/users/me"] as const;
+const ONBOARDING_ENDPOINT_PATH = "/users/me";
 
 async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
   try {
@@ -16,30 +16,26 @@ async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
     const { token } = await auth0.getAccessToken({ audience });
     if (!token) return null;
 
-    for (const path of ONBOARDING_ENDPOINT_PATHS) {
-      const response = await fetch(`${apiBaseUrl}${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
+    const response = await fetch(`${apiBaseUrl}${ONBOARDING_ENDPOINT_PATH}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
 
-      if (!response.ok) continue;
+    if (!response.ok) return null;
 
-      const data = (await response.json()) as Record<string, unknown>;
-      const root =
-        (data.data && typeof data.data === "object"
-          ? data.data
-          : data.user && typeof data.user === "object"
-            ? data.user
-            : data) as Record<string, unknown>;
-      const onboarding =
-        root.onboarding && typeof root.onboarding === "object"
-          ? (root.onboarding as Record<string, unknown>)
-          : root;
+    const data = (await response.json()) as Record<string, unknown>;
+    const root =
+      (data.data && typeof data.data === "object"
+        ? data.data
+        : data.user && typeof data.user === "object"
+          ? data.user
+          : data) as Record<string, unknown>;
+    const onboarding =
+      root.onboarding && typeof root.onboarding === "object"
+        ? (root.onboarding as Record<string, unknown>)
+        : root;
 
-      return { completed: Boolean(onboarding.completed) };
-    }
-
-    return null;
+    return { completed: Boolean(onboarding.completed) };
   } catch (error) {
     if (!hasLoggedOnboardingFetchFailure) {
       hasLoggedOnboardingFetchFailure = true;
