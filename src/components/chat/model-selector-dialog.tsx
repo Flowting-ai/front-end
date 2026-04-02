@@ -273,8 +273,9 @@ export function ModelSelectorDialog({
                 onCheckedChange={(checked) => setShowFree(checked as boolean)}
                 className="h-4 w-4 rounded-[4px] border border-[#D4D4D4] rounded-[5px] data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
               />
+              {/* changing free to base - modelSelector*/}
               <Label htmlFor="free" className="checkbox-label">
-                Free
+                Base
               </Label>
             </div>
             <div className="checkbox-item">
@@ -284,8 +285,9 @@ export function ModelSelectorDialog({
                 onCheckedChange={(checked) => setShowPaid(checked as boolean)}
                 className="h-4 w-4 rounded-[4px] border border-[#D4D4D4] rounded-[5px] data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white"
               />
+              {/* changing paid to plus - modelSwitch*/}
               <Label htmlFor="paid" className="checkbox-label">
-                Paid
+                Plus
               </Label>
             </div>
           </div>
