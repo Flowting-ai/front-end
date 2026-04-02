@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ReactFlow, {
   ReactFlowProvider,
@@ -66,6 +66,8 @@ import { X } from "lucide-react";
 
 let id = 0;
 const getId = () => `node_${id++}`;
+const NODE_TYPES = { custom: CustomNode };
+const EDGE_TYPES = { default: CustomEdge };
 
 /** Call after loading a workflow so getId() never collides with existing node IDs. */
 const syncIdCounter = (nodes: { id: string }[]) => {
@@ -252,12 +254,6 @@ function WorkflowCanvasInner() {
     },
     [setEdges, saveToHistory],
   );
-
-  // Memoize node types
-  const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
-  
-  // Memoize edge types
-  const edgeTypes = useMemo(() => ({ default: CustomEdge }), []);
 
   // Remove phantom automatically if a real node exists (e.g., load or other state change)
   // SAFETY: This effect only removes the phantom placeholder, never real workflow nodes
@@ -1699,8 +1695,8 @@ function WorkflowCanvasInner() {
           onNodeContextMenu={onNodeContextMenu}
           onDrop={onDrop}
           onDragOver={onDragOver}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
           snapToGrid={snapToGrid}
           snapGrid={[20, 20]}
           fitViewOptions={{ padding: 0.2, minZoom: 0.5, maxZoom: 1.5 }}

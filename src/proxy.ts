@@ -6,6 +6,9 @@ type OnboardingCheck = {
 
 const apiBaseUrl = process.env.SERVER_URL?.replace(/\/+$/, "");
 const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
+let hasLoggedOnboardingFetchFailure = false;
+
+const ONBOARDING_ENDPOINT_PATHS = ["/users/me/onboarding", "/users/me"] as const;
 
 async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
   try {
@@ -13,23 +16,35 @@ async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
     const { token } = await auth0.getAccessToken({ audience });
     if (!token) return null;
 
-    const response = await fetch(`${apiBaseUrl}/users/me/onboarding`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
+    for (const path of ONBOARDING_ENDPOINT_PATHS) {
+      const response = await fetch(`${apiBaseUrl}${path}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
 
-    if (!response.ok) return null;
-    const data = (await response.json()) as Record<string, unknown>;
-    const root =
-      (data.data && typeof data.data === "object"
-        ? data.data
-        : data.onboarding && typeof data.onboarding === "object"
-          ? data.onboarding
-          : data) as Record<string, unknown>;
+      if (!response.ok) continue;
 
-    return { completed: Boolean(root.completed) };
+      const data = (await response.json()) as Record<string, unknown>;
+      const root =
+        (data.data && typeof data.data === "object"
+          ? data.data
+          : data.user && typeof data.user === "object"
+            ? data.user
+            : data) as Record<string, unknown>;
+      const onboarding =
+        root.onboarding && typeof root.onboarding === "object"
+          ? (root.onboarding as Record<string, unknown>)
+          : root;
+
+      return { completed: Boolean(onboarding.completed) };
+    }
+
+    return null;
   } catch (error) {
-    console.error("Failed to fetch onboarding state", error);
+    if (!hasLoggedOnboardingFetchFailure) {
+      hasLoggedOnboardingFetchFailure = true;
+      console.warn("Failed to fetch onboarding state", error);
+    }
     return null;
   }
 }

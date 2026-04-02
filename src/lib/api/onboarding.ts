@@ -37,17 +37,21 @@ function normalizeOnboardingState(raw: unknown): OnboardingState {
   const root =
     (payload.data && typeof payload.data === "object"
       ? payload.data
-      : payload.onboarding && typeof payload.onboarding === "object"
-        ? payload.onboarding
+      : payload.user && typeof payload.user === "object"
+        ? payload.user
         : payload) as Record<string, unknown>;
+  const onboarding =
+    root.onboarding && typeof root.onboarding === "object"
+      ? (root.onboarding as Record<string, unknown>)
+      : root;
 
   const metadata =
-    root.metadata && typeof root.metadata === "object"
-      ? (root.metadata as Record<string, unknown>)
+    onboarding.metadata && typeof onboarding.metadata === "object"
+      ? (onboarding.metadata as Record<string, unknown>)
       : {};
   const subscription =
-    root.subscription && typeof root.subscription === "object"
-      ? (root.subscription as Record<string, unknown>)
+    onboarding.subscription && typeof onboarding.subscription === "object"
+      ? (onboarding.subscription as Record<string, unknown>)
       : null;
 
   const status = metadata.status === "complete" ? "complete" : "incomplete";
@@ -59,10 +63,11 @@ function normalizeOnboardingState(raw: unknown): OnboardingState {
       : null;
 
   return {
-    user_role: typeof root.user_role === "string" ? root.user_role : null,
-    ai_tone: typeof root.ai_tone === "string" ? root.ai_tone : null,
-    role_fit: typeof root.role_fit === "string" ? root.role_fit : null,
-    completed: Boolean(root.completed),
+    user_role:
+      typeof onboarding.user_role === "string" ? onboarding.user_role : null,
+    ai_tone: typeof onboarding.ai_tone === "string" ? onboarding.ai_tone : null,
+    role_fit: typeof onboarding.role_fit === "string" ? onboarding.role_fit : null,
+    completed: Boolean(onboarding.completed),
     metadata: {
       status,
       next_step: nextStep,

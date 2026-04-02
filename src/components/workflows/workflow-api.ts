@@ -40,7 +40,6 @@ interface BackendWorkflowNodePayload {
   name: string;
   node_type: BackendNodeType;
   reference_id?: string;
-  documents?: string[];
   instructions: string;
   position_x: number;
   position_y: number;
@@ -80,8 +79,7 @@ interface BackendWorkflowNode {
   node_id: string;
   name: string;
   node_type: BackendNodeType;
-  reference_id: string;
-  documents?: string[];
+  reference_id: string | null;
   instructions: string;
   position_x: number;
   position_y: number;
@@ -475,8 +473,8 @@ const getNodeReferenceId = (node: WorkflowDTO["nodes"][0]): string => {
 /**
  * Convert a frontend WorkflowDTO into the backend create/update payload.
  *
- * All supported node types are sent directly with a `reference_id` field.
- * Document and phantom nodes are excluded as they have no backend representation.
+ * All supported node types are sent directly.
+ * Document nodes are sent without `reference_id` because backend sets it after upload.
  * Edges are filtered to only include connections between backend-supported nodes.
  */
 const toBackendWorkflowPayload = (
@@ -492,7 +490,7 @@ const toBackendWorkflowPayload = (
     let backendNodeType = toBackendNodeType(frontendType);
     if (!backendNodeType) continue;
 
-    let refId = getNodeReferenceId(node);
+    const refId = getNodeReferenceId(node);
 
     // For pin nodes, determine correct backend type based on available reference:
     // - selectedFolder.id present → pin_folder (fetches all pins in folder)
@@ -516,7 +514,7 @@ const toBackendWorkflowPayload = (
     };
 
     // Only include reference_id when non-empty (start/end nodes must not have it)
-    if (refId) nodePayload.reference_id = refId;
+    if (refId && frontendType !== "document") nodePayload.reference_id = refId;
 
     backendNodes.push(nodePayload);
   }
@@ -663,14 +661,17 @@ const toWorkflowDTO = (workflow: BackendWorkflowDetail): WorkflowDTO => {
     // Populate type-specific reference fields
     switch (frontendType) {
       case "document":
-        if (Array.isArray(node.documents) && node.documents.length > 0) {
-          data.files = node.documents.map((fileId) => ({
-            id: fileId,
-            name: fileId,
-            size: 0,
-            type: "document",
-            fileId,
-          }));
+        if (typeof node.reference_id === "string" && node.reference_id.trim().length > 0) {
+          const fileId = node.reference_id.trim();
+          data.files = [
+            {
+              id: fileId,
+              name: node.name || workflow.document_filename || fileId,
+              size: 0,
+              type: "document",
+              fileId,
+            },
+          ];
         } else if (workflow.document_filename) {
           const fileId =
             typeof node.reference_id === "string" && node.reference_id.trim().length > 0
@@ -803,70 +804,61 @@ interface WorkflowRequestPreparation {
   headers?: HeadersInit;
 }
 
-const extractDocumentFile = (
+const extractDocumentFiles = (
   workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
-): File | null => {
+): File[] => {
+  const collected: File[] = [];
+
   for (const node of workflow.nodes) {
     const nodeType = (node.data?.type ?? "") as FrontendNodeType;
     if (nodeType !== "document") continue;
 
     const files = Array.isArray(node.data?.files) ? node.data.files : [];
-    for (const file of files) {
+    const firstWithBlob = files.find((file) => {
       const typedFile = file as { file?: File };
-      if (typedFile.file instanceof File) {
-        return typedFile.file;
-      }
+      return typedFile.file instanceof File;
+    }) as { file?: File } | undefined;
+
+    if (!(firstWithBlob?.file instanceof File)) {
+      const nodeName =
+        asString(node.data?.label) || asString(node.data?.name) || node.id || "Document";
+      throw new WorkflowAPIError(
+        `Document node "${nodeName}" is missing an uploaded file.`,
+        400,
+        "MISSING_DOCUMENT_FILE"
+      );
     }
+
+    // Keep strict ordering: ith file maps to ith document node in payload.
+    collected.push(firstWithBlob.file);
   }
 
-  return null;
+  return collected;
 };
 
 const prepareWorkflowRequest = async (
   workflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt">
 ): Promise<WorkflowRequestPreparation> => {
-
   const normalizedWorkflow: Omit<WorkflowDTO, "id" | "createdAt" | "updatedAt"> = {
     ...workflow,
-    nodes: await Promise.all(workflow.nodes.map(async (node) => {
-      const nodeType = (node.data?.type ?? "") as FrontendNodeType;
-      if (nodeType !== "document") return node;
-
-      const files = Array.isArray(node.data?.files) ? node.data.files : [];
-      if (files.length === 0) return node;
-
-      const normalizedFiles = files.map((file) => {
-        const typedFile = file as {
-          fileId?: string;
-          file?: File;
-        };
-
-        if (typedFile.fileId || !typedFile.file) return file;
-
-        // Keep an explicit placeholder so backend can resolve the actual upload by workflow id.
-        return {
-          ...file,
-          fileId: "uploaded_document",
-        };
-      });
-
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          files: normalizedFiles,
-        },
-      };
-    })),
   };
 
   const payload = toBackendWorkflowPayload(normalizedWorkflow);
   const formData = new FormData();
-  formData.append("data", JSON.stringify(payload));
+  formData.append("body", JSON.stringify(payload));
 
-  const file = extractDocumentFile(workflow);
-  if (file) {
-    formData.append("file", file);
+  const files = extractDocumentFiles(workflow);
+  const documentNodeCount = payload.nodes.filter((node) => node.node_type === "document").length;
+  if (files.length !== documentNodeCount) {
+    throw new WorkflowAPIError(
+      `Workflow requires exactly ${documentNodeCount} document file(s), but received ${files.length}.`,
+      400,
+      "INVALID_DOCUMENT_FILE_COUNT"
+    );
+  }
+
+  for (const file of files) {
+    formData.append("files", file);
   }
 
   return {
