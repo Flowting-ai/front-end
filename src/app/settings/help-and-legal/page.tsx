@@ -88,6 +88,7 @@ export default function SettingsHelpAndLegalPage() {
                   href={item.href}
                   className="inline-flex items-center justify-center"
                   aria-label={item.title}
+                  target="_blank"
                 >
                   <SquareArrowOutUpRight className="w-5 h-5 text-[#525252]" />
                 </Link>
@@ -113,6 +114,7 @@ export default function SettingsHelpAndLegalPage() {
                     href={item.href}
                     className="inline-flex items-center justify-center"
                     aria-label={item.title}
+                    target="_blank"
                   >
                     <SquareArrowOutUpRight className="w-5 h-5 text-[#525252]" />
                   </Link>
