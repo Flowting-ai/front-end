@@ -691,8 +691,9 @@ function PersonaConfigurePageContent() {
   /** Creates or updates the persona and returns its ID. Used before persona test chat. */
   const savePersonaForTest = async (): Promise<string | null> => {
     try {
-      let imageFile = uploadedFiles.find((f) => f.type === "image")?.file;
-      if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
+      // Avatar image comes strictly from avatarUrl (user-chosen profile picture)
+      let imageFile: File | undefined;
+      if (avatarUrl && avatarUrl.startsWith("data:")) {
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
       }
       const personaPayload = {
@@ -708,7 +709,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf" && !f.isExisting)
+        .filter((f) => !f.isExisting)
         .map((f) => f.file);
 
       if (createdPersonaId) {
@@ -757,11 +758,9 @@ function PersonaConfigurePageContent() {
 
     setIsSaving(true);
     try {
-      // Get image file: prefer uploaded file, fallback to avatar from sessionStorage
-      let imageFile = uploadedFiles.find((f) => f.type === "image")?.file;
-
-      // If no uploaded image but we have avatarUrl (data URL from /personas/new page)
-      if (!imageFile && avatarUrl && avatarUrl.startsWith("data:")) {
+      // Avatar image comes strictly from avatarUrl (user-chosen profile picture)
+      let imageFile: File | undefined;
+      if (avatarUrl && avatarUrl.startsWith("data:")) {
         console.debug("Converting data URL to file for persona avatar");
         console.debug("Data URL preview:", avatarUrl.substring(0, 100));
         imageFile = dataUrlToFile(avatarUrl, "persona-avatar.png") ?? undefined;
@@ -798,7 +797,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf" && !f.isExisting)
+        .filter((f) => !f.isExisting)
         .map((f) => f.file);
 
       let result;
