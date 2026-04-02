@@ -32,7 +32,50 @@ type OnboardingPayload = Partial<{
   role_fit: string | null;
 }>;
 
-function normalizeOnboardingState(raw: unknown): OnboardingState {
+function coerceNextStep(raw: unknown): OnboardingNextStep {
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().toLowerCase().replace(/-/g, "_");
+  const direct: OnboardingNextStep[] = ["user_role", "ai_tone", "role_fit"];
+  if (direct.includes(key as OnboardingNextStep)) return key as OnboardingNextStep;
+  const aliases: Record<string, OnboardingNextStep> = {
+    tone: "ai_tone",
+    org_size: "role_fit",
+    role: "user_role",
+  };
+  return aliases[key] ?? null;
+}
+
+function withInferredNextStep(state: OnboardingState): OnboardingState {
+  if (state.completed) return state;
+
+  const hasUserRole = Boolean(state.user_role?.length);
+  const hasAiTone = Boolean(state.ai_tone?.length);
+  const hasRoleFit = Boolean(state.role_fit?.length);
+
+  let next: OnboardingNextStep = null;
+  if (!hasUserRole) next = "user_role";
+  else if (!hasAiTone) next = "ai_tone";
+  else if (!hasRoleFit) next = "role_fit";
+
+  return {
+    ...state,
+    metadata: { ...state.metadata, next_step: next },
+  };
+}
+
+function mergeOnboardingPatch(
+  state: OnboardingState,
+  payload: OnboardingPayload,
+): OnboardingState {
+  return {
+    ...state,
+    ...(payload.user_role !== undefined ? { user_role: payload.user_role } : {}),
+    ...(payload.ai_tone !== undefined ? { ai_tone: payload.ai_tone } : {}),
+    ...(payload.role_fit !== undefined ? { role_fit: payload.role_fit } : {}),
+  };
+}
+
+function buildOnboardingState(raw: unknown): OnboardingState {
   const payload = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const root =
     (payload.data && typeof payload.data === "object"
@@ -55,18 +98,32 @@ function normalizeOnboardingState(raw: unknown): OnboardingState {
       : null;
 
   const status = metadata.status === "complete" ? "complete" : "incomplete";
-  const nextStep =
-    metadata.next_step === "user_role" ||
-    metadata.next_step === "ai_tone" ||
-    metadata.next_step === "role_fit"
-      ? metadata.next_step
-      : null;
+  const nextRaw = metadata.next_step ?? metadata.nextStep;
+  const nextStep = coerceNextStep(nextRaw);
+
+  const userRole =
+    typeof onboarding.user_role === "string"
+      ? onboarding.user_role
+      : typeof onboarding.userRole === "string"
+        ? onboarding.userRole
+        : null;
+  const aiTone =
+    typeof onboarding.ai_tone === "string"
+      ? onboarding.ai_tone
+      : typeof onboarding.aiTone === "string"
+        ? onboarding.aiTone
+        : null;
+  const roleFit =
+    typeof onboarding.role_fit === "string"
+      ? onboarding.role_fit
+      : typeof onboarding.roleFit === "string"
+        ? onboarding.roleFit
+        : null;
 
   return {
-    user_role:
-      typeof onboarding.user_role === "string" ? onboarding.user_role : null,
-    ai_tone: typeof onboarding.ai_tone === "string" ? onboarding.ai_tone : null,
-    role_fit: typeof onboarding.role_fit === "string" ? onboarding.role_fit : null,
+    user_role: userRole,
+    ai_tone: aiTone,
+    role_fit: roleFit,
     completed: Boolean(onboarding.completed),
     metadata: {
       status,
@@ -90,6 +147,10 @@ function normalizeOnboardingState(raw: unknown): OnboardingState {
   };
 }
 
+function normalizeOnboardingState(raw: unknown): OnboardingState {
+  return withInferredNextStep(buildOnboardingState(raw));
+}
+
 export async function fetchOnboardingState(): Promise<OnboardingState | null> {
   const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
@@ -106,5 +167,6 @@ export async function updateOnboardingState(
   });
   if (!response.ok) return null;
   const json = await response.json();
-  return normalizeOnboardingState(json);
+  const merged = mergeOnboardingPatch(buildOnboardingState(json), payload);
+  return withInferredNextStep(merged);
 }
