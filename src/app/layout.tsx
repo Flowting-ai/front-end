@@ -40,8 +40,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Google Analytics tag added*/}
+      <body
+        suppressHydrationWarning
+        className={cn(
+          "font-body antialiased",
+          poppins.variable,
+          inter.variable,
+          spaceGrotesk.variable,
+          geist.variable,
+          besley.variable,
+        )}
+      >
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-BH0MSN0Z1J"
           strategy="afterInteractive"
@@ -54,18 +63,6 @@ export default function RootLayout({
             gtag('config', 'G-BH0MSN0Z1J');
           `}
         </Script>
-      </head>
-      <body
-        suppressHydrationWarning
-        className={cn(
-          "font-body antialiased",
-          poppins.variable,
-          inter.variable,
-          spaceGrotesk.variable,
-          geist.variable,
-          besley.variable,
-        )}
-      >
         <AuthProvider>
           <SidebarProvider>
             {children}
