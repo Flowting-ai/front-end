@@ -478,7 +478,7 @@ export default function PersonaAdminPage() {
         <div className="scale-100 mx-auto w-full">
           <div className="w-full flex flex-col gap-6">
             {/* Header */}
-            <div className="pl-32 pr-4 w-full flex justify-between">
+            <div className="w-full flex justify-between items-start">
               {/* Left */}
               <div className="flex flex-col">
                 <h1 className="font-clash font-normal leading-[140%] text-[24px] text-black">
@@ -490,19 +490,21 @@ export default function PersonaAdminPage() {
               </div>
 
               {/* Right */}
-              {personas.length === 0 && !isLoading ? (
-                <div className="animate-slide-in-right animate-pulse text-left bg-red-100 border-2 border-dashed border-red-200 rounded-[8px] px-3 py-2 flex items-center gap-4">
-                  <MessageSquareWarning size={26} />
-                  <div className="flex flex-col">
-                    <h1 className="font-inter font-medium leading-[140%] text-base text-black tracking-tight">
-                      No Personas Found
-                    </h1>
-                    <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
-                      Create a persona to start managing.
-                    </p>
+              <div className="flex items-center gap-3">
+                {personas.length === 0 && !isLoading ? (
+                  <div className="animate-pulse text-left bg-red-100 border-2 border-dashed border-red-200 rounded-[8px] px-3 py-2 flex items-center gap-4">
+                    <MessageSquareWarning size={26} />
+                    <div className="flex flex-col">
+                      <h1 className="font-inter font-medium leading-[140%] text-base text-black tracking-tight">
+                        No Personas Found
+                      </h1>
+                      <p className="font-geist font-normal leading-[140%] text-[13px] text-black">
+                        Create a persona to start managing.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
 
             {/* Loading State */}
