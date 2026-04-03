@@ -40,12 +40,13 @@ if (process.env.NODE_ENV === "development") {
 const cspDirectives = [
   "default-src 'self'",
   process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline'",
+    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com"
+    : "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https: http:",
+
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' ${connectSrcOrigins.join(" ")}`,
+  `connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://stats.g.doubleclick.net ${connectSrcOrigins.join(" ")}`,
+  "img-src 'self' data: blob: https: http: https://www.google-analytics.com https://www.googletagmanager.com",
   "media-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",

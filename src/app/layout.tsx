@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Geist, Poppins, Besley } from "next/font/google";
-import Script from "next/script";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import "highlight.js/styles/github.css";
 import { Toaster } from "@/components/ui/sonner" // react-toastify
@@ -51,18 +51,7 @@ export default function RootLayout({
           besley.variable,
         )}
       >
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-BH0MSN0Z1J"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-BH0MSN0Z1J');
-          `}
-        </Script>
+        <GoogleAnalytics gaId="G-BH0MSN0Z1J" />
         <AuthProvider>
           <SidebarProvider>
             {children}
