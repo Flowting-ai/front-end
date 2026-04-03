@@ -142,14 +142,38 @@ function normalizeUserProfile(raw: unknown): UserProfile {
             : null,
     cancel_at_period_end: Boolean(root.cancel_at_period_end),
     payment_methods: paymentMethods,
-    invoices: Array.isArray(root.invoices) ? (root.invoices as UserInvoice[]) : [],
+    invoices: Array.isArray(root.invoices)
+      ? (root.invoices as Record<string, unknown>[]).map((inv, idx) => ({
+          ...(inv as object),
+          id: typeof inv.id === "string" ? inv.id : `inv-${idx}`,
+          paid: typeof inv.paid === "boolean" ? inv.paid : inv.status === "paid",
+        } as UserInvoice))
+      : [],
     upcoming_invoice:
       root.upcoming_invoice && typeof root.upcoming_invoice === "object"
         ? (root.upcoming_invoice as UserUpcomingInvoice)
         : null,
     usage:
       root.usage && typeof root.usage === "object"
-        ? (root.usage as UserUsage)
+        ? (() => {
+          // adding usage limits calculation
+            const u = root.usage as Record<string, unknown>;
+            const ml = typeof u.monthly_limit === "number" ? u.monthly_limit : 0;
+            const mu = typeof u.monthly_used === "number" ? u.monthly_used : 0;
+            const dl = typeof u.daily_limit === "number" ? u.daily_limit : 0;
+            const du = typeof u.daily_used === "number" ? u.daily_used : 0;
+            return {
+              ...(u as object),
+              monthly_limit: ml,
+              monthly_used: mu,
+              monthly_remaining:
+                typeof u.monthly_remaining === "number" ? u.monthly_remaining : ml - mu,
+              daily_limit: dl,
+              daily_used: du,
+              daily_remaining:
+                typeof u.daily_remaining === "number" ? u.daily_remaining : dl - du,
+            } as UserUsage;
+          })()
         : null,
     billing_portal_url:
       typeof root.billing_portal_url === "string"

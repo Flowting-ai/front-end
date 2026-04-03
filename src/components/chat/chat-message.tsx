@@ -956,6 +956,7 @@ export interface Message {
   avatarUrl?: string;
   avatarHint?: string;
   isLoading?: boolean;
+  toolStatus?: string | null;
   chatMessageId?: string;
   pinId?: string;
   referencedMessageId?: string | null;
@@ -1960,8 +1961,14 @@ export function ChatMessage({
                 </div>
               ) : message.isLoading ? (
                 <div className="max-w-125 w-auto flex flex-col gap-2">
-                  <div className="bg-zinc-400/50 w-[300px] h-4 animate-pulse rounded-md"></div>
-                  <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
+                  {message.toolStatus ? (
+                    <p className="text-sm text-zinc-500 animate-pulse">{message.toolStatus}</p>
+                  ) : (
+                    <>
+                      <div className="bg-zinc-400/50 w-[300px] h-4 animate-pulse rounded-md"></div>
+                      <div className="bg-zinc-400/50 w-[175px] h-4 animate-pulse rounded-md"></div>
+                    </>
+                  )}
                 </div>
               ) : (
                 // <LoadingState />

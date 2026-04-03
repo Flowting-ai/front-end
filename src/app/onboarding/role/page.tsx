@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
 import { updateOnboardingState } from "@/lib/api/onboarding";
 import { getOnboardingRoute } from "@/lib/onboarding";
 
@@ -48,13 +49,17 @@ const ROLE_OPTIONS: Array<{
 export default function Page() {
   const router = useRouter();
   const [role, setRole] = useState<RoleChoice>("founder");
+  const [customRole, setCustomRole] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const showCustom = role === "other";
 
   const onContinue = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const updated = await updateOnboardingState({ user_role: role });
+      const roleValue = role === "other" ? customRole.trim() : role;
+      const updated = await updateOnboardingState({ user_role: roleValue || null });
       if (updated) {
         router.push(
           getOnboardingRoute(updated.metadata.next_step, updated.completed),
@@ -110,6 +115,17 @@ export default function Page() {
               </label>
             ))}
           </RadioGroup>
+
+          {showCustom && (
+            <div className="w-full max-w-3xl flex items-center justify-center px-4">
+              <Input
+                value={customRole}
+                onChange={(e) => setCustomRole(e.target.value)}
+                placeholder="Tell us your role…"
+                className="w-full sm:w-[320px] h-10 bg-white text-black border border-black/20 rounded-[12px]"
+              />
+            </div>
+          )}
 
           <div className="w-full max-w-3xl flex items-center justify-center gap-3">
             <button

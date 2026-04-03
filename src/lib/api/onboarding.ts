@@ -21,6 +21,7 @@ export interface OnboardingState {
   user_role: string | null;
   ai_tone: string | null;
   role_fit: string | null;
+  terms_accepted: boolean;
   completed: boolean;
   metadata: OnboardingMetadata;
   subscription: OnboardingSubscription | null;
@@ -30,6 +31,7 @@ type OnboardingPayload = Partial<{
   user_role: string | null;
   ai_tone: string | null;
   role_fit: string | null;
+  terms_accepted: boolean | null;
 }>;
 
 function coerceNextStep(raw: unknown): OnboardingNextStep {
@@ -72,6 +74,7 @@ function mergeOnboardingPatch(
     ...(payload.user_role !== undefined ? { user_role: payload.user_role } : {}),
     ...(payload.ai_tone !== undefined ? { ai_tone: payload.ai_tone } : {}),
     ...(payload.role_fit !== undefined ? { role_fit: payload.role_fit } : {}),
+    ...(payload.terms_accepted !== undefined && payload.terms_accepted !== null ? { terms_accepted: payload.terms_accepted } : {}),
   };
 }
 
@@ -124,6 +127,7 @@ function buildOnboardingState(raw: unknown): OnboardingState {
     user_role: userRole,
     ai_tone: aiTone,
     role_fit: roleFit,
+    terms_accepted: Boolean(onboarding.terms_accepted),
     completed: Boolean(onboarding.completed),
     metadata: {
       status,

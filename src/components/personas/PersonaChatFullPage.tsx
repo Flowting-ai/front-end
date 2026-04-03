@@ -226,6 +226,15 @@ export function PersonaChatFullPage({
     });
   };
 
+  const TOOL_DISPLAY_NAMES: Record<string, string> = {
+    doc_execute: "Generating document...",
+    csv_execute: "Analyzing spreadsheet...",
+    web_search: "Searching the web...",
+  };
+
+  const formatToolDisplayName = (toolName: string): string =>
+    TOOL_DISPLAY_NAMES[toolName] ?? `Running ${toolName}...`;
+
   const normalizeWebSearchPayload = (
     raw: unknown,
   ): { query: string; links: string[] } | null => {
@@ -605,6 +614,30 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "tool_executing") {
+          const toolName = typeof parsed.content === "string" ? parsed.content : "";
+          const displayName = formatToolDisplayName(toolName);
+          updateAiMessage({ toolStatus: displayName });
+          return;
+        }
+
+        if (eventName === "tool_complete") {
+          updateAiMessage({ toolStatus: null });
+          return;
+        }
+
+        if (eventName === "tool_progress") {
+          const tool = typeof parsed.tool === "string" ? parsed.tool : "";
+          const filename = typeof parsed.filename === "string" ? parsed.filename : "";
+          const status = typeof parsed.status === "string" ? parsed.status : "";
+          const displayName = formatToolDisplayName(tool);
+          const label = filename
+            ? `${status === "executing" ? "Running" : displayName} ${tool} for ${filename}...`
+            : displayName;
+          updateAiMessage({ toolStatus: label });
+          return;
+        }
+
         if (eventName === "reasoning") {
           const delta = typeof parsed.delta === "string" ? parsed.delta : "";
           reasoningContent = mergeStreamingText(reasoningContent, delta);
@@ -716,6 +749,7 @@ export function PersonaChatFullPage({
             thinkingContent: finalReasoning || null,
             isThinkingInProgress: false,
             isLoading: false,
+            toolStatus: null,
             metadata: {
               modelName: persona.modelName,
               providerName: persona.providerName,
