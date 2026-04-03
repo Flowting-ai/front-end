@@ -14,6 +14,7 @@ export function getOnboardingRoute(
     case "role_fit":
       return "/onboarding/org-size";
     default:
-      return "/onboarding/role";
+      // Profile fields are filled but API omitted next_step — go to plan selection.
+      return "/onboarding/pricing";
   }
 }

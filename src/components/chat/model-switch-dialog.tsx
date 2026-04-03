@@ -446,11 +446,12 @@ export function ModelSwitchDialog({
                                 {model.companyName}
                               </div>
                             </div>
-                            {model.modelType === "paid" && (
+                            {/* commenting paid label on paid models in modelSelector */}
+                            {/* {model.modelType === "paid" && (
                               <span className="text-xs text-[#8a8a8a] bg-[#f5f5f5] px-2 py-0.5 rounded">
                                 Paid
                               </span>
-                            )}
+                            )} */}
                           </DropdownMenuItem>
                         ))
                       )}
@@ -468,11 +469,12 @@ export function ModelSwitchDialog({
                     }
                     className="h-4 w-4 rounded-[5px] border-[#d4d4d4]"
                   />
+                  {/* changing free to base - modelSelector*/}
                   <Label
                     htmlFor="free"
                     className="text-sm text-[#171717] cursor-pointer"
                   >
-                    Free
+                    Base
                   </Label>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -484,11 +486,12 @@ export function ModelSwitchDialog({
                     }
                     className="h-4 w-4 rounded-[5px] border-[#d4d4d4]"
                   />
+                  {/* changing paid to plus - modelSwitch*/}
                   <Label
                     htmlFor="paid"
                     className="text-sm text-[#171717] cursor-pointer"
                   >
-                    Paid
+                    Plus
                   </Label>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk, Geist, Poppins, Besley } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import "highlight.js/styles/github.css";
 import { Toaster } from "@/components/ui/sonner" // react-toastify
@@ -50,6 +51,7 @@ export default function RootLayout({
           besley.variable,
         )}
       >
+        <GoogleAnalytics gaId="G-BH0MSN0Z1J" />
         <AuthProvider>
           <SidebarProvider>
             {children}
