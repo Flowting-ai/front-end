@@ -1150,47 +1150,51 @@ const normalizeGeneratedFiles = (
 ): GeneratedFilePayload[] => {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
-  return input
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const candidate = item as {
-        url?: unknown;
-        s3Key?: unknown;
-        s3_key?: unknown;
-        filename?: unknown;
-        file_name?: unknown;
-        mimeType?: unknown;
-        mime_type?: unknown;
-      };
-      const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
-      if (!url) return null;
+  const normalized: GeneratedFilePayload[] = [];
 
-      const dedupeKey = url.toLowerCase();
-      if (seen.has(dedupeKey)) return null;
-      seen.add(dedupeKey);
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
 
-      const filename =
-        typeof candidate.filename === "string" && candidate.filename.trim()
-          ? candidate.filename.trim()
-          : typeof candidate.file_name === "string" && candidate.file_name.trim()
-            ? candidate.file_name.trim()
-            : undefined;
-      const s3Key =
-        typeof candidate.s3Key === "string" && candidate.s3Key.trim()
-          ? candidate.s3Key.trim()
-          : typeof candidate.s3_key === "string" && candidate.s3_key.trim()
-            ? candidate.s3_key.trim()
-            : undefined;
-      const mimeType =
-        typeof candidate.mimeType === "string" && candidate.mimeType.trim()
-          ? candidate.mimeType.trim()
-          : typeof candidate.mime_type === "string" && candidate.mime_type.trim()
-            ? candidate.mime_type.trim()
-            : undefined;
+    const candidate = item as {
+      url?: unknown;
+      s3Key?: unknown;
+      s3_key?: unknown;
+      filename?: unknown;
+      file_name?: unknown;
+      mimeType?: unknown;
+      mime_type?: unknown;
+    };
 
-      return { url, s3Key, filename, mimeType };
-    })
-    .filter((item): item is GeneratedFilePayload => Boolean(item));
+    const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
+    if (!url) continue;
+
+    const dedupeKey = url.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    const filename =
+      typeof candidate.filename === "string" && candidate.filename.trim()
+        ? candidate.filename.trim()
+        : typeof candidate.file_name === "string" && candidate.file_name.trim()
+          ? candidate.file_name.trim()
+          : undefined;
+    const s3Key =
+      typeof candidate.s3Key === "string" && candidate.s3Key.trim()
+        ? candidate.s3Key.trim()
+        : typeof candidate.s3_key === "string" && candidate.s3_key.trim()
+          ? candidate.s3_key.trim()
+          : undefined;
+    const mimeType =
+      typeof candidate.mimeType === "string" && candidate.mimeType.trim()
+        ? candidate.mimeType.trim()
+        : typeof candidate.mime_type === "string" && candidate.mime_type.trim()
+          ? candidate.mime_type.trim()
+          : undefined;
+
+    normalized.push({ url, s3Key, filename, mimeType });
+  }
+
+  return normalized;
 };
 
 const WebSearchCard = ({ searches }: { searches: WebSearchPayload[] }) => {
