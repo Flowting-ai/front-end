@@ -1802,7 +1802,7 @@ export function ChatMessage({
   const AvatarComponent = (
     <Avatar
       className={cn(
-        "h-9 w-9 text-xs font-semibold border border-transparent bg-transparent text-[#111827]",
+        "h-9 w-9 text-xs font-semibold bg-transparent text-[#111827] p-0.5",
         isLogoAvatar ? "rounded-none!" : "rounded-full",
       )}
     >
