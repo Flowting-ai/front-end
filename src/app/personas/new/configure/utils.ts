@@ -24,8 +24,13 @@ export function createPreviewModel(model: PersonaModel): AIModel {
 /**
  * Determines file type from MIME type
  */
-export function getFileType(mimeType: string): 'pdf' | 'image' {
-  return mimeType.startsWith('image/') ? 'image' : 'pdf';
+export function getFileType(mimeType: string, fileName?: string): 'pdf' | 'image' | 'document' {
+  if (mimeType.startsWith('image/')) return 'image';
+
+  const lowerFileName = fileName?.toLowerCase() ?? '';
+  if (lowerFileName.endsWith('.pdf')) return 'pdf';
+
+  return 'document';
 }
 
 /**
@@ -55,7 +60,7 @@ export function isDuplicateFile(
 export function createFileObject(file: File): UploadedFile {
   return {
     id: generateFileId(),
-    type: getFileType(file.type),
+    type: getFileType(file.type, file.name),
     name: file.name,
     url: URL.createObjectURL(file),
     file,

@@ -4,24 +4,29 @@ type OnboardingCheck = {
   completed: boolean;
 };
 
+type OnboardingStateResult = {
+  data: OnboardingCheck | null;
+  requiresReauth: boolean;
+};
+
 const apiBaseUrl = process.env.SERVER_URL?.replace(/\/+$/, "");
 const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
 let hasLoggedOnboardingFetchFailure = false;
 
 const ONBOARDING_ENDPOINT_PATH = "/users/me";
 
-async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
+async function fetchOnboardingState(): Promise<OnboardingStateResult> {
   try {
-    if (!apiBaseUrl) return null;
+    if (!apiBaseUrl) return { data: null, requiresReauth: false };
     const { token } = await auth0.getAccessToken({ audience });
-    if (!token) return null;
+    if (!token) return { data: null, requiresReauth: false };
 
     const response = await fetch(`${apiBaseUrl}${ONBOARDING_ENDPOINT_PATH}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) return { data: null, requiresReauth: false };
 
     const data = (await response.json()) as Record<string, unknown>;
     const root =
@@ -35,13 +40,25 @@ async function fetchOnboardingState(): Promise<OnboardingCheck | null> {
         ? (root.onboarding as Record<string, unknown>)
         : root;
 
-    return { completed: Boolean(onboarding.completed) };
+    return {
+      data: { completed: Boolean(onboarding.completed) },
+      requiresReauth: false,
+    };
   } catch (error) {
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "";
+
+    if (code === "missing_refresh_token") {
+      return { data: null, requiresReauth: true };
+    }
+
     if (!hasLoggedOnboardingFetchFailure) {
       hasLoggedOnboardingFetchFailure = true;
       console.warn("Failed to fetch onboarding state", error);
     }
-    return null;
+    return { data: null, requiresReauth: false };
   }
 }
 
@@ -60,9 +77,19 @@ export default async function proxy(request: Request) {
 
   // Get the current Auth0 session (needed for onboarding check)
   const session = await auth0.getSession();
-  const onboarding = session ? await fetchOnboardingState() : null;
-  const hasOnboarded = onboarding?.completed ?? false;
+  const onboardingResult = session
+    ? await fetchOnboardingState()
+    : { data: null, requiresReauth: false };
+  const onboarding = onboardingResult.data;
+  const hasOnboarded = onboarding?.completed === true;
+  const hasKnownOnboardingState = onboarding !== null;
   const isPricingPage = pathname.startsWith("/onboarding/pricing");
+
+  if (onboardingResult.requiresReauth) {
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("returnTo", pathname);
+    return Response.redirect(loginUrl);
+  }
 
   // If the user already completed onboarding, don't let them back into the
   // onboarding flow — even if they type the URL manually.
@@ -77,13 +104,14 @@ export default async function proxy(request: Request) {
   }
 
   // For all other app routes: if onboarding is incomplete, check auth first.
-  if (!hasOnboarded) {
-    if (!session) {
-      // No session → let auth0.middleware handle it (will redirect to login)
-      return await auth0.middleware(request);
-    }
-    // Authenticated but hasn't onboarded → send to onboarding start
+  if (session && hasKnownOnboardingState && !hasOnboarded) {
+    // Authenticated + known incomplete onboarding → enforce onboarding flow.
     return Response.redirect(new URL("/onboarding/username", request.url));
+  }
+
+  if (!session) {
+    // No session → let auth0.middleware handle it (will redirect to login)
+    return await auth0.middleware(request);
   }
 
   return await auth0.middleware(request);

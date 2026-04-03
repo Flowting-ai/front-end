@@ -126,6 +126,107 @@ type WebSearchPayload = {
   links: string[];
 };
 
+type GeneratedFilePayload = {
+  url: string;
+  s3Key?: string;
+  filename?: string;
+  mimeType?: string;
+};
+
+const normalizeGeneratedFilePayload = (
+  raw: unknown,
+): GeneratedFilePayload | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as {
+    url?: unknown;
+    file_link?: unknown;
+    link?: unknown;
+    s3_key?: unknown;
+    s3Key?: unknown;
+    filename?: unknown;
+    file_name?: unknown;
+    fileName?: unknown;
+    name?: unknown;
+    mime_type?: unknown;
+    mimeType?: unknown;
+  };
+
+  const rawUrl = item.url ?? item.file_link ?? item.link;
+  const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+  if (!url) return null;
+
+  const filenameRaw =
+    item.filename ?? item.file_name ?? item.fileName ?? item.name;
+  const filename =
+    typeof filenameRaw === "string" && filenameRaw.trim().length > 0
+      ? filenameRaw.trim()
+      : undefined;
+
+  const s3KeyRaw = item.s3_key ?? item.s3Key;
+  const s3Key =
+    typeof s3KeyRaw === "string" && s3KeyRaw.trim().length > 0
+      ? s3KeyRaw.trim()
+      : undefined;
+
+  const mimeTypeRaw = item.mime_type ?? item.mimeType;
+  const mimeType =
+    typeof mimeTypeRaw === "string" && mimeTypeRaw.trim().length > 0
+      ? mimeTypeRaw.trim()
+      : undefined;
+
+  return { url, s3Key, filename, mimeType };
+};
+
+const dedupeGeneratedFiles = (
+  files: GeneratedFilePayload[],
+): GeneratedFilePayload[] => {
+  const seen = new Set<string>();
+  return files.filter((file) => {
+    const key = file.url.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const DOCUMENT_UPLOAD_ACCEPT =
+  ".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.csv,text/csv,application/csv,.xls,application/vnd.ms-excel,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*";
+
+const DOCUMENT_FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".csv", ".xls", ".xlsx"];
+
+const isDocumentFile = (file: File): boolean => {
+  const fileName = file.name.toLowerCase();
+  const mime = file.type.toLowerCase();
+  if (file.type.startsWith("image/")) return true;
+  if (DOCUMENT_FILE_EXTENSIONS.some((ext) => fileName.endsWith(ext))) {
+    return true;
+  }
+  return (
+    mime === "application/pdf" ||
+    mime === "application/msword" ||
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/vnd.ms-powerpoint" ||
+    mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    mime === "text/csv" ||
+    mime === "application/csv" ||
+    mime === "application/vnd.ms-excel" ||
+    mime ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+};
+
+const getDocumentKindLabel = (fileName: string): string => {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "Word Document";
+  if (lower.endsWith(".ppt") || lower.endsWith(".pptx")) return "PowerPoint Presentation";
+  if (lower.endsWith(".csv")) return "CSV Document";
+  if (lower.endsWith(".xls") || lower.endsWith(".xlsx")) {
+    return "Excel Document";
+  }
+  if (lower.endsWith(".pdf")) return "PDF Document";
+  return "Document";
+};
+
 const toOptionalTrimmedString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -448,7 +549,7 @@ export function ChatInterface({
   const [attachments, setAttachments] = useState<
     Array<{
       id: string;
-      type: "pdf" | "image";
+      type: "document" | "image";
       name: string;
       url: string;
       file: File;
@@ -1398,6 +1499,28 @@ export function ChatInterface({
         }, currentChatId ?? undefined);
       };
 
+      const appendGeneratedFiles = (incoming: GeneratedFilePayload[]) => {
+        if (incoming.length === 0) return;
+        setMessages((prev = []) => {
+          const next = prev.map((msg) => {
+            if (msg.id !== loadingMessageId) return msg;
+            const existing = Array.isArray(msg.metadata?.generatedFiles)
+              ? msg.metadata.generatedFiles
+              : [];
+            const merged = dedupeGeneratedFiles([...existing, ...incoming]);
+            return {
+              ...msg,
+              metadata: {
+                ...(msg.metadata || {}),
+                generatedFiles: merged,
+              },
+            };
+          });
+          messageBufferRef.current = next;
+          return next;
+        }, currentChatId ?? undefined);
+      };
+
       const applyClarificationPrompt = (
         clarification: ClarificationPromptPayload,
       ) => {
@@ -1627,6 +1750,15 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "generated_file") {
+            const generatedFile = normalizeGeneratedFilePayload(parsed);
+            if (generatedFile) {
+              appendGeneratedFiles([generatedFile]);
+              queueAiMessageUpdate({ isLoading: false });
+            }
+            continue;
+          }
+
           if (eventName === "title") {
             const titleChatId = getResolvedChatId(parsed);
             if (titleChatId) {
@@ -1839,6 +1971,8 @@ export function ChatInterface({
               url: string;
               name?: string;
               isImage: boolean;
+              s3Key?: string;
+              mimeType?: string;
             };
 
             const generatedAttachmentPayload: GeneratedAttachmentPayloadItem[] = Array.isArray(parsed.file_attachments)
@@ -1850,6 +1984,8 @@ export function ChatInterface({
                       url?: unknown;
                       link?: unknown;
                       origin?: unknown;
+                      s3_key?: unknown;
+                      s3Key?: unknown;
                       mime_type?: unknown;
                       mimeType?: unknown;
                       file_name?: unknown;
@@ -1886,6 +2022,11 @@ export function ChatInterface({
                       url,
                       name,
                       isImage,
+                      s3Key:
+                        typeof attachment.s3_key === "string"
+                          ? attachment.s3_key
+                          : undefined,
+                      mimeType: mimeType || undefined,
                     };
                   })
                   .filter(
@@ -1910,6 +2051,40 @@ export function ChatInterface({
                 url: item.url,
               }));
 
+            const generatedFilesFromDone = Array.isArray(
+              parsed.generated_files,
+            )
+              ? parsed.generated_files
+                  .map((item: unknown) => normalizeGeneratedFilePayload(item))
+                  .filter(
+                    (
+                      item: GeneratedFilePayload | null,
+                    ): item is GeneratedFilePayload => Boolean(item),
+                  )
+              : Array.isArray(parsed.generatedFiles)
+                ? parsed.generatedFiles
+                    .map((item: unknown) => normalizeGeneratedFilePayload(item))
+                    .filter(
+                      (
+                        item: GeneratedFilePayload | null,
+                      ): item is GeneratedFilePayload => Boolean(item),
+                    )
+                : [];
+
+            const generatedFilesFromAttachments = generatedAttachmentPayload.map(
+              (item) => ({
+                url: item.url,
+                filename: item.name,
+                s3Key: item.s3Key,
+                mimeType: item.mimeType,
+              }),
+            );
+
+            const mergedGeneratedFiles = dedupeGeneratedFiles([
+              ...(generatedFilesFromDone || []),
+              ...generatedFilesFromAttachments,
+            ]);
+
             const mergedDoneImages = [...doneImages, ...generatedAttachmentImages];
 
             const mergedSources = [
@@ -1921,10 +2096,13 @@ export function ChatInterface({
             });
 
             const finalMetadata: Message["metadata"] | undefined =
-              metadata || mergedSources.length > 0
+              metadata || mergedSources.length > 0 || mergedGeneratedFiles.length > 0
                 ? {
                     ...(metadata || {}),
                     ...(mergedSources.length > 0 ? { sources: mergedSources } : {}),
+                    ...(mergedGeneratedFiles.length > 0
+                      ? { generatedFiles: mergedGeneratedFiles }
+                      : {}),
                   }
                 : undefined;
 
@@ -2048,8 +2226,10 @@ export function ChatInterface({
         if (done || shouldStopReading) break;
       }
 
-      // Flush any remaining data left in the buffer (stream may end without trailing \n\n)
-      if (buffer.trim() && !streamFinished) {
+      // Flush any remaining data left in the buffer (stream may end without trailing \n\n).
+      // Do this even when streamFinished=true so late events (e.g. generated_file)
+      // that arrive after done are still rendered without a page refresh.
+      if (buffer.trim()) {
         // Append a double newline so the last event gets parsed by processChunk
         buffer += "\n\n";
         processChunk(new Uint8Array(0));
@@ -2311,7 +2491,7 @@ export function ChatInterface({
       let persistentAttachments:
         | Array<{
             id: string;
-            type: "pdf" | "image";
+            type: "document" | "image";
             name: string;
             url: string;
           }>
@@ -2506,7 +2686,7 @@ export function ChatInterface({
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const filesToAdd: Array<{
       id: string;
-      type: "pdf" | "image";
+      type: "document" | "image";
       name: string;
       url: string;
       file: File;
@@ -2537,14 +2717,12 @@ export function ChatInterface({
       }
 
       // Determine file type
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
+      const isDocument = isDocumentFile(file);
       const isImage = file.type.startsWith("image/");
 
-      if (!isPdf && !isImage) {
+      if (!isDocument) {
         toast.error(`${file.name} not supported`, {
-          description: "Please upload PDF or image files only.",
+          description: "Please upload PDF, Word, PowerPoint, CSV, Excel, or image files only.",
         });
         continue;
       }
@@ -2554,7 +2732,7 @@ export function ChatInterface({
 
       filesToAdd.push({
         id: attachmentId,
-        type: isPdf ? "pdf" : "image",
+        type: isImage ? "image" : "document",
         name: file.name,
         url: objectUrl,
         file: file,
@@ -2637,14 +2815,12 @@ export function ChatInterface({
       return;
     }
 
-    const isPdf =
-      uploadFile.type === "application/pdf" ||
-      uploadFile.name.toLowerCase().endsWith(".pdf");
+    const isDocument = isDocumentFile(uploadFile);
     const isImage = uploadFile.type.startsWith("image/");
 
-    if (!isPdf && !isImage) {
+    if (!isDocument) {
       toast.error(`${uploadFile.name} not supported`, {
-        description: "Please upload PDF or image files only.",
+        description: "Please upload PDF, Word, PowerPoint, CSV, Excel, or image files only.",
       });
       return;
     }
@@ -2655,7 +2831,7 @@ export function ChatInterface({
       ...prev,
       {
         id: attachmentId,
-        type: isPdf ? "pdf" : "image",
+        type: isImage ? "image" : "document",
         name: uploadFile.name,
         url: objectUrl,
         file: uploadFile,
@@ -3192,7 +3368,7 @@ export function ChatInterface({
                       {messageAttachments && messageAttachments.length > 0 && (
                         <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
                           {messageAttachments.map((attachment: any) =>
-                            attachment.type === "pdf" ? (
+                            attachment.type !== "image" ? (
                               <div
                                 key={attachment.id}
                                 className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
@@ -3206,7 +3382,7 @@ export function ChatInterface({
                                     {attachment.name}
                                   </p>
                                   <p className="text-[10px] text-[#888888]">
-                                    PDF Document
+                                    {getDocumentKindLabel(String(attachment.name ?? ""))}
                                   </p>
                                 </div>
                               </div>
@@ -3493,7 +3669,7 @@ export function ChatInterface({
                   }}
                 >
                   {attachments.map((attachment) =>
-                    attachment.type === "pdf" ? (
+                    attachment.type !== "image" ? (
                       <div
                         key={attachment.id}
                         className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
@@ -3517,7 +3693,7 @@ export function ChatInterface({
                           <p className="text-[10px] text-[#888888]">
                             {attachment.isUploading
                               ? `Uploading... ${attachment.uploadProgress || 0}%`
-                              : "PDF Document"}
+                              : getDocumentKindLabel(attachment.name)}
                           </p>
                         </div>
                         <button
@@ -3703,7 +3879,7 @@ export function ChatInterface({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,application/pdf,image/*"
+                      accept={DOCUMENT_UPLOAD_ACCEPT}
                       multiple
                       onChange={handleFileSelect}
                       className="hidden"
@@ -4248,7 +4424,7 @@ export function ChatInterface({
           <DialogHeader>
             <DialogTitle>Attach document</DialogTitle>
             <DialogDescription>
-              Select a PDF or image file to attach to your next message.
+              Select a PDF, Word, PowerPoint, CSV, Excel, or image file to attach to your next message.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -4257,7 +4433,7 @@ export function ChatInterface({
               <Input
                 id="chat-upload-file"
                 type="file"
-                accept=".pdf,image/*"
+                accept={DOCUMENT_UPLOAD_ACCEPT}
                 onChange={(event) =>
                   setUploadFile(event.target.files?.item(0) ?? null)
                 }

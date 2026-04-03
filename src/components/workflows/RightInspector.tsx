@@ -138,6 +138,7 @@ export default function RightInspector({
               <input
                 type="file"
                 id="file-upload"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.csv,.json,.xlsx,.xls,image/*"
                 multiple
                 onChange={handleFileUpload}
                 className="hidden"

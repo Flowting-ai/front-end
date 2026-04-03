@@ -235,7 +235,7 @@ export function DocumentNodeInspector({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls,image/*"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.md,.csv,.json,.xlsx,.xls,image/*"
               onChange={(e) => handleFileSelect(e.target.files)}
               className="hidden"
             />

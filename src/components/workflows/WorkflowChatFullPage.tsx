@@ -757,7 +757,7 @@ export function WorkflowChatFullPage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,application/pdf,image/*"
+                      accept=".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.csv,text/csv,application/csv,.xls,application/vnd.ms-excel,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"
                       multiple
                       onChange={(e) => {
                         const files = e.target.files;

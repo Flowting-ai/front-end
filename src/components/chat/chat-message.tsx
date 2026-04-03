@@ -24,6 +24,7 @@ import {
   ExternalLink,
   ChevronDown,
   Globe,
+  Download,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Skeleton } from "../ui/skeleton";
@@ -98,8 +99,9 @@ const parseTableRow = (line: string) => {
 
 const renderLatexInlineContent = (text: string, keyPrefix: string) => {
   const nodes: Array<string | JSX.Element> = [];
-  // Match $$...$$ (block) and $...$ (inline) LaTeX
-  const latexRegex = /(\$\$)([^$]+)\1|(\$)([^$]+)\3/g;
+  // Match block: $$...$$ or \[...\], inline: \(...\) or $...$
+  const latexRegex =
+    /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let latexCount = 0;
@@ -115,8 +117,10 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
       );
     }
 
-    const isBlock = match[1] === "$$";
-    const latexContent = isBlock ? match[2] : match[4];
+    const blockContent = match[1] ?? match[2];
+    const inlineContent = match[3] ?? match[4];
+    const isBlock = Boolean(blockContent);
+    const latexContent = (isBlock ? blockContent : inlineContent) ?? "";
 
     try {
       const html = katex.renderToString(latexContent, {
@@ -691,6 +695,78 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     const line = lines[index];
     const trimmed = line.trim();
 
+    const isBracketMathStart = trimmed.startsWith("\\[");
+    const isDollarMathStart = trimmed === "$$" || trimmed.startsWith("$$");
+    if (isBracketMathStart || isDollarMathStart) {
+      flushList();
+
+      let mathContent = "";
+      let closed = false;
+
+      if (isBracketMathStart) {
+        // Support single-line "\\[ ... \\]" and multi-line bracket blocks.
+        const afterOpen = trimmed.slice(2).trimStart();
+        if (afterOpen.endsWith("\\]")) {
+          mathContent = afterOpen.slice(0, -2).trimEnd();
+          closed = true;
+        } else {
+          const collected: string[] = [afterOpen];
+          for (let j = index + 1; j < lines.length; j++) {
+            const current = lines[j];
+            const currentTrimmed = current.trim();
+            if (currentTrimmed.endsWith("\\]")) {
+              collected.push(currentTrimmed.slice(0, -2));
+              index = j;
+              closed = true;
+              break;
+            }
+            collected.push(current);
+          }
+          mathContent = collected.join("\n").trim();
+        }
+      } else {
+        // Support single-line "$$ ... $$" and multi-line dollar blocks.
+        const afterOpen = trimmed.slice(2).trimStart();
+        if (afterOpen.endsWith("$$")) {
+          mathContent = afterOpen.slice(0, -2).trimEnd();
+          closed = true;
+        } else {
+          const collected: string[] = [afterOpen];
+          for (let j = index + 1; j < lines.length; j++) {
+            const current = lines[j];
+            const currentTrimmed = current.trim();
+            if (currentTrimmed.endsWith("$$")) {
+              collected.push(currentTrimmed.slice(0, -2));
+              index = j;
+              closed = true;
+              break;
+            }
+            collected.push(current);
+          }
+          mathContent = collected.join("\n").trim();
+        }
+      }
+
+      if (closed && mathContent) {
+        try {
+          const html = katex.renderToString(mathContent, {
+            throwOnError: false,
+            displayMode: true,
+          });
+          nodes.push(
+            <div
+              key={`${keyPrefix}-math-${index}`}
+              className="my-2 overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />,
+          );
+          continue;
+        } catch {
+          // Fall through to raw rendering when parsing fails.
+        }
+      }
+    }
+
     if (!trimmed) {
       flushList();
       nodes.push(
@@ -907,10 +983,11 @@ export interface Message {
     totalDurationMs?: number;
     attachments?: Array<{
       id: string;
-      type: "pdf" | "image";
+      type: "pdf" | "document" | "image";
       name: string;
       url: string;
     }>;
+    generatedFiles?: GeneratedFilePayload[];
     mentionedPins?: Array<{
       id: string;
       label: string;
@@ -965,6 +1042,13 @@ export type MessageSource = {
 type WebSearchPayload = {
   query: string;
   links: string[];
+};
+
+type GeneratedFilePayload = {
+  url: string;
+  s3Key?: string;
+  filename?: string;
+  mimeType?: string;
 };
 
 function getHostname(url: string): string {
@@ -1059,6 +1143,54 @@ const formatWebSearchLabel = (url: string): string => {
   } catch {
     return url;
   }
+};
+
+const normalizeGeneratedFiles = (
+  input: NonNullable<Message["metadata"]>["generatedFiles"] | undefined,
+): GeneratedFilePayload[] => {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  return input
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as {
+        url?: unknown;
+        s3Key?: unknown;
+        s3_key?: unknown;
+        filename?: unknown;
+        file_name?: unknown;
+        mimeType?: unknown;
+        mime_type?: unknown;
+      };
+      const url = typeof candidate.url === "string" ? candidate.url.trim() : "";
+      if (!url) return null;
+
+      const dedupeKey = url.toLowerCase();
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+
+      const filename =
+        typeof candidate.filename === "string" && candidate.filename.trim()
+          ? candidate.filename.trim()
+          : typeof candidate.file_name === "string" && candidate.file_name.trim()
+            ? candidate.file_name.trim()
+            : undefined;
+      const s3Key =
+        typeof candidate.s3Key === "string" && candidate.s3Key.trim()
+          ? candidate.s3Key.trim()
+          : typeof candidate.s3_key === "string" && candidate.s3_key.trim()
+            ? candidate.s3_key.trim()
+            : undefined;
+      const mimeType =
+        typeof candidate.mimeType === "string" && candidate.mimeType.trim()
+          ? candidate.mimeType.trim()
+          : typeof candidate.mime_type === "string" && candidate.mime_type.trim()
+            ? candidate.mime_type.trim()
+            : undefined;
+
+      return { url, s3Key, filename, mimeType };
+    })
+    .filter((item): item is GeneratedFilePayload => Boolean(item));
 };
 
 const WebSearchCard = ({ searches }: { searches: WebSearchPayload[] }) => {
@@ -1291,6 +1423,10 @@ export function ChatMessage({
   const webSearches = useMemo(
     () => normalizeWebSearches(message.metadata?.webSearch),
     [message.metadata?.webSearch],
+  );
+  const generatedFiles = useMemo(
+    () => normalizeGeneratedFiles(message.metadata?.generatedFiles),
+    [message.metadata?.generatedFiles],
   );
 
   const actionButtonClasses =
@@ -1919,6 +2055,32 @@ export function ChatMessage({
                       />
                     </div>
                   ))}
+                  {!isUser && generatedFiles.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {generatedFiles.map((file, idx) => (
+                        <a
+                          key={`${message.id ?? "msg"}-generated-file-${idx}`}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group inline-flex items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-left transition-colors hover:bg-[#EEF2FF]"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-medium text-[#111827]">
+                              {file.filename || `Generated file ${idx + 1}`}
+                            </span>
+                            <span className="block truncate text-[11px] text-[#6B7280]">
+                              {file.mimeType || "Click to download"}
+                            </span>
+                          </span>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#D1D5DB] bg-white px-2 py-1 text-[11px] font-medium text-[#374151] group-hover:border-[#93C5FD] group-hover:text-[#1D4ED8]">
+                            <Download className="h-3 w-3" />
+                            Download
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {!isUser &&
                     !message.isLoading &&
                     onSuggestionSelect &&

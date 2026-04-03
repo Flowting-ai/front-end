@@ -157,7 +157,7 @@ export function useFileUpload(): UseFileUploadReturn {
   const initWithExisting = useCallback((files: { id: string; name: string }[]) => {
     const existing: UploadedFile[] = files.map((f) => ({
       id: f.id,
-      type: 'pdf',
+      type: 'document',
       name: f.name,
       url: '',
       file: new File([], f.name),

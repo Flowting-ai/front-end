@@ -263,6 +263,37 @@ export function PersonaChatFullPage({
     return { query, links };
   };
 
+  const normalizeGeneratedFilePayload = (
+    raw: unknown,
+  ): { url: string; s3Key?: string; filename?: string; mimeType?: string } | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const payload = raw as Record<string, unknown>;
+    const rawUrl = payload.url ?? payload.file_link ?? payload.link;
+    const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+    if (!url) return null;
+
+    const filenameRaw =
+      payload.filename ?? payload.file_name ?? payload.fileName ?? payload.name;
+    const filename =
+      typeof filenameRaw === "string" && filenameRaw.trim().length > 0
+        ? filenameRaw.trim()
+        : undefined;
+
+    const s3KeyRaw = payload.s3_key ?? payload.s3Key;
+    const s3Key =
+      typeof s3KeyRaw === "string" && s3KeyRaw.trim().length > 0
+        ? s3KeyRaw.trim()
+        : undefined;
+
+    const mimeTypeRaw = payload.mime_type ?? payload.mimeType;
+    const mimeType =
+      typeof mimeTypeRaw === "string" && mimeTypeRaw.trim().length > 0
+        ? mimeTypeRaw.trim()
+        : undefined;
+
+    return { url, s3Key, filename, mimeType };
+  };
+
   const handleSend = async () => {
     const trimmedContent = input.trim();
     if (!trimmedContent || isResponding) return;
@@ -608,6 +639,36 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "generated_file") {
+          const generatedFile = normalizeGeneratedFilePayload(parsed);
+          if (!generatedFile) return;
+          setDisplayMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) return msg;
+              const existing = Array.isArray(msg.metadata?.generatedFiles)
+                ? msg.metadata.generatedFiles
+                : [];
+              const merged = [...existing, generatedFile].filter(
+                (item, index, arr) =>
+                  arr.findIndex(
+                    (candidate) =>
+                      candidate.url.trim().toLowerCase() ===
+                      item.url.trim().toLowerCase(),
+                  ) === index,
+              );
+              return {
+                ...msg,
+                isLoading: false,
+                metadata: {
+                  ...(msg.metadata || {}),
+                  generatedFiles: merged,
+                },
+              };
+            }),
+          );
+          return;
+        }
+
         if (eventName === "title") {
           const streamTitleCandidate =
             typeof parsed.title === "string"
@@ -930,7 +991,7 @@ export function PersonaChatFullPage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,application/pdf,image/*"
+                      accept=".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.csv,text/csv,application/csv,.xls,application/vnd.ms-excel,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"
                       multiple
                       onChange={(e) => {
                         const files = e.target.files;

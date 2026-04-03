@@ -85,7 +85,7 @@ export default function SettingsFilesAndDataPage() {
                     Allowed file types
                   </span>
                   <span className="text-sm text-[#0A0A0A]">
-                    PDF, DOCX, TXT, CSV, XLSX, images
+                    PDF, DOC, DOCX, PPT, PPTX, TXT, CSV, XLSX, images
                   </span>
                 </div>
                 <Select defaultValue="all">
@@ -94,7 +94,7 @@ export default function SettingsFilesAndDataPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All file types</SelectItem>
-                    <SelectItem value="docs">Documents only (PDF, DOCX, TXT)</SelectItem>
+                    <SelectItem value="docs">Documents only (PDF, DOC, DOCX, PPT, PPTX, TXT)</SelectItem>
                     <SelectItem value="spreadsheets">Spreadsheets only (CSV, XLSX)</SelectItem>
                     <SelectItem value="images">Images only</SelectItem>
                     <SelectItem value="custom">Custom policy</SelectItem>

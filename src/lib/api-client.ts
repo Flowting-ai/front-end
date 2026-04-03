@@ -163,9 +163,23 @@ export async function secureUpload<T = unknown>(
   }
 
   // Validate file type
-  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'application/pdf'];
+  const allowedTypes = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/gif',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/csv',
+    'application/csv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error('Invalid file type. Allowed: PNG, JPEG, GIF, PDF');
+    throw new Error('Invalid file type. Allowed: PNG, JPEG, GIF, PDF, DOC, DOCX, PPT, PPTX, CSV, XLS, XLSX');
   }
 
   const formData = new FormData();

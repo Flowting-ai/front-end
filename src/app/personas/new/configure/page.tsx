@@ -281,8 +281,8 @@ function PersonaConfigurePageContent() {
       completed++;
     }
 
-    // Step 7: PDF uploaded
-    if (uploadedFiles.some((f) => f.type === "pdf")) {
+    // Step 7: Document uploaded
+    if (uploadedFiles.some((f) => f.type !== "image")) {
       completed++;
     }
 
@@ -708,7 +708,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf" && !f.isExisting)
+        .filter((f) => f.type !== "image" && !f.isExisting)
         .map((f) => f.file);
 
       if (createdPersonaId) {
@@ -798,7 +798,7 @@ function PersonaConfigurePageContent() {
         image: imageFile,
       };
       const documentFiles = uploadedFiles
-        .filter((f) => f.type === "pdf" && !f.isExisting)
+        .filter((f) => f.type !== "image" && !f.isExisting)
         .map((f) => f.file);
 
       let result;
@@ -2329,7 +2329,7 @@ function PersonaConfigurePageContent() {
                       {uploadedFiles.length > 0 && (
                         <div className={styles.uploadedFilesContainer}>
                           {uploadedFiles.map((file) =>
-                            file.type === "pdf" ? (
+                            file.type !== "image" ? (
                               <div
                                 key={file.id}
                                 className={styles.uploadedFileCard}
@@ -2350,7 +2350,9 @@ function PersonaConfigurePageContent() {
                                   <p className={styles.fileType}>
                                     {file.isUploading
                                       ? `Uploading... ${file.uploadProgress || 0}%`
-                                      : "PDF Document"}
+                                      : file.type === "pdf"
+                                        ? "PDF Document"
+                                        : "Document"}
                                   </p>
                                 </div>
                                 <button
