@@ -7,10 +7,10 @@ function ConfirmationInner() {
   return (
     <CheckoutConfirmationContent
       flow="settings"
-      redirectPath="/settings/usage-and-billing"
+      redirectPath="/settings/usage-and-billing?from_checkout=1"
       continueLabelReady="Return to usage and billing"
-      waitingMessage="Confirming plan change…"
-      timeoutMessage="This is taking longer than usual. You can continue—open Usage & billing in a moment if your plan has not updated yet."
+      waitingMessage="Loading…"
+      deferredSyncHint="Payment succeeded. If Usage & billing still shows your previous plan, wait a moment and refresh that page after you continue."
     />
   );
 }

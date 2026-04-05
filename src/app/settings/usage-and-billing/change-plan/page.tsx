@@ -4,12 +4,12 @@ import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { Suspense, useCallback, useEffect, useState } from "react";
+import { DowngradeBlockedDialog } from "@/components/pricing/downgrade-blocked-dialog";
 import { PricingCardsGrid } from "@/components/pricing/pricing-cards-grid";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -19,11 +19,17 @@ import {
   cancelSubscription,
   createCheckoutSession,
   fetchCurrentUser,
-  updateSubscriptionPlan,
   type UserPlanType,
 } from "@/lib/api/user";
+import {
+  isDowngradeBlockedByUsage,
+  isPlanDowngrade,
+  isPlanUpgrade,
+  type WorkspaceUsageCounts,
+} from "@/lib/plan-downgrade-limits";
 import type { PricingCardId } from "@/lib/pricing-cards-config";
 import { toast } from "@/lib/toast-helper";
+import { fetchWorkspaceUsageCounts } from "@/lib/workspace-usage-counts";
 
 function formatPeriodEnd(value: string | null | undefined) {
   if (!value) return "the end of your billing period";
@@ -48,6 +54,16 @@ function ChangePlanPageInner() {
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+
+  const [downgradeBlockOpen, setDowngradeBlockOpen] = useState(false);
+  const [downgradeBlockTarget, setDowngradeBlockTarget] = useState<
+    "starter" | "pro" | null
+  >(null);
+  const [blockCounts, setBlockCounts] = useState<WorkspaceUsageCounts>({
+    totalPersonaCount: 0,
+    totalPinCount: 0,
+    totalWorkflowsCount: 0,
+  });
 
   const checkoutStatus = searchParams.get("checkout");
   const paymentIssueMessage =
@@ -91,7 +107,7 @@ function ChangePlanPageInner() {
       await cancelSubscription();
       setShowCancelConfirm(false);
       toast.success("Subscription canceled", {
-        description: `Your plan stays active until ${formatPeriodEnd(periodEndLabel)}.`,
+        description: `Your plan stays active until ${formatPeriodEnd(periodEndLabel)}. You will not be charged for future billing periods.`,
       });
       await loadMe();
       router.push("/settings/usage-and-billing");
@@ -111,24 +127,38 @@ function ChangePlanPageInner() {
 
       setLoadingPlan(planId);
       try {
-        if (hasActiveSubscription) {
-          const result = await updateSubscriptionPlan(planId, {
-            checkoutFlow: "settings_change_plan",
-          });
-          if ("checkout_url" in result) {
-            window.location.href = result.checkout_url;
-            return;
-          }
-          toast.success("Plan updated", {
-            description: `You are now on the ${result.new_plan} plan.`,
-          });
-          await loadMe();
-          router.push("/settings/usage-and-billing");
-        } else {
+        const startCheckout = async () => {
           const checkout = await createCheckoutSession(planId, "monthly", {
             checkoutFlow: "settings_change_plan",
           });
           window.location.href = checkout.checkout_url;
+        };
+
+        if (!hasActiveSubscription || !resolvedPlan) {
+          await startCheckout();
+          return;
+        }
+
+        const current = resolvedPlan;
+
+        if (isPlanUpgrade(current, planId)) {
+          await startCheckout();
+          return;
+        }
+
+        if (isPlanDowngrade(current, planId)) {
+          const counts = await fetchWorkspaceUsageCounts();
+          const target = planId as "starter" | "pro";
+
+          if (isDowngradeBlockedByUsage(target, counts)) {
+            setBlockCounts(counts);
+            setDowngradeBlockTarget(target);
+            setDowngradeBlockOpen(true);
+            return;
+          }
+
+          await startCheckout();
+          return;
         }
       } catch (err) {
         toast.error("Could not change plan", {
@@ -139,27 +169,28 @@ function ChangePlanPageInner() {
         setLoadingPlan(null);
       }
     },
-    [hasActiveSubscription, loadMe, resolvedPlan, router],
+    [hasActiveSubscription, resolvedPlan],
   );
 
   return (
     <div className="w-full min-h-dvh bg-[#FAF9F8] overflow-x-hidden">
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <DialogContent className="max-w-md bg-white p-6">
+        <DialogContent className="max-w-md bg-white p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-[#171717]">
               Cancel subscription?
             </DialogTitle>
-            <DialogDescription className="text-[#6B7280]">
-              Your plan will stay active until{" "}
-              <span className="font-medium text-[#171717]">
-                {formatPeriodEnd(periodEndLabel)}
-              </span>
-              . You will not be charged again after that, and paid features
-              will end unless you subscribe again.
-            </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-2">
+          <p className="font-geist text-sm text-[#6B7280] text-left">
+            Your plan stays active until{" "}
+            <span className="font-medium text-[#171717]">
+              {formatPeriodEnd(periodEndLabel)}
+            </span>{" "}
+            (end of your current billing period). Future renewals are canceled
+            in Stripe—you will not be charged again unless you subscribe again.
+            Paid features remain until that date.
+          </p>
+          <DialogFooter className="mt-2 sm:justify-end gap-2">
             <Button
               variant="outline"
               onClick={() => setShowCancelConfirm(false)}
@@ -186,7 +217,13 @@ function ChangePlanPageInner() {
         </DialogContent>
       </Dialog>
 
-      {/* Same outer structure as onboarding pricing: full-width band, content centered */}
+      <DowngradeBlockedDialog
+        open={downgradeBlockOpen}
+        onOpenChange={setDowngradeBlockOpen}
+        targetPlan={downgradeBlockTarget}
+        counts={blockCounts}
+      />
+
       <section className="w-full h-auto bg-[#FAF9F8] flex items-center justify-center px-4 mb-10 lg:mb-20">
         <div className="w-full flex flex-col items-center gap-8 py-10">
           <div className="w-full max-w-6xl flex justify-start">
@@ -236,9 +273,10 @@ function ChangePlanPageInner() {
               Change your plan
             </h1>
             <p className="font-geist text-sm md:text-base text-[#525252]">
-              Upgrade or downgrade anytime. Changes to an active subscription
-              usually apply right away; some updates may open a secure Stripe
-              checkout when payment is required.
+              Every plan switch uses secure Stripe checkout for the new plan.
+              Before a lower tier, we check that your personas, pins, and
+              workflows fit that plan&apos;s limits. Cancel uses your billing
+              page and keeps access through the end of the current period.
             </p>
           </section>
 

@@ -9,8 +9,8 @@ function ConfirmationInner() {
       flow="onboarding"
       redirectPath="/"
       continueLabelReady="Continue to App"
-      waitingMessage="Waiting for subscription…"
-      timeoutMessage="This is taking longer than usual. You can continue—the app will finish setup in the background. If you are sent back to onboarding, wait a moment and open the app again."
+      waitingMessage="Loading…"
+      deferredSyncHint="Payment succeeded. You can continue—the app may finish setup in the background. If you are sent back to onboarding, wait briefly and open the app again."
     />
   );
 }

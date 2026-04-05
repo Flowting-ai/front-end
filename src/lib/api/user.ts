@@ -285,6 +285,7 @@ export async function updateSubscriptionPlan(
   return data as UpdateSubscriptionResult;
 }
 
+/** Cancels future renewals via `DELETE /api/stripe/subscription` (cancel_at_period_end). */
 export async function cancelSubscription(): Promise<{ status: string }> {
   const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, {
     method: "DELETE",

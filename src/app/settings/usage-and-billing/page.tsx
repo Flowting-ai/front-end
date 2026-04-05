@@ -1,6 +1,7 @@
 "use client";
 
 import AppLayout from "@/components/layout/app-layout";
+import { DowngradeBlockedDialog } from "@/components/pricing/downgrade-blocked-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,15 +13,20 @@ import {
 } from "@/components/ui/dialog";
 import { AlertTriangle, Check, Loader2, XCircle } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import {
+  isDowngradeBlockedByUsage,
+  isPlanDowngrade,
+  type WorkspaceUsageCounts,
+} from "@/lib/plan-downgrade-limits";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import {
   cancelSubscription,
   createCheckoutSession,
-  updateSubscriptionPlan,
   type UserPlanType,
 } from "@/lib/api/user";
 import { toast } from "@/lib/toast-helper";
+import { fetchWorkspaceUsageCounts } from "@/lib/workspace-usage-counts";
 
 const PLAN_OPTIONS: { id: UserPlanType; label: string; monthlyPrice: number }[] =
   [
@@ -29,15 +35,34 @@ const PLAN_OPTIONS: { id: UserPlanType; label: string; monthlyPrice: number }[] 
     { id: "power", label: "Power", monthlyPrice: 100 },
   ];
 
-export default function SettingsUsageAndBillingPage() {
+function SettingsUsageAndBillingPageInner() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
 
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [changingToPlan, setChangingToPlan] = useState<UserPlanType | null>(null);
+
+  const [downgradeBlockOpen, setDowngradeBlockOpen] = useState(false);
+  const [downgradeBlockTarget, setDowngradeBlockTarget] = useState<
+    "starter" | "pro" | null
+  >(null);
+  const [blockCounts, setBlockCounts] = useState<WorkspaceUsageCounts>({
+    totalPersonaCount: 0,
+    totalPinCount: 0,
+    totalWorkflowsCount: 0,
+  });
+
+  useEffect(() => {
+    if (searchParams.get("from_checkout") === "1") {
+      void refreshUser().then(() => {
+        router.replace("/settings/usage-and-billing", { scroll: false });
+      });
+    }
+  }, [searchParams, refreshUser, router]);
 
   const now = new Date();
   const monthNames = [
@@ -115,27 +140,27 @@ export default function SettingsUsageAndBillingPage() {
   };
 
   const handleChangePlan = async (planType: UserPlanType) => {
+    if (planType === normalizedPlanType) return;
     setChangingToPlan(planType);
     try {
-      if (hasActiveSubscription) {
-        const result = await updateSubscriptionPlan(planType, {
-          checkoutFlow: "settings_change_plan",
-        });
-        if ("checkout_url" in result) {
-          window.location.href = result.checkout_url;
+      if (
+        normalizedPlanType &&
+        isPlanDowngrade(normalizedPlanType, planType)
+      ) {
+        const counts = await fetchWorkspaceUsageCounts();
+        const target = planType as "starter" | "pro";
+        if (isDowngradeBlockedByUsage(target, counts)) {
+          setBlockCounts(counts);
+          setDowngradeBlockTarget(target);
+          setDowngradeBlockOpen(true);
           return;
         }
-        setShowChangePlan(false);
-        toast.success("Plan updated", {
-          description: `You are now on the ${result.new_plan} plan.`,
-        });
-        await refreshUser();
-      } else {
-        const checkout = await createCheckoutSession(planType, "monthly", {
-          checkoutFlow: "settings_change_plan",
-        });
-        window.location.href = checkout.checkout_url;
       }
+
+      const checkout = await createCheckoutSession(planType, "monthly", {
+        checkoutFlow: "settings_change_plan",
+      });
+      window.location.href = checkout.checkout_url;
     } catch (err) {
       toast.error("Failed to update plan", {
         description: err instanceof Error ? err.message : "Please try again.",
@@ -156,6 +181,13 @@ export default function SettingsUsageAndBillingPage() {
   return (
     <AppLayout>
       <>
+      <DowngradeBlockedDialog
+        open={downgradeBlockOpen}
+        onOpenChange={setDowngradeBlockOpen}
+        targetPlan={downgradeBlockTarget}
+        counts={blockCounts}
+      />
+
       {/* Cancel confirmation dialog */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <DialogContent className="max-w-md bg-white p-6">
@@ -202,7 +234,8 @@ export default function SettingsUsageAndBillingPage() {
           <DialogHeader>
             <DialogTitle className="text-[#171717]">Change plan</DialogTitle>
             <DialogDescription className="text-[#6B7280]">
-              Select a new plan. Changes take effect immediately.
+              Select a new plan. You will complete payment on Stripe checkout
+              (same flow as Change plan).
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 mt-2">
@@ -521,5 +554,21 @@ export default function SettingsUsageAndBillingPage() {
       </div>
       </>
     </AppLayout>
+  );
+}
+
+export default function SettingsUsageAndBillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="w-full min-h-[40vh] flex items-center justify-center px-4">
+            <p className="font-geist text-sm text-[#525252]">Loading…</p>
+          </div>
+        </AppLayout>
+      }
+    >
+      <SettingsUsageAndBillingPageInner />
+    </Suspense>
   );
 }

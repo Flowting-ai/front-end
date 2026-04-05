@@ -9,7 +9,11 @@ async function doFetch(
   path: string,
   options: ApiFetchOptions
 ): Promise<Response> {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const url = path.startsWith("http")
+    ? path
+    : path.startsWith("/api/")
+      ? `${typeof window !== "undefined" ? window.location.origin : ""}${path}`
+      : `${API_BASE_URL}${path}`;
   const headers = new Headers(options.headers || undefined);
 
   if (
