@@ -3,6 +3,8 @@
 import { USER_ENDPOINT, USER_ONBOARDING_ENDPOINT } from "@/lib/config";
 import { apiFetch } from "@/lib/api/client";
 import type { UserPlanType } from "@/lib/api/user";
+import { hasActivePaidSubscription } from "@/lib/onboarding-access";
+import { parsePlanTierFromApi } from "@/lib/plan-tier";
 
 export type OnboardingStatus = "incomplete" | "complete";
 export type OnboardingNextStep = "user_role" | "ai_tone" | "role_fit" | null;
@@ -100,6 +102,23 @@ function buildOnboardingState(raw: unknown): OnboardingState {
       ? (onboarding.subscription as Record<string, unknown>)
       : null;
 
+  const nestedPlan = subscription
+    ? parsePlanTierFromApi(subscription.plan_type)
+    : null;
+  const nestedStatus =
+    subscription && typeof subscription.subscription_status === "string"
+      ? subscription.subscription_status
+      : null;
+
+  const rootPlan = parsePlanTierFromApi(root.plan_type);
+  const rootStatus =
+    typeof root.subscription_status === "string"
+      ? root.subscription_status
+      : null;
+
+  const mergedPlan = nestedPlan ?? rootPlan;
+  const mergedStatus = nestedStatus ?? rootStatus;
+
   const status = metadata.status === "complete" ? "complete" : "incomplete";
   const nextRaw = metadata.next_step ?? metadata.nextStep;
   const nextStep = coerceNextStep(nextRaw);
@@ -128,24 +147,17 @@ function buildOnboardingState(raw: unknown): OnboardingState {
     ai_tone: aiTone,
     role_fit: roleFit,
     terms_accepted: Boolean(onboarding.terms_accepted),
-    completed: Boolean(onboarding.completed),
+    completed:
+      Boolean(onboarding.completed) || metadata.status === "complete",
     metadata: {
       status,
       next_step: nextStep,
     },
     subscription:
-      subscription
+      mergedPlan || mergedStatus
         ? {
-            plan_type:
-              subscription.plan_type === "starter" ||
-              subscription.plan_type === "pro" ||
-              subscription.plan_type === "power"
-                ? subscription.plan_type
-                : null,
-            subscription_status:
-              typeof subscription.subscription_status === "string"
-                ? subscription.subscription_status
-                : null,
+            plan_type: mergedPlan,
+            subscription_status: mergedStatus,
           }
         : null,
   };
@@ -153,6 +165,16 @@ function buildOnboardingState(raw: unknown): OnboardingState {
 
 function normalizeOnboardingState(raw: unknown): OnboardingState {
   return withInferredNextStep(buildOnboardingState(raw));
+}
+
+/** Matches proxy gate: onboarding done, or active/trialing paid subscription. */
+export function isOnboardingStateAppReady(state: OnboardingState | null): boolean {
+  if (!state) return false;
+  if (state.completed) return true;
+  return hasActivePaidSubscription(
+    state.subscription?.plan_type,
+    state.subscription?.subscription_status,
+  );
 }
 
 export async function fetchOnboardingState(): Promise<OnboardingState | null> {

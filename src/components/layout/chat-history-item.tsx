@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
+import { useCallback, useState } from "react";
 import { Check, Loader2, MoreHorizontal, Star, X, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
@@ -24,6 +25,8 @@ export interface ChatHistoryItemProps {
   renameInputRef?: RefObject<HTMLInputElement | null>;
   isRenamePending?: boolean;
   isStarPending?: boolean;
+  /** If another row is renaming, run this before opening the options menu (e.g. commit that rename). */
+  onBeforeOpenOptionsMenu?: () => void | Promise<void>;
 }
 
 export function ChatHistoryItem({
@@ -43,7 +46,33 @@ export function ChatHistoryItem({
   renameInputRef,
   isRenamePending = false,
   isStarPending = false,
+  onBeforeOpenOptionsMenu,
 }: ChatHistoryItemProps) {
+  const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+
+  const handleOptionsMenuOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) {
+        setOptionsMenuOpen(false);
+        return;
+      }
+      if (!onBeforeOpenOptionsMenu) {
+        setOptionsMenuOpen(true);
+        return;
+      }
+      void (async () => {
+        try {
+          await onBeforeOpenOptionsMenu();
+        } catch {
+          setOptionsMenuOpen(false);
+          return;
+        }
+        setOptionsMenuOpen(true);
+      })();
+    },
+    [onBeforeOpenOptionsMenu],
+  );
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -170,7 +199,10 @@ export function ChatHistoryItem({
           )}
         </div>
         {(onRename || onDelete) && (
-          <DropdownMenu>
+          <DropdownMenu
+            open={optionsMenuOpen}
+            onOpenChange={handleOptionsMenuOpenChange}
+          >
           <DropdownMenuTrigger asChild>
             <button
               type="button"

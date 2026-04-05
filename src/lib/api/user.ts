@@ -6,6 +6,7 @@ import {
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
 } from "@/lib/config";
+import { parsePlanTierFromApi } from "@/lib/plan-tier";
 import { apiFetch } from "./client";
 
 export type UserPlanType = "starter" | "pro" | "power";
@@ -118,12 +119,7 @@ function normalizeUserProfile(raw: unknown): UserProfile {
     email: typeof root.email === "string" ? root.email : null,
     phone_number:
       typeof root.phone_number === "string" ? root.phone_number : null,
-    plan_type:
-      root.plan_type === "starter" ||
-      root.plan_type === "pro" ||
-      root.plan_type === "power"
-        ? root.plan_type
-        : null,
+    plan_type: parsePlanTierFromApi(root.plan_type),
     subscription_status:
       typeof root.subscription_status === "string"
         ? root.subscription_status
@@ -231,13 +227,22 @@ export async function deleteUser(): Promise<void> {
   await apiFetch(USER_ENDPOINT, { method: "DELETE" });
 }
 
+/** Where Stripe should return the user after checkout (must match API route allowlist). */
+export type StripeCheckoutFlow = "onboarding" | "settings_change_plan";
+
 export async function createCheckoutSession(
   plan_type: UserPlanType,
   billing: BillingPlan = "monthly",
+  options?: { checkoutFlow?: StripeCheckoutFlow },
 ): Promise<CheckoutSessionResponse> {
+  const payload: Record<string, string> = { plan_type, billing };
+  if (options?.checkoutFlow === "settings_change_plan") {
+    payload.checkout_flow = "settings_change_plan";
+  }
+
   const response = await apiFetch(STRIPE_CHECKOUT_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ plan_type, billing }),
+    body: JSON.stringify(payload),
   });
 
   const data = (await response.json()) as
@@ -255,10 +260,16 @@ export async function createCheckoutSession(
 
 export async function updateSubscriptionPlan(
   plan_type: UserPlanType,
+  options?: { checkoutFlow?: StripeCheckoutFlow },
 ): Promise<UpdateSubscriptionResult> {
+  const payload: Record<string, string> = { plan_type };
+  if (options?.checkoutFlow === "settings_change_plan") {
+    payload.checkout_flow = "settings_change_plan";
+  }
+
   const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, {
     method: "PATCH",
-    body: JSON.stringify({ plan_type }),
+    body: JSON.stringify(payload),
   });
 
   const data = (await response.json()) as

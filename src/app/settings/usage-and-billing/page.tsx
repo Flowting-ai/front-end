@@ -118,7 +118,9 @@ export default function SettingsUsageAndBillingPage() {
     setChangingToPlan(planType);
     try {
       if (hasActiveSubscription) {
-        const result = await updateSubscriptionPlan(planType);
+        const result = await updateSubscriptionPlan(planType, {
+          checkoutFlow: "settings_change_plan",
+        });
         if ("checkout_url" in result) {
           window.location.href = result.checkout_url;
           return;
@@ -129,7 +131,9 @@ export default function SettingsUsageAndBillingPage() {
         });
         await refreshUser();
       } else {
-        const checkout = await createCheckoutSession(planType);
+        const checkout = await createCheckoutSession(planType, "monthly", {
+          checkoutFlow: "settings_change_plan",
+        });
         window.location.href = checkout.checkout_url;
       }
     } catch (err) {
@@ -323,7 +327,9 @@ export default function SettingsUsageAndBillingPage() {
                 )}
                 <Button
                   type="button"
-                  onClick={() => router.push("/onboarding/pricing")}
+                  onClick={() =>
+                    router.push("/settings/usage-and-billing/change-plan")
+                  }
                   className="h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
                 >
                   {hasActiveSubscription ? "Change plan" : "Get a plan"}

@@ -32,13 +32,29 @@ const findActiveSubscription = async (customerId: string) => {
   );
 };
 
-const createCheckoutForPlan = async (email: string, auth0Id: string, planType: string) => {
+type CheckoutFlow = "onboarding" | "settings_change_plan";
+
+const createCheckoutForPlan = async (
+  email: string,
+  auth0Id: string,
+  planType: string,
+  checkoutFlow: CheckoutFlow = "onboarding",
+) => {
   const priceId = PRICE_MAP[`${planType}_monthly`];
   if (!priceId) {
     throw new Error("Price not configured for this plan.");
   }
 
   const appBase = process.env.APP_BASE_URL || "http://localhost:3000";
+
+  const successUrl =
+    checkoutFlow === "settings_change_plan"
+      ? `${appBase}/settings/usage-and-billing/change-plan/confirmation?plan=${planType}&billing=monthly`
+      : `${appBase}/onboarding/pricing/confirmation?plan=${planType}&billing=monthly`;
+  const cancelUrl =
+    checkoutFlow === "settings_change_plan"
+      ? `${appBase}/settings/usage-and-billing/change-plan?checkout=cancelled`
+      : `${appBase}/onboarding/pricing?checkout=cancelled`;
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -49,8 +65,8 @@ const createCheckoutForPlan = async (email: string, auth0Id: string, planType: s
       plan_type: planType,
       billing: "monthly",
     },
-    success_url: `${appBase}/onboarding/pricing/confirmation?plan=${planType}&billing=monthly`,
-    cancel_url: `${appBase}/onboarding/pricing?checkout=cancelled`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   });
 
   return NextResponse.json({
@@ -69,7 +85,7 @@ export async function PATCH(req: Request) {
     );
   }
 
-  let body: { plan_type?: string };
+  let body: { plan_type?: string; checkout_flow?: string };
   try {
     body = await req.json();
   } catch {
@@ -77,6 +93,10 @@ export async function PATCH(req: Request) {
   }
 
   const { plan_type } = body;
+  const checkoutFlow: CheckoutFlow =
+    body.checkout_flow === "settings_change_plan"
+      ? "settings_change_plan"
+      : "onboarding";
   if (!plan_type || !VALID_PLANS.includes(plan_type as (typeof VALID_PLANS)[number])) {
     return NextResponse.json({ error: "Invalid plan type." }, { status: 400 });
   }
@@ -94,12 +114,22 @@ export async function PATCH(req: Request) {
     const customer = await findCustomerByEmail(email);
 
     if (!customer) {
-      return await createCheckoutForPlan(email, session.user.sub as string, plan_type);
+      return await createCheckoutForPlan(
+        email,
+        session.user.sub as string,
+        plan_type,
+        checkoutFlow,
+      );
     }
 
     const subscription = await findActiveSubscription(customer.id);
     if (!subscription || subscription.items.data.length === 0) {
-      return await createCheckoutForPlan(email, session.user.sub as string, plan_type);
+      return await createCheckoutForPlan(
+        email,
+        session.user.sub as string,
+        plan_type,
+        checkoutFlow,
+      );
     }
 
     const item = subscription.items.data[0];

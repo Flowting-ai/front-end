@@ -473,14 +473,51 @@ function extractTitlesFromContentByUrl(content: string): Map<string, string> {
   return map;
 }
 
+/** URLs of generated file downloads — not web citations. */
+function getGeneratedDocumentUrlSet(message: Message): Set<string> {
+  const out = new Set<string>();
+  const raw = message.metadata?.generatedFiles;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (
+        item &&
+        typeof item === "object" &&
+        typeof (item as { url?: unknown }).url === "string"
+      ) {
+        out.add((item as { url: string }).url.trim().toLowerCase());
+      }
+    }
+  }
+  const docUrl = message.metadata?.documentUrl;
+  if (typeof docUrl === "string" && docUrl.trim()) {
+    out.add(docUrl.trim().toLowerCase());
+  }
+  return out;
+}
+
+function filterSourcesExcludingGeneratedDocuments(
+  message: Message,
+  sources: MessageSource[],
+): MessageSource[] {
+  const drop = getGeneratedDocumentUrlSet(message);
+  if (drop.size === 0) return sources;
+  return sources.filter(
+    (s) =>
+      typeof s.url === "string" && !drop.has(s.url.trim().toLowerCase()),
+  );
+}
+
 /** Return number of sources for an AI message (from metadata or parsed from content). */
 function getMessageSourceCount(message: Message): number {
   if (message.sender !== "ai") return 0;
   const fromMeta = message.metadata?.sources;
   if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
-    return fromMeta.length;
+    return filterSourcesExcludingGeneratedDocuments(message, fromMeta).length;
   }
-  return extractSourcesFromContent(message.content ?? "").length;
+  return filterSourcesExcludingGeneratedDocuments(
+    message,
+    extractSourcesFromContent(message.content ?? "") as MessageSource[],
+  ).length;
 }
 
 /** Return up to 4 source URLs for an AI message (for favicons on Sources button). */
@@ -488,14 +525,17 @@ function getMessageSourceUrls(message: Message): string[] {
   if (message.sender !== "ai") return [];
   const fromMeta = message.metadata?.sources;
   if (fromMeta && Array.isArray(fromMeta) && fromMeta.length > 0) {
-    return fromMeta
+    return filterSourcesExcludingGeneratedDocuments(message, fromMeta)
       .slice(0, 4)
       .map((s: { url?: string }) =>
         s && typeof s.url === "string" ? s.url : "",
       )
       .filter(Boolean);
   }
-  return extractSourcesFromContent(message.content ?? "")
+  return filterSourcesExcludingGeneratedDocuments(
+    message,
+    extractSourcesFromContent(message.content ?? "") as MessageSource[],
+  )
     .slice(0, 4)
     .map((s) => s.url);
 }
@@ -730,7 +770,11 @@ export function ChatInterface({
       fromMeta && fromMeta.length > 0
         ? fromMeta
         : extractSourcesFromContent(content);
-    return rawSources.map((s) => {
+    const withoutGenerated = filterSourcesExcludingGeneratedDocuments(
+      lastAi,
+      rawSources,
+    );
+    return withoutGenerated.map((s) => {
       const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
       const title = chatTitle?.trim() || s.title?.trim();
       return { ...s, title: title || undefined };
@@ -803,7 +847,11 @@ export function ChatInterface({
         ? fromMeta
         : extractSourcesFromContent(content);
 
-    const messageSources = rawSources.map((s) => {
+    const filtered = filterSourcesExcludingGeneratedDocuments(
+      message,
+      rawSources,
+    );
+    const messageSources = filtered.map((s) => {
       const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
       const title = chatTitle?.trim() || s.title?.trim();
       return { ...s, title: title || undefined };
@@ -1382,15 +1430,16 @@ export function ChatInterface({
         setMessages((prev = []) => {
           const next = prev.map((msg) => {
             if (msg.id !== loadingMessageId) return msg;
-            // Merge metadata to preserve webSearchEnabled and other fields
-            const mergedFields = { ...fields };
-            if (fields.metadata && msg.metadata) {
-              mergedFields.metadata = {
-                ...msg.metadata,
-                ...fields.metadata,
+            const { metadata: nextMeta, ...rest } = fields;
+            const merged: Message = { ...msg, ...rest };
+            // Omitting metadata must not wipe msg.metadata (e.g. done sends finalMetadata undefined).
+            if (nextMeta !== undefined) {
+              merged.metadata = {
+                ...(msg.metadata || {}),
+                ...nextMeta,
               };
             }
-            return { ...msg, ...mergedFields };
+            return merged;
           });
           messageBufferRef.current = next;
           return next;
@@ -1422,16 +1471,15 @@ export function ChatInterface({
         immediate = false,
       ) => {
         if (pendingAiFields) {
+          const { metadata: newMeta, ...newRest } = fields;
+          const { metadata: pendingMeta, ...pendingRest } = pendingAiFields;
           pendingAiFields = {
-            ...pendingAiFields,
-            ...fields,
+            ...pendingRest,
+            ...newRest,
             metadata:
-              pendingAiFields.metadata || fields.metadata
-                ? {
-                    ...(pendingAiFields.metadata || {}),
-                    ...(fields.metadata || {}),
-                  }
-                : undefined,
+              newMeta === undefined
+                ? pendingMeta
+                : { ...(pendingMeta || {}), ...newMeta },
           };
         } else {
           pendingAiFields = fields;
@@ -2077,13 +2125,6 @@ export function ChatInterface({
                 alt: item.name,
               }));
 
-            const generatedAttachmentSources = generatedAttachmentPayload
-              .filter((item) => !item.isImage)
-              .map((item, index) => ({
-                title: item.name || `Generated File ${index + 1}`,
-                url: item.url,
-              }));
-
             const generatedFilesFromDone = Array.isArray(
               parsed.generated_files,
             )
@@ -2120,11 +2161,16 @@ export function ChatInterface({
 
             const mergedDoneImages = [...doneImages, ...generatedAttachmentImages];
 
+            const generatedFileUrls = new Set(
+              mergedGeneratedFiles.map((f) => f.url.trim().toLowerCase()),
+            );
             const mergedSources = [
               ...((metadata?.sources as MessageSource[] | undefined) || []),
-              ...generatedAttachmentSources,
             ].filter((source, index, arr) => {
               if (!source || typeof source.url !== "string") return false;
+              if (generatedFileUrls.has(source.url.trim().toLowerCase())) {
+                return false;
+              }
               return arr.findIndex((candidate) => candidate.url === source.url) === index;
             });
 
@@ -2416,6 +2462,17 @@ export function ChatInterface({
       replyToMessage?.chatMessageId || replyToMessage?.id || null;
     const replyToContent = replyToMessage?.content || null;
 
+    const streamingAssistantMetadata: Message["metadata"] = {
+      webSearchEnabled,
+      ...(activeModel
+        ? {
+            modelName: activeModel.modelName,
+            providerName: activeModel.companyName,
+            llmModelId: activeModel.modelId ?? activeModel.id ?? null,
+          }
+        : {}),
+    };
+
     // Extract all files from attachments
     const filesToUpload = attachments.map((a) => a.file);
 
@@ -2473,9 +2530,7 @@ export function ChatInterface({
         content: "",
         avatarUrl: requestAvatar.avatarUrl,
         avatarHint: requestAvatar.avatarHint,
-        metadata: {
-          webSearchEnabled: webSearchEnabled,
-        },
+        metadata: { ...streamingAssistantMetadata },
       };
 
       const nextList = [...updatedMessages, loadingMessage];
@@ -2578,9 +2633,7 @@ export function ChatInterface({
         content: "",
         avatarUrl: requestAvatar.avatarUrl,
         avatarHint: requestAvatar.avatarHint,
-        metadata: {
-          webSearchEnabled: webSearchEnabled,
-        },
+        metadata: { ...streamingAssistantMetadata },
       };
 
       setMessages((prev = []) => {

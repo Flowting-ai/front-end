@@ -1,11 +1,13 @@
 import { auth0 } from "@/lib/auth0";
+import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
 
-type OnboardingCheck = {
-  completed: boolean;
+type OnboardingGate = {
+  /** True when onboarding is finished or user has an active paid subscription. */
+  allowsMainApp: boolean;
 };
 
 type OnboardingStateResult = {
-  data: OnboardingCheck | null;
+  data: OnboardingGate | null;
   requiresReauth: boolean;
 };
 
@@ -35,13 +37,9 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
         : data.user && typeof data.user === "object"
           ? data.user
           : data) as Record<string, unknown>;
-    const onboarding =
-      root.onboarding && typeof root.onboarding === "object"
-        ? (root.onboarding as Record<string, unknown>)
-        : root;
 
     return {
-      data: { completed: Boolean(onboarding.completed) },
+      data: { allowsMainApp: userMeRootAllowsMainApp(root) },
       requiresReauth: false,
     };
   } catch (error) {
@@ -81,7 +79,7 @@ export default async function proxy(request: Request) {
     ? await fetchOnboardingState()
     : { data: null, requiresReauth: false };
   const onboarding = onboardingResult.data;
-  const hasOnboarded = onboarding?.completed === true;
+  const hasOnboarded = onboarding?.allowsMainApp === true;
   const hasKnownOnboardingState = onboarding !== null;
   const isPricingPage = pathname.startsWith("/onboarding/pricing");
 

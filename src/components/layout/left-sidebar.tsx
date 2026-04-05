@@ -105,7 +105,7 @@ interface LeftSidebarProps {
   setRenamingText: (text: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
   handleDeleteClick: (board: ChatBoard) => void;
-  onRenameConfirm: () => void;
+  onRenameConfirm: () => void | Promise<void>;
   onRenameCancel: () => void;
   isRenamingPending: boolean;
   onToggleStar: (board: ChatBoard) => void;
@@ -582,16 +582,13 @@ export function LeftSidebar({
       return haystack.includes(normalizedSearch);
     });
 
-    return filtered
-      .slice()
-      .sort((a, b) => {
-        const aTime = Date.parse(a.metadata?.lastMessageAt || "");
-        const bTime = Date.parse(b.metadata?.lastMessageAt || "");
-        const aSafe = Number.isNaN(aTime) ? 0 : aTime;
-        const bSafe = Number.isNaN(bTime) ? 0 : bTime;
-        if (aSafe !== bSafe) return bSafe - aSafe;
-        return a.name.localeCompare(b.name);
-      });
+    return filtered.slice().sort((a, b) => {
+      const aTime = Date.parse(a.metadata?.lastMessageAt || "");
+      const bTime = Date.parse(b.metadata?.lastMessageAt || "");
+      const aSafe = Number.isNaN(aTime) ? 0 : aTime;
+      const bSafe = Number.isNaN(bTime) ? 0 : bTime;
+      return bSafe - aSafe;
+    });
   }, [chatBoards, currentBoardType, normalizedSearch]);
 
   const [documentTitle, setDocumentTitle] = useState(APP_BASE_TITLE);
@@ -1343,6 +1340,12 @@ export function LeftSidebar({
                                                   `/personas/${persona.id}/chat?chatId=${chat.id}`,
                                                 )
                                               }
+                                              onBeforeOpenOptionsMenu={
+                                                renamingPersonaChatId &&
+                                                renamingPersonaChatId !== chat.id
+                                                  ? handleConfirmRenamePersonaChat
+                                                  : undefined
+                                              }
                                               onRename={() => {
                                                 setRenamingPersonaChatId(
                                                   chat.id,
@@ -1485,6 +1488,12 @@ export function LeftSidebar({
                                   onToggleStar={handleToggleStar}
                                   onRename={handleRename}
                                   onDelete={handleDelete}
+                                  onBeforeOpenOptionsMenu={
+                                    renamingChatId &&
+                                    renamingChatId !== board.id
+                                      ? () => onRenameConfirm()
+                                      : undefined
+                                  }
                                   isRenaming={isRenamingBoard}
                                   renameValue={
                                     isRenamingBoard ? renamingText : undefined

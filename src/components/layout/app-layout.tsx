@@ -628,17 +628,18 @@ const extractFileAttachmentsFromEntry = (entry: BackendMessage) => {
       alt: item.name,
     }));
 
-  const generatedLinks = parsed
+  const generatedDocuments = parsed
     .filter((item) => item.origin === "generated" && !item.isImage)
     .map((item, index) => ({
-      title: item.name || `Generated File ${index + 1}`,
       url: item.url,
+      filename: item.name || `Document ${index + 1}`,
+      mimeType: item.mimeType,
     }));
 
   return {
     userAttachments,
     generatedImages,
-    generatedLinks,
+    generatedDocuments,
   };
 };
 
@@ -690,7 +691,7 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
   const { images: entryImages, imageUrl: entryImageUrl } = getImagesFromBackendMessage(entry);
   const {
     userAttachments: uploadedFileAttachments,
-    generatedLinks,
+    generatedDocuments,
   } = extractFileAttachmentsFromEntry(entry);
   const hasImages = !!(entryImages?.length || entryImageUrl);
 
@@ -741,15 +742,41 @@ const convertBackendEntryToMessages = (entry: BackendMessage): Message[] => {
     const entryReasoning = entry.reasoning ?? entry.thinking_content ?? null;
     const responseReasoning = entryReasoning || sanitized.thinkingText;
 
+    const generatedFileUrlSet = new Set(
+      generatedDocuments.map((d) => d.url.trim().toLowerCase()),
+    );
+    const priorSources =
+      (promptMetadata?.sources as MessageSource[] | undefined) || [];
+    const sourcesWithoutGeneratedFiles = priorSources.filter(
+      (s) =>
+        typeof s.url === "string" &&
+        !generatedFileUrlSet.has(s.url.trim().toLowerCase()),
+    );
+
+    const priorGeneratedFiles = Array.isArray(promptMetadata?.generatedFiles)
+      ? promptMetadata!.generatedFiles!
+      : [];
+    const seenGenUrls = new Set<string>();
+    const mergedGeneratedFilesForAi = [
+      ...priorGeneratedFiles,
+      ...generatedDocuments,
+    ].filter((f) => {
+      if (!f || typeof f.url !== "string") return false;
+      const k = f.url.trim().toLowerCase();
+      if (!k || seenGenUrls.has(k)) return false;
+      seenGenUrls.add(k);
+      return true;
+    });
+
     const aiMetadata: Message["metadata"] = {
       ...(promptMetadata || {}),
       sources:
-        generatedLinks.length > 0
-          ? [
-              ...((promptMetadata?.sources as MessageSource[] | undefined) || []),
-              ...generatedLinks,
-            ]
-          : promptMetadata?.sources,
+        sourcesWithoutGeneratedFiles.length > 0
+          ? sourcesWithoutGeneratedFiles
+          : undefined,
+      ...(mergedGeneratedFilesForAi.length > 0
+        ? { generatedFiles: mergedGeneratedFilesForAi }
+        : {}),
     };
 
     messages.push({
@@ -864,54 +891,6 @@ const backendPinToLegacy = (
         : (fallback?.comments ?? []),
   };
 };
-
-const normalizePinTagStrings = (raw: unknown): string[] => {
-  const source =
-    Array.isArray(raw)
-      ? raw
-      : typeof raw === "string"
-        ? raw
-            .split(",")
-            .map((item) => item.trim())
-            .filter((item) => item.length > 0)
-        : [];
-  if (!Array.isArray(source)) return [];
-  return source
-    .map((tag) => {
-      if (typeof tag === "string") return tag.trim();
-      if (!tag || typeof tag !== "object") return "";
-      const candidate = tag as {
-        tag_name?: unknown;
-        name?: unknown;
-        label?: unknown;
-        text?: unknown;
-      };
-      const value =
-        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter((tag) => tag.length > 0);
-};
-
-const normalizePinCommentStrings = (raw: unknown): string[] => {
-  const source = Array.isArray(raw) ? raw : typeof raw === "string" ? [raw] : [];
-  if (!Array.isArray(source)) return [];
-  return source
-    .map((comment) => {
-      if (typeof comment === "string") return comment.trim();
-      if (!comment || typeof comment !== "object") return "";
-      const candidate = comment as {
-        comment_text?: unknown;
-        text?: unknown;
-        content?: unknown;
-      };
-      const value = candidate.comment_text ?? candidate.text ?? candidate.content;
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter((comment) => comment.length > 0);
-};
-
-const PINS_CACHE_KEY = "chat-pins-cache";
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
@@ -1074,50 +1053,32 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isSettingsSectionRoute = pathname?.startsWith("/settings");
   const { user, isAuthenticated } = useAuth();
   const hasFetchedChats = useRef(false);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  isAuthenticatedRef.current = isAuthenticated;
 
-
-  // Helper to save pins to localStorage
-  const savePinsToCache = useCallback((chatId: string, pinsData: PinType[]) => {
+  // Drop legacy per-browser pins cache (was shown after logout / account switch).
+  useEffect(() => {
     try {
-      const cache = JSON.parse(localStorage.getItem(PINS_CACHE_KEY) || "{}");
-      cache[chatId] = pinsData;
-      localStorage.setItem(PINS_CACHE_KEY, JSON.stringify(cache));
-    } catch (error) {
-      console.error("Failed to save pins to cache", error);
+      localStorage.removeItem("chat-pins-cache");
+    } catch {
+      /* ignore */
     }
   }, []);
 
-  // Helper to load pins from localStorage
-  const loadPinsFromCache = useCallback((chatId: string): PinType[] => {
-    try {
-      const cache = JSON.parse(localStorage.getItem(PINS_CACHE_KEY) || "{}");
-      const cachedPins = cache[chatId];
-      if (Array.isArray(cachedPins)) {
-        return cachedPins.map((pin) => ({
-          ...pin,
-          time: new Date(pin.time),
-          tags: normalizePinTagStrings(pin.tags),
-          comments: normalizePinCommentStrings(pin.comments),
-        }));
-      }
-    } catch (error) {
-      console.error("Failed to load pins from cache", error);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPins_([]);
+      setPinsChatId(null);
     }
-    return [];
-  }, []);
+  }, [isAuthenticated]);
 
-  // Wrapper for setPins that also caches
   const setPins = useCallback(
     (updater: PinType[] | ((prev: PinType[]) => PinType[])) => {
-      setPins_((prev) => {
-        const newPins = typeof updater === "function" ? updater(prev) : updater;
-        if (pinsChatId) {
-          savePinsToCache(pinsChatId, newPins);
-        }
-        return newPins;
-      });
+      setPins_((prev) =>
+        typeof updater === "function" ? updater(prev) : updater
+      );
     },
-    [pinsChatId, savePinsToCache]
+    []
   );
 
   useEffect(() => {
@@ -1235,12 +1196,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         };
       });
       const normalized = normalizedWithSort
-        .sort((a, b) => {
-          if (a.sortTime !== b.sortTime) {
-            return b.sortTime - a.sortTime;
-          }
-          return a.board.name.localeCompare(b.board.name);
-        })
+        .sort((a, b) => b.sortTime - a.sortTime)
         .map((entry) => entry.board);
       let combinedBoards: ChatBoard[] = normalized;
       setChatBoards_((prev) => {
@@ -1471,33 +1427,27 @@ export default function AppLayout({ children }: AppLayoutProps) {
             };
           });
 
-          if (changed && pinsChatId) {
-            savePinsToCache(pinsChatId, nextPins);
-          }
-
           return changed ? nextPins : prevPins;
         });
       }
     } catch (error) {
       console.error(`Failed to load messages for chat ${chatId}`, error);
     }
-  }, [pinsChatId, savePinsToCache]);
+  }, []);
 
   const loadPinsForChat = useCallback(
     async (_chatId: string | null = null) => {
+      if (!isAuthenticated) return;
+
       const cacheKey = "all";
-      const cachedPins = loadPinsFromCache(cacheKey);
-      if (cachedPins.length > 0) {
-        setPins_(cachedPins);
-        setPinsChatId(cacheKey);
-      }
-      const cachedById = new Map(cachedPins.map((pin) => [pin.id, pin]));
 
       try {
         const backendPins = await fetchAllPins();
 
+        if (!isAuthenticatedRef.current) return;
+
         const normalized = backendPins.map((backendPin) =>
-          backendPinToLegacy(backendPin, cachedById.get(backendPin.id))
+          backendPinToLegacy(backendPin)
         );
 
         // /pins list/detail may not include chat identifiers; recover linkage for
@@ -1534,7 +1484,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         });
         setPins_(normalizedWithChatLink);
         setPinsChatId(cacheKey);
-        savePinsToCache(cacheKey, normalizedWithChatLink);
         setChatBoards_((prev) =>
           prev.map((board) =>
             board.id === _chatId
@@ -1544,13 +1493,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
         );
       } catch (error) {
         console.error("Failed to load pins", error);
-        if (cachedPins.length === 0) {
-          setPins_([]);
-          setPinsChatId(cacheKey);
-        }
+        if (!isAuthenticatedRef.current) return;
+        setPins_([]);
+        setPinsChatId(cacheKey);
       }
     },
-    [chatHistory, loadPinsFromCache, savePinsToCache]
+    [chatHistory, isAuthenticated]
   );
 
   useEffect(() => {
@@ -1561,10 +1509,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [activeChatId, chatHistory, loadMessagesForChat, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!pinsChatId && isChatRoute) {
       loadPinsForChat(activeChatId ?? null);
     }
-  }, [activeChatId, loadPinsForChat, pinsChatId, isChatRoute]);
+  }, [
+    activeChatId,
+    isAuthenticated,
+    isChatRoute,
+    loadPinsForChat,
+    pinsChatId,
+  ]);
 
   // Fetch active personas once on mount
   useEffect(() => {

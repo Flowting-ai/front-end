@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   // 2. Parse & validate body
-  let body: { plan_type?: string; billing?: string };
+  let body: { plan_type?: string; billing?: string; checkout_flow?: string };
   try {
     body = await req.json();
   } catch {
@@ -39,6 +39,10 @@ export async function POST(req: Request) {
   }
 
   const { plan_type, billing } = body;
+  const checkoutFlow =
+    body.checkout_flow === "settings_change_plan"
+      ? "settings_change_plan"
+      : "onboarding";
 
   if (
     !plan_type ||
@@ -63,6 +67,15 @@ export async function POST(req: Request) {
   // 3. Create Stripe Checkout Session
   const appBase = process.env.APP_BASE_URL || "http://localhost:3000";
 
+  const successUrl =
+    checkoutFlow === "settings_change_plan"
+      ? `${appBase}/settings/usage-and-billing/change-plan/confirmation?plan=${plan_type}&billing=${billing}`
+      : `${appBase}/onboarding/pricing/confirmation?plan=${plan_type}&billing=${billing}`;
+  const cancelUrl =
+    checkoutFlow === "settings_change_plan"
+      ? `${appBase}/settings/usage-and-billing/change-plan?checkout=cancelled`
+      : `${appBase}/onboarding/pricing?checkout=cancelled`;
+
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -73,8 +86,8 @@ export async function POST(req: Request) {
         plan_type,
         billing,
       },
-      success_url: `${appBase}/onboarding/pricing/confirmation?plan=${plan_type}&billing=${billing}`,
-      cancel_url: `${appBase}/onboarding/pricing?checkout=cancelled`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
     return NextResponse.json({
