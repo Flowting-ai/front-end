@@ -823,48 +823,82 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       }
 
       const tableKey = `${keyPrefix}-table-${nodes.length}`;
+      const formatCellHtml = (text: string) =>
+        text
+          .replace(/(\*\*|__)(.+?)\1/g, "<strong>$2</strong>")
+          .replace(/(\*|_)(.+?)\1/g, "<em>$2</em>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+      const formatCellPlain = (text: string) =>
+        text
+          .replace(/(\*\*|__)(.+?)\1/g, "$2")
+          .replace(/(\*|_)(.+?)\1/g, "$2")
+          .replace(/`([^`]+)`/g, "$1")
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
+      const copyTableAsHtml = () => {
+        const htmlRows = [
+          `<tr>${headerCells.map((c) => `<th>${formatCellHtml(c)}</th>`).join("")}</tr>`,
+          ...bodyRows.map((r) => `<tr>${r.map((c) => `<td>${formatCellHtml(c)}</td>`).join("")}</tr>`),
+        ];
+        const html = `<table>${htmlRows.join("")}</table>`;
+        const plain = [headerCells.map(formatCellPlain).join("\t"), ...bodyRows.map((r) => r.map(formatCellPlain).join("\t"))].join("\n");
+        const blob = new Blob([html], { type: "text/html" });
+        const plainBlob = new Blob([plain], { type: "text/plain" });
+        navigator.clipboard.write([
+          new ClipboardItem({ "text/html": blob, "text/plain": plainBlob }),
+        ]);
+      };
       nodes.push(
-        <div
-          key={tableKey}
-          className="overflow-x-auto rounded-2xl border border-slate-200"
-        >
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-slate-50/70 text-slate-700">
-              <tr>
-                {headerCells.map((cell, cellIndex) => (
-                  <th
-                    key={`${tableKey}-header-${cellIndex}`}
-                    className="border-b border-slate-200 px-3 py-2 text-left font-semibold text-[#171717]"
-                  >
-                    {renderInlineContent(
-                      cell,
-                      `${tableKey}-header-${cellIndex}`,
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {bodyRows.map((row, rowIndex) => (
-                <tr
-                  key={`${tableKey}-row-${rowIndex}`}
-                  className="odd:bg-white even:bg-slate-50/50"
-                >
-                  {row.map((cell, cellIndex) => (
-                    <td
-                      key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
-                      className="border-t border-slate-100 px-3 py-2 align-top text-[#171717]"
+        <div key={tableKey} className="relative group/table rounded-2xl border border-slate-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={copyTableAsHtml}
+            className="absolute top-2 right-2 z-10 opacity-0 group-hover/table:opacity-100 transition-opacity inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-slate-200 text-slate-600 shadow-sm hover:text-white hover:bg-black focus-visible:outline-none"
+          >
+            <Copy className="h-3 w-3" />
+            Copy
+          </button>
+          <div className="overflow-x-auto">
+            <table className="border-collapse text-sm" style={{ minWidth: "100%" }}>
+              <thead className="bg-slate-50/70 text-slate-700">
+                <tr>
+                  {headerCells.map((cell, cellIndex) => (
+                    <th
+                      key={`${tableKey}-header-${cellIndex}`}
+                      className="border-b border-slate-200 px-4 py-2.5 text-left font-semibold text-[#171717] whitespace-nowrap"
+                      style={{ minWidth: "150px" }}
                     >
                       {renderInlineContent(
                         cell,
-                        `${tableKey}-cell-${rowIndex}-${cellIndex}`,
+                        `${tableKey}-header-${cellIndex}`,
                       )}
-                    </td>
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, rowIndex) => (
+                  <tr
+                    key={`${tableKey}-row-${rowIndex}`}
+                    className="odd:bg-white even:bg-slate-50/50"
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <td
+                        key={`${tableKey}-cell-${rowIndex}-${cellIndex}`}
+                        className="border-t border-slate-100 px-4 py-2.5 align-top text-[#171717]"
+                        style={{ minWidth: "150px" }}
+                      >
+                        {renderInlineContent(
+                          cell,
+                          `${tableKey}-cell-${rowIndex}-${cellIndex}`,
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>,
       );
 
