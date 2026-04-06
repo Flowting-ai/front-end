@@ -517,7 +517,7 @@ export function ModelSelectorDialog({
                   alt="souvenir ai logo"
                   className="model-logo"
                 />
-                <span className="model-name">SouvenirAI: Starter Framework</span>
+                <span className="model-name">SouvenirAI: Basic Framework</span>
               </div>
               <div className="model-actions">
                 <TooltipProvider>
@@ -591,7 +591,7 @@ export function ModelSelectorDialog({
                   alt="souvenir ai logo"
                   className="model-logo"
                 />
-                <span className="model-name">SouvenirAI: Pro Framework</span>
+                <span className="model-name">SouvenirAI: Advanced Framework</span>
               </div>
               <div className="model-actions">
                 <TooltipProvider>

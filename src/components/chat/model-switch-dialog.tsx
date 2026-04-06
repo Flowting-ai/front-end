@@ -364,7 +364,7 @@ export function ModelSwitchDialog({
                     className="w-5 h-5 object-contain"
                   />
                   <span className="font-geist text-sm text-[#171717] truncate">
-                    SouvenirAI: Starter Framework
+                    SouvenirAI: Basic Framework
                   </span>
                 </div>
                 <TooltipProvider>
@@ -426,7 +426,7 @@ export function ModelSwitchDialog({
                     className="w-5 h-5 object-contain"
                   />
                   <span className="font-geist text-sm text-[#171717] truncate">
-                    SouvenirAI: Pro Framework
+                    SouvenirAI: Advanced Framework
                   </span>
                 </div>
                 <TooltipProvider>
