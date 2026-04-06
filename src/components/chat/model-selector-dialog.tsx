@@ -85,6 +85,7 @@ export function ModelSelectorDialog({
   // Input/Output modality filters (lowercase for matching)
   // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
   // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // commented out the full set of input/output options and reduced to just text/image for now
   const INPUT_OPTIONS = ["text", "image"] as const;
   const OUTPUT_OPTIONS = ["text", "image"] as const;
   const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
