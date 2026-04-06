@@ -78,8 +78,11 @@ export function ModelSelectorDialog({
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
   // Input/Output modality filters (lowercase for matching)
-  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
-  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // commented out the full set of input/output options and reduced to just text/image for now
+  const INPUT_OPTIONS = ["text", "image"] as const;
+  const OUTPUT_OPTIONS = ["text", "image"] as const;
   const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
   const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
   const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
