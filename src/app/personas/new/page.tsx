@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import chatStyles from "@/components/chat/chat-interface.module.css";
 import styles from "./persona-form.module.css";
 import { LANGUAGES, DEFAULT_LANGUAGE, DEFAULT_PERSONA_NAME } from "./constants";
 import { compressImage, getDataUrlSize, formatBytes } from "@/lib/image-utils";
+import { useFileDrop } from "@/hooks/use-file-drop";
 
 export default function NewPersonaPage() {
   const router = useRouter();
@@ -69,51 +70,48 @@ export default function NewPersonaPage() {
     };
   }, [isLanguageDropdownOpen]);
 
+  const processAvatarFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      console.error('❌ Please select an image file');
+      return;
+    }
+
+    setIsCompressing(true);
+    try {
+      const compressedImage = await compressImage(file, 800, 800, 0.8);
+      const size = getDataUrlSize(compressedImage);
+      if (size > 4 * 1024 * 1024) {
+        console.warn('⚠️ Image is still large after compression. Consider a smaller image.');
+      }
+      setAvatarUrl(compressedImage);
+    } catch (error) {
+      console.error('❌ Failed to compress image:', error);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressing(false);
+    }
+  }, []);
+
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      console.debug("📸 Avatar upload started:", file.name, file.size, "bytes");
-      
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        console.error('❌ Please select an image file');
-        return;
-      }
-
-      setIsCompressing(true);
-      try {
-        // Compress the image to reduce storage size
-        // Max dimensions: 800x800, quality: 0.8
-        console.debug("🔄 Compressing image...");
-        const compressedImage = await compressImage(file, 800, 800, 0.8);
-        
-        // Check size after compression
-        const size = getDataUrlSize(compressedImage);
-        console.debug(`✅ Compressed image size: ${formatBytes(size)}`);
-        console.debug("✅ Compressed preview:", compressedImage.substring(0, 100));
-        
-        // SessionStorage typically has a 5-10MB limit
-        // Warn if still too large (4MB threshold to be safe)
-        if (size > 4 * 1024 * 1024) {
-          console.warn('⚠️ Image is still large after compression. Consider a smaller image.');
-        }
-        
-        setAvatarUrl(compressedImage);
-        console.debug("✅ Avatar set in state");
-      } catch (error) {
-        console.error('❌ Failed to compress image:', error);
-        // Fallback to original if compression fails
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          console.debug("✅ Using uncompressed image as fallback");
-          setAvatarUrl(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      } finally {
-        setIsCompressing(false);
-      }
-    }
+    if (file) processAvatarFile(file);
   };
+
+  const { isDragging: isAvatarDragging, dropZoneProps: avatarDropZoneProps, handlePaste: avatarHandlePaste } = useFileDrop({
+    onFiles: (files) => { if (files[0]) processAvatarFile(files[0]); },
+    accept: ["image/"],
+    disabled: isCompressing,
+  });
+
+  // Paste listener for avatar images
+  useEffect(() => {
+    document.addEventListener("paste", avatarHandlePaste);
+    return () => document.removeEventListener("paste", avatarHandlePaste);
+  }, [avatarHandlePaste]);
 
   const handleLanguageToggle = (languageValue: string) => {
     setSelectedLanguages((prev) => {
@@ -185,18 +183,25 @@ export default function NewPersonaPage() {
 
           <div className={styles.content}>
             {/* Avatar Upload Section */}
-            <div className={styles.avatarSection}>
-              <Avatar className={styles.avatar}>
-                <AvatarImage 
-                  src={avatarUrl || undefined} 
-                  alt=""
-                  onLoad={() => console.debug("✅ Avatar image loaded successfully")}
-                  onError={(e) => console.error("❌ Avatar image failed to load:", e)}
-                />
-                <AvatarFallback className={styles.avatarFallback}>
-                  <img src="/avatars/personaAvatarPlaceHolder.svg" alt="" className={styles.avatarPlaceholder} />
-                </AvatarFallback>
-              </Avatar>
+            <div className={styles.avatarSection} {...avatarDropZoneProps}>
+              <div className="relative">
+                <Avatar className={styles.avatar}>
+                  <AvatarImage 
+                    src={avatarUrl || undefined} 
+                    alt=""
+                    onLoad={() => console.debug("✅ Avatar image loaded successfully")}
+                    onError={(e) => console.error("❌ Avatar image failed to load:", e)}
+                  />
+                  <AvatarFallback className={styles.avatarFallback}>
+                    <img src="/avatars/personaAvatarPlaceHolder.svg" alt="" className={styles.avatarPlaceholder} />
+                  </AvatarFallback>
+                </Avatar>
+                {isAvatarDragging && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/80 border-2 border-dashed border-[#7c6fcd]">
+                    <Upload className="h-6 w-6 text-[#7c6fcd]" />
+                  </div>
+                )}
+              </div>
               <div className={styles.uploadButtonWrapper}>
                 <input
                   type="file"
@@ -214,6 +219,7 @@ export default function NewPersonaPage() {
                 >
                   {isCompressing ? "Compressing..." : "Choose Avatar"}
                 </Button>
+                <p className="text-xs text-[#888888] mt-1">or drag & drop / paste an image</p>
               </div>
             </div>
 

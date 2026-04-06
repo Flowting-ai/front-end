@@ -17,7 +17,7 @@ function ConfirmationInner() {
 
 export default function ChangePlanConfirmationPage() {
   return (
-    <div className="min-h-dvh bg-[#FAF9F8]">
+    <div className="min-h-dvh w-full bg-[#FAF9F8]">
       <Suspense
         fallback={
           <section className="w-full min-h-dvh flex items-center justify-center">

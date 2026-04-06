@@ -23,6 +23,7 @@ import {
   Palette,
   Check,
   ScanText,
+  Upload,
 } from "lucide-react";
 import { ChatMessage, type Message, type MessageSource } from "./chat-message";
 import { InitialPrompts } from "./initial-prompts";
@@ -67,6 +68,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/auth-context";
+import { useFileDrop } from "@/hooks/use-file-drop";
 
 import {
   API_BASE_URL,
@@ -706,6 +708,18 @@ export function ChatInterface({
   const pinItemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const attachmentScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processFilesRef = useRef<(files: File[]) => void>(() => {});
+  const { isDragging, dropZoneProps, handlePaste } = useFileDrop({
+    onFiles: (files) => processFilesRef.current(files),
+    disabled: disableInput || hideAttachButton,
+  });
+
+  // Paste listener for the whole chat area
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [handlePaste]);
+
   const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
   const resolveModelAvatar = (
     modelOverride?: AIModel | null,
@@ -1420,7 +1434,7 @@ export function ChatInterface({
       let streamMetadata: Record<string, unknown> | null = null;
       let streamFinished = false;
       let shouldStopReading = false;
-      const AI_UPDATE_INTERVAL_MS = 33;
+      const AI_UPDATE_INTERVAL_MS = 16;
       let pendingAiFields: Partial<Message> | null = null;
       let aiUpdateRafId: number | null = null;
       let aiUpdateTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2770,7 +2784,14 @@ export function ChatInterface({
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
+    processFiles(Array.from(files));
+    // Reset the input so the same files can be selected again if removed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
+  const processFiles = (files: File[]) => {
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const filesToAdd: Array<{
       id: string;
@@ -2830,9 +2851,6 @@ export function ChatInterface({
     }
 
     if (filesToAdd.length === 0) {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
       return;
     }
 
@@ -2874,12 +2892,8 @@ export function ChatInterface({
         }
       }, stepDuration);
     });
-
-    // Reset the input so the same files can be selected again if removed
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
+  processFilesRef.current = processFiles;
 
   const handleAttachClick = () => {
     fileInputRef.current?.click();
@@ -3297,7 +3311,19 @@ export function ChatInterface({
   };
 
   return (
-    <div className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-white">
+    <div
+      className="relative flex flex-1 min-h-0 h-full flex-col overflow-hidden bg-white"
+      {...dropZoneProps}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm border-2 border-dashed border-[#7c6fcd] rounded-2xl pointer-events-none">
+          <div className="flex flex-col items-center gap-2">
+            <Upload className="h-10 w-10 text-[#7c6fcd]" />
+            <span className="text-sm font-medium text-[#7c6fcd]">Drop files here to attach</span>
+          </div>
+        </div>
+      )}
       {/* Empty state: centered prompt box */}
       {displayMessages.length === 0 ? (
         <section className="flex flex-1 items-center justify-center bg-white px-4 py-8">

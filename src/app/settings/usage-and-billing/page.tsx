@@ -349,21 +349,23 @@ function SettingsUsageAndBillingPageInner() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {/* hiding the plans buttons */}
                 {hasActiveSubscription && !cancelAtPeriodEnd && subscriptionStatus === "active" && (
                   <Button
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
-                    className="h-auto px-4 py-2 rounded-[8px] bg-transparent border border-[#767676] text-[#B3B3B3] hover:bg-[#3C3C3C] hover:text-white"
+                    className="hidden h-auto px-4 py-2 rounded-[8px] bg-transparent border border-[#767676] text-[#B3B3B3] hover:bg-[#3C3C3C] hover:text-white"
                   >
                     Cancel plan
                   </Button>
                 )}
+                {/* hiding the plans buttons */}
                 <Button
                   type="button"
                   onClick={() =>
                     router.push("/settings/usage-and-billing/change-plan")
                   }
-                  className="h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
+                  className="hidden h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
                 >
                   {hasActiveSubscription ? "Change plan" : "Get a plan"}
                 </Button>

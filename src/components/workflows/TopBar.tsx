@@ -165,11 +165,6 @@ export default function TopBar({
 
       {/* Right Content */}
       <div className="flex items-center gap-4">
-        {saveStatus && (
-          <div className="h-5 px-1.5 py-1 rounded text-xs flex items-center text-[#00812F] bg-[#D8FDE4]">
-            {saveStatus}
-          </div>
-        )}
 
         {/* Save button - enabled only when there are unsaved changes */}
         <button

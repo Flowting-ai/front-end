@@ -94,8 +94,11 @@ export function ModelSwitchDialog({
   // Toggle state for the Flowting AI Framework quick-select button
   const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
   // Input/Output modality filters (lowercase for matching)
-  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
-  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // removed input/output options to just text and image for the model switch dialog
+  const INPUT_OPTIONS = ["text", "image"] as const;
+  const OUTPUT_OPTIONS = ["text", "image"] as const;
   const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
   const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
   const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
@@ -291,8 +294,8 @@ export function ModelSwitchDialog({
       <DialogContent
         className="bg-white px-3 py-2"
         style={{
-          width: "501px",
-          maxWidth: "501px",
+          width: "521px",
+          maxWidth: "521px",
           height: "auto",
           maxHeight: "500px",
           borderRadius: "12px",
@@ -469,12 +472,12 @@ export function ModelSwitchDialog({
                     }
                     className="h-4 w-4 rounded-[5px] border-[#d4d4d4]"
                   />
-                  {/* changing free to base - modelSelector*/}
+                  {/* changing free to base and now to starter- modelSelector*/}
                   <Label
                     htmlFor="free"
                     className="text-sm text-[#171717] cursor-pointer"
                   >
-                    Base
+                    Starter
                   </Label>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -486,12 +489,12 @@ export function ModelSwitchDialog({
                     }
                     className="h-4 w-4 rounded-[5px] border-[#d4d4d4]"
                   />
-                  {/* changing paid to plus - modelSwitch*/}
+                  {/* changing paid to plus and now to pro - modelSwitch*/}
                   <Label
                     htmlFor="paid"
                     className="text-sm text-[#171717] cursor-pointer"
                   >
-                    Plus
+                    Pro
                   </Label>
                 </div>
               </div>

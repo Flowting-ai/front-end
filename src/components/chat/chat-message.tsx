@@ -608,18 +608,26 @@ const ReasoningSection = ({
       return;
     }
 
-    const intervalId = setInterval(() => {
-      if (currentIndex < thinkingContent.length) {
-        setDisplayText(thinkingContent.slice(0, currentIndex + 1));
-        currentIndex++;
-      } else {
-        clearInterval(intervalId);
-        setIsTypingDone(true);
-        setTimeout(() => setIsCollapsed(true), 700);
+    let rafId: number | null = null;
+    let lastTick = 0;
+    const tick = (ts: number) => {
+      if (ts - lastTick >= 16) {
+        lastTick = ts;
+        const remaining = thinkingContent.length - currentIndex;
+        const step = Math.max(1, Math.ceil(remaining * 0.08));
+        currentIndex = Math.min(currentIndex + step, thinkingContent.length);
+        setDisplayText(thinkingContent.slice(0, currentIndex));
+        if (currentIndex >= thinkingContent.length) {
+          setIsTypingDone(true);
+          setTimeout(() => setIsCollapsed(true), 700);
+          return;
+        }
       }
-    }, 6);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
 
-    return () => clearInterval(intervalId);
+    return () => { if (rafId !== null) cancelAnimationFrame(rafId); };
   }, [thinkingContent, isNewMessage, isThinkingInProgress]);
 
   return (
@@ -885,13 +893,11 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   return nodes;
 };
 
-// Streaming-aware typewriter hook: reveals content word-by-word
-// without resetting when new streamed content arrives.
+// Streaming-aware typewriter hook: reveals content character-by-character
+// with an ease-out lerp for a smooth, Claude-like streaming feel.
 const useStreamingTypewriter = (
   fullText: string,
   enabled: boolean = true,
-  wordsPerTick: number = 2,
-  intervalMs: number = 30,
 ) => {
   const [revealedLen, setRevealedLen] = useState(enabled ? 0 : fullText.length);
   const rafRef = useRef<number | null>(null);
@@ -914,27 +920,19 @@ const useStreamingTypewriter = (
   useEffect(() => {
     if (!enabled) return;
 
+    const TICK_MS = 16; // ~60fps for fluid animation
+
     const animate = (timestamp: number) => {
       if (!enabledRef.current) return;
-      if (timestamp - lastTickRef.current >= intervalMs) {
+      if (timestamp - lastTickRef.current >= TICK_MS) {
         lastTickRef.current = timestamp;
         setRevealedLen((prev) => {
           if (prev >= fullText.length) return prev;
-          // Advance by wordsPerTick words (find next word boundaries)
-          let target = prev;
-          let wordsFound = 0;
-          while (target < fullText.length && wordsFound < wordsPerTick) {
-            // Skip whitespace
-            while (target < fullText.length && /\s/.test(fullText[target])) {
-              target++;
-            }
-            // Skip non-whitespace (word characters)
-            while (target < fullText.length && !/\s/.test(fullText[target])) {
-              target++;
-            }
-            wordsFound++;
-          }
-          return target;
+          const remaining = fullText.length - prev;
+          // Ease-out lerp: reveal a fraction of the remaining distance each tick.
+          // Fast when far behind, gracefully decelerates as it catches up.
+          const charsPerTick = Math.max(1, Math.ceil(remaining * 0.06));
+          return Math.min(prev + charsPerTick, fullText.length);
         });
       }
       rafRef.current = requestAnimationFrame(animate);
@@ -947,7 +945,7 @@ const useStreamingTypewriter = (
         rafRef.current = null;
       }
     };
-  }, [fullText, enabled, wordsPerTick, intervalMs]);
+  }, [fullText, enabled]);
 
   if (!enabled) return fullText;
   return fullText.slice(0, revealedLen);
@@ -1522,8 +1520,6 @@ export function ChatMessage({
   const revealedContent = useStreamingTypewriter(
     message.content,
     isTypewriterActive,
-    2,
-    30,
   );
   const contentToDisplay = revealedContent;
   const contentSegments = useMemo(

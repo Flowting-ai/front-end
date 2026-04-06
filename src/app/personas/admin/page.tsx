@@ -467,7 +467,7 @@ export default function PersonaAdminPage() {
   };
 
   const handleCreatePersona = () => {
-    router.push("/personas");
+    router.push("/personas/new");
   };
 
   return (
