@@ -16,8 +16,8 @@ export const USER_ENDPOINT = withBase("/users/me");
 export const USER_CREATE_ENDPOINT = withBase("/users/create");
 export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 /** Same-origin Next route handlers — honor `checkout_flow` (e.g. change-plan cancel → /settings/.../change-plan). */
-export const STRIPE_CHECKOUT_ENDPOINT = "/api/stripe/checkout";
-export const STRIPE_SUBSCRIPTION_ENDPOINT = "/api/stripe/subscription";
+export const STRIPE_CHECKOUT_ENDPOINT = "/stripe/checkout";
+export const STRIPE_SUBSCRIPTION_ENDPOINT = "/stripe/subscription";
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");
