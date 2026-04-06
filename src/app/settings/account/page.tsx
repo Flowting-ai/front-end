@@ -200,7 +200,7 @@ export default function SettingsAccountPage() {
             </div>
 
             {/* Profile row */}
-            <div className="w-full flex items-start gap-4 border-b border-[#E5E5E5] pb-6">
+            <div className="w-full flex items-start gap-4">
               {/* Avatar */}
               <div className="relative">
                 <Avatar className="w-16 h-16 border border-[#E5E5E5]">
@@ -208,13 +208,14 @@ export default function SettingsAccountPage() {
                     {avatarInitials}
                   </AvatarFallback>
                 </Avatar>
-                <button
+                {/* disabled avatar upload button */}
+                {/* <button
                   type="button"
                   className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-black text-white border border-white shadow-sm"
                   aria-label="Upload profile picture"
                 >
                   <Upload size={14} />
-                </button>
+                </button> */}
               </div>
 
               {/* Fields */}
@@ -287,9 +288,9 @@ export default function SettingsAccountPage() {
 
             {/* Role */}
             {userRole && (
-              <div className="flex items-center gap-4 border-b border-[#E5E5E5] pb-4">
-                <p className="text-sm font-medium text-[#111827]">Role</p>
-                <p className="text-sm text-[#4B5563]">
+              <div className="flex items-center gap-4 border-t border-b border-[#E5E5E5] py-6">
+                <p className="font-clash text-xl text-[#111827]">Role</p>
+                <p className="text-sm text-[#4B5563] border-2  rounded-sm px-4 py-2">
                   {ROLE_LABELS[userRole] ?? userRole}
                 </p>
               </div>

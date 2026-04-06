@@ -29,7 +29,14 @@ import {
   CircleCheckBig,
   ChevronRight,
   Loader2,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
@@ -91,8 +98,11 @@ export function ModelSwitchDialog({
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
-  // Toggle state for the Flowting AI Framework quick-select button
-  const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
+  // Auto-routing framework toggles
+  const [starterFrameworkSelected, setStarterFrameworkSelected] =
+    useState<boolean>(true);
+  const [proFrameworkSelected, setProFrameworkSelected] =
+    useState<boolean>(false);
   // Input/Output modality filters (lowercase for matching)
   // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
   // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
@@ -183,7 +193,8 @@ export function ModelSwitchDialog({
       const modelToSelect = pendingModel || currentModel;
       setSelectedModel(modelToSelect);
       // If no model is selected, default to framework
-      setFrameworkSelected(!modelToSelect);
+      setStarterFrameworkSelected(!modelToSelect);
+      setProFrameworkSelected(false);
       // chatMemory & totalMessages are reset by the fetch effect above
       setSelectedPinIds([]);
       setExpandedChatIds([]);
@@ -219,7 +230,7 @@ export function ModelSwitchDialog({
   });
 
   const handleSelect = () => {
-    if (frameworkSelected && onFrameworkSelect) {
+    if ((starterFrameworkSelected || proFrameworkSelected) && onFrameworkSelect) {
       onFrameworkSelect();
       onOpenChange(false);
       return;
@@ -309,68 +320,140 @@ export function ModelSwitchDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Flowting AI Framework (quick select) */}
+          {/* Auto Routing */}
           <div className="w-full">
-            <div className="font-inter w-full h-[116px] flex px-0">
+            <div className="mb-2">
+              <h3 className="font-geist text-sm text-[#737373]">Auto Routing</h3>
+            </div>
+            <div className="space-y-1">
               <div
                 role="button"
                 tabIndex={0}
-                className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] rounded-[8px] flex transition-all duration-300 h-[116px] items-start border ${
-                  frameworkSelected ? "border-[#0A0A0A]" : "border-[#E6E6E6]"
+                className={`cursor-pointer w-full rounded-[8px] flex transition-all duration-300 h-[36px] items-center border px-2 ${
+                  starterFrameworkSelected
+                    ? "border-[#0A0A0A] bg-[#F5F5F5]"
+                    : "border-transparent hover:bg-[#F5F5F5]"
                 }`}
                 onClick={() => {
-                  setFrameworkSelected((s) => !s);
-                  if (!frameworkSelected) {
-                    setSelectedModel(null);
-                  }
+                  setStarterFrameworkSelected((prev) => {
+                    const next = !prev;
+                    if (next) setProFrameworkSelected(false);
+                    return next;
+                  });
+                  setSelectedModel(null);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setFrameworkSelected((s) => !s);
-                    if (!frameworkSelected) setSelectedModel(null);
+                    setStarterFrameworkSelected((prev) => {
+                      const next = !prev;
+                      if (next) setProFrameworkSelected(false);
+                      return next;
+                    });
+                    setSelectedModel(null);
                   }
                 }}
-                aria-pressed={frameworkSelected}
+                aria-pressed={starterFrameworkSelected}
               >
-                <div className="p-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Image
                     src="/new-logos/souvenir-logo.svg"
-                    width={30}
-                    height={30}
+                    width={20}
+                    height={20}
                     alt="souvenir ai logo"
-                    className="w-[30px] h-[30px] object-contain"
+                    className="w-5 h-5 object-contain"
                   />
+                  <span className="font-geist text-sm text-[#171717] truncate">
+                    SouvenirAI: Starter Framework
+                  </span>
                 </div>
-                <div className="w-full flex flex-col pl-1 pr-3 py-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="font-semibold text-base flex items-center gap-2">
-                      Souvenir AI Framework
-                      <span className="font-geist font-medium text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
-                        {frameworkSelected ? "Active" : "Recommended"}
-                      </span>
-                    </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Starter framework information"
+                      >
+                        <Info className="h-3.5 w-3.5 text-[#666666]" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs leading-5">
+                      Cost-optimized routing for daily tasks. Starter
+                      prioritizes speed and efficiency while keeping reliable
+                      quality for common prompts.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
 
-                    <div
-                      className="absolute top-3 right-3 flex items-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Switch
-                        checked={frameworkSelected}
-                        onCheckedChange={setFrameworkSelected}
-                        className="bg-[#E5E5E5] data-[state=checked]:bg-[#0A0A0A]"
-                        aria-label="Toggle Souvenir AI Framework"
-                      />
-                    </div>
-                  </div>
-                  <p className="font-geist font-normal text-sm text-left">
-                    A smart blend of AI models for high-quality results.
-                    Souvenir picks the right model for your task and adapts as
-                    you work, keeping your context intact and you in control.
-                  </p>
+              <div
+                role="button"
+                tabIndex={0}
+                className={`cursor-pointer w-full rounded-[8px] flex transition-all duration-300 h-[36px] items-center border px-2 ${
+                  proFrameworkSelected
+                    ? "border-[#0A0A0A] bg-[#F5F5F5]"
+                    : "border-transparent hover:bg-[#F5F5F5]"
+                }`}
+                onClick={() => {
+                  setProFrameworkSelected((prev) => {
+                    const next = !prev;
+                    if (next) setStarterFrameworkSelected(false);
+                    return next;
+                  });
+                  setSelectedModel(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setProFrameworkSelected((prev) => {
+                      const next = !prev;
+                      if (next) setStarterFrameworkSelected(false);
+                      return next;
+                    });
+                    setSelectedModel(null);
+                  }
+                }}
+                aria-pressed={proFrameworkSelected}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Image
+                    src="/new-logos/souvenir-logo.svg"
+                    width={20}
+                    height={20}
+                    alt="souvenir ai logo"
+                    className="w-5 h-5 object-contain"
+                  />
+                  <span className="font-geist text-sm text-[#171717] truncate">
+                    SouvenirAI: Pro Framework
+                  </span>
                 </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Pro framework information"
+                      >
+                        <Info className="h-3.5 w-3.5 text-[#666666]" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs leading-5">
+                      Quality-first routing for complex work. Pro chooses
+                      stronger models more aggressively for deeper reasoning and
+                      richer outputs.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
+          </div>
+
+          <div className="w-full">
+            <h3 className="font-geist text-sm text-[#737373]">Models</h3>
           </div>
 
           {/* Model Dropdown + Free/Paid checkboxes (compact row) */}
@@ -426,7 +509,8 @@ export function ModelSwitchDialog({
                             key={String(model.modelId ?? model.id ?? `${model.companyName}-${model.modelName}`)}
                             onClick={() => {
                               setSelectedModel(model);
-                              setFrameworkSelected(false);
+                              setStarterFrameworkSelected(false);
+                              setProFrameworkSelected(false);
                             }}
                             className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-[#f5f5f5]"
                           >
@@ -824,7 +908,11 @@ export function ModelSwitchDialog({
             </Button>
             <Button
               onClick={handleSelect}
-              disabled={!frameworkSelected && !selectedModel}
+              disabled={
+                !starterFrameworkSelected &&
+                !proFrameworkSelected &&
+                !selectedModel
+              }
               className="cursor-pointer h-[32px] rounded-[10px] px-4 bg-[#171717] text-white hover:bg-[#171717] disabled:bg-[#d4d4d4] disabled:text-[#8a8a8a]"
             >
               <p>Select</p>

@@ -32,7 +32,6 @@ import {
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 // Using Radix primitives directly for tight style control
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
@@ -75,11 +74,19 @@ export function ModelSelectorDialog({
   );
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [hoveredModel, setHoveredModel] = useState<string | null>(null);
-  // Toggle state for the Flowting AI Framework quick-select button
-  const [frameworkSelected, setFrameworkSelected] = useState<boolean>(true);
+  const [hoveredFramework, setHoveredFramework] = useState<
+    "starter" | "pro" | null
+  >(null);
+  // Auto-routing framework toggles
+  const [starterFrameworkSelected, setStarterFrameworkSelected] =
+    useState<boolean>(useFramework);
+  const [proFrameworkSelected, setProFrameworkSelected] =
+    useState<boolean>(false);
   // Input/Output modality filters (lowercase for matching)
-  const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
-  const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
+  // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
+  const INPUT_OPTIONS = ["text", "image"] as const;
+  const OUTPUT_OPTIONS = ["text", "image"] as const;
   const [inputFilters, setInputFilters] = useState<Set<string>>(new Set());
   const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
   const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
@@ -88,11 +95,9 @@ export function ModelSelectorDialog({
   useEffect(() => {
     if (!open) return;
     if (models.length > 0) {
-      setIsLoading(false);
       return;
     }
     let cancelled = false;
-    setIsLoading(true);
     fetchModelsWithCache().then((result) => {
       if (!cancelled) {
         setModels(result);
@@ -101,12 +106,6 @@ export function ModelSelectorDialog({
     });
     return () => { cancelled = true; };
   }, [open, models.length]);
-
-  useEffect(() => {
-    if (open) {
-      setFrameworkSelected(useFramework);
-    }
-  }, [open, useFramework]);
 
   const toggleBookmark = (modelName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -176,9 +175,11 @@ export function ModelSelectorDialog({
   });
 
   const modelsToDisplay = sortedModels;
+  const hasFrameworkSelected =
+    starterFrameworkSelected || proFrameworkSelected;
 
   const handleSelectModel = () => {
-    if (frameworkSelected) {
+    if (hasFrameworkSelected) {
       onFrameworkSelect();
       onOpenChange(false);
       return;
@@ -200,67 +201,13 @@ export function ModelSelectorDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Flowting AI Framework */}
-        <div className="font-inter w-full h-[116px] flex px-3 my-3">
-          <div
-            role="button"
-            tabIndex={0}
-            className={`relative cursor-pointer w-full bg-white hover:bg-[#F5F5F5] border ${frameworkSelected ? "border-[#0A0A0A]" : "border-main-border"} hover:border-[#0A0A0A] rounded-[8px] flex transition-all duration-300`}
-            onClick={() => setFrameworkSelected((s) => !s)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setFrameworkSelected((s) => !s);
-              }
-            }}
-            aria-pressed={frameworkSelected}
-          >
-            <div className="p-3">
-              <Image
-                src="/new-logos/souvenir-logo.svg"
-                width={30}
-                height={30}
-                alt="souvenir ai logo"
-                className="w-[30px] h-[30px] object-contain"
-              />
-            </div>
-            <div className="w-full flex flex-col pl-1 pr-3 py-3">
-              <div className="flex items-center justify-between mb-1">
-                <div className="font-semibold text-base flex items-center gap-2">
-                  Souvenir AI Framework
-                  <span className="font-geist font-medium text-center text-[12px] text-[#FAFAFA] bg-[#171717] rounded-[7px] flex items-center justify-center px-3 py-0.5">
-                    {frameworkSelected ? "Active" : "Recommended"}
-                  </span>
-                </div>
-
-                <div
-                  className="absolute top-3 right-3 flex items-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Switch
-                    checked={frameworkSelected}
-                    onCheckedChange={setFrameworkSelected}
-                    className="bg-[#E5E5E5] data-[state=checked]:bg-[#0A0A0A]"
-                    aria-label="Toggle Souvenir AI Framework"
-                  />
-                </div>
-              </div>
-              <p className="font-normal text-sm text-left">
-                A smart blend of AI models for high-quality results. Souvenir
-                picks the right model for your task and adapts as you work,
-                keeping your context intact and you in control.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Search Bar and Filters Row */}
-        <div className="border-b border-main-border flex items-center justify-between gap-3 px-3">
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
           <div className="relative flex-1">
             <Search className="absolute top-[50%] left-3 -translate-y-1/2 w-4 h-4 text-[#888888]" />
             <Input
               placeholder="Search Models, LLMs"
-              className="search-input w-full min-h-[32px] h-[32px] border-0 px-10 py-[5.5px]"
+              className="search-input w-full min-h-[32px] h-[32px] border-0 px-10 py-[5.5px] shadow-none!"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -409,7 +356,7 @@ export function ModelSelectorDialog({
         </div> */}
 
         {/* Input Output Clear */}
-        <div className="flex items-center gap-2 px-3">
+        <div className="flex items-center gap-2 px-3 py-1 border-t border-b border-main-border">
           <DropdownMenu
             open={inputDropdownOpen}
             onOpenChange={setInputDropdownOpen}
@@ -514,8 +461,169 @@ export function ModelSelectorDialog({
           )}
         </div>
 
+        {/* Auto Routing */}
+        <div className="px-3 mb-2 mt-1">
+          <h3 className="font-geist text-sm text-[#737373] my-2">
+            Auto Routing
+          </h3>
+          <div className="space-y-1">
+            <div
+              className="model-item"
+              role="button"
+              tabIndex={0}
+              style={{
+                width: "100%",
+                minHeight: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                gap: "8px",
+                paddingTop: "5.5px",
+                paddingRight: "2px",
+                paddingBottom: "5.5px",
+                paddingLeft: "2px",
+                borderColor: starterFrameworkSelected ? "#1E1E1E" : "transparent",
+                backgroundColor:
+                  hoveredFramework === "starter" ? "#F5F5F5" : "transparent",
+              }}
+              onClick={() => {
+                setStarterFrameworkSelected((prev) => {
+                  const next = !prev;
+                  if (next) setProFrameworkSelected(false);
+                  return next;
+                });
+                setSelectedModel(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setStarterFrameworkSelected((prev) => {
+                    const next = !prev;
+                    if (next) setProFrameworkSelected(false);
+                    return next;
+                  });
+                  setSelectedModel(null);
+                }
+              }}
+              onMouseEnter={() => setHoveredFramework("starter")}
+              onMouseLeave={() => setHoveredFramework(null)}
+              aria-pressed={starterFrameworkSelected}
+            >
+              <div className="model-info">
+                <Image
+                  src="/new-logos/souvenir-logo.svg"
+                  width={20}
+                  height={20}
+                  alt="souvenir ai logo"
+                  className="model-logo"
+                />
+                <span className="model-name">SouvenirAI: Starter Framework</span>
+              </div>
+              <div className="model-actions">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="action-button"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Starter framework information"
+                      >
+                        <Info className="h-3.5 w-3.5 text-[#666666]" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs leading-5">
+                      Cost-optimized routing for daily tasks. Starter
+                      prioritizes speed and efficiency while keeping reliable
+                      quality for common prompts.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+
+            <div
+              className="model-item"
+              role="button"
+              tabIndex={0}
+              style={{
+                width: "100%",
+                minHeight: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                gap: "8px",
+                paddingTop: "5.5px",
+                paddingRight: "2px",
+                paddingBottom: "5.5px",
+                paddingLeft: "2px",
+                borderColor: proFrameworkSelected ? "#1E1E1E" : "transparent",
+                backgroundColor:
+                  hoveredFramework === "pro" ? "#F5F5F5" : "transparent",
+              }}
+              onClick={() => {
+                setProFrameworkSelected((prev) => {
+                  const next = !prev;
+                  if (next) setStarterFrameworkSelected(false);
+                  return next;
+                });
+                setSelectedModel(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setProFrameworkSelected((prev) => {
+                    const next = !prev;
+                    if (next) setStarterFrameworkSelected(false);
+                    return next;
+                  });
+                  setSelectedModel(null);
+                }
+              }}
+              onMouseEnter={() => setHoveredFramework("pro")}
+              onMouseLeave={() => setHoveredFramework(null)}
+              aria-pressed={proFrameworkSelected}
+            >
+              <div className="model-info">
+                <Image
+                  src="/new-logos/souvenir-logo.svg"
+                  width={20}
+                  height={20}
+                  alt="souvenir ai logo"
+                  className="model-logo"
+                />
+                <span className="model-name">SouvenirAI: Pro Framework</span>
+              </div>
+              <div className="model-actions">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="action-button"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Pro framework information"
+                      >
+                        <Info className="h-3.5 w-3.5 text-[#666666]" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[280px] text-xs leading-5">
+                      Quality-first routing for complex work. Pro chooses
+                      stronger models more aggressively for deeper reasoning and
+                      richer outputs.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Models */}
+        <div className="px-3 pt-1 mb-2">
+          <h3 className="font-geist text-sm text-[#737373]">Models</h3>
+        </div>
+
         {/* Models List */}
-        <ScrollArea className="models-list-container overflow-y-auto">
+        <ScrollArea className="models-list-container overflow-y-auto px-3">
           <div className="models-list">
             {isLoading ? (
               <div className="loading-state">
@@ -546,7 +654,8 @@ export function ModelSelectorDialog({
                       }}
                       onClick={() => {
                         setSelectedModel(model);
-                        setFrameworkSelected(false);
+                        setStarterFrameworkSelected(false);
+                        setProFrameworkSelected(false);
                       }}
                       onMouseEnter={() => setHoveredModel(model.modelName)}
                       onMouseLeave={() => setHoveredModel(null)}
@@ -634,9 +743,9 @@ export function ModelSelectorDialog({
           </Button>
           <Button
             onClick={handleSelectModel}
-            disabled={!frameworkSelected && !selectedModel}
+            disabled={!hasFrameworkSelected && !selectedModel}
             className={`cursor-pointer ${
-              frameworkSelected || selectedModel
+              hasFrameworkSelected || selectedModel
                 ? " text-white bg-[#1E1E1E] hover:bg-black"
                 : ""
             }`}
