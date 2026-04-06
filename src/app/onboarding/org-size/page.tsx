@@ -7,7 +7,6 @@ import { ArrowLeft, Building2, User, UsersRound } from "lucide-react";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { updateOnboardingState } from "@/lib/api/onboarding";
-import { getOnboardingRoute } from "@/lib/onboarding";
 
 type OrgSizeChoice = "just_me" | "2_10" | "10_plus";
 
@@ -30,13 +29,7 @@ export default function Page() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const updated = await updateOnboardingState({ role_fit: orgSize });
-      if (updated) {
-        router.push(
-          getOnboardingRoute(updated.metadata.next_step, updated.completed),
-        );
-        return;
-      }
+      await updateOnboardingState({ role_fit: orgSize });
     } catch (error) {
       console.error("Failed to update onboarding role fit", error);
     } finally {

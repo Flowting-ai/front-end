@@ -19,7 +19,6 @@ import Link from "next/link";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { updateOnboardingState } from "@/lib/api/onboarding";
-import { getOnboardingRoute } from "@/lib/onboarding";
 
 type RoleChoice =
   | "founder"
@@ -43,7 +42,7 @@ const ROLE_OPTIONS: Array<{
   { value: "marketing_sales", label: "Marketing/Sales", Icon: Store },
   { value: "researcher", label: "Researcher", Icon: Microscope },
   { value: "enterprise", label: "Enterprise", Icon: ChartNoAxesCombined },
-  { value: "other", label: "Other", Icon: UsersRound },
+  // { value: "other", label: "Other", Icon: UsersRound },
 ];
 
 export default function Page() {
@@ -59,13 +58,7 @@ export default function Page() {
     setIsSubmitting(true);
     try {
       const roleValue = role === "other" ? customRole.trim() : role;
-      const updated = await updateOnboardingState({ user_role: roleValue || null });
-      if (updated) {
-        router.push(
-          getOnboardingRoute(updated.metadata.next_step, updated.completed),
-        );
-        return;
-      }
+      await updateOnboardingState({ user_role: roleValue || null });
     } catch (error) {
       console.error("Failed to update onboarding role", error);
     } finally {

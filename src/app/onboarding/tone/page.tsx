@@ -8,7 +8,6 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { updateOnboardingState } from "@/lib/api/onboarding";
-import { getOnboardingRoute } from "@/lib/onboarding";
 
 type ToneChoice =
   | "professional"
@@ -36,7 +35,7 @@ const TONE_LABELS: Array<{ value: ToneChoice; label: string }> = [
   { value: "empathetic", label: "Empathetic" },
   { value: "executive", label: "Executive" },
   { value: "teaching", label: "Teaching" },
-  { value: "other", label: "Other" },
+  // { value: "other", label: "Other" },
 ];
 
 export default function Page() {
@@ -50,13 +49,7 @@ export default function Page() {
     setIsSubmitting(true);
     try {
       const toneValue = tone === "other" ? customTone.trim() : tone;
-      const updated = await updateOnboardingState({ ai_tone: toneValue || null });
-      if (updated) {
-        router.push(
-          getOnboardingRoute(updated.metadata.next_step, updated.completed),
-        );
-        return;
-      }
+      await updateOnboardingState({ ai_tone: toneValue || null });
     } catch (error) {
       console.error("Failed to update onboarding tone", error);
     } finally {

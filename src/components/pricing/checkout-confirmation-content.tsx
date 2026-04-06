@@ -96,11 +96,17 @@ export function CheckoutConfirmationContent({
     setLoading(true);
     try {
       await refreshUser();
+      // Set a short-lived cookie so the middleware skips the onboarding guard
+      // even if the Stripe webhook hasn't updated the backend yet.
+      if (flow === "onboarding") {
+        document.cookie =
+          "souvenir_checkout_complete=1; path=/; max-age=120; SameSite=Lax";
+      }
       router.push(redirectPath);
     } finally {
       setLoading(false);
     }
-  }, [redirectPath, refreshUser, router]);
+  }, [flow, redirectPath, refreshUser, router]);
 
   const continueDisabled = loading || !initialSyncDone;
   const continueLabel = loading

@@ -4,6 +4,8 @@ import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
 type OnboardingGate = {
   /** True when onboarding is finished or user has an active paid subscription. */
   allowsMainApp: boolean;
+  /** The onboarding step path the user should resume from. */
+  nextPath: string;
 };
 
 type OnboardingStateResult = {
@@ -16,6 +18,33 @@ const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined;
 let hasLoggedOnboardingFetchFailure = false;
 
 const ONBOARDING_ENDPOINT_PATH = "/users/me";
+
+/**
+ * Determine which onboarding page the user should be on based on which
+ * fields have already been filled in.  Flow order:
+ *   username → role → tone → org-size → pricing
+ */
+function determineNextOnboardingPath(root: Record<string, unknown>): string {
+  const onboarding =
+    root.onboarding && typeof root.onboarding === "object"
+      ? (root.onboarding as Record<string, unknown>)
+      : root;
+
+  const filled = (name: string, alt?: string): boolean => {
+    const v = onboarding[name];
+    if (typeof v === "string" && v.length > 0) return true;
+    if (alt) {
+      const v2 = onboarding[alt];
+      return typeof v2 === "string" && v2.length > 0;
+    }
+    return false;
+  };
+
+  if (!filled("user_role", "userRole")) return "/onboarding/username";
+  if (!filled("ai_tone", "aiTone")) return "/onboarding/tone";
+  if (!filled("role_fit", "roleFit")) return "/onboarding/org-size";
+  return "/onboarding/pricing";
+}
 
 async function fetchOnboardingState(): Promise<OnboardingStateResult> {
   try {
@@ -39,7 +68,10 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
           : data) as Record<string, unknown>;
 
     return {
-      data: { allowsMainApp: userMeRootAllowsMainApp(root) },
+      data: {
+        allowsMainApp: userMeRootAllowsMainApp(root),
+        nextPath: determineNextOnboardingPath(root),
+      },
       requiresReauth: false,
     };
   } catch (error) {
@@ -102,9 +134,25 @@ export default async function proxy(request: Request) {
   }
 
   // For all other app routes: if onboarding is incomplete, check auth first.
-  if (session && hasKnownOnboardingState && !hasOnboarded) {
+  // If the user just completed checkout, a short-lived cookie lets them through
+  // even when the Stripe webhook hasn't updated the backend yet.
+  const cookies = request.headers.get("cookie") ?? "";
+  const justCompletedCheckout = cookies.includes("souvenir_checkout_complete=1");
+
+  if (session && hasKnownOnboardingState && !hasOnboarded && !justCompletedCheckout) {
     // Authenticated + known incomplete onboarding → enforce onboarding flow.
-    return Response.redirect(new URL("/onboarding/username", request.url));
+    return Response.redirect(new URL(onboarding!.nextPath, request.url));
+  }
+
+  // Clear the checkout cookie once the user lands on the main app so it
+  // doesn't persist beyond this single transition.
+  if (justCompletedCheckout) {
+    const res = await auth0.middleware(request);
+    res.headers.append(
+      "Set-Cookie",
+      "souvenir_checkout_complete=; path=/; max-age=0; SameSite=Lax",
+    );
+    return res;
   }
 
   if (!session) {

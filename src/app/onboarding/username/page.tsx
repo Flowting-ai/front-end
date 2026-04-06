@@ -52,32 +52,30 @@ export default function Page() {
 
   const onContinue = async () => {
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      return;
-    }
+    if (trimmedName) {
+      const parts = trimmedName.split(/\s+/);
+      let firstName: string | null = null;
+      let lastName: string | null = null;
 
-    const parts = trimmedName.split(/\s+/);
-    let firstName: string | null = null;
-    let lastName: string | null = null;
+      if (parts.length === 1) {
+        firstName = parts[0];
+        lastName = null;
+      } else if (parts.length === 2) {
+        [firstName, lastName] = parts;
+      } else {
+        firstName = parts[0];
+        lastName = parts[parts.length - 1];
+      }
 
-    if (parts.length === 1) {
-      firstName = parts[0];
-      lastName = null;
-    } else if (parts.length === 2) {
-      [firstName, lastName] = parts;
-    } else {
-      firstName = parts[0];
-      lastName = parts[parts.length - 1];
-    }
-
-    try {
-      await updateUser({
-        first_name: firstName,
-        last_name: lastName,
-      });
-    } catch (error) {
-      console.error("Failed to save name during onboarding", error);
-      // Intentionally continue onboarding even if this fails
+      try {
+        await updateUser({
+          first_name: firstName,
+          last_name: lastName,
+        });
+      } catch (error) {
+        console.error("Failed to save name during onboarding", error);
+        // Intentionally continue onboarding even if this fails
+      }
     }
 
     router.push("/onboarding/role");
