@@ -17,7 +17,10 @@ import {
   Square,
   Info,
   Sparkles,
+  FileText,
+  Upload,
 } from "lucide-react";
+import { useFileDrop } from "@/hooks/use-file-drop";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +38,40 @@ import {
   fetchPersonaChatMessages,
   fetchPersonaChats,
 } from "@/lib/api/personas";
+
+const DOCUMENT_FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".csv", ".xls", ".xlsx"];
+
+const DOCUMENT_UPLOAD_ACCEPT =
+  ".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.csv,text/csv,application/csv,.xls,application/vnd.ms-excel,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*";
+
+const isDocumentFile = (file: File): boolean => {
+  const fileName = file.name.toLowerCase();
+  const mime = file.type.toLowerCase();
+  if (file.type.startsWith("image/")) return true;
+  if (DOCUMENT_FILE_EXTENSIONS.some((ext) => fileName.endsWith(ext))) return true;
+  return (
+    mime === "application/pdf" ||
+    mime === "application/msword" ||
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "application/vnd.ms-powerpoint" ||
+    mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    mime === "text/csv" ||
+    mime === "application/csv" ||
+    mime === "application/vnd.ms-excel" ||
+    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+};
+
+const getDocumentKindLabel = (fileName: string): string => {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "Word Document";
+  if (lower.endsWith(".ppt") || lower.endsWith(".pptx")) return "PowerPoint Presentation";
+  if (lower.endsWith(".csv")) return "CSV Document";
+  if (lower.endsWith(".xls") || lower.endsWith(".xlsx")) return "Excel Document";
+  if (lower.endsWith(".pdf")) return "PDF Document";
+  if (lower.startsWith("document")) return "Uploaded File";
+  return "Document";
+};
 
 interface PersonaData {
   id: string;
@@ -108,12 +145,43 @@ export function PersonaChatFullPage({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [attachments, setAttachments] = useState<
+    Array<{
+      id: string;
+      type: "document" | "image";
+      name: string;
+      url: string;
+      file: File;
+      isUploading?: boolean;
+      uploadProgress?: number;
+    }>
+  >([]);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const processFilesRef = useRef<(files: File[]) => void>(() => {});
   const flowtingLogoUrl = "/new-logos/souvenir-logo.svg";
+
+  const { isDragging, dropZoneProps, handlePaste } = useFileDrop({
+    onFiles: (files) => processFilesRef.current(files),
+    disabled: isResponding,
+  });
+
+  // Paste listener for the whole chat area
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [handlePaste]);
+
+  // Clear attachments when switching chats
+  useEffect(() => {
+    setAttachments((prev) => {
+      prev.forEach((a) => URL.revokeObjectURL(a.url));
+      return [];
+    });
+  }, [activeChatId]);
 
   // Click outside to close attach menu
   useEffect(() => {
@@ -151,27 +219,146 @@ export function PersonaChatFullPage({
         const converted: Message[] = msgs.flatMap((m) => {
           const items: Message[] = [];
           if (m.input) {
+            // Extract user file attachments from backend data
+            const userAttachments: Array<{
+              id: string;
+              type: "document" | "image";
+              name: string;
+              url: string;
+            }> = [];
+
+            // From file_attachments (structured array with origin)
+            if (Array.isArray(m.file_attachments)) {
+              m.file_attachments.forEach((att, idx) => {
+                if (!att || typeof att !== "object") return;
+                const origin = (att.origin || "").trim().toLowerCase();
+                if (origin !== "uploaded" && origin !== "upload" && origin !== "user") return;
+                const url = (att.file_link || att.url || att.link || "").trim();
+                if (!url) return;
+                const rawName = att.file_name || att.fileName || att.name || "";
+                const name = rawName.trim() || (() => {
+                  try {
+                    const seg = new URL(url).pathname.split("/").filter(Boolean).pop();
+                    return seg ? decodeURIComponent(seg) : `Document ${idx + 1}`;
+                  } catch {
+                    return `Document ${idx + 1}`;
+                  }
+                })();
+                const mimeType = (att.mime_type || att.mimeType || "").trim().toLowerCase();
+                const isImage =
+                  mimeType.startsWith("image/") ||
+                  /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+                userAttachments.push({
+                  id: `uploaded-${idx}`,
+                  type: isImage ? "image" : "document",
+                  name,
+                  url,
+                });
+              });
+            }
+
+            // From file_links (simple URL array) if no structured attachments found
+            if (userAttachments.length === 0 && Array.isArray(m.file_links)) {
+              m.file_links.forEach((link, idx) => {
+                if (typeof link !== "string" || !link.trim()) return;
+                const url = link.trim();
+                const isImage = /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+                const name = (() => {
+                  try {
+                    const seg = new URL(url).pathname.split("/").filter(Boolean).pop();
+                    return seg ? decodeURIComponent(seg) : `Document ${idx + 1}`;
+                  } catch {
+                    return `Document ${idx + 1}`;
+                  }
+                })();
+                userAttachments.push({
+                  id: `file-link-${idx}`,
+                  type: isImage ? "image" : "document",
+                  name,
+                  url,
+                });
+              });
+            }
+
+            // From image_links
+            if (Array.isArray(m.image_links)) {
+              m.image_links.forEach((link, idx) => {
+                if (typeof link !== "string" || !link.trim()) return;
+                userAttachments.push({
+                  id: `img-link-${idx}`,
+                  type: "image",
+                  name: `Image ${idx + 1}`,
+                  url: link.trim(),
+                });
+              });
+            }
+
             items.push({
               id: `${m.id}-user`,
               sender: "user",
               content: m.input,
               avatarUrl: "/personas/userAvatar.png",
               avatarHint: "User",
+              ...(userAttachments.length > 0
+                ? { metadata: { attachments: userAttachments } }
+                : {}),
             });
           }
-          if (m.output) {
-            const sanitized = extractThinkingContent(m.output);
+          if (m.output || (Array.isArray(m.file_attachments) && m.file_attachments.some((att: Record<string, unknown>) => att && (att.origin === "generated")))) {
+            const sanitized = extractThinkingContent(m.output || "");
+
+            // Extract generated images from file_attachments
+            const generatedImages: Array<{ url: string; alt?: string }> = [];
+            if (Array.isArray(m.file_attachments)) {
+              m.file_attachments.forEach((att: Record<string, unknown>) => {
+                if (!att || typeof att !== "object") return;
+                const origin = (String(att.origin || "")).trim().toLowerCase();
+                if (origin !== "generated") return;
+                const url = (String(att.file_link || att.url || att.link || "")).trim();
+                if (!url) return;
+                const mimeType = (String(att.mime_type || att.mimeType || "")).trim().toLowerCase();
+                if (mimeType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url)) {
+                  generatedImages.push({ url });
+                }
+              });
+            }
+
             items.push({
               id: `${m.id}-ai`,
               sender: "ai",
-              content: sanitized.visibleText || m.output,
+              content: sanitized.visibleText || m.output || "",
               thinkingContent: m.reasoning || sanitized.thinkingText || null,
               avatarUrl: avatarUrl || "/new-logos/souvenir-logo.svg",
               avatarHint: personaName,
+              ...(generatedImages.length > 0
+                ? {
+                    images: generatedImages,
+                    metadata: { isImageGeneration: true },
+                  }
+                : {}),
             });
           }
           return items;
         });
+        // Restore attachments from localStorage (backend doesn't persist them for persona chats)
+        try {
+          const storageKey = `persona-attachments-${activeChatId}`;
+          const savedMap = JSON.parse(localStorage.getItem(storageKey) || "{}");
+          if (Object.keys(savedMap).length > 0) {
+            converted.forEach((msg) => {
+              if (
+                msg.sender === "user" &&
+                (!msg.metadata?.attachments || msg.metadata.attachments.length === 0)
+              ) {
+                const saved = savedMap[msg.content];
+                if (Array.isArray(saved) && saved.length > 0) {
+                  msg.metadata = { ...msg.metadata, attachments: saved };
+                }
+              }
+            });
+          }
+        } catch { /* localStorage unavailable */ }
+
         // Preserve already-rendered local conversation (e.g. streaming on new chat id adoption)
         // and only hydrate when the viewport is empty.
         setDisplayMessages((prev) => (prev.length > 0 ? prev : converted));
@@ -219,6 +406,89 @@ export function PersonaChatFullPage({
         scrollHeight > maxHeight ? "auto" : "hidden";
     }
   }, [input]);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    processFiles(Array.from(files));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const processFiles = (files: File[]) => {
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const filesToAdd: Array<{
+      id: string;
+      type: "document" | "image";
+      name: string;
+      url: string;
+      file: File;
+      isUploading: boolean;
+      uploadProgress: number;
+    }> = [];
+
+    for (const file of files) {
+      const isDuplicate =
+        attachments.some((a) => a.name === file.name) ||
+        filesToAdd.some((f) => f.name === file.name);
+      if (isDuplicate) {
+        toast.error(`${file.name} already added`, {
+          description: "This file is already in your attachments.",
+        });
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} is too large`, {
+          description: "Maximum file size is 50MB per file.",
+        });
+        continue;
+      }
+      if (!isDocumentFile(file)) {
+        toast.error(`${file.name} not supported`, {
+          description: "Please upload PDF, Word, PowerPoint, CSV, Excel, or image files only.",
+        });
+        continue;
+      }
+
+      const isImage = file.type.startsWith("image/");
+      filesToAdd.push({
+        id: crypto.randomUUID(),
+        type: isImage ? "image" : "document",
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+        isUploading: true,
+        uploadProgress: 0,
+      });
+    }
+
+    if (filesToAdd.length === 0) return;
+    setAttachments((prev) => [...prev, ...filesToAdd]);
+
+    filesToAdd.forEach((attachment) => {
+      const duration = Math.min(Math.max((attachment.file.size / (1024 * 1024)) * 200, 500), 3000);
+      const steps = 20;
+      const stepDuration = duration / steps;
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 100 / steps;
+        if (progress >= 100) {
+          clearInterval(interval);
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === attachment.id ? { ...a, isUploading: false, uploadProgress: 100 } : a,
+            ),
+          );
+        } else {
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === attachment.id ? { ...a, uploadProgress: Math.round(progress) } : a,
+            ),
+          );
+        }
+      }, stepDuration);
+    });
+  };
+  processFilesRef.current = processFiles;
 
   const handleShare = () => {
     toast.info("Share", {
@@ -305,10 +575,32 @@ export function PersonaChatFullPage({
 
   const handleSend = async () => {
     const trimmedContent = input.trim();
-    if (!trimmedContent || isResponding) return;
+    if ((!trimmedContent && attachments.length === 0) || isResponding) return;
 
     const userMessageId = `user-${Date.now()}`;
     const aiMessageId = `ai-${Date.now() + 1}`;
+
+    // Convert ALL attachments to data URLs so they survive page refresh
+    let persistentAttachments:
+      | Array<{
+          id: string;
+          type: "document" | "image";
+          name: string;
+          url: string;
+        }>
+      | undefined;
+    if (attachments.length > 0) {
+      persistentAttachments = await Promise.all(
+        attachments.map(async (a) => {
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(a.file);
+          });
+          return { id: a.id, type: a.type, name: a.name, url: dataUrl };
+        }),
+      );
+    }
 
     const userMessage: Message = {
       id: userMessageId,
@@ -316,6 +608,9 @@ export function PersonaChatFullPage({
       content: trimmedContent,
       avatarUrl: "/personas/userAvatar.png",
       avatarHint: "User",
+      metadata: {
+        attachments: persistentAttachments,
+      },
     };
 
     setDisplayMessages((prev) => [...prev, userMessage]);
@@ -346,6 +641,31 @@ export function PersonaChatFullPage({
 
       const formData = new FormData();
       formData.append("input", trimmedContent);
+
+      // Append file attachments - 30mb limit
+      const filesToUpload = attachments.map((a) => a.file);
+      const MAX_FILE_SIZE = 30 * 1024 * 1024;
+      const oversizedFiles = filesToUpload.filter((f) => f.size > MAX_FILE_SIZE);
+      if (oversizedFiles.length > 0) {
+        toast.error("File too large", {
+          description: `${oversizedFiles[0].name} exceeds 30MB limit.`,
+        });
+        setIsResponding(false);
+        return;
+      }
+      filesToUpload.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      // Enable OCR for document files (non-image)
+      const hasDocuments = filesToUpload.some((f) => !f.type.startsWith("image/"));
+      if (hasDocuments) {
+        formData.append("use_mistral_ocr", "true");
+      }
+
+      // Clear attachments after capturing files
+      attachments.forEach((a) => URL.revokeObjectURL(a.url));
+      setAttachments([]);
 
       let resolvedChatId = activeChatId;
       let tempSidebarChatId: string | null = null;
@@ -755,6 +1075,115 @@ export function PersonaChatFullPage({
               providerName: persona.providerName,
             },
           });
+
+          // Extract generated images from file_attachments in the done event
+          if (Array.isArray(parsed.file_attachments)) {
+            const generatedImages: Array<{ url: string; alt?: string }> = [];
+            (parsed.file_attachments as Array<Record<string, unknown>>).forEach((att) => {
+              if (!att || typeof att !== "object") return;
+              const origin = typeof att.origin === "string" ? att.origin.trim().toLowerCase() : "";
+              if (origin !== "generated") return;
+              const rawUrl = att.file_link ?? att.url ?? att.link;
+              const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+              if (!url) return;
+              const mimeRaw = att.mime_type ?? att.mimeType;
+              const mimeType = typeof mimeRaw === "string" ? mimeRaw.trim().toLowerCase() : "";
+              if (mimeType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url)) {
+                generatedImages.push({ url });
+              }
+            });
+            if (generatedImages.length > 0) {
+              updateAiMessage({
+                images: generatedImages,
+                metadata: { isImageGeneration: true },
+              });
+            }
+          }
+
+          // Update user message attachments with permanent URLs from backend
+          const uploadedAttachmentsFromDone: Array<{
+            id: string;
+            type: "document" | "image";
+            name: string;
+            url: string;
+          }> = Array.isArray(parsed.file_attachments)
+            ? parsed.file_attachments
+                .map((item: unknown, idx: number) => {
+                  if (!item || typeof item !== "object") return null;
+                  const att = item as Record<string, unknown>;
+                  const origin =
+                    typeof att.origin === "string"
+                      ? att.origin.trim().toLowerCase()
+                      : "";
+                  if (origin !== "uploaded" && origin !== "upload" && origin !== "user")
+                    return null;
+                  const rawUrl = att.file_link ?? att.url ?? att.link;
+                  const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+                  if (!url) return null;
+                  const rawName = att.file_name ?? att.fileName ?? att.name;
+                  const name =
+                    typeof rawName === "string" && rawName.trim().length > 0
+                      ? rawName.trim()
+                      : (() => {
+                          try {
+                            const seg = new URL(url).pathname.split("/").filter(Boolean).pop();
+                            return seg ? decodeURIComponent(seg) : `Document ${idx + 1}`;
+                          } catch {
+                            return `Document ${idx + 1}`;
+                          }
+                        })();
+                  const mimeRaw = att.mime_type ?? att.mimeType;
+                  const mimeType =
+                    typeof mimeRaw === "string" ? mimeRaw.trim().toLowerCase() : "";
+                  const isImage =
+                    mimeType.startsWith("image/") ||
+                    /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+                  return {
+                    id: `uploaded-${idx}`,
+                    type: isImage ? ("image" as const) : ("document" as const),
+                    name,
+                    url,
+                  };
+                })
+                .filter(
+                  (
+                    item: { id: string; type: "document" | "image"; name: string; url: string } | null,
+                  ): item is { id: string; type: "document" | "image"; name: string; url: string } =>
+                    Boolean(item),
+                )
+            : [];
+
+          if (uploadedAttachmentsFromDone.length > 0) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === userMessageId
+                  ? {
+                      ...msg,
+                      metadata: {
+                        ...msg.metadata,
+                        attachments: uploadedAttachmentsFromDone,
+                      },
+                    }
+                  : msg,
+              ),
+            );
+          }
+
+          // Persist attachments to localStorage (backend doesn't store them for persona chats)
+          const finalAttachments = uploadedAttachmentsFromDone.length > 0
+            ? uploadedAttachmentsFromDone
+            : persistentAttachments;
+          if (finalAttachments && finalAttachments.length > 0) {
+            const chatIdForStorage = resolvedChatId || activeChatId;
+            if (chatIdForStorage) {
+              try {
+                const storageKey = `persona-attachments-${chatIdForStorage}`;
+                const existing = JSON.parse(localStorage.getItem(storageKey) || "{}");
+                existing[trimmedContent] = finalAttachments;
+                localStorage.setItem(storageKey, JSON.stringify(existing));
+              } catch { /* localStorage full or unavailable */ }
+            }
+          }
         }
       };
 
@@ -853,7 +1282,16 @@ export function PersonaChatFullPage({
   };
 
   return (
-    <div className="px-12 py-4 max-h-[95vh] h-full flex flex-col w-full">
+    <div className="relative px-12 py-4 max-h-[95vh] h-full flex flex-col w-full\" {...dropZoneProps}>
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm border-2 border-dashed border-[#7c6fcd] rounded-2xl pointer-events-none">
+          <div className="flex flex-col items-center gap-2">
+            <Upload className="h-10 w-10 text-[#7c6fcd]" />
+            <span className="text-sm font-medium text-[#7c6fcd]">Drop files here to attach</span>
+          </div>
+        </div>
+      )}
       {/* Row 2 - Persona details (toggleable) */}
       {detailsSectionOpen && (
         <div className="w-full flex items-center gap-6 shrink-0 min-h-[28px] py-1 flex-wrap mb-3 text-sm">
@@ -948,9 +1386,52 @@ export function PersonaChatFullPage({
             <div className="mx-auto w-full max-w-[850px] flex flex-col gap-3 pr-4 py-4">
               <div className="rounded-[32px] border border-transparent bg-white p-6 shadow-none">
                 <div className="flex flex-col gap-3">
-                  {displayMessages.map((msg, idx) => (
+                  {displayMessages.map((msg, idx) => {
+                    const messageAttachments =
+                      msg.sender === "user" && msg.metadata?.attachments;
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {messageAttachments && messageAttachments.length > 0 && (
+                          <div className="flex gap-2 flex-wrap justify-end mx-auto w-full max-w-[756px]">
+                            {messageAttachments.map((attachment: any) =>
+                              attachment.type !== "image" ? (
+                                <a
+                                  key={attachment.id}
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden no-underline cursor-pointer transition-colors hover:bg-[#F0F0F0]"
+                                  style={{ width: "180.3px", height: "60px" }}
+                                >
+                                  <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                                    <FileText className="h-5 w-5 text-[#666666]" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="truncate text-xs font-medium text-[#1E1E1E]">
+                                      {attachment.name}
+                                    </p>
+                                    <p className="text-[10px] text-[#888888]">
+                                      {getDocumentKindLabel(String(attachment.name ?? ""))}
+                                    </p>
+                                  </div>
+                                </a>
+                              ) : (
+                                <div
+                                  key={attachment.id}
+                                  className="group relative shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
+                                  style={{ width: "60px", height: "60px", padding: "1.08px" }}
+                                >
+                                  <img
+                                    src={attachment.url}
+                                    alt={attachment.name}
+                                    className="w-full h-full object-cover rounded-[10px]"
+                                  />
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        )}
                     <ChatMessage
-                      key={msg.id}
                       message={msg}
                       onPin={() => {}}
                       onCopy={handleCopy}
@@ -966,7 +1447,9 @@ export function PersonaChatFullPage({
                       onReact={undefined}
                       disablePinning={true}
                     />
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -998,10 +1481,91 @@ export function PersonaChatFullPage({
             <div
               className="rounded-[24px] border border-[#D9D9D9] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
               style={{
-                minHeight: "90px",
+                minHeight: attachments.length > 0 ? "162px" : "90px",
                 transition: "min-height 0.2s ease",
               }}
             >
+              {/* Attachment previews */}
+              {attachments.length > 0 && (
+                <div className="relative px-5 pt-4">
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hidden">
+                    {attachments.map((attachment) =>
+                      attachment.type !== "image" ? (
+                        <div
+                          key={attachment.id}
+                          className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
+                          style={{ width: "180.3px", height: "60px" }}
+                        >
+                          {attachment.isUploading && (
+                            <div
+                              className="absolute bottom-0 left-0 h-1 bg-[#22C55E] transition-all duration-300"
+                              style={{ width: `${attachment.uploadProgress || 0}%` }}
+                            />
+                          )}
+                          <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
+                            <FileText className="h-5 w-5 text-[#666666]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate text-xs font-medium text-[#1E1E1E]">
+                              {attachment.name}
+                            </p>
+                            <p className="text-[10px] text-[#888888]">
+                              {attachment.isUploading
+                                ? `Uploading... ${attachment.uploadProgress || 0}%`
+                                : getDocumentKindLabel(attachment.name)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              URL.revokeObjectURL(attachment.url);
+                              setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+                            }}
+                            className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                          >
+                            <X className="h-3 w-3 text-[#666666]" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          key={attachment.id}
+                          className="group relative shrink-0 rounded-[11px] border border-[#E5E5E5] bg-[#FAFAFA] overflow-hidden"
+                          style={{ width: "60px", height: "60px", padding: "1.08px" }}
+                        >
+                          <Image
+                            src={attachment.url}
+                            alt={attachment.name}
+                            width={0}
+                            height={0}
+                            className={`w-full h-full object-cover rounded-[10px] transition-all duration-300 ${attachment.isUploading ? "blur-sm" : "blur-0"}`}
+                          />
+                          {attachment.isUploading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-[10px]">
+                              <svg className="w-8 h-8" viewBox="0 0 36 36">
+                                <circle
+                                  cx="18" cy="18" r="16" fill="none" stroke="#22C55E" strokeWidth="3"
+                                  strokeDasharray={`${((attachment.uploadProgress || 0) * 100.48) / 100}, 100.48`}
+                                  strokeLinecap="round" transform="rotate(-90 18 18)"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              URL.revokeObjectURL(attachment.url);
+                              setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
+                            }}
+                            className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors z-10 opacity-0 group-hover:opacity-100"
+                          >
+                            <X className="h-3 w-3 text-[#666666]" />
+                          </button>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col gap-1.5 px-5 py-4">
                 <div className="w-full">
                   <Textarea
@@ -1025,18 +1589,9 @@ export function PersonaChatFullPage({
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.csv,text/csv,application/csv,.xls,application/vnd.ms-excel,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*"
+                      accept={DOCUMENT_UPLOAD_ACCEPT}
                       multiple
-                      onChange={(e) => {
-                        const files = e.target.files;
-                        if (files?.length) {
-                          toast.info("Attachments", {
-                            description:
-                              "File attachment coming soon for persona chats.",
-                          });
-                        }
-                        e.target.value = "";
-                      }}
+                      onChange={handleFileSelect}
                       className="hidden"
                     />
                     <Button
@@ -1046,65 +1601,12 @@ export function PersonaChatFullPage({
                     >
                       <Plus className="h-5 w-5 text-[#555555]" />
                     </Button>
-                    {/* {showAttachMenu && (
-                      <div
-                        className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
-                        style={{ width: "160px" }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            fileInputRef.current?.click();
-                            setShowAttachMenu(false);
-                          }}
-                          className="flex gap-1.5 rounded-lg border border-[#E5E5E5] bg-white p-2 text-left text-xs font-medium text-[#1E1E1E] transition-colors hover:bg-[#F5F5F5] whitespace-nowrap"
-                        >
-                          <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
-                          <span>Attach Files</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setWebSearchEnabled(!webSearchEnabled);
-                            setShowAttachMenu(false);
-                            toast(
-                              webSearchEnabled
-                                ? "Web search disabled"
-                                : "Web search enabled",
-                              {
-                                description: webSearchEnabled
-                                  ? "Results will not include web search"
-                                  : "Results will include web search",
-                              },
-                            );
-                          }}
-                          className={cn(
-                            "flex gap-1.5 rounded-lg border p-2 text-left text-xs font-medium transition-colors whitespace-nowrap",
-                            webSearchEnabled
-                              ? "border-blue-500 bg-blue-50 text-blue-700"
-                              : "border-[#E5E5E5] bg-white text-[#1E1E1E] hover:bg-[#F5F5F5]",
-                          )}
-                        >
-                          <Globe
-                            className={cn(
-                              "h-3.5 w-3.5 shrink-0",
-                              webSearchEnabled ? "text-blue-600" : "text-[#666666]",
-                            )}
-                          />
-                          <span>Web Search</span>
-                          {webSearchEnabled && (
-                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
-                          )}
-                        </button>
-                      </div>
-                    )} */}
                     {showAttachMenu && (
                       <div
                         className="absolute bottom-full left-0 mb-2 flex flex-col gap-2 rounded-lg border border-[#E5E5E5] bg-white p-2 shadow-lg"
                         style={{ width: "auto" }}
                       >
-                        {/* disabled attach file for persona chat */}
-                        {/* <button
+                        <button
                           onClick={() => {
                             fileInputRef.current?.click();
                             setShowAttachMenu(false);
@@ -1113,7 +1615,7 @@ export function PersonaChatFullPage({
                         >
                           <Paperclip className="h-3.5 w-3.5 text-[#666666]" />
                           <span>Attach images or files</span>
-                        </button> */}
+                        </button>
                         <button
                           onClick={() => {
                             setWebSearchEnabled(!webSearchEnabled);
@@ -1174,7 +1676,7 @@ export function PersonaChatFullPage({
                       >
                         <Square className="h-[18px] w-[18px] fill-white" />
                       </Button>
-                    ) : input.trim() ? (
+                    ) : (input.trim() || attachments.length > 0) ? (
                       <Button
                         type="button"
                         onClick={() => handleSend()}

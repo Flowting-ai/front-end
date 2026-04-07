@@ -63,6 +63,9 @@ import {
 import { toast } from "@/lib/toast-helper";
 import { workflowAPI } from "./workflow-api";
 import { X } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
+import { hasReachedLimit } from "@/lib/plan-config";
+import { UpgradePlanDialog } from "@/components/pricing/upgrade-plan-dialog";
 
 let id = 0;
 const getId = () => `node_${id++}`;
@@ -229,6 +232,14 @@ function WorkflowCanvasInner() {
   const [showWorkflowChat, setShowWorkflowChat] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const { user } = useAuth();
+  const [workflowCount, setWorkflowCount] = useState<number>(0);
+  const [showWorkflowUpgradeDialog, setShowWorkflowUpgradeDialog] = useState(false);
+
+  // Fetch workflow count on mount for plan limit checking
+  useEffect(() => {
+    workflowAPI.list().then(({ total }) => setWorkflowCount(total)).catch(() => {});
+  }, []);
 
   const { fitView, zoomIn, zoomOut, setViewport, getViewport, getNodes, screenToFlowPosition } =
     useReactFlow();
@@ -1114,6 +1125,12 @@ function WorkflowCanvasInner() {
 
   // Save workflow to backend (enables Test and Run after first save). Returns true if saved successfully.
   const handleSave = useCallback(async (): Promise<boolean> => {
+    // Guard: check plan limit before creating a new workflow
+    if (!workflowId && user?.planType && hasReachedLimit(user.planType, "workflows", workflowCount)) {
+      setShowWorkflowUpgradeDialog(true);
+      return false;
+    }
+
     const trimmedName = workflowName.trim();
     if (!trimmedName || trimmedName.toLowerCase() === "untitled workflow") {
       toast.error("Workflow name required", {
@@ -1170,7 +1187,7 @@ function WorkflowCanvasInner() {
     } finally {
       setIsSaving(false);
     }
-  }, [workflowId, nodes, edges, workflowName, thumbnail, thumbnailFile, getViewport, canTestWorkflow, testWorkflowDisabledReason, buildWorkflowSnapshot]);
+  }, [workflowId, nodes, edges, workflowName, thumbnail, thumbnailFile, getViewport, canTestWorkflow, testWorkflowDisabledReason, buildWorkflowSnapshot, user, workflowCount]);
 
   // Load workflow
   const handleLoad = useCallback(() => {
@@ -2015,6 +2032,17 @@ Please provide clear, specific, and well-structured instructions to ensure accur
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workflow plan-limit upgrade dialog */}
+      {user?.planType && (
+        <UpgradePlanDialog
+          open={showWorkflowUpgradeDialog}
+          onOpenChange={setShowWorkflowUpgradeDialog}
+          currentPlan={user.planType}
+          resource="workflows"
+          currentCount={workflowCount}
+        />
+      )}
     </div>
   );
 }

@@ -60,6 +60,19 @@ export interface PersonaMessage {
   input: string;
   output: string;
   reasoning?: string | null;
+  file_links?: string[];
+  image_links?: string[];
+  file_attachments?: Array<{
+    file_link?: string;
+    url?: string;
+    link?: string;
+    file_name?: string;
+    fileName?: string;
+    name?: string;
+    mime_type?: string;
+    mimeType?: string;
+    origin?: string;
+  }>;
 }
 
 export interface PersonaInput {

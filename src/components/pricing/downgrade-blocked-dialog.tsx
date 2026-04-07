@@ -9,13 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PRO_LIMITS, type WorkspaceUsageCounts } from "@/lib/plan-downgrade-limits";
+import { PLAN_LIMITS, type WorkspaceUsageCounts } from "@/lib/plan-config";
 
 function downgradeBlockedCopy(targetPlan: "starter" | "pro"): string {
   if (targetPlan === "starter") {
     return "Your current workspace has more personas, pins, or workflows than the Starter plan allows. Please delete or remove them to fit within the Starter limits, then try again.";
   }
-  return `Your current workspace has more pins or workflows than the Pro plan allows (${PRO_LIMITS.totalPinCount} pins, ${PRO_LIMITS.totalWorkflowsCount} workflows; personas are unlimited). Please delete or remove items to fit within the Pro limits, then try again.`;
+  return `Your current workspace has more pins or workflows than the Pro plan allows (${PLAN_LIMITS.pro.pins} pins, ${PLAN_LIMITS.pro.workflows} workflows; personas are unlimited). Please delete or remove items to fit within the Pro limits, then try again.`;
 }
 
 export function DowngradeBlockedDialog(props: {

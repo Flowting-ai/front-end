@@ -1,4 +1,5 @@
 import type { UserPlanType } from "@/lib/api/user";
+import { planRank } from "@/lib/plan-config";
 
 export type PricingCardId = UserPlanType;
 
@@ -74,12 +75,6 @@ export const CARD_CONFIG: CardConfig[] = [
   },
 ];
 
-const PLAN_ORDER: Record<PricingCardId, number> = {
-  starter: 0,
-  pro: 1,
-  power: 2,
-};
-
 export function planDisplayTitle(plan: PricingCardId): string {
   return plan === "starter" ? "Starter" : plan.charAt(0).toUpperCase() + plan.slice(1);
 }
@@ -114,7 +109,7 @@ export function getPlanChangeButtonState(
       action: "cancel_subscription",
     };
   }
-  if (PLAN_ORDER[target] > PLAN_ORDER[current]) {
+  if (planRank(target) > planRank(current)) {
     return {
       label: `Upgrade to ${planDisplayTitle(target)}`,
       disabled: false,

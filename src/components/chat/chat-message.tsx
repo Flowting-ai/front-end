@@ -1304,8 +1304,15 @@ function GeneratedDocumentInlineCard({
     file.url,
   );
 
+  const viewerUrl = file.url;
+
   return (
-    <div className="flex h-[60px] w-full max-w-[540px] items-center justify-between gap-3 rounded-lg border border-[#E5E5E5] bg-white px-3 shadow-sm shadow-zinc-300">
+    <a
+      href={viewerUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex h-[60px] w-full max-w-[540px] items-center justify-between gap-3 rounded-lg border border-[#E5E5E5] bg-white px-3 shadow-sm shadow-zinc-300 cursor-pointer transition-colors hover:bg-[#FAFAFA] no-underline"
+    >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#F5F5F5]">
           <FileText
@@ -1326,16 +1333,13 @@ function GeneratedDocumentInlineCard({
           </p>
         </div>
       </div>
-      <a
-        href={file.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#D4D4D4] bg-white px-3 text-sm font-medium text-[#171717] transition-colors hover:bg-[#FAFAFA]"
+      <span
+        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#D4D4D4] bg-white px-3 text-sm font-medium text-[#171717] transition-colors hover:bg-[#F0F0F0]"
       >
         <Download className="h-4 w-4 shrink-0 text-[#171717]" aria-hidden />
         Download
-      </a>
-    </div>
+      </span>
+    </a>
   );
 }
 

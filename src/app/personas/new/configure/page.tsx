@@ -73,9 +73,12 @@ import {
   createPersona,
   updatePersona,
   fetchPersonaById,
+  fetchPersonas,
 } from "@/lib/api/personas";
 import { useAuth } from "@/context/auth-context";
 import { API_BASE_URL } from "@/lib/config";
+import { hasReachedLimit } from "@/lib/plan-config";
+import { UpgradePlanDialog } from "@/components/pricing/upgrade-plan-dialog";
 
 // Helper to construct full avatar URL from relative or absolute paths
 const getFullAvatarUrl = (url: string | null | undefined): string | null => {
@@ -128,6 +131,13 @@ function PersonaConfigurePageContent() {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const dragCounterRef = useRef(0);
   const { user } = useAuth();
+  const [personaCount, setPersonaCount] = useState<number>(0);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Fetch persona count on mount for plan limit checking
+  useEffect(() => {
+    fetchPersonas().then((list) => setPersonaCount(list.length)).catch(() => {});
+  }, []);
 
   const maskEmail = (email: string | null | undefined): string => {
     if (!email) return "your@email.com";
@@ -690,6 +700,11 @@ function PersonaConfigurePageContent() {
 
   /** Creates or updates the persona and returns its ID. Used before persona test chat. */
   const savePersonaForTest = async (): Promise<string | null> => {
+    // Guard: check plan limit before creating a new persona
+    if (!createdPersonaId && user?.planType && hasReachedLimit(user.planType, "personas", personaCount)) {
+      setShowUpgradeDialog(true);
+      return null;
+    }
     try {
       // Avatar image comes strictly from avatarUrl (user-chosen profile picture)
       let imageFile: File | undefined;
@@ -755,6 +770,12 @@ function PersonaConfigurePageContent() {
 
   const handleFinishBuilding = async () => {
     if (!isPersonaReady) return;
+
+    // Guard: check plan limit before creating a new persona
+    if (!createdPersonaId && user?.planType && hasReachedLimit(user.planType, "personas", personaCount)) {
+      setShowUpgradeDialog(true);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -3605,6 +3626,17 @@ function PersonaConfigurePageContent() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Upgrade Plan Dialog */}
+        {user?.planType && (
+          <UpgradePlanDialog
+            open={showUpgradeDialog}
+            onOpenChange={setShowUpgradeDialog}
+            currentPlan={user.planType}
+            resource="personas"
+            currentCount={personaCount}
+          />
+        )}
       </>
     </AppLayout>
   );

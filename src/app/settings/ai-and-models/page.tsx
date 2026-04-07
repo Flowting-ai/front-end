@@ -8,19 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/context/auth-context";
 import { fetchAllModels, toggleBlockModel, type LLMModel } from "@/lib/api/models";
+import { requiresModelUpgrade } from "@/lib/plan-config";
 import { toast } from "@/lib/toast-helper";
-
-const PLAN_ORDER: Record<string, number> = { standard: 0, pro: 1, power: 2 };
-
-function requiresUpgrade(
-  modelPlanType: string,
-  userPlanType: string | null | undefined,
-): boolean {
-  if (!userPlanType) return true;
-  const modelRank = PLAN_ORDER[modelPlanType] ?? 0;
-  const userRank = PLAN_ORDER[userPlanType] ?? -1;
-  return modelRank > userRank;
-}
 
 const PLAN_LABEL: Record<string, string> = {
   standard: "Standard",
@@ -148,7 +137,7 @@ export default function SettingsAIAndModelsPage() {
 
             {!isLoading &&
               filteredModels.map((model) => {
-                const locked = requiresUpgrade(model.model_plan_type, user?.planType);
+                const locked = requiresModelUpgrade(model.model_plan_type, user?.planType);
                 const ctxLabel = formatTokens(model.model_context_window);
                 const isToggling = togglingId === model.model_id;
 

@@ -58,6 +58,8 @@ import { CHATS_ENDPOINT, CHAT_STAR_ENDPOINT, API_BASE_URL } from "@/lib/config";
 import { toast } from "@/lib/toast-helper";
 import { extractThinkingContent } from "@/lib/thinking";
 import { fetchPersonas as fetchPersonasApi, type BackendPersona } from "@/lib/api/personas";
+import { hasReachedLimit } from "@/lib/plan-config";
+import { UpgradePlanDialog } from "@/components/pricing/upgrade-plan-dialog";
 
 interface AppLayoutProps {
   children: React.ReactElement;
@@ -501,6 +503,16 @@ const normalizeBackendMessage = (msg: BackendMessage): Message => {
   };
 };
 
+/** Extract a human-readable filename from a URL path (e.g. "report.pdf" from "https://…/report.pdf?token=x"). */
+const filenameFromUrl = (url: string): string | undefined => {
+  try {
+    const seg = new URL(url).pathname.split("/").filter(Boolean).pop();
+    return seg ? decodeURIComponent(seg) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const extractUserAttachmentsFromEntry = (
   entry: BackendMessage,
 ): Array<{ id: string; type: "pdf" | "image"; name: string; url: string }> => {
@@ -524,7 +536,9 @@ const extractUserAttachmentsFromEntry = (
     out.push({
       id: `att-${index}-${type}`,
       type,
-      name: type === "image" ? `Image ${index + 1}` : `Document ${index + 1}`,
+      name: type === "image"
+        ? `Image ${index + 1}`
+        : (filenameFromUrl(cleanUrl) || `Document ${index + 1}`),
       url: cleanUrl,
     });
   };
@@ -621,7 +635,9 @@ const extractFileAttachmentsFromEntry = (entry: BackendMessage) => {
       type: item.isImage ? ("image" as const) : ("pdf" as const),
       name:
         item.name ||
-        (item.isImage ? `Image ${index + 1}` : `Document ${index + 1}`),
+        (item.isImage
+          ? `Image ${index + 1}`
+          : (filenameFromUrl(item.url) || `Document ${index + 1}`)),
       url: item.url,
     }));
 
@@ -636,7 +652,7 @@ const extractFileAttachmentsFromEntry = (entry: BackendMessage) => {
     .filter((item) => item.origin === "generated" && !item.isImage)
     .map((item, index) => ({
       url: item.url,
-      filename: item.name || `Document ${index + 1}`,
+      filename: item.name || filenameFromUrl(item.url) || `Document ${index + 1}`,
       mimeType: item.mimeType,
     }));
 
@@ -921,6 +937,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const [pins, setPins_] = useState<PinType[]>([]);
   const [pinsChatId, setPinsChatId] = useState<string | null>(null);
+  const [showPinUpgradeDialog, setShowPinUpgradeDialog] = useState(false);
   const [chatBoards, setChatBoards_] = useState<ChatBoard[]>([]);
   const [activeChatId, setActiveChatId_] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistory>({});
@@ -1583,6 +1600,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const handlePinMessage = useCallback(
     async (pinRequest: PinType) => {
+      // Guard: check plan limit before creating a new pin
+      if (user?.planType && hasReachedLimit(user.planType, "pins", pins.length)) {
+        setShowPinUpgradeDialog(true);
+        return;
+      }
+
       const chatId = pinRequest.chatId || activeChatId;
       const messageId = pinRequest.messageId || pinRequest.id;
       if (!chatId || !messageId) {
@@ -1631,7 +1654,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         throw error;
       }
     },
-    [activeChatId, setPins]
+    [activeChatId, setPins, user, pins]
   );
 
   const handleUnpinMessage = useCallback(
@@ -2271,6 +2294,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
           pendingModel={pendingModelFromCompare}
           onModelSwitch={handleConfirmModelSwitch}
           chatBoards={chatBoards}
+        />
+      )}
+      {/* Pin plan-limit upgrade dialog */}
+      {user?.planType && (
+        <UpgradePlanDialog
+          open={showPinUpgradeDialog}
+          onOpenChange={setShowPinUpgradeDialog}
+          currentPlan={user.planType}
+          resource="pins"
+          currentCount={pins.length}
         />
       )}
     </AppLayoutContext.Provider>

@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/auth-context";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { canAccessFeature } from "@/lib/plan-config";
 
 import {
   API_BASE_URL,
@@ -226,6 +227,8 @@ const getDocumentKindLabel = (fileName: string): string => {
     return "Excel Document";
   }
   if (lower.endsWith(".pdf")) return "PDF Document";
+  // Avoid showing "Document" when the name itself already says "Document"
+  if (lower.startsWith("document")) return "Uploaded File";
   return "Document";
 };
 
@@ -2138,6 +2141,60 @@ export function ChatInterface({
                   )
               : [];
 
+            // Extract uploaded (user) file attachments from done event to update
+            // the user message with permanent URLs and original filenames
+            const uploadedAttachmentsFromDone: Array<{
+              id: string;
+              type: "document" | "image";
+              name: string;
+              url: string;
+            }> = Array.isArray(parsed.file_attachments)
+              ? parsed.file_attachments
+                  .map((item: unknown, idx: number) => {
+                    if (!item || typeof item !== "object") return null;
+                    const att = item as Record<string, unknown>;
+                    const origin =
+                      typeof att.origin === "string"
+                        ? att.origin.trim().toLowerCase()
+                        : "";
+                    if (origin !== "uploaded" && origin !== "upload" && origin !== "user")
+                      return null;
+                    const rawUrl = att.file_link ?? att.url ?? att.link;
+                    const url = typeof rawUrl === "string" ? rawUrl.trim() : "";
+                    if (!url) return null;
+                    const rawName = att.file_name ?? att.fileName ?? att.name;
+                    const name =
+                      typeof rawName === "string" && rawName.trim().length > 0
+                        ? rawName.trim()
+                        : (() => {
+                            try {
+                              const seg = new URL(url).pathname.split("/").filter(Boolean).pop();
+                              return seg ? decodeURIComponent(seg) : `Document ${idx + 1}`;
+                            } catch {
+                              return `Document ${idx + 1}`;
+                            }
+                          })();
+                    const mimeRaw = att.mime_type ?? att.mimeType;
+                    const mimeType =
+                      typeof mimeRaw === "string" ? mimeRaw.trim().toLowerCase() : "";
+                    const isImage =
+                      mimeType.startsWith("image/") ||
+                      /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url.toLowerCase());
+                    return {
+                      id: `uploaded-${idx}`,
+                      type: isImage ? ("image" as const) : ("document" as const),
+                      name,
+                      url,
+                    };
+                  })
+                  .filter(
+                    (
+                      item: { id: string; type: "document" | "image"; name: string; url: string } | null,
+                    ): item is { id: string; type: "document" | "image"; name: string; url: string } =>
+                      Boolean(item),
+                  )
+              : [];
+
             const generatedAttachmentImages = generatedAttachmentPayload
               .filter((item) => item.isImage)
               .map((item) => ({
@@ -2246,6 +2303,26 @@ export function ChatInterface({
                   isImageGeneration: true,
                 },
               }, true);
+            }
+
+            // Update user message attachments with permanent URLs from backend
+            // This replaces blob URLs (which expire) with real server URLs and
+            // ensures original filenames are preserved after page refresh.
+            if (uploadedAttachmentsFromDone.length > 0 && userMessageId) {
+              setMessages((prev = []) => {
+                const next = prev.map((msg) => {
+                  if (msg.id !== userMessageId) return msg;
+                  return {
+                    ...msg,
+                    metadata: {
+                      ...msg.metadata,
+                      attachments: uploadedAttachmentsFromDone,
+                    },
+                  };
+                });
+                messageBufferRef.current = next;
+                return next;
+              }, currentChatId ?? undefined);
             }
 
             const doneChatId = getResolvedChatId(parsed);
@@ -3486,12 +3563,15 @@ export function ChatInterface({
                       )}
                       {/* Display file attachments above user message */}
                       {messageAttachments && messageAttachments.length > 0 && (
-                        <div className="flex gap-2 flex-wrap ml-auto max-w-[85%]">
+                        <div className="flex gap-2 flex-wrap justify-end mx-auto w-full max-w-[756px]">
                           {messageAttachments.map((attachment: any) =>
                             attachment.type !== "image" ? (
-                              <div
+                              <a
                                 key={attachment.id}
-                                className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden"
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden no-underline cursor-pointer transition-colors hover:bg-[#F0F0F0]"
                                 style={{ width: "180.3px", height: "60px" }}
                               >
                                 <div className="flex h-full w-12 items-center justify-center rounded-lg bg-[#F5F5F5]">
@@ -3505,7 +3585,7 @@ export function ChatInterface({
                                     {getDocumentKindLabel(String(attachment.name ?? ""))}
                                   </p>
                                 </div>
-                              </div>
+                              </a>
                             ) : (
                               <div
                                 key={attachment.id}
@@ -4062,7 +4142,7 @@ export function ChatInterface({
                             <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-600"></div>
                           )}
                         </button>
-                        {user?.planType === "power" && (
+                        {canAccessFeature(user?.planType, "mistralOcr") && (
                           <button
                             onClick={() => {
                               setUseMistralOcr(!useMistralOcr);
@@ -4425,7 +4505,7 @@ export function ChatInterface({
                     </button>
                   )}
                   {/* Mistral OCR indicator button */}
-                  {useMistralOcr && user?.planType === "power" && (
+                  {useMistralOcr && canAccessFeature(user?.planType, "mistralOcr") && (
                     <button
                       type="button"
                       aria-label="Disable Mistral OCR"
