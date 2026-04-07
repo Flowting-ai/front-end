@@ -128,6 +128,8 @@ export interface CreateChatPayload {
   modelId?: number | string | null;
   useFramework?: boolean;
   useAlgorithm?: boolean;
+  algorithm?: 'base' | 'pro' | null;
+  memoryPercentage?: number;
   webSearch?: boolean;
   user?: AuthUser | null;
   pinIds?: string[];
@@ -152,15 +154,17 @@ export async function createChat(
   const useAlgorithm =
     (payload.useAlgorithm ?? payload.useFramework) &&
     (modelId === null || modelId === undefined);
+  const algorithmValue = payload.algorithm ?? (useAlgorithm ? 'base' : null);
 
   const formData = new FormData();
   formData.append("input", payload.firstMessage);
   if (modelId !== null && modelId !== undefined) {
     formData.append("model_id", String(modelId));
   }
-  if (useAlgorithm) {
-    formData.append("use_algorithm", "true");
+  if (algorithmValue) {
+    formData.append("algorithm", algorithmValue);
   }
+  formData.append("memory_percentage", String(payload.memoryPercentage ?? 0.2));
   if (payload.webSearch) {
     formData.append("web_search", "true");
   }

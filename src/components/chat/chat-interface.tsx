@@ -1279,6 +1279,10 @@ export function ChatInterface({
       const useAlgorithm =
         (modelId === null || modelId === undefined) &&
         Boolean(layoutContext?.useFramework);
+      const algorithmValue = useAlgorithm
+        ? (layoutContext?.frameworkType === 'pro' ? 'pro' : 'base')
+        : null;
+      const memoryPct = layoutContext?.memoryPercentage ?? 0.2;
 
       // Build request body - use FormData when file is present, JSON otherwise
       let body: FormData | string;
@@ -1331,9 +1335,10 @@ export function ChatInterface({
         if (modelId !== null && modelId !== undefined) {
           formData.append("model_id", String(modelId));
         }
-        if (useAlgorithm) {
-          formData.append("use_algorithm", "true");
+        if (algorithmValue) {
+          formData.append("algorithm", algorithmValue);
         }
+        formData.append("memory_percentage", String(memoryPct));
         if (webSearchEnabled) {
           formData.append("web_search", "true");
         }
@@ -1366,9 +1371,10 @@ export function ChatInterface({
         if (modelId !== null && modelId !== undefined) {
           formData.append("model_id", String(modelId));
         }
-        if (useAlgorithm) {
-          formData.append("use_algorithm", "true");
+        if (algorithmValue) {
+          formData.append("algorithm", algorithmValue);
         }
+        formData.append("memory_percentage", String(memoryPct));
         if (webSearchEnabled) {
           formData.append("web_search", "true");
         }

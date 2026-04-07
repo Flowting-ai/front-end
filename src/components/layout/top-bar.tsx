@@ -18,6 +18,8 @@ interface TopbarProps {
   useFramework: boolean;
   onModelSelect: (model: AIModel | null) => void;
   onFrameworkChange: (useFramework: boolean) => void;
+  frameworkType?: "starter" | "pro";
+  onFrameworkTypeChange?: (type: "starter" | "pro") => void;
   onPinsSelect?: (pinIds: string[]) => void;
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
@@ -33,6 +35,8 @@ export function Topbar({
   onModelSelect,
   useFramework,
   onFrameworkChange,
+  frameworkType = "starter",
+  onFrameworkTypeChange,
   onPinsSelect,
   chatBoards = [],
   activeChatId,
@@ -100,6 +104,8 @@ export function Topbar({
               onModelSelect={onModelSelect}
               useFramework={useFramework}
               onFrameworkChange={onFrameworkChange}
+              frameworkType={frameworkType}
+              onFrameworkTypeChange={onFrameworkTypeChange}
               onPinsSelect={onPinsSelect}
               chatBoards={chatBoards}
               activeChatId={activeChatId}

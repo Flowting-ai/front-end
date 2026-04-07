@@ -14,6 +14,8 @@ interface ModelSelectorProps {
   useFramework: boolean;
   onModelSelect: (model: AIModel | null) => void;
   onFrameworkChange: (useFramework: boolean) => void;
+  frameworkType?: "starter" | "pro";
+  onFrameworkTypeChange?: (type: "starter" | "pro") => void;
   onPinsSelect?: (pinIds: string[]) => void;
   chatBoards?: Array<{ id: string; name: string }>;
   activeChatId?: string | null;
@@ -28,6 +30,8 @@ export function ModelSelector({
   onModelSelect,
   useFramework,
   onFrameworkChange,
+  frameworkType = "starter",
+  onFrameworkTypeChange,
   onPinsSelect,
   chatBoards = [],
   activeChatId,
@@ -106,17 +110,24 @@ export function ModelSelector({
   };
 
   const handleModelSwitch = (config: ModelSwitchConfig) => {
-    onFrameworkChange(false);
-    onModelSelect(config.model);
+    if (config.algorithm) {
+      onFrameworkChange(true);
+      onModelSelect(null);
+      onFrameworkTypeChange?.(config.algorithm === 'base' ? 'starter' : 'pro');
+    } else {
+      onFrameworkChange(false);
+      onModelSelect(config.model);
+    }
     // Pass selected pins to be included with next message
     if (config.includePins && config.includePins.length > 0 && onPinsSelect) {
       onPinsSelect(config.includePins);
     }
   };
 
-  const handleFrameworkSelect = () => {
+  const handleFrameworkSelect = (type: "starter" | "pro" = "starter") => {
     onFrameworkChange(true);
     onModelSelect(null);
+    onFrameworkTypeChange?.(type);
     setIsSelectorDialogOpen(false);
     setIsSwitchDialogOpen(false);
   };
@@ -150,7 +161,9 @@ export function ModelSelector({
         ) : null}
         <span className="model-selector-label font-inter font-normal text-sm whitespace-nowrap">
           {useFramework
-            ? "Souvenir AI Framework"
+            ? frameworkType === "pro"
+              ? "SouvenirAI: Advanced Framework"
+              : "SouvenirAI: Basic Framework"
             : selectedModel
             ? selectedModel.modelName
             : "Select model"}
@@ -163,6 +176,7 @@ export function ModelSelector({
         onModelSelect={handleModelSelect}
         onFrameworkSelect={handleFrameworkSelect}
         useFramework={useFramework}
+        frameworkType={frameworkType}
       />
       <ModelSwitchDialog
         open={isSwitchDialogOpen}
@@ -174,6 +188,7 @@ export function ModelSelector({
         pins={pins}
         activeChatId={activeChatId}
         knownMessageCount={messageCount}
+        frameworkType={frameworkType}
       />
     </>
   );

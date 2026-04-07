@@ -53,17 +53,20 @@ interface ModelSwitchDialogProps {
   currentModel: AIModel | null;
   pendingModel?: AIModel | null;
   onModelSwitch: (config: ModelSwitchConfig) => void;
-  onFrameworkSelect?: () => void;
+  onFrameworkSelect?: (type: "starter" | "pro") => void;
   chatBoards?: Array<{ id: string; name: string }>;
   pins?: PinType[];
   /** The active chat ID, used to fetch real message count for smart memory default */
   activeChatId?: string | null;
   /** Pre-loaded message count (if already known by parent, avoids extra fetch) */
   knownMessageCount?: number;
+  frameworkType?: "starter" | "pro";
 }
 
 export interface ModelSwitchConfig {
-  model: AIModel;
+  model: AIModel | null;
+  algorithm: 'base' | 'pro' | null; // 'base' for Basic Framework, 'pro' for Advanced Framework, null for specific model
+  memoryPercentage: number; // float 0.0–1.0
   chatMemory: number;       // percentage 0–100
   chatMemoryMessages: number; // actual number of messages to include
   totalMessages: number;    // total messages in chat (for backend context)
@@ -82,6 +85,7 @@ export function ModelSwitchDialog({
   pins = [],
   activeChatId,
   knownMessageCount,
+  frameworkType = "starter",
 }: ModelSwitchDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -231,7 +235,18 @@ export function ModelSwitchDialog({
 
   const handleSelect = () => {
     if ((starterFrameworkSelected || proFrameworkSelected) && onFrameworkSelect) {
-      onFrameworkSelect();
+      const algo = starterFrameworkSelected ? "base" : "pro";
+      onFrameworkSelect(starterFrameworkSelected ? "starter" : "pro");
+      onModelSwitch({
+        model: null,
+        algorithm: algo,
+        memoryPercentage: chatMemory / 100,
+        chatMemory,
+        chatMemoryMessages: includedMessages,
+        totalMessages,
+        includePins: selectedPinIds,
+        includeFiles,
+      });
       onOpenChange(false);
       return;
     }
@@ -240,6 +255,8 @@ export function ModelSwitchDialog({
 
     onModelSwitch({
       model: selectedModel,
+      algorithm: null,
+      memoryPercentage: chatMemory / 100,
       chatMemory,
       chatMemoryMessages: includedMessages,
       totalMessages,

@@ -129,6 +129,10 @@ interface AppLayoutContextType {
   setSelectedModel: React.Dispatch<React.SetStateAction<AIModel | null>>;
   useFramework: boolean;
   setUseFramework: React.Dispatch<React.SetStateAction<boolean>>;
+  frameworkType: "starter" | "pro";
+  setFrameworkType: React.Dispatch<React.SetStateAction<"starter" | "pro">>;
+  memoryPercentage: number;
+  setMemoryPercentage: React.Dispatch<React.SetStateAction<number>>;
   // Selected pins from model switch dialog to include with next message
   selectedPinIdsForNextMessage: string[];
   setSelectedPinIdsForNextMessage: React.Dispatch<React.SetStateAction<string[]>>;
@@ -907,6 +911,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [useFramework, setUseFramework] = useState(true);
+  const [frameworkType, setFrameworkType] = useState<"starter" | "pro">("starter");
+  const [memoryPercentage, setMemoryPercentage] = useState<number>(0.2);
   const [selectedPinIdsForNextMessage, setSelectedPinIdsForNextMessage] = useState<string[]>([]);
   const [referencesSources, setReferencesSources] = useState<MessageSource[]>([]);
   const [pendingModelFromCompare, setPendingModelFromCompare] = useState<AIModel | null>(null);
@@ -943,10 +949,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   const handleConfirmModelSwitch = (config: ModelSwitchConfig) => {
-    setUseFramework(false);
-    setSelectedModel(config.model);
+    if (config.algorithm) {
+      setUseFramework(true);
+      setFrameworkType(config.algorithm === 'base' ? 'starter' : 'pro');
+      setSelectedModel(null);
+    } else {
+      setUseFramework(false);
+      setSelectedModel(config.model);
+    }
+    setMemoryPercentage(config.memoryPercentage);
     setPendingModelFromCompare(null);
-    // TODO: Handle additional config like chatMemory, includePins, includeFiles if needed
   };
 
   // Open confirmation dialog after compare dialog closes
@@ -1941,6 +1953,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
     setSelectedModel,
     useFramework,
     setUseFramework,
+    frameworkType,
+    setFrameworkType,
+    memoryPercentage,
+    setMemoryPercentage,
     moveChatToTop,
     selectedPinIdsForNextMessage,
     setSelectedPinIdsForNextMessage,
@@ -2148,6 +2164,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               onModelSelect={setSelectedModel}
               useFramework={useFramework}
               onFrameworkChange={setUseFramework}
+              frameworkType={frameworkType}
+              onFrameworkTypeChange={setFrameworkType}
               chatBoards={chatBoards}
               activeChatId={activeChatId}
               hasMessages={

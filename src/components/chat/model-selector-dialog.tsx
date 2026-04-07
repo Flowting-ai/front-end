@@ -50,8 +50,9 @@ interface ModelSelectorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onModelSelect: (model: AIModel) => void;
-  onFrameworkSelect: () => void;
+  onFrameworkSelect: (type: "starter" | "pro") => void;
   useFramework: boolean;
+  frameworkType?: "starter" | "pro";
 }
 
 type ModelCategory = "text" | "image" | "video" | "all";
@@ -62,6 +63,7 @@ export function ModelSelectorDialog({
   onModelSelect,
   onFrameworkSelect,
   useFramework,
+  frameworkType = "starter",
 }: ModelSelectorDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,9 +81,9 @@ export function ModelSelectorDialog({
   >(null);
   // Auto-routing framework toggles
   const [starterFrameworkSelected, setStarterFrameworkSelected] =
-    useState<boolean>(useFramework);
+    useState<boolean>(useFramework && frameworkType === "starter");
   const [proFrameworkSelected, setProFrameworkSelected] =
-    useState<boolean>(false);
+    useState<boolean>(useFramework && frameworkType === "pro");
   // Input/Output modality filters (lowercase for matching)
   // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
   // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
@@ -181,7 +183,7 @@ export function ModelSelectorDialog({
 
   const handleSelectModel = () => {
     if (hasFrameworkSelected) {
-      onFrameworkSelect();
+      onFrameworkSelect(starterFrameworkSelected ? "starter" : "pro");
       onOpenChange(false);
       return;
     }
