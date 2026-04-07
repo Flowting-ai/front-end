@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner" // react-toastify
 import { cn } from "@/lib/utils";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/context/auth-context";
+import { MixpanelProvider } from "@/components/mixpanel-provider";
 
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
@@ -52,6 +53,7 @@ export default function RootLayout({
         )}
       >
         <GoogleAnalytics gaId="G-BH0MSN0Z1J" />
+        <MixpanelProvider />
         <AuthProvider>
           <SidebarProvider>
             {children}
