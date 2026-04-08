@@ -1575,7 +1575,7 @@ export const workflowAPI = {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
           },
-          body: JSON.stringify({ input: trimmedInput }),
+          body: JSON.stringify({ input: trimmedInput, use_mistral_ocr: false }),
           signal: controller.signal,
         });
 

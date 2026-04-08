@@ -524,9 +524,9 @@ export function ModelSelectorDialog({
                   height={20}
                   alt="souvenir ai logo"
                   className="model-logo"
-                  style={{ opacity: advancedLocked ? 0.45 : 1 }}
+                  style={{ opacity: advancedLocked ? 0.7 : 1, width: '35px', height: '35px' }}
                 />
-                <span className="model-name" style={{ opacity: advancedLocked ? 0.7 : 1 }}>SouvenirAI: Advanced Framework</span>
+                <span className="model-name" style={{ opacity: advancedLocked ? 0.8 : 1 }}>SouvenirAI: Advanced Framework</span>
               </div>
               <div className="model-actions">
                 <TooltipProvider>

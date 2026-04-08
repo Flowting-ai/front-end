@@ -467,8 +467,8 @@ export function ModelSwitchDialog({
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Image
                     src="/new-logos/souvenirAdvancedFramework.svg"
-                    width={20}
-                    height={20}
+                    width={30}
+                    height={30}
                     alt="souvenir ai logo"
                     className="w-5 h-5 object-contain"
                     style={{ opacity: advancedLocked ? 0.45 : 1 }}
