@@ -519,7 +519,7 @@ export function ModelSelectorDialog({
             >
               <div className="model-info">
                 <Image
-                  src="/new-logos/souvenir-logo.svg"
+                  src="/new-logos/souvenirAdvancedFramework.svg"
                   width={20}
                   height={20}
                   alt="souvenir ai logo"
