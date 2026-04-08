@@ -240,12 +240,12 @@ export async function testPersona(
   callbacks: TestPersonaStreamCallbacks
 ): Promise<() => void> {
   const controller = new AbortController();
-  const body = new URLSearchParams({ input });
+  const formData = new FormData();
+  formData.append("input", input);
 
   const response = await apiFetch(PERSONA_TEST_ENDPOINT(personaId), {
     method: "POST",
-    body: body.toString(),
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData,
     signal: controller.signal,
   });
 
@@ -368,14 +368,14 @@ export async function streamPersonaMessage(
   callbacks: TestPersonaStreamCallbacks
 ): Promise<() => void> {
   const controller = new AbortController();
-  const body = new URLSearchParams({ input });
+  const formData = new FormData();
+  formData.append("input", input);
 
   const response = await apiFetch(
     PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId),
     {
       method: "POST",
-      body: body.toString(),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData,
       signal: controller.signal,
     }
   );

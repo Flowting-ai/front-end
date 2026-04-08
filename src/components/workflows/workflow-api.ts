@@ -1569,13 +1569,16 @@ export const workflowAPI = {
 
     (async () => {
       try {
+        const formData = new FormData();
+        formData.append("input", trimmedInput);
+        formData.append("use_mistral_ocr", "false");
+
         const response = await apiFetch(`${WORKFLOW_DETAIL_ENDPOINT(id)}/execute/stream`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             Accept: "text/event-stream",
           },
-          body: JSON.stringify({ input: trimmedInput, use_mistral_ocr: false }),
+          body: formData,
           signal: controller.signal,
         });
 

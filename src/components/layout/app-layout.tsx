@@ -1375,7 +1375,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
           CHAT_STAR_ENDPOINT(chatId),
           {
             method: "PATCH",
-            body: JSON.stringify({ starred: nextValue }),
           },
         );
 
