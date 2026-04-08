@@ -112,6 +112,7 @@ export function Topbar({
               hasMessages={hasMessages}
               messageCount={messageCount}
               pins={pins}
+              userPlanType={user?.planType}
             />
           )}
           {isPersonasPage && !isPersonaAdminPage && (

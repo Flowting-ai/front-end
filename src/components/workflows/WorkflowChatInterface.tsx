@@ -18,9 +18,19 @@ import {
   type NodeEndEvent,
   type WorkflowCompleteEvent,
   type AskUserEvent,
+  type ReasoningEvent,
+  type ImageEvent,
+  type WebSearchEvent,
+  type ToolExecutingEvent,
+  type ToolProgressEvent,
+  type GeneratedFileEvent,
+  type TitleEvent,
+  type MessageSavedEvent,
+  type ModelSelectedEvent,
 } from "./workflow-api";
 import type { NodeStatus } from "./types";
 import { extractThinkingContent } from "@/lib/thinking";
+import { mergeStreamingText } from "@/lib/streaming";
 
 // Collapsible reasoning block shown inside node output panels
 const NodeReasoningBlock = ({ text, isStreaming }: { text: string; isStreaming?: boolean }) => {
@@ -268,6 +278,8 @@ export function WorkflowChatInterface({
   const nodeOutputsRef = useRef<Map<string, NodeOutput>>(new Map());
   // Ref to track streaming content without stale closure issues
   const streamingContentRef = useRef<Map<string, string>>(new Map());
+  // Track accumulated reasoning content for the current stream
+  const reasoningContentRef = useRef<string>("");
   // Track nodes already marked as running to avoid repeated expensive canvas updates.
   const seenRunningNodesRef = useRef<Set<string>>(new Set());
 
@@ -360,6 +372,7 @@ export function WorkflowChatInterface({
     setTotalCost(0);
     setActiveNodeId(null);
     streamingContentRef.current = new Map(); // Reset streaming content ref
+    reasoningContentRef.current = ""; // Reset reasoning content
     seenRunningNodesRef.current = new Set();
     onRunStart?.();
 
@@ -733,6 +746,181 @@ export function WorkflowChatInterface({
           setIsResponding(false);
           setActiveNodeId(null);
           abortRef.current = null;
+        },
+
+        onReasoning: (event: ReasoningEvent) => {
+          reasoningContentRef.current = mergeStreamingText(
+            reasoningContentRef.current,
+            event.delta,
+          );
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    thinkingContent: reasoningContentRef.current,
+                    isThinkingInProgress: true,
+                    isLoading: false,
+                  }
+                : msg,
+            ),
+          );
+        },
+
+        onImage: (event: ImageEvent) => {
+          const eventImages = Array.isArray(event.images)
+            ? event.images
+            : event.url
+              ? [{ url: event.url, alt: event.alt }]
+              : [];
+          const normalizedImages = eventImages.filter(
+            (img): img is { url: string; alt?: string } => Boolean(img?.url),
+          );
+          if (normalizedImages.length > 0) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg;
+                const existing = Array.isArray(msg.images) ? msg.images : [];
+                return {
+                  ...msg,
+                  images: [...existing, ...normalizedImages],
+                  isLoading: false,
+                  metadata: { ...(msg.metadata || {}), isImageGeneration: true },
+                };
+              }),
+            );
+          }
+        },
+
+        onWebSearch: (event: WebSearchEvent) => {
+          if (event.query || event.links?.length) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? {
+                      ...msg,
+                      isLoading: false,
+                      metadata: {
+                        ...(msg.metadata || {}),
+                        webSearch: { query: event.query, links: event.links },
+                      },
+                    }
+                  : msg,
+              ),
+            );
+          }
+        },
+
+        onToolExecuting: (event: ToolExecutingEvent) => {
+          const toolName = event.content || "";
+          const displayName = toolName
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, toolStatus: displayName }
+                : msg,
+            ),
+          );
+        },
+
+        onToolComplete: () => {
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, toolStatus: null }
+                : msg,
+            ),
+          );
+        },
+
+        onToolProgress: (event: ToolProgressEvent) => {
+          const tool = event.tool || "";
+          const displayName = tool
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          const label = event.filename
+            ? `${event.status === "executing" ? "Running" : displayName} ${tool} for ${event.filename}...`
+            : displayName;
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, toolStatus: label }
+                : msg,
+            ),
+          );
+        },
+
+        onGeneratedFile: (event: GeneratedFileEvent) => {
+          if (!event.url) return;
+          setDisplayMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) return msg;
+              const existing = Array.isArray(msg.metadata?.generatedFiles)
+                ? msg.metadata.generatedFiles
+                : [];
+              const newFile = {
+                url: event.url,
+                s3Key: event.s3_key,
+                filename: event.filename,
+                mimeType: event.mime_type,
+              };
+              const merged = [...existing, newFile].filter(
+                (item, index, arr) =>
+                  arr.findIndex(
+                    (c) => c.url.trim().toLowerCase() === item.url.trim().toLowerCase(),
+                  ) === index,
+              );
+              return {
+                ...msg,
+                isLoading: false,
+                metadata: { ...(msg.metadata || {}), generatedFiles: merged },
+              };
+            }),
+          );
+        },
+
+        onTitle: (_event: TitleEvent) => {
+          // Workflow chats don't use dynamic titles from stream
+        },
+
+        onMessageSaved: (event: MessageSavedEvent) => {
+          if (event.message_id) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId
+                  ? { ...msg, chatMessageId: event.message_id }
+                  : msg,
+              ),
+            );
+          }
+        },
+
+        onModelSelected: (event: ModelSelectedEvent) => {
+          const modelName = event.model_name;
+          const providerName = event.company || event.provider_name;
+          const modelAvatar = getModelIcon(providerName, modelName);
+          const modelHint = [modelName, providerName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          setDisplayMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? {
+                    ...msg,
+                    avatarUrl: modelAvatar,
+                    avatarHint: modelHint || undefined,
+                    metadata: {
+                      ...(msg.metadata || {}),
+                      modelName,
+                      providerName,
+                    },
+                  }
+                : msg,
+            ),
+          );
         },
       };
 

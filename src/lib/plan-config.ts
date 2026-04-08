@@ -75,6 +75,25 @@ export function getLimit(
   return PLAN_LIMITS[plan][resource];
 }
 
+// ── Framework Access ─────────────────────────────────────────────────────────
+
+export type FrameworkTier = "basic" | "advanced";
+
+export const PLAN_FRAMEWORKS: Record<UserPlanType, readonly FrameworkTier[]> = {
+  starter: ["basic"],
+  pro: ["basic", "advanced"],
+  power: ["basic", "advanced"],
+};
+
+/** Check if a plan has access to a specific auto-routing framework tier. */
+export function canAccessFramework(
+  plan: UserPlanType | null | undefined,
+  framework: FrameworkTier,
+): boolean {
+  if (!plan) return false;
+  return (PLAN_FRAMEWORKS[plan] ?? []).includes(framework);
+}
+
 // ── Feature Flags ────────────────────────────────────────────────────────────
 
 export type PlanFeature =

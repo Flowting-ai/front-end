@@ -354,7 +354,7 @@ function SettingsUsageAndBillingPageInner() {
                   <Button
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
-                    className="hidden h-auto px-4 py-2 rounded-[8px] bg-transparent border border-[#767676] text-[#B3B3B3] hover:bg-[#3C3C3C] hover:text-white"
+                    className="h-auto px-4 py-2 rounded-[8px] bg-transparent border border-[#767676] text-[#B3B3B3] hover:bg-[#3C3C3C] hover:text-white"
                   >
                     Cancel plan
                   </Button>
@@ -365,7 +365,7 @@ function SettingsUsageAndBillingPageInner() {
                   onClick={() =>
                     router.push("/settings/usage-and-billing/change-plan")
                   }
-                  className="hidden h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
+                  className="h-auto px-4 py-2 rounded-[8px] bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white"
                 >
                   {hasActiveSubscription ? "Change plan" : "Get a plan"}
                 </Button>

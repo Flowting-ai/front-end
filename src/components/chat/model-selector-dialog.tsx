@@ -42,7 +42,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { AIModel } from "@/types/ai-model";
+import type { UserPlanType } from "@/lib/api/user";
+import { canAccessFramework } from "@/lib/plan-config";
 import { getModelIcon } from "@/lib/model-icons";
+import { toast } from "@/lib/toast-helper";
 import { fetchModelsWithCache } from "@/lib/ai-models";
 import Image from "next/image";
 
@@ -53,6 +56,7 @@ interface ModelSelectorDialogProps {
   onFrameworkSelect: (type: "starter" | "pro") => void;
   useFramework: boolean;
   frameworkType?: "starter" | "pro";
+  userPlanType?: UserPlanType | null;
 }
 
 type ModelCategory = "text" | "image" | "video" | "all";
@@ -64,6 +68,7 @@ export function ModelSelectorDialog({
   onFrameworkSelect,
   useFramework,
   frameworkType = "starter",
+  userPlanType,
 }: ModelSelectorDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,10 +85,20 @@ export function ModelSelectorDialog({
     "starter" | "pro" | null
   >(null);
   // Auto-routing framework toggles
+  // Default to Advanced Framework for Pro/Power, Basic for Starter
+  const hasAdvanced = canAccessFramework(userPlanType, "advanced");
   const [starterFrameworkSelected, setStarterFrameworkSelected] =
-    useState<boolean>(useFramework && frameworkType === "starter");
+    useState<boolean>(
+      useFramework
+        ? frameworkType === "starter"
+        : !hasAdvanced,
+    );
   const [proFrameworkSelected, setProFrameworkSelected] =
-    useState<boolean>(useFramework && frameworkType === "pro");
+    useState<boolean>(
+      useFramework
+        ? frameworkType === "pro"
+        : hasAdvanced,
+    );
   // Input/Output modality filters (lowercase for matching)
   // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
   // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
@@ -94,6 +109,20 @@ export function ModelSelectorDialog({
   const [outputFilters, setOutputFilters] = useState<Set<string>>(new Set());
   const [inputDropdownOpen, setInputDropdownOpen] = useState(false);
   const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
+
+  // Reset framework defaults when dialog opens
+  useEffect(() => {
+    if (open) {
+      if (useFramework) {
+        setStarterFrameworkSelected(frameworkType === "starter");
+        setProFrameworkSelected(frameworkType === "pro");
+      } else {
+        setStarterFrameworkSelected(!hasAdvanced);
+        setProFrameworkSelected(hasAdvanced);
+      }
+      setSelectedModel(null);
+    }
+  }, [open, useFramework, frameworkType, hasAdvanced]);
 
   useEffect(() => {
     if (!open) return;
@@ -429,6 +458,9 @@ export function ModelSelectorDialog({
               </div>
             </div>
 
+            {(() => {
+              const advancedLocked = !canAccessFramework(userPlanType, "advanced");
+              return (
             <div
               className="model-item"
               role="button"
@@ -443,11 +475,19 @@ export function ModelSelectorDialog({
                 paddingRight: "2px",
                 paddingBottom: "5.5px",
                 paddingLeft: "2px",
-                borderColor: proFrameworkSelected ? "#1E1E1E" : "transparent",
-                backgroundColor:
-                  hoveredFramework === "pro" ? "#F5F5F5" : "transparent",
+                borderColor: !advancedLocked && proFrameworkSelected ? "#1E1E1E" : "transparent",
+                backgroundColor: advancedLocked
+                  ? "transparent"
+                  : hoveredFramework === "pro" ? "#F5F5F5" : "transparent",
+                opacity: advancedLocked ? 0.45 : 1,
               }}
               onClick={() => {
+                if (advancedLocked) {
+                  toast.info("Upgrade to Pro or Power", {
+                    description: "Advanced Framework is available on Pro and Power plans.",
+                  });
+                  return;
+                }
                 setProFrameworkSelected((prev) => {
                   const next = !prev;
                   if (next) setStarterFrameworkSelected(false);
@@ -458,6 +498,12 @@ export function ModelSelectorDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
+                  if (advancedLocked) {
+                    toast.info("Upgrade to Pro or Power", {
+                      description: "Advanced Framework is available on Pro and Power plans.",
+                    });
+                    return;
+                  }
                   setProFrameworkSelected((prev) => {
                     const next = !prev;
                     if (next) setStarterFrameworkSelected(false);
@@ -466,9 +512,10 @@ export function ModelSelectorDialog({
                   setSelectedModel(null);
                 }
               }}
-              onMouseEnter={() => setHoveredFramework("pro")}
+              onMouseEnter={() => setHoveredFramework(advancedLocked ? null : "pro")}
               onMouseLeave={() => setHoveredFramework(null)}
-              aria-pressed={proFrameworkSelected}
+              aria-pressed={!advancedLocked && proFrameworkSelected}
+              aria-disabled={advancedLocked}
             >
               <div className="model-info">
                 <Image
@@ -477,8 +524,9 @@ export function ModelSelectorDialog({
                   height={20}
                   alt="souvenir ai logo"
                   className="model-logo"
+                  style={{ opacity: advancedLocked ? 0.45 : 1 }}
                 />
-                <span className="model-name">SouvenirAI: Advanced Framework</span>
+                <span className="model-name" style={{ opacity: advancedLocked ? 0.7 : 1 }}>SouvenirAI: Advanced Framework</span>
               </div>
               <div className="model-actions">
                 <TooltipProvider>
@@ -494,14 +542,16 @@ export function ModelSelectorDialog({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[280px] text-xs leading-5">
-                      Quality-first routing for complex work. Pro chooses
-                      stronger models more aggressively for deeper reasoning and
-                      richer outputs.
+                      {advancedLocked
+                        ? "Upgrade to Pro or Power to unlock Advanced Framework — quality-first routing for complex work."
+                        : "Quality-first routing for complex work. Pro chooses stronger models more aggressively for deeper reasoning and richer outputs."}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
             </div>
+              );
+            })()}
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { ModelSelectorDialog } from "./model-selector-dialog";
 import { ModelSwitchDialog, type ModelSwitchConfig } from "./model-switch-dialog";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
+import type { UserPlanType } from "@/lib/api/user";
 import { getModelIcon } from "@/lib/model-icons";
 import Image from "next/image";
 
@@ -23,6 +24,7 @@ interface ModelSelectorProps {
   /** Total message count for the active chat (used for smart memory default) */
   messageCount?: number;
   pins?: PinType[];
+  userPlanType?: UserPlanType | null;
 }
 
 export function ModelSelector({
@@ -38,6 +40,7 @@ export function ModelSelector({
   hasMessages = false,
   messageCount,
   pins = [],
+  userPlanType,
 }: ModelSelectorProps) {
   const [isSelectorDialogOpen, setIsSelectorDialogOpen] = useState(false);
   const [isSwitchDialogOpen, setIsSwitchDialogOpen] = useState(false);
@@ -177,6 +180,7 @@ export function ModelSelector({
         onFrameworkSelect={handleFrameworkSelect}
         useFramework={useFramework}
         frameworkType={frameworkType}
+        userPlanType={userPlanType}
       />
       <ModelSwitchDialog
         open={isSwitchDialogOpen}
@@ -189,6 +193,7 @@ export function ModelSelector({
         activeChatId={activeChatId}
         knownMessageCount={messageCount}
         frameworkType={frameworkType}
+        userPlanType={userPlanType}
       />
     </>
   );

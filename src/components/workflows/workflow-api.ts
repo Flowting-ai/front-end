@@ -159,7 +159,18 @@ export type StreamEventType =
   | "done"
   | "chunk"
   | "node_end"
-  | "ask_user";
+  | "ask_user"
+  // Chat-style events (shared with chat-interface)
+  | "reasoning"
+  | "image"
+  | "web_search"
+  | "tool_executing"
+  | "tool_complete"
+  | "tool_progress"
+  | "generated_file"
+  | "title"
+  | "message_saved"
+  | "model_selected";
 
 export interface StreamEventBase {
   event: StreamEventType;
@@ -243,6 +254,67 @@ export interface StreamErrorEvent extends StreamEventBase {
   error_code?: string;
 }
 
+export interface ReasoningEvent extends StreamEventBase {
+  event: "reasoning";
+  delta: string;
+}
+
+export interface ImageEvent extends StreamEventBase {
+  event: "image";
+  images?: Array<{ url: string; alt?: string }>;
+  url?: string;
+  alt?: string;
+}
+
+export interface WebSearchEvent extends StreamEventBase {
+  event: "web_search";
+  query: string;
+  links: string[];
+}
+
+export interface ToolExecutingEvent extends StreamEventBase {
+  event: "tool_executing";
+  content: string;
+}
+
+export interface ToolCompleteEvent extends StreamEventBase {
+  event: "tool_complete";
+}
+
+export interface ToolProgressEvent extends StreamEventBase {
+  event: "tool_progress";
+  tool: string;
+  filename?: string;
+  status?: string;
+}
+
+export interface GeneratedFileEvent extends StreamEventBase {
+  event: "generated_file";
+  url: string;
+  s3_key?: string;
+  filename?: string;
+  mime_type?: string;
+}
+
+export interface TitleEvent extends StreamEventBase {
+  event: "title";
+  title?: string;
+  chat_title?: string;
+}
+
+export interface MessageSavedEvent extends StreamEventBase {
+  event: "message_saved";
+  message_id?: string;
+}
+
+export interface ModelSelectedEvent extends StreamEventBase {
+  event: "model_selected";
+  model_name?: string;
+  company?: string;
+  provider_name?: string;
+  model_id?: string | number;
+}
+
 export type StreamEvent =
   | WorkflowStartEvent
   | NodeStartEvent
@@ -251,7 +323,17 @@ export type StreamEvent =
   | NodeCompleteEvent
   | WorkflowCompleteEvent
   | AskUserEvent
-  | StreamErrorEvent;
+  | StreamErrorEvent
+  | ReasoningEvent
+  | ImageEvent
+  | WebSearchEvent
+  | ToolExecutingEvent
+  | ToolCompleteEvent
+  | ToolProgressEvent
+  | GeneratedFileEvent
+  | TitleEvent
+  | MessageSavedEvent
+  | ModelSelectedEvent;
 
 export interface StreamCallbacks {
   onWorkflowStart?: (event: WorkflowStartEvent) => void;
@@ -262,6 +344,16 @@ export interface StreamCallbacks {
   onWorkflowComplete?: (event: WorkflowCompleteEvent) => void;
   onAskUser?: (event: AskUserEvent) => void;
   onError?: (event: StreamErrorEvent) => void;
+  onReasoning?: (event: ReasoningEvent) => void;
+  onImage?: (event: ImageEvent) => void;
+  onWebSearch?: (event: WebSearchEvent) => void;
+  onToolExecuting?: (event: ToolExecutingEvent) => void;
+  onToolComplete?: (event: ToolCompleteEvent) => void;
+  onToolProgress?: (event: ToolProgressEvent) => void;
+  onGeneratedFile?: (event: GeneratedFileEvent) => void;
+  onTitle?: (event: TitleEvent) => void;
+  onMessageSaved?: (event: MessageSavedEvent) => void;
+  onModelSelected?: (event: ModelSelectedEvent) => void;
 }
 
 // Chat session returned by GET /workflow/{id}/chats
@@ -295,6 +387,16 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "done",
   "node_end",
   "ask_user",
+  "reasoning",
+  "image",
+  "web_search",
+  "tool_executing",
+  "tool_complete",
+  "tool_progress",
+  "generated_file",
+  "title",
+  "message_saved",
+  "model_selected",
 ]);
 
 const toStreamEventType = (value: unknown): StreamEventType | undefined => {
@@ -1072,6 +1174,92 @@ const processSseStream = async (
 
         case "ask_user":
           callbacks.onAskUser?.(event as unknown as AskUserEvent);
+          break;
+
+        // ── Chat-style events ────────────────────────────────────────────
+
+        case "reasoning":
+          callbacks.onReasoning?.({
+            event: "reasoning",
+            delta: typeof event.delta === "string" ? event.delta : String(event.content ?? ""),
+          });
+          break;
+
+        case "image":
+          callbacks.onImage?.({
+            event: "image",
+            images: Array.isArray(event.images)
+              ? (event.images as Array<{ url: string; alt?: string }>).filter((img) => img?.url)
+              : undefined,
+            url: typeof event.url === "string" ? event.url : undefined,
+            alt: typeof event.alt === "string" ? event.alt : undefined,
+          });
+          break;
+
+        case "web_search": {
+          const query = typeof event.query === "string" ? event.query : "";
+          const links = Array.isArray(event.links)
+            ? (event.links as unknown[]).filter((l): l is string => typeof l === "string")
+            : Array.isArray(event.results)
+              ? (event.results as unknown[]).filter((l): l is string => typeof l === "string")
+              : [];
+          callbacks.onWebSearch?.({ event: "web_search", query, links });
+          break;
+        }
+
+        case "tool_executing":
+          callbacks.onToolExecuting?.({
+            event: "tool_executing",
+            content: typeof event.content === "string" ? event.content : "",
+          });
+          break;
+
+        case "tool_complete":
+          callbacks.onToolComplete?.({ event: "tool_complete" });
+          break;
+
+        case "tool_progress":
+          callbacks.onToolProgress?.({
+            event: "tool_progress",
+            tool: typeof event.tool === "string" ? event.tool : "",
+            filename: typeof event.filename === "string" ? event.filename : undefined,
+            status: typeof event.status === "string" ? event.status : undefined,
+          });
+          break;
+
+        case "generated_file":
+          callbacks.onGeneratedFile?.({
+            event: "generated_file",
+            url: typeof event.url === "string" ? event.url : String(event.file_link ?? event.link ?? ""),
+            s3_key: typeof event.s3_key === "string" ? event.s3_key : undefined,
+            filename: typeof event.filename === "string" ? event.filename : typeof event.file_name === "string" ? event.file_name : undefined,
+            mime_type: typeof event.mime_type === "string" ? event.mime_type : undefined,
+          });
+          break;
+
+        case "title":
+          callbacks.onTitle?.({
+            event: "title",
+            title: typeof event.title === "string" ? event.title : undefined,
+            chat_title: typeof event.chat_title === "string" ? event.chat_title : undefined,
+          });
+          break;
+
+        case "message_saved":
+          callbacks.onMessageSaved?.({
+            event: "message_saved",
+            message_id: typeof event.message_id === "string" ? event.message_id : typeof event.messageId === "string" ? event.messageId : undefined,
+          });
+          break;
+
+        case "model_selected":
+          callbacks.onModelSelected?.({
+            event: "model_selected",
+            model_name: typeof event.model_name === "string" ? event.model_name : typeof event.modelName === "string" ? event.modelName : undefined,
+            company: typeof event.company === "string" ? event.company : undefined,
+            provider_name: typeof event.provider_name === "string" ? event.provider_name : typeof event.providerName === "string" ? event.providerName : undefined,
+            model_id: (event.model_id ?? event.modelId) as string | number | undefined,
+          });
           break;
 
         case "error":

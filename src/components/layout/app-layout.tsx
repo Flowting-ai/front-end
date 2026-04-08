@@ -58,7 +58,7 @@ import { CHATS_ENDPOINT, CHAT_STAR_ENDPOINT, API_BASE_URL } from "@/lib/config";
 import { toast } from "@/lib/toast-helper";
 import { extractThinkingContent } from "@/lib/thinking";
 import { fetchPersonas as fetchPersonasApi, type BackendPersona } from "@/lib/api/personas";
-import { hasReachedLimit } from "@/lib/plan-config";
+import { hasReachedLimit, canAccessFramework } from "@/lib/plan-config";
 import { UpgradePlanDialog } from "@/components/pricing/upgrade-plan-dialog";
 
 interface AppLayoutProps {
@@ -1084,6 +1084,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const hasFetchedChats = useRef(false);
   const isAuthenticatedRef = useRef(isAuthenticated);
   isAuthenticatedRef.current = isAuthenticated;
+
+  // Default to Advanced Framework for Pro/Power users on initial load
+  useEffect(() => {
+    if (user?.planType && canAccessFramework(user.planType, "advanced")) {
+      setFrameworkType("pro");
+    }
+  }, [user?.planType]);
 
   // Drop legacy per-browser pins cache (was shown after logout / account switch).
   useEffect(() => {

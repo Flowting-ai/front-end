@@ -39,11 +39,14 @@ import {
 } from "@/components/ui/tooltip";
 import Image from "next/image";
 import type { AIModel } from "@/types/ai-model";
+import type { UserPlanType } from "@/lib/api/user";
+import { canAccessFramework } from "@/lib/plan-config";
 import type { PinType } from "@/components/layout/right-sidebar";
 import { getModelIcon } from "@/lib/model-icons";
 import { CHAT_MESSAGES_ENDPOINT } from "@/lib/config";
 import { fetchModelsWithCache } from "@/lib/ai-models";
 import { renderInlineMarkdown, formatPinTitle } from "@/lib/markdown-utils";
+import { toast } from "@/lib/toast-helper";
 import { apiFetch } from "@/lib/api/client";
 import chatStyles from "@/components/chat/chat-interface.module.css";
 
@@ -61,6 +64,7 @@ interface ModelSwitchDialogProps {
   /** Pre-loaded message count (if already known by parent, avoids extra fetch) */
   knownMessageCount?: number;
   frameworkType?: "starter" | "pro";
+  userPlanType?: UserPlanType | null;
 }
 
 export interface ModelSwitchConfig {
@@ -86,6 +90,7 @@ export function ModelSwitchDialog({
   activeChatId,
   knownMessageCount,
   frameworkType = "starter",
+  userPlanType,
 }: ModelSwitchDialogProps) {
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,10 +108,12 @@ export function ModelSwitchDialog({
   const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
   // Auto-routing framework toggles
+  // Default to Advanced Framework for Pro/Power, Basic for Starter
+  const hasAdvanced = canAccessFramework(userPlanType, "advanced");
   const [starterFrameworkSelected, setStarterFrameworkSelected] =
-    useState<boolean>(true);
+    useState<boolean>(!hasAdvanced);
   const [proFrameworkSelected, setProFrameworkSelected] =
-    useState<boolean>(false);
+    useState<boolean>(hasAdvanced);
   // Input/Output modality filters (lowercase for matching)
   // const INPUT_OPTIONS = ["text", "image", "file", "audio", "video"] as const;
   // const OUTPUT_OPTIONS = ["text", "image", "embeddings", "audio"] as const;
@@ -196,9 +203,15 @@ export function ModelSwitchDialog({
     if (open) {
       const modelToSelect = pendingModel || currentModel;
       setSelectedModel(modelToSelect);
-      // If no model is selected, default to framework
-      setStarterFrameworkSelected(!modelToSelect);
-      setProFrameworkSelected(false);
+      // If a specific model is selected, deselect frameworks
+      // Otherwise default to Advanced for Pro/Power, Basic for Starter
+      if (modelToSelect) {
+        setStarterFrameworkSelected(false);
+        setProFrameworkSelected(false);
+      } else {
+        setStarterFrameworkSelected(!hasAdvanced);
+        setProFrameworkSelected(hasAdvanced);
+      }
       // chatMemory & totalMessages are reset by the fetch effect above
       setSelectedPinIds([]);
       setExpandedChatIds([]);
@@ -206,7 +219,7 @@ export function ModelSwitchDialog({
       setInputFilters(new Set());
       setOutputFilters(new Set());
     }
-  }, [open, currentModel, pendingModel]);
+  }, [open, currentModel, pendingModel, hasAdvanced]);
 
   const filteredModels = models.filter((model) => {
     if (!showFree && model.modelType === "free") return false;
@@ -405,15 +418,25 @@ export function ModelSwitchDialog({
                 </TooltipProvider>
               </div>
 
+              {(() => {
+                const advancedLocked = !canAccessFramework(userPlanType, "advanced");
+                return (
               <div
                 role="button"
                 tabIndex={0}
                 className={`cursor-pointer w-full rounded-[8px] flex transition-all duration-300 h-[36px] items-center border px-2 ${
-                  proFrameworkSelected
+                  !advancedLocked && proFrameworkSelected
                     ? "border-[#0A0A0A] bg-[#F5F5F5]"
                     : "border-transparent hover:bg-[#F5F5F5]"
                 }`}
+                style={{ opacity: advancedLocked ? 0.45 : 1 }}
                 onClick={() => {
+                  if (advancedLocked) {
+                    toast.info("Upgrade to Pro or Power", {
+                      description: "Advanced Framework is available on Pro and Power plans.",
+                    });
+                    return;
+                  }
                   setProFrameworkSelected((prev) => {
                     const next = !prev;
                     if (next) setStarterFrameworkSelected(false);
@@ -424,6 +447,12 @@ export function ModelSwitchDialog({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    if (advancedLocked) {
+                      toast.info("Upgrade to Pro or Power", {
+                        description: "Advanced Framework is available on Pro and Power plans.",
+                      });
+                      return;
+                    }
                     setProFrameworkSelected((prev) => {
                       const next = !prev;
                       if (next) setStarterFrameworkSelected(false);
@@ -432,7 +461,8 @@ export function ModelSwitchDialog({
                     setSelectedModel(null);
                   }
                 }}
-                aria-pressed={proFrameworkSelected}
+                aria-pressed={!advancedLocked && proFrameworkSelected}
+                aria-disabled={advancedLocked}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Image
@@ -441,8 +471,9 @@ export function ModelSwitchDialog({
                     height={20}
                     alt="souvenir ai logo"
                     className="w-5 h-5 object-contain"
+                    style={{ opacity: advancedLocked ? 0.45 : 1 }}
                   />
-                  <span className="font-geist text-sm text-[#171717] truncate">
+                  <span className="font-geist text-sm text-[#171717] truncate" style={{ opacity: advancedLocked ? 0.7 : 1 }}>
                     SouvenirAI: Advanced Framework
                   </span>
                 </div>
@@ -459,13 +490,15 @@ export function ModelSwitchDialog({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[280px] text-xs leading-5">
-                      Quality-first routing for complex work. Pro chooses
-                      stronger models more aggressively for deeper reasoning and
-                      richer outputs.
+                      {advancedLocked
+                        ? "Upgrade to Pro or Power to unlock Advanced Framework \u2014 quality-first routing for complex work."
+                        : "Quality-first routing for complex work. Pro chooses stronger models more aggressively for deeper reasoning and richer outputs."}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
+                );
+              })()}
             </div>
           </div>
 

@@ -969,25 +969,90 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "model_selected") {
+          const modelName =
+            typeof parsed.model_name === "string"
+              ? parsed.model_name
+              : typeof parsed.modelName === "string"
+                ? parsed.modelName
+                : undefined;
+          const providerName =
+            typeof parsed.company === "string"
+              ? parsed.company
+              : typeof parsed.provider_name === "string"
+                ? parsed.provider_name
+                : typeof parsed.providerName === "string"
+                  ? parsed.providerName
+                  : undefined;
+          const modelAvatar = getModelIcon(providerName, modelName);
+          const modelHint = [modelName, providerName]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          updateAiMessage({
+            avatarUrl: modelAvatar,
+            avatarHint: modelHint || undefined,
+            metadata: {
+              modelName,
+              providerName,
+              llmModelId:
+                (parsed.model_id ?? parsed.modelId ?? parsed.llm_model_id ?? parsed.llmModelId ?? null) as string | number | null,
+            },
+          });
+          return;
+        }
+
         if (eventName === "chunk") {
           const delta = typeof parsed.delta === "string" ? parsed.delta : "";
           assistantContent = mergeStreamingText(assistantContent, delta);
           const sanitized = extractThinkingContent(assistantContent);
+          const hasOpenThink = /<think>/i.test(assistantContent);
+          const hasCloseThink = /<\/think>/i.test(assistantContent);
+          const stillThinking = hasOpenThink && !hasCloseThink;
           updateAiMessage({
             content: sanitized.visibleText || "",
             thinkingContent: reasoningContent || sanitized.thinkingText,
-            isThinkingInProgress: false,
+            isThinkingInProgress: stillThinking && !reasoningContent,
             isLoading: false,
           });
           return;
         }
 
         if (eventName === "image") {
-          const imageUrl = typeof parsed.url === "string" ? parsed.url : "";
-          const imageAlt =
-            typeof parsed.alt === "string" ? parsed.alt : undefined;
-          if (imageUrl) {
-            updateAiMessage({ imageUrl, imageAlt });
+          const eventImages = Array.isArray(parsed.images)
+            ? parsed.images
+            : typeof parsed.url === "string" && parsed.url
+              ? [parsed.url]
+              : [];
+          const normalizedImages = eventImages
+            .map((img: unknown): { url: string; alt?: string } | null => {
+              if (typeof img === "string") {
+                const trimmed = img.trim();
+                return trimmed ? { url: trimmed } : null;
+              }
+              if (img && typeof img === "object") {
+                const obj = img as { url?: unknown; alt?: unknown };
+                const url = typeof obj.url === "string" ? obj.url.trim() : "";
+                if (!url) return null;
+                return { url, alt: typeof obj.alt === "string" ? obj.alt : undefined };
+              }
+              return null;
+            })
+            .filter((img: { url: string; alt?: string } | null): img is { url: string; alt?: string } => Boolean(img));
+          if (normalizedImages.length > 0) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg;
+                const existing = Array.isArray(msg.images) ? msg.images : [];
+                const merged = [...existing, ...normalizedImages];
+                return {
+                  ...msg,
+                  images: merged,
+                  isLoading: false,
+                  metadata: { ...(msg.metadata || {}), isImageGeneration: true },
+                };
+              }),
+            );
           }
           return;
         }
@@ -1042,6 +1107,21 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "error") {
+          const errorMessage =
+            typeof parsed.error === "string"
+              ? parsed.error
+              : "Unexpected error from model";
+          updateAiMessage({
+            content: errorMessage,
+            thinkingContent: null,
+            isLoading: false,
+            toolStatus: null,
+          });
+          setIsResponding(false);
+          return;
+        }
+
         if (eventName === "done") {
           applySavedMessageId(parsed);
           if (!resolvedChatId) {
@@ -1056,12 +1136,53 @@ export function PersonaChatFullPage({
           const finalContent =
             typeof parsed.content === "string"
               ? parsed.content
-              : assistantContent;
+              : typeof parsed.response === "string"
+                ? parsed.response
+                : assistantContent;
           const sanitized = extractThinkingContent(finalContent);
           const finalReasoning =
             reasoningContent ||
             (typeof parsed.reasoning === "string" ? parsed.reasoning : "") ||
             sanitized.thinkingText;
+
+          // Extract metadata from done payload
+          const messageMeta =
+            parsed.metadata && typeof parsed.metadata === "object"
+              ? (parsed.metadata as Record<string, unknown>)
+              : null;
+          const doneMetadata: Record<string, unknown> = {
+            modelName:
+              (messageMeta as Record<string, unknown> | null)?.modelName ??
+              (messageMeta as Record<string, unknown> | null)?.model_name ??
+              persona.modelName,
+            providerName:
+              (messageMeta as Record<string, unknown> | null)?.providerName ??
+              (messageMeta as Record<string, unknown> | null)?.provider_name ??
+              persona.providerName,
+          };
+          if (messageMeta) {
+            const metaTyped = messageMeta as Record<string, unknown>;
+            if (metaTyped.inputTokens ?? metaTyped.input_tokens)
+              doneMetadata.inputTokens = metaTyped.inputTokens ?? metaTyped.input_tokens;
+            if (metaTyped.outputTokens ?? metaTyped.output_tokens)
+              doneMetadata.outputTokens = metaTyped.outputTokens ?? metaTyped.output_tokens;
+            if (metaTyped.totalCost ?? metaTyped.total_cost)
+              doneMetadata.totalCost = metaTyped.totalCost ?? metaTyped.total_cost;
+          }
+
+          // Extract generated files from done event
+          const generatedFilesFromDone: Array<{ url: string; s3Key?: string; filename?: string; mimeType?: string }> = [];
+          const rawGenFiles = parsed.generated_files ?? parsed.generatedFiles;
+          if (Array.isArray(rawGenFiles)) {
+            rawGenFiles.forEach((item: unknown) => {
+              const gf = normalizeGeneratedFilePayload(item);
+              if (gf) generatedFilesFromDone.push(gf);
+            });
+          }
+          if (generatedFilesFromDone.length > 0) {
+            doneMetadata.generatedFiles = generatedFilesFromDone;
+          }
+
           updateAiMessage({
             content:
               sanitized.visibleText ||
@@ -1070,15 +1191,27 @@ export function PersonaChatFullPage({
             isThinkingInProgress: false,
             isLoading: false,
             toolStatus: null,
-            metadata: {
-              modelName: persona.modelName,
-              providerName: persona.providerName,
-            },
+            metadata: doneMetadata as Message["metadata"],
           });
 
-          // Extract generated images from file_attachments in the done event
+          // Collect all generated images: from parsed.images + file_attachments with origin=generated
+          const allGeneratedImages: Array<{ url: string; alt?: string }> = [];
+
+          // From parsed.images (direct array)
+          if (Array.isArray(parsed.images)) {
+            (parsed.images as unknown[]).forEach((img: unknown) => {
+              if (typeof img === "string" && img.trim()) {
+                allGeneratedImages.push({ url: img.trim() });
+              } else if (img && typeof img === "object") {
+                const obj = img as { url?: unknown; alt?: unknown };
+                const url = typeof obj.url === "string" ? obj.url.trim() : "";
+                if (url) allGeneratedImages.push({ url, alt: typeof obj.alt === "string" ? obj.alt : undefined });
+              }
+            });
+          }
+
+          // From file_attachments with origin=generated
           if (Array.isArray(parsed.file_attachments)) {
-            const generatedImages: Array<{ url: string; alt?: string }> = [];
             (parsed.file_attachments as Array<Record<string, unknown>>).forEach((att) => {
               if (!att || typeof att !== "object") return;
               const origin = typeof att.origin === "string" ? att.origin.trim().toLowerCase() : "";
@@ -1089,15 +1222,29 @@ export function PersonaChatFullPage({
               const mimeRaw = att.mime_type ?? att.mimeType;
               const mimeType = typeof mimeRaw === "string" ? mimeRaw.trim().toLowerCase() : "";
               if (mimeType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(url)) {
-                generatedImages.push({ url });
+                allGeneratedImages.push({ url });
               }
             });
-            if (generatedImages.length > 0) {
-              updateAiMessage({
-                images: generatedImages,
-                metadata: { isImageGeneration: true },
-              });
-            }
+          }
+
+          // Apply all generated images at once
+          if (allGeneratedImages.length > 0) {
+            setDisplayMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg;
+                const existing = Array.isArray(msg.images) ? msg.images : [];
+                // Dedupe by URL
+                const seen = new Set(existing.map((i) => i.url.trim().toLowerCase()));
+                const newImages = allGeneratedImages.filter(
+                  (i) => !seen.has(i.url.trim().toLowerCase()),
+                );
+                return {
+                  ...msg,
+                  images: [...existing, ...newImages],
+                  metadata: { ...(msg.metadata || {}), isImageGeneration: true },
+                };
+              }),
+            );
           }
 
           // Update user message attachments with permanent URLs from backend
