@@ -517,14 +517,16 @@ export function ModelSelectorDialog({
               aria-pressed={!advancedLocked && proFrameworkSelected}
               aria-disabled={advancedLocked}
             >
-              <div className="model-info">
+              <div className="model-info flex items-center">
                 <Image
                   src="/new-logos/souvenirAdvancedFramework.svg"
-                  width={20}
-                  height={20}
+                  width={25}
+                  height={25}
                   alt="souvenir ai logo"
-                  className="model-logo"
-                  style={{ opacity: advancedLocked ? 0.7 : 1, width: '35px', height: '35px' }}
+                  className="object-contain"
+                  // className="object-contain flex items-center justify-center pt-[6px]"
+                  // className="model-logo"
+                  // style={{ opacity: advancedLocked ? 0.7 : 1, width: '35px', height: '35px' }}
                 />
                 <span className="model-name" style={{ opacity: advancedLocked ? 0.8 : 1 }}>SouvenirAI: Advanced Framework</span>
               </div>
