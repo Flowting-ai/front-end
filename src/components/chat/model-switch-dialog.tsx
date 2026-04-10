@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -92,6 +92,9 @@ export function ModelSwitchDialog({
   frameworkType = "starter",
   userPlanType,
 }: ModelSwitchDialogProps) {
+  const DEFAULT_CHAT_MEMORY = 20;
+  const chatMemoryInitialized = useRef(false);
+
   const [models, setModels] = useState<AIModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(
@@ -103,7 +106,7 @@ export function ModelSwitchDialog({
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [isFetchingMessages, setIsFetchingMessages] = useState(false);
   // Chat memory slider value — driven by smart default once message count is known
-  const [chatMemory, setChatMemory] = useState(20);
+  const [chatMemory, setChatMemory] = useState(DEFAULT_CHAT_MEMORY);
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [expandedChatIds, setExpandedChatIds] = useState<string[]>([]);
   const [includeFiles, setIncludeFiles] = useState(true);
@@ -130,7 +133,7 @@ export function ModelSwitchDialog({
     if (count === 0) return 0;
     if (count <= 2) return 5;
     if (count <= 5) return 10;
-    return 20; // 6+ messages: standard 20%
+    return DEFAULT_CHAT_MEMORY; // 6+ messages: standard default
   };
 
   /** How many messages will actually be sent as context at the current slider value */
@@ -154,7 +157,15 @@ export function ModelSwitchDialog({
 
   // Fetch real message count for the active chat to drive the smart default
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      chatMemoryInitialized.current = false;
+      return;
+    }
+
+    // Only initialise chatMemory once per dialog open so the user's
+    // slider changes are never overwritten by re-running effects.
+    if (chatMemoryInitialized.current) return;
+    chatMemoryInitialized.current = true;
 
     // Use pre-supplied count when parent already knows it
     if (knownMessageCount !== undefined) {
@@ -164,9 +175,9 @@ export function ModelSwitchDialog({
     }
 
     if (!activeChatId) {
-      // No chat context — use the standard 20% default
+      // No chat context — use the standard default
       setTotalMessages(0);
-      setChatMemory(20);
+      setChatMemory(DEFAULT_CHAT_MEMORY);
       return;
     }
 
@@ -186,9 +197,9 @@ export function ModelSwitchDialog({
         setTotalMessages(count);
         setChatMemory(computeSmartDefault(count));
       } catch {
-        // Fallback: keep 20% default — no disruption to UX
+        // Fallback: keep default — no disruption to UX
         setTotalMessages(0);
-        setChatMemory(20);
+        setChatMemory(DEFAULT_CHAT_MEMORY);
       } finally {
         setIsFetchingMessages(false);
       }
