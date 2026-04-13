@@ -156,8 +156,10 @@ export default async function proxy(request: Request) {
   }
 
   if (!session) {
-    // No session → let auth0.middleware handle it (will redirect to login)
-    return await auth0.middleware(request);
+    // No session -> always send users to Auth0 login.
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("returnTo", pathname || "/");
+    return Response.redirect(loginUrl);
   }
 
   return await auth0.middleware(request);
