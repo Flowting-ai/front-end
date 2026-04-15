@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.16.0",
+    "@formspree/react": "^3.0.0",
     "@gsap/react": "^2.1.2",
     "@next/third-parties": "^16.2.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",

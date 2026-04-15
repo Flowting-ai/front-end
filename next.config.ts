@@ -45,12 +45,12 @@ const cspDirectives = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://stats.g.doubleclick.net https://*.mixpanel.com ${connectSrcOrigins.join(" ")}`,
+  `connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://stats.g.doubleclick.net https://*.mixpanel.com https://formspree.io ${connectSrcOrigins.join(" ")}`,
   "img-src 'self' data: blob: https: http: https://www.google-analytics.com https://www.googletagmanager.com",
   "media-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  "form-action 'self' https://formspree.io",
   "frame-ancestors 'self'",
 ];
 

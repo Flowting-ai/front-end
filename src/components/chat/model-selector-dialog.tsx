@@ -545,7 +545,7 @@ export function ModelSelectorDialog({
                     </TooltipTrigger>
                     <TooltipContent className="max-w-[280px] text-xs leading-5">
                       {advancedLocked
-                        ? "Upgrade to Pro or Power to unlock Advanced Framework — quality-first routing for complex work."
+                        ? "Upgrade to a Pro or Power Plan to unlock Advanced Framework - a quality-first routing for complex work."
                         : "Quality-first routing for complex work. Pro chooses stronger models more aggressively for deeper reasoning and richer outputs."}
                     </TooltipContent>
                   </Tooltip>

@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import AppLayout from "@/components/layout/app-layout";
-import { SquareArrowOutUpRight } from "lucide-react";
+import { Plus, SquareArrowOutUpRight } from "lucide-react";
 import Link from "next/link";
+import {
+  ReportBugModal,
+  FeatureRequestModal,
+} from "@/components/settings/feedback-modals";
 
 const helpLinks = [
   // {
@@ -17,18 +22,18 @@ const helpLinks = [
     description: "Reach our team via email",
     href: "https://www.getsouvenir.com/contact",
   },
-  // {
-  //   id: "feature-request",
-  //   title: "Feature Request",
-  //   description: "Suggest improvements",
-  //   href: "/feature-request",
-  // },
-  // {
-  //   id: "report-bug",
-  //   title: "Report a Bug",
-  //   description: "Let us know what's broken",
-  //   href: "/report-bug",
-  // },
+  {
+    id: "feature-request",
+    title: "Feature Request",
+    description: "Suggest improvements",
+    href: "/feature-request",
+  },
+  {
+    id: "report-bug",
+    title: "Report a Bug",
+    description: "Let us know what's broken",
+    href: "/report-bug",
+  },
 ];
 
 const legalLinks = [
@@ -56,10 +61,17 @@ const legalLinks = [
 
 export default function SettingsHelpAndLegalPage() {
   const thisYear = new Date().getFullYear();
+  const [reportBugOpen, setReportBugOpen] = useState(false);
+  const [featureRequestOpen, setFeatureRequestOpen] = useState(false);
 
   return (
     <AppLayout>
       <div className="w-full h-full flex justify-center items-start py-10 px-4 overflow-y-auto customScrollbar2">
+        <ReportBugModal open={reportBugOpen} onOpenChange={setReportBugOpen} />
+        <FeatureRequestModal
+          open={featureRequestOpen}
+          onOpenChange={setFeatureRequestOpen}
+        />
         <div className="w-full max-w-4xl flex flex-col gap-8">
           {/* Header */}
           <div className="space-y-1">
@@ -84,14 +96,32 @@ export default function SettingsHelpAndLegalPage() {
                     {item.description}
                   </span>
                 </div>
-                <Link
-                  href={item.href}
-                  className="inline-flex items-center justify-center"
-                  aria-label={item.title}
-                  target="_blank"
-                >
-                  <SquareArrowOutUpRight className="w-5 h-5 text-[#525252]" />
-                </Link>
+                {item.id === "report-bug" ? (
+                  <button
+                    onClick={() => setReportBugOpen(true)}
+                    className="inline-flex items-center justify-center"
+                    aria-label={item.title}
+                  >
+                    <Plus className="w-5 h-5 text-[#525252]" />
+                  </button>
+                ) : item.id === "feature-request" ? (
+                  <button
+                    onClick={() => setFeatureRequestOpen(true)}
+                    className="inline-flex items-center justify-center"
+                    aria-label={item.title}
+                  >
+                    <Plus className="w-5 h-5 text-[#525252]" />
+                  </button>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className="inline-flex items-center justify-center"
+                    aria-label={item.title}
+                    target="_blank"
+                  >
+                    <Plus className="w-5 h-5 text-[#525252]" />
+                  </Link>
+                )}
               </div>
             ))}
           </div>
