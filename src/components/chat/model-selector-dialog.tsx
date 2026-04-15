@@ -427,7 +427,7 @@ export function ModelSelectorDialog({
             >
               <div className="model-info">
                 <Image
-                  src="/new-logos/souvenir-logo.svg"
+                  src="/new-logos/souvenirBasicFrameworkLogo.svg"
                   width={20}
                   height={20}
                   alt="souvenir ai logo"
@@ -519,9 +519,9 @@ export function ModelSelectorDialog({
             >
               <div className="model-info flex items-center">
                 <Image
-                  src="/new-logos/souvenirAdvancedFramework.svg"
-                  width={25}
-                  height={25}
+                  src="/new-logos/souvenirAdvFrameworkLogo.svg"
+                  width={20}
+                  height={20}
                   alt="souvenir ai logo"
                   className="object-contain"
                   // className="object-contain flex items-center justify-center pt-[6px]"

@@ -146,7 +146,12 @@ export function ModelSelector({
       >
         {useFramework ? (
           <span className="w-5 h-5 bg-zinc-100 group-hover:bg-zinc-100 rounded-full shrink-0 inline-flex items-center justify-center p-0.5 transition-all duration-500">
-            <Image src="/new-logos/souvenir-logo.svg" alt="Souvenir AI" width={16} height={16}/>
+            <Image
+              src={frameworkType === "pro" ? "/new-logos/souvenirAdvFrameworkLogo.svg" : "/new-logos/souvenirBasicFrameworkLogo.svg"}
+              alt="Souvenir AI"
+              width={16}
+              height={16}
+            />
           </span>
         ) : selectedModel ? (
           <span className="w-5 h-5 bg-zinc-100 group-hover:bg-zinc-100 rounded-full shrink-0 inline-flex items-center justify-center p-0.5 transition-all duration-500">

@@ -398,7 +398,7 @@ export function ModelSwitchDialog({
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Image
-                    src="/new-logos/souvenir-logo.svg"
+                    src="/new-logos/souvenirBasicFrameworkLogo.svg"
                     width={20}
                     height={20}
                     alt="souvenir ai logo"
@@ -477,7 +477,7 @@ export function ModelSwitchDialog({
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Image
-                    src="/new-logos/souvenirAdvancedFramework.svg"
+                    src="/new-logos/souvenirAdvFrameworkLogo.svg"
                     width={30}
                     height={30}
                     alt="souvenir ai logo"
