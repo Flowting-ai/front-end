@@ -68,7 +68,14 @@ export function useFileUpload(): UseFileUploadReturn {
       const oversizedFiles: string[] = [];
       let skippedDueToLimit = 0;
 
+      const imageFiles: string[] = [];
+
       Array.from(files).forEach((file) => {
+        if (file.type.startsWith('image/')) {
+          imageFiles.push(file.name);
+          return;
+        }
+
         if (filesToAdd.length >= availableSlots) {
           skippedDueToLimit++;
           return;
@@ -86,6 +93,18 @@ export function useFileUpload(): UseFileUploadReturn {
 
         filesToAdd.push(createFileObject(file));
       });
+
+      if (imageFiles.length > 0) {
+        toast.error(
+          imageFiles.length === 1 ? 'Image files not supported' : 'Image files not supported',
+          {
+            description:
+              imageFiles.length === 1
+                ? `"${imageFiles[0]}" is an image file. Please upload documents only (PDF, Word, PowerPoint, Excel, etc.).`
+                : `${imageFiles.length} image files were skipped. Please upload documents only (PDF, Word, PowerPoint, Excel, etc.).`,
+          }
+        );
+      }
 
       if (oversizedFiles.length > 0) {
         toast.error(
