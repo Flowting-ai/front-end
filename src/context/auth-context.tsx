@@ -23,6 +23,7 @@ import type {
   UserUsage,
 } from "@/lib/api/user";
 import { fetchCurrentUser } from "@/lib/api/user";
+import { usageToCredits, formatCredits, getPlanCredits } from "@/lib/plan-config";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -52,6 +53,16 @@ export interface AuthUser {
   dailyBudgetAvailable?: string | null;
   nextBillingDate?: string | null;
   active?: boolean | null;
+  /** Total monthly credits for the plan (e.g. 12000 for Pro) */
+  creditsTotal?: number | null;
+  /** Credits consumed this billing cycle */
+  creditsUsed?: number | null;
+  /** Credits remaining this billing cycle */
+  creditsRemaining?: number | null;
+  /** Pre-formatted display string for total credits */
+  creditsDisplay?: string | null;
+  /** Pre-formatted display string for remaining credits */
+  creditsRemainingDisplay?: string | null;
 }
 
 interface AuthContextValue {
@@ -126,6 +137,18 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
       ? String(profile.usage.daily_remaining)
       : null,
     active: profile.active,
+    ...(() => {
+      const plan = profile.plan_type;
+      if (!plan || !profile.usage) return { creditsTotal: null, creditsUsed: null, creditsRemaining: null, creditsDisplay: null, creditsRemainingDisplay: null };
+      const c = usageToCredits(plan, profile.usage.monthly_used);
+      return {
+        creditsTotal: c.total,
+        creditsUsed: c.used,
+        creditsRemaining: c.remaining,
+        creditsDisplay: formatCredits(c.total),
+        creditsRemainingDisplay: formatCredits(c.remaining),
+      };
+    })(),
   };
 }
 

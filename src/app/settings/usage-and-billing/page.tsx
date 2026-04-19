@@ -388,15 +388,18 @@ function SettingsUsageAndBillingPageInner() {
 
             {/* Usage limits header */}
             <div className="space-y-1 text-black">
-              <h1 className="font-clash text-2xl">Your usage limits</h1>
+              <h1 className="font-clash text-2xl">Your credits</h1>
               <p className="font-geist text-sm text-[#4B5563]">
-                Track your monthly consumption.
+                Track your monthly credit consumption.{" "}
+                {user?.creditsDisplay && (
+                  <span className="font-medium text-black">{user.creditsRemainingDisplay} / {user.creditsDisplay} credits remaining</span>
+                )}
               </p>
             </div>
           </div>
 
           {/* Daily usage */}
-          {(() => {
+          {/* {(() => {
             const usage = user?.usage;
             const dailyPct =
               usage?.daily_used_pct !== undefined
@@ -429,10 +432,10 @@ function SettingsUsageAndBillingPageInner() {
                     style={{ width: `${dailyPct}%` }}
                   />
                 </div>
-                <span className="w-20 shrink-0 text-right text-sm text-[#757575]">{Math.round(dailyPct)}% used</span>
+                <span className="w-28 shrink-0 text-right text-sm text-[#757575]">{Math.round(dailyPct)}% used</span>
               </div>
             );
-          })()}
+          })()} */}
 
           {/* Monthly usage */}
           {(() => {
@@ -451,10 +454,15 @@ function SettingsUsageAndBillingPageInner() {
               seg2m = +normalizePct(byCategory.persona).toFixed(1);
               seg3m = +normalizePct(byCategory.workflow).toFixed(1);
             }
+
+            const creditsUsed = user?.creditsUsed ?? 0;
+            const creditsTotal = user?.creditsTotal ?? 0;
+            const creditsRemaining = user?.creditsRemaining ?? 0;
+
             return (
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-36 shrink-0">
-                  <p className="text-sm font-medium text-black">Monthly Limits</p>
+                  <p className="text-sm font-medium text-black">Monthly Credits</p>
                   <p className="text-xs text-[#757575]">Resets {nextMonthName} 1, {currentYear}</p>
                 </div>
                 <div className="flex-1 h-2.5 rounded-full bg-zinc-100 shadow-inner shadow-zinc-300 overflow-hidden">
@@ -463,7 +471,7 @@ function SettingsUsageAndBillingPageInner() {
                     style={{ width: `${monthlyPct}%` }}
                   />
                 </div>
-                <span className="w-20 shrink-0 text-right text-sm text-[#757575]">{Math.round(monthlyPct)}% used</span>
+                <span className="w-28 shrink-0 text-right text-sm text-[#757575]">{creditsRemaining.toLocaleString()} left</span>
               </div>
             );
           })()}

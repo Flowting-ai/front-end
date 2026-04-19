@@ -355,9 +355,9 @@ export default function WorkflowAdminPage() {
                   <div className="flex w-full flex-col md:flex-row md:flex-nowrap gap-6 pb-0">
                     {/* Left - Total Credits */}
                     <StatCard
-                      title="Tokens Usage"
-                      value={Math.round(user?.budgetConsumedPercent ?? 0) + "%"}
-                      suffix="Used"
+                      title="Credits Usage"
+                      value={(user?.creditsRemainingDisplay ?? "0")}
+                      suffix="Credits Left"
                       className="relative w-[601px] h-[148px] flex-none p-0!"
                     >
                       <div className="relative flex h-full w-full flex-col">
@@ -377,11 +377,10 @@ export default function WorkflowAdminPage() {
                             {/* Right */}
                             <div className="flex items-end gap-2">
                               <p className="font-inter font-normal text-[32px] leading-[120%] text-black">
-                                {Math.round(user?.budgetConsumedPercent ?? 0) +
-                                  "%"}
+                                {user?.creditsRemainingDisplay ?? "0"}
                               </p>
                               <span className="font-inter font-normal leading-[154%] text-sm text-black">
-                                used
+                                credits left
                               </span>
                             </div>
                           </div>
@@ -394,14 +393,15 @@ export default function WorkflowAdminPage() {
                                   ? normalizePct(user.usage.monthly_used_pct)
                                   : Math.min(user?.budgetConsumedPercent ?? 0, 100);
                               const byCategory = user?.usage?.by_category;
+                              const totalCredits = user?.creditsTotal ?? 0;
 
                               let seg1 = +(monthlyPct * 0.4).toFixed(1);
                               let seg2 = +(monthlyPct * 0.35).toFixed(1);
                               let seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
-                              // Display percentages for the legend (may differ from bar widths)
-                              let label1 = seg1;
-                              let label2 = seg2;
-                              let label3 = seg3;
+                              // Display credits consumed per category
+                              let creditLabel1 = Math.round(seg1 / 100 * totalCredits);
+                              let creditLabel2 = Math.round(seg2 / 100 * totalCredits);
+                              let creditLabel3 = Math.round(seg3 / 100 * totalCredits);
 
                               if (byCategory) {
                                 const rawChat = normalizePct(byCategory.chat);
@@ -409,10 +409,10 @@ export default function WorkflowAdminPage() {
                                 const rawWorkflow = normalizePct(byCategory.workflow);
                                 const rawTotal = rawChat + rawPersona + rawWorkflow;
 
-                                // Show actual category percentages in legend
-                                label1 = +rawChat.toFixed(1);
-                                label2 = +rawPersona.toFixed(1);
-                                label3 = +rawWorkflow.toFixed(1);
+                                // Compute credits consumed per category
+                                creditLabel1 = Math.round((rawChat / 100) * totalCredits);
+                                creditLabel2 = Math.round((rawPersona / 100) * totalCredits);
+                                creditLabel3 = Math.round((rawWorkflow / 100) * totalCredits);
 
                                 if (rawTotal > 0) {
                                   // Scale each segment so they sum to the total monthly usage
@@ -452,7 +452,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Chat{" "}
                                           <span className="font-medium text-black">
-                                            {label1}%
+                                            {creditLabel1.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>
@@ -462,7 +462,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Persona{" "}
                                           <span className="font-medium text-black">
-                                            {label2}%
+                                            {creditLabel2.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>
@@ -472,7 +472,7 @@ export default function WorkflowAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Workflow{" "}
                                           <span className="font-medium text-black">
-                                            {label3}%
+                                            {creditLabel3.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>

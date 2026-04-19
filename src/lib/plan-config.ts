@@ -75,6 +75,37 @@ export function getLimit(
   return PLAN_LIMITS[plan][resource];
 }
 
+// ── Monthly Credit Allowances ─────────────────────────────────────────────────
+
+export const PLAN_CREDITS: Record<UserPlanType, number> = {
+  starter: 5_000,
+  pro: 12_000,
+  power: 60_000,
+};
+
+/** Get the total monthly credit allowance for a plan. */
+export function getPlanCredits(plan: UserPlanType): number {
+  return PLAN_CREDITS[plan] ?? 0;
+}
+
+/**
+ * Convert raw API usage values into credits remaining.
+ * The API returns monetary usage ($); we map $1 → 1000 credits.
+ */
+export function usageToCredits(
+  plan: UserPlanType,
+  monthlyUsed: number,
+): { total: number; used: number; remaining: number } {
+  const total = PLAN_CREDITS[plan] ?? 0;
+  const used = Math.round(monthlyUsed * 1000);
+  return { total, used: Math.min(used, total), remaining: Math.max(total - used, 0) };
+}
+
+/** Format a credit number for display (e.g. 12000 → "12,000"). */
+export function formatCredits(credits: number): string {
+  return credits.toLocaleString("en-US");
+}
+
 // ── Framework Access ─────────────────────────────────────────────────────────
 
 export type FrameworkTier = "basic" | "advanced";
