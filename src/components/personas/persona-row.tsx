@@ -65,7 +65,7 @@ export const PersonaRow = React.forwardRef<HTMLTableRowElement, PersonaRowProps>
     ref
   ) => {
     const formatTokens = (tokens: number): string => {
-      return `${tokens}%`;
+      return tokens > 0 ? tokens.toLocaleString() : "-";
     };
 
     const allConsumersSelected =

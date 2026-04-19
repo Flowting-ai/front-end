@@ -392,15 +392,25 @@ export default function WorkflowAdminPage() {
                               const totalCredits = user?.creditsTotal ?? 0;
                               const usedCredits = user?.creditsUsed ?? 0;
 
-                              // Convert raw monetary by_category values to credits ($1 = 1000 credits)
-                              const chatCredits = Math.round((byCategory?.chat ?? 0) * 1000);
-                              const personaCredits = Math.round((byCategory?.persona ?? 0) * 1000);
-                              const workflowCredits = Math.round((byCategory?.workflow ?? 0) * 1000);
+                              // Split total used credits among categories by their ratio
+                              const rawChat = byCategory?.chat ?? 0;
+                              const rawPersona = byCategory?.persona ?? 0;
+                              const rawWorkflow = byCategory?.workflow ?? 0;
+                              const rawTotal = rawChat + rawPersona + rawWorkflow;
 
-                              // Bar segment widths as % of total credits
-                              const seg1 = totalCredits > 0 ? +((chatCredits / totalCredits) * 100).toFixed(1) : 0;
-                              const seg2 = totalCredits > 0 ? +((personaCredits / totalCredits) * 100).toFixed(1) : 0;
-                              const seg3 = totalCredits > 0 ? +((workflowCredits / totalCredits) * 100).toFixed(1) : 0;
+                              let chatCredits = 0;
+                              let personaCredits = 0;
+                              let workflowCredits = 0;
+                              if (rawTotal > 0) {
+                                chatCredits = Math.round((rawChat / rawTotal) * usedCredits);
+                                personaCredits = Math.round((rawPersona / rawTotal) * usedCredits);
+                                workflowCredits = Math.max(0, usedCredits - chatCredits - personaCredits);
+                              }
+
+                              // Bar segment widths as % of total plan credits
+                              const seg1 = totalCredits > 0 ? +((chatCredits / totalCredits) * 100).toFixed(2) : 0;
+                              const seg2 = totalCredits > 0 ? +((personaCredits / totalCredits) * 100).toFixed(2) : 0;
+                              const seg3 = totalCredits > 0 ? +((workflowCredits / totalCredits) * 100).toFixed(2) : 0;
 
                               return (
                                 <>

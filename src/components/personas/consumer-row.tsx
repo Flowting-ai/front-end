@@ -36,7 +36,7 @@ export interface ConsumerRowProps {
 export const ConsumerRow = React.forwardRef<HTMLTableRowElement, ConsumerRowProps>(
   ({ consumer, selected = false, onToggle, onPause, onResume, onDelete }, ref) => {
     const formatTokens = (tokens: number): string => {
-      return `${tokens}%`;
+      return tokens > 0 ? tokens.toLocaleString() : "-";
     };
 
     const statusStyles: Record<Consumer["status"], string> = {

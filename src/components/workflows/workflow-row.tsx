@@ -72,7 +72,7 @@ export const WorkflowRow = React.forwardRef<
   WorkflowRowProps
 >(({ workflow, onPause, onResume, onDelete, onEdit, onView, onChat, onShare }, ref) => {
   const formatCredits = (credits: number): string => {
-    return `${credits}%`;
+    return credits > 0 ? credits.toLocaleString() : "-";
   };
   const secondaryText =
     workflow.documentFilename && workflow.documentFilename.trim().length > 0

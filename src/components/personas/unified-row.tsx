@@ -96,7 +96,7 @@ export type UnifiedRowProps = PersonaRowProps | ConsumerRowProps;
 
 // Shared utility functions
 const formatTokens = (tokens: number): string => {
-  return `${tokens}%`;
+  return tokens > 0 ? tokens.toLocaleString() : "-";
 };
 
 const statusStyles: Record<"active" | "paused" | "inactive", string> = {
@@ -259,7 +259,7 @@ export const UnifiedRow = React.forwardRef<HTMLTableRowElement, UnifiedRowProps>
               )}
             </div>
 
-            {/* Token Usage Column */}
+            {/* Credits Column */}
             <div className={cn(
               COLUMN_WIDTHS.tokens,
               "flex items-center justify-center shrink-0 px-0",
