@@ -666,6 +666,7 @@ const toWorkflowMetadata = (
     isPublic: false,
     isActive: workflow.is_active !== undefined ? workflow.is_active : true,
     runsCount: Number(workflow.chats_count || 0),
+    totalUsage: workflow.total_usage ?? 0,
   };
 };
 

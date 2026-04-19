@@ -127,7 +127,7 @@ export default function WorkflowAdminPage() {
         description: wf.description,
         documentFilename: wf.documentFilename ?? null,
         status: wf.isActive ? "active" : "paused",
-        creditUsage: 0, // TODO: Backend doesn't provide this yet
+        creditUsage: Math.round((wf.totalUsage ?? 0) * 1000),
         consumers: [],
         consumersCount: 0,
         nodeCount: wf.nodeCount,

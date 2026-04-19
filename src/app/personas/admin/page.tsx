@@ -167,7 +167,7 @@ export default function PersonaAdminPage() {
               documentFilename,
               avatar: avatarUrl,
               status: (bp.is_active === false ? "paused" : "active") as "active" | "paused",
-              tokensUsed: 0, // TODO: Backend doesn't provide this yet
+              tokensUsed: Math.round((bp.total_usage ?? 0) * 1000),
               consumersCount: 0, // TODO: Backend doesn't provide this yet
               consumers: [], // TODO: Backend doesn't provide this yet
               createdAt: bp.createdAt ?? bp.created_at,

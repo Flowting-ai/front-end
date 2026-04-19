@@ -158,6 +158,7 @@ export interface WorkflowMetadata {
   isActive?: boolean;
   runsCount?: number;
   thumbnail?: string;
+  totalUsage?: number;
 }
 
 export interface NodePaletteItem {

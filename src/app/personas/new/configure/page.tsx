@@ -75,6 +75,7 @@ import {
   fetchPersonaById,
   fetchPersonas,
 } from "@/lib/api/personas";
+import { friendlyApiError } from "@/lib/api/client";
 import { useAuth } from "@/context/auth-context";
 import { API_BASE_URL } from "@/lib/config";
 import { hasReachedLimit } from "@/lib/plan-config";
@@ -753,7 +754,11 @@ function PersonaConfigurePageContent() {
 
     setIsSaving(true);
     try {
-      await savePersonaForTest();
+      const personaId = await savePersonaForTest();
+      if (!personaId) {
+        // savePersonaForTest already showed an error toast
+        return;
+      }
       setIsTesting(true);
       toast("Ready to test", {
         description: "You can now test your persona in the chat!",
@@ -898,6 +903,9 @@ function PersonaConfigurePageContent() {
       } catch {
         // Not JSON, use as-is
       }
+
+      // Convert raw error to user-friendly message
+      errorMessage = friendlyApiError(errorMessage);
 
       const lowerError = errorMessage.toLowerCase();
 
