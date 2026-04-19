@@ -1603,8 +1603,8 @@ export function LeftSidebar({
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  disabled
-                  className="opacity-50 cursor-not-allowed flex items-center gap-2 rounded-md text-lsb-text"
+                  onClick={() => router.push("/settings/help-and-legal")}
+                  className="cursor-pointer flex items-center gap-2 rounded-md text-lsb-text"
                 >
                   <HelpCircle className="h-4 w-4 text-lsb-text" />
                   Help
