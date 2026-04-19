@@ -92,7 +92,7 @@ export function ModelSwitchDialog({
   frameworkType = "starter",
   userPlanType,
 }: ModelSwitchDialogProps) {
-  const DEFAULT_CHAT_MEMORY = 20;
+  const DEFAULT_CHAT_MEMORY = 100;
   const chatMemoryInitialized = useRef(false);
 
   const [models, setModels] = useState<AIModel[]>([]);
@@ -129,11 +129,8 @@ export function ModelSwitchDialog({
   const [outputDropdownOpen, setOutputDropdownOpen] = useState(false);
 
   /** Compute smart default % based on how many messages exist in this chat */
-  const computeSmartDefault = (count: number): number => {
-    if (count === 0) return 0;
-    if (count <= 2) return 5;
-    if (count <= 5) return 10;
-    return DEFAULT_CHAT_MEMORY; // 6+ messages: standard default
+  const computeSmartDefault = (_count: number): number => {
+    return DEFAULT_CHAT_MEMORY;
   };
 
   /** How many messages will actually be sent as context at the current slider value */
