@@ -439,25 +439,10 @@ function SettingsUsageAndBillingPageInner() {
 
           {/* Monthly usage */}
           {(() => {
-            const monthlyPct =
-              user?.usage?.monthly_used_pct !== undefined
-                ? normalizePct(user.usage.monthly_used_pct)
-                : Math.min(user?.budgetConsumedPercent ?? 0, 100);
-            const byCategory = user?.usage?.by_category;
-
-            let seg1m = +(monthlyPct * 0.40).toFixed(1);
-            let seg2m = +(monthlyPct * 0.35).toFixed(1);
-            let seg3m = +(monthlyPct - seg1m - seg2m).toFixed(1);
-
-            if (byCategory) {
-              seg1m = +normalizePct(byCategory.chat).toFixed(1);
-              seg2m = +normalizePct(byCategory.persona).toFixed(1);
-              seg3m = +normalizePct(byCategory.workflow).toFixed(1);
-            }
-
             const creditsUsed = user?.creditsUsed ?? 0;
             const creditsTotal = user?.creditsTotal ?? 0;
             const creditsRemaining = user?.creditsRemaining ?? 0;
+            const usedPct = creditsTotal > 0 ? Math.min((creditsUsed / creditsTotal) * 100, 100) : 0;
 
             return (
               <div className="flex items-center gap-4 mb-4">
@@ -468,7 +453,7 @@ function SettingsUsageAndBillingPageInner() {
                 <div className="flex-1 h-2.5 rounded-full bg-zinc-100 shadow-inner shadow-zinc-300 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[#5A9CB5] transition-all duration-500"
-                    style={{ width: `${monthlyPct}%` }}
+                    style={{ width: `${usedPct}%` }}
                   />
                 </div>
                 <span className="w-28 shrink-0 text-right text-sm text-[#757575]">{creditsRemaining.toLocaleString()} left</span>

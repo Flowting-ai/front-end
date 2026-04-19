@@ -559,43 +559,19 @@ export default function PersonaAdminPage() {
                           {/* Bottom */}
                           <div className="mt-4 flex flex-col gap-2">
                             {(() => {
-                              const monthlyPct =
-                                user?.usage?.monthly_used_pct !== undefined
-                                  ? normalizePct(user.usage.monthly_used_pct)
-                                  : Math.min(user?.budgetConsumedPercent ?? 0, 100);
                               const byCategory = user?.usage?.by_category;
                               const totalCredits = user?.creditsTotal ?? 0;
+                              const usedCredits = user?.creditsUsed ?? 0;
 
-                              let seg1 = +(monthlyPct * 0.4).toFixed(1);
-                              let seg2 = +(monthlyPct * 0.35).toFixed(1);
-                              let seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
-                              // Display credits consumed per category
-                              let creditLabel1 = Math.round(seg1 / 100 * totalCredits);
-                              let creditLabel2 = Math.round(seg2 / 100 * totalCredits);
-                              let creditLabel3 = Math.round(seg3 / 100 * totalCredits);
+                              // Convert raw monetary by_category values to credits ($1 = 1000 credits)
+                              const chatCredits = Math.round((byCategory?.chat ?? 0) * 1000);
+                              const personaCredits = Math.round((byCategory?.persona ?? 0) * 1000);
+                              const workflowCredits = Math.round((byCategory?.workflow ?? 0) * 1000);
 
-                              if (byCategory) {
-                                const rawChat = normalizePct(byCategory.chat);
-                                const rawPersona = normalizePct(byCategory.persona);
-                                const rawWorkflow = normalizePct(byCategory.workflow);
-                                const rawTotal = rawChat + rawPersona + rawWorkflow;
-
-                                // Compute credits consumed per category
-                                creditLabel1 = Math.round((rawChat / 100) * totalCredits);
-                                creditLabel2 = Math.round((rawPersona / 100) * totalCredits);
-                                creditLabel3 = Math.round((rawWorkflow / 100) * totalCredits);
-
-                                if (rawTotal > 0) {
-                                  // Scale each segment so they sum to the total monthly usage
-                                  seg1 = +((rawChat / rawTotal) * monthlyPct).toFixed(1);
-                                  seg2 = +((rawPersona / rawTotal) * monthlyPct).toFixed(1);
-                                  seg3 = +(monthlyPct - seg1 - seg2).toFixed(1);
-                                } else {
-                                  seg1 = 0;
-                                  seg2 = 0;
-                                  seg3 = 0;
-                                }
-                              }
+                              // Bar segment widths as % of total credits
+                              const seg1 = totalCredits > 0 ? +((chatCredits / totalCredits) * 100).toFixed(1) : 0;
+                              const seg2 = totalCredits > 0 ? +((personaCredits / totalCredits) * 100).toFixed(1) : 0;
+                              const seg3 = totalCredits > 0 ? +((workflowCredits / totalCredits) * 100).toFixed(1) : 0;
 
                               return (
                                 <>
@@ -623,7 +599,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Chat{" "}
                                           <span className="font-medium text-black">
-                                            {creditLabel1.toLocaleString()}
+                                            {chatCredits.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>
@@ -633,7 +609,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Persona{" "}
                                           <span className="font-medium text-black">
-                                            {creditLabel2.toLocaleString()}
+                                            {personaCredits.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>
@@ -643,7 +619,7 @@ export default function PersonaAdminPage() {
                                         <p className="font-geist text-[11px] text-[#737373]">
                                           Workflow{" "}
                                           <span className="font-medium text-black">
-                                            {creditLabel3.toLocaleString()}
+                                            {workflowCredits.toLocaleString()}
                                           </span>
                                         </p>
                                       </div>
