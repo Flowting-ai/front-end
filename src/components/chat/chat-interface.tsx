@@ -40,8 +40,10 @@ import {
   stripMarkdown,
 } from "@/lib/markdown-utils";
 import { fetchChatBoards } from "@/lib/api/chat";
+import { friendlyApiError } from "@/lib/api/client";
+import { reportSessionExpired, reportApiFailure, reportError } from "@/lib/error-reporter";
 // Personas are fetched once in AppLayout and shared via context — no separate fetch needed here.
-import { getAuthHeaders } from "@/lib/jwt-utils";
+import { getAuthHeaders, ensureFreshToken } from "@/lib/jwt-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1407,10 +1409,11 @@ export function ChatInterface({
         delete headers["Content-Type"];
       }
 
-      // Add auth headers
+      // Add auth headers — ensure token is fresh before streaming request
+      await ensureFreshToken();
       const authHeaders = getAuthHeaders(headers);
 
-      const response = await fetch(endpoint, {
+      let response = await fetch(endpoint, {
         method: "POST",
         headers: authHeaders,
         credentials: "include",
@@ -1418,9 +1421,47 @@ export function ChatInterface({
         signal: controller.signal,
       });
 
+      // Retry once on 401 — the token may have expired between the freshness
+      // check and the actual request arriving at the backend.
+      if (response.status === 401 && typeof window !== "undefined") {
+        const refreshed = await ensureFreshToken();
+        if (refreshed) {
+          const retryHeaders = getAuthHeaders(headers);
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: retryHeaders,
+            credentials: "include",
+            body,
+            signal: controller.signal,
+          });
+        }
+        if (response.status === 401) {
+          // Session is truly expired — log out silently instead of showing an error
+          setMessages(
+            (prev = []) =>
+              prev.map((msg) =>
+                msg.id === loadingMessageId
+                  ? { ...msg, content: "Your session has expired. Signing you out\u2026", isLoading: false }
+                  : msg,
+              ),
+            chatId ?? undefined,
+          );
+          setIsResponding(false);
+          reportSessionExpired("chat-stream", 401);
+          toast.error("Session expired", {
+            description: "Signing you out\u2026",
+          });
+          window.dispatchEvent(new Event("auth:session-expired"));
+          return;
+        }
+      }
+
       if (!response.ok || !response.body) {
         const errorText = await response.text();
-        throw new Error(errorText || "API request failed");
+        reportApiFailure("chat-stream", endpoint, response.status, errorText || "empty response");
+        throw new Error(
+          friendlyApiError(errorText || "API request failed", response.status),
+        );
       }
 
       // Fallback: some backends return the chat id in response headers for new chats.
@@ -2379,20 +2420,47 @@ export function ChatInterface({
           }
 
           if (eventName === "error") {
-            const errorMessage =
+            const rawError =
               typeof parsed.error === "string"
                 ? parsed.error
                 : "Unexpected error from model";
-            flushQueuedAiUpdate();
-            queueAiMessageUpdate({
-              content: errorMessage,
-              thinkingContent: null,
-              isLoading: false,
-              toolStatus: null,
-            }, true);
-            setIsResponding(false);
-            streamFinished = true;
-            shouldStopReading = true;
+
+            // If the stream error is auth-related, log out instead of showing an error
+            const lower = rawError.toLowerCase();
+            if (
+              lower.includes("token expired") ||
+              lower.includes("not authenticated") ||
+              lower.includes("unauthorized")
+            ) {
+              flushQueuedAiUpdate();
+              queueAiMessageUpdate({
+                content: "Your session has expired. Signing you out\u2026",
+                isLoading: false,
+              }, true);
+              setIsResponding(false);
+              streamFinished = true;
+              shouldStopReading = true;
+              reportSessionExpired("chat-sse-event");
+              window.dispatchEvent(new Event("auth:session-expired"));
+            } else {
+              const errorMessage = friendlyApiError(rawError);
+              reportError({
+                title: "SSE Stream Error",
+                message: rawError,
+                severity: "error",
+                source: "chat-sse-event",
+              });
+              flushQueuedAiUpdate();
+              queueAiMessageUpdate({
+                content: errorMessage,
+                thinkingContent: null,
+                isLoading: false,
+                toolStatus: null,
+              }, true);
+              setIsResponding(false);
+              streamFinished = true;
+              shouldStopReading = true;
+            }
           }
         }
       };
@@ -2488,10 +2556,34 @@ export function ChatInterface({
       }
       console.error("Error fetching AI response:", error);
 
-      const errorMessage =
+      const rawMsg =
         error instanceof Error && error.message
           ? error.message
           : "Failed to connect to AI service";
+
+      // If the error is auth-related, log out silently
+      const lower = rawMsg.toLowerCase();
+      if (
+        lower.includes("token expired") ||
+        lower.includes("session has expired") ||
+        lower.includes("not authenticated") ||
+        lower.includes("unauthorized") ||
+        lower.includes("401")
+      ) {
+        reportSessionExpired("chat-catch");
+        setIsResponding(false);
+        window.dispatchEvent(new Event("auth:session-expired"));
+        return;
+      }
+
+      const errorMessage = friendlyApiError(rawMsg);
+
+      reportError({
+        title: "Chat Request Failed",
+        message: rawMsg,
+        severity: "error",
+        source: "chat-catch",
+      });
 
       const errorResponse: Message = {
         id: loadingMessageId,
@@ -3275,7 +3367,10 @@ export function ChatInterface({
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete message");
+        const errorText = await response.text();
+        throw new Error(
+          friendlyApiError(errorText || "Failed to delete message", response.status),
+        );
       }
 
       const data = await response.json();
@@ -3306,8 +3401,9 @@ export function ChatInterface({
       });
     } catch (error) {
       console.error("Error deleting message:", error);
+      const msg = error instanceof Error ? error.message : "Unable to delete message.";
       toast.error("Delete failed", {
-        description: "Unable to delete message. Please try again.",
+        description: friendlyApiError(msg),
       });
       setMessageToDelete(null);
     }
@@ -3338,7 +3434,9 @@ export function ChatInterface({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || "Failed to delete chat");
+        throw new Error(
+          friendlyApiError(errorText || "Failed to delete chat", response.status),
+        );
       }
 
       setMessages([], chatId);
@@ -3366,9 +3464,9 @@ export function ChatInterface({
       });
     } catch (error) {
       console.error("Failed to delete chat", error);
+      const msg = error instanceof Error ? error.message : "Unable to delete chat.";
       toast.error("Delete failed", {
-        description:
-          error instanceof Error ? error.message : "Unable to delete chat.",
+        description: friendlyApiError(msg),
       });
     } finally {
       setIsDeletingChat(false);

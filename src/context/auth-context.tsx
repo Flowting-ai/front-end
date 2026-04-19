@@ -13,6 +13,7 @@ import {
   getAuth0AccessToken,
   clearInMemoryAccessToken,
   setInMemoryAccessToken,
+  isTokenExpiringSoon,
 } from "@/lib/jwt-utils";
 import type {
   UserInvoice,
@@ -167,6 +168,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
     };
   }, []);
+
+  // Proactive token refresh — check every 30s and refresh if close to expiry
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const timer = setInterval(async () => {
+      if (isTokenExpiringSoon()) {
+        const token = await getAuth0AccessToken();
+        setJwtToken(token);
+      }
+    }, 30_000);
+
+    return () => clearInterval(timer);
+  }, [setJwtToken]);
 
   const clearAuth = useCallback(() => {
     setUser(null);
