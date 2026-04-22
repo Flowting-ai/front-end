@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -775,7 +774,7 @@ export function ModelSwitchDialog({
                 )}
                 <span className="text-sm text-[#8a8a8a]">{chatMemory}%</span>
               </div>
-              <Slider
+              {/* <Slider
                 value={[chatMemory]}
                 onValueChange={(value) => setChatMemory(value[0])}
                 min={0}
@@ -783,7 +782,7 @@ export function ModelSwitchDialog({
                 step={1}
                 disabled={isFetchingMessages}
                 className="w-full"
-              />
+              /> */}
               <div className="flex justify-between text-xs text-[#8a8a8a] mt-1">
                 <span>0</span>
                 <span>100</span>
