@@ -137,7 +137,7 @@ export default function Page() {
           </div>
 
           <Link
-            href="https://app.getsouvenir.com/auth/login"
+            href="https://app.getsouvenir.com/auth/logout"
             className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
