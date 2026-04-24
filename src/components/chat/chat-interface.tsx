@@ -763,10 +763,6 @@ export function ChatInterface({
     };
   };
   const isMobile = useIsMobile();
-  // Prevent hydration mismatch: don't render until isMobile is known
-  if (typeof isMobile === "undefined") {
-    return null;
-  }
   const [isResponding, setIsResponding] = useState(false);
   const displayMessages = messages;
   const { user } = useAuth();
@@ -816,73 +812,6 @@ export function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when source content (key) changes
   }, [sourcesSyncKey]);
 
-
-  const handleReact = (message: Message, reaction: string | null) => {
-    if (message.sender !== "ai") return;
-
-    const chatId = layoutContext?.activeChatId ?? undefined;
-    const current = message.metadata?.userReaction || null;
-    const nextReaction =
-      reaction === null || current === reaction ? null : reaction;
-
-    setMessages(
-      (prev = []) =>
-        prev.map((m) =>
-          m.id === message.id
-            ? {
-                ...m,
-                metadata: {
-                  ...m.metadata,
-                  userReaction: nextReaction,
-                },
-              }
-            : m,
-        ),
-      chatId,
-    );
-
-    if (nextReaction === "like") {
-      toast.success("Message liked");
-      return;
-    }
-
-    if (nextReaction === "dislike") {
-      toast.success("Message disliked");
-      return;
-    }
-
-    toast.info("Reaction removed");
-  };
-
-  const handleOpenSources = (message: Message) => {
-    if (message.sender !== "ai" || !layoutContext) return;
-
-    // Extract sources from the specific message (similar to sourcesForPanel logic)
-    const content = message.content ?? "";
-    const titlesFromChat = extractTitlesFromContentByUrl(content);
-    const fromMeta = message.metadata?.sources;
-    const rawSources: MessageSource[] =
-      fromMeta && fromMeta.length > 0
-        ? fromMeta
-        : extractSourcesFromContent(content);
-
-    const filtered = filterSourcesExcludingGeneratedDocuments(
-      message,
-      rawSources,
-    );
-    const messageSources = filtered.map((s) => {
-      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
-      const title = chatTitle?.trim() || s.title?.trim();
-      return { ...s, title: title || undefined };
-    });
-
-    // Update the references sources with this specific message's sources
-    layoutContext.setReferencesSources(messageSources);
-
-    // Open the references panel
-    layoutContext.openReferencesPanel();
-  };
-
   const pinsById = useMemo(() => {
     const entries = (layoutContext?.pins || []).map((p) => [p.id, p]);
     return new Map<string, PinType>(entries as [string, PinType][]);
@@ -901,13 +830,22 @@ export function ChatInterface({
   const [isDeletingChat, setIsDeletingChat] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const composerPlaceholder =
-    selectedModel || layoutContext?.useFramework
-      ? "Let's Play..."
-      : "Choose a model or enable framework to start chatting";
   const messageBufferRef = useRef<Message[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef(false);
+
+  // Abort any in-flight streaming request when the component unmounts.
+  // This prevents orphaned streams from running in the background (e.g. when
+  // navigating to personas and back) which can cause 429 rate-limit errors
+  // from concurrent requests to the same endpoint.
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -980,6 +918,129 @@ export function ChatInterface({
     });
   }, [availablePins, pinSearchQuery]);
 
+  // Reset highlighted index when dropdown opens or filtered pins change
+  useEffect(() => {
+    if (showPinDropdown && filteredPins.length > 0) {
+      setHighlightedPinIndex(0);
+    }
+  }, [showPinDropdown, filteredPins.length]);
+
+  // Auto-scroll highlighted pin into view when navigating with keyboard
+  useEffect(() => {
+    if (showPinDropdown && highlightedPinIndex >= 0) {
+      const highlightedElement = pinItemRefs.current.get(highlightedPinIndex);
+      if (highlightedElement && pinDropdownScrollRef.current) {
+        highlightedElement.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    }
+  }, [highlightedPinIndex, showPinDropdown]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        textareaRef.current &&
+        !textareaRef.current.contains(event.target as Node)
+      ) {
+        setShowPinDropdown(false);
+      }
+    };
+
+    if (showPinDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showPinDropdown]);
+
+  useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (viewport && isScrolledToBottom) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [messages, isScrolledToBottom]);
+
+  // Prevent hydration mismatch: don't render until isMobile is known
+  if (typeof isMobile === "undefined") {
+    return null;
+  }
+
+  const composerPlaceholder =
+    selectedModel || layoutContext?.useFramework
+      ? "Let's Play..."
+      : "Choose a model or enable framework to start chatting";
+
+  const handleReact = (message: Message, reaction: string | null) => {
+    if (message.sender !== "ai") return;
+
+    const chatId = layoutContext?.activeChatId ?? undefined;
+    const current = message.metadata?.userReaction || null;
+    const nextReaction =
+      reaction === null || current === reaction ? null : reaction;
+
+    setMessages(
+      (prev = []) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? {
+                ...m,
+                metadata: {
+                  ...m.metadata,
+                  userReaction: nextReaction,
+                },
+              }
+            : m,
+        ),
+      chatId,
+    );
+
+    if (nextReaction === "like") {
+      toast.success("Message liked");
+      return;
+    }
+
+    if (nextReaction === "dislike") {
+      toast.success("Message disliked");
+      return;
+    }
+
+    toast.info("Reaction removed");
+  };
+
+  const handleOpenSources = (message: Message) => {
+    if (message.sender !== "ai" || !layoutContext) return;
+
+    // Extract sources from the specific message (similar to sourcesForPanel logic)
+    const content = message.content ?? "";
+    const titlesFromChat = extractTitlesFromContentByUrl(content);
+    const fromMeta = message.metadata?.sources;
+    const rawSources: MessageSource[] =
+      fromMeta && fromMeta.length > 0
+        ? fromMeta
+        : extractSourcesFromContent(content);
+
+    const filtered = filterSourcesExcludingGeneratedDocuments(
+      message,
+      rawSources,
+    );
+    const messageSources = filtered.map((s) => {
+      const chatTitle = titlesFromChat.get(normalizeUrlForMatch(s.url));
+      const title = chatTitle?.trim() || s.title?.trim();
+      return { ...s, title: title || undefined };
+    });
+
+    // Update the references sources with this specific message's sources
+    layoutContext.setReferencesSources(messageSources);
+
+    // Open the references panel
+    layoutContext.openReferencesPanel();
+  };
+
   // Helper function to highlight matching text
   const highlightMatch = (text: string, query: string) => {
     if (!query.trim()) return text;
@@ -1034,53 +1095,6 @@ export function ChatInterface({
     const index = Math.abs(hash) % lightColorPalette.length;
     return lightColorPalette[index];
   };
-
-  // Reset highlighted index when dropdown opens or filtered pins change
-  useEffect(() => {
-    if (showPinDropdown && filteredPins.length > 0) {
-      setHighlightedPinIndex(0);
-    }
-  }, [showPinDropdown, filteredPins.length]);
-
-  // Auto-scroll highlighted pin into view when navigating with keyboard
-  useEffect(() => {
-    if (showPinDropdown && highlightedPinIndex >= 0) {
-      const highlightedElement = pinItemRefs.current.get(highlightedPinIndex);
-      if (highlightedElement && pinDropdownScrollRef.current) {
-        highlightedElement.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      }
-    }
-  }, [highlightedPinIndex, showPinDropdown]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        textareaRef.current &&
-        !textareaRef.current.contains(event.target as Node)
-      ) {
-        setShowPinDropdown(false);
-      }
-    };
-
-    if (showPinDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showPinDropdown]);
-
-  useEffect(() => {
-    const viewport = scrollViewportRef.current;
-    if (viewport && isScrolledToBottom) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  }, [messages, isScrolledToBottom]);
 
   // Show scroll-to-bottom button when not at bottom
   const handleScrollToBottom = () => {
@@ -1456,6 +1470,23 @@ export function ChatInterface({
         }
       }
 
+      // Retry once after a delay on 429 (rate limit).
+      // The backend may have throttled a burst of requests (e.g. concurrent
+      // streams from navigation). Respect Retry-After header when present.
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        const delayMs = retryAfter ? Math.min(Number(retryAfter) * 1000, 10000) : 2000;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        const retryHeaders429 = getAuthHeaders(headers);
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: retryHeaders429,
+          credentials: "include",
+          body,
+          signal: controller.signal,
+        });
+      }
+
       if (!response.ok || !response.body) {
         const errorText = await response.text();
         reportApiFailure("chat-stream", endpoint, response.status, errorText || "empty response");
@@ -1486,7 +1517,6 @@ export function ChatInterface({
       let shouldStopReading = false;
       const AI_UPDATE_INTERVAL_MS = 16;
       let pendingAiFields: Partial<Message> | null = null;
-      let aiUpdateRafId: number | null = null;
       let aiUpdateTimer: ReturnType<typeof setTimeout> | null = null;
       let lastAiFlushAt = 0;
 
@@ -1511,10 +1541,6 @@ export function ChatInterface({
       };
 
       const clearScheduledAiUpdate = () => {
-        if (aiUpdateRafId !== null) {
-          cancelAnimationFrame(aiUpdateRafId);
-          aiUpdateRafId = null;
-        }
         if (aiUpdateTimer !== null) {
           clearTimeout(aiUpdateTimer);
           aiUpdateTimer = null;
@@ -1554,20 +1580,17 @@ export function ChatInterface({
           return;
         }
 
-        if (aiUpdateRafId !== null || aiUpdateTimer !== null) return;
+        if (aiUpdateTimer !== null) return;
 
         const elapsed = Date.now() - lastAiFlushAt;
-        if (elapsed >= AI_UPDATE_INTERVAL_MS) {
-          aiUpdateRafId = requestAnimationFrame(() => {
-            aiUpdateRafId = null;
-            flushQueuedAiUpdate();
-          });
-        } else {
-          aiUpdateTimer = setTimeout(() => {
-            aiUpdateTimer = null;
-            flushQueuedAiUpdate();
-          }, AI_UPDATE_INTERVAL_MS - elapsed);
-        }
+        // Use setTimeout exclusively instead of requestAnimationFrame so that
+        // streaming updates keep flushing when the browser tab is hidden or
+        // minimised (RAF callbacks are paused by browsers for background tabs).
+        const delay = Math.max(0, AI_UPDATE_INTERVAL_MS - elapsed);
+        aiUpdateTimer = setTimeout(() => {
+          aiUpdateTimer = null;
+          flushQueuedAiUpdate();
+        }, delay);
       };
 
       const appendAiImages = (

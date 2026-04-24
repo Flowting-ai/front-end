@@ -93,6 +93,13 @@ export function useFileDrop({ onFiles, accept, disabled }: UseFileDropOptions) {
       if (disabled) return;
       const items = e.clipboardData?.items;
       if (!items) return;
+
+      // If the clipboard contains plain text, let the browser handle it normally.
+      // macOS often includes an image representation when copying text from documents;
+      // prioritising text avoids treating a text-copy as an image paste.
+      const hasText = e.clipboardData?.types.includes("text/plain");
+      if (hasText) return;
+
       const files: File[] = [];
       for (let i = 0; i < items.length; i++) {
         if (items[i].kind !== "file") continue;

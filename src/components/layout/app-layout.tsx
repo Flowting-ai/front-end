@@ -1899,10 +1899,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
     // Skip when prev === null (initial mount / page refresh) so we restore the
     // previous chat from localStorage instead of always opening a blank new chat.
     if (isChatRouteNow && !wasChatRouteBefore && prev !== null) {
-      handleAddChatRef.current("chat");
+      // Don't create a new chat if the current active chat still has messages
+      // (e.g. a streaming response in progress). This prevents losing in-flight
+      // AI responses when the user navigates away to personas and back.
+      const activeMessages = activeChatId ? chatHistory[activeChatId] ?? [] : [];
+      if (activeMessages.length === 0) {
+        handleAddChatRef.current("chat");
+      }
     }
 
     prevPathRef.current = current;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Load chat boards once when user is authenticated, then (optionally) start a fresh chat after login
