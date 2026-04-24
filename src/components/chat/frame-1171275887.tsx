@@ -11,6 +11,7 @@ interface Frame117Props {
   firstName?: string | null;
 }
 
+
 const Frame1171275887: NextPage<Frame117Props> = ({ firstName }) => {
   const normalized = (() => {
     const trimmed = firstName?.trim();
