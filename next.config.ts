@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const backendUrl = new URL(process.env.SERVER_URL!);
+const rawServerUrl = process.env.SERVER_URL || "http://localhost:8000";
+const backendUrl = new URL(rawServerUrl);
 const backendOrigin = backendUrl.origin;
 const backendWsOrigin = `${
   backendUrl.protocol === "https:" ? "wss" : "ws"
