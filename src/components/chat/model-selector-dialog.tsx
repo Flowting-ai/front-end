@@ -380,7 +380,7 @@ export function ModelSelectorDialog({
 
         {/* Auto Routing */}
         <div className="px-3 mb-2 mt-1">
-          <h3 className="font-geist text-sm text-[#737373] my-2">
+          <h3 className="font-geist text-sm text-[#737373] my-2 border-2 border-red-500">
             Auto Routing
           </h3>
           <div className="space-y-1">
