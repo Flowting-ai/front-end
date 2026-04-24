@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Link, Plus } from "lucide-react";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
@@ -73,7 +73,9 @@ export default function Page() {
               className="w-14 h-14"
               unoptimized
             />
-            <h3 className="font-besley text-4xl text-black">Set your AI tone</h3>
+            <h3 className="font-besley text-4xl text-black">
+              Set your AI tone
+            </h3>
             <p className="font-geist text-base md:text-lg text-[#525252]">
               This isn&apos;t just a preference, it&apos;s how every AI in your
               workspace will respond to you. You can adjust this any time in
@@ -152,13 +154,13 @@ export default function Page() {
             </button>
           </div>
 
-          <a
-            href="https://getsouvenir.com/"
+          <Link
+            href="https://app.getsouvenir.com/auth/login"
             className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
-            Log out &amp; return to website
-          </a>
+            Logout
+          </Link>
         </div>
       </div>
     </section>

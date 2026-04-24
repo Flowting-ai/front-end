@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -97,9 +97,12 @@ export default function Page() {
               className="w-14 h-14"
               unoptimized
             />
-            <h3 className="font-besley text-4xl text-black">Welcome to Souvenir</h3>
+            <h3 className="font-besley text-4xl text-black">
+              Welcome to Souvenir
+            </h3>
             <p className="font-geist text-base md:text-lg text-[#525252]">
-              Let&apos;s start with your name so we can personalize your workspace.
+              Let&apos;s start with your name so we can personalize your
+              workspace.
             </p>
           </div>
 
@@ -134,11 +137,11 @@ export default function Page() {
           </div>
 
           <Link
-            href="https://getsouvenir.com/"
+            href="https://app.getsouvenir.com/auth/login"
             className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
-            Log out &amp; return to website
+            Logout
           </Link>
         </div>
       </div>

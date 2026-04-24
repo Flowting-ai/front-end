@@ -5,10 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import React, { Suspense, useCallback, useState } from "react";
 import { PricingCardsGrid } from "@/components/pricing/pricing-cards-grid";
-import {
-  createCheckoutSession,
-  type UserPlanType,
-} from "@/lib/api/user";
+import { createCheckoutSession, type UserPlanType } from "@/lib/api/user";
 import type { PricingCardId } from "@/lib/pricing-cards-config";
 
 function PricingPageInner() {
@@ -28,12 +25,17 @@ function PricingPageInner() {
   const onSelectPlan = useCallback(async (planId: PricingCardId) => {
     setLoadingPlan(planId);
     try {
-      const checkout = await createCheckoutSession(toApiPlanType(planId), "monthly");
+      const checkout = await createCheckoutSession(
+        toApiPlanType(planId),
+        "monthly",
+      );
       window.location.href = checkout.checkout_url;
     } catch (err) {
       console.error("Checkout error:", err);
       alert(
-        err instanceof Error ? err.message : "Something went wrong. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
       );
     } finally {
       setLoadingPlan(null);
@@ -92,13 +94,13 @@ function PricingPageInner() {
           onSelectPlan={onSelectPlan}
         />
 
-        <a
-          href="https://getsouvenir.com/"
+        <Link
+          href="https://app.getsouvenir.com/auth/login"
           className="inline-flex items-center gap-2 font-geist text-sm text-[#525252] hover:text-black transition-colors"
         >
           <ArrowLeft size={16} strokeWidth={1.5} />
-          Log out &amp; return to website
-        </a>
+          Logout
+        </Link>
       </div>
     </section>
   );
