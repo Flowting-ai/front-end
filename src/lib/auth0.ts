@@ -16,7 +16,7 @@ export const auth0 = new Auth0Client({
    *   if the backend says onboarding is incomplete.
    */
   onCallback: async (error) => {
-    const baseUrl = process.env.AUTH0_BASE_URL!;
+    const baseUrl = process.env.APP_BASE_URL!;
 
     if (error) {
       return NextResponse.redirect(new URL("/auth/login", baseUrl));

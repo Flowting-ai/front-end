@@ -2,7 +2,6 @@
 
 import React, { Component, ReactNode } from 'react';
 import { logger } from '@/lib/logger';
-import { reportError } from '@/lib/error-reporter';
 
 interface Props {
   children: ReactNode;
@@ -45,19 +44,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
-
-    // Report to error tracking service (e.g., Sentry)
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-      reportError({
-        title: 'React Error Boundary',
-        message: error.message,
-        severity: 'critical',
-        source: 'error-boundary',
-        metadata: {
-          componentStack: (errorInfo.componentStack ?? '').slice(0, 300),
-        },
-      });
-    }
   }
 
   handleReset = (): void => {

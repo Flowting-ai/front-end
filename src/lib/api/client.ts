@@ -3,7 +3,6 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, getAuth0AccessToken, ensureFreshToken } from "@/lib/jwt-utils";
 import { toast } from "@/lib/toast-helper";
-import { reportSessionExpired, reportApiFailure } from "@/lib/error-reporter";
 
 type ApiFetchOptions = RequestInit & { skipJson?: boolean };
 
@@ -129,7 +128,7 @@ export async function apiFetch(
       }
     }
     // Token refresh failed or retry still 401 — session is truly expired
-    reportSessionExpired("apiFetch", 401);
+    console.error("[apiFetch] session expired (401)");
     toast.error("Session expired", {
       description: "Signing you out\u2026",
     });

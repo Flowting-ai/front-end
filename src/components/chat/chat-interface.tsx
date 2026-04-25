@@ -41,7 +41,6 @@ import {
 } from "@/lib/markdown-utils";
 import { fetchChatBoards } from "@/lib/api/chat";
 import { friendlyApiError } from "@/lib/api/client";
-import { reportSessionExpired, reportApiFailure, reportError } from "@/lib/error-reporter";
 // Personas are fetched once in AppLayout and shared via context — no separate fetch needed here.
 import { getAuthHeaders, ensureFreshToken } from "@/lib/jwt-utils";
 import {
@@ -1447,7 +1446,7 @@ export function ChatInterface({
             chatId ?? undefined,
           );
           setIsResponding(false);
-          reportSessionExpired("chat-stream", 401);
+          console.error("[chat-stream] session expired (401)");
           toast.error("Session expired", {
             description: "Signing you out\u2026",
           });
@@ -1458,7 +1457,7 @@ export function ChatInterface({
 
       if (!response.ok || !response.body) {
         const errorText = await response.text();
-        reportApiFailure("chat-stream", endpoint, response.status, errorText || "empty response");
+        console.error(`[chat-stream] API ${response.status} ${endpoint}:`, errorText || "empty response");
         throw new Error(
           friendlyApiError(errorText || "API request failed", response.status),
         );
@@ -2440,16 +2439,11 @@ export function ChatInterface({
               setIsResponding(false);
               streamFinished = true;
               shouldStopReading = true;
-              reportSessionExpired("chat-sse-event");
+              console.error("[chat-sse-event] session expired");
               window.dispatchEvent(new Event("auth:session-expired"));
             } else {
               const errorMessage = friendlyApiError(rawError);
-              reportError({
-                title: "SSE Stream Error",
-                message: rawError,
-                severity: "error",
-                source: "chat-sse-event",
-              });
+              console.error("[chat-sse-event] SSE stream error:", rawError);
               flushQueuedAiUpdate();
               queueAiMessageUpdate({
                 content: errorMessage,
@@ -2570,7 +2564,7 @@ export function ChatInterface({
         lower.includes("unauthorized") ||
         lower.includes("401")
       ) {
-        reportSessionExpired("chat-catch");
+        console.error("[chat-catch] session expired");
         setIsResponding(false);
         window.dispatchEvent(new Event("auth:session-expired"));
         return;
@@ -2578,12 +2572,7 @@ export function ChatInterface({
 
       const errorMessage = friendlyApiError(rawMsg);
 
-      reportError({
-        title: "Chat Request Failed",
-        message: rawMsg,
-        severity: "error",
-        source: "chat-catch",
-      });
+      console.error("[chat-catch] chat request failed:", rawMsg);
 
       const errorResponse: Message = {
         id: loadingMessageId,
