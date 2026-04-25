@@ -749,7 +749,7 @@ export function ModelSwitchDialog({
           </div>
 
           {/* Chat Memory (split layout) */}
-          <div className="w-full h-[77px] flex items-center gap-4">
+          {/* <div className="w-full h-[77px] flex items-center gap-4">
             <div className="w-1/2">
               <div className="font-geist font-medium text-sm text-[#171717]">
                 Chat Memory
@@ -774,7 +774,7 @@ export function ModelSwitchDialog({
                 )}
                 <span className="text-sm text-[#8a8a8a]">{chatMemory}%</span>
               </div>
-              {/* <Slider
+              <Slider
                 value={[chatMemory]}
                 onValueChange={(value) => setChatMemory(value[0])}
                 min={0}
@@ -782,13 +782,13 @@ export function ModelSwitchDialog({
                 step={1}
                 disabled={isFetchingMessages}
                 className="w-full"
-              /> */}
+              />
               <div className="flex justify-between text-xs text-[#8a8a8a] mt-1">
                 <span>0</span>
                 <span>100</span>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Include Pins (split row) - commented out for now, might use in future */}
           {/* <div className="w-full flex items-center justify-between gap-4">
