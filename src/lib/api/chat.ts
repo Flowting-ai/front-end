@@ -104,8 +104,6 @@ export async function fetchChatMessages(
     );
   }
   const data = await response.json();
-  // Log raw GET response for debugging (e.g. image generation persistence)
-  console.debug("[Chat GET] raw messages response:", JSON.stringify(data, null, 2));
   if (Array.isArray(data)) {
     return data as BackendMessage[];
   }

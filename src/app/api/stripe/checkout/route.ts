@@ -2,19 +2,20 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth0 } from "@/lib/auth0";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+const getStripe = () =>
+  new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2026-03-25.dahlia",
+  });
 
 /** Map (plan + billing) → Stripe Price ID from env. */
-const PRICE_MAP: Record<string, string | undefined> = {
+const getPriceMap = (): Record<string, string | undefined> => ({
   starter_monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY,
   starter_annual: process.env.STRIPE_PRICE_STARTER_ANNUAL,
   pro_monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
   pro_annual: process.env.STRIPE_PRICE_PRO_ANNUAL,
   power_monthly: process.env.STRIPE_PRICE_POWER_MONTHLY,
   power_annual: process.env.STRIPE_PRICE_POWER_ANNUAL,
-};
+});
 
 const VALID_PLANS = ["starter", "pro", "power"] as const;
 const VALID_BILLING = ["monthly"] as const;
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const priceId = PRICE_MAP[`${plan_type}_${billing}`];
+  const priceId = getPriceMap()[`${plan_type}_${billing}`];
   if (!priceId) {
     return NextResponse.json(
       { error: "Price not configured for this plan." },
@@ -76,6 +77,7 @@ export async function POST(req: Request) {
       ? `${appBase}/settings/usage-and-billing/change-plan?checkout=cancelled`
       : `${appBase}/onboarding/pricing?checkout=cancelled`;
 
+  const stripe = getStripe();
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",

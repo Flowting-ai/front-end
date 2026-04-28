@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AppLayout from "@/components/layout/app-layout";
-import { WorkflowChatFullPage } from "@/components/workflows/WorkflowChatFullPage";
+import { WorkflowChat } from "@/components/workflows/WorkflowChat";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import type { WorkflowDTO } from "@/components/workflows/types";
 
@@ -103,7 +103,8 @@ function WorkflowChatPageInner() {
 
   return (
     <AppLayout>
-      <WorkflowChatFullPage
+      <WorkflowChat
+        mode="fullpage"
         workflowId={workflowId}
         workflow={workflow}
         chatId={chatId}

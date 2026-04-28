@@ -70,8 +70,7 @@ import {
 import { toast } from "@/lib/toast-helper";
 import { apiFetch } from "@/lib/api/client";
 import { CHATS_ENDPOINT } from "@/lib/config";
-
-const APP_BASE_TITLE = "Souvenir AI";
+import { useSidebarEvents } from "@/hooks/use-sidebar-events";
 
 const SETTINGS_DATA = [
   { label: "Account", path: "/settings/account", icon: UserCog },
@@ -393,85 +392,6 @@ export function LeftSidebar({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePersonaIdFromUrl]);
 
-  // Re-fetch chats when PersonaChatFullPage signals a new chat was created
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const personaId = (e as CustomEvent<{ personaId: string }>).detail?.personaId;
-      if (personaId) {
-        loadPersonaChats(personaId);
-      }
-    };
-    window.addEventListener("persona-chats-updated", handler);
-    return () => window.removeEventListener("persona-chats-updated", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Immediately update chat title in sidebar when PersonaChatFullPage dispatches it
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const { personaId, chatId, title } = (e as CustomEvent<{ personaId: string; chatId: string; title: string }>).detail ?? {};
-      if (personaId && chatId && title) {
-        setPersonaChats((prev) => {
-          const existing = prev[personaId] ?? [];
-          const hasEntry = existing.some((c) => c.id === chatId);
-          if (hasEntry) {
-            return {
-              ...prev,
-              [personaId]: existing.map((c) =>
-                c.id === chatId ? { ...c, chat_title: title } : c,
-              ),
-            };
-          }
-          // Prepend the new chat entry so it appears at the top
-          return {
-            ...prev,
-            [personaId]: [{ id: chatId, chat_title: title, message_count: 1 }, ...existing],
-          };
-        });
-      }
-    };
-    window.addEventListener("persona-chat-title-updated", handler);
-    return () => window.removeEventListener("persona-chat-title-updated", handler);
-  }, []);
-
-  // Replace temporary persona chat IDs with resolved backend IDs.
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const { personaId, tempChatId, chatId } =
-        (e as CustomEvent<{ personaId: string; tempChatId: string; chatId: string }>).detail ?? {};
-      if (!personaId || !tempChatId || !chatId) return;
-
-      setPersonaChats((prev) => {
-        const existing = prev[personaId] ?? [];
-        if (existing.length === 0) return prev;
-
-        const hasResolved = existing.some((c) => c.id === chatId);
-        const next = existing
-          .map((c) =>
-            c.id === tempChatId
-              ? {
-                  ...c,
-                  id: chatId,
-                }
-              : c,
-          )
-          .filter((c) => !(hasResolved && c.id === chatId && c.chat_title === "New Chat"));
-
-        return {
-          ...prev,
-          [personaId]: next,
-        };
-      });
-
-      setActivePersonaChatSessionId((prev) =>
-        prev === tempChatId ? chatId : prev,
-      );
-    };
-
-    window.addEventListener("persona-chat-id-resolved", handler);
-    return () => window.removeEventListener("persona-chat-id-resolved", handler);
-  }, []);
-
   // ─── Persona chat handlers ─────────────────────────────────────────────────
   const loadPersonaChats = React.useCallback(async (personaId: string) => {
     setLoadingPersonaChats((prev) => new Set([...prev, personaId]));
@@ -540,6 +460,24 @@ export function LeftSidebar({
   };
   // ──────────────────────────────────────────────────────────────────────────
 
+  // ── Window events + document title (managed by useSidebarEvents) ───────────
+  useSidebarEvents({
+    onPersonaChatsUpdated: loadPersonaChats,
+    setPersonaChats,
+    setActivePersonaChatSessionId,
+    isOnChatBoard,
+    isOnWorkflowChatPage,
+    isOnPersonaChatPage,
+    activeChatId,
+    chatBoards,
+    activeWorkflowIdFromUrl,
+    workflowList,
+    activePersonaIdFromUrl,
+    activePersonaChatSessionId,
+    personaList,
+    personaChats,
+  });
+
   const normalizedWorkflowSearch = searchTerm.trim().toLowerCase();
   const workflowsToDisplay = useMemo(() => {
     if (!normalizedWorkflowSearch) return workflowList;
@@ -590,87 +528,6 @@ export function LeftSidebar({
       return bSafe - aSafe;
     });
   }, [chatBoards, currentBoardType, normalizedSearch]);
-
-  const [documentTitle, setDocumentTitle] = useState(APP_BASE_TITLE);
-
-  // Derive the desired document title whenever navigation or selection changes.
-  // Avoid falling back to the base title while the user is clearly in a chat context.
-  useEffect(() => {
-    const inChatContext =
-      isOnChatBoard || isOnWorkflowChatPage || isOnPersonaChatPage;
-
-    let nextTitle: string = APP_BASE_TITLE;
-
-    // 1) Persona chats (highest precedence)
-    if (isOnPersonaChatPage && activePersonaIdFromUrl) {
-      const persona = personaList.find((p) => p.id === activePersonaIdFromUrl);
-
-      if (activePersonaChatSessionId && activePersonaIdFromUrl) {
-        const chat = (personaChats[activePersonaIdFromUrl] ?? []).find(
-          (c) => c.id === activePersonaChatSessionId,
-        );
-        if (chat?.chat_title) {
-          nextTitle = persona?.name
-            ? `${persona.name} – ${chat.chat_title}`
-            : chat.chat_title;
-        }
-      } else if (persona?.name) {
-        nextTitle = persona.name;
-      }
-    }
-
-    // 2) Workflow chats
-    if (
-      nextTitle === APP_BASE_TITLE &&
-      isOnWorkflowChatPage &&
-      activeWorkflowIdFromUrl
-    ) {
-      const activeWorkflow = workflowList.find(
-        (wf) => wf.id === activeWorkflowIdFromUrl,
-      );
-      if (activeWorkflow?.name) {
-        nextTitle = activeWorkflow.name;
-      }
-    }
-
-    // 3) Main chat boards on "/" or "/chat"
-    if (nextTitle === APP_BASE_TITLE && isOnChatBoard && activeChatId) {
-      const activeBoard = chatBoards.find((board) => board.id === activeChatId);
-      if (activeBoard?.name) {
-        nextTitle = activeBoard.name;
-      }
-    }
-
-    // If we're in a chat-related route but couldn't yet resolve a specific
-    // title (e.g. async data still loading), keep the existing title instead
-    // of flashing back to the app base title.
-    if (inChatContext && nextTitle === APP_BASE_TITLE) {
-      return;
-    }
-
-    if (nextTitle !== documentTitle) {
-      setDocumentTitle(nextTitle);
-    }
-  }, [
-    isOnChatBoard,
-    isOnWorkflowChatPage,
-    isOnPersonaChatPage,
-    activeChatId,
-    chatBoards,
-    activeWorkflowIdFromUrl,
-    workflowList,
-    activePersonaIdFromUrl,
-    activePersonaChatSessionId,
-    personaList,
-    personaChats,
-    documentTitle,
-  ]);
-
-  // Apply the resolved title to the browser tab.
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.title = documentTitle;
-  }, [documentTitle]);
 
   const handleLogout = () => {
     logout();

@@ -24,6 +24,7 @@ import type {
 } from "@/lib/api/user";
 import { fetchCurrentUser } from "@/lib/api/user";
 import { usageToCredits, formatCredits, getPlanCredits } from "@/lib/plan-config";
+import { normalizePct } from "@/lib/utils/format-utils";
 
 export interface AuthUser {
   id?: string | number | null;
@@ -87,11 +88,6 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     paymentMethods.find((method) => method.is_default) ??
     paymentMethods[0] ??
     null;
-  const normalizePct = (value: number | undefined) => {
-    if (typeof value !== "number" || Number.isNaN(value)) return null;
-    const pct = value <= 1 ? value * 100 : value;
-    return Math.max(0, Math.min(pct, 100));
-  };
   const monthlyPctFromApi = normalizePct(profile.usage?.monthly_used_pct);
 
   return {

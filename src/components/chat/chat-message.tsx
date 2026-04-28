@@ -1,9 +1,7 @@
 "use client";
 import { useHighlightJs } from "@/hooks/useHighlightJs";
-import katex from "katex";
-import "katex/dist/katex.min.css";
+import { sanitizeURL } from "@/lib/security";
 
-import chatStyles from "./chat-interface.module.css";
 import { useState, useRef, useEffect, useMemo, type JSX } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
@@ -16,12 +14,9 @@ import {
   X,
   CornerDownRight,
   RefreshCw,
-  // Eye,
-  // EyeOff,
   ThumbsUp,
   ThumbsDown,
   Reply,
-  ExternalLink,
   ChevronDown,
   Globe,
   Download,
@@ -39,6 +34,11 @@ import {
 import Image from "next/image";
 import Lottie from "lottie-react";
 import frameworkLoadingAnimation from "@/../public/FrameworkLoading.json";
+
+import { renderLatexInlineContent, renderBlockMath } from "./LaTeXRenderer";
+import { LinkPreviewCard, MailtoLink, SourceFaviconStack, getHostname, FAVICON_BASE } from "./LinkPreviewCard";
+import { ReasoningBlock } from "./ReasoningBlock";
+import { CodeBlock } from "./CodeBlock";
 
 type ContentSegment =
   | { type: "text"; value: string }
@@ -98,253 +98,7 @@ const parseTableRow = (line: string) => {
   return cleaned.split("|").map((cell) => cell.trim());
 };
 
-const renderLatexInlineContent = (text: string, keyPrefix: string) => {
-  const nodes: Array<string | JSX.Element> = [];
-  // Match block: $$...$$ or \[...\], inline: \(...\) or $...$
-  const latexRegex =
-    /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let latexCount = 0;
 
-  while ((match = latexRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      const beforeText = text.slice(lastIndex, match.index);
-      nodes.push(
-        ...renderBoldInlineContent(
-          beforeText,
-          `${keyPrefix}-pre-${latexCount}`,
-        ),
-      );
-    }
-
-    const blockContent = match[1] ?? match[2];
-    const inlineContent = match[3] ?? match[4];
-    const isBlock = Boolean(blockContent);
-    const latexContent = (isBlock ? blockContent : inlineContent) ?? "";
-
-    try {
-      const html = katex.renderToString(latexContent, {
-        throwOnError: false,
-        displayMode: isBlock,
-      });
-      nodes.push(
-        <span
-          key={`${keyPrefix}-latex-${latexCount++}`}
-          className={isBlock ? "block my-2" : "inline-block mx-0.5"}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />,
-      );
-    } catch {
-      // If KaTeX fails, show the raw LaTeX
-      nodes.push(
-        <code
-          key={`${keyPrefix}-latex-err-${latexCount++}`}
-          className="bg-red-100 text-red-800 px-1 rounded"
-        >
-          {match[0]}
-        </code>,
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    const remaining = text.slice(lastIndex);
-    nodes.push(...renderBoldInlineContent(remaining, `${keyPrefix}-post`));
-  }
-
-  if (nodes.length === 0) {
-    nodes.push(...renderBoldInlineContent(text, `${keyPrefix}-all`));
-  }
-
-  return nodes;
-};
-
-const renderBoldInlineContent = (text: string, keyPrefix: string) => {
-  const boldRegex = /(\*\*|__)(.+?)\1/g;
-  const nodes: Array<string | JSX.Element> = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let boldCount = 0;
-
-  while ((match = boldRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
-    }
-    nodes.push(
-      <strong
-        key={`${keyPrefix}-bold-${boldCount++}`}
-        className="font-semibold text-[#171717]"
-      >
-        {match[2]}
-      </strong>,
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  if (nodes.length === 0) {
-    nodes.push(text);
-  }
-
-  return nodes;
-};
-
-interface LinkPreviewProps {
-  url: string;
-  label?: string;
-}
-
-const linkPreviewCache = new Map<
-  string,
-  { siteName: string; faviconUrl: string; title?: string; description?: string }
->();
-
-const LinkPreview = ({ url, label }: LinkPreviewProps) => {
-  const normalizedUrl = url.trim();
-  const hostname = getHostname(normalizedUrl) || normalizedUrl;
-  const [showCard, setShowCard] = useState(false);
-  const [preview, setPreview] = useState<{
-    siteName: string;
-    faviconUrl: string;
-    title?: string;
-    description?: string;
-  } | null>(linkPreviewCache.get(normalizedUrl) ?? null);
-
-  const displayLabel = (
-    label ||
-    preview?.title ||
-    hostname ||
-    normalizedUrl
-  ).trim();
-
-  const fetchPreview = async () => {
-    if (linkPreviewCache.has(normalizedUrl)) {
-      const cached = linkPreviewCache.get(normalizedUrl)!;
-      if (!preview || preview.title !== cached.title) setPreview(cached);
-      return;
-    }
-    const faviconUrl = hostname
-      ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
-      : "";
-    // Set basic preview immediately
-    const basic = { siteName: hostname, faviconUrl };
-    linkPreviewCache.set(normalizedUrl, basic);
-    setPreview(basic);
-
-    // Fetch metadata for title and description
-    try {
-      const fullUrl = normalizedUrl.startsWith("http")
-        ? normalizedUrl
-        : `https://${normalizedUrl}`;
-      const encoded = encodeURIComponent(fullUrl);
-      const res = await fetch(`/api/link-metadata?url=${encoded}`);
-      if (res.ok) {
-        const data = await res.json();
-        const enriched = {
-          siteName: hostname,
-          faviconUrl,
-          title: typeof data.title === "string" ? data.title : undefined,
-          description:
-            typeof data.description === "string" ? data.description : undefined,
-        };
-        linkPreviewCache.set(normalizedUrl, enriched);
-        setPreview(enriched);
-      }
-    } catch {
-      // Keep basic preview on error
-    }
-  };
-
-  // Eagerly fetch metadata on mount so the title is available for display
-  useEffect(() => {
-    void fetchPreview();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedUrl]);
-
-  const faviconSrc =
-    preview?.faviconUrl ||
-    (hostname ? `${FAVICON_BASE}${encodeURIComponent(hostname)}` : "");
-
-  return (
-    <span
-      className="relative inline-flex max-w-full"
-      onMouseEnter={() => {
-        setShowCard(true);
-      }}
-      onMouseLeave={() => {
-        setShowCard(false);
-      }}
-    >
-      <a
-        href={
-          normalizedUrl.startsWith("http")
-            ? normalizedUrl
-            : `https://${normalizedUrl}`
-        }
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-main-border bg-[#F4F4F5] px-2 py-0.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#E4E4E7] hover:text-[#111827] transition-all duration-200 align-middle"
-      >
-        {faviconSrc && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={faviconSrc}
-            alt=""
-            className="h-3.5 w-3.5 shrink-0 rounded-sm"
-          />
-        )}
-        <span className="min-w-0 truncate max-w-[min(200px,100%)]">{displayLabel}</span>
-        <ExternalLink
-          className="ml-0.5 h-3 w-3 shrink-0 text-zinc-400 transition-all duration-150 group-hover:text-zinc-600"
-          aria-hidden="true"
-        />
-      </a>
-      {showCard && (
-        <span
-          className="absolute left-0 bottom-full mb-2 w-72 rounded-[12px] border border-zinc-200 bg-white shadow-xl z-50 overflow-hidden"
-          style={{ pointerEvents: "none", display: "block" }}
-        >
-          <span className="flex items-start gap-3 p-3" style={{ display: "flex" }}>
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-[#F4F4F5] border border-zinc-200 overflow-hidden mt-0.5">
-              {faviconSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={faviconSrc}
-                  alt=""
-                  className="h-6 w-6 object-contain"
-                />
-              ) : (
-                <span className="text-sm font-semibold text-zinc-500">
-                  {(hostname || "?").charAt(0).toUpperCase()}
-                </span>
-              )}
-            </span>
-            <span className="flex flex-col min-w-0 gap-0.5" style={{ display: "flex" }}>
-              <span className="text-[13px] font-semibold text-[#111827] line-clamp-2">
-                {preview?.title || label || hostname}
-              </span>
-              {preview?.description && (
-                <span className="text-[11px] text-[#6B7280] line-clamp-2 leading-snug">
-                  {preview.description}
-                </span>
-              )}
-              <span className="text-[11px] text-[#9CA3AF] flex items-center gap-1 mt-0.5">
-                <ExternalLink className="h-3 w-3 shrink-0" />
-                {hostname}
-              </span>
-            </span>
-          </span>
-        </span>
-      )}
-    </span>
-  );
-};
 
 const renderInlineContent = (text: string, keyPrefix: string) => {
   if (!text) {
@@ -352,9 +106,14 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   }
 
   const nodes: Array<string | JSX.Element> = [];
-  // Match either markdown links [label](url) or bare URLs (with http://, https://, or www. prefix only)
+  // Match markdown links [label](url), bare http(s) URLs, bare www. URLs, and email addresses.
+  // Bare-URL character class deliberately excludes markdown syntax chars (* _ ` ~ [ ]) so that
+  // trailing bold/italic/code markers (e.g. **https://openai.com**) are never captured as part of the URL.
+  // Email group handles both bare addresses (user@example.com) and explicit mailto: prefixes.
+  // The optional (?:\*{1,3}|_{1,2})? non-capturing groups around the email consume any surrounding
+  // bold/italic markdown markers so they are not left as dangling ** or _ text around the link.
   const linkRegex =
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)]*)?)/g;
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)*_`~\[\]]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)*_`~\[\]]*)?)|(?:\*{1,3}|_{1,2})?((?:mailto:)?[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\*{1,3}|_{1,2})?/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let partIndex = 0;
@@ -380,7 +139,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       const label = match[1];
       const url = match[2];
       nodes.push(
-        <LinkPreview
+        <LinkPreviewCard
           key={`${keyPrefix}-link-${partIndex++}`}
           url={url}
           label={label}
@@ -389,11 +148,11 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
     } else if (match[3]) {
       // Bare URL with http/https, strip trailing punctuation from the URL but keep it visually
       const raw = match[3];
-      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trimmedUrl = raw.replace(/[).,*_`~\[\]]+$/, "");
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview
+        <LinkPreviewCard
           key={`${keyPrefix}-link-${partIndex++}`}
           url={trimmedUrl}
         />,
@@ -410,11 +169,11 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
     } else if (match[4]) {
       // Bare URL starting with www., strip trailing punctuation from the URL but keep it visually
       const raw = match[4];
-      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trimmedUrl = raw.replace(/[).,*_`~\[\]]+$/, "");
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
-        <LinkPreview
+        <LinkPreviewCard
           key={`${keyPrefix}-link-${partIndex++}`}
           url={trimmedUrl}
         />,
@@ -428,6 +187,12 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
           ),
         );
       }
+    } else if (match[5]) {
+      // Email address — strip any explicit mailto: prefix, render as mailto: link
+      const email = match[5].replace(/^mailto:/i, "");
+      nodes.push(
+        <MailtoLink key={`${keyPrefix}-email-${partIndex++}`} email={email} />,
+      );
     }
 
     const afterOffset =
@@ -455,230 +220,6 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   return nodes;
 };
 
-// Helper to render formatted reasoning content
-const renderReasoningContent = (text: string): JSX.Element[] => {
-  if (!text) return [];
-
-  const lines = text.split("\n");
-  const elements: JSX.Element[] = [];
-  let lineIndex = 0;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      elements.push(
-        <span key={`reasoning-gap-${lineIndex++}`} className="block h-2" />,
-      );
-      continue;
-    }
-
-    // Check for headers
-    const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const content = headerMatch[2];
-      const fontSize =
-        level === 1
-          ? "text-[13px]"
-          : level === 2
-            ? "text-[12.5px]"
-            : "text-[12px]";
-      elements.push(
-        <div
-          key={`reasoning-h-${lineIndex++}`}
-          className={`font-semibold ${fontSize} text-[#6b5fad] mb-1 mt-2`}
-        >
-          {content}
-        </div>,
-      );
-      continue;
-    }
-
-    // Check for list items
-    const listMatch = trimmed.match(/^[-*+]\s+(.*)$/);
-    if (listMatch) {
-      elements.push(
-        <div key={`reasoning-li-${lineIndex++}`} className="flex gap-2 ml-3">
-          <span className="text-[#9d8fd4] select-none">•</span>
-          <span>{listMatch[1]}</span>
-        </div>,
-      );
-      continue;
-    }
-
-    // Regular paragraph with bold and link support
-    const parts: (string | JSX.Element)[] = [];
-    const inlineRegex = /(\*\*|__)(.+?)\1|\[([^\]]+)\]\(([^)]+)\)/g;
-    let lastIdx = 0;
-    let match;
-    let boldCount = 0;
-    let linkCount = 0;
-
-    while ((match = inlineRegex.exec(trimmed)) !== null) {
-      if (match.index > lastIdx) {
-        parts.push(trimmed.slice(lastIdx, match.index));
-      }
-      if (match[1]) {
-        // Bold
-        parts.push(
-          <strong
-            key={`reasoning-bold-${lineIndex}-${boldCount++}`}
-            className="font-semibold text-[#6b5fad]"
-          >
-            {match[2]}
-          </strong>,
-        );
-      } else {
-        // Link
-        parts.push(
-          <a
-            key={`reasoning-link-${lineIndex}-${linkCount++}`}
-            href={match[4]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#6b5fad] underline underline-offset-2 hover:text-[#4e3fa8]"
-          >
-            {match[3]}
-          </a>,
-        );
-      }
-      lastIdx = match.index + match[0].length;
-    }
-
-    if (lastIdx < trimmed.length) {
-      parts.push(trimmed.slice(lastIdx));
-    }
-
-    if (parts.length === 0) {
-      parts.push(trimmed);
-    }
-
-    elements.push(
-      <div key={`reasoning-p-${lineIndex++}`} className="leading-relaxed">
-        {parts}
-      </div>,
-    );
-  }
-
-  return elements;
-};
-
-// Reasoning section with Claude-style typewriter effect
-const ReasoningSection = ({
-  thinkingContent,
-  isNewMessage,
-  isThinkingInProgress,
-}: {
-  thinkingContent: string;
-  isNewMessage: boolean;
-  isThinkingInProgress?: boolean;
-}) => {
-  const [displayText, setDisplayText] = useState(
-    isNewMessage ? "" : thinkingContent,
-  );
-  const [isTypingDone, setIsTypingDone] = useState(!isNewMessage);
-  const [isCollapsed, setIsCollapsed] = useState(!isNewMessage);
-
-  useEffect(() => {
-    if (isThinkingInProgress) {
-      setDisplayText(thinkingContent);
-      setIsTypingDone(false);
-      setIsCollapsed(false);
-      return;
-    }
-
-    if (!isNewMessage) {
-      setDisplayText(thinkingContent);
-      setIsTypingDone(true);
-      setIsCollapsed(true);
-      return;
-    }
-
-    // Start with first character immediately to avoid delay
-    let currentIndex = 0;
-    setDisplayText(thinkingContent.charAt(0) || "");
-    currentIndex = 1;
-    setIsTypingDone(false);
-    setIsCollapsed(false);
-
-    if (thinkingContent.length <= 1) {
-      setIsTypingDone(true);
-      setTimeout(() => setIsCollapsed(true), 700);
-      return;
-    }
-
-    let rafId: number | null = null;
-    let lastTick = 0;
-    const tick = (ts: number) => {
-      if (ts - lastTick >= 16) {
-        lastTick = ts;
-        const remaining = thinkingContent.length - currentIndex;
-        const step = Math.max(1, Math.ceil(remaining * 0.08));
-        currentIndex = Math.min(currentIndex + step, thinkingContent.length);
-        setDisplayText(thinkingContent.slice(0, currentIndex));
-        if (currentIndex >= thinkingContent.length) {
-          setIsTypingDone(true);
-          setTimeout(() => setIsCollapsed(true), 700);
-          return;
-        }
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-
-    return () => { if (rafId !== null) cancelAnimationFrame(rafId); };
-  }, [thinkingContent, isNewMessage, isThinkingInProgress]);
-
-  return (
-    <div className="mb-3 rounded-xl border border-[#e8e3f4] bg-[#f9f7ff] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsCollapsed((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
-      >
-        <div className="flex items-center gap-2">
-          {(!isTypingDone || isThinkingInProgress) && (
-            <span className="flex gap-0.5">
-              {[0, 1, 2].map((dot) => (
-                <span
-                  key={dot}
-                  className="h-1.5 w-1.5 rounded-full bg-[#7c6fcd] animate-bounce"
-                  style={{ animationDelay: `${dot * 0.15}s` }}
-                />
-              ))}
-            </span>
-          )}
-          <span className="text-xs font-semibold text-[#6b5fad] tracking-wide">
-            {!isTypingDone || isThinkingInProgress
-              ? "Reasoning\u2026"
-              : "Reasoning"}
-          </span>
-        </div>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 text-[#9d8fd4] transition-transform duration-200",
-            isCollapsed ? "" : "rotate-180",
-          )}
-        />
-      </button>
-      {!isCollapsed && (
-        <div className="border-t border-[#e8e3f4] px-3 py-2">
-          {!isTypingDone || isThinkingInProgress ? (
-            <pre className="whitespace-pre-wrap font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80">
-              {displayText}
-              <span className="inline-block w-[2px] h-[13px] bg-[#9d8fd4] ml-[1px] align-middle animate-[blink_0.8s_step-end_infinite]" />
-            </pre>
-          ) : (
-            <div className="font-sans text-[11.5px] leading-relaxed text-[#6b5fad]/80 space-y-1">
-              {renderReasoningContent(displayText)}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   const nodes: JSX.Element[] = [];
@@ -760,22 +301,12 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       }
 
       if (closed && mathContent) {
-        try {
-          const html = katex.renderToString(mathContent, {
-            throwOnError: false,
-            displayMode: true,
-          });
-          nodes.push(
-            <div
-              key={`${keyPrefix}-math-${index}`}
-              className="my-2 overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />,
-          );
+        const mathNode = renderBlockMath(mathContent, `${keyPrefix}-math-${index}`);
+        if (mathNode) {
+          nodes.push(mathNode);
           continue;
-        } catch {
-          // Fall through to raw rendering when parsing fails.
         }
+        // Fall through to raw rendering when parsing fails.
       }
     }
 
@@ -828,7 +359,10 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
           .replace(/(\*\*|__)(.+?)\1/g, "<strong>$2</strong>")
           .replace(/(\*|_)(.+?)\1/g, "<em>$2</em>")
           .replace(/`([^`]+)`/g, "<code>$1</code>")
-          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, rawUrl) => {
+            const safe = sanitizeURL(rawUrl);
+            return safe ? `<a href="${safe}">${label}</a>` : label;
+          });
       const formatCellPlain = (text: string) =>
         text
           .replace(/(\*\*|__)(.+?)\1/g, "$2")
@@ -1012,6 +546,8 @@ export interface Message {
     documentUrl?: string | null;
     pinIds?: string[];
     userReaction?: string | null;
+    cost?: number;
+    latencyMs?: number;
     replyToMessageId?: string | null;
     replyToContent?: string | null;
     isImageGeneration?: boolean;
@@ -1088,62 +624,6 @@ type GeneratedFilePayload = {
   mimeType?: string;
 };
 
-function getHostname(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "";
-  }
-}
-
-const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
-
-function SourceFaviconStack({ urls }: { urls: string[] }) {
-  const [failed, setFailed] = useState<Set<number>>(() => new Set());
-  const list = urls.slice(0, 4).filter(Boolean);
-  const markFailed = (i: number) => {
-    setFailed((prev) => new Set(prev).add(i));
-  };
-  if (list.length === 0) {
-    return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#E4E4E7] border border-main-border text-[10px] font-semibold text-[#525252]">
-        ?
-      </span>
-    );
-  }
-  return (
-    <span className="flex items-center -space-x-1">
-      {list.map((url, i) => {
-        const hostname = getHostname(url);
-        const faviconUrl = hostname
-          ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
-          : "";
-        const showFallback = !faviconUrl || failed.has(i);
-        return (
-          <span
-            key={`${url}-${i}`}
-            className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden bg-[#E4E4E7] border border-main-border rounded-md text-[10px] font-semibold text-[#525252]"
-            style={{ zIndex: i + 1 }}
-          >
-            {showFallback ? (
-              <span aria-hidden>
-                {hostname ? hostname.charAt(0).toUpperCase() : "?"}
-              </span>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={faviconUrl}
-                alt=""
-                className="w-5 h-5 object-contain"
-                onError={() => markFailed(i)}
-              />
-            )}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
 
 const normalizeWebSearches = (
   input: NonNullable<Message["metadata"]>["webSearch"] | undefined,
@@ -1304,7 +784,7 @@ function GeneratedDocumentInlineCard({
     file.url,
   );
 
-  const viewerUrl = file.url;
+  const viewerUrl = sanitizeURL(file.url ?? "");
 
   return (
     <a
@@ -1386,14 +866,15 @@ const WebSearchCard = ({ searches }: { searches: WebSearchPayload[] }) => {
                 <div className="mt-2 max-h-40 overflow-auto rounded-lg border border-[#E5E7EB] bg-white">
                   <div className="divide-y divide-[#F0F0F0]">
                     {search.links.map((link) => {
-                      const hostname = getHostname(link) || link;
+                      const safeLink = sanitizeURL(link);
+                      const hostname = getHostname(safeLink) || safeLink;
                       const faviconUrl = hostname
                         ? `${FAVICON_BASE}${encodeURIComponent(hostname)}`
                         : "";
                       return (
                         <a
                           key={link}
-                          href={link}
+                          href={safeLink}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-between gap-3 px-3 py-2 text-xs text-[#111827] hover:bg-[#F9FAFB]"
@@ -2081,7 +1562,7 @@ export function ChatMessage({
                 </div>
               )}
               {(message.thinkingContent || message.isThinkingInProgress) && (
-                <ReasoningSection
+                <ReasoningBlock
                   thinkingContent={message.thinkingContent || ""}
                   isNewMessage={isNewMessage && !isUser}
                   isThinkingInProgress={message.isThinkingInProgress}
@@ -2143,35 +1624,13 @@ export function ChatMessage({
                   {!isMediaGeneration && contentSegments.map((segment, index) => {
                     if (segment.type === "code") {
                       return (
-                        <div
+                        <CodeBlock
                           key={`code-${message.id}-${index}`}
-                          className={`relative border border-zinc-100 rounded-2xl bg-[#F5F5F5] py-2 overflow-hidden`}
-                        >
-                          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/70 px-4">
-                            {segment.language && (
-                              <span className="text-black">
-                                {segment.language}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => onCopy(segment.value)}
-                              className="cursor-pointer inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium border border-main-border text-black transition hover:text-white hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-                            >
-                              <Copy className="h-3 w-3" />
-                              Copy
-                            </button>
-                          </div>
-                          <pre
-                            className={`overflow-x-auto rounded-2xl bg-transparent p-2 font-normal text-sm leading-relaxed ${chatStyles.customScrollbar}`}
-                          >
-                            <code
-                              className={`language-${segment.language || "ts"}`}
-                            >
-                              {segment.value.trimEnd()}
-                            </code>
-                          </pre>
-                        </div>
+                          elementKey={`code-${message.id}-${index}`}
+                          language={segment.language}
+                          value={segment.value}
+                          onCopy={onCopy}
+                        />
                       );
                     }
 

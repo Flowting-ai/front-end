@@ -55,49 +55,14 @@ import {
 } from "@/lib/api/personas";
 import { workflowAPI } from "@/components/workflows/workflow-api";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import { API_BASE_URL } from "@/lib/config";
 import { toast } from "@/lib/toast-helper";
 import Link from "next/link";
-
-// Helper to construct full avatar URL from relative or absolute paths
-const getFullAvatarUrl = (url: string | null | undefined): string | null => {
-  if (!url || url.trim() === "") return null;
-  // Already a full URL (http/https) or data URL
-  if (
-    url.startsWith("http") ||
-    url.startsWith("data:") ||
-    url.startsWith("blob:")
-  ) {
-    return url;
-  }
-  // Relative path - prepend backend URL
-  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-};
-
-function maskEmail(email: string | null | undefined): string {
-  if (!email) return "your@email.com";
-  const atIndex = email.indexOf("@");
-  if (atIndex <= 3) return email;
-  return email.slice(0, 3) + "*".repeat(atIndex - 3) + email.slice(atIndex);
-}
+import { maskEmail, formatDate } from "@/lib/utils/format-utils";
+import { getFullAvatarUrl } from "@/lib/utils/avatar-utils";
 
 export default function PersonaAdminPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const normalizePct = (value: number | null | undefined) => {
-    if (typeof value !== "number" || Number.isNaN(value)) return 0;
-    const pct = value <= 1 ? value * 100 : value;
-    return Math.max(0, Math.min(pct, 100));
-  };
-  const formatDate = (value: string | null | undefined) => {
-    if (!value) return "";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-  };
   const hasFetchedPersonas = React.useRef(false);
   const [personas, setPersonas] = React.useState<Persona[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

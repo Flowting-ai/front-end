@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
-import { ModelSelectorDialog } from "./model-selector-dialog";
-import { ModelSwitchDialog, type ModelSwitchConfig } from "./model-switch-dialog";
+import { ModelDialog, type ModelSwitchConfig } from "./ModelDialog";
 import type { AIModel } from "@/types/ai-model";
 import type { PinType } from "@/components/layout/right-sidebar";
 import type { UserPlanType } from "@/lib/api/user";
@@ -178,7 +177,8 @@ export function ModelSelector({
         </span>
         <ChevronDown className="w-[16px] h-[16px] shrink-0" strokeWidth={2} />
       </button>
-      <ModelSelectorDialog
+      <ModelDialog
+        mode="select"
         open={isSelectorDialogOpen}
         onOpenChange={setIsSelectorDialogOpen}
         onModelSelect={handleModelSelect}
@@ -187,7 +187,8 @@ export function ModelSelector({
         frameworkType={frameworkType}
         userPlanType={userPlanType}
       />
-      <ModelSwitchDialog
+      <ModelDialog
+        mode="switch"
         open={isSwitchDialogOpen}
         onOpenChange={setIsSwitchDialogOpen}
         currentModel={selectedModel}

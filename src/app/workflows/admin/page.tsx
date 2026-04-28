@@ -51,6 +51,7 @@ import Image from "next/image";
 import type { Consumer } from "@/components/workflows/workflow-row";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/lib/toast-helper";
+import { maskEmail, formatDate } from "@/lib/utils/format-utils";
 
 const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   { value: "all", label: "All Workflows" },
@@ -59,30 +60,9 @@ const WORKFLOW_STATUS_OPTIONS: StatusOption[] = [
   // { value: "inactive", label: "Inactive Workflows" },
 ];
 
-function maskEmail(email: string | null | undefined): string {
-  if (!email) return "your@email.com";
-  const atIndex = email.indexOf("@");
-  if (atIndex <= 3) return email;
-  return email.slice(0, 3) + "*".repeat(atIndex - 3) + email.slice(atIndex);
-}
-
 export default function WorkflowAdminPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const normalizePct = (value: number | null | undefined) => {
-    if (typeof value !== "number" || Number.isNaN(value)) return 0;
-    const pct = value <= 1 ? value * 100 : value;
-    return Math.max(0, Math.min(pct, 100));
-  };
-  const formatDate = (value: string | null | undefined) => {
-    if (!value) return "";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return parsed.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-  };
   const hasFetchedWorkflows = React.useRef(false);
   const [workflows, setWorkflows] = React.useState<WorkflowItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

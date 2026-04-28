@@ -14,6 +14,7 @@ import {
   ArrowUp,
   ArrowRight,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import Image from "next/image";
@@ -26,6 +27,8 @@ import { apiFetch } from "@/lib/api/client";
 import chatStyles from "../chat/chat-interface.module.css";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
+import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 
 // Transform AIModel to compare model format
 interface CompareModel {
@@ -38,26 +41,6 @@ interface CompareModel {
   icon: string;
   type: string;
 }
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const UUID_URN_PREFIX = "urn:uuid:";
-
-const normalizeIdCandidate = (value: unknown): string | null => {
-  if (value === null || value === undefined) return null;
-  const normalized = String(value).trim();
-  return normalized.length > 0 ? normalized : null;
-};
-
-const normalizeUuid = (value: unknown): string | null => {
-  const raw = normalizeIdCandidate(value);
-  if (!raw) return null;
-  const withoutUrn = raw.toLowerCase().startsWith(UUID_URN_PREFIX)
-    ? raw.slice(UUID_URN_PREFIX.length)
-    : raw;
-  return UUID_REGEX.test(withoutUrn) ? withoutUrn : null;
-};
 
 const resolveRequestModelId = (model: AIModel): string | null => {
   return normalizeUuid(model.id) ?? normalizeUuid(model.modelId);
@@ -162,7 +145,9 @@ const getHostname = (url: string): string => {
 
 const renderLatexInlineContent = (text: string, keyPrefix: string) => {
   const nodes: Array<string | JSX.Element> = [];
-  const latexRegex = /(\$\$)([^$]+)\1|(\$)([^$]+)\3/g;
+  // Match block: $$...$$ or \[...\], inline: \(...\) or $...$
+  const latexRegex =
+    /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let latexCount = 0;
@@ -178,8 +163,10 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
       );
     }
 
-    const isBlock = match[1] === "$$";
-    const latexContent = isBlock ? match[2] : match[4];
+    const blockContent = match[1] ?? match[2];
+    const inlineContent = match[3] ?? match[4];
+    const isBlock = Boolean(blockContent);
+    const latexContent = (isBlock ? blockContent : inlineContent) ?? "";
 
     try {
       const html = katex.renderToString(latexContent, {
@@ -190,7 +177,7 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
         <span
           key={`${keyPrefix}-latex-${latexCount++}`}
           className={isBlock ? "block my-2" : "inline-block mx-0.5"}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
         />,
       );
     } catch {
@@ -220,24 +207,48 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
 };
 
 const renderBoldInlineContent = (text: string, keyPrefix: string) => {
-  const boldRegex = /(\*\*|__)(.+?)\1/g;
+  // Combined regex — order matters (longest delimiter first):
+  //   1. Bold + italic : ***text*** or ___text___
+  //   2. Bold          : **text**  or __text__
+  //   3. Italic        : *text*  (single *, no _ to avoid snake_case)
+  //   4. Inline code   : `text`
+  const markdownRegex =
+    /(\*\*\*|___)([\s\S]+?)\1|(\*\*|__)([\s\S]+?)\3|\*([^*\n]+?)\*|`([^`\n]+)`/g;
   const nodes: Array<string | JSX.Element> = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  let boldCount = 0;
+  let count = 0;
 
-  while ((match = boldRegex.exec(text)) !== null) {
+  while ((match = markdownRegex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index));
     }
-    nodes.push(
-      <strong
-        key={`${keyPrefix}-bold-${boldCount++}`}
-        className="font-semibold text-[#171717]"
-      >
-        {match[2]}
-      </strong>,
-    );
+
+    if (match[2] !== undefined) {
+      nodes.push(
+        <strong key={`${keyPrefix}-bi-${count++}`} className="font-semibold text-[#171717]">
+          <em>{match[2]}</em>
+        </strong>,
+      );
+    } else if (match[4] !== undefined) {
+      nodes.push(
+        <strong key={`${keyPrefix}-bold-${count++}`} className="font-semibold text-[#171717]">
+          {match[4]}
+        </strong>,
+      );
+    } else if (match[5] !== undefined) {
+      nodes.push(<em key={`${keyPrefix}-em-${count++}`}>{match[5]}</em>);
+    } else if (match[6] !== undefined) {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-code-${count++}`}
+          className="rounded bg-[#F4F4F5] px-1 py-0.5 font-mono text-[0.875em] text-[#171717]"
+        >
+          {match[6]}
+        </code>,
+      );
+    }
+
     lastIndex = match.index + match[0].length;
   }
 
@@ -253,7 +264,7 @@ const renderBoldInlineContent = (text: string, keyPrefix: string) => {
 };
 
 const SimpleLinkPreview = ({ url, label, k }: { url: string; label?: string; k: string }) => {
-  const normalizedUrl = url.trim();
+  const normalizedUrl = sanitizeURL(url.trim());
   const hostname = getHostname(normalizedUrl) || normalizedUrl;
   const displayLabel = (label || hostname || normalizedUrl).trim();
   const faviconSrc = hostname
@@ -288,8 +299,13 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   }
 
   const nodes: Array<string | JSX.Element> = [];
+  // Bare-URL character class excludes markdown syntax chars (* _ ` ~ [ ]) so that
+  // trailing bold/italic/code markers are never captured as part of the URL.
+  // Email group handles both bare addresses (user@example.com) and explicit mailto: prefixes.
+  // The optional (?:\*{1,3}|_{1,2})? non-capturing groups around the email consume any surrounding
+  // bold/italic markdown markers so they are not left as dangling ** or _ text around the link.
   const linkRegex =
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)]*)?)/g;
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)*_`~\[\]]+)|(www\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.[a-zA-Z]{2,}(?:\/[^\s)*_`~\[\]]*)?)|(?:\*{1,3}|_{1,2})?((?:mailto:)?[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})(?:\*{1,3}|_{1,2})?/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let partIndex = 0;
@@ -321,7 +337,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       );
     } else if (match[3]) {
       const raw = match[3];
-      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trimmedUrl = raw.replace(/[).,*_`~\[\]]+$/, "");
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
@@ -338,7 +354,7 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
       }
     } else if (match[4]) {
       const raw = match[4];
-      const trimmedUrl = raw.replace(/[).,]+$/, "");
+      const trimmedUrl = raw.replace(/[).,*_`~\[\]]+$/, "");
       const trailing = raw.slice(trimmedUrl.length);
 
       nodes.push(
@@ -353,6 +369,19 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
           ),
         );
       }
+    } else if (match[5]) {
+      // Email address — strip any explicit mailto: prefix, render as mailto: link
+      const email = match[5].replace(/^mailto:/i, "");
+      nodes.push(
+        <a
+          key={`${keyPrefix}-email-${partIndex++}`}
+          href={`mailto:${email}`}
+          className="group inline-flex items-center gap-1 rounded-full border border-main-border bg-[#F4F4F5] px-2 py-0.5 text-xs font-medium text-[#0A0A0A] hover:bg-[#E4E4E7] hover:text-[#111827] transition-all duration-200 align-middle"
+        >
+          <Mail className="h-3.5 w-3.5 shrink-0 text-zinc-400 group-hover:text-zinc-600 transition-colors" aria-hidden="true" />
+          <span className="truncate max-w-[200px]">{email}</span>
+        </a>,
+      );
     }
 
     const afterOffset =
@@ -403,6 +432,74 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     const trimmed = line.trim();
+
+    const isBracketMathStart = trimmed.startsWith("\\[");
+    const isDollarMathStart = trimmed === "$$" || trimmed.startsWith("$$");
+    if (isBracketMathStart || isDollarMathStart) {
+      flushList();
+
+      let mathContent = "";
+      let closed = false;
+
+      if (isBracketMathStart) {
+        const afterOpen = trimmed.slice(2).trimStart();
+        if (afterOpen.endsWith("\\]")) {
+          mathContent = afterOpen.slice(0, -2).trimEnd();
+          closed = true;
+        } else {
+          const collected: string[] = [afterOpen];
+          for (let j = index + 1; j < lines.length; j++) {
+            const currentTrimmed = lines[j].trim();
+            if (currentTrimmed.endsWith("\\]")) {
+              collected.push(currentTrimmed.slice(0, -2));
+              index = j;
+              closed = true;
+              break;
+            }
+            collected.push(lines[j]);
+          }
+          mathContent = collected.join("\n").trim();
+        }
+      } else {
+        const afterOpen = trimmed.slice(2).trimStart();
+        if (afterOpen.endsWith("$$")) {
+          mathContent = afterOpen.slice(0, -2).trimEnd();
+          closed = true;
+        } else {
+          const collected: string[] = [afterOpen];
+          for (let j = index + 1; j < lines.length; j++) {
+            const currentTrimmed = lines[j].trim();
+            if (currentTrimmed.endsWith("$$")) {
+              collected.push(currentTrimmed.slice(0, -2));
+              index = j;
+              closed = true;
+              break;
+            }
+            collected.push(lines[j]);
+          }
+          mathContent = collected.join("\n").trim();
+        }
+      }
+
+      if (closed && mathContent) {
+        try {
+          const html = katex.renderToString(mathContent, {
+            throwOnError: false,
+            displayMode: true,
+          });
+          nodes.push(
+            <div
+              key={`${keyPrefix}-math-${index}`}
+              className="my-2 overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
+            />,
+          );
+          continue;
+        } catch {
+          // Fall through to raw rendering when parsing fails.
+        }
+      }
+    }
 
     if (!trimmed) {
       flushList();
@@ -734,8 +831,8 @@ export default function CompareModelsPage({
         .map((id) => id.trim())
         .filter((id) => id.length > 0);
 
-      const validModelIds = modelIds.filter((id) => UUID_REGEX.test(id));
-      const invalidModelIds = modelIds.filter((id) => !UUID_REGEX.test(id));
+      const validModelIds = modelIds.filter((id) => isValidUUID(id));
+      const invalidModelIds = modelIds.filter((id) => !isValidUUID(id));
 
       if (validModelIds.length === 0) {
         throw new Error("No valid model IDs found");

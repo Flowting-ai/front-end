@@ -29,10 +29,12 @@ import { toast } from "@/lib/toast-helper";
 import { AppLayoutContext } from "@/components/layout/app-layout";
 import chatStyles from "./persona-chat-interface.module.css";
 import { cn } from "@/lib/utils";
+import { sanitizeURL } from "@/lib/security";
 import { API_BASE_URL } from "@/lib/config";
+import { getFullAvatarUrl } from "@/lib/utils/avatar-utils";
 import { getModelIcon } from "@/lib/model-icons";
 import { useAuth } from "@/context/auth-context";
-import { extractThinkingContent } from "@/lib/thinking";
+import { extractThinkingContent } from "@/lib/parsers/content-parser";
 import { mergeStreamingText } from "@/lib/streaming";
 import {
   fetchPersonaChatMessages,
@@ -201,13 +203,7 @@ export function PersonaChatFullPage({
   }, [showAttachMenu]);
 
   const personaName = persona?.name?.trim() || "Untitled Persona";
-  const avatarUrl = persona?.avatar
-    ? persona.avatar.startsWith("http") ||
-      persona.avatar.startsWith("data:") ||
-      persona.avatar.startsWith("blob:")
-      ? persona.avatar
-      : `${API_BASE_URL}${persona.avatar.startsWith("/") ? "" : "/"}${persona.avatar}`
-    : null;
+  const avatarUrl = getFullAvatarUrl(persona?.avatar);
 
   // Load existing messages from backend when opening a saved chat
   useEffect(() => {
@@ -577,8 +573,8 @@ export function PersonaChatFullPage({
     const trimmedContent = input.trim();
     if ((!trimmedContent && attachments.length === 0) || isResponding) return;
 
-    const userMessageId = `user-${Date.now()}`;
-    const aiMessageId = `ai-${Date.now() + 1}`;
+    const userMessageId = `user-${crypto.randomUUID()}`;
+    const aiMessageId = `ai-${crypto.randomUUID()}`;
 
     // Convert ALL attachments to data URLs so they survive page refresh
     let persistentAttachments:
@@ -671,7 +667,7 @@ export function PersonaChatFullPage({
       let tempSidebarChatId: string | null = null;
 
       if (!resolvedChatId) {
-        tempSidebarChatId = `temp-${Date.now()}`;
+        tempSidebarChatId = `temp-${crypto.randomUUID()}`;
         window.dispatchEvent(
           new CustomEvent("persona-chat-title-updated", {
             detail: {
@@ -941,6 +937,19 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "tool_calls_streaming") {
+          const toolName =
+            typeof parsed.content === "string" && parsed.content
+              ? parsed.content
+              : typeof (parsed.tool_call as Record<string, unknown> | undefined)?.name === "string"
+                ? (parsed.tool_call as Record<string, unknown>).name as string
+                : "";
+          if (toolName) {
+            updateAiMessage({ toolStatus: `Preparing ${toolName}...` });
+          }
+          return;
+        }
+
         if (eventName === "tool_complete") {
           updateAiMessage({ toolStatus: null });
           return;
@@ -950,11 +959,27 @@ export function PersonaChatFullPage({
           const tool = typeof parsed.tool === "string" ? parsed.tool : "";
           const filename = typeof parsed.filename === "string" ? parsed.filename : "";
           const status = typeof parsed.status === "string" ? parsed.status : "";
+          const message = typeof parsed.message === "string" ? parsed.message : "";
           const displayName = formatToolDisplayName(tool);
           const label = filename
             ? `${status === "executing" ? "Running" : displayName} ${tool} for ${filename}...`
-            : displayName;
+            : message || displayName;
           updateAiMessage({ toolStatus: label });
+          return;
+        }
+
+        if (eventName === "docx_progress") {
+          const step = typeof parsed.step === "string" ? parsed.step : "";
+          const message = typeof parsed.message === "string" ? parsed.message : "";
+          const filename = typeof parsed.filename === "string" ? parsed.filename : "";
+          if (step === "done") {
+            updateAiMessage({ toolStatus: null });
+          } else {
+            const label = filename
+              ? `${message || step}: ${filename}`
+              : message || step;
+            updateAiMessage({ toolStatus: label || "Processing document..." });
+          }
           return;
         }
 
@@ -1544,7 +1569,7 @@ export function PersonaChatFullPage({
                               attachment.type !== "image" ? (
                                 <a
                                   key={attachment.id}
-                                  href={attachment.url}
+                                  href={sanitizeURL(attachment.url ?? "")}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="group relative shrink-0 flex items-center gap-2.5 rounded-[10px] border border-[#E5E5E5] bg-[#FAFAFA] p-1.5 overflow-hidden no-underline cursor-pointer transition-colors hover:bg-[#F0F0F0]"

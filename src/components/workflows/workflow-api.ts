@@ -148,6 +148,7 @@ export type StreamEventType =
   | "node_start"
   | "content"
   | "node_complete"
+  | "node_image"
   | "workflow_complete"
   | "node_failed"
   | "error"
@@ -160,6 +161,8 @@ export type StreamEventType =
   | "chunk"
   | "node_end"
   | "ask_user"
+  // Unnamed stream events (dispatched via parsed.type)
+  | "tool_calls_streaming"
   // Chat-style events (shared with chat-interface)
   | "reasoning"
   | "image"
@@ -167,6 +170,7 @@ export type StreamEventType =
   | "tool_executing"
   | "tool_complete"
   | "tool_progress"
+  | "docx_progress"
   | "generated_file"
   | "title"
   | "message_saved"
@@ -223,6 +227,14 @@ export interface NodeCompleteEvent extends StreamEventBase {
   node_type: string;
   name?: string;
   output?: string;
+  is_kb_node?: boolean;
+}
+
+export interface NodeImageEvent extends StreamEventBase {
+  event: "node_image";
+  node_id: string;
+  url: string;
+  s3_key?: string;
 }
 
 export interface WorkflowCompleteEvent extends StreamEventBase {
@@ -263,6 +275,7 @@ export interface ImageEvent extends StreamEventBase {
   event: "image";
   images?: Array<{ url: string; alt?: string }>;
   url?: string;
+  s3_key?: string;
   alt?: string;
 }
 
@@ -274,18 +287,46 @@ export interface WebSearchEvent extends StreamEventBase {
 
 export interface ToolExecutingEvent extends StreamEventBase {
   event: "tool_executing";
+  /** Tool name (same as tool_call.name when tool_call is present). */
   content: string;
+  tool_call?: {
+    name: string;
+    arguments?: unknown;
+    raw_arguments?: string;
+    args_parse_error?: string;
+    tool_call_id?: string;
+  };
 }
 
 export interface ToolCompleteEvent extends StreamEventBase {
   event: "tool_complete";
+  /** Tool name echoed back. */
+  content?: string;
+  tool_call?: {
+    name: string;
+    tool_call_id?: string;
+    result?: unknown;
+    duration_s?: number;
+  };
 }
 
 export interface ToolProgressEvent extends StreamEventBase {
   event: "tool_progress";
   tool: string;
-  filename?: string;
   status?: string;
+  filename?: string;
+  step?: string;
+  message?: string;
+  code_preview?: string;
+}
+
+export interface DocxProgressEvent extends StreamEventBase {
+  event: "docx_progress";
+  /** Step name: start | unpacking | analyzing | generating | editing | validating | packing | done | error */
+  step: string;
+  message: string;
+  filename?: string;
+  code_preview?: string;
 }
 
 export interface GeneratedFileEvent extends StreamEventBase {
@@ -309,10 +350,26 @@ export interface MessageSavedEvent extends StreamEventBase {
 
 export interface ModelSelectedEvent extends StreamEventBase {
   event: "model_selected";
+  model_id?: string | number;
   model_name?: string;
+  deployment_name?: string;
   company?: string;
   provider_name?: string;
-  model_id?: string | number;
+  complexity?: string;
+  thinking_enabled?: boolean;
+  effort?: string;
+}
+
+/** Emitted while the model is streaming the JSON args of a tool call (per-fragment). */
+export interface ToolCallsStreamingEvent extends StreamEventBase {
+  event: "tool_calls_streaming";
+  /** Tool name being streamed. */
+  content: string;
+  tool_call?: {
+    name: string;
+    args_delta?: string;
+    args_length?: number;
+  };
 }
 
 export type StreamEvent =
@@ -321,15 +378,18 @@ export type StreamEvent =
   | ChunkEvent
   | NodeEndEvent
   | NodeCompleteEvent
+  | NodeImageEvent
   | WorkflowCompleteEvent
   | AskUserEvent
   | StreamErrorEvent
   | ReasoningEvent
   | ImageEvent
   | WebSearchEvent
+  | ToolCallsStreamingEvent
   | ToolExecutingEvent
   | ToolCompleteEvent
   | ToolProgressEvent
+  | DocxProgressEvent
   | GeneratedFileEvent
   | TitleEvent
   | MessageSavedEvent
@@ -341,15 +401,18 @@ export interface StreamCallbacks {
   onChunk?: (event: ChunkEvent) => void;
   onNodeEnd?: (event: NodeEndEvent) => void;
   onNodeComplete?: (event: NodeCompleteEvent) => void;
+  onNodeImage?: (event: NodeImageEvent) => void;
   onWorkflowComplete?: (event: WorkflowCompleteEvent) => void;
   onAskUser?: (event: AskUserEvent) => void;
   onError?: (event: StreamErrorEvent) => void;
   onReasoning?: (event: ReasoningEvent) => void;
   onImage?: (event: ImageEvent) => void;
   onWebSearch?: (event: WebSearchEvent) => void;
+  onToolCallsStreaming?: (event: ToolCallsStreamingEvent) => void;
   onToolExecuting?: (event: ToolExecutingEvent) => void;
   onToolComplete?: (event: ToolCompleteEvent) => void;
   onToolProgress?: (event: ToolProgressEvent) => void;
+  onDocxProgress?: (event: DocxProgressEvent) => void;
   onGeneratedFile?: (event: GeneratedFileEvent) => void;
   onTitle?: (event: TitleEvent) => void;
   onMessageSaved?: (event: MessageSavedEvent) => void;
@@ -376,6 +439,7 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "node_start",
   "content",
   "node_complete",
+  "node_image",
   "workflow_complete",
   "node_failed",
   "error",
@@ -387,12 +451,14 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "done",
   "node_end",
   "ask_user",
+  "tool_calls_streaming",
   "reasoning",
   "image",
   "web_search",
   "tool_executing",
   "tool_complete",
   "tool_progress",
+  "docx_progress",
   "generated_file",
   "title",
   "message_saved",
@@ -1023,7 +1089,9 @@ const processSseStream = async (
       try {
         event = JSON.parse(jsonStr) as Record<string, unknown>;
       } catch {
-        console.warn("[SSE] Failed to parse event JSON:", jsonStr.slice(0, 100));
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[SSE] Failed to parse event JSON:", jsonStr.slice(0, 100));
+        }
         return;
       }
 
@@ -1034,8 +1102,6 @@ const processSseStream = async (
       pendingEventType = undefined;
 
       if (!eventType) return;
-
-      console.debug("[SSE] Event:", eventType);
 
       switch (eventType) {
         // ── New API events ───────────────────────────────────────────────────
@@ -1105,6 +1171,17 @@ const processSseStream = async (
             node_type: String(event.node_type ?? ""),
             name: typeof event.name === "string" ? event.name : undefined,
             output: typeof event.output === "string" ? event.output : undefined,
+            is_kb_node: typeof event.is_kb_node === "boolean" ? event.is_kb_node : undefined,
+          });
+          break;
+
+        // ── node_image (workflow-only) ────────────────────────────────────
+        case "node_image":
+          callbacks.onNodeImage?.({
+            event: "node_image",
+            node_id: String(event.node_id ?? ""),
+            url: typeof event.url === "string" ? event.url : "",
+            s3_key: typeof event.s3_key === "string" ? event.s3_key : undefined,
           });
           break;
 
@@ -1212,19 +1289,88 @@ const processSseStream = async (
           callbacks.onToolExecuting?.({
             event: "tool_executing",
             content: typeof event.content === "string" ? event.content : "",
+            tool_call: event.tool_call
+              ? {
+                  name: typeof (event.tool_call as Record<string, unknown>).name === "string"
+                    ? (event.tool_call as Record<string, unknown>).name as string
+                    : "",
+                  arguments: (event.tool_call as Record<string, unknown>).arguments,
+                  raw_arguments: typeof (event.tool_call as Record<string, unknown>).raw_arguments === "string"
+                    ? (event.tool_call as Record<string, unknown>).raw_arguments as string
+                    : undefined,
+                  args_parse_error: typeof (event.tool_call as Record<string, unknown>).args_parse_error === "string"
+                    ? (event.tool_call as Record<string, unknown>).args_parse_error as string
+                    : undefined,
+                  tool_call_id: typeof (event.tool_call as Record<string, unknown>).tool_call_id === "string"
+                    ? (event.tool_call as Record<string, unknown>).tool_call_id as string
+                    : undefined,
+                }
+              : undefined,
           });
           break;
 
         case "tool_complete":
-          callbacks.onToolComplete?.({ event: "tool_complete" });
+          callbacks.onToolComplete?.({
+            event: "tool_complete",
+            content: typeof event.content === "string" ? event.content : undefined,
+            tool_call: event.tool_call
+              ? {
+                  name: typeof (event.tool_call as Record<string, unknown>).name === "string"
+                    ? (event.tool_call as Record<string, unknown>).name as string
+                    : "",
+                  tool_call_id: typeof (event.tool_call as Record<string, unknown>).tool_call_id === "string"
+                    ? (event.tool_call as Record<string, unknown>).tool_call_id as string
+                    : undefined,
+                  result: (event.tool_call as Record<string, unknown>).result,
+                  duration_s: typeof (event.tool_call as Record<string, unknown>).duration_s === "number"
+                    ? (event.tool_call as Record<string, unknown>).duration_s as number
+                    : undefined,
+                }
+              : undefined,
+          });
           break;
 
         case "tool_progress":
           callbacks.onToolProgress?.({
             event: "tool_progress",
             tool: typeof event.tool === "string" ? event.tool : "",
-            filename: typeof event.filename === "string" ? event.filename : undefined,
             status: typeof event.status === "string" ? event.status : undefined,
+            filename: typeof event.filename === "string" ? event.filename : undefined,
+            step: typeof event.step === "string" ? event.step : undefined,
+            message: typeof event.message === "string" ? event.message : undefined,
+            code_preview: typeof event.code_preview === "string" ? event.code_preview : undefined,
+          });
+          break;
+
+        // ── tool_calls_streaming (model streaming tool call args) ────────
+        case "tool_calls_streaming":
+          callbacks.onToolCallsStreaming?.({
+            event: "tool_calls_streaming",
+            content: typeof event.content === "string" ? event.content : "",
+            tool_call: event.tool_call
+              ? {
+                  name: typeof (event.tool_call as Record<string, unknown>).name === "string"
+                    ? (event.tool_call as Record<string, unknown>).name as string
+                    : "",
+                  args_delta: typeof (event.tool_call as Record<string, unknown>).args_delta === "string"
+                    ? (event.tool_call as Record<string, unknown>).args_delta as string
+                    : undefined,
+                  args_length: typeof (event.tool_call as Record<string, unknown>).args_length === "number"
+                    ? (event.tool_call as Record<string, unknown>).args_length as number
+                    : undefined,
+                }
+              : undefined,
+          });
+          break;
+
+        // ── docx_progress (document generation step progress) ───────────
+        case "docx_progress":
+          callbacks.onDocxProgress?.({
+            event: "docx_progress",
+            step: typeof event.step === "string" ? event.step : "",
+            message: typeof event.message === "string" ? event.message : "",
+            filename: typeof event.filename === "string" ? event.filename : undefined,
+            code_preview: typeof event.code_preview === "string" ? event.code_preview : undefined,
           });
           break;
 
@@ -1256,10 +1402,14 @@ const processSseStream = async (
         case "model_selected":
           callbacks.onModelSelected?.({
             event: "model_selected",
+            model_id: (event.model_id ?? event.modelId) as string | number | undefined,
             model_name: typeof event.model_name === "string" ? event.model_name : typeof event.modelName === "string" ? event.modelName : undefined,
+            deployment_name: typeof event.deployment_name === "string" ? event.deployment_name : undefined,
             company: typeof event.company === "string" ? event.company : undefined,
             provider_name: typeof event.provider_name === "string" ? event.provider_name : typeof event.providerName === "string" ? event.providerName : undefined,
-            model_id: (event.model_id ?? event.modelId) as string | number | undefined,
+            complexity: typeof event.complexity === "string" ? event.complexity : undefined,
+            thinking_enabled: typeof event.thinking_enabled === "boolean" ? event.thinking_enabled : undefined,
+            effort: typeof event.effort === "string" ? event.effort : undefined,
           });
           break;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { sanitizeURL } from "@/lib/security";
 import type { MessageSource } from "./chat-message";
 import { BookOpen, ExternalLink } from "lucide-react";
 import chatStyles from "./chat-interface.module.css";
@@ -171,7 +172,8 @@ export function CitationsPanel({
 }
 
 function SourceCard({ source }: { source: MessageSource }) {
-  const fetched = useLinkMetadata(source.url);
+  const safeUrl = sanitizeURL(source.url ?? "");
+  const fetched = useLinkMetadata(safeUrl);
   const title = getSourceTitle(source, fetched?.title);
   const description =
     source.description ?? fetched?.description ?? source.snippet ?? "";
@@ -179,10 +181,10 @@ function SourceCard({ source }: { source: MessageSource }) {
   return (
     <li>
       <a
-        href={source.url}
+        href={safeUrl}
         target="_blank"
         rel="noopener noreferrer"
-        title={source.url}
+        title={safeUrl}
         className={cn(
           "group/card flex flex-col gap-2 rounded-[10px] border border-[#e5e5e5] bg-white overflow-hidden",
           "hover:border-[#d4d4d4] hover:bg-[#fafafa] hover:shadow-sm transition-all duration-150",
@@ -192,10 +194,10 @@ function SourceCard({ source }: { source: MessageSource }) {
         <div className="flex flex-col gap-1.5 px-3 pb-2.5 pt-2 min-w-0">
           {/* 1. Image + link first */}
           <div className="flex items-center gap-1.5 text-[11px] text-[#a3a3a3] group-hover/card:text-[#525252]">
-            <SourceFavicon url={source.url} />
+            <SourceFavicon url={safeUrl} />
             <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={2} />
-            <span className="truncate" title={source.url}>
-              {getUrlHostname(source.url)}
+            <span className="truncate" title={safeUrl}>
+              {getUrlHostname(safeUrl)}
             </span>
           </div>
           {/* 2. Source title (no numbers) */}

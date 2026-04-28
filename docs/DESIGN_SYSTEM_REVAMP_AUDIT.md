@@ -399,32 +399,40 @@ src/
 │   │   ├── SettingsMenu.tsx
 │   │   └── ChatHistoryItem.tsx
 │   ├── workflows/
-│   │   ├── canvas/               # Sub-folder for canvas-specific
+│   │   ├── canvas/               # Canvas + node/edge rendering ✅ DONE
 │   │   │   ├── WorkflowCanvas.tsx
 │   │   │   ├── CustomNode.tsx
 │   │   │   ├── CustomEdge.tsx
-│   │   │   └── ContextMenu.tsx
-│   │   ├── inspectors/           # Sub-folder for inspectors
-│   │   │   ├── NodeInspectorPanel.tsx
+│   │   │   ├── ContextMenu.tsx
+│   │   │   ├── UtilitySection.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   └── index.ts
+│   │   ├── inspectors/           # Node inspector panels ✅ DONE
+│   │   │   ├── DocumentNodeInspector.tsx
+│   │   │   ├── ChatNodeInspector.tsx
 │   │   │   ├── PinNodeInspector.tsx
 │   │   │   ├── ModelNodeInspector.tsx
 │   │   │   ├── PersonaNodeInspector.tsx
-│   │   │   ├── DocumentNodeInspector.tsx
-│   │   │   └── ChatNodeInspector.tsx
-│   │   ├── dialogs/              # Sub-folder for dialogs
+│   │   │   ├── RightInspector.tsx
+│   │   │   └── index.ts
+│   │   ├── dialogs/              # Modal dialogs ✅ DONE
 │   │   │   ├── SelectPinsDialog.tsx
 │   │   │   ├── SelectModelDialog.tsx
 │   │   │   ├── SelectChatsDialog.tsx
 │   │   │   ├── AddPersonaDialog.tsx
 │   │   │   ├── LoadWorkflowDialog.tsx
-│   │   │   └── EdgeDetailsDialog.tsx
-│   │   ├── chat/                 # Workflow chat
-│   │   │   ├── WorkflowChat.tsx  # Merged interface + full page
-│   │   │   └── WorkflowChatMessage.tsx
-│   │   ├── WorkflowRow.tsx
+│   │   │   ├── EdgeDetailsDialog.tsx
+│   │   │   └── index.ts
+│   │   ├── chat/                 # Workflow chat ✅ DONE
+│   │   │   ├── WorkflowChat.tsx  # Merged overlay + full-page
+│   │   │   ├── WorkflowChatInterface.tsx  # Shim
+│   │   │   ├── WorkflowChatFullPage.tsx   # Shim
+│   │   │   ├── workflow-chat-interface.module.css
+│   │   │   └── index.ts
+│   │   ├── workflow-row.tsx
 │   │   ├── TopBar.tsx
 │   │   ├── LeftSidebar.tsx
-│   │   └── Footer.tsx
+│   │   ├── index.ts              # Barrel re-exporting all sub-folders
 │   ├── pinboard/
 │   │   ├── PinItem.tsx           # ~400 lines (down from 1,255)
 │   │   ├── OrganizePinsDialog.tsx
@@ -497,46 +505,46 @@ src/
 
 ### Phase 1 — Security Hardening (Week 1)
 
-- [ ] **S1**: Add DOMPurify for all `dangerouslySetInnerHTML` usage (4 locations)
+- [x] **S1**: Add DOMPurify for all `dangerouslySetInnerHTML` usage (4 locations)
 - [ ] **S2**: Implement CSRF token in `apiFetch()` and API routes
-- [ ] **S4**: Sanitize URLs in markdown link rendering
-- [ ] **S9**: Add input sanitization for folder/tag names
-- [ ] **S12**: Replace increment counter with `crypto.randomUUID()`
+- [x] **S4**: Sanitize URLs in markdown link rendering
+- [x] **S9**: Add input sanitization for folder/tag names
+- [x] **S12**: Replace increment counter with `crypto.randomUUID()`
 - [ ] **S14**: Add Content Security Policy headers in `next.config.ts`
-- [ ] Remove console logging of auth headers in `workflow-api.ts`
+- [x] Remove console logging of auth headers in `workflow-api.ts`
 
 ### Phase 2 — Extract Shared Utilities (Week 2)
 
-- [ ] Create `src/lib/utils/format-utils.ts` — `maskEmail`, `normalizePct`, `formatDate`
-- [ ] Create `src/lib/utils/tag-utils.ts` — `normalizeTagList`, `normalizeCommentStrings`
-- [ ] Create `src/lib/utils/avatar-utils.ts` — `getFullAvatarUrl`
-- [ ] Create `src/lib/normalizers/normalize-utils.ts` — `normalizeUrl`, `normalizeUuid`, `isValidUUID`
-- [ ] Create `src/lib/parsers/content-parser.ts` — `extractThinkingContent`, `extractSources`
-- [ ] Create `src/lib/normalizers/message-transformer.ts` — `extractMetadata`, `normalizeBackendMessage`
-- [ ] Update all import sites to use new shared modules
-- [ ] Delete duplicate function definitions
+- [x] Create `src/lib/utils/format-utils.ts` — `maskEmail`, `normalizePct`, `formatDate`
+- [x] Create `src/lib/utils/tag-utils.ts` — `normalizeTagList`, `normalizeCommentStrings`
+- [x] Create `src/lib/utils/avatar-utils.ts` — `getFullAvatarUrl`
+- [x] Create `src/lib/normalizers/normalize-utils.ts` — `normalizeUrl`, `normalizeUuid`, `isValidUUID`
+- [x] Create `src/lib/parsers/content-parser.ts` — `extractThinkingContent`, `extractSources`
+- [x] Create `src/lib/normalizers/message-transformer.ts` — `extractMetadata`, `normalizeBackendMessage`
+- [x] Update all import sites to use new shared modules
+- [x] Delete duplicate function definitions
 
 ### Phase 3 — Extract Custom Hooks (Week 3)
 
-- [ ] `useChatState()` — from `chat-interface.tsx`
-- [ ] `useStreamingChat()` — from `chat-interface.tsx`
-- [ ] `useChatHistory()` — from `app-layout.tsx`
-- [ ] `useModelSelection()` — from `app-layout.tsx`
-- [ ] `usePinOperations()` — from `app-layout.tsx`
-- [ ] `useWorkflowChat()` — shared by `WorkflowChatInterface` + `WorkflowChatFullPage`
-- [ ] `useWorkflowState()` — from `WorkflowCanvas.tsx`
-- [ ] `useFolderTree()` — from `organize-pins-dialog.tsx`
-- [ ] `useTags()` — from `pin-item.tsx`
-- [ ] `useSidebarEvents()` — from `left-sidebar.tsx`
+- [x] `useChatState()` — from `chat-interface.tsx`
+- [x] `useStreamingChat()` — from `chat-interface.tsx`
+- [x] `useChatHistory()` — from `app-layout.tsx`
+- [x] `useModelSelection()` — from `app-layout.tsx`
+- [x] `usePinOperations()` — from `app-layout.tsx`
+- [x] `useWorkflowChat()` — shared by `WorkflowChatInterface` + `WorkflowChatFullPage`
+- [x] `useWorkflowState()` — from `WorkflowCanvas.tsx`
+- [x] `useFolderTree()` — from `organize-pins-dialog.tsx`
+- [x] `useTags()` — from `pin-item.tsx`
+- [x] `useSidebarEvents()` — from `left-sidebar.tsx`
 
 ### Phase 4 — Component Decomposition (Week 4–5)
 
-- [ ] Split `chat-interface.tsx` → ChatInterface + PinMentionDropdown + AttachmentManager + ChatToolbar
-- [ ] Split `chat-message.tsx` → ChatMessage + CodeBlock + LaTeXRenderer + LinkPreviewCard + ReasoningBlock
-- [ ] Split `app-layout.tsx` → AppLayout (shell only)
-- [ ] Merge `model-switch-dialog.tsx` + `model-selector-dialog.tsx` → `ModelDialog.tsx`
-- [ ] Merge `WorkflowChatInterface.tsx` + `WorkflowChatFullPage.tsx` → `WorkflowChat.tsx` + hook
-- [ ] Reorganize `src/components/workflows/` into sub-folders (canvas/, inspectors/, dialogs/, chat/)
+- [x] Split `chat-interface.tsx` → ChatInterface + PinMentionDropdown + AttachmentManager + ChatToolbar
+- [x] Split `chat-message.tsx` → ChatMessage + CodeBlock + LaTeXRenderer + LinkPreviewCard + ReasoningBlock
+- [x] Split `app-layout.tsx` → AppLayout (shell only)
+- [x] Merge `model-switch-dialog.tsx` + `model-selector-dialog.tsx` → `ModelDialog.tsx`
+- [x] Merge `WorkflowChatInterface.tsx` + `WorkflowChatFullPage.tsx` → `WorkflowChat.tsx` + hook
+- [x] Reorganize `src/components/workflows/` into sub-folders (canvas/, inspectors/, dialogs/, chat/)
 
 ### Phase 5 — CSS Standardization (Week 5–6)
 

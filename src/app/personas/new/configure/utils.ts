@@ -34,10 +34,10 @@ export function getFileType(mimeType: string, fileName?: string): 'pdf' | 'image
 }
 
 /**
- * Generates a unique file ID
+ * Generates a cryptographically unique file ID.
  */
 export function generateFileId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return crypto.randomUUID();
 }
 
 /**

@@ -20,6 +20,7 @@ import {
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { toast } from "@/lib/toast-helper";
+import { sanitizeFolderName } from "@/lib/security";
 import { formatDistanceToNow } from "date-fns";
 import type { PinType } from "../layout/right-sidebar";
 import {
@@ -41,6 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRouter } from "next/navigation";
 import { renderInlineMarkdown, formatPinTitle, stripMarkdown } from "@/lib/markdown-utils";
+import { useTags } from "@/hooks/use-tags";
 
 interface PinItemProps {
   pin: PinType;
@@ -68,25 +70,6 @@ const formatTimestamp = (time: Date) => {
   return formatDistanceToNow(pinTime, { addSuffix: true });
 };
 
-const normalizeTagList = (rawTags: unknown): string[] => {
-  if (!Array.isArray(rawTags)) return [];
-  return rawTags
-    .map((tag) => {
-      if (typeof tag === "string") return tag.trim();
-      if (!tag || typeof tag !== "object") return "";
-      const candidate = tag as {
-        tag_name?: unknown;
-        name?: unknown;
-        label?: unknown;
-        text?: unknown;
-      };
-      const value =
-        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter((tag) => tag.length > 0);
-};
-
 export const PinItem = ({
   pin,
   onUpdatePin,
@@ -107,13 +90,25 @@ export const PinItem = ({
 
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const TRUNCATE_TITLE_LEN = 50;
-  const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>(normalizeTagList(pin.tags));
+
+  // ── Tag state (managed by useTags) ──────────────────────────────────────────
+  const {
+    tags,
+    tagInput,
+    setTagInput,
+    hoveredTagIndex,
+    setHoveredTagIndex,
+    MAX_TAG_LINES,
+    ESTIMATED_TAGS_PER_LINE,
+    handleTagKeyDown,
+    handleRemoveTag: handleRemoveTagFromHook,
+    getTagColor,
+  } = useTags({ pin, onUpdatePin, onRemoveTag });
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(pin.title ?? pin.text);
   const [showComments, setShowComments] = useState(false);
   const [commentInput, setCommentInput] = useState("");
-  const [hoveredTagIndex, setHoveredTagIndex] = useState<number | null>(null);
   const [comments, setComments] = useState<string[]>(pin.comments || []);
   const [editingCommentIndex, setEditingCommentIndex] = useState<number | null>(
     null
@@ -124,9 +119,6 @@ export const PinItem = ({
   const [newFolderName, setNewFolderName] = useState("");
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const createFolderInputRef = useRef<HTMLInputElement>(null);
-
-  const MAX_TAG_LINES = 2;
-  const ESTIMATED_TAGS_PER_LINE = 4;
 
   const filteredFolders = useMemo(() => {
     // Filter out the current folder from the list
@@ -176,19 +168,6 @@ export const PinItem = ({
   }, [isEditingTitle]);
 
   useEffect(() => {
-    // Only update when incoming tags differ to avoid redundant state updates
-    const incoming = normalizeTagList(pin.tags);
-    if (
-      tags.length !== incoming.length ||
-      incoming.some((t, i) => t !== tags[i])
-    ) {
-      // schedule update to avoid synchronous setState inside an effect
-      const id = setTimeout(() => setTags(incoming), 0);
-      return () => clearTimeout(id);
-    }
-  }, [pin.tags, tags]);
-
-  useEffect(() => {
     const incoming = pin.comments || [];
     if (
       comments.length !== incoming.length ||
@@ -206,34 +185,6 @@ export const PinItem = ({
       setTimeout(() => createFolderInputRef.current?.focus(), 0);
     }
   }, [showCreateFolderDialog]);
-
-  const handleTagKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && tagInput.trim()) {
-      event.preventDefault();
-
-      // Check if adding would exceed 2 lines (approximate)
-      if (tags.length >= MAX_TAG_LINES * ESTIMATED_TAGS_PER_LINE) {
-        toast.error("Cannot add more tags", {
-          description: "Maximum tag limit reached (2 lines)",
-        });
-        return;
-      }
-
-      // Add new tag at the beginning (most recent first)
-      const newTags = [tagInput.trim(), ...tags];
-      setTags(newTags);
-      const updatedPin = { ...pin, tags: newTags };
-      onUpdatePin(updatedPin);
-      setTagInput("");
-      toast("Tag added!");
-    }
-  };
-
-  const handleRemoveTag = (tagIndex: number) => {
-    const newTags = tags.filter((_, index) => index !== tagIndex);
-    setTags(newTags);
-    onRemoveTag(pin.id, tagIndex);
-  };
 
 
 
@@ -323,10 +274,11 @@ export const PinItem = ({
   };
 
   const handleCreateAndMove = async () => {
-    if (!moveFolderSearch.trim() || !onCreateFolder || !onMovePin) return;
+    const safeName = sanitizeFolderName(moveFolderSearch);
+    if (!safeName || !onCreateFolder || !onMovePin) return;
 
     try {
-      const newFolder = await onCreateFolder(moveFolderSearch.trim());
+      const newFolder = await onCreateFolder(safeName);
       onMovePin(pin.id, newFolder.id);
       toast(`Created folder and moved to ${newFolder.name}`);
       setMoveFolderSearch("");
@@ -622,13 +574,15 @@ export const PinItem = ({
                         ref={createFolderInputRef}
                         type="text"
                         placeholder="Folder name"
+                        maxLength={100}
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newFolderName.trim()) {
                             e.preventDefault();
-                            if (onCreateFolder) {
-                              onCreateFolder(newFolderName.trim())
+                            const safeName = sanitizeFolderName(newFolderName);
+                            if (safeName && onCreateFolder) {
+                              onCreateFolder(safeName)
                                 .then((newFolder) => {
                                   if (onMovePin) {
                                     onMovePin(pin.id, newFolder.id);
@@ -665,9 +619,9 @@ export const PinItem = ({
                       <div className="flex items-center" style={{ gap: "8px" }}>
                         <Button
                           onClick={() => {
-                            if (!newFolderName.trim() || !onCreateFolder)
-                              return;
-                            onCreateFolder(newFolderName.trim())
+                            const safeName = sanitizeFolderName(newFolderName);
+                            if (!safeName || !onCreateFolder) return;
+                            onCreateFolder(safeName)
                               .then((newFolder) => {
                                 if (onMovePin) {
                                   onMovePin(pin.id, newFolder.id);
@@ -947,24 +901,16 @@ export const PinItem = ({
                 <input
                   type="text"
                   placeholder="Add Tag"
+                  maxLength={50}
                   className="w-15 h-4 min-h-4  bg-transparent text-[9px] text-[#1e1e1e] placeholder:text-[#9F9F9F] border border-[#d4d4d4] rounded-full gap-1 focus:outline-none focus:ring-0 py-0.5 pl-4 pr-0"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}                  
+                  onKeyDown={handleTagKeyDown}
                 />
               </div>
             )}
           {tags.map((tag, tagIndex) => {
             const safeTag = typeof tag === "string" ? tag : String(tag ?? "");
-            // Generate color based on first 2 letters of tag
-            const getTagColor = (tagText: string) => {
-              const colors = ["#E55959", "#9A6FF1", "#756AF2"];
-              const firstTwo = tagText.substring(0, 2).toLowerCase();
-              const charSum =
-                firstTwo.charCodeAt(0) + (firstTwo.charCodeAt(1) || 0);
-              return colors[charSum % colors.length];
-            };
-
             return (
               <div
                 key={tagIndex}
@@ -986,7 +932,7 @@ export const PinItem = ({
                 </Badge>
                 {hoveredTagIndex === tagIndex && (
                   <button
-                    onClick={() => handleRemoveTag(tagIndex)}
+                    onClick={() => handleRemoveTagFromHook(tagIndex)}
                     className="absolute top-0.5 right-0.5 rounded-full bg-white border border-[#E5E5E5] p-0.5 hover:bg-[#F5F5F5] shadow-sm transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <X className="h-2.5 w-2.5 text-[#666666]" />

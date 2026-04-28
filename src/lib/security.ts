@@ -2,18 +2,109 @@
  * Security utilities for input sanitization and XSS prevention
  */
 
+import DOMPurify from "isomorphic-dompurify";
+
+// ---------------------------------------------------------------------------
+// Sanitize presets
+// ---------------------------------------------------------------------------
+
 /**
- * Sanitize HTML content to prevent XSS attacks
- * Removes potentially dangerous tags and attributes
+ * Allowlist for KaTeX-rendered HTML.
+ *
+ * KaTeX emits nested <span> elements plus SVG for certain constructs.
+ * We explicitly add the SVG tag-set so DOMPurify doesn't strip the output.
+ */
+const KATEX_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
+  ADD_TAGS: [
+    "svg",
+    "g",
+    "path",
+    "use",
+    "defs",
+    "rect",
+    "circle",
+    "line",
+    "polyline",
+    "polygon",
+    "clipPath",
+    "mask",
+    "symbol",
+    "text",
+    "tspan",
+  ],
+  ADD_ATTR: [
+    "viewBox",
+    "xmlns",
+    "x",
+    "y",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "width",
+    "height",
+    "d",
+    "fill",
+    "stroke",
+    "stroke-width",
+    "transform",
+    "clip-path",
+    "clip-rule",
+    "id",
+    "href",
+    "xlink:href",
+  ],
+  FORCE_BODY: false,
+};
+
+/**
+ * Minimal allowlist for inline Markdown-to-HTML content.
+ *
+ * Permits only the tags we actually generate via regex (strong / em / code /
+ * br) — everything else is stripped, blocking all injection vectors.
+ */
+const INLINE_MARKDOWN_CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
+  ALLOWED_TAGS: ["strong", "em", "code", "br", "span"],
+  ALLOWED_ATTR: ["class"],
+};
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Sanitize HTML content to prevent XSS attacks.
+ *
+ * Uses DOMPurify with default settings — safe for generic rich-text HTML that
+ * does **not** contain KaTeX or SVG output.  For KaTeX, use `sanitizeKaTeX`.
  */
 export function sanitizeHTML(html: string): string {
-  if (!html) return '';
-  
-  // Create a temporary div to parse HTML
-  const temp = document.createElement('div');
-  temp.textContent = html; // textContent automatically escapes HTML
-  
-  return temp.innerHTML;
+  if (!html) return "";
+  return DOMPurify.sanitize(html) as string;
+}
+
+/**
+ * Sanitize KaTeX-rendered HTML.
+ *
+ * KaTeX output is trusted (generated from controlled LaTeX), but it still
+ * passes through DOMPurify so that any smuggled payload in the original AI
+ * response cannot survive the render pipeline.
+ */
+export function sanitizeKaTeX(html: string): string {
+  if (!html) return "";
+  return DOMPurify.sanitize(html, KATEX_CONFIG) as string;
+}
+
+/**
+ * Sanitize inline Markdown-to-HTML output.
+ *
+ * Only `<strong>`, `<em>`, `<code>`, `<br>`, and `<span class="…">` survive.
+ * Use this for any HTML that was produced by simple regex-based Markdown
+ * expansion of untrusted text.
+ */
+export function sanitizeInlineMarkdown(html: string): string {
+  if (!html) return "";
+  return DOMPurify.sanitize(html, INLINE_MARKDOWN_CONFIG) as string;
 }
 
 /**
@@ -35,24 +126,123 @@ export function escapeHTML(text: string): string {
 }
 
 /**
- * Sanitize URL to prevent javascript: and data: protocol attacks
+ * Protocols explicitly permitted in rendered `href` attributes.
+ *
+ * Everything else — javascript:, data:, vbscript:, blob:, file:, etc. —
+ * is blocked.  We use a positive allowlist (not a blocklist) so that future
+ * unknown schemes are blocked by default.
+ */
+const SAFE_HREF_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+/**
+ * Sanitize a URL before using it in an `href` attribute.
+ *
+ * Uses the native `URL()` parser to canonicalise the protocol, which makes
+ * the check immune to unicode homoglyphs (ⓙavascript:), percent-encoding
+ * tricks (%6Aavascript:), and mixed-case variants.
+ *
+ * Returns the original (untrimmed) URL string when safe, or an empty string
+ * when the URL contains a disallowed protocol.
+ *
+ * Safe pass-throughs (returned unchanged):
+ *  - Relative paths  /foo, ./foo, ../foo
+ *  - Fragment links  #section
+ *  - Query strings   ?q=1
+ *  - www. prefixes   www.example.com  (caller prepends https://)
  */
 export function sanitizeURL(url: string): string {
-  if (!url) return '';
-  
-  const trimmed = url.trim().toLowerCase();
-  
-  // Block dangerous protocols
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  // Relative / fragment / query URLs carry no protocol risk.
   if (
-    trimmed.startsWith('javascript:') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('vbscript:') ||
-    trimmed.startsWith('file:')
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("?") ||
+    trimmed.startsWith(".")
   ) {
-    return '';
+    return trimmed;
   }
-  
-  return url;
+
+  // www. URLs have no protocol; they are safe — the caller prepends https://.
+  if (/^www\./i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Attempt to parse as an absolute URL and validate the protocol.
+  try {
+    const parsed = new URL(trimmed);
+    return SAFE_HREF_PROTOCOLS.has(parsed.protocol) ? trimmed : "";
+  } catch {
+    // URL parsing failed.  If the string contains a colon (protocol-like) but
+    // did not parse, treat it as unsafe.  Plain words / paths are fine.
+    return trimmed.includes(":") ? "" : trimmed;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// User-generated label sanitizers
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum allowed character counts for user-visible labels.
+ * These match the backend column constraints and prevent oversized payloads.
+ */
+const FOLDER_NAME_MAX_LEN = 50;
+const TAG_NAME_MAX_LEN = 50;
+
+/**
+ * C0/C1 control-character regex.
+ *
+ * Strips null bytes (U+0000), ASCII control chars (U+0001–U+001F), DEL
+ * (U+007F), and C1 control chars (U+0080–U+009F) from the input.
+ * Regular printable Unicode, including emoji and non-ASCII scripts, is kept.
+ */
+const CONTROL_CHAR_RE = /[\u0000-\u001F\u007F-\u009F]/g;
+
+/**
+ * Sanitize a pin-folder name before storing or sending to the API.
+ *
+ * Rules applied (in order):
+ *  1. Trim surrounding whitespace.
+ *  2. Strip null bytes and C0/C1 control characters.
+ *  3. Collapse runs of internal whitespace to a single space.
+ *  4. Hard-truncate to FOLDER_NAME_MAX_LEN (50) characters.
+ *  5. Re-trim (in case control chars were stripped from the edges).
+ *
+ * Returns an empty string if the result is blank after cleaning.
+ */
+export function sanitizeFolderName(name: string): string {
+  if (!name) return "";
+  return name
+    .trim()
+    .replace(CONTROL_CHAR_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .slice(0, FOLDER_NAME_MAX_LEN)
+    .trim();
+}
+
+/**
+ * Sanitize a pin tag name before storing or sending to the API.
+ *
+ * Rules applied (in order):
+ *  1. Trim surrounding whitespace.
+ *  2. Strip null bytes and C0/C1 control characters.
+ *  3. Collapse runs of internal whitespace to a single space.
+ *  4. Hard-truncate to TAG_NAME_MAX_LEN (50) characters.
+ *  5. Re-trim.
+ *
+ * Returns an empty string if the result is blank after cleaning.
+ */
+export function sanitizeTagName(tag: string): string {
+  if (!tag) return "";
+  return tag
+    .trim()
+    .replace(CONTROL_CHAR_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .slice(0, TAG_NAME_MAX_LEN)
+    .trim();
 }
 
 /**

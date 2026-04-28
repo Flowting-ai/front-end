@@ -42,18 +42,7 @@ import {
   deletePersona as deletePersonaApi,
   type PersonaStatus,
 } from "@/lib/api/personas";
-import { API_BASE_URL } from "@/lib/config";
-
-// Helper to construct full avatar URL from relative or absolute paths
-const getFullAvatarUrl = (url: string | null | undefined): string | null => {
-  if (!url || url.trim() === "") return null;
-  // Already a full URL (http/https) or data URL
-  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) {
-    return url;
-  }
-  // Relative path - prepend backend URL
-  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-};
+import { getFullAvatarUrl } from "@/lib/utils/avatar-utils";
 
 interface PersonaSummary {
   id: string;

@@ -15,18 +15,13 @@ const backendRemotePattern: NonNullable<NextConfig["images"]>["remotePatterns"] 
       ...(backendUrl.port ? { port: backendUrl.port } : {}),
       pathname: "/media/**",
     },
-    {
-      protocol: "https",
-      hostname: "sfo3.digitaloceanspaces.com",
-      pathname: "/**",
-    },
     // Allow images from any HTTPS remote URL (e.g. citation cards, link previews)
     { protocol: "https", hostname: "**", pathname: "/**" },
   ];
 
 // Build CSP connect-src with backend origins
 const auth0Domain = process.env.AUTH0_DOMAIN ? `https://${process.env.AUTH0_DOMAIN}` : "";
-const connectSrcOrigins = [backendOrigin, backendWsOrigin, "https://app.flowtingai.com", ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"])];
+const connectSrcOrigins = [backendOrigin, backendWsOrigin, "https://app.getsouvenir.com", ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"])];
 
 // In development, also allow localhost connections
 if (process.env.NODE_ENV === "development") {

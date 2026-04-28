@@ -56,6 +56,7 @@ import {
   updatePinComments,
   type PinFolder,
 } from "@/lib/api/pins";
+import { normalizeTagList, normalizeCommentStrings } from "@/lib/utils/tag-utils";
 
 export interface PinType {
   id: string;
@@ -110,41 +111,6 @@ const PANEL_METADATA: Record<RightSidebarPanel, { title: string; description?: s
     title: "Citations",
     description: "Sources and citations from the latest response.",
   },
-};
-
-const normalizeTagStrings = (raw: unknown): string[] => {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((tag) => {
-      if (typeof tag === "string") return tag.trim();
-      if (!tag || typeof tag !== "object") return "";
-      const candidate = tag as {
-        tag_name?: unknown;
-        name?: unknown;
-        label?: unknown;
-        text?: unknown;
-      };
-      const value =
-        candidate.tag_name ?? candidate.name ?? candidate.label ?? candidate.text;
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter((tag) => tag.length > 0);
-};
-
-const normalizeCommentStrings = (raw: unknown): string[] => {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((comment) => {
-      if (typeof comment === "string") return comment.trim();
-      if (!comment || typeof comment !== "object") return "";
-      const candidate = comment as {
-        comment_text?: unknown;
-        text?: unknown;
-      };
-      const value = candidate.comment_text ?? candidate.text;
-      return typeof value === "string" ? value.trim() : "";
-    })
-    .filter((comment) => comment.length > 0);
 };
 
 const normalizeTagForFilter = (tag: string) =>
@@ -304,7 +270,7 @@ export function RightSidebar({
         const resolvedChatId = newPin.chat || newPin.sourceChatId || pin.sourceChatId || "";
         const resolvedTitle = newPin.title || pin.title || pin.text || "Untitled Pin";
         const resolvedFolderId = newPin.folderId || newPin.folder_id || pin.folderId || undefined;
-        const normalizedTags = normalizeTagStrings(newPin.tags);
+        const normalizedTags = normalizeTagList(newPin.tags);
         const normalizedComments = normalizeCommentStrings(newPin.comments);
         
         const formattedPin: PinType = {
@@ -406,7 +372,7 @@ export function RightSidebar({
           try {
             const detail = await fetchPinById(pin.id);
             if (!detail || cancelled) return null;
-            const tags = normalizeTagStrings((detail as { tags?: unknown }).tags);
+            const tags = normalizeTagList((detail as { tags?: unknown }).tags);
             const comments = normalizeCommentStrings((detail as { comments?: unknown }).comments);
             if (tags.length === 0 && comments.length === 0) return null;
             return { id: pin.id, tags, comments };

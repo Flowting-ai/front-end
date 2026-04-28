@@ -77,36 +77,10 @@ import {
 } from "@/lib/api/personas";
 import { friendlyApiError } from "@/lib/api/client";
 import { useAuth } from "@/context/auth-context";
-import { API_BASE_URL } from "@/lib/config";
 import { hasReachedLimit } from "@/lib/plan-config";
 import { UpgradePlanDialog } from "@/components/pricing/upgrade-plan-dialog";
-
-// Helper to construct full avatar URL from relative or absolute paths
-const getFullAvatarUrl = (url: string | null | undefined): string | null => {
-  if (!url || url.trim() === "") return null;
-  // Already a full URL (http/https) or data URL
-  if (
-    url.startsWith("http") ||
-    url.startsWith("data:") ||
-    url.startsWith("blob:")
-  ) {
-    return url;
-  }
-  // Relative path - prepend backend URL
-  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
-};
-
-// Check if URL should use unoptimized mode (data URLs, blob URLs, or external URLs)
-const shouldUseUnoptimized = (url: string | null | undefined): boolean => {
-  if (!url) return false;
-  const fullUrl = getFullAvatarUrl(url);
-  if (!fullUrl) return false;
-  return (
-    fullUrl.startsWith("data:") ||
-    fullUrl.startsWith("blob:") ||
-    fullUrl.startsWith("http")
-  );
-};
+import { maskEmail } from "@/lib/utils/format-utils";
+import { getFullAvatarUrl } from "@/lib/utils/avatar-utils";
 
 function PersonaConfigurePageContent() {
   const router = useRouter();
@@ -140,12 +114,6 @@ function PersonaConfigurePageContent() {
     fetchPersonas().then((list) => setPersonaCount(list.length)).catch(() => {});
   }, []);
 
-  const maskEmail = (email: string | null | undefined): string => {
-    if (!email) return "your@email.com";
-    const atIndex = email.indexOf("@");
-    if (atIndex <= 3) return email;
-    return email.slice(0, 3) + "*".repeat(atIndex - 3) + email.slice(atIndex);
-  };
 
   // Enhance mode state
   const [showEnhanceMode, setShowEnhanceMode] = useState(false);

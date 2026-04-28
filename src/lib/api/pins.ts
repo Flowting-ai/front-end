@@ -9,6 +9,7 @@ import {
   PIN_MOVE_ENDPOINT,
 } from "@/lib/config";
 import { apiFetch } from "./client";
+import { sanitizeFolderName } from "@/lib/security";
 
 export interface TagResponse {
   id: string;
@@ -307,9 +308,11 @@ export async function fetchPinFolders(): Promise<PinFolder[]> {
 }
 
 export async function createPinFolder(folder_name: string): Promise<PinFolder> {
+  const safeName = sanitizeFolderName(folder_name);
+  if (!safeName) throw new Error("Folder name must not be empty.");
   const response = await apiFetch(PIN_FOLDERS_CREATE_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ folder_name }),
+    body: JSON.stringify({ folder_name: safeName }),
   });
   if (!response.ok) {
     const text = await response.text();
@@ -338,6 +341,7 @@ export async function renamePinFolder(
   _folderId: string,
   _name: string
 ): Promise<PinFolder> {
+  // When backend adds rename support: pass sanitizeFolderName(_name) to the API body.
   throw new Error("Rename folder is not supported in the current backend.");
 }
 

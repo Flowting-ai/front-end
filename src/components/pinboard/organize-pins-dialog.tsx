@@ -2,6 +2,11 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
+  useFolderTree,
+  type FolderType,
+  UNORGANIZED_FOLDER,
+} from "@/hooks/use-folder-tree";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -33,11 +38,7 @@ import {
 import type { PinType } from "../layout/right-sidebar";
 import { PinItem } from "./pin-item";
 import { toast } from "@/lib/toast-helper";
-
-interface FolderType {
-  id: string;
-  name: string;
-}
+import { sanitizeFolderName } from "@/lib/security";
 
 interface OrganizePinsDialogProps {
   isOpen: boolean;
@@ -54,11 +55,6 @@ interface OrganizePinsDialogProps {
   chatBoards?: Array<{ id: string; name: string }>;
 }
 
-const initialFolders: FolderType[] = [
-  { id: "unorganized", name: "Unorganized Pins" },
-];
-
-
 export function OrganizePinsDialog({
   isOpen,
   onClose,
@@ -70,107 +66,71 @@ export function OrganizePinsDialog({
   onDeleteFolder,
   chatBoards = [],
 }: OrganizePinsDialogProps) {
-  const [folders, setFolders] = useState<FolderType[]>(
-    foldersProp?.length ? foldersProp : initialFolders
-  );
+  // ── Pin-view state (NOT managed by useFolderTree) ───────────────────────────
   const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchFolderQuery, setSearchFolderQuery] = useState<string>("");
   const [moveFolderSearch, setMoveFolderSearch] = useState("");
   const [isMoveMode, setIsMoveMode] = useState(false);
   const [selectedMoveFolder, setSelectedMoveFolder] = useState<string | null>(
-    null
+    null,
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
-  const [newFolderName, setNewFolderName] = useState<string>("");
-  const [isEditingFolder, setIsEditingFolder] = useState<boolean>(false);
-  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [editFolderName, setEditFolderName] = useState<string>("");
-  const createInputRef = useRef<HTMLInputElement | null>(null);
-  const editInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([
-    "unorganized",
-  ]);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollThumbRef = useRef<HTMLDivElement | null>(null);
   const [scrollThumbTop, setScrollThumbTop] = useState(0);
 
-  // Reset states when dialog opens/closes
+  // Reset pin-view state when the dialog closes.
   useEffect(() => {
     if (!isOpen) {
-      // Reset move mode and selections when dialog closes
       setIsMoveMode(false);
       setSelectedMoveFolder(null);
       setSelectedPinIds([]);
       setMoveFolderSearch("");
       setSearchQuery("");
-      setSearchFolderQuery("");
     }
   }, [isOpen]);
 
-  // When folders from the backend change, sync them into local state so
-  // pre-existing folders are always shown instead of only the static defaults.
-  useEffect(() => {
-    if (foldersProp && foldersProp.length > 0) {
-      // Treat any backend "Unorganized" / default folder as the same bucket
-      // as our top-level "Unorganized Pins" instead of a separate row.
-      const cleanedRemote = foldersProp.filter((folder) => {
-        const name = folder.name?.trim().toLowerCase();
-        return name !== "unorganized" && name !== "unorganized pins";
-      });
-      const next: FolderType[] = [
-        { id: "unorganized", name: "Unorganized Pins" },
-        ...cleanedRemote,
-      ];
-      setFolders(next);
-    } else {
-      setFolders(initialFolders);
-    }
-  }, [foldersProp]);
-
-  useEffect(() => {
-    if (isCreatingFolder) {
-      setTimeout(() => createInputRef.current?.focus(), 0);
-    }
-  }, [isCreatingFolder]);
-
-  useEffect(() => {
-    if (isEditingFolder) {
-      setTimeout(() => editInputRef.current?.focus(), 0);
-    }
-  }, [isEditingFolder]);
+  // ── Folder tree (managed by useFolderTree) ───────────────────────────────────
+  const {
+    folders,
+    setFolders,
+    selectedFolderIds,
+    setSelectedFolderIds,
+    searchFolderQuery,
+    setSearchFolderQuery,
+    isCreatingFolder,
+    setIsCreatingFolder,
+    newFolderName,
+    setNewFolderName,
+    createInputRef,
+    isEditingFolder,
+    setIsEditingFolder,
+    editingFolderId,
+    editFolderName,
+    setEditFolderName,
+    editInputRef,
+    pinsByFolder,
+    selectedFolderPins,
+    filteredMoveableFolders,
+    handleCreateFolder,
+    handleConfirmCreateFolder,
+    handleRenameFolder,
+    handleConfirmRenameFolder,
+    handleDeleteFolder,
+  } = useFolderTree({
+    foldersProp,
+    onCreateFolder,
+    onRenameFolder,
+    onDeleteFolder,
+    pins: initialPins,
+    isOpen,
+    moveFolderSearch,
+    isMoveMode,
+    onFolderCreatedInMoveMode: (folderId) => setSelectedMoveFolder(folderId),
+  });
 
   const pinsToDisplay = initialPins;
-
-  const pinsByFolder = useMemo(() => {
-    const grouped: Record<string, PinType[]> = { unorganized: [] };
-    folders.forEach((folder) => {
-      grouped[folder.id] = [];
-    });
-
-    pinsToDisplay.forEach((pin) => {
-      const folderId = pin.folderId || "unorganized";
-      if (grouped[folderId]) {
-        grouped[folderId].push(pin);
-      } else {
-        grouped["unorganized"].push(pin);
-      }
-    });
-
-    return grouped;
-  }, [pinsToDisplay, folders]);
-
-  const unorganizedPins = pinsByFolder["unorganized"] || [];
-  const selectedFolderPins = useMemo(() => {
-    // Aggregate pins from all selected folders
-    const pins: PinType[] = [];
-    selectedFolderIds.forEach((id) => {
-      const list = pinsByFolder[id] || [];
-      list.forEach((p) => pins.push(p));
-    });
-    return pins;
-  }, [pinsByFolder, selectedFolderIds]);
+  const unorganizedPins = pinsByFolder[UNORGANIZED_FOLDER.id] ?? [];
 
   // Global search across all pins (in any folder)
   const globalFilteredPins = useMemo(() => {
@@ -227,13 +187,6 @@ export function OrganizePinsDialog({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [selectedFolderPins]);
 
-  const filteredMoveableFolders = useMemo(() => {
-    if (!moveFolderSearch.trim()) return folders;
-    return folders.filter((folder) =>
-      folder.name.toLowerCase().includes(moveFolderSearch.toLowerCase())
-    );
-  }, [folders, moveFolderSearch]);
-
   const handlePinUpdate = (updatedPin: PinType) => {
     if (initialPins.length > 0) {
       const existingPin = initialPins.find((p) => p.id === updatedPin.id);
@@ -257,134 +210,22 @@ export function OrganizePinsDialog({
     }
   };
 
+  /**
+   * Wraps the hook's `handleDeleteFolder` to also move orphaned pins back to
+   * Unorganized before handing off to the hook for local state removal.
+   */
+  const handleDeleteFolderWithPins = async (folderId: string) => {
+    if (initialPins.length > 0) {
+      const updatedPins = initialPins.map((pin) =>
+        pin.folderId === folderId ? { ...pin, folderId: undefined } : pin,
+      );
+      onPinsUpdate(updatedPins);
+    }
+    await handleDeleteFolder(folderId);
+  };
+
   const handleDeletePin = (pinId: string) => {
     onPinsUpdate(initialPins.filter((p) => p.id !== pinId));
-  };
-
-  const handleCreateFolder = () => {
-    setIsCreatingFolder(true);
-    setNewFolderName("");
-  };
-
-  const handleConfirmCreateFolder = async () => {
-    let folderName = newFolderName.trim() || "New Folder";
-
-    // Check for duplicate folder names and auto-increment if needed
-    let counter = 1;
-    let finalName = folderName;
-    while (
-      folders.some((f) => f.name.toLowerCase() === finalName.toLowerCase())
-    ) {
-      finalName = `${folderName} (${counter})`;
-      counter++;
-    }
-
-    let createdFolder: FolderType | undefined;
-    if (onCreateFolder) {
-      try {
-        const result = await onCreateFolder(finalName);
-        if (result && result.id) {
-          createdFolder = result;
-        }
-      } catch (err) {
-        // swallow and fallback to local creation below
-        createdFolder = undefined;
-      }
-    }
-
-    if (!createdFolder) {
-      createdFolder = { id: `folder-${Date.now()}`, name: finalName };
-    }
-
-    // Insert after Unorganized folder (index 0) using latest state
-    setFolders((prev) => {
-      const base = prev.length ? prev : initialFolders;
-      return [base[0], createdFolder!, ...base.slice(1)];
-    });
-
-    // If in move mode, auto-select the newly created folder
-    if (isMoveMode && createdFolder) {
-      setSelectedMoveFolder(createdFolder.id);
-    }
-
-    setIsCreatingFolder(false);
-    setNewFolderName("");
-  };
-
-  const handleRenameFolder = (folderId: string) => {
-    const folder = folders.find((f) => f.id === folderId);
-    if (folder) {
-      setEditingFolderId(folderId);
-      setEditFolderName(folder.name);
-      setIsEditingFolder(true);
-    }
-  };
-
-  const handleConfirmRenameFolder = async () => {
-    if (editingFolderId) {
-      const nextName = editFolderName.trim();
-      if (!nextName) {
-        setIsEditingFolder(false);
-        setEditingFolderId(null);
-        setEditFolderName("");
-        return;
-      }
-
-      try {
-        let updatedFolder: FolderType | null = null;
-        if (onRenameFolder) {
-          const result = await onRenameFolder(editingFolderId, nextName);
-          if (result && result.id) {
-            updatedFolder = { id: result.id, name: result.name };
-          }
-        }
-
-        setFolders((prev) =>
-          prev.map((folder) =>
-            folder.id === editingFolderId
-              ? { ...folder, name: updatedFolder?.name ?? nextName }
-              : folder
-          )
-        );
-      } catch (error) {
-        // If the backend rejects the rename (e.g., duplicate or default folder),
-        // keep the previous name and just log the error.
-        console.error("Failed to rename folder", error);
-      }
-    }
-    setIsEditingFolder(false);
-    setEditingFolderId(null);
-    setEditFolderName("");
-  };
-
-  const handleDeleteFolder = async (folderId: string) => {
-    try {
-      if (onDeleteFolder) {
-        await onDeleteFolder(folderId);
-      }
-
-      // Move all pins from this folder to Unorganized locally
-      if (initialPins.length > 0) {
-        const updatedPins = initialPins.map((pin) =>
-          pin.folderId === folderId ? { ...pin, folderId: undefined } : pin
-        );
-        onPinsUpdate(updatedPins);
-      } else {
-        // For dummy pins
-        pinsToDisplay.forEach((pin) => {
-          if (pin.folderId === folderId) {
-            pin.folderId = undefined;
-          }
-        });
-      }
-
-      // Remove the folder from local state
-      setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
-    } catch (error) {
-      // Backend will enforce "cannot delete default" and "must be empty";
-      // if it fails, keep UI as-is.
-      console.error("Failed to delete folder", error);
-    }
   };
 
   const handleTogglePinSelection = (pinId: string) => {
@@ -482,10 +323,11 @@ export function OrganizePinsDialog({
   };
 
   const handleCreateFolderAndMove = async () => {
-    if (!moveFolderSearch.trim() || !onCreateFolder) return;
+    const safeFolderSearch = sanitizeFolderName(moveFolderSearch);
+    if (!safeFolderSearch || !onCreateFolder) return;
 
     try {
-      const newFolder = await onCreateFolder(moveFolderSearch.trim());
+      const newFolder = await onCreateFolder(safeFolderSearch);
       setSelectedMoveFolder(newFolder.id);
       setMoveFolderSearch("");
     } catch (error) {
@@ -823,7 +665,7 @@ export function OrganizePinsDialog({
                                     <DropdownMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteFolder(folder.id);
+                                        handleDeleteFolderWithPins(folder.id);
                                       }}
                                       className="text-red-600 hover:bg-[#ffecec] cursor-pointer"
                                     >
@@ -993,7 +835,7 @@ export function OrganizePinsDialog({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() =>
-                                        handleDeleteFolder(folder.id)
+                                        handleDeleteFolderWithPins(folder.id)
                                       }
                                       className="text-red-600 hover:bg-[#ffecec] cursor-pointer"
                                     >
@@ -1227,7 +1069,7 @@ export function OrganizePinsDialog({
                                               ...pinToDuplicate,
                                               id: `${
                                                 pinToDuplicate.id
-                                              }-copy-${Date.now()}`,
+                                              }-copy-${crypto.randomUUID()}`,
                                               time: new Date(),
                                             };
                                             handlePinUpdate(duplicatedPin);
@@ -1479,33 +1321,39 @@ export function OrganizePinsDialog({
                     </h3>
                   </div>
                   <div className="py-1">
-                    <Input
-                      ref={createInputRef}
-                      placeholder="Folder name"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && newFolderName.trim()) {
-                          handleConfirmCreateFolder();
-                        }
-                        if (e.key === "Escape") {
-                          setIsCreatingFolder(false);
-                        }
-                      }}
-                      className="text-[#171717]"
-                      style={{
-                        width: "268px",
-                        height: "36px",
-                        minHeight: "36px",
-                        borderRadius: "8px",
-                        border: "1px solid #E5E5E5",
-                        paddingTop: "7.5px",
-                        paddingBottom: "7.5px",
-                        paddingLeft: "3px",
-                        paddingRight: "3px",
-                      }}
-                      autoFocus
-                    />
+                    <div className="relative" style={{ width: "268px" }}>
+                      <Input
+                        ref={createInputRef}
+                        placeholder="Folder name"
+                        maxLength={50}
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newFolderName.trim()) {
+                            handleConfirmCreateFolder();
+                          }
+                          if (e.key === "Escape") {
+                            setIsCreatingFolder(false);
+                          }
+                        }}
+                        className="text-[#171717]"
+                        style={{
+                          width: "268px",
+                          height: "36px",
+                          minHeight: "36px",
+                          borderRadius: "8px",
+                          border: "1px solid #E5E5E5",
+                          paddingTop: "7.5px",
+                          paddingBottom: "7.5px",
+                          paddingLeft: "3px",
+                          paddingRight: "36px",
+                        }}
+                        autoFocus
+                      />
+                      <span className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] ${newFolderName.length >= 50 ? "text-red-500" : "text-[#A3A3A3]"}`}>
+                        {newFolderName.length}/50
+                      </span>
+                    </div>
                   </div>
                   <div
                     className="flex justify-end"
@@ -1572,19 +1420,25 @@ export function OrganizePinsDialog({
                     </h3>
                   </div>
                   <div className="py-2">
-                    <Input
-                      ref={editInputRef}
-                      placeholder="Folder name"
-                      value={editFolderName}
-                      onChange={(e) => setEditFolderName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleConfirmRenameFolder();
-                        }
-                      }}
-                      className="text-[#171717]"
-                      autoFocus
-                    />
+                    <div className="relative">
+                      <Input
+                        ref={editInputRef}
+                        placeholder="Folder name"
+                        maxLength={50}
+                        value={editFolderName}
+                        onChange={(e) => setEditFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleConfirmRenameFolder();
+                          }
+                        }}
+                        className="text-[#171717] pr-12"
+                        autoFocus
+                      />
+                      <span className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] ${editFolderName.length >= 50 ? "text-red-500" : "text-[#A3A3A3]"}`}>
+                        {editFolderName.length}/50
+                      </span>
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-4">
                     <Button

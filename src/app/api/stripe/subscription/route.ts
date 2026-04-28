@@ -2,24 +2,25 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth0 } from "@/lib/auth0";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+const getStripe = () =>
+  new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2026-03-25.dahlia",
+  });
 
-const PRICE_MAP: Record<string, string | undefined> = {
+const getPriceMap = (): Record<string, string | undefined> => ({
   starter_monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY,
   pro_monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
   power_monthly: process.env.STRIPE_PRICE_POWER_MONTHLY,
-};
+});
 
 const VALID_PLANS = ["starter", "pro", "power"] as const;
 
-const findCustomerByEmail = async (email: string) => {
+const findCustomerByEmail = async (stripe: Stripe, email: string) => {
   const customers = await stripe.customers.list({ email, limit: 1 });
   return customers.data[0] ?? null;
 };
 
-const findActiveSubscription = async (customerId: string) => {
+const findActiveSubscription = async (stripe: Stripe, customerId: string) => {
   const subscriptions = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
@@ -35,12 +36,13 @@ const findActiveSubscription = async (customerId: string) => {
 type CheckoutFlow = "onboarding" | "settings_change_plan";
 
 const createCheckoutForPlan = async (
+  stripe: Stripe,
   email: string,
   auth0Id: string,
   planType: string,
   checkoutFlow: CheckoutFlow = "onboarding",
 ) => {
-  const priceId = PRICE_MAP[`${planType}_monthly`];
+  const priceId = getPriceMap()[`${planType}_monthly`];
   if (!priceId) {
     throw new Error("Price not configured for this plan.");
   }
@@ -101,7 +103,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid plan type." }, { status: 400 });
   }
 
-  const priceId = PRICE_MAP[`${plan_type}_monthly`];
+  const priceId = getPriceMap()[`${plan_type}_monthly`];
   if (!priceId) {
     return NextResponse.json(
       { error: "Price not configured for this plan." },
@@ -109,12 +111,14 @@ export async function PATCH(req: Request) {
     );
   }
 
+  const stripe = getStripe();
   try {
     const email = session.user.email as string;
-    const customer = await findCustomerByEmail(email);
+    const customer = await findCustomerByEmail(stripe, email);
 
     if (!customer) {
       return await createCheckoutForPlan(
+        stripe,
         email,
         session.user.sub as string,
         plan_type,
@@ -122,9 +126,10 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const subscription = await findActiveSubscription(customer.id);
+    const subscription = await findActiveSubscription(stripe, customer.id);
     if (!subscription || subscription.items.data.length === 0) {
       return await createCheckoutForPlan(
+        stripe,
         email,
         session.user.sub as string,
         plan_type,
@@ -162,9 +167,10 @@ export async function DELETE() {
     );
   }
 
+  const stripe = getStripe();
   try {
     const email = session.user.email as string;
-    const customer = await findCustomerByEmail(email);
+    const customer = await findCustomerByEmail(stripe, email);
     if (!customer) {
       return NextResponse.json(
         { error: "No active subscription found." },
@@ -172,7 +178,7 @@ export async function DELETE() {
       );
     }
 
-    const subscription = await findActiveSubscription(customer.id);
+    const subscription = await findActiveSubscription(stripe, customer.id);
     if (!subscription) {
       return NextResponse.json(
         { error: "No active subscription found." },

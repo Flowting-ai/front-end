@@ -3,7 +3,6 @@
 import {
   STRIPE_CHECKOUT_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
-  STRIPE_TOPUPS_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
 } from "@/lib/config";
@@ -192,13 +191,6 @@ export interface UpdateSubscriptionResponse {
   new_plan: UserPlanType;
 }
 
-export interface StripeTopupResponse {
-  topup_id: string;
-  amount: number;
-  currency: string;
-  status: string;
-}
-
 export type UpdateSubscriptionResult =
   | UpdateSubscriptionResponse
   | CheckoutSessionResponse;
@@ -308,19 +300,3 @@ export async function cancelSubscription(): Promise<{ status: string }> {
   return { status: data.status };
 }
 
-export async function createStripeTopup(amountDollars: number): Promise<StripeTopupResponse> {
-  const response = await apiFetch(STRIPE_TOPUPS_ENDPOINT, {
-    method: "POST",
-    body: JSON.stringify({ amount: amountDollars }),
-  });
-
-  const data = (await response.json()) as StripeTopupResponse | { error?: string };
-
-  if (!response.ok || !("topup_id" in data)) {
-    throw new Error(
-      ("error" in data && data.error) || "Failed to create top-up payment.",
-    );
-  }
-
-  return data;
-}
