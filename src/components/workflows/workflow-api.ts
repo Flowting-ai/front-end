@@ -150,6 +150,7 @@ export type StreamEventType =
   | "node_complete"
   | "workflow_complete"
   | "node_failed"
+  | "node_image"
   | "error"
   // Legacy / fallback event types
   | "metadata"
@@ -164,9 +165,11 @@ export type StreamEventType =
   | "reasoning"
   | "image"
   | "web_search"
+  | "tool_calls_streaming"
   | "tool_executing"
   | "tool_complete"
   | "tool_progress"
+  | "docx_progress"
   | "generated_file"
   | "title"
   | "message_saved"
@@ -286,6 +289,34 @@ export interface ToolProgressEvent extends StreamEventBase {
   tool: string;
   filename?: string;
   status?: string;
+  step?: string;
+  message?: string;
+  code_preview?: string;
+}
+
+export interface ToolCallsStreamingEvent extends StreamEventBase {
+  event: "tool_calls_streaming";
+  content: string;
+  tool_call?: {
+    name: string;
+    args_delta?: string;
+    args_length?: number;
+  };
+}
+
+export interface DocxProgressEvent extends StreamEventBase {
+  event: "docx_progress";
+  step: string;
+  message: string;
+  filename?: string;
+  code_preview?: string;
+}
+
+export interface NodeImageEvent extends StreamEventBase {
+  event: "node_image";
+  node_id: string;
+  url: string;
+  s3_key?: string;
 }
 
 export interface GeneratedFileEvent extends StreamEventBase {
@@ -327,9 +358,12 @@ export type StreamEvent =
   | ReasoningEvent
   | ImageEvent
   | WebSearchEvent
+  | ToolCallsStreamingEvent
   | ToolExecutingEvent
   | ToolCompleteEvent
   | ToolProgressEvent
+  | DocxProgressEvent
+  | NodeImageEvent
   | GeneratedFileEvent
   | TitleEvent
   | MessageSavedEvent
@@ -346,10 +380,13 @@ export interface StreamCallbacks {
   onError?: (event: StreamErrorEvent) => void;
   onReasoning?: (event: ReasoningEvent) => void;
   onImage?: (event: ImageEvent) => void;
+  onNodeImage?: (event: NodeImageEvent) => void;
   onWebSearch?: (event: WebSearchEvent) => void;
+  onToolCallsStreaming?: (event: ToolCallsStreamingEvent) => void;
   onToolExecuting?: (event: ToolExecutingEvent) => void;
   onToolComplete?: (event: ToolCompleteEvent) => void;
   onToolProgress?: (event: ToolProgressEvent) => void;
+  onDocxProgress?: (event: DocxProgressEvent) => void;
   onGeneratedFile?: (event: GeneratedFileEvent) => void;
   onTitle?: (event: TitleEvent) => void;
   onMessageSaved?: (event: MessageSavedEvent) => void;
@@ -378,6 +415,7 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "node_complete",
   "workflow_complete",
   "node_failed",
+  "node_image",
   "error",
   "metadata",
   "start",
@@ -390,9 +428,11 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "reasoning",
   "image",
   "web_search",
+  "tool_calls_streaming",
   "tool_executing",
   "tool_complete",
   "tool_progress",
+  "docx_progress",
   "generated_file",
   "title",
   "message_saved",
@@ -1118,6 +1158,23 @@ const processSseStream = async (
           });
           break;
 
+        // ── node_image ───────────────────────────────────────────────────
+        case "node_image":
+          callbacks.onNodeImage?.({
+            event: "node_image",
+            node_id: String(event.node_id ?? ""),
+            url: typeof event.url === "string" ? event.url : "",
+            s3_key: typeof event.s3_key === "string" ? event.s3_key : undefined,
+          });
+          // Also dispatch to onImage for generic consumers
+          if (typeof event.url === "string" && event.url) {
+            callbacks.onImage?.({
+              event: "image",
+              url: event.url,
+            });
+          }
+          break;
+
         // ── node_failed ──────────────────────────────────────────────────
         case "node_failed":
           callbacks.onError?.({
@@ -1208,6 +1265,30 @@ const processSseStream = async (
           break;
         }
 
+        case "tool_calls_streaming": {
+          const tcName =
+            typeof event.content === "string"
+              ? event.content
+              : event.tool_call && typeof (event.tool_call as Record<string, unknown>).name === "string"
+                ? String((event.tool_call as Record<string, unknown>).name)
+                : "";
+          const tcPayload = event.tool_call && typeof event.tool_call === "object"
+            ? (event.tool_call as Record<string, unknown>)
+            : null;
+          callbacks.onToolCallsStreaming?.({
+            event: "tool_calls_streaming",
+            content: tcName,
+            tool_call: tcPayload
+              ? {
+                  name: typeof tcPayload.name === "string" ? tcPayload.name : tcName,
+                  args_delta: typeof tcPayload.args_delta === "string" ? tcPayload.args_delta : undefined,
+                  args_length: typeof tcPayload.args_length === "number" ? tcPayload.args_length : undefined,
+                }
+              : undefined,
+          });
+          break;
+        }
+
         case "tool_executing":
           callbacks.onToolExecuting?.({
             event: "tool_executing",
@@ -1225,6 +1306,19 @@ const processSseStream = async (
             tool: typeof event.tool === "string" ? event.tool : "",
             filename: typeof event.filename === "string" ? event.filename : undefined,
             status: typeof event.status === "string" ? event.status : undefined,
+            step: typeof event.step === "string" ? event.step : undefined,
+            message: typeof event.message === "string" ? event.message : undefined,
+            code_preview: typeof event.code_preview === "string" ? event.code_preview : undefined,
+          });
+          break;
+
+        case "docx_progress":
+          callbacks.onDocxProgress?.({
+            event: "docx_progress",
+            step: typeof event.step === "string" ? event.step : "",
+            message: typeof event.message === "string" ? event.message : "",
+            filename: typeof event.filename === "string" ? event.filename : undefined,
+            code_preview: typeof event.code_preview === "string" ? event.code_preview : undefined,
           });
           break;
 

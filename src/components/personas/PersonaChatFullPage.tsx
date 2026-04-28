@@ -934,6 +934,19 @@ export function PersonaChatFullPage({
           return;
         }
 
+        if (eventName === "tool_calls_streaming") {
+          const toolName =
+            typeof parsed.content === "string"
+              ? parsed.content
+              : parsed.tool_call && typeof (parsed.tool_call as Record<string, unknown>).name === "string"
+                ? String((parsed.tool_call as Record<string, unknown>).name)
+                : "";
+          if (toolName) {
+            updateAiMessage({ toolStatus: formatToolDisplayName(toolName) });
+          }
+          return;
+        }
+
         if (eventName === "tool_executing") {
           const toolName = typeof parsed.content === "string" ? parsed.content : "";
           const displayName = formatToolDisplayName(toolName);
@@ -950,16 +963,38 @@ export function PersonaChatFullPage({
           const tool = typeof parsed.tool === "string" ? parsed.tool : "";
           const filename = typeof parsed.filename === "string" ? parsed.filename : "";
           const status = typeof parsed.status === "string" ? parsed.status : "";
-          const displayName = formatToolDisplayName(tool);
-          const label = filename
-            ? `${status === "executing" ? "Running" : displayName} ${tool} for ${filename}...`
-            : displayName;
-          updateAiMessage({ toolStatus: label });
+          if (status === "done") {
+            updateAiMessage({ toolStatus: null });
+          } else {
+            const displayName = formatToolDisplayName(tool);
+            const label = filename ? `${displayName} (${filename})` : displayName;
+            updateAiMessage({ toolStatus: label });
+          }
+          return;
+        }
+
+        if (eventName === "docx_progress") {
+          const step = typeof parsed.step === "string" ? parsed.step : "";
+          const message = typeof parsed.message === "string" ? parsed.message : "";
+          const filename = typeof parsed.filename === "string" ? parsed.filename : "";
+          if (step === "done" || step === "error") {
+            updateAiMessage({ toolStatus: null });
+          } else {
+            const label =
+              message ||
+              (filename ? `Processing ${filename}...` : "Processing document...");
+            updateAiMessage({ toolStatus: label });
+          }
           return;
         }
 
         if (eventName === "reasoning") {
-          const delta = typeof parsed.delta === "string" ? parsed.delta : "";
+          const delta =
+            typeof parsed.delta === "string"
+              ? parsed.delta
+              : typeof parsed.content === "string"
+                ? parsed.content
+                : "";
           reasoningContent = mergeStreamingText(reasoningContent, delta);
           updateAiMessage({
             thinkingContent: reasoningContent,

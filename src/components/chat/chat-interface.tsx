@@ -1770,6 +1770,19 @@ export function ChatInterface({
             continue;
           }
 
+          if (eventName === "tool_calls_streaming") {
+            const toolName =
+              typeof parsed.content === "string"
+                ? parsed.content
+                : parsed.tool_call && typeof (parsed.tool_call as Record<string, unknown>).name === "string"
+                  ? String((parsed.tool_call as Record<string, unknown>).name)
+                  : "";
+            if (toolName) {
+              queueAiMessageUpdate({ toolStatus: formatToolDisplayName(toolName) });
+            }
+            continue;
+          }
+
           if (eventName === "tool_executing") {
             const toolName = typeof parsed.content === "string" ? parsed.content : "";
             const displayName = formatToolDisplayName(toolName);
@@ -1786,11 +1799,28 @@ export function ChatInterface({
             const tool = typeof parsed.tool === "string" ? parsed.tool : "";
             const filename = typeof parsed.filename === "string" ? parsed.filename : "";
             const status = typeof parsed.status === "string" ? parsed.status : "";
-            const displayName = formatToolDisplayName(tool);
-            const label = filename
-              ? `${status === "executing" ? "Running" : displayName} ${tool} for ${filename}...`
-              : displayName;
-            queueAiMessageUpdate({ toolStatus: label });
+            if (status === "done") {
+              queueAiMessageUpdate({ toolStatus: null });
+            } else {
+              const displayName = formatToolDisplayName(tool);
+              const label = filename ? `${displayName} (${filename})` : displayName;
+              queueAiMessageUpdate({ toolStatus: label });
+            }
+            continue;
+          }
+
+          if (eventName === "docx_progress") {
+            const step = typeof parsed.step === "string" ? parsed.step : "";
+            const message = typeof parsed.message === "string" ? parsed.message : "";
+            const filename = typeof parsed.filename === "string" ? parsed.filename : "";
+            if (step === "done" || step === "error") {
+              queueAiMessageUpdate({ toolStatus: null });
+            } else {
+              const label =
+                message ||
+                (filename ? `Processing ${filename}...` : "Processing document...");
+              queueAiMessageUpdate({ toolStatus: label });
+            }
             continue;
           }
 
