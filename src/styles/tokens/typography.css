@@ -1,0 +1,36 @@
+/* ── Layer 1: Typography Tokens ───────────────────────────────────────────────
+   Source: Desktop.tokens.json
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── Font families ────────────────────────────────────────────────────────── */
+  --font-title: 'Besley', serif;
+  --font-body:  'Geist', sans-serif;
+  --font-code:  'Geist Mono', monospace;
+
+  /* ── Font weights ─────────────────────────────────────────────────────────── */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  /* ── Type scale ───────────────────────────────────────────────────────────── */
+  --font-size-display:  40px;
+  --line-height-display: 48px;
+
+  --font-size-heading:  24px;
+  --line-height-heading: 32px;
+
+  --font-size-body-lg:  16px;
+  --line-height-body-lg: 22px;
+
+  --font-size-body:  14px;
+  --line-height-body: 22px;
+
+  --font-size-caption:  11px;
+  --line-height-caption: 16px;
+
+  --font-size-code:  13px;
+  --line-height-code: 16px;
+
+}

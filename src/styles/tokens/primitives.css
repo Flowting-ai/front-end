@@ -1,0 +1,142 @@
+/* ── Layer 1: Primitives ──────────────────────────────────────────────────────
+   Format: --[palette]-[step]
+   Mirrors Figma variable paths exactly: Neutral/500 → --neutral-500
+   Opacity variants: --[palette]-[step]-[opacity]
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── Neutral ──────────────────────────────────────────────────────────────── */
+  --neutral-50:    #F7F2ED;
+  --neutral-100:   #EDE1D7;
+  --neutral-200:   #D1C6BD;
+  --neutral-300:   #B6ACA4;
+  --neutral-400:   #9C938B;
+  --neutral-500:   #827A74;
+  --neutral-600:   #6A625D;
+  --neutral-700:   #524B47;
+  --neutral-800:   #3B3632;
+  --neutral-900:   #26211E;
+  --neutral-950:   #120C08;
+  --neutral-white: #FFFFFF;
+  --neutral-black: #000000;
+
+  /* Neutral opacity variants */
+  --neutral-50-30:    rgba(247, 242, 237, 0.30);
+  --neutral-50-50:    rgba(247, 242, 237, 0.50);
+  --neutral-100-60:   rgba(237, 225, 215, 0.60);
+  --neutral-white-25: rgba(255, 255, 255, 0.25);
+  --neutral-black-25: rgba(0, 0, 0, 0.25);
+  --neutral-50-61:    rgba(247, 242, 237, 0.61);
+  --neutral-300-40:   rgba(182, 172, 164, 0.40);
+  --neutral-500-12:   rgba(130, 122, 116, 0.12);
+  --neutral-500-60:   rgba(130, 122, 116, 0.60);
+  --neutral-600-05:   rgba(106, 98, 93, 0.05);
+  --neutral-700-12:   rgba(82, 75, 71, 0.12);
+  --neutral-700-15:   rgba(82, 75, 71, 0.15);
+  --neutral-800-05:   rgba(59, 54, 50, 0.05);
+  --neutral-800-10:   rgba(59, 54, 50, 0.10);
+  --neutral-800-15:   rgba(59, 54, 50, 0.15);
+  --neutral-800-30:   rgba(59, 54, 50, 0.30);
+  --neutral-800-40:   rgba(59, 54, 50, 0.40);
+  --neutral-800-50:   rgba(59, 54, 50, 0.50);
+  --neutral-200-50:   rgba(209, 198, 189, 0.50);
+
+  /* Red opacity variants — used by InputGroup error states */
+  --red-400-10:       rgba(238, 48, 48, 0.10);
+  --red-400-50:       rgba(238, 48, 48, 0.50);
+  --neutral-900-10:   rgba(38, 33, 30, 0.10);
+  --neutral-900-15:   rgba(38, 33, 30, 0.15);
+  --neutral-950-20:   rgba(18, 12, 8, 0.20);
+  --neutral-950-30:   rgba(18, 12, 8, 0.30);
+
+  --neutral-white-30: rgba(255, 255, 255, 0.30);
+  --neutral-white-70: rgba(255, 255, 255, 0.70);
+  --neutral-white-90: rgba(255, 255, 255, 0.90);
+
+  /* ── Blue ─────────────────────────────────────────────────────────────────── */
+  --blue-50:  #E7F4FD;
+  --blue-100: #CADCF1;
+  --blue-200: #ACC5E4;
+  --blue-300: #8EAED8;
+  --blue-400: #6E98CB;
+  --blue-500: #4A83BF;
+  --blue-600: #0D6EB2;
+  --blue-700: #135487;
+  --blue-800: #123C5F;
+  --blue-900: #0E253A;
+  --blue-950: #020F18;
+
+  /* Blue opacity variants */
+  --blue-50-70:   rgba(231, 244, 253, 0.70);
+  --blue-600-10:  rgba(13, 110, 178, 0.10);
+  --blue-600-30:  rgba(13, 110, 178, 0.30);
+  --blue-600-50:  rgba(13, 110, 178, 0.50);
+  --blue-950-20:  rgba(2, 15, 24, 0.20);
+
+  /* ── Red ──────────────────────────────────────────────────────────────────── */
+  --red-50:  #FDE7E7;
+  --red-100: #FFBFB6;
+  --red-200: #FF9687;
+  --red-300: #FA695B;
+  --red-400: #EE3030;
+  --red-500: #C62B29;
+  --red-600: #9F2623;
+  --red-700: #7A201C;
+  --red-800: #561916;
+  --red-900: #35110E;
+  --red-950: #180202;
+
+  /* ── Green ────────────────────────────────────────────────────────────────── */
+  --green-50:  #F7FEE6;
+  --green-100: #E5F2C5;
+  --green-200: #D2E6A5;
+  --green-300: #BFDA84;
+  --green-400: #ABCF63;
+  --green-500: #96C33F;
+  --green-600: #80B707;
+  --green-700: #628B10;
+  --green-800: #456211;
+  --green-900: #293B0E;
+  --green-950: #111901;
+
+  /* ── Yellow ───────────────────────────────────────────────────────────────── */
+  --yellow-50:  #FAF6EB;
+  --yellow-100: #E9DFC9;
+  --yellow-200: #D8C9A7;
+  --yellow-300: #C7B387;
+  --yellow-400: #B59D67;
+  --yellow-500: #A28847;
+  --yellow-600: #8F7427;
+  --yellow-700: #6D5921;
+  --yellow-800: #4D3F1A;
+  --yellow-900: #2F2712;
+  --yellow-950: #141005;
+
+  /* ── Brown ────────────────────────────────────────────────────────────────── */
+  --brown-50:  #FAF1EB;
+  --brown-100: #E6D5CA;
+  --brown-200: #D1BAAA;
+  --brown-300: #BD9F8B;
+  --brown-400: #A8856E;
+  --brown-500: #936C51;
+  --brown-600: #7E5435;
+  --brown-700: #683D1B;
+  --brown-800: #4A2D16;
+  --brown-900: #2E1D10;
+  --brown-950: #140C05;
+
+  /* ── Purple ───────────────────────────────────────────────────────────────── */
+  --purple-50:  #F8ECF9;
+  --purple-100: #DED0DF;
+  --purple-200: #C5B5C6;
+  --purple-300: #AD9AAE;
+  --purple-400: #958096;
+  --purple-500: #7D677F;
+  --purple-600: #674F68;
+  --purple-700: #513853;
+  --purple-800: #3B223E;
+  --purple-900: #270D2A;
+  --purple-950: #120613;
+
+}

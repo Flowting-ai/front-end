@@ -1,0 +1,550 @@
+/* ── Layer 3: Semantic Tokens ─────────────────────────────────────────────────
+   Format: --[component]-[variant]-[property]-[state]
+   Grows with each new component added to the system
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── Button / Default ─────────────────────────────────────────────────────── */
+  --button-default-bg-from:          var(--color-interactive-primary-surface-from);
+  --button-default-bg-to:            var(--color-interactive-primary-surface-to);
+  --button-default-border:           var(--color-interactive-primary-border);
+  --button-default-text:             var(--color-interactive-primary-text);
+  --button-default-bg-disabled-from: var(--color-interactive-primary-surface-disabled-from);
+  --button-default-bg-disabled-to:   var(--color-interactive-primary-surface-disabled-to);
+  --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
+  --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
+
+  /* ── Button / Ghost ───────────────────────────────────────────────────────── */
+  --button-ghost-text:          var(--color-interactive-subtle-text);
+  --button-ghost-bg-hover:      var(--color-interactive-subtle-surface-hover);
+  --button-ghost-text-disabled: var(--color-interactive-subtle-text-disabled);
+
+  /* ── Button / Outline ─────────────────────────────────────────────────────── */
+  --button-outline-text:            var(--color-interactive-subtle-text);
+  --button-outline-border:          var(--color-border-interactive);
+  --button-outline-bg-hover:        var(--color-interactive-subtle-surface-hover);
+  --button-outline-text-disabled:   var(--color-interactive-subtle-text-disabled);
+  --button-outline-border-disabled: var(--color-border-interactive);
+
+  /* ── Button / Secondary ─────────────────────────────────────────────────────
+     White elevated button — same warm shadow language as FloatingMenu.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --button-secondary-bg:            var(--neutral-white);
+  --button-secondary-text:          var(--neutral-700);
+  --button-secondary-text-disabled: var(--neutral-800);
+  --button-secondary-bg-hover:      var(--neutral-100-60);
+
+  /* Outer resting: two-layer lift + 1px warm border ring — applied as box-shadow on button */
+  --shadow-button-secondary-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px var(--neutral-100);
+
+  /* Outer hover: subtle drop + ring — elevated look gives way to hover ring on interaction */
+  --shadow-button-secondary-outer-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  /* Inner resting: bottom depth groove */
+  --shadow-button-secondary-inner:
+    inset 0px -2.182px 0.364px 0px var(--neutral-100);
+
+  /* Inner hover: top highlight + bottom depth */
+  --shadow-button-secondary-inner-hover: var(--shadow-item-inner);
+
+  /* ── Button / Ghost + Outline — Hover/Active shared ──────────────────────── */
+  --button-subtle-border-hover: var(--color-interactive-subtle-border-hover);
+
+  /* ── IconButton / Default ──────────────────────────────────────────────────── */
+  --icon-button-default-icon:                  var(--color-interactive-primary-text);
+  --icon-button-default-icon-disabled:         var(--color-interactive-primary-text-disabled);
+  --icon-button-default-border:                var(--color-interactive-primary-border);
+  --icon-button-default-border-disabled:       var(--color-interactive-primary-border-disabled);
+  --icon-button-default-bg-from:               var(--color-interactive-primary-surface-from);
+  --icon-button-default-bg-to:                 var(--color-interactive-primary-surface-to);
+  --icon-button-default-bg-disabled-from:      var(--color-interactive-primary-surface-disabled-from);
+  --icon-button-default-bg-disabled-to:        var(--color-interactive-primary-surface-disabled-to);
+
+  /* ── IconButton / Ghost ────────────────────────────────────────────────────── */
+  --icon-button-ghost-icon:          var(--color-interactive-subtle-text);
+  --icon-button-ghost-icon-disabled: var(--color-interactive-subtle-text-disabled);
+  --icon-button-ghost-bg-hover:      var(--color-interactive-subtle-surface-hover);
+
+  /* ── IconButton / Outline ──────────────────────────────────────────────────── */
+  --icon-button-outline-icon:            var(--color-interactive-subtle-text);
+  --icon-button-outline-icon-disabled:   var(--color-interactive-subtle-text-disabled);
+  --icon-button-outline-border:          var(--color-border-interactive);
+  --icon-button-outline-border-disabled: var(--color-border-interactive);
+  --icon-button-outline-bg-hover:        var(--color-interactive-subtle-surface-hover);
+
+  /* ── IconButton / Ghost 2 ──────────────────────────────────────────────────── */
+  --icon-button-ghost-2-icon:          var(--color-interactive-subtle-text);
+  --icon-button-ghost-2-icon-disabled: var(--color-interactive-subtle-text-disabled);
+  --icon-button-ghost-2-bg-hover:      var(--color-interactive-subtle-surface-hover);
+
+  /* ── IconButton / Secondary ─────────────────────────────────────────────────
+     White elevated icon button — shadow language mirrors Button secondary.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --icon-button-secondary-icon:          var(--color-interactive-subtle-text);
+  --icon-button-secondary-icon-disabled: var(--color-interactive-subtle-text-disabled);
+  --icon-button-secondary-bg-hover:      var(--neutral-100-60);
+
+  /* ── IconButton / Ghost + Outline — Hover/Active shared ─────────────────────
+     Same hover shadow tokens as Button — components share these values.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --icon-button-subtle-border-hover: var(--color-interactive-subtle-border-hover);
+
+  /* ── Button + IconButton / Default — Shadows ───────────────────────────────
+     Shared between Button and IconButton — values are identical.
+     Colors reference primitives so they participate in the token system.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* Outer drop shadow — applied via filter on wrapper span */
+  --shadow-button-default-outer:
+    drop-shadow(0px 1.091px 1.091px var(--neutral-800-10))
+    drop-shadow(0px 1.455px 3.127px var(--neutral-800-40));
+
+  /* Inner shadow — applied via box-shadow on overlay div */
+  --shadow-button-default-inner:
+    inset 0px 1px 0.364px 0px var(--neutral-50-30),
+    inset 0px -2.182px 0.364px 0px var(--neutral-950),
+    inset 0px -2.545px 4px -2.182px var(--neutral-50-50);
+
+  --shadow-button-default-inner-disabled:
+    inset 0px 1.455px 0.364px 0px var(--neutral-600),
+    inset 0px -2.182px 0.364px 0px var(--neutral-800),
+    inset 0px -2.545px 6.9px -2.182px var(--neutral-500);
+
+  /* Icon emboss — applied via filter on icon wrapper */
+  --shadow-button-default-icon-emboss:
+    drop-shadow(0px 0.364px 0.364px var(--neutral-white-25))
+    drop-shadow(0px -0.727px 0.364px var(--neutral-black-25));
+
+  --shadow-button-default-icon-emboss-disabled:
+    drop-shadow(0px 0.364px 0.364px var(--neutral-700))
+    drop-shadow(0px -0.727px 0.364px var(--neutral-black-25));
+
+  /* Ghost/Outline hover outer drop-shadow — applied via filter on wrapper span */
+  --shadow-button-subtle-outer-hover:
+    drop-shadow(0px 1px 1.5px var(--neutral-700-12));
+
+  /* Ghost/Outline hover inner shadow — applied via box-shadow on overlay div */
+  --shadow-button-subtle-inner-hover: var(--shadow-item-inner);
+
+  /* Text shadow — applied via text-shadow on label span */
+  --shadow-button-default-text:
+    0px -0.727px 0.364px var(--neutral-black-25),
+    0px 0.364px 0.364px var(--neutral-white-25);
+
+  --shadow-button-default-text-disabled:
+    0px -0.727px 0.364px var(--neutral-black-25),
+    0px 0.364px 0.364px var(--neutral-700);
+
+
+  /* ── SidebarMenuItem ────────────────────────────────────────────────────────── */
+  --sidebar-menu-item-text:              var(--color-text-default);
+  --sidebar-menu-item-muted:             var(--color-text-muted);
+  --sidebar-menu-item-hover-bg:          var(--color-interactive-subtle-surface-hover);
+  --sidebar-menu-item-new-chat-badge-bg: var(--color-surface-badge);
+
+  /* Hover box-shadow: outer drop + 1px ring + inner depth (combined, no clip-path) */
+  --shadow-sidebar-item-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40),
+    inset 0px 1px 0px 0px var(--neutral-50-61),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  /* New Chat badge (resting) — same full shadow as hover item */
+  --shadow-sidebar-item-new-chat-badge:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40),
+    inset 0px 1px 0px 0px var(--neutral-50-61),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  /* Shortcut badge — outer ring only (no inner depth shadow) */
+  --shadow-sidebar-item-shortcut:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  /* Avatar ring — slightly higher opacity on drop-shadow */
+  --shadow-sidebar-item-avatar:
+    0px 1px 1.5px 0px var(--neutral-700-15),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  /* ── Tooltip ────────────────────────────────────────────────────────────────
+     Gradient bg matches Default button (neutral-700 → neutral-900).
+     Inner shadow mirrors button inner depth, scaled down.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --tooltip-bg-from: var(--neutral-700);  /* #524b47 */
+  --tooltip-bg-to:   var(--neutral-900);  /* #26211e */
+  --tooltip-text:    var(--neutral-50);   /* #f7f2ed */
+
+  /* Outer: 1px soft drop + 0.5px black border ring */
+  --shadow-tooltip:
+    0px 1px 4px 0px var(--neutral-800-50),
+    0px 0px 0px 0.5px var(--neutral-black);
+
+  /* Inner depth — same language as button inner shadow, scaled down */
+  --shadow-tooltip-inner:
+    inset 0px  0.5px 0.1px    0px var(--neutral-50-30),
+    inset 0px -0.5px 0.364px  0px var(--neutral-950),
+    inset 0px -2px   4px   -2.182px var(--neutral-50-50);
+
+  /* ── TabItem ────────────────────────────────────────────────────────────────
+     Selected: white bg + outer ring + inner bottom shadow
+     Default: transparent bg, muted text
+     Hover: transparent bg, full-strength text
+     Disabled: transparent bg, dim text
+     ─────────────────────────────────────────────────────────────────────────── */
+  --tab-item-text-selected:  var(--neutral-700);
+  --tab-item-text-default:   var(--neutral-500);
+  --tab-item-text-hover:     var(--neutral-700);
+  --tab-item-text-disabled:  var(--neutral-300);
+  --tab-item-bg-selected:    var(--neutral-white);
+
+  /* Outer shadow + 1px ring on selected */
+  --shadow-tab-item-selected:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-100);
+
+  /* Inner bottom shadow on selected */
+  --shadow-tab-item-selected-inner:
+    inset 0px -1px 0px 0px var(--neutral-900-10);
+
+  /* ── Tabs (pill container) ───────────────────────────────────────────────────
+     Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --tab-bg: var(--neutral-50-50);
+
+  /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */
+  --shadow-tab-inner:
+    inset 0px -1px 0px 0px var(--neutral-white-90),
+    inset 0px  1px 0px 0px var(--neutral-100),
+    inset 0px  0px 4px 0px var(--neutral-200-50);
+
+  /* ── Popover ────────────────────────────────────────────────────────────────
+     Floating surface used for dropdown menus, command palettes, context menus.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --popover-bg: var(--color-surface-default);  /* #ffffff */
+
+  /* Large diffuse lift + tight drop shadow + 1px border ring */
+  --shadow-popover:
+    0px 12px 16px -4px var(--neutral-500-12),
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-800-10);
+
+  /* ── DropdownMenuItem ───────────────────────────────────────────────────────
+     Shares the same warm-neutral hover language as SidebarMenuItem.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --dropdown-menu-item-text:     var(--sidebar-menu-item-text);     /* neutral-700 */
+  --dropdown-menu-item-muted:    var(--sidebar-menu-item-muted);    /* neutral-500 */
+  --dropdown-menu-item-hover-bg: var(--sidebar-menu-item-hover-bg); /* rgba(237,225,215,0.6) */
+
+  /* Outer drop + 1px ring only — inner depth applied via absolute overlay div */
+  --shadow-dropdown-item-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  /* Shared inner depth shadow — top highlight + bottom groove.
+     Used by SidebarMenuItem, DropdownMenuItem, and FloatingMenuItem hover overlays. */
+  --shadow-item-inner:
+    inset 0px 1px 0px 0px var(--neutral-50-61),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  /* ── PresetModelSelector ──────────────────────────────────────────────────── */
+  /* Featured model card — dark gradient card with multi-layer depth shadows */
+  --shadow-preset-featured-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-10),
+    0px 1.455px 3.127px 0px var(--neutral-800-40),
+    0px 0px 0px 1px #000000;
+  --shadow-preset-featured-inner:
+    inset 0px 1px 0.364px 0px var(--neutral-50-30),
+    inset 0px -2.182px 0.364px 0px var(--neutral-950),
+    inset 0px -2.545px 4px -2.182px var(--neutral-50-50);
+
+  /* ── ModelSelectItem ──────────────────────────────────────────────────────── */
+  /* Shares the same hover shadow + bg as DropdownMenuItem. */
+  --model-select-item-text:      var(--neutral-700);                  /* #524b47 */
+  --model-select-item-icon:      var(--neutral-500);                  /* #827a74 */
+  --model-select-item-bg-active: var(--dropdown-menu-item-hover-bg);  /* rgba(237,225,215,0.6) */
+
+  /* ── FloatingMenuItem ──────────────────────────────────────────────────────── */
+  --floating-menu-item-hover-bg: var(--neutral-100-60);  /* rgba(237,225,215,0.6) */
+  --floating-menu-item-label:    var(--neutral-700);
+
+  /* Outer: drop shadow + 1px ring — applied via box-shadow on the element */
+  --shadow-floating-menu-item-outer:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+
+  /* Inner: top highlight + bottom depth — applied via box-shadow on an overlay div */
+  --shadow-floating-menu-item-inner: var(--shadow-item-inner);
+
+  /* ── FloatingMenu ──────────────────────────────────────────────────────────── */
+  /* Outer: two-layer lift + 1px warm border ring — applied via box-shadow on the container */
+  --shadow-floating-menu-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px var(--neutral-200);
+
+  /* Inner: bottom-only depth shadow — applied via box-shadow on an overlay div */
+  --shadow-floating-menu-inner:
+    inset 0px -2.182px 0.364px 0px var(--neutral-100);
+
+  /* ── Divider ──────────────────────────────────────────────────────────────── */
+  --divider-color: var(--neutral-800-15);  /* rgba(59,54,50,0.15) */
+
+  /* ── Focus ring ───────────────────────────────────────────────────────────── */
+  --focus-ring: var(--color-focus-ring);  /* #0081DB */
+
+  /* ── Chat Input ─────────────────────────────────────────────────────────────
+     Drop shadow: --neutral-700-12 at 2px
+     Border ring: --neutral-800-10 at 1px
+     Hover glow:  --neutral-100-60 at 3px
+     Focus glow:  --neutral-100-60 at 6px
+     ─────────────────────────────────────────────────────────────────────────── */
+  --chat-input-bg:               var(--color-surface-default);
+  --chat-input-placeholder:      var(--color-text-placeholder);
+  --chat-input-text:             var(--color-text-primary);
+  --chat-input-scrollbar-thumb:  var(--color-scrollbar-thumb);
+
+  --shadow-chat-input:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-800-10);
+
+  --shadow-chat-input-hover:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-800-10),
+    0px 0px 0px 3px var(--neutral-100-60);
+
+  --shadow-chat-input-focus:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-800-10),
+    0px 0px 0px 6px var(--neutral-100-60);
+
+  /* ── InputGroup ──────────────────────────────────────────────────────────────
+     Reuses the chat-input shadow family for identical visual language.
+     Error state adds a red ring in place of the neutral ring.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --input-group-label:           var(--color-text-muted);     /* neutral-500 — resting */
+  --input-group-label-active:    var(--color-text-default);   /* neutral-700 — hover/focus */
+  --input-group-label-error:     var(--red-500);              /* #c62b29 */
+  --input-group-text:            var(--color-text-primary);   /* neutral-900 */
+  --input-group-placeholder:     var(--color-text-placeholder); /* neutral-600 */
+  --input-group-icon:            var(--color-text-muted);     /* neutral-500 — resting */
+  --input-group-icon-active:     var(--color-text-default);   /* neutral-700 — hover/focus */
+  --input-group-bg-hover:        var(--neutral-100-60);       /* proximity highlight */
+  --input-group-bg-focus:        var(--color-surface-default); /* white on focus */
+  --input-group-bg-error-hover:  var(--red-400-10);           /* subtle red tint on proximity */
+
+  /* Shadows reuse the chat-input shadow family — same depth, ring, glow language */
+  --shadow-input-group:          var(--shadow-chat-input);
+  --shadow-input-group-hover:    var(--shadow-chat-input-hover);
+  --shadow-input-group-focus:    var(--shadow-chat-input-focus);
+
+  /* Error shadows — red ring replaces neutral ring, smaller glow */
+  --shadow-input-group-error:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--red-400-50);
+
+  --shadow-input-group-error-focus:
+    0px 2px 2.8px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--red-400-50),
+    0px 0px 0px 4px var(--red-400-10);
+
+  /* ── TextField ───────────────────────────────────────────────────────────────
+     Standalone text field: label + input container + subtitle.
+     14px/22px body text — larger than InputGroup's caption labels.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --text-field-label:          var(--color-text-default);      /* neutral-700 */
+  --text-field-label-error:    var(--red-500);                 /* #c62b29 */
+  --text-field-label-disabled: var(--neutral-500);             /* #827a74 */
+  --text-field-text:           var(--color-text-primary);      /* neutral-900 */
+  --text-field-placeholder:    var(--color-text-placeholder);  /* neutral-600 */
+  --text-field-icon:           var(--color-text-muted);        /* neutral-500 */
+  --text-field-bg:             var(--color-surface-default);   /* #ffffff */
+
+  --shadow-text-field:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-100);
+
+  --shadow-text-field-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-200);
+
+  --shadow-text-field-filled:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 2px var(--neutral-100);
+
+  --shadow-text-field-error:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--red-500);
+
+  /* ── Chip ─────────────────────────────────────────────────────────────────── */
+  --chip-bg:   var(--blue-100);
+  --chip-text: var(--blue-700);
+
+  --chip-shadow:
+    0px 1px 1.5px 0px var(--blue-950-20),
+    0px 0px 0px 1px var(--blue-600-50);
+
+  --chip-inner-shadow:
+    inset 0px  1px 0px 0px var(--blue-50-70),
+    inset 0px -1px 0px 0px var(--blue-600-10);
+
+  --chip-button-bg-hover: var(--neutral-white-70);
+
+  --chip-button-inner-shadow:
+    inset 0px -1px 0px 0px var(--neutral-white-90),
+    inset 0px  1px 0px 0px var(--blue-600-30);
+
+}
+
+/* ── ChipButton hover styles ────────────────────────────────────────────────
+   CSS :hover is used instead of React state — synthetic onMouseEnter doesn't
+   fire when an element mounts under an already-hovering cursor.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-chip-button {
+  background-color: transparent;
+  transition: background-color 200ms;
+}
+.kds-chip-button:hover {
+  background-color: var(--chip-button-bg-hover);
+}
+.kds-chip-button .kds-chip-button-shadow {
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.kds-chip-button:hover .kds-chip-button-shadow {
+  opacity: 1;
+}
+.kds-chip-button .kds-chip-button-spin {
+  rotate: 0deg;
+}
+.kds-chip-button:hover .kds-chip-button-spin {
+  rotate: 180deg;
+  transition: rotate 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Chip container focus ring (keyboard navigation) */
+.kds-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kds-chip-button,
+  .kds-chip-button .kds-chip-button-shadow { transition: none; }
+  .kds-chip-button:hover .kds-chip-button-spin { transition: none; }
+}
+
+/* ── TabItem standalone (kds-tab-item) ──────────────────────────────────────
+   Focus ring — replaces the browser default that was stripped by outline:none.
+   Only shown on keyboard navigation, not on mouse click.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-tab-item:focus-visible {
+  outline:        2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Tabs trigger (kds-tab-trigger) ─────────────────────────────────────────
+   CSS-driven states keyed off Radix's data-state="active" and :disabled.
+   CSS :hover avoids synthetic event issues on mount-under-cursor.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-tab-trigger {
+  display:          inline-flex;
+  align-items:      center;
+  gap:              2px;
+  padding:          7px 8px;
+  border-radius:    10px;
+  border:           none;
+  background-color: transparent;
+  cursor:           pointer;
+  position:         relative;
+  /* no overflow:hidden — the sliding bg lives in the row, not inside each trigger */
+}
+
+/* Text & icon */
+.kds-tab-trigger-label,
+.kds-tab-trigger-icon {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  font-size:   var(--font-size-body);
+  line-height: var(--line-height-body);
+  color:       var(--tab-item-text-default);
+  white-space: nowrap;
+  position:    relative;
+  flex-shrink: 0;
+  transition:  color 150ms;
+}
+.kds-tab-trigger-icon {
+  display:  inline-flex;
+  width:    16px;
+  height:   16px;
+}
+
+/* Hover (not selected, not disabled) */
+.kds-tab-trigger:hover:not([data-state="active"]):not(:disabled) .kds-tab-trigger-label,
+.kds-tab-trigger:hover:not([data-state="active"]):not(:disabled) .kds-tab-trigger-icon {
+  color: var(--tab-item-text-hover);
+}
+
+/* Selected — text color only; bg + shadow handled by sliding motion.div in TabsList */
+.kds-tab-trigger[data-state="active"] .kds-tab-trigger-label,
+.kds-tab-trigger[data-state="active"] .kds-tab-trigger-icon {
+  color: var(--tab-item-text-selected);
+}
+
+/* Disabled */
+.kds-tab-trigger:disabled {
+  cursor: not-allowed;
+}
+.kds-tab-trigger:disabled .kds-tab-trigger-label,
+.kds-tab-trigger:disabled .kds-tab-trigger-icon {
+  color: var(--tab-item-text-disabled);
+}
+
+/* Focus ring */
+.kds-tab-trigger:focus-visible {
+  outline:        2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kds-tab-trigger,
+  .kds-tab-trigger-label,
+  .kds-tab-trigger-icon,
+  .kds-tab-trigger-inner { transition: none; }
+}
+
+/* ── InputField placeholder ──────────────────────────────────────────────────
+   Inline styles cannot target ::placeholder — use CSS class instead.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-input-field-input::placeholder {
+  color: var(--text-field-placeholder);
+  opacity: 1; /* Firefox applies 0.54 by default */
+}
+
+.kds-input-field-input:disabled::placeholder {
+  color: var(--text-field-label-disabled);
+  opacity: 1;
+}
+
+/* ── PinCommentField placeholder ─────────────────────────────────────────────
+   Inline styles cannot target ::placeholder — use CSS class instead.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-pin-comment-field::placeholder {
+  color:   var(--neutral-600);
+  opacity: 1; /* Firefox applies 0.54 by default */
+}
+
+/* ── Icon-in-field focus ring ────────────────────────────────────────────────
+   For role="button" spans inside overflow:hidden containers (e.g. InputField).
+   outline-offset: -2px keeps the ring inside so it's not clipped by the parent.
+   ─────────────────────────────────────────────────────────────────────────── */
+.kds-icon-in-field:focus-visible {
+  outline:        2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius:  4px;
+}

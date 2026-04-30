@@ -1,0 +1,49 @@
+/* ── Layer 2: Alias Tokens ────────────────────────────────────────────────────
+   Format: --color-[category]-[intent]-[property]-[state]
+   Light mode only — dark mode values to be added when dark primitives are ready
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── Interactive / Primary (Default button) ───────────────────────────────── */
+  --color-interactive-primary-surface-from:            var(--neutral-700);   /* #524b47 */
+  --color-interactive-primary-surface-to:              var(--neutral-900);   /* #26211e */
+  --color-interactive-primary-border:                  var(--neutral-950);   /* #120c08 */
+  --color-interactive-primary-text:                    var(--neutral-50);    /* #f7f2ed */
+  --color-interactive-primary-text-disabled:           var(--neutral-400);   /* #9c938b */
+  --color-interactive-primary-surface-disabled-from:   var(--neutral-700);   /* #524b47 */
+  --color-interactive-primary-surface-disabled-to:     var(--neutral-800);   /* #3b3632 */
+  --color-interactive-primary-border-disabled:         var(--neutral-800);   /* #3b3632 */
+
+  /* ── Interactive / Subtle (Ghost + Outline shared) ───────────────────────── */
+  --color-interactive-subtle-text:          var(--neutral-700);     /* #524b47 */
+  --color-interactive-subtle-text-disabled: var(--neutral-800);     /* #3b3632 */
+  --color-interactive-subtle-surface-hover: var(--neutral-100-60);  /* rgba(237,225,215,0.6) */
+
+  /* ── Interactive / Subtle — hover border ─────────────────────────────────── */
+  --color-interactive-subtle-border-hover: var(--neutral-300-40);  /* rgba(182,172,164,0.4) */
+
+  /* ── Borders ──────────────────────────────────────────────────────────────── */
+  --color-border-interactive: var(--neutral-800-30);  /* rgba(59,54,50,0.3) */
+
+  /* ── Focus ────────────────────────────────────────────────────────────────── */
+  --color-focus-ring: #0081DB;
+
+  /* ── Text ─────────────────────────────────────────────────────────────────── */
+  --color-text-primary:     var(--neutral-900);  /* #26211e — input text, primary content */
+  --color-text-default:     var(--neutral-700);  /* #524b47 — standard UI labels */
+  --color-text-muted:       var(--neutral-500);  /* #827a74 — secondary / muted labels */
+  --color-text-placeholder: var(--neutral-600);  /* #6a625d — input placeholders */
+
+  /* ── Surface ──────────────────────────────────────────────────────────────── */
+  --color-surface-default: var(--neutral-white);  /* #ffffff — cards, inputs, panels */
+  --color-surface-badge:   var(--neutral-100);    /* #ede1d7 — badge backgrounds */
+
+  /* ── Scrollbar ────────────────────────────────────────────────────────────── */
+  --color-scrollbar-thumb: var(--neutral-500-60);  /* rgba(130,122,116,0.60) — translucent warm thumb */
+
+}
+
+/* Dark mode — to be filled when dark primitives are ready */
+.dark {
+}

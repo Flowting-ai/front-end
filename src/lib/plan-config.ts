@@ -1,0 +1,158 @@
+import type { UserPlanType } from "@/lib/api/user";
+
+const PLAN_RANK: Record<UserPlanType, number> = {
+  starter: 0,
+  pro: 1,
+  power: 2,
+};
+
+export function planRank(plan: UserPlanType): number {
+  return PLAN_RANK[plan] ?? 0;
+}
+
+export function isPlanUpgrade(from: UserPlanType, to: UserPlanType): boolean {
+  return planRank(to) > planRank(from);
+}
+
+export function isPlanDowngrade(from: UserPlanType, to: UserPlanType): boolean {
+  return planRank(to) < planRank(from);
+}
+
+export type PlanResourceLimits = {
+  personas: number;
+  pins: number;
+  workflows: number;
+  webSearchesPerDay: number;
+};
+
+export const PLAN_LIMITS: Record<UserPlanType, PlanResourceLimits> = {
+  starter: { personas: 3, pins: 100, workflows: 0, webSearchesPerDay: 10 },
+  pro: { personas: Infinity, pins: 2000, workflows: 2, webSearchesPerDay: Infinity },
+  power: { personas: Infinity, pins: Infinity, workflows: Infinity, webSearchesPerDay: Infinity },
+};
+
+export function hasReachedLimit(
+  plan: UserPlanType,
+  resource: keyof PlanResourceLimits,
+  currentCount: number,
+): boolean {
+  return currentCount >= PLAN_LIMITS[plan][resource];
+}
+
+export function getLimit(plan: UserPlanType, resource: keyof PlanResourceLimits): number {
+  return PLAN_LIMITS[plan][resource];
+}
+
+export const PLAN_CREDITS: Record<UserPlanType, number> = {
+  starter: 5_000,
+  pro: 12_000,
+  power: 60_000,
+};
+
+export function getPlanCredits(plan: UserPlanType): number {
+  return PLAN_CREDITS[plan] ?? 0;
+}
+
+export function usageToCredits(
+  plan: UserPlanType,
+  monthlyUsed: number,
+): { total: number; used: number; remaining: number } {
+  const total = PLAN_CREDITS[plan] ?? 0;
+  const used = Math.round(monthlyUsed * 1000);
+  return { total, used: Math.min(used, total), remaining: Math.max(total - used, 0) };
+}
+
+export function formatCredits(credits: number): string {
+  return credits.toLocaleString("en-US");
+}
+
+export type FrameworkTier = "basic" | "advanced";
+
+export const PLAN_FRAMEWORKS: Record<UserPlanType, readonly FrameworkTier[]> = {
+  starter: ["basic"],
+  pro: ["basic", "advanced"],
+  power: ["basic", "advanced"],
+};
+
+export function canAccessFramework(
+  plan: UserPlanType | null | undefined,
+  framework: FrameworkTier,
+): boolean {
+  if (!plan) return false;
+  return (PLAN_FRAMEWORKS[plan] ?? []).includes(framework);
+}
+
+export type PlanFeature =
+  | "mistralOcr"
+  | "modelCompare"
+  | "advancedModels"
+  | "advancedRouting"
+  | "sharedPersonas"
+  | "workflowSharing"
+  | "advancedAnalytics"
+  | "priorityCompute"
+  | "unlimitedWebSearch";
+
+const PLAN_FEATURES: Record<UserPlanType, ReadonlySet<PlanFeature>> = {
+  starter: new Set([]),
+  pro: new Set([
+    "modelCompare",
+    "advancedModels",
+    "advancedRouting",
+    "sharedPersonas",
+    "unlimitedWebSearch",
+  ]),
+  power: new Set([
+    "mistralOcr",
+    "modelCompare",
+    "advancedModels",
+    "advancedRouting",
+    "sharedPersonas",
+    "workflowSharing",
+    "advancedAnalytics",
+    "priorityCompute",
+    "unlimitedWebSearch",
+  ]),
+};
+
+export function canAccessFeature(
+  plan: UserPlanType | null | undefined,
+  feature: PlanFeature,
+): boolean {
+  if (!plan) return false;
+  return PLAN_FEATURES[plan]?.has(feature) ?? false;
+}
+
+const MODEL_PLAN_RANK: Record<string, number> = {
+  standard: 0,
+  pro: 1,
+  power: 2,
+};
+
+export function requiresModelUpgrade(
+  modelPlanType: string,
+  userPlanType: string | null | undefined,
+): boolean {
+  if (!userPlanType) return true;
+  const modelRank = MODEL_PLAN_RANK[modelPlanType] ?? 0;
+  const userRank = PLAN_RANK[userPlanType as UserPlanType] ?? -1;
+  return modelRank > userRank;
+}
+
+export type WorkspaceUsageCounts = {
+  totalPersonaCount: number;
+  totalPinCount: number;
+  totalWorkflowsCount: number;
+};
+
+export function isDowngradeBlockedByUsage(
+  targetPlan: Extract<UserPlanType, "starter" | "pro">,
+  counts: WorkspaceUsageCounts,
+): boolean {
+  const limits = PLAN_LIMITS[targetPlan];
+  return (
+    counts.totalPersonaCount > limits.personas ||
+    counts.totalPinCount > limits.pins ||
+    counts.totalWorkflowsCount > limits.workflows
+  );
+}
