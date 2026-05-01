@@ -13,8 +13,8 @@
 | Day 1  | Environment Setup | ✅ Complete | 2026-04-30 |
 | Day 2  | Auth0 + Auth Context | ✅ Complete | 2026-04-30 |
 | Day 3  | API Client & Infrastructure | ✅ Complete | 2026-04-30 |
-| Day 4  | App Layout & Sidebar | ⬜ Pending | — |
-| Day 5  | Chat Infrastructure (Streaming Core) | ⬜ Pending | — |
+| Day 4  | App Layout & Sidebar | ✅ Complete | 2026-05-01 |
+| Day 5  | Chat Infrastructure (Streaming Core) | ✅ Complete | 2026-05-01 |
 | Day 6  | Chat UI Components | ⬜ Pending | — |
 | Day 7  | Chat UX Features | ⬜ Pending | — |
 | Day 8  | Chat Polish + Personas Foundation | ⬜ Pending | — |
@@ -694,14 +694,14 @@ Issues a signed token per session. All non-GET API mutations from the browser in
 
 ---
 
-### Day 4 — App Layout & Sidebar ⬜ PENDING
+### Day 4 — App Layout & Sidebar ✅ COMPLETE (2026-05-01)
 
 > **Checkpoints:**
-> - ⬜ 2.4.1 AppLayout — `src/components/layout/AppLayout.tsx` (sidebar + main slot + AppDialogs)
-> - ⬜ 2.4.2 LeftSidebar — `src/components/layout/LeftSidebar.tsx` (KDS Sidebar, new chat btn, search, history list, bottom nav, collapse persistence)
-> - ⬜ 2.4.3 ChatHistoryItem — `src/components/layout/ChatHistoryItem.tsx` (hover menu, optimistic rename, delete, star)
-> - ⬜ 2.4.4 TopBar — `src/components/layout/TopBar.tsx` (editable title, model chip, citations toggle, user dropdown)
-> - ⬜ `(app)` route group layout wired — `src/app/(app)/layout.tsx`
+> - ✅ 2.4.1 AppLayout — `src/components/layout/AppLayout.tsx` (sidebar + main slot + AppDialogs)
+> - ✅ 2.4.2 LeftSidebar — `src/components/layout/LeftSidebar.tsx` (KDS Sidebar, new chat btn, search, history list, bottom nav, collapse persistence)
+> - ✅ 2.4.3 ChatHistoryItem — `src/components/layout/ChatHistoryItem.tsx` (hover menu, optimistic rename, delete, star)
+> - ✅ 2.4.4 TopBar — `src/components/layout/TopBar.tsx` (editable title, model chip, citations toggle, user dropdown)
+> - ✅ `(app)` route group layout wired — `src/app/(app)/layout.tsx`
 
 **Goal:** The authenticated shell — KDS Sidebar with chat history list, top bar, and responsive collapse.
 
@@ -749,17 +749,18 @@ Contains:
 - Citations toggle button
 - User avatar → dropdown (settings, logout)
 
-**Day 4 Deliverable:** ⬜ Full-page shell renders, sidebar opens/closes, chat history loads and displays.
+**Day 4 Deliverable:** ✅ Full-page shell renders, sidebar opens/closes, chat history loads and displays.
 
 ---
 
-### Day 5 — Chat Infrastructure (Streaming Core) ⬜ PENDING
+### Day 5 — Chat Infrastructure (Streaming Core) ✅ COMPLETE (2026-05-01)
 
 > **Checkpoints:**
-> - ⬜ 2.5.1 Streaming Hook — `src/hooks/use-streaming-chat.ts` (SSE state machine, 50ms batch flush, abort, stop API call)
-> - ⬜ 2.5.2 Chat State Hook — `src/hooks/use-chat-state.ts` (message list, optimistic insert, rollback)
-> - ⬜ 2.5.3 Content Parser — `src/lib/parsers/content-parser.ts` (thinking blocks, citation markers, plain text)
-> - ⬜ 2.5.4 Chat API Route — `src/app/api/chat/route.ts` (server-side JWT proxy, ReadableStream passthrough)
+> - ✅ 2.5.1 Streaming Hook — `src/hooks/use-streaming-chat.ts` (SSE state machine, 50ms batch flush, abort + stop API call, chunk/reasoning/metadata/done/error events)
+> - ✅ 2.5.2 Chat State Hook — `src/hooks/use-chat-state.ts` (UIMessage type, message list, optimistic insert, rollback)
+> - ✅ 2.5.3 Content Parser — `src/lib/parsers/content-parser.ts` (thinking blocks, extractSources, mergeStreamingText in streaming.ts)
+> - ✅ 2.5.4 Chat API Route — `src/app/api/chat/route.ts` (server-side JWT proxy via auth0.getAccessToken, ReadableStream passthrough, X-Chat-Id header forwarding)
+> - ✅ Supporting — `src/lib/streaming.ts` (mergeStreamingText), `src/lib/normalizers/message-transformer.ts` (toUIMessage)
 
 **Goal:** `use-streaming-chat.ts` and `use-chat-state.ts` fully operational. Messages render. Stop generation works.
 

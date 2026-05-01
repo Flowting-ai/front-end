@@ -33,6 +33,8 @@ export const CHAT_STREAM_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stream`);
 export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
+export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}`);
 export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>

@@ -188,12 +188,14 @@ export type UpdateSubscriptionResult =
 
 export async function fetchCurrentUser(): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
+  if (!response.ok) return null;
   const json = await response.json();
   return normalizeUserProfile(json);
 }
 
 export async function createUser(): Promise<UserProfile | null> {
   const response = await apiFetch(USER_CREATE_ENDPOINT, { method: "POST" });
+  if (!response.ok) return null;
   const json = await response.json();
   return normalizeUserProfile(json);
 }
@@ -207,6 +209,7 @@ export async function updateUser(payload: {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+  if (!response.ok) return null;
   const json = await response.json();
   return normalizeUserProfile(json);
 }
@@ -234,7 +237,7 @@ export async function createCheckoutSession(
 
   const data = (await response.json()) as CheckoutSessionResponse | { error?: string };
 
-  if (!("checkout_url" in data)) {
+  if (!response.ok || !("checkout_url" in data)) {
     throw new Error(("error" in data && data.error) || "Failed to create checkout session.");
   }
 
@@ -257,7 +260,7 @@ export async function updateSubscriptionPlan(
 
   const data = (await response.json()) as UpdateSubscriptionResult | { error?: string };
 
-  if (!("new_plan" in data) && !("checkout_url" in data)) {
+  if (!response.ok || (!("new_plan" in data) && !("checkout_url" in data))) {
     throw new Error(("error" in data && data.error) || "Failed to update subscription.");
   }
 
@@ -266,9 +269,15 @@ export async function updateSubscriptionPlan(
 
 export async function cancelSubscription(): Promise<{ status: string }> {
   const response = await apiFetch(STRIPE_SUBSCRIPTION_ENDPOINT, { method: "DELETE" });
-  const data = (await response.json()) as { status?: string; error?: string };
 
-  if (!data.status) {
+  let data: { status?: string; error?: string } = {};
+  try {
+    data = (await response.json()) as { status?: string; error?: string };
+  } catch {
+    // non-JSON error body
+  }
+
+  if (!response.ok || !data.status) {
     throw new Error(data.error || "Failed to cancel subscription.");
   }
 
