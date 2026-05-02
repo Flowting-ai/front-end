@@ -59,3 +59,91 @@
   border-radius: 6px;
   animation: kaya-skeleton-pulse 2s ease-in-out infinite;
 }
+
+/* ── Thinking dots animation ──────────────────────────────────────────────── */
+@keyframes kaya-thinking-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.kaya-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kaya-thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--neutral-500);
+  animation: kaya-thinking-dot 1.4s ease-in-out infinite;
+}
+
+.kaya-thinking-dot:nth-child(1) { animation-delay: 0s; }
+.kaya-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.kaya-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Shimmer gradient for streaming state ─────────────────────────────────── */
+@keyframes kaya-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* Label shimmer — matches souvenir-chat-preview svLabelShimmer */
+@keyframes svLabelShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.kaya-shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--neutral-500) 0%,
+    var(--neutral-800) 50%,
+    var(--neutral-500) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: kaya-shimmer 2s ease-in-out infinite;
+}
+
+.kaya-label-shimmer {
+  background-image: linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: svLabelShimmer 2.4s ease-in-out infinite;
+}
+
+/* ── Reasoning block gradient border ──────────────────────────────────────── */
+@keyframes kaya-border-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.kaya-reasoning-active {
+  background: linear-gradient(
+    90deg,
+    var(--neutral-200),
+    var(--neutral-400),
+    var(--neutral-200)
+  );
+  background-size: 200% 100%;
+  animation: kaya-border-flow 2s ease-in-out infinite;
+}
+
+/* ── Model choosing pulse ─────────────────────────────────────────────────── */
+@keyframes kaya-model-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+.kaya-model-choosing {
+  animation: kaya-model-pulse 1.5s ease-in-out infinite;
+}

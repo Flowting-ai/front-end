@@ -44,6 +44,7 @@ export function useStreamingChat({
   // Pending message field updates — flushed to React every FLUSH_INTERVAL_MS
   const pendingFieldsRef = useRef<Partial<UIMessage> | null>(null)
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rafScheduledRef = useRef(false)
 
   // The temp ID of the loading placeholder being updated during a stream
   const loadingMessageIdRef = useRef<string | null>(null)
@@ -74,6 +75,14 @@ export function useStreamingChat({
     if (immediate) {
       flushPending()
       return
+    }
+    // Schedule a microtask flush as backup (in case setInterval is delayed)
+    if (!rafScheduledRef.current) {
+      rafScheduledRef.current = true
+      Promise.resolve().then(() => {
+        rafScheduledRef.current = false
+        flushPending()
+      })
     }
   }
 
@@ -225,7 +234,21 @@ export function useStreamingChat({
           try {
             parsed = JSON.parse(dataStr)
           } catch {
-            logger.warn("[useStreamingChat] Failed to parse SSE data", dataStr)
+            // Plain text token (not JSON) — treat as content chunk
+            // The backend sends `data: <token>` for LLM content
+            const wasEmpty = !assistantContent
+            assistantContent = mergeStreamingText(assistantContent, dataStr)
+            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
+            const hasOpenThink = /<think>/i.test(assistantContent)
+            const hasCloseThink = /<\/think>/i.test(assistantContent)
+            const stillThinking = hasOpenThink && !hasCloseThink
+            queueUpdate({
+              content: visibleText || "",
+              thinking: reasoningContent || thinkingText || undefined,
+              isThinkingInProgress: stillThinking && !reasoningContent,
+              isLoading: false,
+            }, wasEmpty)
+            setStreamState?.("streaming")
             continue
           }
 
@@ -272,17 +295,19 @@ export function useStreamingChat({
 
           if (eventName === "reasoning") {
             const delta = asString(parsed.delta) ?? ""
+            const wasEmpty = !reasoningContent
             reasoningContent = mergeStreamingText(reasoningContent, delta)
             queueUpdate({
               thinking: reasoningContent,
               isThinkingInProgress: true,
               isLoading: false,
-            })
+            }, wasEmpty)  // flush immediately on first reasoning chunk
             continue
           }
 
           if (eventName === "chunk") {
             const delta = asString(parsed.delta) ?? ""
+            const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, delta)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
             const hasOpenThink = /<think>/i.test(assistantContent)
@@ -293,13 +318,277 @@ export function useStreamingChat({
               thinking: reasoningContent || thinkingText || undefined,
               isThinkingInProgress: stillThinking && !reasoningContent,
               isLoading: false,
-            })
+            }, wasEmpty)  // flush immediately on first content chunk
             continue
           }
 
           if (eventName === "message_saved") {
-            // Backend confirmed the message was persisted — track but don't
-            // change the optimistic ID (reconciliation happens on next load)
+            // Backend confirmed the message was persisted
+            // For new chats, the chat_id may come here
+            const evtChatId = extractChatId(parsed)
+            if (evtChatId) adoptChatId(evtChatId)
+            continue
+          }
+
+          if (eventName === "model_selected") {
+            // Backend selected a model — update the loading message with model info
+            const modelName = asString(parsed.model_name) ?? asString(parsed.modelName)
+            if (modelName) {
+              queueUpdate({
+                modelName,
+                modelMeta: {
+                  modelId: asString(parsed.model_id) ?? "",
+                  modelName: modelName,
+                  deploymentName: asString(parsed.deployment_name),
+                  company: asString(parsed.company),
+                  complexity: asString(parsed.complexity),
+                  thinkingEnabled: parsed.thinking_enabled === true,
+                  effort: asString(parsed.effort),
+                },
+              }, true)
+            }
+            continue
+          }
+
+          if (eventName === "web_search") {
+            // Web search activity — schema: {query, links[]}
+            const query = asString(parsed.query) ?? ""
+            const rawLinks = Array.isArray(parsed.links) ? parsed.links : []
+            const results = rawLinks
+              .slice(0, 6)
+              .map((link: unknown) => {
+                if (typeof link === "string") {
+                  try {
+                    const url = new URL(link)
+                    return { title: url.hostname + url.pathname.slice(0, 40), url: link, domain: url.hostname }
+                  } catch { return { title: link, url: link, domain: "" } }
+                }
+                if (typeof link === "object" && link !== null) {
+                  const obj = link as Record<string, unknown>
+                  const url = asString(obj.url) ?? ""
+                  let domain = ""
+                  try { domain = new URL(url).hostname } catch { /* ignore */ }
+                  return {
+                    title: asString(obj.title) ?? url,
+                    url,
+                    domain: asString(obj.domain) ?? domain,
+                  }
+                }
+                return null
+              })
+              .filter(Boolean) as { title: string; url?: string; domain?: string }[]
+
+            const activity: import("@/hooks/use-chat-state").ActivityItem = {
+              id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              type: "web-search",
+              detail: query,
+              status: "done",
+              results,
+            }
+
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === msgId
+                    ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                    : msg,
+                ),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "tool_progress") {
+            // Tool progress — schema: {tool, status, filename?, step?, message?, code_preview?}
+            const toolName = asString(parsed.tool) ?? "unknown"
+            const status = asString(parsed.status) ?? "start"
+            const filename = asString(parsed.filename)
+            const progressMessage = asString(parsed.message)
+            const codePreview = asString(parsed.code_preview)
+            const activityId = `tp-${toolName}-${filename ?? "default"}`
+
+            const activityType = toolNameToType(toolName)
+
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  const existing = (msg.activities ?? []).find((a) => a.id === activityId)
+                  if (existing) {
+                    // Update existing activity
+                    return {
+                      ...msg,
+                      activities: (msg.activities ?? []).map((a) =>
+                        a.id === activityId
+                          ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, progressMessage, codePreview }
+                          : a,
+                      ),
+                    }
+                  }
+                  // Create new activity
+                  const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
+                    id: activityId,
+                    type: activityType,
+                    toolName,
+                    detail: progressMessage || filename || toolName,
+                    status: status as import("@/hooks/use-chat-state").ActivityStatus,
+                    filename,
+                    progressMessage,
+                    codePreview,
+                  }
+                  return { ...msg, activities: [...(msg.activities ?? []), newActivity] }
+                }),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "tool_executing" || parsed.type === "tool_executing") {
+            // Tool is about to execute — schema: {content (tool name), tool_call: {name, arguments, ...}}
+            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
+            const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? "tool"
+            const toolCallId = asString(toolCall?.tool_call_id) ?? `te-${Date.now()}`
+
+            const activityType = toolNameToType(toolName)
+            const detail = toolName.replace(/_/g, " ")
+
+            const activity: import("@/hooks/use-chat-state").ActivityItem = {
+              id: toolCallId,
+              type: activityType,
+              toolName,
+              detail,
+              status: "executing",
+            }
+
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === msgId
+                    ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                    : msg,
+                ),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "tool_complete" || parsed.type === "tool_complete") {
+            // Tool finished — schema: {content (tool name), tool_call: {name, tool_call_id, result, duration_s}}
+            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
+            const toolCallId = asString(toolCall?.tool_call_id)
+            const durationS = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
+
+            if (toolCallId) {
+              const msgId = loadingMessageIdRef.current
+              if (msgId) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== msgId) return msg
+                    return {
+                      ...msg,
+                      activities: (msg.activities ?? []).map((a) =>
+                        a.id === toolCallId
+                          ? { ...a, status: "done" as const, durationS }
+                          : a,
+                      ),
+                    }
+                  }),
+                )
+              }
+            }
+            continue
+          }
+
+          if (eventName === "image" || parsed.type === "image") {
+            // Image event — either inline from LLM ({images: string[]}) or named ({url, s3_key})
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              if (Array.isArray(parsed.images)) {
+                const newImages = (parsed.images as string[]).map((url) => ({ url }))
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === msgId
+                      ? { ...msg, images: [...(msg.images ?? []), ...newImages] }
+                      : msg,
+                  ),
+                )
+              } else if (parsed.url) {
+                const img = { url: asString(parsed.url) ?? "", s3Key: asString(parsed.s3_key) }
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === msgId
+                      ? { ...msg, images: [...(msg.images ?? []), img] }
+                      : msg,
+                  ),
+                )
+              }
+            }
+            continue
+          }
+
+          if (eventName === "generated_file") {
+            // Generated file — schema: {url, s3_key, filename, mime_type}
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              const file = {
+                url: asString(parsed.url) ?? "",
+                s3Key: asString(parsed.s3_key),
+                filename: asString(parsed.filename) ?? "file",
+                mimeType: asString(parsed.mime_type),
+              }
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === msgId
+                    ? { ...msg, generatedFiles: [...(msg.generatedFiles ?? []), file] }
+                    : msg,
+                ),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "docx_progress") {
+            // Document generation progress — schema: {step, message, filename, code_preview?}
+            const step = asString(parsed.step) ?? "start"
+            const filename = asString(parsed.filename) ?? "document"
+            const progressMessage = asString(parsed.message) ?? ""
+            const activityId = `docx-${filename}`
+
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  const existing = (msg.activities ?? []).find((a) => a.id === activityId)
+                  const status: import("@/hooks/use-chat-state").ActivityStatus =
+                    step === "done" ? "done" : step === "error" ? "error" : "executing"
+                  if (existing) {
+                    return {
+                      ...msg,
+                      activities: (msg.activities ?? []).map((a) =>
+                        a.id === activityId
+                          ? { ...a, status, detail: progressMessage || a.detail, progressMessage, codePreview: asString(parsed.code_preview) }
+                          : a,
+                      ),
+                    }
+                  }
+                  const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
+                    id: activityId,
+                    type: "docx-progress",
+                    toolName: "docx",
+                    detail: progressMessage || `Generating ${filename}`,
+                    status,
+                    filename,
+                    progressMessage,
+                    codePreview: asString(parsed.code_preview),
+                  }
+                  return { ...msg, activities: [...(msg.activities ?? []), newActivity] }
+                }),
+              )
+            }
             continue
           }
 
@@ -489,4 +778,15 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : undefined
+}
+
+/** Maps backend tool names to our ActivityType for display purposes. */
+function toolNameToType(toolName: string): import("@/hooks/use-chat-state").ActivityType {
+  const lower = toolName.toLowerCase()
+  if (lower.includes("web_search") || lower.includes("search")) return "web-search"
+  if (lower.includes("read_pages") || lower.includes("read_pdf")) return "read-pages"
+  if (lower.includes("csv") || lower.includes("data")) return "csv-execute"
+  if (lower.includes("fetch")) return "fetch-resource"
+  if (lower.includes("docx") || lower.includes("document")) return "docx-progress"
+  return "tool-call"
 }

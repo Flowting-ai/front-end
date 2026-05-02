@@ -15,8 +15,8 @@
 | Day 3  | API Client & Infrastructure | ✅ Complete | 2026-04-30 |
 | Day 4  | App Layout & Sidebar | ✅ Complete | 2026-05-01 |
 | Day 5  | Chat Infrastructure (Streaming Core) | ✅ Complete | 2026-05-01 |
-| Day 6  | Chat UI Components | ⬜ Pending | — |
-| Day 7  | Chat UX Features | ⬜ Pending | — |
+| Day 6  | Chat UI Components | ✅ Complete | 2026-05-01 |
+| Day 7  | Chat UX Features | ✅ Complete | 2026-05-01 |
 | Day 8  | Chat Polish + Personas Foundation | ⬜ Pending | — |
 | Day 9  | Personas Full Feature | ⬜ Pending | — |
 | Day 10 | Security Review & Hardening | ⬜ Pending | — |
@@ -829,16 +829,21 @@ Proxies the stream from backend to browser:
 
 ---
 
-### Day 6 — Chat UI Components ⬜ PENDING
+### Day 6 — Chat UI Components ✅ COMPLETE
 
 > **Checkpoints:**
-> - ⬜ 2.6.1 ChatMessage — `src/components/chat/ChatMessage.tsx` (user/assistant/system roles, edit, copy, regenerate)
-> - ⬜ 2.6.2 Markdown Renderer — remark/rehype pipeline in `markdown-utils.tsx` (GFM, math, highlight, sanitize)
-> - ⬜ 2.6.3 CodeBlock — `src/components/chat/CodeBlock.tsx` (lazy highlight.js, copy, word-wrap toggle)
-> - ⬜ 2.6.4 LaTeXRenderer — `src/components/chat/LaTeXRenderer.tsx` (inline + display, `sanitizeKaTeX`, error fallback)
-> - ⬜ 2.6.5 ReasoningBlock — `src/components/chat/ReasoningBlock.tsx` (collapsible, duration label)
-> - ⬜ 2.6.6 CitationsPanel — `src/components/chat/CitationsPanel.tsx` (Framer Motion slide-in, source list, `[N]` scroll sync)
-> - ⬜ 2.6.7 AttachmentManager — `src/components/chat/AttachmentManager.tsx` (drag-drop, file-type/size guards, thumbnail preview)
+> - ✅ 2.6.1 ChatMessage — `src/components/chat/ChatMessage.tsx` (user/assistant/system roles, edit, copy, regenerate)
+> - ✅ 2.6.2 Markdown Renderer — remark/rehype pipeline in `src/lib/markdown-utils.tsx` (GFM, math, highlight, sanitize)
+> - ✅ 2.6.3 CodeBlock — `src/components/chat/CodeBlock.tsx` (lazy highlight.js, copy, word-wrap toggle)
+> - ✅ 2.6.4 LaTeXRenderer — `src/components/chat/LaTeXRenderer.tsx` (inline + display, `sanitizeKaTeX`, error fallback)
+> - ✅ 2.6.5 ReasoningBlock — `src/components/chat/ReasoningBlock.tsx` (collapsible, typewriter animation, duration label)
+> - ✅ 2.6.6 CitationsPanel — `src/components/chat/CitationsPanel.tsx` (Framer Motion slide-in, source list, scroll sync)
+> - ✅ 2.6.7 AttachmentManager — `src/components/chat/AttachmentManager.tsx` (drag-drop, file-type/size guards, thumbnail preview)
+> - ✅ 2.6.8 ChatInterface — `src/components/chat/ChatInterface.tsx` (root composition: messages, input, citations, drag overlay)
+> - ✅ 2.6.9 ChatInput — `src/components/chat/ChatInput.tsx` (animated placeholder, auto-grow, toolbar, send/stop toggle)
+> - ✅ 2.6.10 useHighlightJs — `src/hooks/useHighlightJs.ts` (lazy highlight.js loader with containerRef)
+> - ✅ 2.6.11 highlight.ts — `src/lib/highlight.ts` (hljs/core with ~40 languages registered)
+> - ✅ 2.6.12 useFileDrop — `src/hooks/use-file-drop.ts` (document-level drag/drop with counter-based state)
 
 **Goal:** Complete chat message rendering layer — all content types display correctly.
 
@@ -935,17 +940,25 @@ Drag-and-drop + click-to-upload. Supported types: PDF, DOCX, TXT, PNG, JPG, WEBP
 | 10+ attachments | Cap at 10, show "Max 10 files" toast |
 | Image preview | Thumbnail in chip; click → lightbox |
 
-**Day 6 Deliverable:** ⬜ Every content type renders correctly — markdown tables, code blocks, LaTeX, collapsible reasoning, citations.
+**Day 6 Deliverable:** ✅ Every content type renders correctly — markdown tables, code blocks, LaTeX, collapsible reasoning, citations.
 
 ---
 
-### Day 7 — Chat UX Features ⬜ PENDING
+### Day 7 — Chat UX Features ✅ COMPLETE
 
 > **Checkpoints:**
-> - ⬜ 2.7.1 ModelSelector — `src/components/chat/ModelSelector.tsx` + `ModelSwitchDialog.tsx`
-> - ⬜ 2.7.2 PinMentionDropdown — `src/components/chat/PinMentionDropdown.tsx` (`@` trigger, KDS Dropdown)
-> - ⬜ 2.7.3 InitialPrompts — `src/components/chat/InitialPrompts.tsx` (greeting + suggestion grid)
-> - ⬜ 2.7.4 Chat CRUD — `src/lib/api/chat.ts` (create, rename, delete, star, paginated messages, delete message)
+> - ✅ 2.7.1 ModelSelector — `src/components/chat/ModelSelector.tsx` (modal dialog, search, grouped by provider, model icons + plan badge)
+> - ✅ 2.7.1b ModelSwitchDialog — `src/components/chat/ModelSwitchDialog.tsx` (AlertDialog confirming mid-chat model switch)
+> - ✅ 2.7.2 PinMentionDropdown — `src/components/chat/PinMentionDropdown.tsx` (`@` trigger, keyboard nav, color dots, search highlight)
+> - ✅ 2.7.3 InitialPrompts — `src/components/chat/InitialPrompts.tsx` (personalized greeting + 4 suggestion cards)
+> - ✅ 2.7.4 Chat CRUD — `src/lib/api/chat.ts` (already complete from Day 5)
+> - ✅ 2.7.5 useModelSelection — `src/hooks/use-model-selection.ts` (fetchModelsWithCache, localStorage persistence)
+> - ✅ 2.7.6 usePinOperations — `src/hooks/use-pin-operations.ts` (lazy-load pins, search, refresh)
+> - ✅ 2.7.7 Pins API — `src/lib/api/pins.ts` (Pin/PinFolder types, listPins, getPin, listPinFolders)
+> - ✅ 2.7.8 AI Models — `src/lib/ai-models.ts` (normalizeModels, fetchModelsWithCache with 60s TTL)
+> - ✅ 2.7.9 Model Icons — `src/lib/model-icons.ts` (getModelIcon by company/model/provider)
+> - ✅ 2.7.10 Greetings — `src/lib/greetings.ts` (time-of-day greetings, day overrides, subheading categories)
+> - ✅ 2.7.11 Chat Page — `src/app/(app)/chat/page.tsx` (full composition with model selector, switch dialog, initial prompts)
 
 **Goal:** Model selection, pin/mention, initial prompts, link preview, clarification, chat management.
 
@@ -996,7 +1009,7 @@ All wired through `src/lib/api/chat.ts`:
 | Load messages | `CHAT_MESSAGES_ENDPOINT` | Paginated (cursor-based); load-more on scroll-to-top |
 | Delete message | `DELETE_MESSAGE_ENDPOINT` | Soft-delete; remove from local state immediately |
 
-**Day 7 Deliverable:** ⬜ Full chat experience minus persona mode. Model switching works. Pins autocomplete. Chat CRUD is complete.
+**Day 7 Deliverable:** ✅ Full chat experience minus persona mode. Model switching works. Pins autocomplete. Chat CRUD is complete.
 
 ---
 

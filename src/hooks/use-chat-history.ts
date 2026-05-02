@@ -99,7 +99,7 @@ export function useChatHistory(): UseChatHistoryResult {
       prev.map((c) => (c.id === chatId ? { ...c, starred: next } : c)),
     );
     try {
-      await starChat(chatId, next);
+      await starChat(chatId);
     } catch {
       setChats((prev) =>
         prev.map((c) => (c.id === chatId ? { ...c, starred: !next } : c)),

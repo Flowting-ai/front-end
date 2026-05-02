@@ -15,6 +15,78 @@ export interface UIMessage extends Message {
   isThinkingInProgress?: boolean
   /** True when the user clicked Stop during generation. */
   stoppedByUser?: boolean
+  /** Model name reported by backend during streaming. */
+  modelName?: string
+  /** Model metadata from model_selected event. */
+  modelMeta?: ModelSelectedMeta
+  /** Activities performed during response generation (tool uses, web search, etc.) */
+  activities?: ActivityItem[]
+  /** Generated images (inline from LLM or named event). */
+  images?: GeneratedImage[]
+  /** Generated files (documents, CSVs, etc.). */
+  generatedFiles?: GeneratedFile[]
+}
+
+/** Model selection metadata from the backend. */
+export interface ModelSelectedMeta {
+  modelId: string
+  modelName: string
+  deploymentName?: string
+  company?: string
+  complexity?: string
+  thinkingEnabled?: boolean
+  effort?: string
+}
+
+/** Activity types matching backend tool names. */
+export type ActivityType =
+  | 'web-search'
+  | 'read-pages'
+  | 'csv-execute'
+  | 'fetch-resource'
+  | 'tool-call'
+  | 'docx-progress'
+  | 'other'
+
+/** Status values for tool progress. */
+export type ActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
+
+/** A single activity (tool use) performed by the AI during response generation. */
+export interface ActivityItem {
+  /** Unique ID for this activity (tool_call_id or generated). */
+  id: string
+  /** Type of activity. */
+  type: ActivityType
+  /** Tool name as reported by backend. */
+  toolName?: string
+  /** Human-readable detail text. */
+  detail?: string
+  /** Current status. */
+  status: ActivityStatus
+  /** Search results or links. */
+  results?: { title: string; url?: string; domain?: string }[]
+  /** Duration in seconds (from tool_complete). */
+  durationS?: number
+  /** Progress message from tool_progress. */
+  progressMessage?: string
+  /** Code preview from tool_progress (csv_execute, docx). */
+  codePreview?: string
+  /** Filename associated with the tool (read_pages, csv, docx). */
+  filename?: string
+}
+
+/** An image generated during the response. */
+export interface GeneratedImage {
+  url: string
+  s3Key?: string
+}
+
+/** A file generated during the response. */
+export interface GeneratedFile {
+  url: string
+  s3Key?: string
+  filename: string
+  mimeType?: string
 }
 
 // ── Hook result ───────────────────────────────────────────────────────────────
@@ -32,6 +104,8 @@ export interface UseChatStateResult {
   /** Removes the last `n` messages (for rollback on error). */
   rollbackLast: (n: number) => void
   clearMessages: () => void
+  /** Mark a chat ID as optimistically created (prevents fetch-and-clear on navigate). */
+  markChatAsOptimistic: (id: string) => void
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
@@ -42,6 +116,10 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
   const cursorRef = useRef<string | undefined>(undefined)
   const loadingRef = useRef(false)
+  // Track chat IDs that were created optimistically during streaming —
+  // we must NOT clear messages when navigating to these since the streaming
+  // hook is still actively writing to the message list.
+  const optimisticChatIdsRef = useRef<Set<string>>(new Set())
 
   // Load messages whenever chatId changes
   useEffect(() => {
@@ -49,6 +127,13 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
       setMessages([])
       setHasMoreMessages(false)
       cursorRef.current = undefined
+      return
+    }
+
+    // If this chatId was just created during an active stream, skip the
+    // fetch-and-clear cycle — the stream is still writing messages.
+    if (optimisticChatIdsRef.current.has(chatId)) {
+      optimisticChatIdsRef.current.delete(chatId)
       return
     }
 
@@ -130,6 +215,11 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
 
   const clearMessages = () => setMessages([])
 
+  /** Mark a chat ID as optimistically created (prevents fetch-on-navigate). */
+  const markChatAsOptimistic = (id: string) => {
+    optimisticChatIdsRef.current.add(id)
+  }
+
   return {
     messages,
     setMessages,
@@ -140,5 +230,6 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     addLoadingAssistantMessage,
     rollbackLast,
     clearMessages,
+    markChatAsOptimistic,
   }
 }

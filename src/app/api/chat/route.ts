@@ -10,7 +10,8 @@ interface ChatRequestBody {
   chatId?: string | null
   input: string
   modelId?: string | number | null
-  memoryPercentage?: number
+  pinIds?: string | null
+  referenceMessageId?: string | null
 }
 
 /**
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     return new Response("Bad Request: invalid JSON body", { status: 400 })
   }
 
-  const { chatId, input, modelId, memoryPercentage = 0.2 } = body
+  const { chatId, input, modelId, pinIds, referenceMessageId } = body
 
   if (!input?.trim()) {
     return new Response("Bad Request: input is required", { status: 400 })
@@ -58,7 +59,12 @@ export async function POST(request: NextRequest) {
   if (modelId !== null && modelId !== undefined) {
     fd.append("model_id", String(modelId))
   }
-  fd.append("memory_percentage", String(memoryPercentage))
+  if (pinIds) {
+    fd.append("pin_ids", pinIds)
+  }
+  if (referenceMessageId && isExistingChat) {
+    fd.append("reference_message_id", referenceMessageId)
+  }
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   let backendResponse: Response
@@ -82,10 +88,11 @@ export async function POST(request: NextRequest) {
     return new Response(text || "Backend error", { status: backendResponse.status })
   }
 
-  // ── Build response headers ────────────────────────────────────────────────────
+  // ── Stream the response with a TransformStream to prevent buffering ────────
   const responseHeaders: Record<string, string> = {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
     "X-Accel-Buffering": "no",
   }
 
@@ -97,5 +104,25 @@ export async function POST(request: NextRequest) {
     responseHeaders["X-Chat-Id"] = backendChatId
   }
 
-  return new Response(backendResponse.body, { headers: responseHeaders })
+  // Pipe through a TransformStream to force chunk-by-chunk flushing
+  // (prevents Next.js/Node from buffering the entire SSE stream)
+  const { readable, writable } = new TransformStream()
+  const writer = writable.getWriter()
+  const reader = backendResponse.body.getReader()
+
+  ;(async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        await writer.write(value)
+      }
+    } catch {
+      // Stream closed by client (abort) — ignore
+    } finally {
+      writer.close().catch(() => {})
+    }
+  })()
+
+  return new Response(readable, { headers: responseHeaders })
 }

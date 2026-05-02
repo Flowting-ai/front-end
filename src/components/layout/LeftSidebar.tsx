@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton } from "@/components/ui";
 import { useAuth } from "@/context/auth-context";
-import { useChatHistory } from "@/hooks/use-chat-history";
+import { useChatHistoryContext } from "@/context/chat-history-context";
 import { ChatHistoryItem } from "./ChatHistoryItem";
+import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 
 // ── Collapse state persistence ────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ function readCollapsed(): boolean {
 interface RecentsProps {
   activeChatId?: string;
   onSelectChat: (id: string) => void;
-  chatHistory: ReturnType<typeof useChatHistory>;
+  chatHistory: UseChatHistoryResult;
 }
 
 function ChatRecents({ activeChatId, onSelectChat, chatHistory }: RecentsProps) {
@@ -99,9 +100,13 @@ export function LeftSidebar({
   onNewChat,
 }: LeftSidebarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
-  const chatHistory = useChatHistory();
+  const chatHistory = useChatHistoryContext();
   const collapsedRef = useRef<boolean>(readCollapsed());
+
+  // Derive active chat from URL if not passed as prop
+  const resolvedActiveChatId = activeChatId ?? searchParams.get("id") ?? undefined;
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
@@ -159,7 +164,7 @@ export function LeftSidebar({
       onSettingsClick={() => router.push("/settings")}
       recentItems={
         <ChatRecents
-          activeChatId={activeChatId}
+          activeChatId={resolvedActiveChatId}
           onSelectChat={handleSelectChat}
           chatHistory={chatHistory}
         />

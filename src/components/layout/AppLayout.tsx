@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { LeftSidebar } from "./LeftSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
@@ -40,11 +41,13 @@ export function AppLayout({
       }}
     >
       {/* ── Left sidebar ── */}
-      <LeftSidebar
-        activeChatId={activeChatId}
-        onSelectChat={onSelectChat}
-        onNewChat={onNewChat}
-      />
+      <Suspense fallback={null}>
+        <LeftSidebar
+          activeChatId={activeChatId}
+          onSelectChat={onSelectChat}
+          onNewChat={onNewChat}
+        />
+      </Suspense>
 
       {/* ── Main content column ── */}
       <div
