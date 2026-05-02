@@ -8,6 +8,7 @@
     "dev": "next dev",
     "prebuild": "npm run load-secrets",
     "build": "next build",
+    "prestart": "npm run load-secrets",
     "start": "next start",
     "lint": "eslint"
   },
@@ -38,6 +39,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "sonner": "^1.7.4",
+    "stripe": "^21.0.1",
     "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {

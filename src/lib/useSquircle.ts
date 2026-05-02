@@ -1,1 +1,1 @@
-export { useSquircle } from "../../../design-system/src/lib/useSquircle";
+export { useSquircle } from "../../../kaya-design-system/src/lib/useSquircle";

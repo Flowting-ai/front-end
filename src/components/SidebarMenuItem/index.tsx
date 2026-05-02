@@ -1,8 +1,8 @@
 export {
   SidebarMenuItem,
   default,
-} from "../../../../design-system/src/components/SidebarMenuItem";
+} from "../../../../kaya-design-system/src/components/SidebarMenuItem";
 export type {
   SidebarMenuItemProps,
   SidebarMenuItemVariant,
-} from "../../../../design-system/src/components/SidebarMenuItem";
+} from "../../../../kaya-design-system/src/components/SidebarMenuItem";

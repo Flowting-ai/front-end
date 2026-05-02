@@ -1,1 +1,1 @@
-export { useCorrosion } from "../../../design-system/src/lib/useCorrosion";
+export { useCorrosion } from "../../../kaya-design-system/src/lib/useCorrosion";

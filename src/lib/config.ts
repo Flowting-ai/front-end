@@ -19,9 +19,10 @@ export const USER_CREATE_ENDPOINT = withBase("/users/create");
 export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
-export const STRIPE_CHECKOUT_ENDPOINT = withBase("/stripe/checkout");
-export const STRIPE_SUBSCRIPTION_ENDPOINT = withBase("/stripe/subscription");
-export const STRIPE_TOPUP_ENDPOINT = withBase("/stripe/topup");
+/** Same-origin Next route handlers — honor `checkout_flow` (e.g. change-plan cancel → /settings/.../change-plan). */
+export const STRIPE_CHECKOUT_ENDPOINT = "/api/stripe/checkout";
+export const STRIPE_SUBSCRIPTION_ENDPOINT = "/api/stripe/subscription";
+export const STRIPE_TOPUP_ENDPOINT = "/api/stripe/topup";
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");

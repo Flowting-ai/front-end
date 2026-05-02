@@ -10,7 +10,7 @@ const OUT = resolve(ROOT, ".env.development.local");
 function parseDotenv(path) {
   const out = {};
   if (!existsSync(path)) return out;
-  for (const line of readFileSync(path, "utf8").split("\n")) {
+  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
     if (!m) continue;
     out[m[1]] = m[2].replace(/^["']|["']$/g, "");

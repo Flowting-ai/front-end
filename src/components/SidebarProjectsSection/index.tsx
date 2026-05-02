@@ -1,4 +1,4 @@
 export {
   SidebarProjectsSection,
   default,
-} from "../../../../design-system/src/components/SidebarProjectsSection";
+} from "../../../../kaya-design-system/src/components/SidebarProjectsSection";

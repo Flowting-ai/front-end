@@ -1,1 +1,1 @@
-export * from "../../../../design-system/src/components/IconButton";
+export * from "../../../../kaya-design-system/src/components/IconButton";
