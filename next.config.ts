@@ -43,6 +43,16 @@ const nextConfig: NextConfig = {
     SERVER_URL: process.env.SERVER_URL,
   },
 
+  // Proxy client-side API requests to the backend to avoid CORS issues.
+  async rewrites() {
+    return [
+      {
+        source: "/api/backend/:path*",
+        destination: `${backendOrigin}/:path*`,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

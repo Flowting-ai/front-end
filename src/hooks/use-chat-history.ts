@@ -38,9 +38,10 @@ export function useChatHistory(): UseChatHistoryResult {
     try {
       const cursor = reset ? undefined : cursorRef.current;
       const res = await listChats(cursor);
-      setChats((prev) => (reset ? res.chats : [...prev, ...res.chats]));
+      const incoming = res.chats ?? [];
+      setChats((prev) => (reset ? incoming : [...prev, ...incoming]));
       cursorRef.current = res.next_cursor ?? undefined;
-      setHasMore(res.has_more);
+      setHasMore(res.has_more ?? false);
     } catch {
       // Silent — sidebar missing chats is non-fatal
     } finally {

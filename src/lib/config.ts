@@ -1,6 +1,8 @@
 "use client";
 
-export const API_BASE_URL = (process.env.SERVER_URL ?? "").replace(/\/+$/, "");
+// Client-side requests go through a same-origin rewrite path to avoid CORS.
+// next.config.ts rewrites /api/backend/:path* → SERVER_URL/:path*.
+export const API_BASE_URL = "/api/backend";
 
 export const audience = process.env.AUTH0_AUDIENCE ?? "";
 
