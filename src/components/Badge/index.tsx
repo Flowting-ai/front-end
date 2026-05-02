@@ -3,8 +3,6 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-// ── Color system ───────────────────────────────────────────────────────────────
-
 export type BadgeColor = 'Blue' | 'Red' | 'Green' | 'Yellow' | 'Purple' | 'Brown' | 'Neutral'
 
 interface BadgeColorTokens {
@@ -59,14 +57,10 @@ const COLOR_CONFIG: Record<BadgeColor, BadgeColorTokens> = {
   },
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   label?: string
   color?: BadgeColor
 }
-
-// ── Component ──────────────────────────────────────────────────────────────────
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   function Badge({ label = 'Label', color = 'Blue', className, style, ...props }, ref) {

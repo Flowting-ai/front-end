@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
@@ -13,6 +15,7 @@ import {
   MoreHorizontalIcon,
   BubbleChatIcon,
 } from '@strange-huge/icons'
+import { useAuth } from '@/context/auth-context'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { IconButton } from '@/components/IconButton'
@@ -42,6 +45,173 @@ function SouvenirWordmark() {
   )
 }
 
+// ── Account Dropdown Component ────────────────────────────────────────────────
+
+interface AccountDropdownProps {
+  userName?: string
+  userEmail?: string
+  avatarSrc?: string
+  avatarInitials?: string
+  onSettingsClick?: () => void
+  isCollapsed?: boolean
+}
+
+function AccountDropdown({ userName = 'Label', userEmail = 'Label', avatarSrc, avatarInitials, onSettingsClick, isCollapsed }: AccountDropdownProps) {
+  const router = useRouter()
+  const { logout } = useAuth()
+
+  const menuItemStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '7px 12px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-body)',
+    fontWeight: 'var(--font-weight-medium)',
+    fontSize: 'var(--font-size-body)',
+    lineHeight: 'var(--line-height-body)',
+    color: 'var(--neutral-700)',
+    outline: 'none',
+    userSelect: 'none',
+  }
+
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <SidebarMenuItem
+          {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+          variant="account-item"
+          label={userName}
+          sublabel={userEmail}
+          avatarSrc={avatarSrc}
+          avatarInitials={avatarInitials}
+        />
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          side="top"
+          align={isCollapsed ? 'center' : 'start'}
+          sideOffset={8}
+          style={{
+            backgroundColor: 'var(--neutral-white)',
+            borderRadius: '12px',
+            padding: '4px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+            zIndex: 200,
+            minWidth: '200px',
+            outline: 'none',
+          }}
+        >
+          {/* Account info header */}
+          <div
+            style={{
+              padding: '10px 12px 8px',
+              borderBottom: '1px solid var(--neutral-100)',
+              marginBottom: '4px',
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-semibold)',
+                fontSize: 'var(--font-size-body)',
+                color: 'var(--neutral-800)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userName || 'Account'}
+            </p>
+            {userEmail && (
+              <p
+                style={{
+                  margin: '2px 0 0',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 'var(--font-size-caption)',
+                  color: 'var(--neutral-500)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {userEmail}
+              </p>
+            )}
+          </div>
+
+          {/* Account */}
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => router.push('/account')}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
+            }
+          >
+            Account
+          </DropdownMenu.Item>
+
+          {/* Settings */}
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => onSettingsClick ? onSettingsClick() : router.push('/settings')}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
+            }
+          >
+            Settings
+          </DropdownMenu.Item>
+
+          {/* Help */}
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => window.open('https://help.example.com', '_blank')}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
+            }
+          >
+            Help
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator
+            style={{
+              height: '1px',
+              backgroundColor: 'var(--neutral-100)',
+              margin: '4px 0',
+            }}
+          />
+
+          {/* Sign out */}
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => logout()}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
+            }
+          >
+            Sign out
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SidebarProject {
@@ -62,7 +232,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   userName?: string
   userEmail?: string
   avatarSrc?: string
-  onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
+  avatarInitials?: string
+  onSettingsClick?: () => void
   onNewChat?: () => void
   onSearch?: () => void
   onCollapse?: () => void
@@ -104,6 +275,7 @@ const sectionItemVariants = {
 // ── Default content ────────────────────────────────────────────────────────────
 
 let projectsAnimatedOnce = false
+let recentItemsAnimatedOnce = false
 
 interface DefaultProjectItemsProps {
   projects: SidebarProject[]
@@ -214,12 +386,11 @@ interface DefaultRecentItemsProps {
   sectionKey: string
 }
 
-function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: DefaultRecentItemsProps) {
+function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultRecentItemsProps, 'sectionKey'>) {
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<'visible' | 'hidden'>('visible')
-  const hasAnimatedRef = useRef(false)
-  useEffect(() => { hasAnimatedRef.current = true }, [])
-  useEffect(() => { setShown(true) }, [sectionKey])
+  const shouldAnimate = recentItemsAnimatedOnce
+  useEffect(() => { recentItemsAnimatedOnce = true }, [])
   const [editingItem,  setEditingItem]  = useState<string | null>(null)
   const [itemLabels,   setItemLabels]   = useState<Record<string, string>>(() =>
     Object.fromEntries((['recent-0','recent-1','recent-2','recent-3','recent-4'] as const).map(id => [id, 'Label']))
@@ -242,9 +413,8 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: D
         onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
       >
           <motion.div
-            key={sectionKey}
             animate={shown ? 'open' : 'closed'}
-            initial={hasAnimatedRef.current ? 'closed' : false}
+            initial={shouldAnimate ? 'closed' : false}
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
@@ -277,7 +447,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       userName       = 'Label',
       userEmail      = 'Label',
       avatarSrc,
-      onSettingsClick,
+      avatarInitials,
+      onSettingsClick: _onSettingsClick,
       onNewChat,
       onSearch,
       onCollapse,
@@ -527,7 +698,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} sectionKey={bodySection} />}
+                {recentItems ?? <DefaultRecentItems key={bodySection} selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} />}
               </div>
             </div>
           </motion.div>
@@ -602,7 +773,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           transition:    'opacity 150ms ease',
         }} />
 
-        {/* ── Absolute bottom: account item ── */}
+        {/* ── Absolute bottom: account item with dropdown ── */}
         <div style={{
           position:        'absolute',
           bottom:          0,
@@ -618,13 +789,12 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           paddingBottom:   '12px',
           overflow:        'hidden',
         }}>
-          <SidebarMenuItem
-            {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-            variant="account-item"
-            label={userName}
-            sublabel={userEmail}
+          <AccountDropdown
+            userName={userName}
+            userEmail={userEmail}
             avatarSrc={avatarSrc}
-            onSettingsClick={onSettingsClick}
+            avatarInitials={avatarInitials}
+            isCollapsed={isCollapsed}
           />
         </div>
 

@@ -135,11 +135,21 @@ export function LeftSidebar({
       ""
     : "";
 
+  const avatarInitials = (() => {
+    const first = user?.firstName?.trim();
+    const last = user?.lastName?.trim();
+    if (first && last) return (first[0] + last[0]).toUpperCase();
+    if (first) return first[0].toUpperCase();
+    if (user?.email) return user.email[0].toUpperCase();
+    return undefined;
+  })();
+
   return (
     <Sidebar
       userName={displayName || "Account"}
       userEmail={user?.email ?? ""}
       avatarSrc={undefined}
+      avatarInitials={avatarInitials}
       defaultCollapsed={collapsedRef.current}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}

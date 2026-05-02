@@ -48,7 +48,7 @@ export default function RootLayout({
       lang="en"
       className={`h-full ${besley.variable} ${geist.variable} ${geistMono.variable}`}
     >
-      <body className="h-full antialiased">
+      <body className="h-full antialiased" suppressHydrationWarning>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

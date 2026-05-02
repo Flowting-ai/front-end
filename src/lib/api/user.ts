@@ -5,6 +5,7 @@ import {
   STRIPE_SUBSCRIPTION_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
+  USER_ONBOARDING_ENDPOINT,
 } from "@/lib/config";
 import { parsePlanTierFromApi } from "@/lib/plan-tier";
 import { apiFetch } from "./client";
@@ -60,6 +61,8 @@ export interface UserUsage {
   monthly_used: number;
   monthly_remaining: number;
   monthly_used_pct?: number;
+  bonus_credits?: number;
+  effective_limit?: number;
   daily_limit: number;
   daily_used: number;
   daily_remaining: number;
@@ -77,8 +80,15 @@ export interface UserUsage {
   };
 }
 
+export interface UserOnboarding {
+  completed: boolean;
+  user_role?: string | null;
+  ai_tone?: string | null;
+  role_fit?: string | null;
+}
+
 export interface UserProfile {
-  auth0_id: string;
+  auth0_id?: string;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
@@ -92,6 +102,8 @@ export interface UserProfile {
   invoices?: UserInvoice[];
   upcoming_invoice?: UserUpcomingInvoice | null;
   usage?: UserUsage | null;
+  onboarding?: UserOnboarding | null;
+  connections?: unknown[];
   billing_portal_url?: string | null;
   created_at: string | null;
   active: boolean | null;
@@ -158,6 +170,8 @@ function normalizeUserProfile(raw: unknown): UserProfile {
               monthly_used: mu,
               monthly_remaining:
                 typeof u.monthly_remaining === "number" ? u.monthly_remaining : ml - mu,
+              bonus_credits: typeof u.bonus_credits === "number" ? u.bonus_credits : 0,
+              effective_limit: typeof u.effective_limit === "number" ? u.effective_limit : ml,
               daily_limit: dl,
               daily_used: du,
               daily_remaining:
@@ -165,6 +179,19 @@ function normalizeUserProfile(raw: unknown): UserProfile {
             } as UserUsage;
           })()
         : null,
+    onboarding:
+      root.onboarding && typeof root.onboarding === "object"
+        ? (() => {
+            const o = root.onboarding as Record<string, unknown>;
+            return {
+              completed: Boolean(o.completed),
+              user_role: typeof o.user_role === "string" ? o.user_role : null,
+              ai_tone: typeof o.ai_tone === "string" ? o.ai_tone : null,
+              role_fit: typeof o.role_fit === "string" ? o.role_fit : null,
+            } as UserOnboarding;
+          })()
+        : null,
+    connections: Array.isArray(root.connections) ? root.connections : [],
     billing_portal_url:
       typeof root.billing_portal_url === "string" ? root.billing_portal_url : null,
     created_at: typeof root.created_at === "string" ? root.created_at : null,
@@ -206,6 +233,21 @@ export async function updateUser(payload: {
   phone_number?: string | null;
 }): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) return null;
+  const json = await response.json();
+  return normalizeUserProfile(json);
+}
+
+export async function updateOnboarding(payload: {
+  user_role?: string | null;
+  ai_tone?: string | null;
+  role_fit?: string | null;
+  onboarding_completed?: boolean;
+}): Promise<UserProfile | null> {
+  const response = await apiFetch(USER_ONBOARDING_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });

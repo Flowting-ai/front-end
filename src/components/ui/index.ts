@@ -8,15 +8,15 @@ export {
   Sidebar,
   SidebarProvider,
   useSidebar,
-} from "../../../../kaya-design-system/src/components/Sidebar";
+} from "@/components/Sidebar";
 export type {
   SidebarProps,
   SidebarProject,
   SidebarContextValue,
   SidebarProviderProps,
-} from "../../../../kaya-design-system/src/components/Sidebar";
+} from "@/components/Sidebar";
 
-export { SidebarInset } from "../../../../kaya-design-system/src/components/SidebarInset";
+export { SidebarInset } from "@/components/SidebarInset";
 
 export {
   SidebarMenuItem,
@@ -28,11 +28,11 @@ export type {
 
 export { SidebarProjectsSection } from "@/components/SidebarProjectsSection";
 
-export { SidebarMenuSkeleton } from "../../../../kaya-design-system/src/components/SidebarMenuSkeleton";
+export { SidebarMenuSkeleton } from "@/components/SidebarMenuSkeleton";
 
-export * from "../../../../kaya-design-system/src/components/Button";
+export * from "@/components/Button";
 
-export * from "../../../../kaya-design-system/src/components/Badge";
+export * from "@/components/Badge";
 
 // ── Radix Primitives ──────────────────────────────────────────────────────────
 // Re-exported for use throughout the app without direct Radix imports.
