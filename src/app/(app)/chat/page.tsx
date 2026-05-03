@@ -5,9 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
-import { ModelSelector } from "@/components/chat/ModelSelector";
 import { ModelSwitchDialog } from "@/components/chat/ModelSwitchDialog";
-import { useModelSelection } from "@/hooks/use-model-selection";
+import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import type { AIModel } from "@/types/ai-model";
 
@@ -27,7 +26,6 @@ function ChatPageInner() {
   const [activeChatId, setActiveChatId] = useState<string | undefined>(
     chatIdFromUrl,
   );
-  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(
     null,
   );
@@ -35,7 +33,8 @@ function ChatPageInner() {
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
 
-  const { models, selectedModel, selectModel } = useModelSelection();
+  const { selectedModel, selectModel, open: openModelSelector } =
+    useModelSelectorContext();
   const { rename: renameChat, addOptimistic } = useChatHistoryContext();
 
   // Sync URL param changes into local state (e.g. sidebar navigation)
@@ -49,14 +48,15 @@ function ChatPageInner() {
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
-  const handleModelSelect = (model: AIModel) => {
-    if (activeChatId && hasMessages && selectedModel) {
-      setPendingModelSwitch(model);
-    } else {
-      selectModel(model);
-    }
+  // When in an active conversation and user picks a different model,
+  // confirm before switching to avoid disrupting the current chat context.
+  const handleModelClick = () => {
+    openModelSelector();
   };
 
+  // ModelSwitchDialog is only triggered programmatically (e.g. from ChatInput
+  // when a switch happens mid-conversation). For TopBar selection the switch
+  // applies immediately via context.selectModel.
   const handleModelSwitchConfirm = () => {
     if (pendingModelSwitch) {
       selectModel(pendingModelSwitch);
@@ -71,7 +71,6 @@ function ChatPageInner() {
   const handleChatCreated = (chatId: string) => {
     setActiveChatId(chatId);
     setHasMessages(true);
-    // Update URL without full navigation
     router.replace(`/chat?id=${chatId}`, { scroll: false });
     addOptimistic({
       id: chatId,
@@ -151,7 +150,7 @@ function ChatPageInner() {
               onChange={setNewChatInput}
               onSend={handleNewChatSend}
               modelName={selectedModel?.modelName}
-              onModelClick={() => setModelSelectorOpen(true)}
+              onModelClick={handleModelClick}
               placeholder="How can I help you today?"
             />
           </div>
@@ -164,21 +163,12 @@ function ChatPageInner() {
           onChatMoveToTop={handleChatMoveToTop}
           selectedModel={selectedModel?.modelName}
           selectedModelId={selectedModel?.id}
-          onModelClick={() => setModelSelectorOpen(true)}
+          onModelClick={handleModelClick}
           initialPrompt={initialPrompt}
         />
       )}
 
-      {/* Model selector dialog */}
-      <ModelSelector
-        models={models}
-        selectedModel={selectedModel}
-        isOpen={modelSelectorOpen}
-        onOpenChange={setModelSelectorOpen}
-        onSelect={handleModelSelect}
-      />
-
-      {/* Model switch confirmation */}
+      {/* Switch confirmation — shown when pendingModelSwitch is set */}
       <ModelSwitchDialog
         isOpen={!!pendingModelSwitch}
         fromModel={selectedModel}

@@ -13,18 +13,39 @@ import {
   useMotionValue,
   animate,
   useIsPresent,
+  useAnimation,
 } from "framer-motion";
+import {
+  SearchOneIcon,
+  CancelOneIcon,
+  CancelCircleIcon,
+  ArrowDownOneIcon,
+  ArrowUpDownIcon,
+  FilterMailIcon,
+  DownloadThreeIcon,
+  FolderLibraryIcon,
+  UnfoldLessIcon,
+  MoreVerticalIcon,
+  MessagePreviewOneIcon,
+  InputShortTextIcon,
+} from "@strange-huge/icons";
+import { LlmIcon } from "@strange-huge/icons/llm";
 import {
   usePinboard,
   type PinItem,
   type PinCategory,
 } from "@/context/pinboard-context";
 import { PinMarkdownRenderer } from "@/lib/pin-markdown";
+import { PinCategory as PinCategoryBadge, type PinCategoryType } from "@/components/PinCategory";
+import { Badge, type BadgeColor } from "@/components/Badge";
+import { Button } from "@/components/Button";
+import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SHADOW_CARD =
-  "0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)";
+  "0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)";
 const LINE_HEIGHT_PX = 16;
 const MAX_SNAP_LINES = 24;
 const DRAG_THRESHOLD = 8;
@@ -32,350 +53,23 @@ const MAX_OVERSHOOT = 32;
 const ELASTIC_FACTOR = 0.2;
 const TOP_BAR_H = 110;
 
-// ── Category Config (matches KDS PinCategory) ─────────────────────────────────
+// ── Shadow tokens (PinCommentField) ───────────────────────────────────────────
 
-interface CategoryCfg {
-  bg: string;
-  ring: string;
-  color: string;
-  label: string;
-}
+const SHADOW_COMMENT_DEFAULT = "0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10)";
+const SHADOW_COMMENT_HOVER   = "0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10), 0px 0px 0px 3px var(--neutral-100-60)";
+const SHADOW_COMMENT_FOCUS   = "0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--focus-ring)";
 
-const CATEGORY_CONFIG: Record<PinCategory, CategoryCfg> = {
-  Code: {
-    bg: "#e5f2c5",
-    ring: "rgba(128,183,7,0.5)",
-    color: "#80b707",
-    label: "</>",
-  },
-  Research: {
-    bg: "#cadcf1",
-    ring: "rgba(13,110,178,0.5)",
-    color: "#0d6eb2",
-    label: "🧪",
-  },
-  Creative: {
-    bg: "#ded0df",
-    ring: "rgba(103,79,104,0.5)",
-    color: "#674f68",
-    label: "🎨",
-  },
-  Planning: {
-    bg: "#e9dfc9",
-    ring: "rgba(143,116,39,0.5)",
-    color: "#8f7427",
-    label: "📅",
-  },
-  Tasks: {
-    bg: "#ffbfb6",
-    ring: "rgba(159,38,35,0.5)",
-    color: "#9f2623",
-    label: "📝",
-  },
-  Quote: {
-    bg: "#e6d5ca",
-    ring: "rgba(126,84,53,0.5)",
-    color: "#7e5435",
-    label: "✍️",
-  },
-  Workflow: {
-    bg: "#ede1d7",
-    ring: "rgba(106,98,93,0.5)",
-    color: "#6a625d",
-    label: "⚙️",
-  },
+// ── Category → Badge color mapping ────────────────────────────────────────────
+
+const CATEGORY_BADGE_COLOR: Record<PinCategory, BadgeColor> = {
+  Code:     "Green",
+  Research: "Blue",
+  Creative: "Purple",
+  Planning: "Yellow",
+  Tasks:    "Red",
+  Quote:    "Brown",
+  Workflow: "Neutral",
 };
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-function SearchIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function CloseIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  );
-}
-
-function ClearCircleIcon({
-  size = 16,
-  color = "var(--neutral-400)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="m15 9-6 6" />
-      <path d="m9 9 6 6" />
-    </svg>
-  );
-}
-
-function CollapseAllIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m7 20 5-5 5 5" />
-      <path d="m7 4 5 5 5-5" />
-    </svg>
-  );
-}
-
-function FilterIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
-    </svg>
-  );
-}
-
-function SortIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m3 8 4-4 4 4" />
-      <path d="M7 4v16" />
-      <path d="m21 16-4 4-4-4" />
-      <path d="M17 20V4" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({
-  size = 16,
-  color = "currentColor",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function ShowInChatIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function CommentIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
-      <path d="M2 10h20" />
-    </svg>
-  );
-}
-
-function ExportIcon({
-  size = 16,
-  color = "currentColor",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function OrganizeIcon({
-  size = 16,
-  color = "currentColor",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function MoreIcon({
-  size = 20,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="12" cy="5" r="1" />
-      <circle cx="12" cy="19" r="1" />
-    </svg>
-  );
-}
 
 // ── useMeasure ────────────────────────────────────────────────────────────────
 
@@ -388,8 +82,8 @@ function useMeasure() {
     const observer = new ResizeObserver(([entry]) => {
       const bb = entry.borderBoxSize?.[0];
       setBounds({
-        width: bb ? bb.inlineSize : entry.contentRect.width,
-        height: bb ? bb.blockSize : entry.contentRect.height,
+        width:  bb ? bb.inlineSize : entry.contentRect.width,
+        height: bb ? bb.blockSize  : entry.contentRect.height,
       });
     });
     observer.observe(element);
@@ -398,58 +92,18 @@ function useMeasure() {
   return [ref, bounds] as const;
 }
 
-// ── PinCategory Badge ─────────────────────────────────────────────────────────
-
-function PinCategoryBadge({ type }: { type: PinCategory }) {
-  const cfg = CATEGORY_CONFIG[type];
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: 45,
-        height: 45,
-        borderRadius: 8,
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: `0px 0px 0px 1px ${cfg.ring}`,
-        flexShrink: 0,
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 8,
-          backgroundColor: cfg.bg,
-        }}
-      />
-      <span
-        style={{
-          position: "relative",
-          fontSize: type === "Code" ? 18 : 16,
-          lineHeight: 0,
-        }}
-      >
-        {cfg.label}
-      </span>
-    </div>
-  );
-}
-
 // ── Pin Comment Field ─────────────────────────────────────────────────────────
 
 const PinCommentField = React.forwardRef<
   HTMLTextAreaElement,
-  { fluid?: boolean }
->(function PinCommentField({ fluid = false }, forwardedRef) {
+  { fluid?: boolean; "aria-label"?: string }
+>(function PinCommentField({ fluid = false, "aria-label": ariaLabel }, forwardedRef) {
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [value, setValue] = useState("");
-  const [height, setHeight] = useState(16);
+  const [taHeight, setTaHeight] = useState(16);
   const internalRef = useRef<HTMLTextAreaElement>(null);
+  const shakeControls = useAnimation();
 
   const setRef = useCallback(
     (el: HTMLTextAreaElement | null) => {
@@ -457,72 +111,116 @@ const PinCommentField = React.forwardRef<
       if (typeof forwardedRef === "function") forwardedRef(el);
       else if (forwardedRef) forwardedRef.current = el;
     },
-    [forwardedRef]
+    [forwardedRef],
   );
 
   const shadow = isFocused
-    ? "0px 1px 2px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--focus-ring, #2563eb)"
+    ? SHADOW_COMMENT_FOCUS
     : isHovered
-      ? "0px 1px 2px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(82,75,71,0.1), 0px 0px 0px 3px rgba(247,242,237,0.6)"
-      : "0px 1px 2px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(82,75,71,0.1)";
+      ? SHADOW_COMMENT_HOVER
+      : SHADOW_COMMENT_DEFAULT;
+
+  const measureHeight = (ta: HTMLTextAreaElement): number => {
+    const prev = ta.style.height;
+    ta.style.height = "auto";
+    const h = ta.scrollHeight;
+    ta.style.height = prev;
+    return h;
+  };
+
+  useLayoutEffect(() => {
+    const ta = internalRef.current;
+    if (!ta) return;
+    setTaHeight(Math.min(measureHeight(ta), 32));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const ta = internalRef.current;
     if (!ta) return;
-    const prev = ta.style.height;
-    ta.style.height = "auto";
-    const sh = ta.scrollHeight;
-    ta.style.height = prev;
-    if (sh <= 32) {
-      setHeight(sh);
+    const naturalHeight = measureHeight(ta);
+    if (naturalHeight <= 32) {
+      setTaHeight(naturalHeight);
       setValue(e.target.value);
     } else {
-      ta.value = value; // reject overflow
+      ta.value = value;
+      shakeControls.start({
+        x: [0, -3, 3, -2, 2, -1, 1, 0],
+        transition: { duration: 0.25, ease: "easeInOut" },
+      });
     }
   };
 
   return (
-    <div
+    <motion.div
+      animate={shakeControls}
+      style={{
+        position:        "relative",
+        backgroundColor: "var(--neutral-white)",
+        borderRadius:    6,
+        padding:         6,
+        width:           fluid ? "100%" : 292,
+        boxShadow:       shadow,
+        overflow:        "clip",
+        transition:      "box-shadow 150ms",
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      style={{
-        width: fluid ? "100%" : 292,
-        padding: 6,
-        borderRadius: 6,
-        background: "var(--neutral-white)",
-        boxShadow: shadow,
-        transition: "box-shadow 150ms ease",
-      }}
     >
+      <AnimatePresence initial={false}>
+        {!value && (
+          <motion.span
+            key="placeholder"
+            aria-hidden
+            initial={{ opacity: 0, filter: "blur(2px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)", transition: { duration: 0.2 } }}
+            exit={{ opacity: 0, filter: "blur(2px)", transition: { duration: 0.15 } }}
+            style={{
+              position:      "absolute",
+              top:           6,
+              left:          6,
+              right:         6,
+              pointerEvents: "none",
+              fontFamily:    "var(--font-body)",
+              fontWeight:    "var(--font-weight-medium)",
+              fontSize:      "var(--font-size-caption)",
+              lineHeight:    "var(--line-height-caption)",
+              color:         "var(--color-text-placeholder)",
+              whiteSpace:    "nowrap",
+              overflow:      "hidden",
+            }}
+          >
+            Type your comment here...
+          </motion.span>
+        )}
+      </AnimatePresence>
       <textarea
         ref={setRef}
         rows={1}
-        placeholder="Type your comment here..."
         value={value}
+        aria-label={ariaLabel}
         onChange={handleChange}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.preventDefault();
-        }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         style={{
-          width: "100%",
-          height,
-          minHeight: 16,
-          maxHeight: 32,
-          resize: "none",
-          border: "none",
-          outline: "none",
+          display:    "block",
+          width:      "100%",
+          height:     taHeight,
+          resize:     "none",
+          border:     "none",
+          outline:    "none",
           background: "transparent",
+          padding:    0,
+          margin:     0,
           fontFamily: "var(--font-body)",
           fontWeight: "var(--font-weight-medium)",
-          fontSize: 11,
-          lineHeight: "16px",
-          color: "var(--neutral-800)",
-          overflow: "hidden",
+          fontSize:   "var(--font-size-caption)",
+          lineHeight: "var(--line-height-caption)",
+          color:      "var(--neutral-900)",
+          overflowY:  "hidden",
         }}
       />
-    </div>
+    </motion.div>
   );
 });
 
@@ -575,10 +273,8 @@ function PinCard({
     duration: 0.35,
   };
 
-  const cat = CATEGORY_CONFIG[pin.category];
   const timeAgo = getTimeAgo(pin.createdAt);
 
-  // Animate card height when content changes
   useEffect(() => {
     if (isDraggingRef.current) return;
     if (contentBounds.height > 0) {
@@ -591,7 +287,6 @@ function PinCard({
 
   const isOpen = isExpanded || extraLines > 0;
 
-  // Collapse signal from parent
   const initialSignalRef = useRef(collapseSignal);
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
@@ -603,21 +298,22 @@ function PinCard({
     setExtraLines(0);
   }, [collapseSignal]);
 
-  // Notify parent
+  const onExpandedChangeRef = useRef(onExpandedChange);
+  useEffect(() => { onExpandedChangeRef.current = onExpandedChange; });
   const didMountRef = useRef(false);
   useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    onExpandedChange(isOpen);
-  }, [isOpen, onExpandedChange]);
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    onExpandedChangeRef.current(isOpen);
+  }, [isOpen]);
 
-  // Focus comment field after expand
   useEffect(() => {
     if (isExpanded && focusCommentRef.current) {
       focusCommentRef.current = false;
-      requestAnimationFrame(() => commentFieldRef.current?.focus());
+      const id = requestAnimationFrame(() => {
+        commentFieldRef.current?.focus();
+        commentFieldRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+      return () => cancelAnimationFrame(id);
     }
   }, [isExpanded]);
 
@@ -643,10 +339,7 @@ function PinCard({
       if (!isExpandedRef.current) {
         const minDelta = -extraLines * LINE_HEIGHT_PX;
         const clampedDelta = Math.max(minDelta, rawDelta);
-        if (
-          extraLines * LINE_HEIGHT_PX + clampedDelta >
-          MAX_SNAP_LINES * LINE_HEIGHT_PX
-        ) {
+        if (extraLines * LINE_HEIGHT_PX + clampedDelta > MAX_SNAP_LINES * LINE_HEIGHT_PX) {
           isDraggingRef.current = false;
           skipActionBarEntry.current = false;
           setIsDragging(false);
@@ -657,15 +350,10 @@ function PinCard({
         cardHeightMV.set(dragInfo.current.startHeight + clampedDelta);
       } else {
         if (rawDelta > 0) {
-          const stretch = Math.min(
-            rawDelta * ELASTIC_FACTOR,
-            MAX_OVERSHOOT
-          );
+          const stretch = Math.min(rawDelta * ELASTIC_FACTOR, MAX_OVERSHOOT);
           cardHeightMV.set(dragInfo.current.startHeight + stretch);
         } else {
-          cardHeightMV.set(
-            Math.max(dragInfo.current.startHeight + rawDelta, 60)
-          );
+          cardHeightMV.set(Math.max(dragInfo.current.startHeight + rawDelta, 60));
         }
       }
     });
@@ -682,12 +370,8 @@ function PinCard({
     if (!isExpandedRef.current) {
       const minDelta = -extraLines * LINE_HEIGHT_PX;
       const clampedDelta = Math.max(minDelta, rawDelta);
-      const snappedDelta =
-        Math.round(clampedDelta / LINE_HEIGHT_PX) * LINE_HEIGHT_PX;
-      const newExtra = Math.max(
-        0,
-        extraLines + snappedDelta / LINE_HEIGHT_PX
-      );
+      const snappedDelta = Math.round(clampedDelta / LINE_HEIGHT_PX) * LINE_HEIGHT_PX;
+      const newExtra = Math.max(0, extraLines + snappedDelta / LINE_HEIGHT_PX);
       if (newExtra >= MAX_SNAP_LINES) {
         setIsExpanded(true);
         setExtraLines(0);
@@ -696,10 +380,8 @@ function PinCard({
       }
     } else {
       const dt = performance.now() - lastMoveRef.current.time;
-      const velocity =
-        dt > 0 ? (e.clientY - lastMoveRef.current.y) / dt : 0;
-      const shouldCollapse =
-        -rawDelta > DRAG_THRESHOLD || velocity < -0.3;
+      const velocity = dt > 0 ? (e.clientY - lastMoveRef.current.y) / dt : 0;
+      const shouldCollapse = -rawDelta > DRAG_THRESHOLD || velocity < -0.3;
       if (shouldCollapse) {
         collapsingRef.current = true;
         setIsExpanded(false);
@@ -721,89 +403,75 @@ function PinCard({
       setIsExpanded(true);
     } else {
       commentFieldRef.current?.focus();
+      commentFieldRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   };
 
   const visibleLines = 2 + extraLines;
-  const cageH =
-    visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0);
+  const cageH = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0);
 
   return (
     <motion.div
       ref={cardRef}
       style={{
-        height: cardHeightMV,
-        position: "relative",
-        width: "100%",
-        borderRadius: 16,
+        height:          cardHeightMV,
+        position:        "relative",
+        width:           "100%",
+        borderRadius:    16,
         backgroundColor: "var(--neutral-white)",
-        boxShadow: SHADOW_CARD,
-        overflow: "clip",
-        isolation: "isolate",
+        boxShadow:       SHADOW_CARD,
+        overflow:        "clip",
+        isolation:       "isolate",
       }}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        if (!isDraggingRef.current) setIsHovered(false);
-      }}
+      onMouseLeave={() => { if (!isDraggingRef.current) setIsHovered(false); }}
     >
       {/* Inner content — measured by useMeasure */}
       <div
         ref={contentRef as React.Ref<HTMLDivElement>}
         style={{
-          display: "flex",
+          display:       "flex",
           flexDirection: "column",
-          gap: 16,
-          alignItems: "flex-start",
-          paddingTop: 12,
+          gap:           16,
+          alignItems:    "flex-start",
+          paddingTop:    12,
           paddingBottom: isDragging ? 64 : 16,
-          paddingLeft: 12,
-          paddingRight: 12,
+          paddingLeft:   12,
+          paddingRight:  12,
         }}
       >
         {/* Header row */}
-        <div
-          style={{
-            display: "flex",
-            gap: 4,
-            alignItems: "flex-start",
-            width: "100%",
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flex: "1 0 0",
-              gap: 12,
-              alignItems: "center",
-              minWidth: 0,
-            }}
-          >
-            <PinCategoryBadge type={pin.category} />
+        <div style={{ display: "flex", gap: 4, alignItems: "flex-start", width: "100%", flexShrink: 0 }}>
+          <div style={{ display: "flex", flex: "1 0 0", gap: 12, alignItems: "center", minWidth: 0 }}>
+            <PinCategoryBadge type={pin.category as PinCategoryType} style={{ flexShrink: 0 }} />
             <p
               style={{
-                flex: "1 0 0",
-                fontFamily: "var(--font-body)",
-                fontWeight: "var(--font-weight-medium)",
-                fontSize: "var(--font-size-body)",
-                lineHeight: "var(--line-height-body)",
-                color: "var(--neutral-900)",
-                overflow: "hidden",
+                flex:         "1 0 0",
+                fontFamily:   "var(--font-body)",
+                fontWeight:   "var(--font-weight-medium)",
+                fontSize:     "var(--font-size-body)",
+                lineHeight:   "var(--line-height-body)",
+                color:        "var(--neutral-900)",
+                overflow:     "hidden",
                 textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                margin: 0,
-                minWidth: 0,
+                whiteSpace:   "nowrap",
+                margin:       0,
+                minWidth:     0,
               }}
             >
               {pin.title}
             </p>
           </div>
           <div ref={menuBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-            <IconBtn
-              icon={<MoreIcon size={20} />}
-              label="More options"
-              onClick={() => setMenuOpen((v) => !v)}
-            />
+            <Tooltip content="More options">
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<MoreVerticalIcon size={20} />}
+                aria-label="More options"
+                onClick={() => setMenuOpen((v) => !v)}
+              />
+            </Tooltip>
             {menuOpen && (
               <PinCardMenu
                 pin={pin}
@@ -818,54 +486,34 @@ function PinCard({
         </div>
 
         {/* Labels */}
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            alignItems: "center",
-            width: "100%",
-            flexWrap: "wrap",
-          }}
-        >
-          <PinBadge
-            label={pin.category}
-            color={cat.bg}
-            textColor={cat.color}
-          />
-          {pin.modelName && (
-            <PinBadge
-              label={pin.modelName}
-              color="var(--neutral-100)"
-              textColor="var(--neutral-600)"
-            />
-          )}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", flexWrap: "wrap", flexShrink: 0 }}>
+          <Badge label={pin.category} color={CATEGORY_BADGE_COLOR[pin.category]} />
+          {pin.modelName && <Badge label={pin.modelName} color="Neutral" />}
         </div>
 
-        {/* Description — rendered as formatted markdown */}
+        {/* Description */}
         <div
           style={{
-            height: showFull ? "auto" : `${cageH}px`,
+            height:    showFull ? "auto" : `${cageH}px`,
             minHeight: showFull ? undefined : `${cageH}px`,
             maxHeight: showFull ? undefined : `${cageH}px`,
-            overflow: showFull ? "visible" : "hidden",
-            width: "100%",
+            overflow:  showFull ? "visible" : "hidden",
+            width:     "100%",
             flexShrink: 0,
-            position: "relative",
+            position:  "relative",
           }}
         >
           <PinMarkdownRenderer content={pin.content} />
-          {/* Fade overlay when collapsed to indicate more content */}
           {!showFull && extraLines === 0 && (
             <div
               aria-hidden
               style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 14,
-                background:
-                  "linear-gradient(to bottom, transparent, var(--neutral-white))",
+                position:   "absolute",
+                bottom:     0,
+                left:       0,
+                right:      0,
+                height:     14,
+                background: "linear-gradient(to bottom, transparent, var(--neutral-white))",
                 pointerEvents: "none",
               }}
             />
@@ -880,49 +528,10 @@ function PinCard({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: { duration: 0.15 } }}
               exit={{ opacity: 0, transition: { duration: 0 } }}
-              style={{
-                width: "100%",
-                flexShrink: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
+              style={{ width: "100%", flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}
             >
-              {/* Expanded metadata */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  alignItems: "center",
-                  width: "100%",
-                }}
-              >
-                <PinBadge
-                  label={timeAgo}
-                  color="var(--green-50, #ecfdf5)"
-                  textColor="var(--green-700, #15803d)"
-                />
-                {pin.chatName && (
-                  <p
-                    style={{
-                      flex: "1 0 0",
-                      fontFamily: "var(--font-body)",
-                      fontWeight: "var(--font-weight-semibold)",
-                      fontSize: "var(--font-size-caption, 11px)",
-                      lineHeight: "var(--line-height-caption, 16px)",
-                      color: "#1e293b",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      margin: 0,
-                      minWidth: 0,
-                    }}
-                  >
-                    {pin.chatName}
-                  </p>
-                )}
-              </div>
-              <PinCommentField ref={commentFieldRef} fluid />
+              <ExpandedMeta timeAgo={timeAgo} chatName={pin.chatName} />
+              <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -937,10 +546,7 @@ function PinCard({
               exit={{ opacity: 0, transition: { duration: 0 } }}
               style={{ width: "100%", flexShrink: 0 }}
             >
-              <PinActionBar
-                onRemove={() => onRemove(pin.id)}
-                hideComment
-              />
+              <PinActionBar onRemove={() => onRemove(pin.id)} onComment={handleCommentClick} hideComment />
             </motion.div>
           )}
         </AnimatePresence>
@@ -951,42 +557,41 @@ function PinCard({
         role="button"
         tabIndex={0}
         aria-label={isExpanded ? "Collapse pin" : "Expand pin"}
+        aria-expanded={isExpanded}
         onPointerDown={onHandlePointerDown}
         onPointerMove={onHandlePointerMove}
         onPointerUp={onHandlePointerUp}
-        onDoubleClick={() => {
-          if (!isExpanded) setIsExpanded(true);
-        }}
+        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !isExpanded) { e.preventDefault(); setIsExpanded(true); } }}
+        onDoubleClick={(e) => { e.stopPropagation(); if (!isExpanded) setIsExpanded(true); }}
         style={{
-          position: "absolute",
-          bottom: 4,
-          left: "calc(50% - 16px)",
-          width: 32,
-          height: 12,
-          display: "flex",
-          alignItems: "center",
+          position:       "absolute",
+          bottom:         4,
+          left:           "calc(50% - 16px)",
+          width:          32,
+          height:         12,
+          display:        "flex",
+          alignItems:     "center",
           justifyContent: "center",
-          cursor: isDragging ? "grabbing" : "grab",
-          userSelect: "none",
-          touchAction: "none",
-          zIndex: 2,
+          cursor:         isDragging ? "grabbing" : "grab",
+          userSelect:     "none",
+          touchAction:    "none",
+          zIndex:         2,
         }}
       >
         <div
           style={{
-            width: 32,
-            height: 2,
-            borderRadius: 1,
+            width:           32,
+            height:          2,
+            borderRadius:    1,
             backgroundColor: "var(--neutral-200)",
-            pointerEvents: "none",
+            pointerEvents:   "none",
           }}
         />
       </motion.div>
 
       {/* Absolute action bar — collapsed/intermediate state */}
       <AnimatePresence initial={false}>
-        {!isExpanded &&
-        (isHovered || isDragging || extraLines > 0) ? (
+        {!isExpanded && (isHovered || isDragging || extraLines > 0) ? (
           <AbsoluteActionBar
             key="action-bar-absolute"
             onRemove={() => onRemove(pin.id)}
@@ -996,6 +601,38 @@ function PinCard({
         ) : null}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+// ── ExpandedMeta ──────────────────────────────────────────────────────────────
+
+function ExpandedMeta({ timeAgo, chatName }: { timeAgo: string; chatName?: string }) {
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
+      <Badge label={timeAgo} color="Green" />
+      {chatName && (
+        <p
+          style={{
+            flex:         "1 0 0",
+            fontFamily:   "var(--font-body)",
+            fontWeight:   "var(--font-weight-semibold)",
+            fontSize:     "var(--font-size-caption)",
+            lineHeight:   "var(--line-height-caption)",
+            color:        "#1e293b",
+            overflow:     "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace:   "nowrap",
+            margin:       0,
+            minWidth:     0,
+          }}
+        >
+          {chatName}
+        </p>
+      )}
+      <div style={{ width: 24, height: 24, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+        <LlmIcon id="Claude" variant="avatar" size={24} />
+      </div>
+    </div>
   );
 }
 
@@ -1013,26 +650,22 @@ function AbsoluteActionBar({
   const isPresent = useIsPresent();
   return (
     <motion.div
-      initial={
-        instant
-          ? { opacity: 1, y: 0, filter: "blur(0px)" }
-          : { opacity: 0, y: 8, filter: "blur(4px)" }
-      }
+      initial={instant ? { opacity: 1, y: 0, filter: "blur(0px)" } : { opacity: 0, y: 8, filter: "blur(4px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       exit={{ opacity: 0, y: 4, filter: "blur(4px)" }}
       transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
       style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
+        position:        "absolute",
+        bottom:          0,
+        left:            0,
+        right:           0,
         backgroundColor: "var(--neutral-white)",
-        paddingBottom: 16,
-        paddingLeft: 12,
-        paddingRight: 12,
-        paddingTop: 8,
-        zIndex: 1,
-        pointerEvents: isPresent ? "auto" : "none",
+        paddingBottom:   16,
+        paddingLeft:     12,
+        paddingRight:    12,
+        paddingTop:      8,
+        zIndex:          1,
+        pointerEvents:   isPresent ? "auto" : "none",
       }}
     >
       <PinActionBar onRemove={onRemove} onComment={onComment} />
@@ -1052,104 +685,21 @@ function PinActionBar({
   hideComment?: boolean;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "100%",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <IconBtn
-          icon={<ShowInChatIcon size={20} />}
-          label="Show in chat"
-          onClick={() => {}}
-        />
+        <Tooltip content="Show in chat">
+          <IconButton variant="ghost" size="sm" icon={<MessagePreviewOneIcon size={20} />} aria-label="Show in chat" />
+        </Tooltip>
         {!hideComment && (
-          <IconBtn
-            icon={<CommentIcon size={20} />}
-            label="Comment"
-            onClick={onComment}
-          />
+          <Tooltip content="Comment">
+            <IconButton variant="ghost" size="sm" icon={<InputShortTextIcon size={20} />} aria-label="Comment" onClick={onComment} />
+          </Tooltip>
         )}
       </div>
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={onRemove}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "4px 10px",
-            borderRadius: 8,
-            border: "1px solid var(--neutral-200)",
-            background: "var(--neutral-white)",
-            fontFamily: "var(--font-body)",
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--neutral-600)",
-            cursor: "pointer",
-            transition: "background 120ms",
-          }}
-        >
-          Unpin
-        </button>
-        <button
-          type="button"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "4px 10px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--neutral-800)",
-            fontFamily: "var(--font-body)",
-            fontSize: 12,
-            fontWeight: 500,
-            color: "var(--neutral-white)",
-            cursor: "pointer",
-            transition: "background 120ms",
-          }}
-        >
-          Insert
-        </button>
-      </div>
+      <Button variant="secondary" size="sm" onClick={onRemove}>
+        Unpin
+      </Button>
     </div>
-  );
-}
-
-// ── Pin Badge ─────────────────────────────────────────────────────────────────
-
-function PinBadge({
-  label,
-  color,
-  textColor,
-}: {
-  label: string;
-  color: string;
-  textColor: string;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 8px",
-        borderRadius: 999,
-        background: color,
-        fontFamily: "var(--font-body)",
-        fontSize: 11,
-        fontWeight: 500,
-        lineHeight: "16px",
-        color: textColor,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-    </span>
   );
 }
 
@@ -1164,45 +714,6 @@ function getTimeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h`;
   const days = Math.floor(hrs / 24);
   return `${days}d`;
-}
-
-// ── Icon Button (ghost, sm) ───────────────────────────────────────────────────
-
-function IconBtn({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        border: "none",
-        background: hovered ? "rgba(59,54,50,0.08)" : "transparent",
-        cursor: "pointer",
-        transition: "background 120ms",
-        padding: 0,
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </button>
-  );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1243,7 +754,7 @@ function DropdownMenu({
     if (anchorRef?.current) {
       const rect = anchorRef.current.getBoundingClientRect();
       setPos({
-        top: rect.bottom + 4,
+        top:  rect.bottom + 4,
         left: align === "right" ? rect.right : rect.left,
       });
     }
@@ -1251,12 +762,7 @@ function DropdownMenu({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1264,44 +770,32 @@ function DropdownMenu({
 
   const style: React.CSSProperties = pos
     ? {
-        position: "fixed",
-        top: pos.top,
-        ...(align === "right"
-          ? { right: window.innerWidth - pos.left }
-          : { left: pos.left }),
-        minWidth: 140,
+        position:  "fixed",
+        top:       pos.top,
+        ...(align === "right" ? { right: window.innerWidth - pos.left } : { left: pos.left }),
+        minWidth:  140,
         maxHeight: 280,
         overflowY: "auto",
-        padding: "4px 0",
+        padding:   "4px 0",
         borderRadius: 10,
-        background: "var(--neutral-white)",
-        boxShadow:
-          "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
-        zIndex: 9999,
-        display: "flex",
+        background:   "var(--neutral-white)",
+        boxShadow:    "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
+        zIndex:       9999,
+        display:      "flex",
         flexDirection: "column" as const,
       }
-    : {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        opacity: 0,
-        pointerEvents: "none" as const,
-      };
+    : { position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none" as const };
 
   return (
-    <div
-      ref={menuRef}
-      style={style}
-    >
+    <div ref={menuRef} style={style}>
       {items.map((item) => (
-        <DropdownMenuItem key={item.label} item={item} />
+        <DropdownMenuItemRow key={item.label} item={item} />
       ))}
     </div>
   );
 }
 
-function DropdownMenuItem({ item }: { item: DropdownItem }) {
+function DropdownMenuItemRow({ item }: { item: DropdownItem }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
@@ -1310,54 +804,31 @@ function DropdownMenuItem({ item }: { item: DropdownItem }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: "flex",
+        display:    "flex",
         alignItems: "center",
-        gap: 8,
-        width: "100%",
-        padding: "6px 12px",
-        border: "none",
-        background: hovered
-          ? "var(--neutral-50)"
-          : "transparent",
+        gap:        8,
+        width:      "100%",
+        padding:    "6px 12px",
+        border:     "none",
+        background: hovered ? "var(--neutral-50)" : "transparent",
         fontFamily: "var(--font-body)",
-        fontSize: 12,
+        fontSize:   12,
         fontWeight: item.active ? 600 : 400,
-        color: item.active
-          ? "var(--neutral-900)"
-          : "var(--neutral-600)",
-        cursor: "pointer",
-        textAlign: "left",
+        color:      item.active ? "var(--neutral-900)" : "var(--neutral-600)",
+        cursor:     "pointer",
+        textAlign:  "left",
         transition: "background 100ms",
       }}
     >
-      {item.active && (
-        <CheckIcon size={14} color="var(--neutral-900)" />
-      )}
-      <span style={{ marginLeft: item.active ? 0 : 22 }}>
-        {item.label}
-      </span>
+      {item.active && <CheckIcon size={14} color="var(--neutral-900)" />}
+      <span style={{ marginLeft: item.active ? 0 : 22 }}>{item.label}</span>
     </button>
   );
 }
 
-function CheckIcon({
-  size = 14,
-  color = "var(--neutral-600)",
-}: {
-  size?: number;
-  color?: string;
-}) {
+function CheckIcon({ size = 14, color = "var(--neutral-600)" }: { size?: number; color?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -1387,21 +858,13 @@ function PinCardMenu({
   useLayoutEffect(() => {
     if (anchorRef?.current) {
       const rect = anchorRef.current.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 4,
-        right: window.innerWidth - rect.right,
-      });
+      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
     }
   }, [anchorRef]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -1409,26 +872,19 @@ function PinCardMenu({
 
   const style: React.CSSProperties = pos
     ? {
-        position: "fixed",
-        top: pos.top,
-        right: pos.right,
-        minWidth: 160,
-        padding: "4px 0",
+        position:  "fixed",
+        top:       pos.top,
+        right:     pos.right,
+        minWidth:  160,
+        padding:   "4px 0",
         borderRadius: 10,
-        background: "var(--neutral-white)",
-        boxShadow:
-          "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
-        zIndex: 9999,
-        display: "flex",
+        background:   "var(--neutral-white)",
+        boxShadow:    "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
+        zIndex:       9999,
+        display:      "flex",
         flexDirection: "column",
       }
-    : {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        opacity: 0,
-        pointerEvents: "none",
-      };
+    : { position: "fixed", top: 0, left: 0, opacity: 0, pointerEvents: "none" };
 
   return (
     <div ref={menuRef} style={style}>
@@ -1442,44 +898,28 @@ function PinCardMenu({
         {categorySubmenuOpen && (
           <div
             style={{
-              position: "absolute",
-              top: 0,
-              right: "100%",
+              position:  "absolute",
+              top:       0,
+              right:     "100%",
               marginRight: 4,
-              minWidth: 130,
-              padding: "4px 0",
+              minWidth:  130,
+              padding:   "4px 0",
               borderRadius: 10,
-              background: "var(--neutral-white)",
-              boxShadow:
-                "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
-              zIndex: 10000,
-              display: "flex",
+              background:   "var(--neutral-white)",
+              boxShadow:    "0px 4px 12px rgba(0,0,0,0.12), 0px 0px 0px 1px rgba(0,0,0,0.06)",
+              zIndex:       10000,
+              display:      "flex",
               flexDirection: "column",
             }}
           >
             {ALL_CATEGORIES.map((cat) => (
-              <MenuItemBtn
-                key={cat}
-                label={cat}
-                active={pin.category === cat}
-                onClick={() => onChangeCategory(cat)}
-              />
+              <MenuItemBtn key={cat} label={cat} active={pin.category === cat} onClick={() => onChangeCategory(cat)} />
             ))}
           </div>
         )}
       </div>
-      <div
-        style={{
-          height: 1,
-          background: "var(--neutral-100)",
-          margin: "4px 8px",
-        }}
-      />
-      <MenuItemBtn
-        label="Remove pin"
-        danger
-        onClick={onRemove}
-      />
+      <div style={{ height: 1, background: "var(--neutral-100)", margin: "4px 8px" }} />
+      <MenuItemBtn label="Remove pin" danger onClick={onRemove} />
     </div>
   );
 }
@@ -1505,26 +945,20 @@ function MenuItemBtn({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: "flex",
-        alignItems: "center",
+        display:        "flex",
+        alignItems:     "center",
         justifyContent: "space-between",
-        width: "100%",
-        padding: "6px 12px",
-        border: "none",
-        background: hovered
-          ? "var(--neutral-50)"
-          : "transparent",
-        fontFamily: "var(--font-body)",
-        fontSize: 12,
-        fontWeight: active ? 600 : 400,
-        color: danger
-          ? "var(--red-600, #dc2626)"
-          : active
-            ? "var(--neutral-900)"
-            : "var(--neutral-600)",
-        cursor: "pointer",
-        textAlign: "left",
-        transition: "background 100ms",
+        width:          "100%",
+        padding:        "6px 12px",
+        border:         "none",
+        background:     hovered ? "var(--neutral-50)" : "transparent",
+        fontFamily:     "var(--font-body)",
+        fontSize:       12,
+        fontWeight:     active ? 600 : 400,
+        color:          danger ? "var(--red-600, #dc2626)" : active ? "var(--neutral-900)" : "var(--neutral-600)",
+        cursor:         "pointer",
+        textAlign:      "left",
+        transition:     "background 100ms",
       }}
     >
       {label}
@@ -1533,24 +967,9 @@ function MenuItemBtn({
   );
 }
 
-function ChevronLeftIcon({
-  size = 12,
-  color = "var(--neutral-400)",
-}: {
-  size?: number;
-  color?: string;
-}) {
+function ChevronLeftIcon({ size = 12, color = "var(--neutral-400)" }: { size?: number; color?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="m15 18-6-6 6-6" />
     </svg>
   );
@@ -1565,15 +984,14 @@ export function RightSidebar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(true);
+  const [bottomH, setBottomH] = useState(68);
   const [collapseSignal, setCollapseSignal] = useState(0);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const hasExpanded = expandedIds.size > 0;
 
-  // ── Filter & Sort state ───────────────────────────────────────────────────
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -1594,46 +1012,40 @@ export function RightSidebar() {
         return next;
       });
     },
-    []
+    [],
   );
 
   const handleCollapseAll = () => setCollapseSignal((s) => s + 1);
 
+  useEffect(() => {
+    if (!bottomBarRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (bottomBarRef.current) setBottomH(bottomBarRef.current.offsetHeight);
+    });
+    ro.observe(bottomBarRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     setAtTop(el.scrollTop < 8);
-    setAtBottom(
-      el.scrollHeight - el.scrollTop - el.clientHeight < 8
-    );
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
   };
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setAtBottom(
-      el.scrollHeight - el.scrollTop - el.clientHeight < 8
-    );
-  }, [pins.length]);
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
+  }, [pins.length, bottomH]);
 
   const filteredPins = (() => {
     let result = pins;
-    // Category filter
-    if (categoryFilter !== "All") {
-      result = result.filter((p) => p.category === categoryFilter);
-    }
-    // Search
+    if (categoryFilter !== "All") result = result.filter((p) => p.category === categoryFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.content.toLowerCase().includes(q)
-      );
+      result = result.filter((p) => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q));
     }
-    // Sort
-    if (sortOrder === "oldest") {
-      result = [...result].reverse();
-    }
+    if (sortOrder === "oldest") result = [...result].reverse();
     return result;
   })();
 
@@ -1647,51 +1059,46 @@ export function RightSidebar() {
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 332, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 260,
-            damping: 32,
-            mass: 0.9,
-          }}
+          transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
           style={{
-            height: "100%",
-            flexShrink: 0,
-            overflow: "hidden",
-            display: "flex",
+            height:        "100%",
+            flexShrink:    0,
+            overflow:      "hidden",
+            display:       "flex",
             flexDirection: "column",
-            background: "var(--neutral-50)",
-            borderRadius: 16,
-            position: "relative",
+            background:    "var(--neutral-50)",
+            borderRadius:  16,
+            position:      "relative",
             paddingBottom: 8,
           }}
         >
           {/* ── Top overlay — Header + Filter bar ── */}
           <div
             style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              display: "flex",
+              position:      "absolute",
+              top:           0,
+              left:          0,
+              right:         0,
+              display:       "flex",
               flexDirection: "column",
-              gap: 12,
-              padding: "0 8px 8px 8px",
-              background: "var(--neutral-50)",
-              zIndex: 2,
+              gap:           12,
+              padding:       "0 8px 8px 8px",
+              background:    "var(--neutral-50)",
+              zIndex:        2,
             }}
           >
             {/* Pinboard Header */}
             <div
               style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
+                position:       "relative",
+                display:        "flex",
+                alignItems:     "center",
                 justifyContent: "flex-end",
-                gap: 8,
-                height: 58,
-                paddingTop: 22,
-                background: "var(--neutral-50)",
-                width: "100%",
+                gap:            8,
+                height:         58,
+                paddingTop:     22,
+                background:     "var(--neutral-50)",
+                width:          "100%",
               }}
             >
               {/* Title */}
@@ -1701,24 +1108,21 @@ export function RightSidebar() {
                     key="title"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{
-                      opacity: 0,
-                      transition: { duration: 0.12 },
-                    }}
+                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
                     style={{
-                      position: "absolute",
-                      left: 0,
-                      top: 22,
-                      bottom: 0,
-                      margin: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      fontFamily: "var(--font-title)",
-                      fontWeight: "var(--font-weight-regular, 400)",
-                      fontSize: "var(--font-size-heading)",
-                      lineHeight: "var(--line-height-heading)",
-                      color: "var(--neutral-700)",
-                      whiteSpace: "nowrap",
+                      position:      "absolute",
+                      left:          0,
+                      top:           22,
+                      bottom:        0,
+                      margin:        0,
+                      display:       "flex",
+                      alignItems:    "center",
+                      fontFamily:    "var(--font-title)",
+                      fontWeight:    "var(--font-weight-regular, 400)",
+                      fontSize:      "var(--font-size-heading)",
+                      lineHeight:    "var(--line-height-heading)",
+                      color:         "var(--neutral-700)",
+                      whiteSpace:    "nowrap",
                       pointerEvents: "none",
                     }}
                   >
@@ -1728,207 +1132,129 @@ export function RightSidebar() {
               </AnimatePresence>
 
               {/* Search area */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  flex: searchOpen ? "1 0 0" : undefined,
-                  minWidth: 0,
-                }}
-              >
-                <AnimatePresence initial={false} mode="popLayout">
-                  {!searchOpen ? (
-                    <motion.span
-                      key="search-btn"
-                      layout
-                      initial={{
-                        opacity: 0,
-                        y: 4,
-                        filter: "blur(4px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        filter: "blur(0px)",
-                        transition: {
-                          type: "spring",
-                          duration: 0.3,
-                          bounce: 0,
-                        },
-                      }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.25,
-                        filter: "blur(4px)",
-                        transition: {
-                          type: "spring",
-                          duration: 0.2,
-                          bounce: 0,
-                        },
-                      }}
-                      style={{
-                        display: "inline-flex",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <IconBtn
-                        icon={<SearchIcon size={20} />}
-                        label="Search"
-                        onClick={() => setSearchOpen(true)}
-                      />
-                    </motion.span>
-                  ) : (
-                    <motion.div
-                      key="search-input"
-                      initial={{
-                        opacity: 0,
-                        scale: 0.95,
-                        filter: "blur(4px)",
-                      }}
-                      animate={{
-                        opacity: 1,
-                        scale: 1,
-                        filter: "blur(0px)",
-                        transition: {
-                          type: "spring",
-                          duration: 0.3,
-                          bounce: 0,
-                        },
-                      }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.95,
-                        filter: "blur(4px)",
-                        transition: { duration: 0.15 },
-                      }}
-                      style={{ flex: 1, minWidth: 0 }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "6px 10px",
-                          borderRadius: 8,
-                          background: "var(--neutral-white)",
-                          boxShadow:
-                            "0px 1px 2px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(82,75,71,0.1)",
-                        }}
+              <Tooltip content="Search" disabled={searchOpen}>
+                <div
+                  style={{
+                    display:    "flex",
+                    alignItems: "center",
+                    flex:       searchOpen ? "1 0 0" : undefined,
+                    minWidth:   0,
+                  }}
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {!searchOpen ? (
+                      <motion.span
+                        key="search-btn"
+                        layout
+                        initial={{ opacity: 0, y: 4, filter: "blur(4px)" }}
+                        animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", duration: 0.3, bounce: 0 } }}
+                        exit={{ opacity: 0, scale: 0.25, filter: "blur(4px)", transition: { type: "spring", duration: 0.2, bounce: 0 } }}
+                        style={{ display: "inline-flex", flexShrink: 0 }}
                       >
-                        <SearchIcon
-                          size={16}
-                          color="var(--neutral-400)"
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={<SearchOneIcon size={20} />}
+                          aria-label="Open search"
+                          onClick={() => setSearchOpen(true)}
                         />
-                        <input
-                          type="text"
-                          placeholder="Search pins..."
-                          value={searchQuery}
-                          onChange={(e) =>
-                            setSearchQuery(e.target.value)
-                          }
-                          autoFocus
+                      </motion.span>
+                    ) : (
+                      <motion.div
+                        key="search-input"
+                        initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+                        animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transition: { type: "spring", duration: 0.3, bounce: 0 } }}
+                        exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)", transition: { duration: 0.15, ease: "easeIn" } }}
+                        style={{ flex: "1 0 0", minWidth: 0 }}
+                      >
+                        <div
                           style={{
-                            flex: 1,
-                            border: "none",
-                            outline: "none",
-                            background: "transparent",
-                            fontFamily: "var(--font-body)",
-                            fontSize: 13,
-                            lineHeight: "18px",
-                            color: "var(--neutral-800)",
-                            minWidth: 0,
+                            display:      "flex",
+                            alignItems:   "center",
+                            gap:          6,
+                            padding:      "6px 10px",
+                            borderRadius: 8,
+                            background:   "var(--neutral-white)",
+                            boxShadow:    "0px 1px 2px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10)",
                           }}
-                        />
-                        {searchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setSearchQuery("")}
+                        >
+                          <SearchOneIcon size={16} color="var(--neutral-400)" />
+                          <input
+                            type="text"
+                            placeholder="Search for your pin..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            // eslint-disable-next-line jsx-a11y/no-autofocus
+                            autoFocus
+                            aria-label="Search pins"
                             style={{
-                              display: "flex",
-                              border: "none",
-                              background: "none",
-                              cursor: "pointer",
-                              padding: 0,
+                              flex:       1,
+                              border:     "none",
+                              outline:    "none",
+                              background: "transparent",
+                              fontFamily: "var(--font-body)",
+                              fontSize:   "var(--font-size-body)",
+                              lineHeight: "var(--line-height-body)",
+                              color:      "var(--neutral-800)",
+                              minWidth:   0,
                             }}
+                          />
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Close search"
+                            onClick={() => { setSearchQuery(""); setSearchOpen(false); }}
+                            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (() => { setSearchQuery(""); setSearchOpen(false); })()}
+                            style={{ display: "inline-flex", cursor: "pointer", lineHeight: 0 }}
                           >
-                            <ClearCircleIcon size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                            <CancelCircleIcon size={16} color="var(--neutral-400)" />
+                          </span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </Tooltip>
 
-              {/* Right section — layout animated */}
-              <motion.div
-                layout
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 32,
-                  mass: 0.8,
-                }}
-                style={{ display: "flex", gap: 0 }}
-              >
-                {searchOpen && (
-                  <IconBtn
-                    icon={<CloseIcon size={20} />}
-                    label="Close search"
-                    onClick={() => {
-                      setSearchOpen(false);
-                      setSearchQuery("");
-                    }}
-                  />
-                )}
-                <IconBtn
-                  icon={<CloseIcon size={20} />}
-                  label="Close pinboard"
+              {/* Close pinboard */}
+              <Tooltip content="Close Pinboard">
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close pinboard"
                   onClick={close}
                 />
-              </motion.div>
+              </Tooltip>
             </div>
 
             {/* Filter bar */}
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
+                display:        "flex",
+                alignItems:     "center",
                 justifyContent: "space-between",
-                width: "100%",
+                width:          "100%",
               }}
             >
-              {/* Category dropdown */}
+              {/* Category filter button */}
               <div style={{ position: "relative" }}>
-                <button
+                <Button
                   ref={categoryBtnRef}
-                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  rightIcon={<ArrowDownOneIcon size={16} />}
                   onClick={() => setCategoryDropdownOpen((v) => !v)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "4px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--neutral-200)",
-                    background: "var(--neutral-white)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: "var(--neutral-600)",
-                    cursor: "pointer",
-                  }}
                 >
                   {filterLabel}
-                  <ChevronDownIcon size={14} />
-                </button>
+                </Button>
                 {categoryDropdownOpen && (
                   <DropdownMenu
-                    anchorRef={categoryBtnRef}
+                    anchorRef={categoryBtnRef as React.RefObject<HTMLElement>}
                     items={[
                       { label: "All pins", active: categoryFilter === "All", onClick: () => { setCategoryFilter("All"); setCategoryDropdownOpen(false); } },
                       ...ALL_CATEGORIES.map((cat) => ({
-                        label: cat,
+                        label:  cat,
                         active: categoryFilter === cat,
                         onClick: () => { setCategoryFilter(cat); setCategoryDropdownOpen(false); },
                       })),
@@ -1938,13 +1264,7 @@ export function RightSidebar() {
                 )}
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <AnimatePresence initial={false}>
                   {hasExpanded && (
                     <motion.div
@@ -1952,47 +1272,44 @@ export function RightSidebar() {
                       initial={{ opacity: 0, scale: 0.6 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.6 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 500,
-                        damping: 32,
-                      }}
-                      style={{
-                        display: "inline-flex",
-                        transformOrigin: "center",
-                      }}
+                      transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                      style={{ display: "inline-flex", transformOrigin: "center" }}
                     >
-                      <IconBtn
-                        icon={<CollapseAllIcon size={20} />}
-                        label="Collapse all"
-                        onClick={handleCollapseAll}
-                      />
+                      <Tooltip content="Collapse all Pins">
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          icon={<UnfoldLessIcon size={20} />}
+                          aria-label="Collapse open pins"
+                          onClick={handleCollapseAll}
+                        />
+                      </Tooltip>
                     </motion.div>
                   )}
                 </AnimatePresence>
                 <motion.div
                   ref={filterBtnRef}
                   layout
-                  transition={{
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 32,
-                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
                   style={{ display: "inline-flex", position: "relative" }}
                 >
-                  <IconBtn
-                    icon={<FilterIcon size={20} />}
-                    label="Filter"
-                    onClick={() => setFilterDropdownOpen((v) => !v)}
-                  />
+                  <Tooltip content="Filter">
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      icon={<FilterMailIcon size={20} />}
+                      aria-label="Filter pins"
+                      onClick={() => setFilterDropdownOpen((v) => !v)}
+                    />
+                  </Tooltip>
                   {filterDropdownOpen && (
                     <DropdownMenu
-                      anchorRef={filterBtnRef}
+                      anchorRef={filterBtnRef as React.RefObject<HTMLElement>}
                       align="right"
                       items={[
                         { label: "All categories", active: categoryFilter === "All", onClick: () => { setCategoryFilter("All"); setFilterDropdownOpen(false); } },
                         ...ALL_CATEGORIES.map((cat) => ({
-                          label: cat,
+                          label:  cat,
                           active: categoryFilter === cat,
                           onClick: () => { setCategoryFilter(cat); setFilterDropdownOpen(false); },
                         })),
@@ -2004,21 +1321,21 @@ export function RightSidebar() {
                 <motion.div
                   ref={sortBtnRef}
                   layout
-                  transition={{
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 32,
-                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
                   style={{ display: "inline-flex", position: "relative" }}
                 >
-                  <IconBtn
-                    icon={<SortIcon size={20} />}
-                    label="Sort"
-                    onClick={() => setSortDropdownOpen((v) => !v)}
-                  />
+                  <Tooltip content="Sort">
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      icon={<ArrowUpDownIcon size={20} />}
+                      aria-label="Sort pins"
+                      onClick={() => setSortDropdownOpen((v) => !v)}
+                    />
+                  </Tooltip>
                   {sortDropdownOpen && (
                     <DropdownMenu
-                      anchorRef={sortBtnRef}
+                      anchorRef={sortBtnRef as React.RefObject<HTMLElement>}
                       align="right"
                       items={[
                         { label: "Newest first", active: sortOrder === "newest", onClick: () => { setSortOrder("newest"); setSortDropdownOpen(false); } },
@@ -2039,78 +1356,58 @@ export function RightSidebar() {
             className="kaya-scrollbar"
             onScroll={handleScroll}
             style={{
-              flex: "1 1 0",
-              minHeight: 0,
-              overflowY: "auto",
-              overflowX: "hidden",
+              flex:                "1 1 0",
+              minHeight:           0,
+              overflowY:           "auto",
+              overflowX:           "hidden",
               overscrollBehaviorY: "contain",
-              paddingTop: 118,
-              paddingBottom: 68,
-              paddingLeft: 8,
-              paddingRight: 8,
-              outline: "none",
+              paddingTop:          118,
+              paddingBottom:       bottomH,
+              paddingLeft:         8,
+              paddingRight:        8,
+              outline:             "none",
             }}
           >
             <div
               style={{
-                display: "flex",
+                display:       "flex",
                 flexDirection: "column",
-                gap: 8,
-                alignItems: "stretch",
-                width: "100%",
+                gap:           8,
+                alignItems:    "stretch",
+                width:         "100%",
               }}
             >
               {filteredPins.length === 0 ? (
                 <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
+                    display:        "flex",
+                    flexDirection:  "column",
+                    alignItems:     "center",
                     justifyContent: "center",
-                    padding: "48px 16px",
-                    textAlign: "center",
+                    padding:        "48px 16px",
+                    textAlign:      "center",
                   }}
                 >
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background: "var(--neutral-100)",
-                      display: "flex",
-                      alignItems: "center",
+                      width:          48,
+                      height:         48,
+                      borderRadius:   12,
+                      background:     "var(--neutral-100)",
+                      display:        "flex",
+                      alignItems:     "center",
                       justifyContent: "center",
-                      marginBottom: 12,
-                      fontSize: 20,
+                      marginBottom:   12,
+                      fontSize:       20,
                     }}
                   >
                     📌
                   </div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-body)",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--neutral-600)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {searchQuery
-                      ? "No matching pins"
-                      : "No pins yet"}
+                  <p style={{ margin: 0, fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--neutral-600)", marginBottom: 4 }}>
+                    {searchQuery ? "No matching pins" : "No pins yet"}
                   </p>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-body)",
-                      fontSize: 11,
-                      color: "var(--neutral-400)",
-                    }}
-                  >
-                    {searchQuery
-                      ? "Try a different search term"
-                      : "Pin responses to save them here"}
+                  <p style={{ margin: 0, fontFamily: "var(--font-body)", fontSize: 11, color: "var(--neutral-400)" }}>
+                    {searchQuery ? "Try a different search term" : "Pin responses to save them here"}
                   </p>
                 </div>
               ) : (
@@ -2121,9 +1418,7 @@ export function RightSidebar() {
                     onRemove={removePin}
                     onUpdateCategory={updatePinCategory}
                     collapseSignal={collapseSignal}
-                    onExpandedChange={handlePinExpandedChange(
-                      pin.id
-                    )}
+                    onExpandedChange={handlePinExpandedChange(pin.id)}
                   />
                 ))
               )}
@@ -2141,38 +1436,35 @@ export function RightSidebar() {
               key={`top-blur-${blur}`}
               aria-hidden
               style={{
-                position: "absolute",
-                top: TOP_BAR_H,
-                left: 0,
-                right: 0,
+                position:             "absolute",
+                top:                  TOP_BAR_H,
+                left:                 0,
+                right:                0,
                 height,
-                backdropFilter: `blur(${blur}px)`,
+                backdropFilter:       `blur(${blur}px)`,
                 WebkitBackdropFilter: `blur(${blur}px)`,
-                maskImage:
-                  "linear-gradient(to bottom, black 0%, transparent 100%)",
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, black 0%, transparent 100%)",
-                pointerEvents: "none",
-                zIndex: 1,
-                opacity: atTop ? 0 : 1,
-                transition: "opacity 150ms ease",
+                maskImage:            "linear-gradient(to bottom, black 0%, transparent 100%)",
+                WebkitMaskImage:      "linear-gradient(to bottom, black 0%, transparent 100%)",
+                pointerEvents:        "none",
+                zIndex:               1,
+                opacity:              atTop ? 0 : 1,
+                transition:           "opacity 150ms ease",
               }}
             />
           ))}
           <div
             aria-hidden
             style={{
-              position: "absolute",
-              top: TOP_BAR_H,
-              left: 0,
-              right: 0,
-              height: 40,
-              background:
-                "linear-gradient(to bottom, var(--neutral-50) 0%, transparent 100%)",
+              position:      "absolute",
+              top:           TOP_BAR_H,
+              left:          0,
+              right:         0,
+              height:        40,
+              background:    "linear-gradient(to bottom, var(--neutral-50) 0%, transparent 100%)",
               pointerEvents: "none",
-              zIndex: 1,
-              opacity: atTop ? 0 : 1,
-              transition: "opacity 150ms ease",
+              zIndex:        1,
+              opacity:       atTop ? 0 : 1,
+              transition:    "opacity 150ms ease",
             }}
           />
 
@@ -2187,117 +1479,73 @@ export function RightSidebar() {
               key={`bot-blur-${blur}`}
               aria-hidden
               style={{
-                position: "absolute",
-                bottom: 68,
-                left: 0,
-                right: 0,
+                position:             "absolute",
+                bottom:               bottomH,
+                left:                 0,
+                right:                0,
                 height,
-                backdropFilter: `blur(${blur}px)`,
+                backdropFilter:       `blur(${blur}px)`,
                 WebkitBackdropFilter: `blur(${blur}px)`,
-                maskImage:
-                  "linear-gradient(to top, black 0%, transparent 100%)",
-                WebkitMaskImage:
-                  "linear-gradient(to top, black 0%, transparent 100%)",
-                pointerEvents: "none",
-                zIndex: 1,
-                opacity: atBottom ? 0 : 1,
-                transition: "opacity 150ms ease",
+                maskImage:            "linear-gradient(to top, black 0%, transparent 100%)",
+                WebkitMaskImage:      "linear-gradient(to top, black 0%, transparent 100%)",
+                pointerEvents:        "none",
+                zIndex:               1,
+                opacity:              atBottom ? 0 : 1,
+                transition:           "opacity 150ms ease",
               }}
             />
           ))}
           <div
             aria-hidden
             style={{
-              position: "absolute",
-              bottom: 68,
-              left: 0,
-              right: 0,
-              height: 40,
-              background:
-                "linear-gradient(to top, var(--neutral-50) 0%, transparent 100%)",
+              position:      "absolute",
+              bottom:        bottomH,
+              left:          0,
+              right:         0,
+              height:        40,
+              background:    "linear-gradient(to top, var(--neutral-50) 0%, transparent 100%)",
               pointerEvents: "none",
-              zIndex: 1,
-              opacity: atBottom ? 0 : 1,
-              transition: "opacity 150ms ease",
+              zIndex:        1,
+              opacity:       atBottom ? 0 : 1,
+              transition:    "opacity 150ms ease",
             }}
           />
 
           {/* ── Bottom toolbar ── */}
           <div
+            ref={bottomBarRef}
             style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              display: "flex",
-              gap: 8,
+              position:   "absolute",
+              bottom:     0,
+              left:       0,
+              right:      0,
+              display:    "flex",
+              gap:        8,
               alignItems: "stretch",
-              padding: "16px 8px",
+              padding:    "16px 8px",
               background: "var(--neutral-50)",
-              zIndex: 2,
+              zIndex:     2,
             }}
           >
-            <ToolbarButton
-              icon={<ExportIcon size={16} />}
-              label="Export"
+            <Button
               variant="ghost"
-            />
-            <ToolbarButton
-              icon={<OrganizeIcon size={16} />}
-              label="Organize"
+              size="md"
+              fluid
+              leftIcon={<DownloadThreeIcon size={16} />}
+            >
+              Export
+            </Button>
+            <Button
               variant="secondary"
-            />
+              size="md"
+              fluid
+              leftIcon={<FolderLibraryIcon size={16} />}
+            >
+              Organize
+            </Button>
           </div>
         </motion.aside>
       )}
     </AnimatePresence>
-  );
-}
-
-// ── Toolbar Button ────────────────────────────────────────────────────────────
-
-function ToolbarButton({
-  icon,
-  label,
-  variant,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  variant: "ghost" | "secondary";
-}) {
-  const [hovered, setHovered] = useState(false);
-  const isGhost = variant === "ghost";
-  return (
-    <button
-      type="button"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        flex: 1,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        padding: "8px 16px",
-        borderRadius: 10,
-        border: "1px solid var(--neutral-200)",
-        background: isGhost
-          ? hovered
-            ? "var(--neutral-50)"
-            : "var(--neutral-white)"
-          : hovered
-            ? "var(--neutral-100)"
-            : "var(--neutral-white)",
-        fontFamily: "var(--font-body)",
-        fontSize: 13,
-        fontWeight: 500,
-        color: "var(--neutral-700)",
-        cursor: "pointer",
-        transition: "background 120ms",
-      }}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

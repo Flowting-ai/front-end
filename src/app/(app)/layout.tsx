@@ -1,6 +1,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";
+import { ModelSelectorProvider } from "@/context/model-selector-context";
+import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
 
 export default function AppGroupLayout({
   children,
@@ -10,7 +12,10 @@ export default function AppGroupLayout({
   return (
     <ChatHistoryProvider>
       <PinboardProvider>
-        <AppLayout>{children}</AppLayout>
+        <ModelSelectorProvider>
+          <AppLayout>{children}</AppLayout>
+          <PresetModelSelectorDialog />
+        </ModelSelectorProvider>
       </PinboardProvider>
     </ChatHistoryProvider>
   );

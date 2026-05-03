@@ -1,7 +1,7 @@
 "use client";
 
 import type { AIModel } from "@/types/ai-model";
-import { MODELS_ENDPOINT } from "@/lib/config";
+import { MODELS_ALL_ENDPOINT } from "@/lib/config";
 import { getAuthHeaders } from "@/lib/jwt-utils";
 
 type BackendModel = {
@@ -119,7 +119,7 @@ export async function fetchModelsWithCache(
 
   _modelsFetchPromise = (async () => {
     try {
-      const response = await fetch(MODELS_ENDPOINT, {
+      const response = await fetch(MODELS_ALL_ENDPOINT, {
         credentials: "include",
         headers: getAuthHeaders(),
       });

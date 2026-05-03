@@ -5,17 +5,14 @@ import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
+import { FloatingPanel } from "./FloatingPanel";
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  /** Active chat ID — drives sidebar selection and TopBar title */
   activeChatId?: string;
-  chatTitle?: string;
-  chatModel?: string;
   showCitationsToggle?: boolean;
   citationsOpen?: boolean;
   onCitationsToggle?: () => void;
-  onTitleChange?: (chatId: string, title: string) => Promise<void>;
   onSelectChat?: (id: string) => void;
   onNewChat?: () => void;
 }
@@ -23,12 +20,9 @@ interface AppLayoutProps {
 export function AppLayout({
   children,
   activeChatId,
-  chatTitle,
-  chatModel,
   showCitationsToggle,
   citationsOpen,
   onCitationsToggle,
-  onTitleChange,
   onSelectChat,
   onNewChat,
 }: AppLayoutProps) {
@@ -58,16 +52,13 @@ export function AppLayout({
           flexDirection: "column",
           overflow: "hidden",
           minWidth: 0,
+          position: "relative",
         }}
       >
         <TopBar
-          chatId={activeChatId}
-          title={chatTitle}
-          model={chatModel}
           showCitationsToggle={showCitationsToggle}
           citationsOpen={citationsOpen}
           onCitationsToggle={onCitationsToggle}
-          onTitleChange={onTitleChange}
         />
 
         <main
@@ -82,6 +73,9 @@ export function AppLayout({
         >
           {children}
         </main>
+
+        {/* ── Floating action panel — middle-right of content column ── */}
+        <FloatingPanel />
       </div>
 
       {/* ── Right sidebar (Pinboard) ── */}

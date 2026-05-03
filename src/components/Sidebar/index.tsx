@@ -439,6 +439,48 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultR
   )
 }
 
+// ── Recents section wrapper (used when real recentItems are provided) ──────────
+
+interface RecentsSectionWrapperProps {
+  children: React.ReactNode
+  onShowAll?: React.MouseEventHandler<HTMLButtonElement>
+}
+
+function RecentsSectionWrapper({ children, onShowAll }: RecentsSectionWrapperProps) {
+  const [shown,    setShown]    = useState(true)
+  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
+  const shouldAnimate = recentItemsAnimatedOnce
+  useEffect(() => { recentItemsAnimatedOnce = true }, [])
+
+  const handleToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    setShown(s => !s)
+    onShowAll?.(e)
+  }
+
+  return (
+    <>
+      <SidebarMenuItem fluid variant="header" label="Recents" shown={shown} onShowClick={handleToggle} />
+      <motion.div
+        animate={shown ? 'open' : 'closed'}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
+        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
+      >
+        <motion.div
+          animate={shown ? 'open' : 'closed'}
+          initial={shouldAnimate ? 'closed' : false}
+          variants={sectionStaggerVariants}
+          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
+        >
+          {children}
+        </motion.div>
+      </motion.div>
+    </>
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
@@ -698,7 +740,10 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems ?? <DefaultRecentItems key={bodySection} selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} />}
+                {recentItems
+                  ? <RecentsSectionWrapper onShowAll={onShowAllRecents}>{recentItems}</RecentsSectionWrapper>
+                  : <DefaultRecentItems key={bodySection} selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} />
+                }
               </div>
             </div>
           </motion.div>
