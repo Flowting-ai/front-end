@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sanitizeInlineMarkdown } from "@/lib/security";
+import { usePinboard } from "@/context/pinboard-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ export function TopBar({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const { isOpen: pinboardOpen, toggle: togglePinboard } = usePinboard();
 
   useEffect(() => {
     setDraftTitle(title);
@@ -211,6 +213,42 @@ export function TopBar({
             </svg>
           </button>
         )}
+
+        {/* Pinboard toggle */}
+        <button
+          type="button"
+          onClick={togglePinboard}
+          title={pinboardOpen ? "Close pinboard" : "Open pinboard"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "32px",
+            height: "32px",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: pinboardOpen
+              ? "rgba(104,61,27,0.1)"
+              : "transparent",
+            cursor: "pointer",
+            color: pinboardOpen ? "#683D1B" : "var(--neutral-500)",
+            transition: "background 120ms",
+          }}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
 
       </div>
     </header>

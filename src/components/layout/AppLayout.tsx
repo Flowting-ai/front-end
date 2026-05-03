@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { LeftSidebar } from "./LeftSidebar";
+import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
 
@@ -82,6 +83,9 @@ export function AppLayout({
           {children}
         </main>
       </div>
+
+      {/* ── Right sidebar (Pinboard) ── */}
+      <RightSidebar />
 
       {/* ── Global dialogs ── */}
       <AppDialogs />

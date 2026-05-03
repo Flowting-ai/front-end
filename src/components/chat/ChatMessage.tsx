@@ -7,6 +7,7 @@ import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { useHighlightJs } from "@/hooks/useHighlightJs";
+import { usePinboard } from "@/context/pinboard-context";
 import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
 
 // ── Icon Components (matching souvenir-chat-preview) ──────────────────────────
@@ -202,6 +203,7 @@ export function ChatMessage({
   const [editValue, setEditValue] = useState(message.content);
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const { addPin, removePinByMessage, isPinned, open: openPinboard } = usePinboard();
 
   useHighlightJs(contentRef);
 
@@ -210,6 +212,7 @@ export function ChatMessage({
   const hasThinking = Boolean(message.thinking);
   const hasCitations =
     Boolean(message.citations?.length) || Boolean(message.sources?.length);
+  const pinned = isAssistant ? isPinned(message.id) : false;
 
   const handleCopy = async () => {
     try {
@@ -237,6 +240,23 @@ export function ChatMessage({
       setEditValue(message.content);
       setIsEditing(false);
     }
+  };
+
+  const handlePin = () => {
+    if (pinned) {
+      removePinByMessage(message.id);
+      return;
+    }
+    const title =
+      message.content.slice(0, 80).split("\n")[0] || "Pinned response";
+    addPin({
+      content: message.content,
+      title,
+      category: "Quote",
+      messageId: message.id,
+      modelName: message.modelName || message.model,
+    });
+    openPinboard();
   };
 
   return (
@@ -570,9 +590,10 @@ export function ChatMessage({
             }}
           >
             <ActionIconButton
-              icon={<BookmarkIcon size={18} color="#A09890" />}
-              label="Pin"
-              onClick={() => {/* wired later */}}
+              icon={<BookmarkIcon size={18} color={pinned ? "#683D1B" : "#A09890"} />}
+              label={pinned ? "Unpin" : "Pin"}
+              onClick={handlePin}
+              activeBackground={pinned ? "rgba(104,61,27,0.1)" : undefined}
             />
             <ActionIconButton
               icon={copied ? <CheckIcon size={18} color="#80B707" /> : <CopyIcon size={18} color="#A09890" />}
@@ -608,10 +629,12 @@ function ActionIconButton({
   icon,
   label,
   onClick,
+  activeBackground,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  activeBackground?: string;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -630,7 +653,11 @@ function ActionIconButton({
         padding: 6,
         borderRadius: 7,
         border: "none",
-        background: hovered ? "rgba(59,54,50,0.08)" : "transparent",
+        background: activeBackground
+          ? activeBackground
+          : hovered
+            ? "rgba(59,54,50,0.08)"
+            : "transparent",
         cursor: "pointer",
         transition: "background 120ms",
       }}

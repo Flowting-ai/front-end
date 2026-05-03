@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
+import { PinboardProvider } from "@/context/pinboard-context";
 
 export default function AppGroupLayout({
   children,
@@ -8,7 +9,9 @@ export default function AppGroupLayout({
 }) {
   return (
     <ChatHistoryProvider>
-      <AppLayout>{children}</AppLayout>
+      <PinboardProvider>
+        <AppLayout>{children}</AppLayout>
+      </PinboardProvider>
     </ChatHistoryProvider>
   );
 }
