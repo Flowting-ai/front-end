@@ -433,23 +433,32 @@ function AnimatedTabsList({
   const radius = isSmall ? "8px" : "10px";
   const rowRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ x: number; width: number } | null>(null);
-  const isFirstPill = useRef(true);
 
-  useLayoutEffect(() => {
+  // Recompute pill position from the active tab, accounting for scroll offset.
+  // The pill lives in the outer div (not the scroll container) so we subtract
+  // scrollLeft to get the visual position relative to the outer div.
+  const recomputePill = () => {
     const row = rowRef.current;
     if (!row) return;
     const active = row.querySelector<HTMLElement>('[aria-selected="true"]');
     if (!active) { setPill(null); return; }
+    setPill({ x: active.offsetLeft - row.scrollLeft, width: active.offsetWidth });
+  };
 
-    const newPill = { x: active.offsetLeft, width: active.offsetWidth };
-
-    if (isFirstPill.current) {
-      setPill(newPill);
-      isFirstPill.current = false;
-      return;
-    }
-    setPill(newPill);
+  useLayoutEffect(() => {
+    recomputePill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
+
+  // Keep the pill in sync when the user scrolls the tab strip.
+  useEffect(() => {
+    if (!scrollable) return;
+    const row = rowRef.current;
+    if (!row) return;
+    row.addEventListener("scroll", recomputePill, { passive: true });
+    return () => row.removeEventListener("scroll", recomputePill);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollable]);
 
   return (
     <div
@@ -458,11 +467,6 @@ function AnimatedTabsList({
         position: "relative",
         display: scrollable ? "block" : "inline-flex",
         alignItems: "flex-start",
-        ...(scrollable && {
-          overflowX: "clip" as React.CSSProperties["overflowX"],
-          overflowY: "visible",
-          overflowClipMargin: "8px",
-        }),
       }}
     >
       {/* Beige pill background */}
@@ -488,11 +492,48 @@ function AnimatedTabsList({
         />
       </div>
 
-      {/* Triggers row */}
+      {/* Animated pill indicator — hoisted above the scroll container so
+          overflow:auto on rowRef cannot clip its box-shadow. */}
+      {pill && (
+        <>
+          <motion.div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              borderRadius: radius,
+              backgroundColor: "var(--tab-item-bg-selected)",
+              boxShadow: "var(--shadow-tab-item-selected)",
+              pointerEvents: "none",
+            }}
+            animate={{ x: pill.x, width: pill.width }}
+            initial={false}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          />
+          <motion.div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              borderRadius: radius,
+              boxShadow: "var(--shadow-tab-item-selected-inner)",
+              pointerEvents: "none",
+            }}
+            animate={{ x: pill.x, width: pill.width }}
+            initial={false}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          />
+        </>
+      )}
+
+      {/* Triggers row — zIndex:1 keeps buttons above the pill layers */}
       <div
         ref={rowRef}
         style={{
           position: "relative",
+          zIndex: 1,
           display: "flex",
           gap: "4px",
           alignItems: "center",
@@ -505,41 +546,6 @@ function AnimatedTabsList({
           }),
         }}
       >
-        {/* Animated pill indicator */}
-        {pill && (
-          <>
-            <motion.div
-              aria-hidden
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                borderRadius: radius,
-                backgroundColor: "var(--tab-item-bg-selected)",
-                boxShadow: scrollable ? undefined : "var(--shadow-tab-item-selected)",
-                pointerEvents: "none",
-              }}
-              animate={{ x: pill.x, width: pill.width }}
-              initial={false}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            />
-            <motion.div
-              aria-hidden
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                borderRadius: radius,
-                boxShadow: "var(--shadow-tab-item-selected-inner)",
-                pointerEvents: "none",
-              }}
-              animate={{ x: pill.x, width: pill.width }}
-              initial={false}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            />
-          </>
-        )}
-
         {tabs.map((tab) => {
           const isSelected = tab.value === value;
           return (
@@ -1057,69 +1063,93 @@ function PresetModelSelectorContent({
 
 // ── PresetModelSelectorDialog ──────────────────────────────────────────────────
 
+// Approximate rendered height of PresetModelSelectorContent (440px inner + 16px padding)
+const DROPDOWN_HEIGHT = 456;
+const DROPDOWN_WIDTH = 480;
+const GAP = 8;
+
 export function PresetModelSelectorDialog() {
-  const { models, selectedModel, selectModel, isOpen, close } =
+  const { models, selectedModel, selectModel, isOpen, anchorEl, close } =
     useModelSelectorContext();
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+
+  // Compute fixed position from anchor element each time the dropdown opens
+  useLayoutEffect(() => {
+    if (!isOpen || !anchorEl) return;
+
+    const rect = anchorEl.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Vertical: prefer below, flip above if not enough space
+    const spaceBelow = vh - rect.bottom - GAP;
+    const openAbove = spaceBelow < DROPDOWN_HEIGHT && rect.top >= DROPDOWN_HEIGHT + GAP;
+    const top = openAbove ? rect.top - GAP - DROPDOWN_HEIGHT : rect.bottom + GAP;
+
+    // Horizontal: left-align with anchor, clamp to viewport
+    const rawLeft = rect.left;
+    const left = Math.min(rawLeft, vw - DROPDOWN_WIDTH - 16);
+
+    setStyle({ top, left: Math.max(16, left) });
+  }, [isOpen, anchorEl]);
+
+  // Close on outside click or Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (
+        dropdownRef.current?.contains(e.target as Node) ||
+        anchorEl?.contains(e.target as Node)
+      ) return;
+      close();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, anchorEl, close]);
 
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={close}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 50,
-              backgroundColor: "rgba(0,0,0,0.25)",
-            }}
+        <motion.div
+          ref={dropdownRef}
+          key="dropdown"
+          role="dialog"
+          aria-modal
+          aria-label="Select model"
+          initial={{ opacity: 0, scale: 0.97, y: -4 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, y: -4 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          style={{
+            position: "fixed",
+            zIndex: 51,
+            width: `${DROPDOWN_WIDTH}px`,
+            maxWidth: `calc(100vw - 32px)`,
+            backgroundColor: "var(--popover-bg)",
+            borderRadius: "18px",
+            boxShadow: "var(--shadow-popover)",
+            isolation: "isolate",
+            ...style,
+          }}
+        >
+          <PresetModelSelectorContent
+            models={models}
+            selectedModel={selectedModel}
+            onSelect={selectModel}
           />
-
-          {/* Centering shell — full viewport, flex center, never animated */}
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 51,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-            }}
-          >
-            <motion.div
-              key="dialog"
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              role="dialog"
-              aria-modal
-              aria-label="Select model"
-              style={{
-                pointerEvents: "auto",
-                width: "480px",
-                maxWidth: "calc(100vw - 32px)",
-                backgroundColor: "var(--popover-bg)",
-                borderRadius: "18px",
-                boxShadow: "var(--shadow-popover)",
-                isolation: "isolate",
-              }}
-            >
-              <PresetModelSelectorContent
-                models={models}
-                selectedModel={selectedModel}
-                onSelect={selectModel}
-              />
-            </motion.div>
-          </div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

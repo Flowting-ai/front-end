@@ -17,7 +17,8 @@ interface ModelSelectorContextValue {
   isLoading: boolean;
   selectModel: (model: AIModel) => void;
   isOpen: boolean;
-  open: () => void;
+  anchorEl: HTMLElement | null;
+  open: (anchor: HTMLElement) => void;
   close: () => void;
 }
 
@@ -42,21 +43,36 @@ export function ModelSelectorProvider({
   } = useModelSelection();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const open = useCallback((anchor: HTMLElement) => {
+    setIsOpen((prev) => {
+      if (prev && anchorEl === anchor) {
+        setAnchorEl(null);
+        return false;
+      }
+      setAnchorEl(anchor);
+      return true;
+    });
+  }, [anchorEl]);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setAnchorEl(null);
+  }, []);
 
   const selectModel = useCallback(
     (model: AIModel) => {
       baseSelectModel(model);
       setIsOpen(false);
+      setAnchorEl(null);
     },
     [baseSelectModel],
   );
 
   return (
     <ModelSelectorContext.Provider
-      value={{ models, selectedModel, isLoading, selectModel, isOpen, open, close }}
+      value={{ models, selectedModel, isLoading, selectModel, isOpen, anchorEl, open, close }}
     >
       {children}
     </ModelSelectorContext.Provider>

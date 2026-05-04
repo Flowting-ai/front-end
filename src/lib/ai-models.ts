@@ -2,7 +2,7 @@
 
 import type { AIModel } from "@/types/ai-model";
 import { MODELS_ALL_ENDPOINT } from "@/lib/config";
-import { getAuthHeaders } from "@/lib/jwt-utils";
+import { ensureFreshToken } from "@/lib/jwt-utils";
 
 type BackendModel = {
   model_id?: string;
@@ -119,9 +119,12 @@ export async function fetchModelsWithCache(
 
   _modelsFetchPromise = (async () => {
     try {
+      const token = await ensureFreshToken();
+      const authHeaders: Record<string, string> = {};
+      if (token) authHeaders.Authorization = `Bearer ${token}`;
       const response = await fetch(MODELS_ALL_ENDPOINT, {
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: authHeaders,
       });
       if (!response.ok) return _modelsCache ?? [];
       const data = await response.json();

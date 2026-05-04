@@ -20,7 +20,7 @@ export function TopBar({
   citationsOpen = false,
   onCitationsToggle,
 }: TopBarProps) {
-  const { selectedModel, open } = useModelSelectorContext();
+  const { selectedModel, isOpen, open } = useModelSelectorContext();
 
   return (
     <header
@@ -53,9 +53,9 @@ export function TopBar({
             selectedModel?.modelName,
           )}
           rightIcon={<ArrowDownOneIcon size={16} />}
-          onClick={open}
-          aria-haspopup="dialog"
-          aria-expanded={undefined}
+          onClick={(e) => open(e.currentTarget)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
         >
           {selectedModel?.modelName ?? "Select model"}
         </Button>

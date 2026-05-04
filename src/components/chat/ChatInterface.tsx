@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -25,7 +25,7 @@ interface ChatInterfaceProps {
   onChatMoveToTop?: (chatId: string) => void;
   selectedModel?: string;
   selectedModelId?: string | number | null;
-  onModelClick?: () => void;
+  onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
   /** If provided, ChatInterface auto-sends this message on mount (new chat). */
   initialPrompt?: string | null;
 }

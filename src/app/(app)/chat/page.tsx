@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -50,8 +50,8 @@ function ChatPageInner() {
 
   // When in an active conversation and user picks a different model,
   // confirm before switching to avoid disrupting the current chat context.
-  const handleModelClick = () => {
-    openModelSelector();
+  const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    openModelSelector(e.currentTarget);
   };
 
   // ModelSwitchDialog is only triggered programmatically (e.g. from ChatInput
