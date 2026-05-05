@@ -1,11 +1,6 @@
 'use client'
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CancelOneIcon,
@@ -15,9 +10,14 @@ import {
   ArrowUpDownIcon,
   FolderAddIcon,
   FolderOneIcon,
+  FolderLibraryIcon,
   DownloadThreeIcon,
   TickTwoIcon,
   UnfoldLessIcon,
+  DashboardSquareOneIcon,
+  ShapesOneIcon,
+  StarIcon,
+  SourceCodeSquareIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -25,6 +25,8 @@ import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Pin } from '@/components/Pin'
 import { Tooltip } from '@/components/Tooltip'
+import { Badge } from '@/components/Badge'
+import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { type PinboardPin } from '@/components/Pinboard'
 import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-context'
 import type { BadgeColor } from '@/components/Badge'
@@ -35,44 +37,43 @@ import {
   PIN_DETAIL_ENDPOINT,
   PIN_MOVE_ENDPOINT,
 } from '@/lib/config'
+import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PinFolder {
-  id: string
-  name: string
+  id:    string
+  name:  string
   type?: 'personal' | 'project'
 }
 
-type FolderFilter = 'all' | 'unorganized' | string
-type SortField = 'date_created' | 'title' | 'category'
+type FolderFilter  = 'all' | 'unorganized' | string
+type SortField     = 'date_created' | 'title' | 'category'
 type SortDirection = 'asc' | 'desc'
 
 interface SortConfig {
-  field: SortField
+  field:     SortField
   direction: SortDirection
 }
 
 export interface PinboardExpandedProps {
-  onClose: () => void
+  onClose:   () => void
   onExport?: (pinIds?: string[]) => void
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_TABS = [
+const CATEGORY_TABS: Array<{ value: string; label: string; icon?: React.ReactNode }> = [
   { value: 'all',      label: 'All' },
-  { value: 'Favorites', label: 'Favorites' },
-  { value: 'Code',      label: 'Code' },
-  { value: 'Research',  label: 'Research' },
-  { value: 'Creative',  label: 'Creative' },
-  { value: 'Planning',  label: 'Planning' },
-  { value: 'Tasks',     label: 'Tasks' },
-  { value: 'Quote',     label: 'Quote' },
-  { value: 'Workflow',  label: 'Workflow' },
-] as const
-
-// ── Category → badge color ────────────────────────────────────────────────────
+  { value: 'Favorites', label: 'Favorites', icon: <StarIcon size={16} /> },
+  { value: 'Code',     label: 'Code',       icon: <SourceCodeSquareIcon size={16} /> },
+  { value: 'Research', label: 'Research' },
+  { value: 'Creative', label: 'Creative' },
+  { value: 'Planning', label: 'Planning' },
+  { value: 'Tasks',    label: 'Tasks' },
+  { value: 'Quote',    label: 'Quote' },
+  { value: 'Workflow', label: 'Workflow' },
+]
 
 const CATEGORY_COLOR: Record<PinCategory, BadgeColor> = {
   Code:     'Green',
@@ -83,6 +84,13 @@ const CATEGORY_COLOR: Record<PinCategory, BadgeColor> = {
   Quote:    'Brown',
   Workflow: 'Neutral',
 }
+
+// Width math mirrors DS PinboardExpanded exactly
+const CVW_WIDTH       = 644
+const ICON_BUTTON_W   = 32
+const ICON_BUTTON_GAP = 4
+const ROW_GAP         = 32
+const SEARCH_OPEN_W   = 276
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -109,69 +117,74 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
-// ── TODO(kds): FilterMenu — pending KDS component ─────────────────────────────
-function FilterMenuPlaceholder({ trigger }: { trigger: React.ReactNode }) {
-  return <>{trigger}</>
+// ── SectionLabel — matches DS PinboardExpanded's SectionLabel ─────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'space-between',
+      padding:        '5px 6px',
+      borderRadius:   10,
+      width:          '100%',
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+        fontSize:   11,
+        lineHeight: '16px',
+        color:      'var(--neutral-500)',
+        whiteSpace: 'nowrap',
+      }}>
+        {children}
+      </span>
+    </div>
+  )
 }
 
-// ── TODO(kds): SortMenu — pending KDS component ──────────────────────────────
-function SortMenuPlaceholder({ trigger }: { trigger: React.ReactNode }) {
-  return <>{trigger}</>
-}
+// ── EmptyState ────────────────────────────────────────────────────────────────
 
-// ── TODO(kds): EmptyState — pending KDS component ────────────────────────────
-function EmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string
+function EmptyState({ title, description, action }: {
+  title:        string
   description?: string
-  action?: { label: string; onClick: () => void }
+  action?:      { label: string; onClick: () => void }
 }) {
   return (
-    <div
-      style={{
-        gridColumn:     '1 / -1',
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        justifyContent: 'center',
-        gap:            8,
-        padding:        '48px 24px',
-        textAlign:      'center',
-      }}
-    >
-      <p
-        style={{
-          margin:     0,
-          fontFamily: 'var(--font-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          fontSize:   'var(--font-size-body)',
-          lineHeight: 'var(--line-height-body)',
-          color:      'var(--neutral-700)',
-        }}
-      >
+    <div style={{
+      display:        'flex',
+      flexDirection:  'column',
+      alignItems:     'center',
+      justifyContent: 'center',
+      gap:            8,
+      padding:        '48px 24px',
+      textAlign:      'center',
+      width:          '100%',
+    }}>
+      <p style={{
+        margin:     0,
+        fontFamily: 'var(--font-body)',
+        fontWeight: 'var(--font-weight-medium)',
+        fontSize:   'var(--font-size-body)',
+        lineHeight: 'var(--line-height-body)',
+        color:      'var(--neutral-700)',
+      }}>
         {title}
       </p>
       {description && (
-        <p
-          style={{
-            margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-regular)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}
-        >
+        <p style={{
+          margin:     0,
+          fontFamily: 'var(--font-body)',
+          fontWeight: 'var(--font-weight-regular)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      'var(--neutral-500)',
+        }}>
           {description}
         </p>
       )}
       {action && (
-        <Button variant="ghost" size="sm" onClick={action.onClick}>
-          {action.label}
-        </Button>
+        <Button variant="ghost" size="sm" onClick={action.onClick}>{action.label}</Button>
       )}
     </div>
   )
@@ -181,35 +194,79 @@ function EmptyState({
 
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const { pins, removePin } = usePinboard()
+  const enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT
 
   // ── Folder state ──────────────────────────────────────────────────────────
-  const [folders,          setFolders]          = useState<PinFolder[]>([])
-  const [activeFolderId,   setActiveFolderId]   = useState<FolderFilter>('all')
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
-  const [newFolderName,    setNewFolderName]    = useState('')
-  const [editingFolderId,  setEditingFolderId]  = useState<string | null>(null)
+  const [folders,           setFolders]           = useState<PinFolder[]>([])
+  const [activeFolderId,    setActiveFolderId]    = useState<FolderFilter>('all')
+  const [isCreatingFolder,  setIsCreatingFolder]  = useState(false)
+  const [newFolderName,     setNewFolderName]     = useState('')
+  const [editingFolderId,   setEditingFolderId]   = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState('')
-  const newFolderInputRef  = useRef<HTMLInputElement>(null)
+  const newFolderInputRef = useRef<HTMLInputElement>(null)
 
   // ── View state ────────────────────────────────────────────────────────────
-  const [activeTab,     setActiveTab]     = useState('all')
-  const [rawSearch,     setRawSearch]     = useState('')
-  const [isSearchOpen,  setIsSearchOpen]  = useState(false)
-  const [sortConfig,    setSortConfig]    = useState<SortConfig>({ field: 'date_created', direction: 'desc' })
+  const [activeTab,    setActiveTab]    = useState('all')
+  const [rawSearch,    setRawSearch]    = useState('')
+  const [searchOpen,   setSearchOpen]   = useState(false)
+  const [sortConfig,   setSortConfig]   = useState<SortConfig>({ field: 'date_created', direction: 'desc' })
   const searchQuery = useDebounce(rawSearch, 150)
 
   // ── Organize mode ─────────────────────────────────────────────────────────
-  const [isOrganizing,    setIsOrganizing]    = useState(false)
-  const [selectedPinIds,  setSelectedPinIds]  = useState<Set<string>>(new Set())
-  const [collapseSignal,  setCollapseSignal]  = useState(0)
+  const [isOrganizing,   setIsOrganizing]   = useState(false)
+  const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set())
+  const [collapseSignal, setCollapseSignal] = useState(0)
 
-  // ── Expanded pin tracking — mirrors DS Pinboard pattern ──────────────────
+  // ── Expanded pin tracking ─────────────────────────────────────────────────
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
   const hasExpanded = expandedIds.size > 0
 
-  const handleCollapseAll = () => {
-    setCollapseSignal((s) => s + 1)
+  // ── Tabs + search width math (mirrors DS PinboardExpanded) ────────────────
+  const tabsContainerRef = useRef<HTMLDivElement>(null)
+  const buttonCount      = hasExpanded ? 5 : 4
+  const baseClusterWidth = buttonCount * ICON_BUTTON_W + (buttonCount - 1) * ICON_BUTTON_GAP
+  const clusterWidth     = searchOpen
+    ? baseClusterWidth + (SEARCH_OPEN_W - ICON_BUTTON_W)
+    : baseClusterWidth
+  const tabsAreaWidth    = CVW_WIDTH - ROW_GAP - clusterWidth
+  const searchSlotWidth  = searchOpen ? SEARCH_OPEN_W : ICON_BUTTON_W
+
+  useEffect(() => {
+    const root = tabsContainerRef.current
+    if (!root) return
+    const active = root.querySelector<HTMLElement>('[data-state="active"]')
+    if (!active) return
+    active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+  }, [searchOpen, hasExpanded])
+
+  // ── Scroll edge fades ─────────────────────────────────────────────────────
+  const scrollRef  = useRef<HTMLDivElement>(null)
+  const [atTop,    setAtTop]    = useState(true)
+  const [atBottom, setAtBottom] = useState(false)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    setAtTop(el.scrollTop < 8)
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
   }
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const update = () => {
+      setAtTop(el.scrollTop < 8)
+      setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    const inner = el.firstElementChild
+    if (inner instanceof Element) ro.observe(inner)
+    return () => ro.disconnect()
+  }, [pins.length])
+
+  // ── Collapse all ──────────────────────────────────────────────────────────
+  const handleCollapseAll = () => setCollapseSignal((s) => s + 1)
 
   const handlePinExpandedChange = useCallback(
     (id: string) => (expanded: boolean) => {
@@ -218,7 +275,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         if (expanded === has) return prev
         const next = new Set(prev)
         if (expanded) next.add(id)
-        else next.delete(id)
+        else          next.delete(id)
         return next
       })
     },
@@ -229,17 +286,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   useEffect(() => {
     apiFetch(PIN_FOLDERS_ENDPOINT)
       .then((data: unknown) => {
-        if (Array.isArray(data)) setFolders(data as PinFolder[])
-        // API may return { data: [...] } — handle both shapes
+        if (Array.isArray(data))
+          setFolders(data as PinFolder[])
         else if (data && Array.isArray((data as { data?: unknown }).data))
           setFolders((data as { data: PinFolder[] }).data)
       })
-      .catch(() => {
-        // Folders API not yet live — silently skip
-      })
+      .catch(() => {})
   }, [])
 
-  // Focus new-folder input when shown
   useEffect(() => {
     if (isCreatingFolder) newFolderInputRef.current?.focus()
   }, [isCreatingFolder])
@@ -250,8 +304,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     const name = newFolderName.trim()
     if (!name) { setIsCreatingFolder(false); setNewFolderName(''); return }
     const optimisticId = `folder-${Date.now()}`
-    const optimistic: PinFolder = { id: optimisticId, name, type: 'personal' }
-    setFolders(prev => [...prev, optimistic])
+    setFolders(prev => [...prev, { id: optimisticId, name, type: 'personal' }])
     setIsCreatingFolder(false)
     setNewFolderName('')
     try {
@@ -275,9 +328,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         method: 'PATCH',
         body:   JSON.stringify({ name }),
       })
-    } catch {
-      // revert not implemented — refetch would be the correct fix
-    }
+    } catch {}
   }
 
   const handleDeleteFolder = async (folderId: string) => {
@@ -285,9 +336,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     if (activeFolderId === folderId) setActiveFolderId('all')
     try {
       await apiFetch(`${PIN_FOLDERS_CREATE_ENDPOINT}/${folderId}`, { method: 'DELETE' })
-    } catch {
-      // optimistic delete stands — not rolling back since folder content is preserved
-    }
+    } catch {}
   }
 
   // ── Pin operations ────────────────────────────────────────────────────────
@@ -299,24 +348,19 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
           method: 'PATCH',
           body:   JSON.stringify({ folder_id: folderId }),
         })
-      } catch {
-        // individual failure — continue with others
-      }
+      } catch {}
     }
     setSelectedPinIds(new Set())
   }
 
   const handleDeleteSelected = async () => {
     const ids = Array.from(selectedPinIds)
-    // Optimistic
     ids.forEach(id => removePin(id))
     setSelectedPinIds(new Set())
     for (const id of ids) {
       try {
         await apiFetch(PIN_DETAIL_ENDPOINT(id), { method: 'DELETE' })
-      } catch {
-        // optimistic delete stands
-      }
+      } catch {}
     }
   }
 
@@ -330,25 +374,15 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     setSelectedPinIds(new Set())
   }
 
-  // ── Filtering ─────────────────────────────────────────────────────────────
+  // ── Filtering & sorting ───────────────────────────────────────────────────
 
   const filteredPins = (() => {
     let result: PinItem[] = pins
 
-    // Folder filter
-    if (activeFolderId === 'unorganized') {
-      // TODO(api): filter by no folder_id once that field is in PinItem
-    } else if (activeFolderId !== 'all') {
-      // TODO(api): filter by folder_id once that field is in PinItem
-    }
-
-    // Tab filter — category match or special cases
     if (activeTab !== 'all' && activeTab !== 'Favorites') {
       result = result.filter(p => p.category === activeTab)
     }
-    // TODO: Favorites tab — filter by is_favorite when that field is added to PinItem
 
-    // Search filter (title + content)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
@@ -356,16 +390,11 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       )
     }
 
-    // Sort
     result = [...result].sort((a, b) => {
       let cmp = 0
-      if (sortConfig.field === 'date_created') {
-        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      } else if (sortConfig.field === 'title') {
-        cmp = a.title.localeCompare(b.title)
-      } else if (sortConfig.field === 'category') {
-        cmp = a.category.localeCompare(b.category)
-      }
+      if      (sortConfig.field === 'date_created') cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      else if (sortConfig.field === 'title')        cmp = a.title.localeCompare(b.title)
+      else if (sortConfig.field === 'category')     cmp = a.category.localeCompare(b.category)
       return sortConfig.direction === 'asc' ? cmp : -cmp
     })
 
@@ -374,29 +403,28 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
 
   const visiblePins = filteredPins.map(pinItemToKDS)
 
-  // ── Empty state message ───────────────────────────────────────────────────
   const emptyState = (() => {
-    if (pins.length === 0) {
+    if (pins.length === 0)
       return { title: 'No pins yet', description: 'Pin any chat message to save it here.' }
-    }
-    if (searchQuery.trim() && filteredPins.length === 0) {
+    if (searchQuery.trim() && filteredPins.length === 0)
       return { title: `No results for "${searchQuery}"` }
-    }
-    if (filteredPins.length === 0) {
+    if (filteredPins.length === 0)
       return {
         title:  'No pins match these filters',
-        action: { label: 'Clear filters', onClick: () => { setActiveTab('all'); setRawSearch(''); setActiveFolderId('all') } },
+        action: {
+          label:   'Clear filters',
+          onClick: () => { setActiveTab('all'); setRawSearch(''); setActiveFolderId('all') },
+        },
       }
-    }
     return null
   })()
 
-  // ── Pin selection toggle ──────────────────────────────────────────────────
+  // ── Pin selection ─────────────────────────────────────────────────────────
   const togglePin = useCallback((id: string) => {
     setSelectedPinIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
-      else next.add(id)
+      else              next.add(id)
       return next
     })
   }, [])
@@ -406,11 +434,18 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (isOrganizing) handleExitOrganize()
-      else onClose()
+      else              onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isOrganizing, onClose])
+
+  const personalFolders = folders.filter(f => !f.type || f.type === 'personal')
+  const projectFolders  = folders.filter(f => f.type === 'project')
+
+  const activeTitle = activeFolderId === 'all'         ? 'All pins'
+                    : activeFolderId === 'unorganized'  ? 'Unorganized pins'
+                    : folders.find(f => f.id === activeFolderId)?.name ?? 'Pins'
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -429,595 +464,756 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* ── Modal panel ── */}
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{   opacity: 0, scale: 0.96 }}
         transition={{ type: 'spring', stiffness: 260, damping: 32 }}
         style={{
-          width:           924,
-          height:          817,
-          maxWidth:        'calc(100vw - 32px)',
-          maxHeight:       'calc(100vh - 32px)',
-          borderRadius:    20,
-          backgroundColor: 'var(--neutral-white)',
-          boxShadow:       '0px 24px 48px -12px rgba(38,33,30,0.24), 0px 0px 0px 1px var(--neutral-100)',
-          display:         'flex',
-          overflow:        'hidden',
+          width:        924,
+          height:       817,
+          maxWidth:     'calc(100vw - 32px)',
+          maxHeight:    'calc(100vh - 32px)',
+          borderRadius: 28,
+          boxShadow:    '0px 24px 48px -12px rgba(38,33,30,0.18), 0px 0px 0px 1px rgba(82,75,71,0.12)',
+          display:      'flex',
+          overflow:     'hidden',
         }}
       >
-        {/* ══ Left sidebar (240px) ══ */}
+        {/* ── Outer flex row — matches DS PinboardExpanded outer container ── */}
         <div
           style={{
-            width:           240,
-            flexShrink:      0,
-            borderRight:     '1px solid var(--neutral-100)',
-            display:         'flex',
-            flexDirection:   'column',
-            padding:         '24px 0 16px',
-            gap:             4,
-            overflowY:       'auto',
-            overscrollBehaviorY: 'contain',
-          }}
-          className="kaya-scrollbar"
-        >
-          {/* Title */}
-          <p
-            style={{
-              margin:     '0 0 16px',
-              padding:    '0 16px',
-              fontFamily: 'var(--font-title)',
-              fontWeight: 'var(--font-weight-regular)',
-              fontSize:   'var(--font-size-heading)',
-              lineHeight: 'var(--line-height-heading)',
-              color:      'var(--neutral-700)',
-            }}
-          >
-            Pinboard
-          </p>
-
-          {/* All pins */}
-          <SidebarNavItem
-            label="All pins"
-            count={pins.length}
-            active={activeFolderId === 'all'}
-            onClick={() => setActiveFolderId('all')}
-          />
-
-          {/* Unorganized */}
-          <SidebarNavItem
-            label="Unorganized"
-            active={activeFolderId === 'unorganized'}
-            onClick={() => setActiveFolderId('unorganized')}
-          />
-
-          {/* Personal folders */}
-          {folders.filter(f => !f.type || f.type === 'personal').length > 0 && (
-            <>
-              <div style={{ height: 1, background: 'var(--neutral-100)', margin: '8px 16px' }} />
-              <p style={{
-                margin: '0 0 2px',
-                padding: '0 16px',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-medium)',
-                fontSize: 'var(--font-size-caption)',
-                lineHeight: 'var(--line-height-caption)',
-                color: 'var(--neutral-400)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}>
-                Personal
-              </p>
-              {folders.filter(f => !f.type || f.type === 'personal').map(folder =>
-                editingFolderId === folder.id ? (
-                  <div key={folder.id} style={{ padding: '0 12px' }}>
-                    <InputField
-                      value={editingFolderName}
-                      onChange={setEditingFolderName}
-                      onBlur={() => handleRenameFolder(folder.id)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleRenameFolder(folder.id)
-                        if (e.key === 'Escape') setEditingFolderId(null)
-                      }}
-                      fluid
-                      size="small"
-                      autoFocus
-                      aria-label="Rename folder"
-                    />
-                  </div>
-                ) : (
-                  <SidebarFolderItem
-                    key={folder.id}
-                    folder={folder}
-                    active={activeFolderId === folder.id}
-                    onClick={() => setActiveFolderId(folder.id)}
-                    onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
-                    onDelete={() => handleDeleteFolder(folder.id)}
-                  />
-                )
-              )}
-            </>
-          )}
-
-          {/* Project folders */}
-          {folders.filter(f => f.type === 'project').length > 0 && (
-            <>
-              <div style={{ height: 1, background: 'var(--neutral-100)', margin: '8px 16px' }} />
-              <p style={{
-                margin: '0 0 2px',
-                padding: '0 16px',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-medium)',
-                fontSize: 'var(--font-size-caption)',
-                lineHeight: 'var(--line-height-caption)',
-                color: 'var(--neutral-400)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}>
-                Projects
-              </p>
-              {folders.filter(f => f.type === 'project').map(folder =>
-                editingFolderId === folder.id ? (
-                  <div key={folder.id} style={{ padding: '0 12px' }}>
-                    <InputField
-                      value={editingFolderName}
-                      onChange={setEditingFolderName}
-                      onBlur={() => handleRenameFolder(folder.id)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleRenameFolder(folder.id)
-                        if (e.key === 'Escape') setEditingFolderId(null)
-                      }}
-                      fluid
-                      size="small"
-                      autoFocus
-                      aria-label="Rename folder"
-                    />
-                  </div>
-                ) : (
-                  <SidebarFolderItem
-                    key={folder.id}
-                    folder={folder}
-                    active={activeFolderId === folder.id}
-                    onClick={() => setActiveFolderId(folder.id)}
-                    onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
-                    onDelete={() => handleDeleteFolder(folder.id)}
-                  />
-                )
-              )}
-            </>
-          )}
-
-          {/* New folder input */}
-          {isCreatingFolder ? (
-            <div style={{ padding: '0 12px' }}>
-              <InputField
-                ref={newFolderInputRef}
-                value={newFolderName}
-                onChange={setNewFolderName}
-                onBlur={handleCreateFolder}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleCreateFolder()
-                  if (e.key === 'Escape') { setIsCreatingFolder(false); setNewFolderName('') }
-                }}
-                placeholder="Folder name"
-                fluid
-                size="small"
-                aria-label="New folder name"
-              />
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsCreatingFolder(true)}
-              style={{
-                display:     'flex',
-                alignItems:  'center',
-                gap:         8,
-                padding:     '6px 16px',
-                background:  'transparent',
-                border:      'none',
-                cursor:      'pointer',
-                color:       'var(--neutral-500)',
-                fontFamily:  'var(--font-body)',
-                fontWeight:  'var(--font-weight-medium)',
-                fontSize:    'var(--font-size-caption)',
-                lineHeight:  'var(--line-height-caption)',
-                width:       '100%',
-                textAlign:   'left',
-                marginTop:   4,
-              }}
-            >
-              <FolderAddIcon size={16} />
-              New folder
-            </button>
-          )}
-        </div>
-
-        {/* ══ Right content ══ */}
-        <div
-          style={{
-            flex:          '1 1 0',
-            minWidth:      0,
-            display:       'flex',
-            flexDirection: 'column',
-            overflow:      'hidden',
+            display:      'flex',
+            alignItems:   'center',
+            width:        '100%',
+            height:       '100%',
+            padding:      '0 8px',
+            background:   'var(--neutral-50)',
+            borderRadius: 'inherit',
+            isolation:    'isolate',
+            overflow:     'hidden',
           }}
         >
-          {/* ── Header row ── */}
-          <div
+          {/* ══ Sidebar (EnterChunk 0) ══ */}
+          <EnterChunk
+            cfg={enterAnimation}
+            index={0}
             style={{
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'space-between',
-              padding:        '20px 24px 0',
-              flexShrink:     0,
+              display:       'flex',
+              flexDirection: 'column',
+              height:        '100%',
+              padding:       '8px 0',
+              flexShrink:    0,
+              zIndex:        2,
+              background:    'var(--neutral-50)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <p
-                style={{
-                  margin:     0,
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  fontSize:   'var(--font-size-body)',
-                  lineHeight: 'var(--line-height-body)',
-                  color:      'var(--neutral-700)',
-                }}
-              >
-                {visiblePins.length} {visiblePins.length === 1 ? 'pin' : 'pins'}
-              </p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <AnimatePresence initial={false}>
-                {hasExpanded && !isOrganizing && (
-                  <motion.div
-                    key="collapse-all"
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{    opacity: 0, scale: 0.6 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                    style={{ display: 'inline-flex', transformOrigin: 'center' }}
-                  >
-                    <Tooltip content="Collapse all Pins">
-                      <IconButton
-                        variant="secondary"
-                        size="sm"
-                        icon={<UnfoldLessIcon size={20} />}
-                        aria-label="Collapse open pins"
-                        onClick={handleCollapseAll}
-                      />
-                    </Tooltip>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <Button
-                variant={isOrganizing ? 'default' : 'secondary'}
-                size="sm"
-                onClick={() => isOrganizing ? handleExitOrganize() : setIsOrganizing(true)}
-              >
-                {isOrganizing ? 'Done' : 'Organize'}
-              </Button>
-              <Tooltip content="Close">
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<CancelOneIcon size={20} />}
-                  aria-label="Close organize view"
-                  onClick={onClose}
-                />
-              </Tooltip>
-            </div>
-          </div>
-
-          {/* ── Tabs ── */}
-          <div style={{ padding: '16px 24px 0', flexShrink: 0 }}>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList scrollable style={{ width: '100%' }}>
-                {CATEGORY_TABS.map(tab => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* ── Toolbar row (search + filter + sort) ── */}
-          <div
-            style={{
-              display:    'flex',
-              alignItems: 'center',
-              gap:        8,
-              padding:    '12px 24px',
-              flexShrink: 0,
-            }}
-          >
-            {/* Search — expands to 276px */}
-            <AnimatePresence initial={false} mode="popLayout">
-              {isSearchOpen ? (
-                <motion.div
-                  key="search-open"
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 276 }}
-                  exit={{   opacity: 0, width: 0 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                  style={{ overflow: 'hidden', flexShrink: 0 }}
-                >
-                  <InputField
-                    value={rawSearch}
-                    onChange={setRawSearch}
-                    leftIcon={<SearchOneIcon size={16} />}
-                    rightIcon={
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Close search"
-                        onClick={() => { setIsSearchOpen(false); setRawSearch('') }}
-                        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (setIsSearchOpen(false), setRawSearch(''))}
-                        style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
-                      >
-                        <CancelCircleIcon size={16} />
-                      </span>
-                    }
-                    placeholder="Search pins..."
-                    fluid
-                    size="small"
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
-                    autoFocus
-                    aria-label="Search pins"
-                  />
-                </motion.div>
-              ) : (
-                <motion.span
-                  key="search-closed"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{   opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  style={{ display: 'inline-flex', flexShrink: 0 }}
-                >
-                  <Tooltip content="Search">
-                    <IconButton
-                      variant="secondary"
-                      size="sm"
-                      icon={<SearchOneIcon size={20} />}
-                      aria-label="Open search"
-                      onClick={() => setIsSearchOpen(true)}
-                    />
-                  </Tooltip>
-                </motion.span>
-              )}
-            </AnimatePresence>
-
-            {/* TODO(kds): FilterMenu — pending KDS component */}
-            <FilterMenuPlaceholder
-              trigger={
-                <Tooltip content="Filter">
-                  <IconButton
-                    variant="secondary"
-                    size="sm"
-                    icon={<FilterMailIcon size={20} />}
-                    aria-label="Filter pins"
-                  />
-                </Tooltip>
-              }
-            />
-
-            {/* TODO(kds): SortMenu — pending KDS component */}
-            <SortMenuPlaceholder
-              trigger={
-                <Tooltip content="Sort">
-                  <IconButton
-                    variant="secondary"
-                    size="sm"
-                    icon={<ArrowUpDownIcon size={20} />}
-                    aria-label="Sort pins"
-                  />
-                </Tooltip>
-              }
-            />
-          </div>
-
-          {/* ── Pin grid ── */}
-          <div
-            className="kaya-scrollbar"
-            style={{
-              flex:                '1 1 0',
-              minHeight:           0,
-              overflowY:           'auto',
-              overscrollBehaviorY: 'contain',
-              padding:             '0 24px',
-            }}
-          >
+            {/* Sidebar card */}
             <div
               style={{
-                display:             'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap:                 12,
-                alignItems:          'start',
-                paddingBottom:       24,
+                display:     'flex',
+                alignItems:  'flex-start',
+                flex:        '1 0 0',
+                minHeight:   0,
+                borderRadius: 20,
+                background:  'rgba(255, 255, 255, 0.2)',
+                boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+                overflow:    'hidden',
               }}
             >
-              {visiblePins.length === 0 && emptyState ? (
-                <EmptyState
-                  title={emptyState.title}
-                  description={'description' in emptyState ? emptyState.description : undefined}
-                  action={'action' in emptyState ? emptyState.action : undefined}
-                />
-              ) : (
-                visiblePins.map(pin => (
-                  <PinGridCell
-                    key={pin.id}
-                    pin={pin}
-                    isOrganizing={isOrganizing}
-                    isSelected={selectedPinIds.has(pin.id)}
-                    collapseSignal={collapseSignal}
-                    onToggle={() => togglePin(pin.id)}
-                    onExpandedChange={handlePinExpandedChange(pin.id)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* ── Bulk action toolbar (organize mode + selection) ── */}
-          <AnimatePresence initial={false}>
-            {isOrganizing && (
-              <motion.div
-                key="bulk-toolbar"
-                initial={{ y: 8, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{   y: 8, opacity: 0 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              {/* Sidebar inner — scrollable */}
+              <div
+                className="kaya-scrollbar"
                 style={{
-                  flexShrink:      0,
-                  display:         'flex',
-                  alignItems:      'center',
-                  gap:             8,
-                  padding:         '12px 24px',
-                  borderTop:       '1px solid var(--neutral-100)',
-                  backgroundColor: 'var(--neutral-white)',
+                  display:             'flex',
+                  flexDirection:       'column',
+                  gap:                 4,
+                  height:              '100%',
+                  width:               240,
+                  padding:             '8px 0',
+                  overflowX:           'hidden',
+                  overflowY:           'auto',
+                  overscrollBehaviorY: 'contain',
+                  flexShrink:          0,
                 }}
               >
-                {/* Selected count */}
-                <p
+                {/* Pinboard section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+                  <SectionLabel>Pinboard</SectionLabel>
+                  <SidebarMenuItem
+                    variant="default"
+                    fluid
+                    label="All pins"
+                    icon={<DashboardSquareOneIcon size={20} />}
+                    selected={activeFolderId === 'all'}
+                    onClick={() => setActiveFolderId('all')}
+                  />
+                  <SidebarMenuItem
+                    variant="default"
+                    fluid
+                    label="Unorganized pins"
+                    icon={<ShapesOneIcon size={20} />}
+                    selected={activeFolderId === 'unorganized'}
+                    onClick={() => setActiveFolderId('unorganized')}
+                  />
+                </div>
+
+                {/* Your folders */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+                  <SectionLabel>Your folders</SectionLabel>
+                  {isCreatingFolder ? (
+                    <div style={{ padding: '0 2px' }}>
+                      <InputField
+                        ref={newFolderInputRef}
+                        value={newFolderName}
+                        onChange={setNewFolderName}
+                        onBlur={handleCreateFolder}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter')  handleCreateFolder()
+                          if (e.key === 'Escape') { setIsCreatingFolder(false); setNewFolderName('') }
+                        }}
+                        placeholder="Folder name"
+                        fluid
+                        size="small"
+                        aria-label="New folder name"
+                      />
+                    </div>
+                  ) : (
+                    <SidebarMenuItem
+                      variant="default"
+                      fluid
+                      label="New folder"
+                      icon={<FolderAddIcon size={20} />}
+                      onClick={() => setIsCreatingFolder(true)}
+                    />
+                  )}
+                  {personalFolders.map(folder =>
+                    editingFolderId === folder.id ? (
+                      <div key={folder.id} style={{ padding: '0 2px' }}>
+                        <InputField
+                          value={editingFolderName}
+                          onChange={setEditingFolderName}
+                          onBlur={() => handleRenameFolder(folder.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter')  handleRenameFolder(folder.id)
+                            if (e.key === 'Escape') setEditingFolderId(null)
+                          }}
+                          fluid
+                          size="small"
+                          autoFocus
+                          aria-label="Rename folder"
+                        />
+                      </div>
+                    ) : (
+                      <SidebarFolderItem
+                        key={folder.id}
+                        folder={folder}
+                        active={activeFolderId === folder.id}
+                        onClick={() => setActiveFolderId(folder.id)}
+                        onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
+                        onDelete={() => handleDeleteFolder(folder.id)}
+                      />
+                    )
+                  )}
+                </div>
+
+                {/* Project folders */}
+                {projectFolders.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+                    <SectionLabel>Project folders</SectionLabel>
+                    {projectFolders.map(folder =>
+                      editingFolderId === folder.id ? (
+                        <div key={folder.id} style={{ padding: '0 2px' }}>
+                          <InputField
+                            value={editingFolderName}
+                            onChange={setEditingFolderName}
+                            onBlur={() => handleRenameFolder(folder.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter')  handleRenameFolder(folder.id)
+                              if (e.key === 'Escape') setEditingFolderId(null)
+                            }}
+                            fluid
+                            size="small"
+                            autoFocus
+                            aria-label="Rename folder"
+                          />
+                        </div>
+                      ) : (
+                        <SidebarFolderItem
+                          key={folder.id}
+                          folder={folder}
+                          active={activeFolderId === folder.id}
+                          onClick={() => setActiveFolderId(folder.id)}
+                          onRename={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
+                          onDelete={() => handleDeleteFolder(folder.id)}
+                        />
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </EnterChunk>
+
+          {/* ══ Right content column ══ */}
+          <div
+            style={{
+              display:       'flex',
+              flexDirection: 'column',
+              flex:          '1 1 0',
+              minWidth:      0,
+              height:        '100%',
+              paddingTop:    8,
+              background:    'var(--neutral-50)',
+              zIndex:        1,
+            }}
+          >
+            {/* Content wrapper — no alignItems so children stretch vertically */}
+            <div
+              style={{
+                display:      'flex',
+                flex:         '1 0 0',
+                minHeight:    1,
+                padding:      12,
+                borderRadius: 20,
+                overflow:     'hidden',
+              }}
+            >
+              {/* Content vertical wrapper — stretches to fill wrapper height via default alignItems:stretch */}
+              <div
+                style={{
+                  display:       'flex',
+                  flexDirection: 'column',
+                  alignItems:    'flex-start',
+                  gap:           24,
+                  flex:          '1 0 0',
+                  minHeight:     0,
+                }}
+              >
+                {/* ── Header (EnterChunk 1) ── */}
+                <EnterChunk
+                  cfg={enterAnimation}
+                  index={1}
                   style={{
-                    margin:     0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 'var(--font-weight-medium)',
-                    fontSize:   'var(--font-size-caption)',
-                    lineHeight: 'var(--line-height-caption)',
-                    color:      'var(--neutral-500)',
+                    display:    'flex',
+                    gap:        8,
+                    alignItems: 'flex-start',
+                    width:      '100%',
                     flexShrink: 0,
                   }}
                 >
-                  {selectedPinIds.size > 0
-                    ? `${selectedPinIds.size} selected`
-                    : 'Select pins to bulk-edit'}
-                </p>
+                  {/* Pins info */}
+                  <div
+                    style={{
+                      display:        'flex',
+                      flex:           '1 0 0',
+                      flexDirection:  'column',
+                      gap:            8,
+                      alignItems:     'flex-start',
+                      justifyContent: 'center',
+                      minWidth:       1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4, width: '100%' }}>
+                      <p
+                        style={{
+                          flex:         '1 0 0',
+                          minWidth:     1,
+                          margin:       0,
+                          fontFamily:   'var(--font-title)',
+                          fontWeight:   400,
+                          fontSize:     24,
+                          lineHeight:   '32px',
+                          color:        'var(--neutral-900)',
+                          whiteSpace:   'nowrap',
+                          overflow:     'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {activeTitle}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                      <Badge color="Neutral" label={`${visiblePins.length} pins`} />
+                    </div>
+                  </div>
 
-                <div style={{ flex: '1 1 0' }} />
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                    {isOrganizing ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleExitOrganize}
+                      >
+                        Done
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        leftIcon={<FolderLibraryIcon size={16} />}
+                        onClick={() => setIsOrganizing(true)}
+                      >
+                        Organise
+                      </Button>
+                    )}
+                    <Tooltip content="Close">
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        icon={<CancelOneIcon size={20} />}
+                        aria-label="Close expanded pinboard"
+                        onClick={onClose}
+                      />
+                    </Tooltip>
+                  </div>
+                </EnterChunk>
 
-                {/* Move to folder */}
-                <Tooltip content="Move to folder">
+                {/* ── Pin Cards Container ── */}
+                <div
+                  style={{
+                    display:       'flex',
+                    flexDirection: 'column',
+                    gap:           12,
+                    flex:          '1 0 0',
+                    minHeight:     1,
+                    width:         '100%',
+                  }}
+                >
+                  {/* Tabs + secondary actions cluster (EnterChunk 2) */}
+                  <EnterChunk
+                    cfg={enterAnimation}
+                    index={2}
+                    style={{
+                      display:    'flex',
+                      alignItems: 'center',
+                      gap:        ROW_GAP,
+                      width:      '100%',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* Tabs strip — width snaps via style.width matching DS behavior */}
+                    <div
+                      ref={tabsContainerRef}
+                      style={{
+                        flex:     '0 0 auto',
+                        minWidth: 1,
+                        padding:  '1px 0 1px 1px',
+                        overflow: 'hidden',
+                        width:    tabsAreaWidth,
+                      }}
+                    >
+                      <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList size="small" scrollable>
+                          {CATEGORY_TABS.map(t => (
+                            <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
+                              {t.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </div>
+
+                    {/* Secondary actions cluster — right-anchored, gap-4 */}
+                    <div
+                      style={{
+                        display:        'flex',
+                        alignItems:     'center',
+                        justifyContent: 'flex-end',
+                        gap:            4,
+                        flexShrink:     0,
+                      }}
+                    >
+                      {/* Search slot — snaps 32px ↔ 276px on toggle */}
+                      <Tooltip content="Search" disabled={searchOpen}>
+                        <motion.div
+                          layout
+                          layoutDependency={hasExpanded}
+                          transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                          style={{
+                            display:    'flex',
+                            alignItems: 'center',
+                            flexShrink: 0,
+                            minWidth:   0,
+                            width:      searchSlotWidth,
+                          }}
+                        >
+                          <AnimatePresence initial={false} mode="popLayout">
+                            {!searchOpen ? (
+                              <motion.span
+                                key="search-btn"
+                                layout
+                                initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                                animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                                exit={{    opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                                style={{ display: 'inline-flex', flexShrink: 0 }}
+                              >
+                                <IconButton
+                                  variant="ghost"
+                                  size="sm"
+                                  icon={<SearchOneIcon size={20} />}
+                                  aria-label="Open search"
+                                  onClick={() => setSearchOpen(true)}
+                                />
+                              </motion.span>
+                            ) : (
+                              <motion.div
+                                key="search-input"
+                                initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                                animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                                exit={{    opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                                style={{ flex: '1 0 0', minWidth: 0 }}
+                              >
+                                <InputField
+                                  fluid
+                                  size="small"
+                                  showLabel={false}
+                                  showSubtitle={false}
+                                  label="Search pins"
+                                  leftIcon={<SearchOneIcon size={16} />}
+                                  rightIcon={
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-label="Close search"
+                                      onClick={() => { setSearchOpen(false); setRawSearch('') }}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          setSearchOpen(false)
+                                          setRawSearch('')
+                                        }
+                                      }}
+                                      style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                                    >
+                                      <CancelCircleIcon size={16} />
+                                    </span>
+                                  }
+                                  placeholder="Search for your pin..."
+                                  value={rawSearch}
+                                  onChange={setRawSearch}
+                                  autoFocus
+                                  aria-label="Search pins"
+                                />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      </Tooltip>
+
+                      {/* Export */}
+                      <motion.div
+                        layout
+                        style={{ display: 'inline-flex' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                      >
+                        <Tooltip content="Export">
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            icon={<DownloadThreeIcon size={20} />}
+                            aria-label="Export pins"
+                            onClick={handleExport}
+                          />
+                        </Tooltip>
+                      </motion.div>
+
+                      {/* Collapse all — conditional, hides in organize mode */}
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {hasExpanded && !isOrganizing && (
+                          <motion.span
+                            key="collapse-all"
+                            initial={{ opacity: 0, scale: 0.6 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{    opacity: 0, scale: 0.6 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                            style={{ display: 'inline-flex' }}
+                          >
+                            <Tooltip content="Collapse all Pins">
+                              <IconButton
+                                variant="ghost"
+                                size="sm"
+                                icon={<UnfoldLessIcon size={20} />}
+                                aria-label="Collapse open pins"
+                                onClick={handleCollapseAll}
+                              />
+                            </Tooltip>
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Filter */}
+                      <motion.span
+                        layout
+                        style={{ display: 'inline-flex' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                      >
+                        <Tooltip content="Filter">
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            icon={<FilterMailIcon size={20} />}
+                            aria-label="Filter pins"
+                          />
+                        </Tooltip>
+                      </motion.span>
+
+                      {/* Sort */}
+                      <motion.span
+                        layout
+                        style={{ display: 'inline-flex' }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                      >
+                        <Tooltip content="Sort">
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            icon={<ArrowUpDownIcon size={20} />}
+                            aria-label="Sort pins"
+                          />
+                        </Tooltip>
+                      </motion.span>
+                    </div>
+                  </EnterChunk>
+
+                  {/* ── Scrollable pin grid ── */}
+                  <div
+                    style={{
+                      position:  'relative',
+                      flex:      '1 0 0',
+                      minHeight: 1,
+                      width:     '100%',
+                    }}
+                  >
+                    <div
+                      ref={scrollRef}
+                      tabIndex={-1}
+                      className="kaya-scrollbar"
+                      onScroll={handleScroll}
+                      style={{
+                        width:               '100%',
+                        height:              '100%',
+                        overflowY:           'auto',
+                        overflowX:           'hidden',
+                        overscrollBehaviorY: 'contain',
+                        padding:             '2px',
+                        outline:             'none',
+                      }}
+                    >
+                      {visiblePins.length === 0 && emptyState ? (
+                        <EmptyState
+                          title={emptyState.title}
+                          description={'description' in emptyState ? emptyState.description : undefined}
+                          action={'action' in emptyState ? emptyState.action : undefined}
+                        />
+                      ) : (
+                        // Masonry: 2 flex columns split by index parity — each column
+                        // packs independently so short pins don't leave dead space.
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                          {[0, 1].map(col => (
+                            <div
+                              key={col}
+                              style={{
+                                display:       'flex',
+                                flexDirection: 'column',
+                                gap:           8,
+                                flex:          '1 1 0',
+                                minWidth:      0,
+                              }}
+                            >
+                              {visiblePins.map((p, i) => {
+                                if (i % 2 !== col) return null
+                                const { id, ...pinProps } = p
+                                const chunkIndex = Math.floor(i / 2) + 3
+                                return (
+                                  <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex}>
+                                    <PinGridCell
+                                      pin={p}
+                                      isOrganizing={isOrganizing}
+                                      isSelected={selectedPinIds.has(id)}
+                                      collapseSignal={collapseSignal}
+                                      onToggle={() => togglePin(id)}
+                                      onExpandedChange={handlePinExpandedChange(id)}
+                                    />
+                                  </EnterChunk>
+                                )
+                              })}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Top edge fade */}
+                    {[
+                      { height: 40, blur: 2 },
+                      { height: 28, blur: 3 },
+                      { height: 18, blur: 5 },
+                      { height: 10, blur: 6 },
+                    ].map(({ height, blur }) => (
+                      <div
+                        key={`top-blur-${blur}`}
+                        aria-hidden
+                        style={{
+                          position:             'absolute',
+                          top:                  0,
+                          left:                 0,
+                          right:                0,
+                          height,
+                          backdropFilter:       `blur(${blur}px)`,
+                          WebkitBackdropFilter: `blur(${blur}px)`,
+                          maskImage:            'linear-gradient(to bottom, black 0%, transparent 100%)',
+                          WebkitMaskImage:      'linear-gradient(to bottom, black 0%, transparent 100%)',
+                          pointerEvents:        'none',
+                          zIndex:               1,
+                          opacity:              atTop ? 0 : 1,
+                          transition:           'opacity 150ms ease',
+                        }}
+                      />
+                    ))}
+                    <div
+                      aria-hidden
+                      style={{
+                        position:      'absolute',
+                        top:           0,
+                        left:          0,
+                        right:         0,
+                        height:        40,
+                        background:    'linear-gradient(to bottom, var(--neutral-50) 0%, transparent 100%)',
+                        pointerEvents: 'none',
+                        zIndex:        1,
+                        opacity:       atTop ? 0 : 1,
+                        transition:    'opacity 150ms ease',
+                      }}
+                    />
+
+                    {/* Bottom edge fade */}
+                    {[
+                      { height: 40, blur: 2 },
+                      { height: 28, blur: 3 },
+                      { height: 18, blur: 5 },
+                      { height: 10, blur: 6 },
+                    ].map(({ height, blur }) => (
+                      <div
+                        key={`bottom-blur-${blur}`}
+                        aria-hidden
+                        style={{
+                          position:             'absolute',
+                          bottom:               0,
+                          left:                 0,
+                          right:                0,
+                          height,
+                          backdropFilter:       `blur(${blur}px)`,
+                          WebkitBackdropFilter: `blur(${blur}px)`,
+                          maskImage:            'linear-gradient(to top, black 0%, transparent 100%)',
+                          WebkitMaskImage:      'linear-gradient(to top, black 0%, transparent 100%)',
+                          pointerEvents:        'none',
+                          zIndex:               1,
+                          opacity:              atBottom ? 0 : 1,
+                          transition:           'opacity 150ms ease',
+                        }}
+                      />
+                    ))}
+                    <div
+                      aria-hidden
+                      style={{
+                        position:      'absolute',
+                        bottom:        0,
+                        left:          0,
+                        right:         0,
+                        height:        40,
+                        background:    'linear-gradient(to top, var(--neutral-50) 0%, transparent 100%)',
+                        pointerEvents: 'none',
+                        zIndex:        1,
+                        opacity:       atBottom ? 0 : 1,
+                        transition:    'opacity 150ms ease',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Organize bulk toolbar — below content wrapper, slides in on organize ── */}
+            <AnimatePresence initial={false}>
+              {isOrganizing && (
+                <motion.div
+                  key="bulk-toolbar"
+                  initial={{ y: 8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{   y: 8, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  style={{
+                    flexShrink:      0,
+                    display:         'flex',
+                    alignItems:      'center',
+                    gap:             8,
+                    padding:         '12px',
+                    borderTop:       '1px solid var(--neutral-100)',
+                    backgroundColor: 'var(--neutral-50)',
+                    width:           '100%',
+                  }}
+                >
+                  <p
+                    style={{
+                      margin:     0,
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 'var(--font-weight-medium)',
+                      fontSize:   'var(--font-size-caption)',
+                      lineHeight: 'var(--line-height-caption)',
+                      color:      'var(--neutral-500)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {selectedPinIds.size > 0
+                      ? `${selectedPinIds.size} selected`
+                      : 'Select pins to bulk-edit'}
+                  </p>
+                  <div style={{ flex: '1 1 0' }} />
+                  <Tooltip content="Move to folder">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<FolderOneIcon size={16} />}
+                      disabled={selectedPinIds.size === 0}
+                      onClick={() => { if (folders.length > 0) handleMoveToFolder(folders[0].id) }}
+                    >
+                      Move to folder
+                    </Button>
+                  </Tooltip>
                   <Button
                     variant="secondary"
                     size="sm"
-                    leftIcon={<FolderOneIcon size={16} />}
-                    disabled={selectedPinIds.size === 0}
-                    onClick={() => {
-                      // TODO: open folder picker dropdown — use first folder for now
-                      if (folders.length > 0) handleMoveToFolder(folders[0].id)
-                    }}
+                    leftIcon={<DownloadThreeIcon size={16} />}
+                    onClick={handleExport}
                   >
-                    Move to folder
+                    Export
                   </Button>
-                </Tooltip>
-
-                {/* Export */}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<DownloadThreeIcon size={16} />}
-                  onClick={handleExport}
-                >
-                  Export
-                </Button>
-
-                {/* Delete */}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon={<CancelOneIcon size={16} />}
-                  disabled={selectedPinIds.size === 0}
-                  onClick={handleDeleteSelected}
-                >
-                  Delete
-                </Button>
-
-                {/* Divider */}
-                <div style={{ width: 1, height: 20, background: 'var(--neutral-200)', flexShrink: 0 }} />
-
-                {/* Done */}
-                <Button variant="secondary" size="sm" onClick={handleExitOrganize}>
-                  Done
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<CancelOneIcon size={16} />}
+                    disabled={selectedPinIds.size === 0}
+                    onClick={handleDeleteSelected}
+                  >
+                    Delete
+                  </Button>
+                  <div style={{ width: 1, height: 20, background: 'var(--neutral-200)', flexShrink: 0 }} />
+                  <Button variant="secondary" size="sm" onClick={handleExitOrganize}>
+                    Done
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </div>
   )
 }
 
-// ── SidebarNavItem ────────────────────────────────────────────────────────────
-
-function SidebarNavItem({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string
-  count?: number
-  active: boolean
-  onClick: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'space-between',
-        width:           '100%',
-        padding:         '6px 16px',
-        background:      active
-          ? 'var(--neutral-100)'
-          : hovered
-            ? 'var(--neutral-50)'
-            : 'transparent',
-        border:          'none',
-        cursor:          'pointer',
-        borderRadius:    8,
-        transition:      'background 100ms',
-      }}
-    >
-      <span
-        style={{
-          fontFamily:  'var(--font-body)',
-          fontWeight:  active ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)',
-          fontSize:    'var(--font-size-caption)',
-          lineHeight:  'var(--line-height-caption)',
-          color:       active ? 'var(--neutral-900)' : 'var(--neutral-600)',
-          textAlign:   'left',
-        }}
-      >
-        {label}
-      </span>
-      {count !== undefined && (
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-regular)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-400)',
-          }}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  )
-}
-
 // ── SidebarFolderItem ─────────────────────────────────────────────────────────
+// Styled to match SidebarMenuItem variant="default" visually.
 
 function SidebarFolderItem({
   folder,
@@ -1026,58 +1222,68 @@ function SidebarFolderItem({
   onRename,
   onDelete,
 }: {
-  folder: PinFolder
-  active: boolean
-  onClick: () => void
+  folder:   PinFolder
+  active:   boolean
+  onClick:  () => void
   onRename: () => void
   onDelete: () => void
 }) {
-  const [hovered,      setHovered]      = useState(false)
-  const [menuOpen,     setMenuOpen]     = useState(false)
+  const [hovered,       setHovered]       = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
     <div
       style={{ position: 'relative' }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setMenuOpen(false) }}
+      onMouseLeave={() => { setHovered(false); setConfirmDelete(false) }}
     >
       <button
         onClick={onClick}
         onDoubleClick={onRename}
         style={{
-          display:     'flex',
-          alignItems:  'center',
-          gap:         8,
-          width:       '100%',
-          padding:     '6px 16px',
-          background:  active ? 'var(--neutral-100)' : hovered ? 'var(--neutral-50)' : 'transparent',
-          border:      'none',
-          cursor:      'pointer',
-          borderRadius: 8,
-          transition:  'background 100ms',
-          textAlign:   'left',
+          display:         'flex',
+          alignItems:      'center',
+          gap:             8,
+          width:           '100%',
+          paddingLeft:     6,
+          paddingRight:    6,
+          paddingTop:      5,
+          paddingBottom:   5,
+          background:      active || hovered
+            ? 'var(--sidebar-menu-item-hover-bg)'
+            : 'transparent',
+          border:          'none',
+          cursor:          'pointer',
+          borderRadius:    10,
+          transition:      'background 150ms',
+          textAlign:       'left',
+          boxShadow:       active || hovered
+            ? 'var(--shadow-sidebar-item-hover)'
+            : undefined,
         }}
       >
-        <FolderOneIcon size={16} color="var(--neutral-500)" />
+        <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
+          <FolderOneIcon size={20} />
+        </div>
         <span
           style={{
-            flex:       '1 1 0',
-            fontFamily: 'var(--font-body)',
-            fontWeight: active ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      active ? 'var(--neutral-900)' : 'var(--neutral-600)',
-            overflow:   'hidden',
+            flex:         '1 1 0',
+            minWidth:     0,
+            fontFamily:   'var(--font-body)',
+            fontWeight:   'var(--font-weight-medium)',
+            fontSize:     'var(--font-size-body)',
+            lineHeight:   'var(--line-height-body)',
+            color:        'var(--sidebar-menu-item-text)',
+            overflow:     'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            whiteSpace:   'nowrap',
           }}
         >
           {folder.name}
         </span>
       </button>
 
-      {/* Inline delete confirm — shows on hover */}
+      {/* Hover delete overlay */}
       <AnimatePresence initial={false}>
         {hovered && (
           <motion.div
@@ -1088,7 +1294,7 @@ function SidebarFolderItem({
             transition={{ duration: 0.1 }}
             style={{
               position:  'absolute',
-              right:     12,
+              right:     6,
               top:       '50%',
               transform: 'translateY(-50%)',
               display:   'flex',
@@ -1120,6 +1326,20 @@ function SidebarFolderItem({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Inner shadow — matches SidebarMenuItem active state */}
+      {(active || hovered) && (
+        <div
+          aria-hidden
+          style={{
+            position:      'absolute',
+            inset:         0,
+            pointerEvents: 'none',
+            borderRadius:  10,
+            boxShadow:     'var(--shadow-item-inner)',
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1135,11 +1355,11 @@ function PinGridCell({
   onToggle,
   onExpandedChange,
 }: {
-  pin: PinboardPin
-  isOrganizing: boolean
-  isSelected: boolean
-  collapseSignal: number
-  onToggle: () => void
+  pin:              PinboardPin
+  isOrganizing:     boolean
+  isSelected:       boolean
+  collapseSignal:   number
+  onToggle:         () => void
   onExpandedChange?: (expanded: boolean) => void
 }) {
   const { id, ...pinProps } = pin
@@ -1148,8 +1368,7 @@ function PinGridCell({
     <div
       style={{
         position:      'relative',
-        borderRadius:  '16px',
-        // Outline lives on the wrapper, not Pin — Pin's overflow:clip would clip it
+        borderRadius:  16,
         outline:       isSelected ? `2px solid var(--focus-ring)` : undefined,
         outlineOffset: isSelected ? 2 : undefined,
       }}
@@ -1158,14 +1377,10 @@ function PinGridCell({
         fluid
         collapseSignal={collapseSignal}
         onExpandedChange={onExpandedChange}
-        style={{
-          // Disable drag-expand in organize mode so the whole card acts as a checkbox target
-          pointerEvents: isOrganizing ? 'none' : 'auto',
-        }}
+        style={{ pointerEvents: isOrganizing ? 'none' : 'auto' }}
         {...pinProps}
       />
 
-      {/* ── Organize mode overlay ── */}
       <AnimatePresence initial={false}>
         {isOrganizing && (
           <motion.div
@@ -1176,17 +1391,16 @@ function PinGridCell({
             transition={{ duration: 0.15 }}
             onClick={onToggle}
             style={{
-              position:  'absolute',
-              inset:     0,
-              borderRadius: 16,
-              cursor:    'pointer',
-              // Transparent overlay to capture clicks on the whole card
+              position:        'absolute',
+              inset:           0,
+              borderRadius:    16,
+              cursor:          'pointer',
               backgroundColor: isSelected
                 ? 'var(--neutral-900-08, rgba(38,33,30,0.08))'
                 : 'transparent',
             }}
           >
-            {/* Checkbox — top-left corner */}
+            {/* Checkbox */}
             <div
               style={{
                 position:        'absolute',

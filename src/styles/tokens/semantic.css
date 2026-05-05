@@ -298,6 +298,54 @@
   /* ── Focus ring ───────────────────────────────────────────────────────────── */
   --focus-ring: var(--color-focus-ring);  /* #0081DB */
 
+  /* ── Switch ────────────────────────────────────────────────────────────────── */
+  --switch-track-bg-off:   var(--neutral-100);     /* #EDE1D7 */
+  --switch-track-bg-on:    var(--blue-400);        /* #6E98CB — Figma 2794:27442 */
+  --switch-thumb-bg:       var(--neutral-white);
+
+  --shadow-switch-track-off:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--neutral-300-40),
+    inset 0px 1px 0px 0px var(--neutral-50-61),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  --shadow-switch-track-on:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--blue-700-70),
+    inset 0px 1px 0px 0px var(--blue-100-43),
+    inset 0px -1px 0px 0px var(--blue-800-15);
+
+  --shadow-switch-thumb-off:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--neutral-300-40),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  --shadow-switch-thumb-on:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--blue-700-40),
+    inset 0px -1px 0px 0px var(--blue-800-15);
+
+  /* ── Checkbox ──────────────────────────────────────────────────────────────
+     Figma 2870:44159 (off) / 2870:44160 (on). Same shadow chain as Switch
+     track — drop + ring + inner highlight + inner depth. The off ring uses
+     neutral-300-40, the on ring uses blue-700-70.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --checkbox-bg-off:  var(--neutral-100);     /* #EDE1D7 */
+  --checkbox-bg-on:   var(--blue-400);        /* #6E98CB */
+  --checkbox-tick:    var(--neutral-white);
+
+  --shadow-checkbox-off:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--neutral-300-40),
+    inset 0px 1px 0px 0px var(--neutral-50-61),
+    inset 0px -1px 0px 0px var(--neutral-600-05);
+
+  --shadow-checkbox-on:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px   var(--blue-700-70),
+    inset 0px 1px 0px 0px var(--blue-100-43),
+    inset 0px -1px 0px 0px var(--blue-800-15);
+
   /* ── Chat Input ─────────────────────────────────────────────────────────────
      Drop shadow: --neutral-700-12 at 2px
      Border ring: --neutral-800-10 at 1px
@@ -380,6 +428,14 @@
   --shadow-text-field-error:
     0px 1px 1.5px 0px var(--neutral-700-12),
     0px 0px 0px 1px var(--red-500);
+
+  /* ── Overlay (universal modal/dialog/popover backdrop) ────────────────────────
+     Single source of truth for every dim layer that sits behind a centred
+     surface (modal, dialog, sheet, command palette, etc.). All overlay
+     components MUST use these tokens — do not hardcode rgba or per-component
+     blur values. Spec: `specs/patterns/overlay-backdrop.md`. Figma 2893:57254. */
+  --overlay-bg:   rgba(18, 12, 8, 0.5);  /* warm near-black @ 50%, tracks --neutral-950 hue */
+  --overlay-blur: 2px;                    /* applied via backdrop-filter */
 
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);
@@ -547,4 +603,34 @@
   outline:        2px solid var(--focus-ring);
   outline-offset: -2px;
   border-radius:  4px;
+}
+
+/* ── Shared focus-visible ring ───────────────────────────────────────────────
+   Every interactive KDS component must show a 2px keyboard-focus ring using
+   `--focus-ring` (#0081DB). Per-component class hooks below own the offset and
+   radius to avoid clipping. Mouse / touch interactions never trigger it because
+   `:focus-visible` is keyboard-driven. Defined per-class instead of via a
+   shared utility so each component can tune the offset to its own border-radius
+   without writing inline styles.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.kds-tab-item:focus-visible,
+.kaya-dropdown-item:focus-visible,
+.kaya-floating-menu-item:focus-visible,
+.kds-model-select-item:focus-visible,
+.kds-chip:focus-visible,
+.kds-switch:focus-visible,
+.kds-checkbox:focus-visible {
+  outline:        2px solid var(--focus-ring);
+  outline-offset: 2px;
+  /* No `border-radius` here — would override the element's resting radius
+     during focus. Modern browsers (Chrome 94+, Safari 16.4+) automatically
+     match `outline`'s curvature to the element's `border-radius`. */
+}
+
+/* ChipButton sits inside the chip's clipped container, so the ring needs to
+   live INSIDE the button's own bounds via outline-offset: -2px. */
+.kds-chip-button:focus-visible {
+  outline:        2px solid var(--focus-ring);
+  outline-offset: -2px;
 }

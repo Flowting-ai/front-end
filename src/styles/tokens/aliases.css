@@ -42,6 +42,90 @@
   /* ── Scrollbar ────────────────────────────────────────────────────────────── */
   --color-scrollbar-thumb: var(--neutral-500-60);  /* rgba(130,122,116,0.60) — translucent warm thumb */
 
+  /* ── Color tags ───────────────────────────────────────────────────────────────
+     Shared 7-colour palette for Chip, Badge, PinCategory.
+     `bg` / `text` / `text-strong` reference primitives; shadow strings stay
+     inlined because they're composite (drop + ring + inset highlight + depth).
+     ─────────────────────────────────────────────────────────────────────────── */
+
+  /* Blue */
+  --color-tag-Blue-bg:            var(--blue-100);   /* #CADCF1 */
+  --color-tag-Blue-text:          var(--blue-700);   /* #135487 */
+  --color-tag-Blue-text-strong:   var(--blue-600);   /* #0D6EB2 */
+  --color-tag-Blue-ring:          rgba(13,110,178,0.5);
+  --color-tag-Blue-highlight:     rgba(231,244,253,0.7);
+  --color-tag-Blue-depth:         rgba(13,110,178,0.1);
+  --color-tag-Blue-shadow:        0px 1px 1.5px 0px rgba(2,15,24,0.2),    0px 0px 0px 1px var(--color-tag-Blue-ring);
+  --color-tag-Blue-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Blue-highlight), inset 0px -1px 0px 0px var(--color-tag-Blue-depth);
+  --color-tag-Blue-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),  inset 0px 1px 0px 0px rgba(13,110,178,0.3);
+
+  /* Red */
+  --color-tag-Red-bg:             var(--red-100);    /* #FFBFB6 */
+  --color-tag-Red-text:           var(--red-700);    /* #7A201C */
+  --color-tag-Red-text-strong:    var(--red-600);    /* #9F2623 */
+  --color-tag-Red-ring:           rgba(159,38,35,0.5);
+  --color-tag-Red-highlight:      rgba(253,231,231,0.7);
+  --color-tag-Red-depth:          rgba(159,38,35,0.1);
+  --color-tag-Red-shadow:         0px 1px 1.5px 0px rgba(24,2,2,0.2),     0px 0px 0px 1px var(--color-tag-Red-ring);
+  --color-tag-Red-inner-shadow:   inset 0px 1px 0px 0px var(--color-tag-Red-highlight), inset 0px -1px 0px 0px var(--color-tag-Red-depth);
+  --color-tag-Red-button-shadow:  inset 0px -1px 0px 0px rgba(255,255,255,0.9),  inset 0px 1px 0px 0px rgba(159,38,35,0.3);
+
+  /* Green — `bg` is the strong tint (PinCategory `Code`); `bg-soft` is the lighter Chip/Badge tint */
+  --color-tag-Green-bg:            var(--green-100);   /* #E5F2C5 */
+  --color-tag-Green-bg-soft:       var(--green-50);    /* #F7FEE6 — Chip / Badge */
+  --color-tag-Green-text:          var(--green-800);   /* #456211 */
+  --color-tag-Green-text-strong:   var(--green-600);   /* #80B707 */
+  --color-tag-Green-ring:          rgba(128,183,7,0.5);
+  --color-tag-Green-highlight:     rgba(247,254,230,0.7);
+  --color-tag-Green-depth:         rgba(128,183,7,0.1);
+  --color-tag-Green-shadow:        0px 1px 1.5px 0px rgba(17,25,1,0.2),    0px 0px 0px 1px var(--color-tag-Green-ring);
+  --color-tag-Green-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Green-highlight), inset 0px -1px 0px 0px var(--color-tag-Green-depth);
+  --color-tag-Green-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(128,183,7,0.3);
+
+  /* Yellow */
+  --color-tag-Yellow-bg:            var(--yellow-100); /* #E9DFC9 */
+  --color-tag-Yellow-text:          var(--yellow-700); /* #6D5921 */
+  --color-tag-Yellow-text-strong:   var(--yellow-600); /* #8F7427 */
+  --color-tag-Yellow-ring:          rgba(143,116,39,0.5);
+  --color-tag-Yellow-highlight:     rgba(250,246,235,0.7);
+  --color-tag-Yellow-depth:         rgba(143,116,39,0.1);
+  --color-tag-Yellow-shadow:        0px 1px 1.5px 0px rgba(20,16,5,0.2),     0px 0px 0px 1px var(--color-tag-Yellow-ring);
+  --color-tag-Yellow-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Yellow-highlight), inset 0px -1px 0px 0px var(--color-tag-Yellow-depth);
+  --color-tag-Yellow-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(143,116,39,0.3);
+
+  /* Purple */
+  --color-tag-Purple-bg:            var(--purple-100); /* #DED0DF */
+  --color-tag-Purple-text:          var(--purple-700); /* #513853 */
+  --color-tag-Purple-text-strong:   var(--purple-600); /* #674F68 */
+  --color-tag-Purple-ring:          rgba(103,79,104,0.5);
+  --color-tag-Purple-highlight:     rgba(248,236,249,0.7);
+  --color-tag-Purple-depth:         rgba(103,79,104,0.1);
+  --color-tag-Purple-shadow:        0px 1px 1.5px 0px rgba(18,6,19,0.2),     0px 0px 0px 1px var(--color-tag-Purple-ring);
+  --color-tag-Purple-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Purple-highlight), inset 0px -1px 0px 0px var(--color-tag-Purple-depth);
+  --color-tag-Purple-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(103,79,104,0.3);
+
+  /* Brown */
+  --color-tag-Brown-bg:            var(--brown-100); /* #E6D5CA */
+  --color-tag-Brown-text:          var(--brown-700); /* #683D1B — Chip / Badge */
+  --color-tag-Brown-text-strong:   var(--brown-600); /* #7E5435 — PinCategory */
+  --color-tag-Brown-ring:          rgba(126,84,53,0.5);
+  --color-tag-Brown-highlight:     rgba(250,241,235,0.7);
+  --color-tag-Brown-depth:         rgba(126,84,53,0.1);
+  --color-tag-Brown-shadow:        0px 1px 1.5px 0px rgba(20,12,5,0.2),     0px 0px 0px 1px var(--color-tag-Brown-ring);
+  --color-tag-Brown-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Brown-highlight), inset 0px -1px 0px 0px var(--color-tag-Brown-depth);
+  --color-tag-Brown-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(126,84,53,0.3);
+
+  /* Neutral */
+  --color-tag-Neutral-bg:            var(--neutral-100); /* #EDE1D7 */
+  --color-tag-Neutral-text:          var(--neutral-700); /* #524B47 */
+  --color-tag-Neutral-text-strong:   var(--neutral-600); /* #6A625D */
+  --color-tag-Neutral-ring:          rgba(106,98,93,0.5);
+  --color-tag-Neutral-highlight:     rgba(247,242,237,0.7);
+  --color-tag-Neutral-depth:         rgba(106,98,93,0.1);
+  --color-tag-Neutral-shadow:        0px 1px 1.5px 0px rgba(18,12,8,0.2),     0px 0px 0px 1px var(--color-tag-Neutral-ring);
+  --color-tag-Neutral-inner-shadow:  inset 0px 1px 0px 0px var(--color-tag-Neutral-highlight), inset 0px -1px 0px 0px var(--color-tag-Neutral-depth);
+  --color-tag-Neutral-button-shadow: inset 0px -1px 0px 0px rgba(255,255,255,0.9),    inset 0px 1px 0px 0px rgba(106,98,93,0.3);
+
 }
 
 /* Dark mode — to be filled when dark primitives are ready */
