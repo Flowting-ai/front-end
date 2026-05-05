@@ -88,16 +88,23 @@ export function ChatInterface({
 
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
+  const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
+  
+  // Store the send function in a ref so it's always current
+  sendInitialPrompt.current = (prompt: string) => {
+    const content = prompt.trim();
+    if (content && !chatId) {
+      addOptimisticUserMessage(content);
+      const loadingId = addLoadingAssistantMessage();
+      fetchAiResponse(content, null, loadingId, selectedModelId);
+    }
+  };
+
   useEffect(() => {
-    if (initialPrompt && !initialPromptSentRef.current && !chatId) {
+    if (initialPrompt && !initialPromptSentRef.current) {
       initialPromptSentRef.current = true;
-      // Fire the send in the next tick so state is settled
-      const content = initialPrompt.trim();
-      if (content) {
-        addOptimisticUserMessage(content);
-        const loadingId = addLoadingAssistantMessage();
-        fetchAiResponse(content, null, loadingId, selectedModelId);
-      }
+      // Use the ref to avoid dependency issues
+      sendInitialPrompt.current?.(initialPrompt);
     }
   }, [initialPrompt]);
 

@@ -95,11 +95,12 @@ function ChatPageInner() {
     });
   };
 
-  const handlePromptSelect = (prompt: string) => {
-    setInitialPrompt(prompt);
-    setNewChatInput(prompt);
-    setHasMessages(true);
-  };
+  // No longer needed since we removed prompt suggestions
+  // const handlePromptSelect = (prompt: string) => {
+  //   setInitialPrompt(prompt);
+  //   setNewChatInput(prompt);
+  //   setHasMessages(true);
+  // };
 
   const handleNewChatSend = (value: string) => {
     if (!value.trim()) return;
@@ -124,35 +125,33 @@ function ChatPageInner() {
             flex: 1,
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px 16px",
           }}
         >
           <div
             style={{
-              flex: 1,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <InitialPrompts onPromptSelect={handlePromptSelect} />
-          </div>
-          {/* Chat input pinned to bottom of empty state */}
-          <div
-            style={{
-              padding: "0 16px 24px",
+              gap: "32px",
               maxWidth: "768px",
               width: "100%",
-              margin: "0 auto",
             }}
           >
-            <ChatInput
-              value={newChatInput}
-              onChange={setNewChatInput}
-              onSend={handleNewChatSend}
-              modelName={selectedModel?.modelName}
-              onModelClick={handleModelClick}
-              placeholder="How can I help you today?"
-            />
+            <InitialPrompts />
+            {/* Chat input centered below greetings */}
+            <div style={{ width: "100%" }}>
+              <ChatInput
+                value={newChatInput}
+                onChange={setNewChatInput}
+                onSend={handleNewChatSend}
+                modelName={selectedModel?.modelName}
+                onModelClick={handleModelClick}
+                placeholder="How can I help you today?"
+              />
+            </div>
           </div>
         </div>
       ) : (

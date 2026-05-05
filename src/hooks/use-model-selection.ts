@@ -16,9 +16,29 @@ interface UseModelSelectionResult {
   refreshModels: () => Promise<void>;
 }
 
+// Helper to get initial model from localStorage
+function getInitialModelFromStorage(): Partial<AIModel> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    
+    // Store minimal info to show correct icon immediately
+    const cachedModel = localStorage.getItem(`${STORAGE_KEY}_cache`);
+    if (cachedModel) {
+      return JSON.parse(cachedModel);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function useModelSelection(): UseModelSelectionResult {
   const [models, setModels] = useState<AIModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(
+    getInitialModelFromStorage() as AIModel | null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,8 +49,8 @@ export function useModelSelection(): UseModelSelectionResult {
       const fetched = await fetchModelsWithCache({ force });
       setModels(fetched);
 
-      // Restore persisted selection
-      if (!selectedModel && fetched.length > 0) {
+      // Restore or upgrade persisted selection
+      if (fetched.length > 0) {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const found = fetched.find(
@@ -39,11 +59,37 @@ export function useModelSelection(): UseModelSelectionResult {
           );
           if (found) {
             setSelectedModel(found);
+            // Update cache with full model data
+            const cacheData = {
+              id: found.id,
+              modelId: found.modelId,
+              modelName: found.modelName,
+              companyName: found.companyName,
+            };
+            localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
           } else {
+            // Stored model not found, fallback to first
             setSelectedModel(fetched[0]);
+            localStorage.setItem(STORAGE_KEY, String(fetched[0].id));
+            const cacheData = {
+              id: fetched[0].id,
+              modelId: fetched[0].modelId,
+              modelName: fetched[0].modelName,
+              companyName: fetched[0].companyName,
+            };
+            localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
           }
-        } else {
+        } else if (!selectedModel) {
+          // No stored selection and no cached model, use first
           setSelectedModel(fetched[0]);
+          localStorage.setItem(STORAGE_KEY, String(fetched[0].id));
+          const cacheData = {
+            id: fetched[0].id,
+            modelId: fetched[0].modelId,
+            modelName: fetched[0].modelName,
+            companyName: fetched[0].companyName,
+          };
+          localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
         }
       }
     } catch (err) {
@@ -62,6 +108,14 @@ export function useModelSelection(): UseModelSelectionResult {
     setSelectedModel(model);
     if (model.id) {
       localStorage.setItem(STORAGE_KEY, String(model.id));
+      // Cache minimal model info for instant icon display on reload
+      const cacheData = {
+        id: model.id,
+        modelId: model.modelId,
+        modelName: model.modelName,
+        companyName: model.companyName,
+      };
+      localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
     }
   };
 

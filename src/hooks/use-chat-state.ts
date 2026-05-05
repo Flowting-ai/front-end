@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { getChatMessages } from "@/lib/api/chat"
 import { logger } from "@/lib/logger"
 import type { Message } from "@/types/chat"
@@ -165,7 +165,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
 
   // ── Pagination ─────────────────────────────────────────────────────────────
 
-  const loadMoreMessages = async () => {
+  const loadMoreMessages = useCallback(async () => {
     if (!chatId || loadingRef.current || !hasMoreMessages) return
     loadingRef.current = true
     try {
@@ -178,11 +178,11 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     } finally {
       loadingRef.current = false
     }
-  }
+  }, [chatId, hasMoreMessages])
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
-  const addOptimisticUserMessage = (content: string): string => {
+  const addOptimisticUserMessage = useCallback((content: string): string => {
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
       id,
@@ -193,9 +193,9 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     }
     setMessages((prev) => [...prev, msg])
     return id
-  }
+  }, [chatId])
 
-  const addLoadingAssistantMessage = (): string => {
+  const addLoadingAssistantMessage = useCallback((): string => {
     const id = `loading-assistant-${Date.now()}`
     const msg: UIMessage = {
       id,
@@ -207,18 +207,18 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     }
     setMessages((prev) => [...prev, msg])
     return id
-  }
+  }, [chatId])
 
-  const rollbackLast = (n: number) => {
+  const rollbackLast = useCallback((n: number) => {
     setMessages((prev) => prev.slice(0, prev.length - n))
-  }
+  }, [])
 
-  const clearMessages = () => setMessages([])
+  const clearMessages = useCallback(() => setMessages([]), [])
 
   /** Mark a chat ID as optimistically created (prevents fetch-on-navigate). */
-  const markChatAsOptimistic = (id: string) => {
+  const markChatAsOptimistic = useCallback((id: string) => {
     optimisticChatIdsRef.current.add(id)
-  }
+  }, [])
 
   return {
     messages,
