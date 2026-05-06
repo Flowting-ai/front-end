@@ -85,6 +85,8 @@ const CATEGORY_COLOR: Record<PinCategory, BadgeColor> = {
   Workflow: 'Neutral',
 }
 
+const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Purple', 'Yellow', 'Red', 'Neutral', 'Brown']
+
 // Width math mirrors DS PinboardExpanded exactly
 const CVW_WIDTH       = 644
 const ICON_BUTTON_W   = 32
@@ -95,14 +97,19 @@ const SEARCH_OPEN_W   = 276
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pinItemToKDS(item: PinItem): PinboardPin {
+  const tagLabels: { color: BadgeColor; text: string }[] =
+    item.tags && item.tags.length > 0
+      ? item.tags.map((tag, i) => ({ color: TAG_COLORS[i % TAG_COLORS.length], text: tag }))
+      : [{ color: CATEGORY_COLOR[item.category], text: item.category }];
+
   return {
     id:          item.id,
     category:    item.category,
-    pinTitle:    item.title,
+    pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
     chatName:    item.chatName ?? '',
     labels: [
-      { color: CATEGORY_COLOR[item.category], text: item.category },
+      ...tagLabels,
       ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: item.modelName }] : []),
     ],
   }
@@ -285,6 +292,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   // ── Fetch folders on mount ────────────────────────────────────────────────
   useEffect(() => {
     apiFetch(PIN_FOLDERS_ENDPOINT)
+      .then((res) => (res.ok ? res.json() : []))
       .then((data: unknown) => {
         if (Array.isArray(data))
           setFolders(data as PinFolder[])

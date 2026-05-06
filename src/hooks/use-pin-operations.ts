@@ -21,7 +21,7 @@ export function usePinOperations(): UsePinOperationsResult {
     setIsLoading(true);
     try {
       const result = await listPins();
-      setPins(result.pins);
+      setPins(result);
       loadedRef.current = true;
     } catch (err) {
       logger.error("[usePinOperations] Failed to load pins", err);
@@ -38,7 +38,7 @@ export function usePinOperations(): UsePinOperationsResult {
     if (!query) return pins;
     try {
       const result = await listPins(query);
-      return result.pins;
+      return result;
     } catch (err) {
       logger.error("[usePinOperations] Search failed", err);
       return pins.filter(

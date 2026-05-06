@@ -20,6 +20,10 @@ import {
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelIcon } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
+import { ModelSelectItem } from "@/components/ModelSelectItem";
+import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
+import { InputField } from "@/components/InputField";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -39,21 +43,6 @@ const CATEGORY_TABS = [
   { value: "search", label: "Search", icon: <GlobalSearchIcon size={16} /> },
 ] as const;
 
-// ── ModelSelectItem shadow constants (same as design-system) ──────────────────
-
-const ITEM_SHADOW_ACTIVE =
-  "0px 1px 1.5px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-300-40)";
-const ITEM_SHADOW_INNER =
-  "inset 0px 1px 0px 0px var(--neutral-50-61), inset 0px -1px 0px 0px var(--neutral-600-05)";
-
-// ── ModelFeaturedCard constants (same as design-system) ───────────────────────
-
-const FEATURED_SELECTED_GRADIENT =
-  "linear-gradient(180deg, rgba(221,221,221,0.5) 0%, rgba(143,116,39,0.5) 21.635%, rgba(104,61,27,0.5) 36.058%, rgba(39,13,42,0.5) 63.462%, rgba(11,53,127,0.5) 82.212%, rgba(13,110,178,0.5) 97.115%)";
-
-const FEATURED_TEXT_SHADOW =
-  "0px -0.5px 0.364px rgba(0,0,0,0.25), 0px 0.5px 0.364px rgba(255,255,255,0.25)";
-
 const CAPTION_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-body)",
   fontWeight: "var(--font-weight-medium)",
@@ -62,677 +51,6 @@ const CAPTION_STYLE: React.CSSProperties = {
   color: "var(--neutral-500)",
   whiteSpace: "nowrap",
 };
-
-// ── ModelSelectItem ───────────────────────────────────────────────────────────
-
-interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
-  image?: React.ReactNode;
-  label?: string;
-  icons?: React.ReactNode;
-  selected?: boolean;
-}
-
-function ModelSelectItem({
-  image,
-  label,
-  icons,
-  selected = false,
-  style,
-  onMouseEnter: externalEnter,
-  onMouseLeave: externalLeave,
-  ...props
-}: ModelSelectItemProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const isActive = isHovered || selected;
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "6px",
-        borderRadius: "10px",
-        overflow: "hidden",
-        backgroundColor: isActive
-          ? "var(--model-select-item-bg-active)"
-          : "transparent",
-        boxShadow: isActive ? ITEM_SHADOW_ACTIVE : "none",
-        cursor: "pointer",
-        userSelect: "none",
-        flexShrink: 0,
-        transition: "background-color 150ms, box-shadow 150ms",
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        setIsHovered(true);
-        externalEnter?.(e);
-      }}
-      onMouseLeave={(e) => {
-        setIsHovered(false);
-        externalLeave?.(e);
-      }}
-      {...props}
-    >
-      {/* Left: image + label */}
-      <div
-        style={{
-          display: "flex",
-          flex: "1 0 0",
-          gap: "8px",
-          alignItems: "center",
-          minWidth: 0,
-        }}
-      >
-        {image && (
-          <div
-            aria-hidden
-            style={{
-              width: "22px",
-              height: "22px",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-            }}
-          >
-            {image}
-          </div>
-        )}
-        <span
-          style={{
-            flex: "1 0 0",
-            fontFamily: "var(--font-body)",
-            fontWeight: "var(--font-weight-medium)",
-            fontSize: "14px",
-            lineHeight: "22px",
-            color: "var(--model-select-item-text)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {label}
-        </span>
-      </div>
-
-      {/* Right icons slot */}
-      {icons && (
-        <div
-          aria-hidden
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexShrink: 0,
-            gap: "2px",
-            lineHeight: 0,
-            color: "var(--model-select-item-icon)",
-          }}
-        >
-          {icons}
-        </div>
-      )}
-
-      {/* Inner depth shadow — active state */}
-      {isActive && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            pointerEvents: "none",
-            boxShadow: ITEM_SHADOW_INNER,
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── ModelFeaturedCard (Muse) ───────────────────────────────────────────────────
-
-interface Ripple {
-  key: number;
-  x: number;
-  y: number;
-  r: number;
-}
-
-function ModelFeaturedCard() {
-  const [isSelected, setIsSelected] = useState(false);
-  const [ripples, setRipples] = useState<Ripple[]>([]);
-  const selectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rippleTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-
-  useEffect(() => {
-    return () => {
-      if (selectTimerRef.current) clearTimeout(selectTimerRef.current);
-      rippleTimersRef.current.forEach(clearTimeout);
-      rippleTimersRef.current.clear();
-    };
-  }, []);
-
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isSelected) {
-      setIsSelected(false);
-      return;
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const r = Math.sqrt(
-      Math.max(x, rect.width - x) ** 2 + Math.max(y, rect.height - y) ** 2,
-    );
-    const key = Date.now();
-    setRipples((prev) => [...prev, { key, x, y, r }]);
-
-    const rippleTimer = setTimeout(() => {
-      setRipples((prev) => prev.filter((rp) => rp.key !== key));
-      rippleTimersRef.current.delete(rippleTimer);
-    }, 1000);
-    rippleTimersRef.current.add(rippleTimer);
-
-    if (selectTimerRef.current) clearTimeout(selectTimerRef.current);
-    selectTimerRef.current = setTimeout(() => {
-      setIsSelected(true);
-      selectTimerRef.current = null;
-    }, 480);
-  };
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        borderRadius: "12px",
-        overflow: "clip",
-        padding: "12px",
-        width: "100%",
-        flexShrink: 0,
-        boxShadow: "var(--shadow-preset-featured-outer)",
-        cursor: "pointer",
-      }}
-      onClick={handleClick}
-    >
-      {/* Base gradient background */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)",
-          borderRadius: "inherit",
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Persistent selected gradient */}
-      {isSelected && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: "1px",
-            borderRadius: "8.727px",
-            filter: "blur(7.273px)",
-            backgroundImage: FEATURED_SELECTED_GRADIENT,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-
-      {/* Click ripple effects */}
-      <AnimatePresence>
-        {ripples.flatMap(({ key, x, y, r }) => [
-          <motion.div
-            key={`${key}-fill`}
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: x - r,
-              top: y - r,
-              width: r * 2,
-              height: r * 2,
-              borderRadius: "50%",
-              backgroundImage: FEATURED_SELECTED_GRADIENT,
-              filter: "blur(7.273px)",
-              pointerEvents: "none",
-              transformOrigin: "center",
-            }}
-            initial={{ scale: 0, opacity: 1 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.35, ease: "easeIn" } }}
-            transition={{ scale: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } }}
-          />,
-          <motion.div
-            key={`${key}-warp`}
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: x - r,
-              top: y - r,
-              width: r * 2,
-              height: r * 2,
-              borderRadius: "50%",
-              background: "transparent",
-              boxShadow:
-                "0 0 32px 12px rgba(220,195,140,0.6), inset 0 0 24px 8px rgba(220,195,140,0.25)",
-              pointerEvents: "none",
-              transformOrigin: "center",
-            }}
-            initial={{ scale: 0, opacity: 1 }}
-            animate={{ scale: 1.1, opacity: 0 }}
-            transition={{ duration: 0.42, ease: [0.2, 0.8, 0.4, 1] }}
-          />,
-          <motion.div
-            key={`${key}-burst`}
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: x - 56,
-              top: y - 56,
-              width: 112,
-              height: 112,
-              borderRadius: "50%",
-              background:
-                "radial-gradient(circle, rgba(255,248,215,0.9) 0%, rgba(210,165,75,0.5) 40%, transparent 70%)",
-              filter: "blur(7px)",
-              pointerEvents: "none",
-              transformOrigin: "center",
-            }}
-            initial={{ scale: 0, opacity: 1 }}
-            animate={{ scale: 4, opacity: 0 }}
-            transition={{ duration: 0.38, ease: [0.2, 0.65, 0.4, 1] }}
-          />,
-        ])}
-      </AnimatePresence>
-
-      {/* Content */}
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          gap: "4px",
-          textShadow: FEATURED_TEXT_SHADOW,
-        }}
-      >
-        <p
-          style={{
-            fontFamily: "var(--font-title)",
-            fontWeight: 400,
-            fontSize: "24px",
-            lineHeight: "32px",
-            color: "var(--neutral-50)",
-            margin: 0,
-          }}
-        >
-          Muse
-        </p>
-        <p
-          style={{
-            fontFamily: "var(--font-body)",
-            fontWeight: 400,
-            fontSize: "11px",
-            lineHeight: "14px",
-            color: "var(--neutral-200)",
-            margin: 0,
-          }}
-        >
-          Knows the work before you ask. Each task finds its way to the right
-          mind, without you lifting a setting.{" "}
-          <a href="#" style={{ color: "inherit", textDecoration: "underline" }}>
-            Learn more
-          </a>
-        </p>
-      </div>
-
-      {/* Inner depth shadow */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "inherit",
-          boxShadow: "var(--shadow-preset-featured-inner)",
-          pointerEvents: "none",
-        }}
-      />
-    </div>
-  );
-}
-
-// ── AnimatedTabsList ───────────────────────────────────────────────────────────
-
-interface Tab {
-  value: string;
-  label: string;
-  icon?: React.ReactNode;
-}
-
-interface AnimatedTabsListProps {
-  value: string;
-  onValueChange: (v: string) => void;
-  tabs: readonly Tab[];
-  scrollable?: boolean;
-  size?: "small" | "medium";
-}
-
-function AnimatedTabsList({
-  value,
-  onValueChange,
-  tabs,
-  scrollable = false,
-  size = "small",
-}: AnimatedTabsListProps) {
-  const isSmall = size === "small";
-  const radius = isSmall ? "8px" : "10px";
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [pill, setPill] = useState<{ x: number; width: number } | null>(null);
-
-  // Recompute pill position from the active tab, accounting for scroll offset.
-  // The pill lives in the outer div (not the scroll container) so we subtract
-  // scrollLeft to get the visual position relative to the outer div.
-  const recomputePill = () => {
-    const row = rowRef.current;
-    if (!row) return;
-    const active = row.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!active) { setPill(null); return; }
-    setPill({ x: active.offsetLeft - row.scrollLeft, width: active.offsetWidth });
-  };
-
-  useLayoutEffect(() => {
-    recomputePill();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  // Keep the pill in sync when the user scrolls the tab strip.
-  useEffect(() => {
-    if (!scrollable) return;
-    const row = rowRef.current;
-    if (!row) return;
-    row.addEventListener("scroll", recomputePill, { passive: true });
-    return () => row.removeEventListener("scroll", recomputePill);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollable]);
-
-  return (
-    <div
-      role="tablist"
-      style={{
-        position: "relative",
-        display: scrollable ? "block" : "inline-flex",
-        alignItems: "flex-start",
-      }}
-    >
-      {/* Beige pill background */}
-      <div
-        aria-hidden
-        style={{ position: "absolute", inset: 0, borderRadius: radius, pointerEvents: "none" }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: radius,
-            backgroundColor: "var(--tab-bg)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            boxShadow: "var(--shadow-tab-inner)",
-          }}
-        />
-      </div>
-
-      {/* Animated pill indicator — hoisted above the scroll container so
-          overflow:auto on rowRef cannot clip its box-shadow. */}
-      {pill && (
-        <>
-          <motion.div
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              borderRadius: radius,
-              backgroundColor: "var(--tab-item-bg-selected)",
-              boxShadow: "var(--shadow-tab-item-selected)",
-              pointerEvents: "none",
-            }}
-            animate={{ x: pill.x, width: pill.width }}
-            initial={false}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          />
-          <motion.div
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              borderRadius: radius,
-              boxShadow: "var(--shadow-tab-item-selected-inner)",
-              pointerEvents: "none",
-            }}
-            animate={{ x: pill.x, width: pill.width }}
-            initial={false}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          />
-        </>
-      )}
-
-      {/* Triggers row — zIndex:1 keeps buttons above the pill layers */}
-      <div
-        ref={rowRef}
-        style={{
-          position: "relative",
-          zIndex: 1,
-          display: "flex",
-          gap: "4px",
-          alignItems: "center",
-          flexShrink: 0,
-          ...(scrollable && {
-            overflowX: "auto",
-            overscrollBehaviorX: "contain",
-            scrollbarWidth: "none" as const,
-            paddingLeft: "1px",
-          }),
-        }}
-      >
-        {tabs.map((tab) => {
-          const isSelected = tab.value === value;
-          return (
-            <button
-              key={tab.value}
-              role="tab"
-              aria-selected={isSelected}
-              onClick={() => onValueChange(tab.value)}
-              style={{
-                position: "relative",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: isSmall ? "2px" : "4px",
-                padding: isSmall ? "7px" : "7px 8px",
-                borderRadius: radius,
-                border: "none",
-                cursor: "pointer",
-                backgroundColor: "transparent",
-                flexShrink: scrollable ? 0 : undefined,
-                zIndex: 1,
-              }}
-            >
-              {tab.icon && (
-                <span
-                  aria-hidden
-                  style={{
-                    display: "inline-flex",
-                    flexShrink: 0,
-                    lineHeight: 0,
-                    color: isSelected
-                      ? "var(--tab-item-text-selected)"
-                      : "var(--tab-item-text-default)",
-                    transition: "color 150ms",
-                  }}
-                >
-                  {tab.icon}
-                </span>
-              )}
-              <span
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontWeight: "var(--font-weight-medium)",
-                  fontSize: isSmall
-                    ? "var(--font-size-caption)"
-                    : "var(--font-size-body)",
-                  lineHeight: isSmall
-                    ? "var(--line-height-caption)"
-                    : "var(--line-height-body)",
-                  color: isSelected
-                    ? "var(--tab-item-text-selected)"
-                    : "var(--tab-item-text-default)",
-                  whiteSpace: "nowrap",
-                  padding: "0 2px",
-                  transition: "color 150ms",
-                }}
-              >
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── SearchInput ───────────────────────────────────────────────────────────────
-
-interface SearchInputProps {
-  value: string;
-  onChange: (v: string) => void;
-}
-
-function SearchInput({ value, onChange }: SearchInputProps) {
-  const [isFocused, setIsFocused] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const BASE_SHADOW = "0px 1px 1.5px 0px var(--neutral-700-12)";
-
-  let containerShadow: string;
-  if (value.length > 0 && !isFocused) {
-    containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-100)`;
-  } else if (isHovered && !isFocused) {
-    containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-200)`;
-  } else {
-    containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-100)`;
-  }
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        gap: "2px",
-        backgroundColor: "var(--text-field-bg)",
-        padding: "7px",
-        borderRadius: "8px",
-        overflow: "hidden",
-        boxShadow: containerShadow,
-        outlineStyle: "solid",
-        outlineWidth: "2px",
-        outlineOffset: "3px",
-        outlineColor: isFocused ? "var(--focus-ring)" : "transparent",
-        transition: "box-shadow 150ms, outline-color 150ms",
-        cursor: "text",
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Left icon */}
-      <span
-        aria-hidden
-        style={{
-          display: "inline-flex",
-          flexShrink: 0,
-          color: "var(--text-field-icon)",
-          lineHeight: 0,
-        }}
-      >
-        <SearchOneIcon size={16} />
-      </span>
-
-      {/* Input + animated placeholder */}
-      <div
-        style={{
-          position: "relative",
-          flex: 1,
-          padding: "0 2px",
-          display: "flex",
-          alignItems: "center",
-          minWidth: 0,
-        }}
-      >
-        <AnimatePresence initial={false}>
-          {!value && (
-            <motion.span
-              key="placeholder"
-              aria-hidden
-              initial={{ opacity: 0, filter: "blur(2px)" }}
-              animate={{ opacity: 1, filter: "blur(0px)", transition: { duration: 0.2 } }}
-              exit={{ opacity: 0, filter: "blur(2px)", transition: { duration: 0.15 } }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                pointerEvents: "none",
-                fontFamily: "var(--font-body)",
-                fontWeight: "var(--font-weight-regular)",
-                fontSize: "var(--font-size-caption)",
-                lineHeight: "var(--line-height-caption)",
-                color: "var(--text-field-placeholder)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
-            >
-              Look up your model…
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          aria-label="Search models"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            padding: 0,
-            fontFamily: "var(--font-body)",
-            fontWeight: "var(--font-weight-regular)",
-            fontSize: "var(--font-size-caption)",
-            lineHeight: "var(--line-height-caption)",
-            color: "var(--text-field-text)",
-            width: "100%",
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 // ── Utility: derive capability icons from model modalities ────────────────────
 
@@ -817,18 +135,36 @@ function PresetModelSelectorContent({
           }}
         >
           <div style={{ flex: "1 0 0", minWidth: 0 }}>
-            <SearchInput value={search} onChange={setSearch} />
+            <InputField
+              size="small"
+              showLabel={false}
+              label="Search models"
+              showSubtitle={false}
+              leftIcon={<SearchOneIcon size={16} />}
+              placeholder="Look up your model…"
+              value={search}
+              onChange={setSearch}
+              fluid
+            />
           </div>
-          <AnimatedTabsList
-            value={tier}
-            onValueChange={setTier}
-            tabs={TIER_TABS}
-            size="small"
-          />
+          <Tabs value={tier} onValueChange={setTier}>
+            <TabsList size="small">
+              {TIER_TABS.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* ── Featured Muse card ── */}
-        <ModelFeaturedCard />
+        <ModelFeaturedCard
+          title="Muse"
+          description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
+          learnMoreHref="#"
+          proSwitch
+        />
 
         {/* ── Category tabs + model list ── */}
         <div
@@ -843,13 +179,15 @@ function PresetModelSelectorContent({
         >
           {/* Category tabs */}
           <div style={{ flexShrink: 0 }}>
-            <AnimatedTabsList
-              value={category}
-              onValueChange={setCategory}
-              tabs={CATEGORY_TABS}
-              scrollable
-              size="small"
-            />
+            <Tabs value={category} onValueChange={setCategory}>
+              <TabsList size="small" scrollable>
+                {CATEGORY_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* Model list */}
@@ -868,7 +206,7 @@ function PresetModelSelectorContent({
                   display: "flex",
                   gap: "8px",
                   alignItems: "center",
-                  padding: "4px 8px 2px 34px",
+                  padding: "4px 38px 2px 34px",
                   flexShrink: 0,
                 }}
               >

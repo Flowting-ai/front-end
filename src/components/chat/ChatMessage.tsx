@@ -9,71 +9,16 @@ import { StreamingCursor } from "./StreamingCursor";
 import { useHighlightJs } from "@/hooks/useHighlightJs";
 import { usePinboard } from "@/context/pinboard-context";
 import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
-
-// ── Icon Components (matching souvenir-chat-preview) ──────────────────────────
-
-function CopyIcon({ size = 18, color = "#A09890" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-function CheckIcon({ size = 18, color = "#80B707" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function RetryIcon({ size = 18, color = "#A09890" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 4v6h6" />
-      <path d="M23 20v-6h-6" />
-      <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10" />
-      <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14" />
-    </svg>
-  );
-}
-
-function EditIcon({ size = 16, color = "#B6ACA4" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-      <path d="m15 5 4 4" />
-    </svg>
-  );
-}
-
-function ThumbsUpIcon({ size = 18, color = "#A09890" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 22V11l5-9a2 2 0 0 1 2 2v4h5.5a2 2 0 0 1 2 1.8l-1 9a2 2 0 0 1-2 1.2H7z" />
-      <path d="M2 13v8a1 1 0 0 0 1 1h2V12H3a1 1 0 0 0-1 1z" />
-    </svg>
-  );
-}
-
-function ThumbsDownIcon({ size = 18, color = "#A09890" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 2V13l-5 9a2 2 0 0 1-2-2v-4H4.5a2 2 0 0 1-2-1.8l1-9A2 2 0 0 1 5.5 4H17z" />
-      <path d="M22 11V3a1 1 0 0 0-1-1h-2v10h2a1 1 0 0 0 1-1z" />
-    </svg>
-  );
-}
-
-function BookmarkIcon({ size = 18, color = "#A09890" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
+import { IconButton } from "@/components/IconButton";
+import {
+  PinIcon,
+  CopyOneIcon,
+  ThumbsUpIcon,
+  ThumbsDownIcon,
+  RedoIcon,
+  TickTwoIcon,
+  PenOneIcon,
+} from "@strange-huge/icons";
 
 // ── Standalone Activities Block (collapsible, used when no reasoning) ─────────
 
@@ -290,17 +235,34 @@ export function ChatMessage({
                 autoFocus
                 style={{
                   width: "100%",
-                  minHeight: "60px",
-                  padding: "12px 16px",
-                  borderRadius: "16px",
-                  border: "1px solid var(--neutral-300)",
+                  minHeight: "80px",
+                  padding: "7px 10px",
+                  borderRadius: "10px",
+                  border: "none",
                   fontFamily: "var(--font-body)",
-                  fontSize: "16px",
+                  fontSize: "14px",
                   lineHeight: "22px",
-                  color: "var(--neutral-900)",
-                  backgroundColor: "var(--neutral-white)",
+                  color: "var(--text-field-text, #26211E)",
+                  backgroundColor: "var(--text-field-bg, #ffffff)",
                   resize: "vertical",
-                  outline: "none",
+                  outline: "2px solid transparent",
+                  outlineOffset: "3px",
+                  boxShadow: "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)",
+                  transition: "box-shadow 150ms ease, outline-color 150ms ease",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.outlineColor = "var(--focus-ring, #0081DB)";
+                  e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)";
+                }}
+                onMouseEnter={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-200, #D1C6BD)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (document.activeElement !== e.currentTarget) {
+                    e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)";
+                  }
                 }}
               />
               <div
@@ -308,8 +270,9 @@ export function ChatMessage({
                   display: "flex",
                   gap: "8px",
                   marginTop: "6px",
+                  fontFamily: "var(--font-body)",
                   fontSize: "12px",
-                  color: "var(--neutral-500)",
+                  color: "var(--text-field-placeholder, #6A625D)",
                 }}
               >
                 <span>Enter to save · Esc to cancel</span>
@@ -376,20 +339,20 @@ export function ChatMessage({
             >
               {onRegenerate && (
                 <ActionIconButton
-                  icon={<RetryIcon size={16} color="#B6ACA4" />}
+                  icon={<RedoIcon size={18} color="var(--neutral-400)" />}
                   label="Retry"
                   onClick={onRegenerate}
                 />
               )}
               {onEdit && (
                 <ActionIconButton
-                  icon={<EditIcon size={16} color="#B6ACA4" />}
+                  icon={<PenOneIcon size={18} color="var(--neutral-400)" />}
                   label="Edit"
                   onClick={() => { setEditValue(message.content); setIsEditing(true); }}
                 />
               )}
               <ActionIconButton
-                icon={copied ? <CheckIcon size={16} color="#80B707" /> : <CopyIcon size={16} color="#B6ACA4" />}
+                icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
                 label={copied ? "Copied" : "Copy"}
                 onClick={handleCopy}
               />
@@ -590,29 +553,28 @@ export function ChatMessage({
             }}
           >
             <ActionIconButton
-              icon={<BookmarkIcon size={18} color={pinned ? "#683D1B" : "#A09890"} />}
+              icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
               label={pinned ? "Unpin" : "Pin"}
               onClick={handlePin}
-              activeBackground={pinned ? "rgba(104,61,27,0.1)" : undefined}
             />
             <ActionIconButton
-              icon={copied ? <CheckIcon size={18} color="#80B707" /> : <CopyIcon size={18} color="#A09890" />}
+              icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
               label={copied ? "Copied" : "Copy"}
               onClick={handleCopy}
             />
             <ActionIconButton
-              icon={<ThumbsUpIcon size={18} color="#A09890" />}
+              icon={<ThumbsUpIcon size={18} color="var(--neutral-400)" />}
               label="Like"
               onClick={() => {/* wired later */}}
             />
             <ActionIconButton
-              icon={<ThumbsDownIcon size={18} color="#A09890" />}
+              icon={<ThumbsDownIcon size={18} color="var(--neutral-400)" />}
               label="Dislike"
               onClick={() => {/* wired later */}}
             />
             {isLast && onRegenerate && (
               <ActionIconButton
-                icon={<RetryIcon size={18} color="#A09890" />}
+                icon={<RedoIcon size={18} color="var(--neutral-400)" />}
                 label="Retry"
                 onClick={onRegenerate}
               />
@@ -629,40 +591,18 @@ function ActionIconButton({
   icon,
   label,
   onClick,
-  activeBackground,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
-  activeBackground?: string;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <IconButton
+      variant="ghost-2"
+      size="xs"
+      icon={icon}
       aria-label={label}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 24,
-        height: 24,
-        padding: 6,
-        borderRadius: 7,
-        border: "none",
-        background: activeBackground
-          ? activeBackground
-          : hovered
-            ? "rgba(59,54,50,0.08)"
-            : "transparent",
-        cursor: "pointer",
-        transition: "background 120ms",
-      }}
-    >
-      {icon}
-    </button>
+      onClick={onClick}
+    />
   );
 }
