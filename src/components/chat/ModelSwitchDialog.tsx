@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { AIModel } from "@/types/ai-model";
-import { getModelIcon } from "@/lib/model-icons";
+import { LlmIcon } from "@strange-huge/icons/llm";
+import { getModelLlmId } from "@/lib/model-icons";
 
 interface ModelSwitchDialogProps {
   isOpen: boolean;
@@ -120,13 +121,13 @@ export function ModelSwitchDialog({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                <img
-                  src={getModelIcon(fromModel.companyName, fromModel.modelName)}
-                  alt=""
-                  width={20}
-                  height={20}
-                  style={{ borderRadius: "4px" }}
-                />
+                <span style={{ lineHeight: 0, flexShrink: 0 }}>
+                  <LlmIcon
+                    id={getModelLlmId(fromModel.companyName, fromModel.modelName) ?? ""}
+                    variant="avatar"
+                    size={20}
+                  />
+                </span>
                 <span
                   style={{
                     fontFamily: "var(--font-body)",
@@ -144,13 +145,13 @@ export function ModelSwitchDialog({
               <span style={{ color: "var(--neutral-400)", fontSize: "14px" }}>→</span>
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                <img
-                  src={getModelIcon(toModel.companyName, toModel.modelName)}
-                  alt=""
-                  width={20}
-                  height={20}
-                  style={{ borderRadius: "4px" }}
-                />
+                <span style={{ lineHeight: 0, flexShrink: 0 }}>
+                  <LlmIcon
+                    id={getModelLlmId(toModel.companyName, toModel.modelName) ?? ""}
+                    variant="avatar"
+                    size={20}
+                  />
+                </span>
                 <span
                   style={{
                     fontFamily: "var(--font-body)",

@@ -147,3 +147,8 @@
 .kaya-model-choosing {
   animation: kaya-model-pulse 1.5s ease-in-out infinite;
 }
+
+/* Thinking-block markdown — strip first/last paragraph gutters so the
+   indicator bar aligns flush with the visible text bounds */
+.kaya-thinking-md p:first-child { margin-top: 0; }
+.kaya-thinking-md p:last-child  { margin-bottom: 0; }

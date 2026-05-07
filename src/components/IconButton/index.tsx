@@ -40,6 +40,7 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 
 // ── Loading spinner ───────────────────────────────────────────────────────────
 
+// size prop controls the rendered px; viewBox always 20×20 so arc proportions are preserved
 function IconButtonSpinner({ color, size: px = 24 }: { color: string; size?: number }) {
   return (
     <motion.svg
@@ -88,6 +89,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
   const isGhost2     = variant === 'ghost-2'   && !isDisabled
   const isSecondary  = variant === 'secondary'
 
+  // Default icon size follows the Figma spec per size variant
   const iconSizePx = isXs ? 18 : 20
   const defaultIcon = isXs ? <PlusSignIcon size={18} /> : <PlusSignIcon size={20} />
   const resolvedIcon = icon ?? defaultIcon
@@ -154,6 +156,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     secondary: isDisabled ? 'var(--icon-button-secondary-icon-disabled)' : 'var(--icon-button-secondary-icon)',
   }
 
+  // Spinner uses the non-disabled icon color so it reads as active, not broken
   const spinnerColor: Record<IconButtonVariant, string> = {
     default:   'var(--icon-button-default-icon)',
     ghost:     'var(--icon-button-ghost-icon)',
@@ -175,6 +178,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     : undefined
 
   // ── Background + squircle clip ───────────────────────────────────────────────
+  // Secondary skips the squircle clip — white bg + box-shadow applied directly.
   const bgStyle: React.CSSProperties = {
     ...(clipPath && !isSecondary ? { clipPath } : {}),
     ...(variant === 'default'
@@ -207,6 +211,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     : isSubtle && isHovered
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
+  // ghost-2 never applies a wrapper filter — no outer shadow on hover
 
   return (
     <motion.span
@@ -227,6 +232,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         cursor: isDisabled ? 'not-allowed' : 'pointer',
       }}
     >
+      {/* ── Default stroke: expanded squircle background behind button ── */}
       {defaultStrokeColor && strokeClipPath && (
         <div
           aria-hidden
@@ -240,6 +246,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Ghost/Outline hover ring: expanded squircle with interior fill ── */}
       {isSubtle && strokeClipPath && clipPath && (
         <div
           aria-hidden
@@ -272,6 +279,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={(e) => {
+        // Only show the focus ring for keyboard focus, not mouse/touch clicks.
         if (typeof e.target.matches === 'function' && e.target.matches(':focus-visible')) {
           setIsFocused(true)
         }
@@ -280,6 +288,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
       onBlur={(e) => { setIsFocused(false); externalBlur?.(e) }}
       {...props}
     >
+      {/* ── SVG filter + mask defs ── */}
       {isCorrosion && (
         <svg
           aria-hidden
@@ -313,6 +322,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         </svg>
       )}
 
+      {/* ── Corrosion hover glow ── */}
       {isCorrosion && (
         <div
           aria-hidden
@@ -339,6 +349,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         </div>
       )}
 
+      {/* ── Inner depth shadow overlay (Default variant) ── */}
       {variant === 'default' && (
         <div
           aria-hidden
@@ -347,6 +358,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Outline resting stroke — inset 1px ring, fades on hover as hover ring takes over ── */}
       {outlineStrokeColor && (
         <div
           aria-hidden
@@ -359,6 +371,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Ghost/Outline hover background ── */}
       {isSubtle && (
         <div
           aria-hidden
@@ -370,6 +383,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Ghost-2 hover background — no ring, no shadows ── */}
       {isGhost2 && (
         <div
           aria-hidden
@@ -381,6 +395,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Secondary hover background ── */}
       {isSecondary && (
         <div
           aria-hidden
@@ -392,6 +407,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Icon / spinner ── */}
       <div
         className="relative shrink-0 flex items-center justify-center"
         style={{
@@ -405,6 +421,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         {loading ? <IconButtonSpinner color={spinnerColor[variant]} size={iconSizePx} /> : resolvedIcon}
       </div>
 
+      {/* ── Ghost/Outline hover inner shadow — LAST child, renders above all content ── */}
       {isSubtle && (
         <div
           aria-hidden
@@ -416,6 +433,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
+      {/* ── Secondary inner shadow — LAST child, resting + hover states ── */}
       {isSecondary && (
         <div
           aria-hidden

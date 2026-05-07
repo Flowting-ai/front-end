@@ -1,6 +1,6 @@
 "use client";
 
-import { apiFetch, ApiError } from "./client";
+import { apiFetch, apiFetchJson, ApiError } from "./client";
 import {
   CHATS_ENDPOINT,
   CHATS_RENAME_ENDPOINT,
@@ -115,7 +115,7 @@ export async function createChat(model?: string): Promise<Chat> {
 }
 
 export async function renameChat(chatId: string, title: string): Promise<void> {
-  await apiFetch(CHATS_RENAME_ENDPOINT, {
+  await apiFetchJson(CHATS_RENAME_ENDPOINT, {
     method: "PATCH",
     body: JSON.stringify({ chat_id: chatId, chat_title: title }),
   });
@@ -136,7 +136,7 @@ export async function deleteChat(chatId: string): Promise<void> {
 }
 
 export async function starChat(chatId: string): Promise<void> {
-  await apiFetch(CHAT_STAR_ENDPOINT(chatId), {
+  await apiFetchJson(CHAT_STAR_ENDPOINT(chatId), {
     method: "PATCH",
   });
 }

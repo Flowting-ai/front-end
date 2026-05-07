@@ -120,15 +120,23 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
   // we must NOT clear messages when navigating to these since the streaming
   // hook is still actively writing to the message list.
   const optimisticChatIdsRef = useRef<Set<string>>(new Set())
+  // Only clear messages when navigating AWAY from a real chat to a new one.
+  // Without this, React 18 StrictMode's double-invocation clears optimistic
+  // messages on the simulated remount before they can be re-added.
+  const hasPreviousChatRef = useRef(false)
 
   // Load messages whenever chatId changes
   useEffect(() => {
     if (!chatId) {
-      setMessages([])
+      if (hasPreviousChatRef.current) {
+        setMessages([])
+      }
       setHasMoreMessages(false)
       cursorRef.current = undefined
       return
     }
+
+    hasPreviousChatRef.current = true
 
     // If this chatId was just created during an active stream, skip the
     // fetch-and-clear cycle — the stream is still writing messages.

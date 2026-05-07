@@ -1,8 +1,8 @@
 /**
  * Merges a streaming text delta into the accumulated content.
  *
- * Handles both delta-mode backends (sends only new chars) and snapshot-mode
- * backends (sends the full accumulated string each time).
+ * Handles both delta-mode (sends only new chars) and snapshot-mode
+ * (sends the full accumulated string each time) backends.
  */
 export const mergeStreamingText = (
   currentValue: string | null | undefined,
@@ -15,19 +15,9 @@ export const mergeStreamingText = (
   if (!current) return incoming
   if (incoming === current) return current
 
-  // Snapshot mode: backend resent the full string (possibly extended)
-  if (incoming.startsWith(current)) return incoming
+  // Snapshot mode: backend resent the full accumulated string, now longer
+  if (incoming.length > current.length && incoming.startsWith(current)) return incoming
 
-  // Resent the trailing chunk — ignore
-  if (current.endsWith(incoming)) return current
-
-  // Partial overlap: find the longest suffix-prefix match and stitch
-  const maxOverlap = Math.min(current.length, incoming.length)
-  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
-    if (current.slice(-overlap) === incoming.slice(0, overlap)) {
-      return `${current}${incoming.slice(overlap)}`
-    }
-  }
-
+  // Delta mode: always append
   return `${current}${incoming}`
 }

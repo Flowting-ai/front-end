@@ -29,81 +29,27 @@ export interface PinCategoryProps
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
+// Each PinCategoryType maps to a color-tag colour (see aliases.css). Tokens
+// `--color-tag-{Color}-{bg|text-strong|ring|highlight|depth}` provide the
+// visual values; this config only carries the icon and layout intent.
+
+type TagColor = 'Blue' | 'Red' | 'Green' | 'Yellow' | 'Purple' | 'Brown' | 'Neutral'
 
 interface TypeConfig {
-  bg:       string
-  ring:     string
-  insetTop: string
-  insetBot: string
-  color:    string
+  color:    TagColor
   icon:     React.ReactElement
+  /** Code uses 32px centered; all others 24px at absolute left:11 top:10 */
   centered: boolean
 }
 
 const CONFIG: Record<PinCategoryType, TypeConfig> = {
-  Code: {
-    bg:       '#e5f2c5',
-    ring:     'rgba(128,183,7,0.5)',
-    insetTop: 'rgba(247,254,230,0.7)',
-    insetBot: 'rgba(128,183,7,0.1)',
-    color:    '#80b707',
-    icon:     <SourceCodeIcon size={32} />,
-    centered: true,
-  },
-  Research: {
-    bg:       '#cadcf1',
-    ring:     'rgba(13,110,178,0.5)',
-    insetTop: 'rgba(231,244,253,0.7)',
-    insetBot: 'rgba(13,110,178,0.1)',
-    color:    '#0d6eb2',
-    icon:     <TestTubeIcon size={24} />,
-    centered: false,
-  },
-  Creative: {
-    bg:       '#ded0df',
-    ring:     'rgba(103,79,104,0.5)',
-    insetTop: 'rgba(248,236,249,0.7)',
-    insetBot: 'rgba(103,79,104,0.1)',
-    color:    '#674f68',
-    icon:     <BrushIcon size={24} />,
-    centered: false,
-  },
-  Planning: {
-    bg:       '#e9dfc9',
-    ring:     'rgba(143,116,39,0.5)',
-    insetTop: 'rgba(250,246,235,0.7)',
-    insetBot: 'rgba(143,116,39,0.1)',
-    color:    '#8f7427',
-    icon:     <CalendarThreeIcon size={24} />,
-    centered: false,
-  },
-  Tasks: {
-    bg:       '#ffbfb6',
-    ring:     'rgba(159,38,35,0.5)',
-    insetTop: 'rgba(253,231,231,0.7)',
-    insetBot: 'rgba(159,38,35,0.1)',
-    color:    '#9f2623',
-    icon:     <StickyNoteTwoIcon size={24} />,
-    centered: false,
-  },
-  Quote: {
-    bg:       '#e6d5ca',
-    ring:     'rgba(126,84,53,0.5)',
-    insetTop: 'rgba(250,241,235,0.7)',
-    insetBot: 'rgba(126,84,53,0.1)',
-    color:    '#7e5435',
-    icon:     <QuillWriteTwoIcon size={24} />,
-    centered: false,
-  },
-  Workflow: {
-    bg:       '#ede1d7',
-    ring:     'rgba(106,98,93,0.5)',
-    insetTop: 'rgba(247,242,237,0.7)',
-    insetBot: 'rgba(106,98,93,0.1)',
-    color:    '#6a625d',
-    icon:     <WorkflowSquareTenIcon size={24} />,
-    centered: false,
-  },
+  Code:     { color: 'Green',   icon: <SourceCodeIcon         size={32} />, centered: true  },
+  Research: { color: 'Blue',    icon: <TestTubeIcon           size={24} />, centered: false },
+  Creative: { color: 'Purple',  icon: <BrushIcon              size={24} />, centered: false },
+  Planning: { color: 'Yellow',  icon: <CalendarThreeIcon      size={24} />, centered: false },
+  Tasks:    { color: 'Red',     icon: <StickyNoteTwoIcon      size={24} />, centered: false },
+  Quote:    { color: 'Brown',   icon: <QuillWriteTwoIcon      size={24} />, centered: false },
+  Workflow: { color: 'Neutral', icon: <WorkflowSquareTenIcon  size={24} />, centered: false },
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -111,6 +57,7 @@ const CONFIG: Record<PinCategoryType, TypeConfig> = {
 export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
   function PinCategory({ type = 'Code', className, style, ...props }, ref) {
     const cfg = CONFIG[type]
+    const c = cfg.color
 
     return (
       <div
@@ -118,15 +65,15 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
         aria-label={type}
         className={cn(className)}
         style={{
-          position:       'relative',
-          width:          '45px',
-          height:         '45px',
-          borderRadius:   '8px',
-          overflow:       'hidden',
-          display:        cfg.centered ? 'flex' : undefined,
-          alignItems:     cfg.centered ? 'center' : undefined,
+          position:     'relative',
+          width:        '45px',
+          height:       '45px',
+          borderRadius: '8px',
+          overflow:     'hidden',
+          display:      cfg.centered ? 'flex' : undefined,
+          alignItems:   cfg.centered ? 'center' : undefined,
           justifyContent: cfg.centered ? 'center' : undefined,
-          boxShadow:      `0px 0px 0px 1px ${cfg.ring}`,
+          boxShadow:    `0px 0px 0px 1px var(--color-tag-${c}-ring)`,
           ...style,
         }}
         {...props}
@@ -138,7 +85,7 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
             position:        'absolute',
             inset:           0,
             borderRadius:    '8px',
-            backgroundColor: cfg.bg,
+            backgroundColor: `var(--color-tag-${c}-bg)`,
             pointerEvents:   'none',
           }}
         />
@@ -146,10 +93,10 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
         {/* Icon */}
         <div
           style={{
-            position:   cfg.centered ? 'relative' : 'absolute',
-            left:       cfg.centered ? undefined : '11px',
-            top:        cfg.centered ? undefined : '10px',
-            color:      cfg.color,
+            position:  cfg.centered ? 'relative' : 'absolute',
+            left:      cfg.centered ? undefined : '11px',
+            top:       cfg.centered ? undefined : '10px',
+            color:     `var(--color-tag-${c}-text-strong)`,
             lineHeight: 0,
             flexShrink: 0,
           }}
@@ -161,11 +108,11 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
         <div
           aria-hidden
           style={{
-            position:      'absolute',
-            inset:         0,
-            borderRadius:  'inherit',
-            pointerEvents: 'none',
-            boxShadow:     `inset 0px 2px 0px 0px ${cfg.insetTop}, inset 0px -2px 0px 0px ${cfg.insetBot}`,
+            position:     'absolute',
+            inset:        0,
+            borderRadius: 'inherit',
+            pointerEvents:'none',
+            boxShadow:    `inset 0px 2px 0px 0px var(--color-tag-${c}-highlight), inset 0px -2px 0px 0px var(--color-tag-${c}-depth)`,
           }}
         />
       </div>
@@ -174,4 +121,5 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
 )
 
 PinCategory.displayName = 'PinCategory'
+
 export default PinCategory

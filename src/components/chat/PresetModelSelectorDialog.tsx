@@ -18,7 +18,7 @@ import {
   GlobalSearchIcon,
 } from "@strange-huge/icons";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { getModelIcon } from "@/lib/model-icons";
+import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
 import { ModelSelectItem } from "@/components/ModelSelectItem";
 import { ModelFeaturedCard } from "@/components/ModelFeaturedCard";
@@ -78,12 +78,20 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
+  museActive: boolean;
+  museAdvanced: boolean;
+  onMuseSelect: (selected: boolean) => void;
+  onMuseAdvancedChange: (advanced: boolean) => void;
 }
 
 function PresetModelSelectorContent({
   models,
   selectedModel,
   onSelect,
+  museActive,
+  museAdvanced,
+  onMuseSelect,
+  onMuseAdvancedChange,
 }: PresetModelSelectorContentProps) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
@@ -160,10 +168,15 @@ function PresetModelSelectorContent({
 
         {/* ── Featured Muse card ── */}
         <ModelFeaturedCard
+          key={String(museActive)}
           title="Muse"
           description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
           learnMoreHref="#"
           proSwitch
+          defaultSelected={museActive}
+          onSelectedChange={onMuseSelect}
+          advanced={museAdvanced}
+          onAdvancedChange={onMuseAdvancedChange}
         />
 
         {/* ── Category tabs + model list ── */}
@@ -251,23 +264,10 @@ function PresetModelSelectorContent({
                           role="button"
                           tabIndex={0}
                           aria-pressed={isSelected}
-                          image={
-                            <img
-                              src={getModelIcon(
-                                model.companyName,
-                                model.modelName,
-                              )}
-                              alt=""
-                              style={{
-                                width: "18px",
-                                height: "18px",
-                                borderRadius: "4px",
-                                display: "block",
-                              }}
-                            />
-                          }
+                          llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
                           label={model.modelName}
                           icons={getCapabilityIcons(model)}
+                          bookmark
                           selected={isSelected}
                           onClick={() => onSelect(model)}
                           onKeyDown={(e) => {
@@ -407,8 +407,19 @@ const DROPDOWN_WIDTH = 480;
 const GAP = 8;
 
 export function PresetModelSelectorDialog() {
-  const { models, selectedModel, selectModel, isOpen, anchorEl, close } =
-    useModelSelectorContext();
+  const {
+    models,
+    selectedModel,
+    selectModel,
+    isOpen,
+    anchorEl,
+    close,
+    museActive,
+    museAdvanced,
+    activateMuse,
+    deactivateMuse,
+    setMuseAdvanced,
+  } = useModelSelectorContext();
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({});
@@ -486,6 +497,10 @@ export function PresetModelSelectorDialog() {
             models={models}
             selectedModel={selectedModel}
             onSelect={selectModel}
+            museActive={museActive}
+            museAdvanced={museAdvanced}
+            onMuseSelect={(selected) => selected ? activateMuse() : deactivateMuse()}
+            onMuseAdvancedChange={setMuseAdvanced}
           />
         </motion.div>
       )}

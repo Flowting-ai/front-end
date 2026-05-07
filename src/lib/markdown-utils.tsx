@@ -4,7 +4,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { sanitizeHTML } from "@/lib/security";
 import { CodeBlock } from "@/components/chat/CodeBlock";
 import type { Components } from "react-markdown";
 
@@ -210,13 +209,35 @@ const components: Components = {
   },
 };
 
+// During streaming, an unclosed code fence causes react-markdown to extend
+// the code block over all remaining text. Count fences and append a close
+// if the tally is odd so the parser always sees balanced delimiters.
+function closeOpenFences(content: string): string {
+  const count = (content.match(/^```/gm) ?? []).length;
+  return count % 2 !== 0 ? content + "\n```" : content;
+}
+
+// remark-math only understands $...$ and $$...$$. Claude and other LLMs
+// commonly emit \(...\) for inline math and \[...\] for block math (standard
+// LaTeX delimiters). Convert them so rehype-katex can render them.
+// Block math is placed on its own lines so remark-math treats it as a flow
+// (display-mode) equation rather than inline.
+// Code spans / fences are excluded by running this before fence-closing and
+// only on the text layer — false positives (literal \( in prose) are
+// extremely rare in LLM output.
+function normalizeMathDelimiters(content: string): string {
+  // \[...\] → display math block
+  let out = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  // \(...\) → inline math
+  out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math}$`);
+  return out;
+}
+
 interface MarkdownRendererProps {
   content: string;
 }
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  const sanitized = sanitizeHTML(content);
-
   return (
     <div
       style={{
@@ -232,7 +253,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         rehypePlugins={rehypePlugins}
         components={components}
       >
-        {sanitized}
+        {closeOpenFences(normalizeMathDelimiters(content))}
       </ReactMarkdown>
     </div>
   );

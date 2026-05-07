@@ -1,8 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
@@ -15,7 +13,6 @@ import {
   MoreHorizontalIcon,
   BubbleChatIcon,
 } from '@strange-huge/icons'
-import { useAuth } from '@/context/auth-context'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { IconButton } from '@/components/IconButton'
@@ -45,173 +42,6 @@ function SouvenirWordmark() {
   )
 }
 
-// ── Account Dropdown Component ────────────────────────────────────────────────
-
-interface AccountDropdownProps {
-  userName?: string
-  userEmail?: string
-  avatarSrc?: string
-  avatarInitials?: string
-  onSettingsClick?: () => void
-  isCollapsed?: boolean
-}
-
-function AccountDropdown({ userName = 'Label', userEmail = 'Label', avatarSrc, avatarInitials, onSettingsClick, isCollapsed }: AccountDropdownProps) {
-  const router = useRouter()
-  const { logout } = useAuth()
-
-  const menuItemStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '7px 12px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontFamily: 'var(--font-body)',
-    fontWeight: 'var(--font-weight-medium)',
-    fontSize: 'var(--font-size-body)',
-    lineHeight: 'var(--line-height-body)',
-    color: 'var(--neutral-700)',
-    outline: 'none',
-    userSelect: 'none',
-  }
-
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <SidebarMenuItem
-          {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-          variant="account-item"
-          label={userName}
-          sublabel={userEmail}
-          avatarSrc={avatarSrc}
-          avatarInitials={avatarInitials}
-        />
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          side="top"
-          align={isCollapsed ? 'center' : 'start'}
-          sideOffset={8}
-          style={{
-            backgroundColor: 'var(--neutral-white)',
-            borderRadius: '12px',
-            padding: '4px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-            zIndex: 200,
-            minWidth: '200px',
-            outline: 'none',
-          }}
-        >
-          {/* Account info header */}
-          <div
-            style={{
-              padding: '10px 12px 8px',
-              borderBottom: '1px solid var(--neutral-100)',
-              marginBottom: '4px',
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-semibold)',
-                fontSize: 'var(--font-size-body)',
-                color: 'var(--neutral-800)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {userName || 'Account'}
-            </p>
-            {userEmail && (
-              <p
-                style={{
-                  margin: '2px 0 0',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 'var(--font-size-caption)',
-                  color: 'var(--neutral-500)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {userEmail}
-              </p>
-            )}
-          </div>
-
-          {/* Account */}
-          <DropdownMenu.Item
-            style={menuItemStyle}
-            onSelect={() => router.push('/account')}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
-            }
-          >
-            Account
-          </DropdownMenu.Item>
-
-          {/* Settings */}
-          <DropdownMenu.Item
-            style={menuItemStyle}
-            onSelect={() => onSettingsClick ? onSettingsClick() : router.push('/settings')}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
-            }
-          >
-            Settings
-          </DropdownMenu.Item>
-
-          {/* Help */}
-          <DropdownMenu.Item
-            style={menuItemStyle}
-            onSelect={() => window.open('https://help.example.com', '_blank')}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
-            }
-          >
-            Help
-          </DropdownMenu.Item>
-
-          <DropdownMenu.Separator
-            style={{
-              height: '1px',
-              backgroundColor: 'var(--neutral-100)',
-              margin: '4px 0',
-            }}
-          />
-
-          {/* Sign out */}
-          <DropdownMenu.Item
-            style={menuItemStyle}
-            onSelect={() => logout()}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')
-            }
-          >
-            Sign out
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  )
-}
-
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SidebarProject {
@@ -229,24 +59,46 @@ const DEFAULT_PROJECTS: SidebarProject[] = [
 ]
 
 export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Account display name */
   userName?: string
+  /** Account subtitle / email */
   userEmail?: string
+  /** Account avatar image URL */
   avatarSrc?: string
-  avatarInitials?: string
-  onSettingsClick?: () => void
+  /** Called when the settings icon on the account item is clicked */
+  onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** Called when New chat is clicked */
   onNewChat?: () => void
+  /** Called when Search is clicked */
   onSearch?: () => void
+  /** Called when the sidebar collapse/toggle button is clicked */
   onCollapse?: () => void
+  /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
+  /**
+   * Project folders to render in the Projects section.
+   * Max 5 are shown; if more are provided a "Show all" item appears.
+   * Defaults to two demo folders when omitted.
+   */
   projects?: SidebarProject[]
+  /** Called when the "Show all" projects item is clicked (only rendered when projects.length > 5) */
   onShowAllProjects?: () => void
+  /** Fully custom Projects section content — replaces the entire projects area including header */
   projectItems?: React.ReactNode
+  /** Custom Recents section items — replaces the default chat rows */
   recentItems?: React.ReactNode
+  /**
+   * Start in collapsed (icon-only) state.
+   * The sidebar toggles internally; use `onCollapse` for external notification.
+   * @default false
+   */
   defaultCollapsed?: boolean
 }
 
 // ── Section show/hide animation ───────────────────────────────────────────────
+// Same three-layer pattern as SidebarProjectsSection expand/collapse.
 
+// Layer 1 — height clip
 const sectionHeightVariants = {
   open: {
     height: 'auto' as const,
@@ -258,6 +110,9 @@ const sectionHeightVariants = {
   },
 }
 
+// Layer 2 — stagger orchestrator
+// Open:  delay items until AFTER height animation completes (0.28s) so items never appear while clipped
+// Close: no stagger — all items fade at once (0.12s), height shrinks after delay (0.14s)
 const sectionStaggerVariants = {
   open: {
     transition: { staggerChildren: 0.04, delayChildren: 0.24 },
@@ -267,6 +122,7 @@ const sectionStaggerVariants = {
   },
 }
 
+// Layer 3 — per-item: fade + drift
 const sectionItemVariants = {
   open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
@@ -274,8 +130,8 @@ const sectionItemVariants = {
 
 // ── Default content ────────────────────────────────────────────────────────────
 
+// Persists across mounts — false on first sidebar load, true on every return to Chat Board.
 let projectsAnimatedOnce = false
-let recentItemsAnimatedOnce = false
 
 interface DefaultProjectItemsProps {
   projects: SidebarProject[]
@@ -309,6 +165,8 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
   return (
     <>
       <SidebarMenuItem fluid variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)} />
+      {/* Persistent wrapper — never unmounts so items are always interactive.
+          initial={false} ensures items start at their animate state on first render. */}
       <motion.div
         animate={shown ? 'open' : 'closed'}
         initial={false}
@@ -383,14 +241,19 @@ interface DefaultRecentItemsProps {
   selectedItem: string | null
   onSelect: (id: string) => void
   onShowAll?: React.MouseEventHandler<HTMLButtonElement>
+  /** Changes when the active section changes — triggers item stagger re-animation */
   sectionKey: string
 }
 
-function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultRecentItemsProps, 'sectionKey'>) {
+function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: DefaultRecentItemsProps) {
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<'visible' | 'hidden'>('visible')
-  const shouldAnimate = recentItemsAnimatedOnce
-  useEffect(() => { recentItemsAnimatedOnce = true }, [])
+  // Skip stagger on first sidebar load; replay it on section switches (key remount).
+  const hasAnimatedRef = useRef(false)
+  useEffect(() => { hasAnimatedRef.current = true }, [])
+  // Reset shown state whenever the active section changes so Recents always
+  // starts expanded when switching between Chat Board, Persona, and Workflow.
+  useEffect(() => { setShown(true) }, [sectionKey])
   const [editingItem,  setEditingItem]  = useState<string | null>(null)
   const [itemLabels,   setItemLabels]   = useState<Record<string, string>>(() =>
     Object.fromEntries((['recent-0','recent-1','recent-2','recent-3','recent-4'] as const).map(id => [id, 'Label']))
@@ -404,6 +267,7 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultR
   return (
     <>
       <SidebarMenuItem fluid variant="header" label="Recents" shown={shown} onShowClick={handleToggle} />
+      {/* Layer 1 — height: controls shown/hidden toggle */}
       <motion.div
         animate={shown ? 'open' : 'closed'}
         initial={false}
@@ -412,9 +276,12 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultR
         onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
         onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
       >
+        {/* Layer 2+3 — stagger: key={sectionKey} remounts on section switch to replay stagger;
+            animate responds to shown so items fade+drift on show/hide toggle */}
           <motion.div
+            key={sectionKey}
             animate={shown ? 'open' : 'closed'}
-            initial={shouldAnimate ? 'closed' : false}
+            initial={hasAnimatedRef.current ? 'closed' : false}
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
@@ -439,48 +306,6 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll }: Omit<DefaultR
   )
 }
 
-// ── Recents section wrapper (used when real recentItems are provided) ──────────
-
-interface RecentsSectionWrapperProps {
-  children: React.ReactNode
-  onShowAll?: React.MouseEventHandler<HTMLButtonElement>
-}
-
-function RecentsSectionWrapper({ children, onShowAll }: RecentsSectionWrapperProps) {
-  const [shown,    setShown]    = useState(true)
-  const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
-  const shouldAnimate = recentItemsAnimatedOnce
-  useEffect(() => { recentItemsAnimatedOnce = true }, [])
-
-  const handleToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
-    setShown(s => !s)
-    onShowAll?.(e)
-  }
-
-  return (
-    <>
-      <SidebarMenuItem fluid variant="header" label="Recents" shown={shown} onShowClick={handleToggle} />
-      <motion.div
-        animate={shown ? 'open' : 'closed'}
-        initial={false}
-        variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
-      >
-        <motion.div
-          animate={shown ? 'open' : 'closed'}
-          initial={shouldAnimate ? 'closed' : false}
-          variants={sectionStaggerVariants}
-          style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
-        >
-          {children}
-        </motion.div>
-      </motion.div>
-    </>
-  )
-}
-
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
@@ -489,8 +314,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       userName       = 'Label',
       userEmail      = 'Label',
       avatarSrc,
-      avatarInitials,
-      onSettingsClick: _onSettingsClick,
+      onSettingsClick,
       onNewChat,
       onSearch,
       onCollapse,
@@ -518,18 +342,25 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     const [activeFolder,    setActiveFolder]    = useState<string | null>(null)
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
     const [selectedItem,    setSelectedItem]    = useState<string | null>(null)
+    // bodySection controls which content area is shown in the scrollable body.
+    // 'chat-board' → Projects + Recents; 'persona' / 'workflow' → Recents only.
+    // New chat shares the 'chat-board' layout but does NOT highlight the Chat board nav item.
     const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>('chat-board')
 
+    // Select a section nav item (Chat board / Persona / Workflow)
     const onSelectSection = (section: 'chat-board' | 'persona' | 'workflow') => {
       setBodySection(section)
       setSelectedItem(section)
       setActiveFolder(null)
     }
+    // Select any non-section item (chat items, new-project, etc.) — preserves bodySection
     const onSelect = (id: string) => { setSelectedItem(id); setActiveFolder(null) }
+    // Row click — only sets active folder; never affects expansion (icon-only)
     const handleFolderOpen = (id: string) => {
       setActiveFolder(id)
       setSelectedItem(null)
     }
+    // Icon click — toggle expansion only; never touches active folder selection
     const handleFolderExpand = (id: string, expanded: boolean) => {
       setExpandedFolders(prev => {
         const next = new Set(prev)
@@ -542,6 +373,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onCollapse?.()
     }, [onCollapse])
 
+    // ⌘B / Ctrl+B — collapse/expand sidebar (skip when focus is inside a text input)
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
         const target = e.target as HTMLElement
@@ -585,6 +417,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           flexDirection:   'column',
           gap:             '4px',
         }}>
+          {/* ── Logo row — single persistent toggle button so variant swap animates ── */}
           <div style={{
             display:        'flex',
             alignItems:     'center',
@@ -594,8 +427,10 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingLeft:    isCollapsed ? '8px' : '20px',
             paddingRight:   '8px',
           }}>
+            {/* Wordmark — only in expanded */}
             {!isCollapsed && <SouvenirWordmark />}
 
+            {/* Single stable toggle button — variant flips, no unmount/remount */}
             <IconButton
               variant="ghost"
               size="sm"
@@ -613,6 +448,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             />
           </div>
 
+          {/* ── Nav strip — New chat + Search ── */}
           <div style={{
             display:       'flex',
             flexDirection: 'column',
@@ -658,6 +494,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           gap:           '4px',
         }}>
 
+          {/* Chat board + Persona + Workflow */}
           <div style={{
             display:       'flex',
             flexDirection: 'column',
@@ -695,12 +532,15 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             />
           </div>
 
+          {/* Projects + Recents — always mounted so shown/scroll state survives collapse/expand.
+              motion.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <motion.div
             animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
             initial={false}
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}
           >
+            {/* Projects — only visible in chat-board section */}
             <AnimatePresence initial={false}>
               {bodySection === 'chat-board' && (
                 <div key="projects-section" style={{
@@ -730,6 +570,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               )}
             </AnimatePresence>
 
+            {/* Recents */}
             <div style={{
               display:       'flex',
               flexDirection: 'column',
@@ -740,17 +581,14 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems
-                  ? <RecentsSectionWrapper onShowAll={onShowAllRecents}>{recentItems}</RecentsSectionWrapper>
-                  : <DefaultRecentItems key={bodySection} selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} />
-                }
+                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} sectionKey={bodySection} />}
               </div>
             </div>
           </motion.div>
 
         </div>
 
-        {/* ── Top scroll fade ── */}
+        {/* ── Top scroll fade — blur (behind) + gradient (on top) ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },
@@ -784,7 +622,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           transition:    'opacity 150ms ease',
         }} />
 
-        {/* ── Bottom scroll fade ── */}
+        {/* ── Bottom scroll fade — blur (behind) + gradient (on top) ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },
@@ -818,7 +656,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           transition:    'opacity 150ms ease',
         }} />
 
-        {/* ── Absolute bottom: account item with dropdown ── */}
+        {/* ── Absolute bottom: account item ── */}
         <div style={{
           position:        'absolute',
           bottom:          0,
@@ -834,12 +672,13 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           paddingBottom:   '12px',
           overflow:        'hidden',
         }}>
-          <AccountDropdown
-            userName={userName}
-            userEmail={userEmail}
+          <SidebarMenuItem
+            {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+            variant="account-item"
+            label={userName}
+            sublabel={userEmail}
             avatarSrc={avatarSrc}
-            avatarInitials={avatarInitials}
-            isCollapsed={isCollapsed}
+            onSettingsClick={onSettingsClick}
           />
         </div>
 

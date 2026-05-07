@@ -68,6 +68,9 @@ export const TabsList = React.forwardRef<
   const rowRef    = useRef<HTMLDivElement>(null)
   const shadowRef = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ x: number; width: number } | null>(null)
+  const [overflowing, setOverflowing] = useState(false)
+  const [dragging, setDragging]       = useState(false)
+  const dragState = useRef<{ startX: number; startScroll: number; moved: boolean; pointerId: number; target: Element | null } | null>(null)
 
   // Track current shadow position for spring start values.
   const shadowXCur = useRef(0)
@@ -141,6 +144,82 @@ export const TabsList = React.forwardRef<
     })
   }, [pill, scrollable, applyShadow])
 
+  // ── Scrollable: detect overflow so the grab cursor only shows when draggable ──
+
+  useEffect(() => {
+    if (!scrollable) { setOverflowing(false); return }
+    const row = rowRef.current
+    if (!row) return
+    const update = () => setOverflowing(row.scrollWidth > row.clientWidth + 1)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(row)
+    for (const child of Array.from(row.children)) ro.observe(child as Element)
+    return () => ro.disconnect()
+  }, [scrollable, children])
+
+  // ── Scrollable: pointer-drag to scroll the row ─────────────────────────────
+  //
+  // Mouse / pen only — touch devices use native horizontal scrolling, which
+  // already includes momentum + rubber-band. We arm on pointerdown, only
+  // promote to a drag once the pointer has moved past a 4 px threshold (so
+  // a click on a tab still selects it), and suppress the synthetic click
+  // that follows the drag so a tab isn't activated mid-scroll.
+
+  const onRowPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!scrollable || !overflowing) return
+    if (e.pointerType === 'touch') return
+    if (e.button !== 0) return
+    const row = rowRef.current
+    if (!row) return
+    // Suppress the default mousedown focus/activation so Radix doesn't select
+    // the tab until we know whether this is a click or a drag. We re-issue
+    // the click manually on pointerup if no drag occurred.
+    e.preventDefault()
+    dragState.current = {
+      startX: e.clientX,
+      startScroll: row.scrollLeft,
+      moved: false,
+      pointerId: e.pointerId,
+      target: e.target as Element,
+    }
+  }, [scrollable, overflowing])
+
+  const onRowPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragState.current
+    if (!s) return
+    const dx = e.clientX - s.startX
+    if (!s.moved) {
+      if (Math.abs(dx) <= 4) return
+      s.moved = true
+      setDragging(true)
+      try { rowRef.current?.setPointerCapture(s.pointerId) } catch {}
+    }
+    if (rowRef.current) rowRef.current.scrollLeft = s.startScroll - dx
+    e.preventDefault()
+  }, [])
+
+  const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragState.current
+    if (!s) return
+    const wasDrag = s.moved
+    const target  = s.target
+    dragState.current = null
+    setDragging(false)
+    try { rowRef.current?.releasePointerCapture(s.pointerId) } catch {}
+    if (!wasDrag && target) {
+      // pointerdown was preventDefault'd, so the browser suppressed the
+      // mousedown→focus→click chain. Re-issue activation manually on the
+      // tab button under the original pointerdown.
+      const btn = (target.closest('button') as HTMLButtonElement | null)
+      if (btn && !btn.disabled) {
+        btn.focus()
+        btn.click()
+      }
+    }
+    void e
+  }, [])
+
   const handleScroll = useCallback(() => {
     const row = rowRef.current
     if (!row || !pill) return
@@ -204,6 +283,13 @@ export const TabsList = React.forwardRef<
         <div
           ref={rowRef}
           onScroll={scrollable ? handleScroll : undefined}
+          onPointerDown={scrollable ? onRowPointerDown : undefined}
+          onPointerMove={scrollable ? onRowPointerMove : undefined}
+          onPointerUp={scrollable ? endDrag : undefined}
+          onPointerCancel={scrollable ? endDrag : undefined}
+          className={scrollable ? 'kds-tabs-scroll-row' : undefined}
+          data-draggable={scrollable && overflowing ? 'true' : undefined}
+          data-dragging={dragging ? 'true' : undefined}
           style={{
             position:   'relative',
             display:    'flex',
@@ -215,6 +301,9 @@ export const TabsList = React.forwardRef<
               overscrollBehaviorX: 'contain',
               scrollbarWidth:      'none' as const,
               paddingLeft:         '1px',
+              cursor:              overflowing ? (dragging ? 'grabbing' : 'grab') : undefined,
+              userSelect:          dragging ? 'none' : undefined,
+              touchAction:         'pan-x',
             }),
           }}
         >

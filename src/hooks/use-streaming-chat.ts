@@ -219,12 +219,15 @@ export function useStreamingChat({
               const inlineData = line.indexOf("data:", 6)
               if (inlineData !== -1) {
                 eventName = line.slice(6, inlineData).trim()
-                dataStr += line.slice(inlineData + 5).trim()
+                const inlineRaw = line.slice(inlineData + 5)
+                dataStr += inlineRaw.startsWith(" ") ? inlineRaw.slice(1) : inlineRaw
               } else {
                 eventName = line.slice(6).trim()
               }
             } else if (line.startsWith("data:")) {
-              dataStr += line.slice(5).trim()
+              // Per SSE spec: strip exactly one leading space (the protocol separator), preserve all other whitespace
+              const raw = line.slice(5)
+              dataStr += raw.startsWith(" ") ? raw.slice(1) : raw
             }
           }
 
@@ -246,7 +249,7 @@ export function useStreamingChat({
               content: visibleText || "",
               thinking: reasoningContent || thinkingText || undefined,
               isThinkingInProgress: stillThinking && !reasoningContent,
-              isLoading: false,
+              isLoading: true,
             }, wasEmpty)
             setStreamState?.("streaming")
             continue
@@ -294,19 +297,19 @@ export function useStreamingChat({
           }
 
           if (eventName === "reasoning") {
-            const delta = asString(parsed.delta) ?? ""
+            const delta = typeof parsed.delta === "string" ? parsed.delta : ""
             const wasEmpty = !reasoningContent
             reasoningContent = mergeStreamingText(reasoningContent, delta)
             queueUpdate({
               thinking: reasoningContent,
               isThinkingInProgress: true,
-              isLoading: false,
+              isLoading: true,
             }, wasEmpty)  // flush immediately on first reasoning chunk
             continue
           }
 
           if (eventName === "chunk") {
-            const delta = asString(parsed.delta) ?? ""
+            const delta = typeof parsed.delta === "string" ? parsed.delta : ""
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, delta)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
@@ -317,7 +320,7 @@ export function useStreamingChat({
               content: visibleText || "",
               thinking: reasoningContent || thinkingText || undefined,
               isThinkingInProgress: stillThinking && !reasoningContent,
-              isLoading: false,
+              isLoading: true,
             }, wasEmpty)  // flush immediately on first content chunk
             continue
           }
@@ -593,12 +596,8 @@ export function useStreamingChat({
           }
 
           if (eventName === "done") {
-            const finalText =
-              typeof parsed.response === "string" ? parsed.response : assistantContent
-            const { visibleText, thinkingText } = extractThinkingContent(
-              finalText || assistantContent || "",
-            )
-            const finalReasoning = reasoningContent || thinkingText
+            const finishReason = asString(parsed.finish_reason)
+            const isToolCallRound = finishReason === "tool_calls"
 
             const doneChatId = extractChatId(parsed)
             if (doneChatId) adoptChatId(doneChatId)
@@ -607,11 +606,24 @@ export function useStreamingChat({
             if (doneTitle && resolvedChatIdRef.current) {
               onTitleUpdate?.(resolvedChatIdRef.current, doneTitle)
             }
+
+            flushPending()
+
+            if (isToolCallRound) {
+              // Agentic intermediate round — tool calls are about to execute.
+              // More content rounds are coming; do not finalise the message.
+              queueUpdate({ isThinkingInProgress: false }, true)
+              continue
+            }
+
+            // Final round (finish_reason: "stop", "length", etc.)
+            const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
+            const finalReasoning = reasoningContent || thinkingText
+
             if (resolvedChatIdRef.current) {
               onChatMoveToTop?.(resolvedChatIdRef.current)
             }
 
-            flushPending()
             queueUpdate(
               {
                 content:

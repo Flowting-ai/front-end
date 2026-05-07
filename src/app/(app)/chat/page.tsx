@@ -33,8 +33,14 @@ function ChatPageInner() {
   const [hasMessages, setHasMessages] = useState(!!chatIdFromUrl);
   const [newChatInput, setNewChatInput] = useState("");
 
-  const { selectedModel, selectModel, open: openModelSelector } =
+  const { selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced } =
     useModelSelectorContext();
+
+  const modelButtonLabel = museActive
+    ? museAdvanced
+      ? "Souvenir AI Muse (Advanced)"
+      : "Souvenir AI Muse (Basic)"
+    : selectedModel?.modelName;
   const { rename: renameChat, addOptimistic } = useChatHistoryContext();
 
   // Sync URL param changes into local state (e.g. sidebar navigation)
@@ -147,7 +153,7 @@ function ChatPageInner() {
                 value={newChatInput}
                 onChange={setNewChatInput}
                 onSend={handleNewChatSend}
-                modelName={selectedModel?.modelName}
+                modelName={modelButtonLabel}
                 onModelClick={handleModelClick}
                 placeholder="How can I help you today?"
               />
@@ -160,7 +166,7 @@ function ChatPageInner() {
           onChatCreated={handleChatCreated}
           onTitleUpdate={handleTitleUpdate}
           onChatMoveToTop={handleChatMoveToTop}
-          selectedModel={selectedModel?.modelName}
+          selectedModel={modelButtonLabel}
           selectedModelId={selectedModel?.id}
           onModelClick={handleModelClick}
           initialPrompt={initialPrompt}

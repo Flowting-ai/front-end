@@ -21,7 +21,7 @@ export interface TabItemProps
    * Use when a parent (e.g. TabsList) renders the selected pill itself.
    */
   disableSelectedStyle?: boolean
-  /** Radix Tabs sets this to "active" on the selected tab */
+  /** Radix Tabs injects this to signal the active tab */
   'data-state'?: string
 }
 

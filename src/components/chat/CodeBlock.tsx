@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check, WrapText } from "lucide-react";
+
+// Module-level cache — one load shared across all CodeBlock instances
+let _hljsPromise: Promise<typeof import("@/lib/highlight").default> | null = null;
+
+function loadHljs() {
+  if (!_hljsPromise) {
+    _hljsPromise = import("@/lib/highlight").then((mod) => mod.default);
+  }
+  return _hljsPromise;
+}
 
 interface CodeBlockProps {
   language?: string;
@@ -12,6 +22,29 @@ interface CodeBlockProps {
 export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const trimmed = value.trimEnd();
+
+    loadHljs().then((hljs) => {
+      if (cancelled) return;
+      try {
+        const result =
+          language && hljs.getLanguage(language)
+            ? hljs.highlight(trimmed, { language, ignoreIllegals: true })
+            : hljs.highlightAuto(trimmed);
+        setHighlightedHtml(result.value);
+      } catch {
+        setHighlightedHtml(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [value, language]);
 
   const handleCopy = async () => {
     try {
@@ -19,7 +52,6 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for insecure contexts
       const textarea = document.createElement("textarea");
       textarea.value = value;
       textarea.style.position = "fixed";
@@ -130,11 +162,20 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
           lineHeight: "1.6",
           whiteSpace: wordWrap ? "pre-wrap" : "pre",
           wordBreak: wordWrap ? "break-all" : "normal",
+          background: "transparent",
         }}
       >
-        <code className={language ? `language-${language}` : ""}>
-          {value.trimEnd()}
-        </code>
+        {highlightedHtml != null ? (
+          <code
+            className={language ? `language-${language} hljs` : "hljs"}
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            style={{ background: "transparent", padding: 0 }}
+          />
+        ) : (
+          <code className={language ? `language-${language}` : ""}>
+            {value.trimEnd()}
+          </code>
+        )}
       </pre>
     </div>
   );

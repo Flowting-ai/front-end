@@ -22,7 +22,12 @@ const bodyTextStyle: React.CSSProperties = {
 }
 
 // ── Animation variants ─────────────────────────────────────────────────────────
+// Three layers so height animation and stagger orchestration never conflict:
+//   Layer 1 (heightVariants)  — animates height only
+//   Layer 2 (staggerVariants) — orchestrates staggerChildren, no visual props
+//   Layer 3 (itemVariants)    — per-item fade + downward drift
 
+// Layer 1 — height clip
 const heightVariants = {
   open: {
     height: 'auto' as const,
@@ -34,6 +39,9 @@ const heightVariants = {
   },
 }
 
+// Layer 2 — stagger orchestrator (no visual change on itself)
+// Open:  delay items until AFTER height animation completes (0.22s) so items never appear while clipped
+// Close: no stagger — all items fade at once (0.12s), height shrinks after delay (0.14s)
 const staggerVariants = {
   open: {
     transition: { staggerChildren: 0.04, delayChildren: 0.24 },
@@ -43,6 +51,7 @@ const staggerVariants = {
   },
 }
 
+// Layer 3 — per-item: fade + drift
 const itemVariants = {
   open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
@@ -51,15 +60,33 @@ const itemVariants = {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SidebarProjectsSectionProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Folder label */
   label?: string
+  /** Whether the list starts expanded */
   defaultOpen?: boolean
+  /** Whether this project is currently active/open — shows the open icon variant without expanding the list */
   active?: boolean
+  /** Indented child items — SidebarMenuItem rows or any node */
   children?: React.ReactNode
+  /** Stretch to full width instead of fixed 237px — use inside Sidebar */
   fluid?: boolean
+  /** Controlled expanded state — when provided, overrides internal toggle state */
   expanded?: boolean
+  /** Called when the icon is clicked with the next expanded value */
   onExpandedChange?: (expanded: boolean) => void
+  /**
+   * Custom icon for the header row. Must accept a `triggered` prop.
+   * Defaults to `<FolderOneIcon size={20} />` with open/closed variant driven by state.
+   */
   icon?: React.ReactElement<{ triggered?: boolean }>
+  /**
+   * Called when the user commits a rename (Enter or blur).
+   * Receives the new label. Parent should update the label prop.
+   */
   onCommit?: (value: string) => void
+  /**
+   * Called when the user cancels a rename (Escape).
+   */
   onCancel?: () => void
 }
 
@@ -70,13 +97,16 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
     { label = 'Folder name', defaultOpen = false, active = false, expanded: expandedProp, onExpandedChange, fluid = false, icon, children, className, onClick, onCommit, onCancel, ...props },
     ref,
   ) {
+    // isExpanded — icon-driven; can be controlled via `expanded` prop
+    // active     — row-driven; controlled by parent
     const isControlled = expandedProp !== undefined
     const [internalExpanded, setInternalExpanded] = useState(defaultOpen)
     const isExpanded = isControlled ? expandedProp! : internalExpanded
     const [isHovered, setIsHovered] = useState(false)
-    const isActive = isHovered || active
+    const isActive = isHovered || active  // drives all visual state (hover + persistent selected)
     const [expandOverflow, setExpandOverflow] = useState<'visible' | 'hidden'>('hidden')
 
+    // ── Inline rename state ────────────────────────────────────────────────────
     const [isEditing, setIsEditing] = useState(false)
     const [editValue, setEditValue] = useState(label)
     const inputRef     = useRef<HTMLInputElement>(null)
@@ -91,6 +121,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
       }
     }, [isEditing])
 
+    // ── Label marquee (mirrors chat-item pattern) ──────────────────────────────
     const labelContainerRef = useRef<HTMLDivElement>(null)
     const labelRef          = useRef<HTMLParagraphElement>(null)
     const [marqueeOffset,  setMarqueeOffset]  = useState(0)
@@ -166,6 +197,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
         style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: fluid ? '100%' : '237px' }}
         {...props}
       >
+        {/* ── Header row — clicking opens the project; icon click toggles the list ── */}
         <div
           role="button"
           tabIndex={0}
@@ -195,6 +227,7 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0, flex: 1 }}>
+            {/* ── Icon — click toggles expand/collapse ── */}
             <div
               role="button"
               tabIndex={isEditing ? -1 : 0}
@@ -292,11 +325,13 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
             )}
           </div>
 
+          {/* Inner depth shadow — active + hover (not shown when editing) */}
           {isActive && !isEditing && (
             <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
           )}
         </div>
 
+        {/* ── Expanded children — staggered per-item fade + drift ── */}
         <AnimatePresence initial={false}>
           {isExpanded && children && (
             <motion.div

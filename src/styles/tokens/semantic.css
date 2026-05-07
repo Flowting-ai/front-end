@@ -437,6 +437,26 @@
   --overlay-bg:   rgba(18, 12, 8, 0.5);  /* warm near-black @ 50%, tracks --neutral-950 hue */
   --overlay-blur: 2px;                    /* applied via backdrop-filter */
 
+  /* ── MessageBubble / User ────────────────────────────────────────────────────
+     White card with warm neutral lift — same two-shadow + 1px-ring language as
+     Button/secondary and FloatingMenu. Bottom-right radius 4px (conversation tail).
+     Action bar fades in on hover: timestamp + Retry + Edit + Copy (ghost-2 IconButtons).
+     Figma: 2514:21470 (User Bubble)
+     ─────────────────────────────────────────────────────────────────────────── */
+  --message-bubble-user-bg:          var(--neutral-white);
+  --message-bubble-user-text:        var(--neutral-950);
+  --message-bubble-action-timestamp: var(--neutral-400);
+
+  /* Outer: two-layer lift + 1px warm border ring */
+  --shadow-message-bubble-user:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px        var(--neutral-100);
+
+  /* Inner: bottom-only depth shadow — grounds the bubble */
+  --shadow-message-bubble-user-inner:
+    inset 0px -2.182px 0.364px 0px var(--neutral-100);
+
   /* ── Chip ─────────────────────────────────────────────────────────────────── */
   --chip-bg:   var(--blue-100);
   --chip-text: var(--blue-700);

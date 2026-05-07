@@ -6,10 +6,11 @@ import { MarkdownRenderer } from "@/lib/markdown-utils";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
-import { useHighlightJs } from "@/hooks/useHighlightJs";
 import { usePinboard } from "@/context/pinboard-context";
 import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
 import { IconButton } from "@/components/IconButton";
+import { Tooltip } from "@/components/Tooltip";
+import { MessageBubble } from "@/components/MessageBubble";
 import {
   PinIcon,
   CopyOneIcon,
@@ -17,7 +18,6 @@ import {
   ThumbsDownIcon,
   RedoIcon,
   TickTwoIcon,
-  PenOneIcon,
 } from "@strange-huge/icons";
 
 // ── Standalone Activities Block (collapsible, used when no reasoning) ─────────
@@ -141,22 +141,15 @@ export function ChatMessage({
   isNewMessage = false,
   onRegenerate,
   onEdit,
-  onCitationsClick,
 }: ChatMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(message.content);
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const { addPin, removePinByMessage, isPinned, open: openPinboard } = usePinboard();
 
-  useHighlightJs(contentRef);
-
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
-  const hasCitations =
-    Boolean(message.citations?.length) || Boolean(message.sources?.length);
   const pinned = isAssistant ? isPinned(message.id) : false;
 
   const handleCopy = async () => {
@@ -166,24 +159,6 @@ export function ChatMessage({
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* ignore */
-    }
-  };
-
-  const handleEditSubmit = () => {
-    if (editValue.trim() && editValue !== message.content) {
-      onEdit?.(message.id, editValue.trim());
-    }
-    setIsEditing(false);
-  };
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleEditSubmit();
-    }
-    if (e.key === "Escape") {
-      setEditValue(message.content);
-      setIsEditing(false);
     }
   };
 
@@ -225,78 +200,13 @@ export function ChatMessage({
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "85%" }}>
-          {isEditing ? (
-            <div style={{ width: "100%", maxWidth: 566 }}>
-              <textarea
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleEditKeyDown}
-                onBlur={handleEditSubmit}
-                autoFocus
-                style={{
-                  width: "100%",
-                  minHeight: "80px",
-                  padding: "7px 10px",
-                  borderRadius: "10px",
-                  border: "none",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "14px",
-                  lineHeight: "22px",
-                  color: "var(--text-field-text, #26211E)",
-                  backgroundColor: "var(--text-field-bg, #ffffff)",
-                  resize: "vertical",
-                  outline: "2px solid transparent",
-                  outlineOffset: "3px",
-                  boxShadow: "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)",
-                  transition: "box-shadow 150ms ease, outline-color 150ms ease",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.outlineColor = "var(--focus-ring, #0081DB)";
-                  e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)";
-                }}
-                onMouseEnter={(e) => {
-                  if (document.activeElement !== e.currentTarget) {
-                    e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-200, #D1C6BD)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (document.activeElement !== e.currentTarget) {
-                    e.currentTarget.style.boxShadow = "0px 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100, #EDE1D7)";
-                  }
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginTop: "6px",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "12px",
-                  color: "var(--text-field-placeholder, #6A625D)",
-                }}
-              >
-                <span>Enter to save · Esc to cancel</span>
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                background: "var(--brown-700, #683D1B)",
-                color: "#FFFFFF",
-                padding: "12px 16px",
-                borderRadius: "16px 16px 4px 16px",
-                boxShadow: "inset 0px -2px 1.1px rgba(0,0,0,0.25)",
-                maxWidth: 566,
-                fontSize: 16,
-                lineHeight: "22px",
-                fontFamily: "var(--font-body)",
-                wordBreak: "break-word",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {message.content}
-            </div>
-          )}
+          <MessageBubble
+            role="user"
+            content={message.content}
+            onRetry={onRegenerate}
+            onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
+            maxWidth="100%"
+          />
 
           {/* Attachments */}
           {message.attachments && message.attachments.length > 0 && (
@@ -322,49 +232,13 @@ export function ChatMessage({
               ))}
             </div>
           )}
-
-          {/* User action buttons on hover */}
-          {isHovered && !isEditing && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.14 }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                height: 24,
-                paddingRight: 2,
-              }}
-            >
-              {onRegenerate && (
-                <ActionIconButton
-                  icon={<RedoIcon size={18} color="var(--neutral-400)" />}
-                  label="Retry"
-                  onClick={onRegenerate}
-                />
-              )}
-              {onEdit && (
-                <ActionIconButton
-                  icon={<PenOneIcon size={18} color="var(--neutral-400)" />}
-                  label="Edit"
-                  onClick={() => { setEditValue(message.content); setIsEditing(true); }}
-                />
-              )}
-              <ActionIconButton
-                icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
-                label={copied ? "Copied" : "Copy"}
-                onClick={handleCopy}
-              />
-            </motion.div>
-          )}
         </div>
       ) : (
         /* ── Assistant message: left-aligned, no bubble ── */
         <div style={{ width: "100%", minWidth: 0 }}>
 
         {/* Assistant role label when no thinking/reasoning present */}
-        {!hasThinking && !message.isLoading && !(message.activities && message.activities.length > 0) && (
+        {!hasThinking && !(message.activities && message.activities.length > 0) && (message.modelName || !message.isLoading) && (
           <div
             style={{
               display: "flex",
@@ -419,16 +293,22 @@ export function ChatMessage({
             isNewMessage={isNewMessage}
             isThinkingInProgress={message.isThinkingInProgress}
             modelName={message.modelName || message.model}
+            modelMeta={message.modelMeta}
             activities={message.activities}
           />
         )}
 
         {/* Message content — assistant only (user handled above) */}
         {message.content && (
-          <div ref={contentRef}>
+          <motion.div
+            ref={contentRef}
+            initial={isNewMessage ? { opacity: 0, y: 5 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          >
             <MarkdownRenderer content={message.content} />
             <StreamingCursor isVisible={!!isNewMessage && !!message.isLoading} />
-          </div>
+          </motion.div>
         )}
 
         {/* Generated images */}
@@ -575,7 +455,7 @@ export function ChatMessage({
             {isLast && onRegenerate && (
               <ActionIconButton
                 icon={<RedoIcon size={18} color="var(--neutral-400)" />}
-                label="Retry"
+                label="Regenerate"
                 onClick={onRegenerate}
               />
             )}
@@ -597,12 +477,14 @@ function ActionIconButton({
   onClick: () => void;
 }) {
   return (
-    <IconButton
-      variant="ghost-2"
-      size="xs"
-      icon={icon}
-      aria-label={label}
-      onClick={onClick}
-    />
+    <Tooltip content={label} side="top" sideOffset={6} delayDuration={400}>
+      <IconButton
+        variant="ghost-2"
+        size="xs"
+        icon={icon}
+        aria-label={label}
+        onClick={onClick}
+      />
+    </Tooltip>
   );
 }

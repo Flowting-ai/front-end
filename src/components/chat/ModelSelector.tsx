@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AIModel } from "@/types/ai-model";
-import { getModelIcon } from "@/lib/model-icons";
+import { LlmIcon } from "@strange-huge/icons/llm";
+import { getModelLlmId } from "@/lib/model-icons";
 import { Badge } from "@/components/Badge";
 
 interface ModelSelectorProps {
@@ -218,13 +219,13 @@ export function ModelSelector({
                         }}
                       >
                         {/* Model icon */}
-                        <img
-                          src={getModelIcon(model.companyName, model.modelName)}
-                          alt=""
-                          width={24}
-                          height={24}
-                          style={{ borderRadius: "4px", flexShrink: 0 }}
-                        />
+                        <span style={{ flexShrink: 0, lineHeight: 0 }}>
+                          <LlmIcon
+                            id={getModelLlmId(model.companyName, model.modelName) ?? ""}
+                            variant="avatar"
+                            size={24}
+                          />
+                        </span>
 
                         {/* Model info */}
                         <div style={{ flex: 1, minWidth: 0 }}>

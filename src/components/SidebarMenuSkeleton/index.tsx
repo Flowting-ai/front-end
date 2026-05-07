@@ -3,13 +3,26 @@
 import React, { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
+  /**
+   * Show an icon placeholder on the left — matches `default` variant icon slot.
+   * @default false
+   */
   showIcon?: boolean
+  /**
+   * Full width instead of fixed 217px — always pass inside Sidebar.
+   * @default false
+   */
   fluid?: boolean
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export const SidebarMenuSkeleton = React.forwardRef<HTMLDivElement, SidebarMenuSkeletonProps>(
   function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ...props }, ref) {
+    // Randomise text bar width (50–88%) so stacked skeletons look naturally varied
     const width = useMemo(() => `${Math.floor(Math.random() * 38) + 50}%`, [])
 
     return (

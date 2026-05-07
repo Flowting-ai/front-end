@@ -51,6 +51,9 @@ export function ChatHistoryItem({
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Prevents Radix from stealing focus back to the trigger when rename is clicked.
+  // Set to true in the Rename onSelect; cleared in onCloseAutoFocus after e.preventDefault().
+  const pendingRenameRef = useRef(false);
 
   const handleCommit = (value: string) => {
     const trimmed = value.trim();
@@ -112,6 +115,12 @@ export function ChatHistoryItem({
           side="bottom"
           align="end"
           sideOffset={4}
+          onCloseAutoFocus={(e) => {
+            if (pendingRenameRef.current) {
+              e.preventDefault();
+              pendingRenameRef.current = false;
+            }
+          }}
           style={{
             backgroundColor: "var(--neutral-white)",
             borderRadius: "12px",
@@ -125,7 +134,10 @@ export function ChatHistoryItem({
         >
           <DropdownMenu.Item
             style={menuItemStyle}
-            onSelect={() => setIsEditing(true)}
+            onSelect={() => {
+              pendingRenameRef.current = true;
+              setIsEditing(true);
+            }}
             onMouseEnter={(e) =>
               ((e.currentTarget as HTMLElement).style.backgroundColor =
                 "var(--neutral-50)")

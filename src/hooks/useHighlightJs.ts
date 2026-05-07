@@ -12,7 +12,10 @@ function loadHljs() {
   return _hljsPromise;
 }
 
-export function useHighlightJs(containerRef: React.RefObject<HTMLElement | null>) {
+export function useHighlightJs(
+  containerRef: React.RefObject<HTMLElement | null>,
+  enabled = true,
+) {
   const [isReady, setIsReady] = useState(false);
   const hljsRef = useRef<typeof import("highlight.js/lib/core").default | null>(
     null,
@@ -33,17 +36,18 @@ export function useHighlightJs(containerRef: React.RefObject<HTMLElement | null>
   }, []);
 
   useEffect(() => {
-    if (!isReady || !hljsRef.current || !containerRef.current) return;
+    if (!enabled || !isReady || !hljsRef.current || !containerRef.current) return;
 
+    // Clear stale flags: React overwrites hljs's DOM mutations during streaming,
+    // leaving data-highlighted=true on plain-text nodes that were never re-highlighted.
     const blocks =
       containerRef.current.querySelectorAll<HTMLElement>("pre code[class*='language-']");
     blocks.forEach((block) => {
-      if (!block.dataset.highlighted) {
-        hljsRef.current!.highlightElement(block);
-        block.dataset.highlighted = "true";
-      }
+      block.removeAttribute("data-highlighted");
+      hljsRef.current!.highlightElement(block);
+      block.dataset.highlighted = "true";
     });
-  });
+  }, [isReady, enabled, containerRef]);
 
   return { isReady, hljs: hljsRef.current };
 }

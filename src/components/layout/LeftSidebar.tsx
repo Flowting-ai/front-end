@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton } from "@/components/ui";
 import { useAuth } from "@/context/auth-context";
@@ -15,17 +16,85 @@ function readCollapsed(): boolean {
   return localStorage.getItem("sidebar_collapsed") === "true";
 }
 
-// ── Chat history recents section ──────────────────────────────────────────────
+// ── Section show/hide animation — matches Sidebar design system ───────────────
 
-interface RecentsProps {
+const sectionHeightVariants = {
+  open: {
+    height: "auto" as const,
+    transition: { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const },
+  },
+  closed: {
+    height: 0,
+    transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] as const, delay: 0.14 },
+  },
+};
+
+// ── Shared section props ──────────────────────────────────────────────────────
+
+interface SectionProps {
   activeChatId?: string;
   onSelectChat: (id: string) => void;
   chatHistory: UseChatHistoryResult;
 }
 
-function ChatRecents({ activeChatId, onSelectChat, chatHistory }: RecentsProps) {
-  const { chats, isLoading, hasMore, loadMore, rename, remove, star } =
-    chatHistory;
+// ── Starred section ───────────────────────────────────────────────────────────
+
+function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
+  const [shown, setShown] = useState(true);
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
+
+  const starredChats = chatHistory.chats.filter((c) => c.starred);
+
+  // Don't render the section at all when no chats are starred.
+  // Component remounts next time a chat is starred → shown resets to true.
+  if (starredChats.length === 0) return null;
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Starred"
+        shown={shown}
+        onShowClick={() => setShown((s) => !s)}
+      />
+      <motion.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
+      >
+        <div
+          style={{
+            paddingTop: "4px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          {starredChats.map((chat) => (
+            <ChatHistoryItem
+              key={chat.id}
+              chat={chat}
+              isActive={chat.id === activeChatId}
+              onSelect={onSelectChat}
+              onRename={chatHistory.rename}
+              onDelete={chatHistory.remove}
+              onStar={chatHistory.star}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+// ── Recents list ──────────────────────────────────────────────────────────────
+
+function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
+  const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory;
 
   if (isLoading && chats.length === 0) {
     return (
@@ -60,9 +129,7 @@ function ChatRecents({ activeChatId, onSelectChat, chatHistory }: RecentsProps) 
   }
 
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", gap: "4px" }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
       {chats.map((chat) => (
         <ChatHistoryItem
           key={chat.id}
@@ -86,6 +153,37 @@ function ChatRecents({ activeChatId, onSelectChat, chatHistory }: RecentsProps) 
   );
 }
 
+// ── Recents section — header with show/hide + animated collapse ───────────────
+
+function RecentsSection(props: SectionProps) {
+  const [shown, setShown] = useState(true);
+  const [overflow, setOverflow] = useState<"visible" | "hidden">("visible");
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Recents"
+        shown={shown}
+        onShowClick={() => setShown((s) => !s)}
+      />
+      <motion.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden"); }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible"); }}
+      >
+        <div style={{ paddingTop: "4px" }}>
+          <RecentsList {...props} />
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
 // ── LeftSidebar ───────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
@@ -105,16 +203,12 @@ export function LeftSidebar({
   const chatHistory = useChatHistoryContext();
   const collapsedRef = useRef<boolean>(readCollapsed());
 
-  // Derive active chat from URL if not passed as prop
   const resolvedActiveChatId = activeChatId ?? searchParams.get("id") ?? undefined;
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
     if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "sidebar_collapsed",
-        String(collapsedRef.current),
-      );
+      localStorage.setItem("sidebar_collapsed", String(collapsedRef.current));
     }
   };
 
@@ -135,26 +229,20 @@ export function LeftSidebar({
   };
 
   const displayName = user
-    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-      user.name ||
-      ""
+    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.name || ""
     : "";
 
-  const avatarInitials = (() => {
-    const first = user?.firstName?.trim();
-    const last = user?.lastName?.trim();
-    if (first && last) return (first[0] + last[0]).toUpperCase();
-    if (first) return first[0].toUpperCase();
-    if (user?.email) return user.email[0].toUpperCase();
-    return undefined;
-  })();
+  const sectionProps: SectionProps = {
+    activeChatId: resolvedActiveChatId,
+    onSelectChat: handleSelectChat,
+    chatHistory,
+  };
 
   return (
     <Sidebar
       userName={displayName || "Account"}
       userEmail={user?.email ?? ""}
       avatarSrc={undefined}
-      avatarInitials={avatarInitials}
       defaultCollapsed={collapsedRef.current}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
@@ -163,11 +251,13 @@ export function LeftSidebar({
       }}
       onSettingsClick={() => router.push("/settings")}
       recentItems={
-        <ChatRecents
-          activeChatId={resolvedActiveChatId}
-          onSelectChat={handleSelectChat}
-          chatHistory={chatHistory}
-        />
+        // Both sections share sectionProps; StarredSection self-hides when empty.
+        // gap:'8px' on the wrapper adds space between Starred and Recents only
+        // when both are present — gap does not apply to null children.
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <StarredSection {...sectionProps} />
+          <RecentsSection {...sectionProps} />
+        </div>
       }
     />
   );

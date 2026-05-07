@@ -51,7 +51,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
           gap:            8,
           height:         58,
           paddingTop:     22,
-          background:     'var(--neutral-50, #f7f2ed)',
+          background:     'var(--neutral-50)',
           width:          fluid ? '100%' : 316,
           ...style,
         }}

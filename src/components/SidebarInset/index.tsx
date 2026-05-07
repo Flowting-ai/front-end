@@ -3,8 +3,28 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 export interface SidebarInsetProps extends React.HTMLAttributes<HTMLElement> {}
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
+/**
+ * Layout companion for `<Sidebar>`. Renders as `<main>` and fills the
+ * remaining horizontal space next to the sidebar.
+ *
+ * Usage:
+ * ```tsx
+ * <SidebarProvider>
+ *   <div style={{ display: 'flex', height: '100svh' }}>
+ *     <Sidebar ... />
+ *     <SidebarInset>
+ *       {/* page content *\/}
+ *     </SidebarInset>
+ *   </div>
+ * </SidebarProvider>
+ * ```
+ */
 export const SidebarInset = React.forwardRef<HTMLElement, SidebarInsetProps>(
   function SidebarInset({ className, children, style, ...props }, ref) {
     return (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { getModelIcon } from "@/lib/model-icons";
+import { LlmIcon } from "@strange-huge/icons/llm";
+import { getModelLlmId } from "@/lib/model-icons";
 import { Button } from "@/components/Button";
 import { ArrowDownOneIcon } from "@strange-huge/icons";
 
@@ -20,7 +21,10 @@ export function TopBar({
   citationsOpen = false,
   onCitationsToggle,
 }: TopBarProps) {
-  const { selectedModel, isOpen, open } = useModelSelectorContext();
+  const { selectedModel, isOpen, open, museActive, museAdvanced } = useModelSelectorContext();
+  const modelLlmId = museActive
+    ? null
+    : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName);
 
   return (
     <header
@@ -48,16 +52,25 @@ export function TopBar({
         <Button
           variant="ghost"
           size="md"
-          image={getModelIcon(
-            selectedModel?.companyName,
-            selectedModel?.modelName,
-          )}
           rightIcon={<ArrowDownOneIcon size={16} />}
           onClick={(e) => open(e.currentTarget)}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
-          {selectedModel?.modelName ?? "Select model"}
+          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {(museActive || modelLlmId) && (
+              <span style={{ width: "20px", height: "20px", borderRadius: "4px", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {museActive
+                  ? <img src="/icons/logo/souvenir-logo.svg" width={20} height={20} alt="" style={{ display: "block" }} />
+                  : <LlmIcon id={modelLlmId!} variant="avatar" size={20} />}
+              </span>
+            )}
+            {museActive
+              ? museAdvanced
+                ? "Souvenir AI Muse (Advanced)"
+                : "Souvenir AI Muse (Basic)"
+              : selectedModel?.modelName ?? "Select model"}
+          </span>
         </Button>
       </div>
 

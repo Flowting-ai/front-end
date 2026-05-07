@@ -36,11 +36,14 @@ function getInitialModelFromStorage(): Partial<AIModel> | null {
 
 export function useModelSelection(): UseModelSelectionResult {
   const [models, setModels] = useState<AIModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState<AIModel | null>(
-    getInitialModelFromStorage() as AIModel | null
-  );
+  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const cached = getInitialModelFromStorage();
+    if (cached) setSelectedModel(cached as AIModel);
+  }, []);
 
   const loadModels = async (force = false) => {
     setIsLoading(true);

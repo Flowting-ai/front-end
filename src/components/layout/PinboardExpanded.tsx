@@ -38,6 +38,7 @@ import {
   PIN_MOVE_ENDPOINT,
 } from '@/lib/config'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
+import { PinboardExpandedSkeleton } from '@/components/PinboardExpandedSkeleton'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ function pinItemToKDS(item: PinItem): PinboardPin {
     pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
     chatName:    item.chatName ?? '',
+    llm:         item.modelName || undefined,
     labels: [
       ...tagLabels,
       ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: item.modelName }] : []),
@@ -202,6 +204,9 @@ function EmptyState({ title, description, action }: {
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const { pins, removePin } = usePinboard()
   const enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT
+
+  // ── Loading state — show skeleton until first folder fetch settles ───────
+  const [foldersLoaded, setFoldersLoaded] = useState(false)
 
   // ── Folder state ──────────────────────────────────────────────────────────
   const [folders,           setFolders]           = useState<PinFolder[]>([])
@@ -298,8 +303,9 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
           setFolders(data as PinFolder[])
         else if (data && Array.isArray((data as { data?: unknown }).data))
           setFolders((data as { data: PinFolder[] }).data)
+        setFoldersLoaded(true)
       })
-      .catch(() => {})
+      .catch(() => { setFoldersLoaded(true) })
   }, [])
 
   useEffect(() => {
@@ -479,7 +485,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         transition={{ type: 'spring', stiffness: 260, damping: 32 }}
         style={{
           width:        924,
-          height:       817,
+          height:       'min(817px, calc(100vh - 32px))',
           maxWidth:     'calc(100vw - 32px)',
           maxHeight:    'calc(100vh - 32px)',
           borderRadius: 28,
@@ -488,7 +494,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
           overflow:     'hidden',
         }}
       >
-        {/* ── Outer flex row — matches DS PinboardExpanded outer container ── */}
+        {/* ── Loading skeleton — shown until first folder fetch settles ── */}
+        {!foldersLoaded ? (
+          <PinboardExpandedSkeleton
+            width={924}
+            style={{ width: '100%', height: '100%', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)', borderRadius: 28, boxShadow: 'none' }}
+          />
+        ) : (
+        /* ── Outer flex row — matches DS PinboardExpanded outer container ── */
         <div
           style={{
             display:      'flex',
@@ -1015,39 +1028,23 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                           action={'action' in emptyState ? emptyState.action : undefined}
                         />
                       ) : (
-                        // Masonry: 2 flex columns split by index parity — each column
-                        // packs independently so short pins don't leave dead space.
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                          {[0, 1].map(col => (
-                            <div
-                              key={col}
-                              style={{
-                                display:       'flex',
-                                flexDirection: 'column',
-                                gap:           8,
-                                flex:          '1 1 0',
-                                minWidth:      0,
-                              }}
-                            >
-                              {visiblePins.map((p, i) => {
-                                if (i % 2 !== col) return null
-                                const { id, ...pinProps } = p
-                                const chunkIndex = Math.floor(i / 2) + 3
-                                return (
-                                  <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex}>
-                                    <PinGridCell
-                                      pin={p}
-                                      isOrganizing={isOrganizing}
-                                      isSelected={selectedPinIds.has(id)}
-                                      collapseSignal={collapseSignal}
-                                      onToggle={() => togglePin(id)}
-                                      onExpandedChange={handlePinExpandedChange(id)}
-                                    />
-                                  </EnterChunk>
-                                )
-                              })}
-                            </div>
-                          ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', alignItems: 'start' }}>
+                          {visiblePins.map((p, i) => {
+                            const { id } = p
+                            const chunkIndex = i + 3
+                            return (
+                              <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex} style={{ minWidth: 0 }}>
+                                <PinGridCell
+                                  pin={p}
+                                  isOrganizing={isOrganizing}
+                                  isSelected={selectedPinIds.has(id)}
+                                  collapseSignal={collapseSignal}
+                                  onToggle={() => togglePin(id)}
+                                  onExpandedChange={handlePinExpandedChange(id)}
+                                />
+                              </EnterChunk>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -1215,6 +1212,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
             </AnimatePresence>
           </div>
         </div>
+        )}
       </motion.div>
     </div>
   )
@@ -1377,6 +1375,8 @@ function PinGridCell({
       style={{
         position:      'relative',
         borderRadius:  16,
+        width:         '100%',
+        minWidth:      0,
         outline:       isSelected ? `2px solid var(--focus-ring)` : undefined,
         outlineOffset: isSelected ? 2 : undefined,
       }}
