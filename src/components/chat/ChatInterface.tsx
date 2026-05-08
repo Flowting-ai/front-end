@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
@@ -291,6 +292,7 @@ export function ChatInterface({
           )}
 
           {/* Messages */}
+          <AnimatePresence initial={false}>
           {messages.map((message, idx) => (
             <ChatMessage
               key={message.id}
@@ -326,6 +328,7 @@ export function ChatInterface({
               }
             />
           ))}
+          </AnimatePresence>
 
           <div ref={messagesEndRef} />
         </div>

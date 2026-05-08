@@ -181,11 +181,11 @@ export function ChatMessage({
 
   return (
     <motion.div
-      initial={isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10, filter: "blur(4px)" }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
       transition={isUser
         ? { type: "spring", stiffness: 380, damping: 28 }
-        : { duration: 0.2, ease: [0.4, 0, 0.2, 1] }
+        : { duration: 0.4, ease: [0.2, 0, 0, 1] }
       }
       style={{
         display: "flex",
@@ -421,11 +421,14 @@ export function ChatMessage({
         )}
 
         {/* Action buttons (on hover) — assistant only */}
-        {isHovered && !message.isLoading && (
+        <AnimatePresence>
+          {isHovered && !message.isLoading && (
           <motion.div
+            key="action-buttons"
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.18 }}
+            exit={{ opacity: 0, y: 2 }}
+            transition={{ duration: 0.15 }}
             style={{
               display: "flex",
               gap: 2,
@@ -460,7 +463,8 @@ export function ChatMessage({
               />
             )}
           </motion.div>
-        )}
+          )}
+        </AnimatePresence>
         </div>
       )}
     </motion.div>

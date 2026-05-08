@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
 import { auth0 } from "@/lib/auth0";
 import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
 
@@ -86,11 +87,18 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
   }
 }
 
-export default async function proxy(request: Request) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
   // Auth0 handles its own routes — never block /auth/*
   if (pathname.startsWith("/auth/")) {
+    // /auth/access-token has an explicit route handler override
+    // (src/app/auth/access-token/route.ts) that wraps the SDK response with
+    // the correct audience and a stable { token } shape. Pass through so that
+    // route handler is actually invoked instead of being shadowed by the proxy.
+    if (pathname === "/auth/access-token") {
+      return NextResponse.next();
+    }
     return await auth0.middleware(request);
   }
 
@@ -99,7 +107,10 @@ export default async function proxy(request: Request) {
     return await auth0.middleware(request);
   }
 
-  const session = await auth0.getSession();
+  // Pass the request explicitly so the SDK reads cookies from the incoming
+  // request rather than falling back to next/headers (which behaves differently
+  // in the proxy runtime vs. App Router route handlers).
+  const session = await auth0.getSession(request);
   const onboardingResult = session
     ? await fetchOnboardingState()
     : { data: null, requiresReauth: false };
