@@ -37,6 +37,7 @@ interface PinboardContextValue {
   close: () => void;
   toggle: () => void;
   addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
+  clonePin: (original: PinItem) => Promise<void>;
   removePin: (id: string) => void;
   removePinByMessage: (messageId: string) => void;
   isPinned: (messageId: string) => boolean;
@@ -66,6 +67,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           category: (p.category as PinCategory) ?? "Quote",
           tags: p.tags,
           messageId: p.message_id ?? p.id,
+          chatId: p.chat_id,
           createdAt: p.created_at,
         }));
         setPins(items);
@@ -75,7 +77,6 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   // ── addPin — optimistic, persisted to backend ───────────────────────────
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {
-    // Capture tempId inside the setState callback so it's synchronous
     let tempId: string | null = null;
     setPins((prev) => {
       if (prev.some((p) => p.messageId === pin.messageId)) return prev;
@@ -104,6 +105,40 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       console.error("[PinboardContext] Failed to save pin", err);
       setPins((prev) => prev.filter((p) => p.id !== tempId));
       toast.error("Failed to save pin");
+    }
+  }, []);
+
+  // ── clonePin — duplicate an existing pin via POST /pins/message/{messageId}
+  // Bypasses the messageId deduplication check in addPin so that a pin can be
+  // duplicated even when one for the same message already exists.
+  const clonePin = useCallback(async (original: PinItem) => {
+    const tempId = `pin-temp-${Date.now()}`;
+    const optimistic: PinItem = {
+      ...original,
+      id: tempId,
+      createdAt: new Date().toISOString(),
+    };
+    setPins((prev) => [optimistic, ...prev]);
+
+    try {
+      const backendPin = await createPin(original.messageId);
+      setPins((prev) =>
+        prev.map((p) =>
+          p.id === tempId
+            ? {
+                ...original,
+                id: backendPin.id,
+                tags: backendPin.tags?.length ? backendPin.tags : original.tags,
+                createdAt: backendPin.created_at ?? optimistic.createdAt,
+              }
+            : p,
+        ),
+      );
+      toast("Pin duplicated");
+    } catch (err) {
+      console.error("[PinboardContext] Failed to duplicate pin", err);
+      setPins((prev) => prev.filter((p) => p.id !== tempId));
+      toast.error("Failed to duplicate pin");
     }
   }, []);
 
@@ -143,7 +178,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PinboardContext.Provider
-      value={{ pins, isOpen, open, close, toggle, addPin, removePin, removePinByMessage, isPinned, updatePinCategory }}
+      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory }}
     >
       {children}
     </PinboardContext.Provider>

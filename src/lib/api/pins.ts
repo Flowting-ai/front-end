@@ -21,6 +21,7 @@ export interface Pin {
   /** Tag names extracted from backend tags array */
   tags: string[];
   message_id?: string;
+  chat_id?: string;
   category?: string;
   folder_id?: string;
   folder_name?: string;
@@ -80,6 +81,9 @@ function normalizePin(raw: RawPin): Pin {
     message_id:
       typeof raw.message_id === "string" ? raw.message_id :
       typeof raw.messageId  === "string" ? raw.messageId  : undefined,
+    chat_id:
+      typeof raw.chat_id === "string" ? raw.chat_id :
+      typeof raw.chatId  === "string" ? raw.chatId  : undefined,
     category:    typeof raw.category    === "string" ? raw.category    : undefined,
     folder_id:   typeof raw.folder_id   === "string" ? raw.folder_id   :
                  typeof raw.folderId    === "string" ? raw.folderId    : undefined,

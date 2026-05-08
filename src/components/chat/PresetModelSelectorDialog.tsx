@@ -403,7 +403,7 @@ function PresetModelSelectorContent({
 
 // Approximate rendered height of PresetModelSelectorContent (440px inner + 16px padding)
 const DROPDOWN_HEIGHT = 456;
-const DROPDOWN_WIDTH = 480;
+const DROPDOWN_WIDTH = 432;
 const GAP = 8;
 
 export function PresetModelSelectorDialog() {

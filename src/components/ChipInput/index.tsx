@@ -1,13 +1,19 @@
 'use client'
 
 import React, { useCallback, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useAnimation } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 // Figma 3118:32829 — chip input minimum width.
 const MIN_WIDTH = 64
+
+// Hard cap on tag length. Matches the in-Pin "Add tag" affordance — pin tags
+// are short, identifying labels, not freeform notes. Past this, the input
+// rejects the keystroke (restoring the previous value) and triggers the same
+// shake animation `PinCommentField` uses when the 2-line cap is hit.
+const MAX_LENGTH = 30
 
 // ── Shadow tokens (mirrors PinCommentField) ───────────────────────────────────
 
@@ -55,6 +61,9 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
   ) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
+    // Shake-on-cap animation — same controls API as `PinCommentField`'s
+    // 2-line cap, applied here when the user types past `MAX_LENGTH`.
+    const shakeControls = useAnimation()
 
     const isControlled = controlledValue !== undefined
     const [internalValue, setInternalValue] = useState<string>(
@@ -75,7 +84,19 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
     const shadow = isFocused ? SHADOW_FOCUS : isHovered ? SHADOW_HOVER : SHADOW_DEFAULT
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!isControlled) setInternalValue(e.target.value)
+      const next = e.target.value
+      if (next.length > MAX_LENGTH) {
+        // Reject — restore previous valid value and shake. Same x-keyframes /
+        // duration / easing as PinCommentField so the gesture is consistent
+        // across "you've hit a limit" feedback in the system.
+        if (inputRef.current) inputRef.current.value = value
+        shakeControls.start({
+          x: [0, -3, 3, -2, 2, -1, 1, 0],
+          transition: { duration: 0.25, ease: 'easeInOut' },
+        })
+        return
+      }
+      if (!isControlled) setInternalValue(next)
       externalChange?.(e)
     }
 
@@ -84,7 +105,8 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
     const focusInput = () => inputRef.current?.focus()
 
     return (
-      <div
+      <motion.div
+        animate={shakeControls}
         className={cn(className)}
         onMouseEnter={(e) => { setIsHovered(true);  externalEnter?.(e as unknown as React.MouseEvent<HTMLInputElement>) }}
         onMouseLeave={(e) => { setIsHovered(false); externalLeave?.(e as unknown as React.MouseEvent<HTMLInputElement>) }}
@@ -188,7 +210,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
           onBlur={(e)  => { setIsFocused(false); externalBlur?.(e) }}
           {...props}
         />
-      </div>
+      </motion.div>
     )
   },
 )

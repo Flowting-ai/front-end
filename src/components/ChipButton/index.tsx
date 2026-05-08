@@ -32,6 +32,14 @@ export interface ChipButtonProps {
    * Variant names reflect the rendered container size (Figma 908:454).
    */
   size?: '28px' | '16px'
+  /**
+   * Disabled state — sets the native `disabled` attribute, suppresses pointer
+   * events, drops the whileTap scale animation, and switches the cursor to
+   * `not-allowed`. Visual dimming (opacity 0.7) lives on the parent `Chip`'s
+   * `disabled` state, not here — the button is always rendered at full
+   * opacity inside the dimmed chip so its silhouette stays legible.
+   */
+  disabled?: boolean
 }
 
 export function ChipButton({
@@ -40,6 +48,7 @@ export function ChipButton({
   onClick,
   spinOnHover = false,
   size = '28px',
+  disabled = false,
 }: ChipButtonProps) {
   const isSmall = size === '16px'
   return (
@@ -47,7 +56,8 @@ export function ChipButton({
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      whileTap={{ scale: 0.9 }}
+      disabled={disabled}
+      whileTap={disabled ? undefined : { scale: 0.9 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
       className="kds-chip-button"
       style={{
@@ -62,7 +72,7 @@ export function ChipButton({
         ...(isSmall && { width: 16, height: 16 }),
         flexShrink:     0,
         border:         'none',
-        cursor:         'pointer',
+        cursor:         disabled ? 'not-allowed' : 'pointer',
         color:          'var(--chip-text)',
       }}
     >

@@ -19,6 +19,18 @@ export const POPOVER_WIDTHS = {
 
 export type PopoverSize = keyof typeof POPOVER_WIDTHS
 
+// ── Variants ──────────────────────────────────────────────────────────────────
+// Two corner-radius presets per Figma 3206:31988:
+//   modal    — 18px (default; used for confirmation/sheet-style surfaces)
+//   dropdown — 12px (used by Dropdown / context menus / select popovers)
+
+export type PopoverVariant = 'modal' | 'dropdown'
+
+const VARIANT_RADIUS: Record<PopoverVariant, number> = {
+  modal:    18,
+  dropdown: 12,
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PopoverProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -35,6 +47,16 @@ export interface PopoverProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   size?: PopoverSize
   /**
+   * Surface variant — controls corner radius (Figma 3206:31988).
+   *  - `modal`    (default) — 18 px radius. For confirmation dialogs / sheets.
+   *  - `dropdown`           — 12 px radius. For dropdowns / context menus /
+   *                           select popovers. The `<Dropdown>` organism sets
+   *                           this automatically; consumers using `<Popover>`
+   *                           directly for a menu-like surface should set it
+   *                           explicitly.
+   */
+  variant?: PopoverVariant
+  /**
    * Content to render inside the popover surface.
    * Typically one or more `<DropdownSection>` components.
    */
@@ -50,14 +72,14 @@ export interface PopoverProps extends React.HTMLAttributes<HTMLDivElement> {
  * `@radix-ui/react-dropdown-menu` Content for full behaviour.
  */
 export const Popover = React.forwardRef<HTMLDivElement, PopoverProps>(
-  function Popover({ size, children, className, style, ...props }, ref) {
+  function Popover({ size, variant = 'modal', children, className, style, ...props }, ref) {
     return (
       <div
         ref={ref}
         className={cn(className)}
         style={{
           backgroundColor: 'var(--popover-bg)',
-          borderRadius:    '18px',
+          borderRadius:    `${VARIANT_RADIUS[variant]}px`,
           overflow:        'hidden',
           boxShadow:       'var(--shadow-popover)',
           display:         'flex',

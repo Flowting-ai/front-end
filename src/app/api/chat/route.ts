@@ -6,21 +6,20 @@ export const dynamic = "force-dynamic"
 
 const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
 
-interface ChatRequestBody {
-  chatId?: string | null
-  input: string
-  modelId?: string | number | null
-  pinIds?: string | null
-  referenceMessageId?: string | null
-}
-
 /**
  * POST /api/chat
  *
  * Server-side proxy: reads the Auth0 access token, builds a multipart/form-data
  * request, and pipes the backend SSE stream back to the browser.
  *
- * The auth token never leaves the server — the browser only sees the SSE events.
+ * Accepts multipart/form-data with fields:
+ *   input              — required user message
+ *   chatId             — existing chat ID (omit or "temp-*" for new chats)
+ *   modelId            — optional model override
+ *   pinIds             — optional JSON-stringified pin ID array
+ *   referenceMessageId — optional reference message for context
+ *   webSearch          — "true" to enable web search tool
+ *   files              — zero or more File parts (uploaded attachments)
  */
 export async function POST(request: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -33,17 +32,23 @@ export async function POST(request: NextRequest) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  // ── Parse request ────────────────────────────────────────────────────────────
-  let body: ChatRequestBody
+  // ── Parse request (multipart/form-data) ─────────────────────────────────────
+  let formData: FormData
   try {
-    body = (await request.json()) as ChatRequestBody
+    formData = await request.formData()
   } catch {
-    return new Response("Bad Request: invalid JSON body", { status: 400 })
+    return new Response("Bad Request: invalid form data", { status: 400 })
   }
 
-  const { chatId, input, modelId, pinIds, referenceMessageId } = body
+  const chatId             = (formData.get("chatId") as string | null) || null
+  const input              = (formData.get("input") as string | null) ?? ""
+  const modelId            = formData.get("modelId") as string | null
+  const pinIds             = formData.get("pinIds") as string | null
+  const referenceMessageId = formData.get("referenceMessageId") as string | null
+  const webSearch          = formData.get("webSearch") === "true"
+  const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
 
-  if (!input?.trim()) {
+  if (!input.trim()) {
     return new Response("Bad Request: input is required", { status: 400 })
   }
 
@@ -56,15 +61,11 @@ export async function POST(request: NextRequest) {
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()
   fd.append("input", input)
-  if (modelId !== null && modelId !== undefined) {
-    fd.append("model_id", String(modelId))
-  }
-  if (pinIds) {
-    fd.append("pin_ids", pinIds)
-  }
-  if (referenceMessageId && isExistingChat) {
-    fd.append("reference_message_id", referenceMessageId)
-  }
+  if (modelId) fd.append("model_id", modelId)
+  if (pinIds)  fd.append("pin_ids", pinIds)
+  if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
+  if (webSearch) fd.append("web_search", "true")
+  clientFiles.forEach((f) => fd.append("files", f))
 
   // ── Proxy request ────────────────────────────────────────────────────────────
   let backendResponse: Response

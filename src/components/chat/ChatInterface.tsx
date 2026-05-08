@@ -27,8 +27,20 @@ interface ChatInterfaceProps {
   selectedModel?: string;
   selectedModelId?: string | number | null;
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
+  /** Dropdown content for the `+` add button in ChatInput. */
+  addMenu?: React.ReactNode;
+  /** Dropdown content for the model selector button in ChatInput. */
+  modelMenu?: React.ReactNode;
   /** If provided, ChatInterface auto-sends this message on mount (new chat). */
   initialPrompt?: string | null;
+  /** Whether web search is currently enabled (controlled by parent). */
+  webSearchEnabled?: boolean;
+  /** Files selected via the add-menu file picker (controlled by parent). */
+  addMenuFiles?: File[];
+  /** Called after send to let the parent clear its add-menu file list. */
+  onClearAddMenuFiles?: () => void;
+  /** Chip elements rendered in the ChatInput footer (web search, file chips…). */
+  chips?: React.ReactNode;
 }
 
 export function ChatInterface({
@@ -39,7 +51,13 @@ export function ChatInterface({
   selectedModel,
   selectedModelId,
   onModelClick,
+  addMenu,
+  modelMenu,
   initialPrompt,
+  webSearchEnabled,
+  addMenuFiles,
+  onClearAddMenuFiles,
+  chips,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -90,28 +108,32 @@ export function ChatInterface({
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
-  
-  // Store the send function in a ref so it's always current
+
+  // Store the send function in a ref so it's always current (closes over latest props)
   sendInitialPrompt.current = (prompt: string) => {
     const content = prompt.trim();
     if (content && !chatId) {
       addOptimisticUserMessage(content);
       const loadingId = addLoadingAssistantMessage();
-      fetchAiResponse(content, null, loadingId, selectedModelId);
+      const files = [...(addMenuFiles ?? [])];
+      onClearAddMenuFiles?.();
+      fetchAiResponse(content, null, loadingId, selectedModelId, {
+        webSearch: webSearchEnabled,
+        files: files.length > 0 ? files : undefined,
+      });
     }
   };
 
   useEffect(() => {
     if (initialPrompt && !initialPromptSentRef.current) {
       initialPromptSentRef.current = true;
-      // Use the ref to avoid dependency issues
       sendInitialPrompt.current?.(initialPrompt);
     }
   }, [initialPrompt]);
 
   // Scroll to bottom on new messages
-  const lastMessageContent = messages.length > 0 
-    ? messages[messages.length - 1]?.content?.length ?? 0 
+  const lastMessageContent = messages.length > 0
+    ? messages[messages.length - 1]?.content?.length ?? 0
     : 0;
   useEffect(() => {
     if (messages.length > 0) {
@@ -128,7 +150,7 @@ export function ChatInterface({
     }
   };
 
-  // File drop
+  // File drop (drag-and-drop into the chat area)
   const { isDragging } = useFileDrop({
     onFiles: (files) => {
       const newAttachments: PendingAttachment[] = files.map((file) => ({
@@ -144,18 +166,36 @@ export function ChatInterface({
     disabled: isStreaming,
   });
 
-  // Send message
+  // Absorb add-menu files into local attachments so AttachmentManager shows them
+  useEffect(() => {
+    if (!addMenuFiles || addMenuFiles.length === 0) return;
+    const newAttachments: PendingAttachment[] = addMenuFiles.map((file) => ({
+      id: `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      uploading: false,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments].slice(0, 10));
+    onClearAddMenuFiles?.();
+  }, [addMenuFiles]);
+
+  // Send message — uses local attachments (which include add-menu files after absorption)
   const handleSend = async (text: string) => {
-    if (!text.trim() && attachments.length === 0) return;
+    const allFiles = attachments.map((a) => a.file);
+    if (!text.trim() && allFiles.length === 0) return;
 
     const content = text.trim();
     addOptimisticUserMessage(content);
     const loadingId = addLoadingAssistantMessage();
     setInputValue("");
     setAttachments([]);
+    onClearAddMenuFiles?.();
 
     try {
-      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId);
+      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
+        webSearch: webSearchEnabled,
+        files: allFiles.length > 0 ? allFiles : undefined,
+      });
     } catch {
       rollbackLast(2);
     }
@@ -168,7 +208,6 @@ export function ChatInterface({
       .find((m) => m.role === "user");
     if (!lastUserMsg) return;
 
-    // Remove the last assistant message
     setMessages((prev) => {
       const lastAssistantIdx = prev.findLastIndex(
         (m) => m.role === "assistant",
@@ -194,7 +233,7 @@ export function ChatInterface({
     setCitationsOpen(true);
   };
 
-  // Attachment add
+  // Attachment via hidden file input (triggered by onAdd on the ChatInput)
   const handleAdd = () => {
     fileInputRef.current?.click();
   };
@@ -293,41 +332,40 @@ export function ChatInterface({
 
           {/* Messages */}
           <AnimatePresence initial={false}>
-          {messages.map((message, idx) => (
-            <ChatMessage
-              key={message.id}
-              message={message}
-              isLast={idx === messages.length - 1}
-              isNewMessage={
-                idx === messages.length - 1 && isStreaming
-              }
-              onRegenerate={
-                idx === messages.length - 1 &&
-                message.role === "assistant" &&
-                !isStreaming
-                  ? handleRegenerate
-                  : undefined
-              }
-              onEdit={
-                message.role === "user" && !isStreaming
-                  ? (_, newContent) => {
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === message.id
-                            ? { ...m, content: newContent }
-                            : m,
-                        ),
-                      );
-                    }
-                  : undefined
-              }
-              onCitationsClick={
-                message.sources && message.sources.length > 0
-                  ? () => handleCitationsClick(message.sources!)
-                  : undefined
-              }
-            />
-          ))}
+            {messages.map((message, idx) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                isLast={idx === messages.length - 1}
+                isNewMessage={idx === messages.length - 1 && isStreaming}
+                chatId={chatId}
+                onRegenerate={
+                  idx === messages.length - 1 &&
+                  message.role === "assistant" &&
+                  !isStreaming
+                    ? handleRegenerate
+                    : undefined
+                }
+                onEdit={
+                  message.role === "user" && !isStreaming
+                    ? (_, newContent) => {
+                        setMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === message.id
+                              ? { ...m, content: newContent }
+                              : m,
+                          ),
+                        );
+                      }
+                    : undefined
+                }
+                onCitationsClick={
+                  message.sources && message.sources.length > 0
+                    ? () => handleCitationsClick(message.sources!)
+                    : undefined
+                }
+              />
+            ))}
           </AnimatePresence>
 
           <div ref={messagesEndRef} />
@@ -343,7 +381,7 @@ export function ChatInterface({
           alignItems: "center",
         }}
       >
-        {/* Attachment previews */}
+        {/* Drag-drop attachment previews */}
         {attachments.length > 0 && (
           <div style={{ width: "100%", maxWidth: "674px", marginBottom: "8px" }}>
             <AttachmentManager
@@ -354,20 +392,25 @@ export function ChatInterface({
           </div>
         )}
 
-        <ChatInput
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={handleSend}
-          onStop={handleStopGeneration}
-          onAdd={handleAdd}
-          onModelClick={onModelClick}
-          modelName={selectedModel ?? "Souvenir"}
-          isStreaming={isStreaming}
-          disabled={isStreaming}
-          placeholder="How can I help you today?"
-        />
+        <div style={{ width: "100%", maxWidth: "754px" }}>
+          <ChatInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSend={handleSend}
+            onStop={handleStopGeneration}
+            onAdd={handleAdd}
+            onModelClick={onModelClick}
+            modelName={selectedModel ?? "Souvenir"}
+            addMenu={addMenu}
+            modelMenu={modelMenu}
+            chips={chips}
+            isStreaming={isStreaming}
+            disabled={isStreaming}
+            placeholder="How can I help you today?"
+          />
+        </div>
 
-        {/* Hidden file input */}
+        {/* Hidden file input for drag-drop fallback via onAdd */}
         <input
           ref={fileInputRef}
           type="file"

@@ -11,6 +11,7 @@ import {
 } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { Button } from "@/components/Button";
+import { Dropdown } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
 import SpeechRecognition, {
   useSpeechRecognition,
@@ -146,9 +147,22 @@ export interface ChatInputProps
   onStop?: () => void;
   modelName?: string;
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
+  /**
+   * When set, the leading `+` IconButton opens a Dropdown.Float panel
+   * (placement="top-start"). Typical contents: a `<Dropdown>` with rows
+   * for "Add files", "Web search", "Use style", "Add persona", "Pin folders".
+   */
+  addMenu?: React.ReactNode;
+  /**
+   * When set, the model-selector Button opens a Dropdown.Float panel
+   * (placement="top-end"). Typical contents: a `<Dropdown size="md">` with
+   * switch rows and a "More models" submenu.
+   */
+  modelMenu?: React.ReactNode;
   chips?: React.ReactNode;
   isStreaming?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -165,9 +179,12 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       onStop,
       modelName = "Souvenir",
       onModelClick,
+      addMenu,
+      modelMenu,
       chips,
       isStreaming = false,
       disabled = false,
+      compact = false,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -179,11 +196,13 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     const [internalValue, setInternalValue] = useState("");
     const value = isControlled ? controlledValue : internalValue;
 
-    const [isFocused, setIsFocused] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
-    const [isRecording, setIsRecording] = useState(false);
-    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-    const [isMicHovered, setIsMicHovered] = useState(false);
+    const [isFocused,     setIsFocused]     = useState(false);
+    const [isHovered,     setIsHovered]     = useState(false);
+    const [isRecording,   setIsRecording]   = useState(false);
+    const [analyser,      setAnalyser]      = useState<AnalyserNode | null>(null);
+    const [isMicHovered,  setIsMicHovered]  = useState(false);
+    const [addMenuOpen,   setAddMenuOpen]   = useState(false);
+    const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -338,6 +357,13 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       (disabled && !isStreaming && !isRecording) ||
       (!value && !isRecording && !isStreaming && !browserSupportsSpeechRecognition);
 
+    const szPadding    = compact ? "12px 16px"                  : "20px"
+    const szGap        = compact ? "12px"                       : "24px"
+    const szRadius     = compact ? "20px"                       : "24px"
+    const szBtn        = compact ? "sm" as const                : "md" as const
+    const szFont       = compact ? "var(--font-size-body)"      : "var(--font-size-body-lg)"
+    const szLineHeight = compact ? "var(--line-height-body)"    : "var(--line-height-body-lg)"
+
     return (
       <div
         ref={ref}
@@ -346,11 +372,11 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           position: "relative",
           display: "flex",
           flexDirection: "column",
-          gap: "24px",
+          gap: szGap,
           width: "100%",
-          maxWidth: "674px",
-          padding: "20px",
-          borderRadius: "24px",
+          maxWidth: "100%",
+          padding: szPadding,
+          borderRadius: szRadius,
           backgroundColor: "var(--chat-input-bg)",
           boxShadow: shadow,
           overflow: "hidden",
@@ -407,8 +433,8 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                   pointerEvents: "none",
                   fontFamily: "var(--font-body)",
                   fontWeight: "var(--font-weight-regular)",
-                  fontSize: "var(--font-size-body-lg)",
-                  lineHeight: "var(--line-height-body-lg)",
+                  fontSize: szFont,
+                  lineHeight: szLineHeight,
                   color: "var(--chat-input-placeholder)",
                 }}
               >
@@ -452,8 +478,8 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
               overscrollBehaviorY: "none",
               fontFamily: "var(--font-body)",
               fontWeight: "var(--font-weight-regular)",
-              fontSize: "var(--font-size-body-lg)",
-              lineHeight: "var(--line-height-body-lg)",
+              fontSize: szFont,
+              lineHeight: szLineHeight,
               color: "var(--chat-input-text)",
               caretColor: "var(--focus-ring)",
             }}
@@ -471,14 +497,33 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
         >
           {/* Left: attach button + chips slot */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <IconButton
-              variant="ghost"
-              size="md"
-              icon={<PlusSignIcon size={20} />}
-              aria-label="Add attachment"
-              onClick={onAdd}
-              disabled={disabled}
-            />
+            {addMenu !== undefined ? (
+              <Dropdown.Float
+                open={addMenuOpen}
+                onOpenChange={setAddMenuOpen}
+                placement="top-start"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    size={szBtn}
+                    icon={<PlusSignIcon size={20} />}
+                    aria-label="Add attachment"
+                    disabled={disabled}
+                  />
+                }
+              >
+                {addMenu}
+              </Dropdown.Float>
+            ) : (
+              <IconButton
+                variant="ghost"
+                size={szBtn}
+                icon={<PlusSignIcon size={20} />}
+                aria-label="Add attachment"
+                onClick={onAdd}
+                disabled={disabled}
+              />
+            )}
             {chips && (
               <div
                 style={{ display: "flex", alignItems: "center", gap: "4px" }}
@@ -490,15 +535,35 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
 
           {/* Right: model selector + action button */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <Button
-              variant="ghost"
-              size="md"
-              rightIcon={<ArrowDownOneIcon size={16} />}
-              onClick={onModelClick}
-              disabled={disabled}
-            >
-              {modelName}
-            </Button>
+            {modelMenu !== undefined ? (
+              <Dropdown.Float
+                open={modelMenuOpen}
+                onOpenChange={setModelMenuOpen}
+                placement="top-end"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size={szBtn}
+                    rightIcon={<ArrowDownOneIcon size={16} />}
+                    disabled={disabled}
+                  >
+                    {modelName}
+                  </Button>
+                }
+              >
+                {modelMenu}
+              </Dropdown.Float>
+            ) : (
+              <Button
+                variant="ghost"
+                size={szBtn}
+                rightIcon={<ArrowDownOneIcon size={16} />}
+                onClick={onModelClick}
+                disabled={disabled}
+              >
+                {modelName}
+              </Button>
+            )}
 
             <span
               onMouseEnter={() => setIsMicHovered(true)}

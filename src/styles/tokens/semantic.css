@@ -239,7 +239,19 @@
      ─────────────────────────────────────────────────────────────────────────── */
   --dropdown-menu-item-text:     var(--sidebar-menu-item-text);     /* neutral-700 */
   --dropdown-menu-item-muted:    var(--sidebar-menu-item-muted);    /* neutral-500 */
+  --dropdown-menu-item-sublabel: var(--neutral-600);                /* neutral-600 — sublabel under primary label */
   --dropdown-menu-item-hover-bg: var(--sidebar-menu-item-hover-bg); /* rgba(237,225,215,0.6) */
+
+  /* Danger variant — destructive-action row (e.g. Delete, Remove).
+     Figma 3139:36351 / 3139:36360. */
+  --dropdown-menu-item-danger-text:     var(--red-600);              /* #9F2623 */
+  --dropdown-menu-item-danger-hover-bg: var(--red-100-60);           /* rgba(255,191,182,0.6) */
+  --shadow-dropdown-item-danger-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--red-600-51);
+  --shadow-dropdown-item-danger-inner:
+    inset 0px 1px 0px 0px var(--red-50),
+    inset 0px -1px 0px 0px var(--red-600-20);
 
   /* Outer drop + 1px ring only — inner depth applied via absolute overlay div */
   --shadow-dropdown-item-hover:
@@ -638,15 +650,22 @@
 .kaya-dropdown-item:focus-visible,
 .kaya-floating-menu-item:focus-visible,
 .kds-model-select-item:focus-visible,
-.kds-chip:focus-visible,
-.kds-switch:focus-visible,
-.kds-checkbox:focus-visible {
+.kds-chip:focus-visible {
   outline:        2px solid var(--focus-ring);
   outline-offset: 2px;
   /* No `border-radius` here — would override the element's resting radius
      during focus. Modern browsers (Chrome 94+, Safari 16.4+) automatically
      match `outline`'s curvature to the element's `border-radius`. */
 }
+
+/* Switch — focus indicator moved to Pattern 2 (state-gated outline on the
+   outer motion.span wrapper) — matches `Button` / `IconButton`. The Switch's
+   resting box-shadow contains a 1 px ring at the track edge that's part of
+   the design (gray when off, blue when on); a CSS-class focus-visible
+   outline on the inner element stacks outside that ring and reads as two
+   concentric rings on focus. The state-gated outline lives on the wrapper
+   instead, separated from the design ring by an outline-offset gap, so
+   the focus indicator never visually merges with the track border. */
 
 /* ChipButton sits inside the chip's clipped container, so the ring needs to
    live INSIDE the button's own bounds via outline-offset: -2px. */

@@ -1,43 +1,32 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react'
-import { motion, AnimatePresence, useIsPresent, useMotionValue, animate, useReducedMotion } from 'framer-motion'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { motion, AnimatePresence, useAnimation, useIsPresent, useMotionValue, animate, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   MoreVerticalIcon,
   MessagePreviewOneIcon,
   InputShortTextIcon,
   PlusSignIcon,
+  CopyOneIcon,
+  DownloadThreeIcon,
+  CancelCircleIcon,
 } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Badge, type BadgeColor } from '@/components/Badge'
+import { Chip, type ChipColor } from '@/components/Chip'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { PinCommentField } from '@/components/PinCommentField'
 import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
+import { Dropdown } from '@/components/Dropdown'
+import { PinMarkdownRenderer } from '@/lib/pin-markdown'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SHADOW_CARD    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
-
-const PIN_MENU_ITEM_STYLE: React.CSSProperties = {
-  display:    'flex',
-  alignItems: 'center',
-  gap:        '8px',
-  padding:    '7px 10px',
-  borderRadius: '8px',
-  cursor:     'pointer',
-  fontFamily: 'var(--font-body)',
-  fontWeight: 'var(--font-weight-medium)',
-  fontSize:   'var(--font-size-body)',
-  lineHeight: 'var(--line-height-body)',
-  color:      'var(--neutral-700)',
-  outline:    'none',
-  userSelect: 'none',
-}
 const DRAG_THRESHOLD = 8   // px to commit collapse when already expanded — small upward drag is enough
 const LINE_HEIGHT_PX = 16  // --line-height-caption, one description line
 const MAX_SNAP_LINES = 12  // auto-expand triggers if user drags beyond this many extra lines
@@ -92,12 +81,18 @@ function useMeasure() {
 // semantically a remove/dismiss action and routes its click via `onRemove`.
 // Hijacking that for a click-to-edit affordance would muddle the API.
 
-function AddTagChip({ onClick }: { onClick: () => void }) {
+function AddTagChip({ onClick, disabled = false }: { onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
+      // NOT setting the native `disabled` attribute — at-cap clicks still
+      // need to fire so the parent (Pin) can drive the shake-rejection
+      // animation. The visual treatment + ARIA state communicates "you can't
+      // act on this," and the parent decides what `onClick` does (open the
+      // input vs trigger shake based on `atTagCap`).
       onClick={onClick}
       aria-label="Add tag"
+      aria-disabled={disabled || undefined}
       style={{
         position:        'relative',
         display:         'inline-flex',
@@ -107,7 +102,14 @@ function AddTagChip({ onClick }: { onClick: () => void }) {
         backgroundColor: 'var(--color-tag-Neutral-bg)',
         boxShadow:       'var(--color-tag-Neutral-shadow)',
         border:          'none',
-        cursor:          'pointer',
+        // Mirrors the KDS `Chip` component's disabled visuals: opacity 0.7 +
+        // not-allowed cursor. The disabled state was added to `Chip` first
+        // (atom-level); AddTagChip applies the same treatment without
+        // refactoring to use Chip directly because Chip's left ChipButton is
+        // semantically a remove action — repurposing it for an add trigger
+        // would muddle the API.
+        cursor:          disabled ? 'not-allowed' : 'pointer',
+        opacity:         disabled ? 0.7 : 1,
         color:           'var(--color-tag-Neutral-text)',
         flexShrink:      0,
       }}
@@ -173,11 +175,6 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   description?:     string
   labels?:          PinLabel[]
   chatName?:        string
-  /**
-   * LlmIcon id for the model avatar shown in expanded meta (e.g. "Claude", "OpenAI").
-   * When omitted, no avatar is rendered. Pass `llm` not the full model name.
-   */
-  llm?:             string
   defaultExpanded?: boolean
   /** When this number changes, the pin collapses if it's currently expanded.
    *  Used by Pinboard's "collapse all" action. Initial value is ignored. */
@@ -188,6 +185,13 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
    *  show/hide the "collapse all" button. */
   onExpandedChange?: (open: boolean) => void
   onInsert?:        () => void
+  /**
+   * More-options menu callbacks. Each fires when the user picks the
+   * corresponding row from the ellipsis dropdown. Figma 3139:36280.
+   */
+  onDuplicate?:     () => void
+  onExport?:        () => void
+  onDelete?:        () => void
   fluid?:           boolean
   /**
    * Called when the user commits a tag via the "Add tag" affordance.
@@ -208,7 +212,43 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
    * visually distinct.
    */
   userTagColors?:   BadgeColor[]
+  /**
+   * When `true`, render every tag (backend labels + user-added) as a deletable
+   * `<Chip size="Small">` with an inline `×` button instead of a read-only
+   * `<Badge>`. Set by `PinboardExpanded` only — the compact `Pinboard` and
+   * the inline drag-expanded Pin keep tags read-only because edit affordances
+   * don't fit the row-density there.
+   * @default false
+   */
+  tagsEditable?:    boolean
+  /**
+   * Externally-controlled set of original-array indices that have been deleted
+   * from `labels`. When provided, Pin filters them at render time and does
+   * NOT mutate any internal state — the consumer owns the deletion record.
+   * Pair with `onDeleteTag('label', i)` to keep the set in sync. Used by
+   * `Pinboard` to persist deletions across the compact ↔ expanded transition
+   * (without lifting, each Pin remount would lose its tracked deletions).
+   * If omitted, Pin keeps its own internal `Set<number>` for uncontrolled use.
+   */
+  deletedLabelIndices?: ReadonlySet<number>
+  /**
+   * Fires when the user clicks the `×` on a tag (only relevant when
+   * `tagsEditable` is true). `source: 'label'` means the tag came from the
+   * backend `labels` prop; `'user'` means it came from the user-added pool.
+   * `index` is local to that source list. The Pin removes the tag from its
+   * own internal state regardless — the callback is for consumers to mirror
+   * the change in their own data layer (e.g. PATCH the pin record).
+   */
+  onDeleteTag?:     (index: number, source: 'label' | 'user') => void
 }
+
+// ── Tag cap ────────────────────────────────────────────────────────────────────
+// Total tags per pin (backend `labels` + user-added) is hard-capped at 5.
+// Backend typically supplies 1–4 auto-generated tags; the user fills the
+// rest. The "Add tag" chip enters its `disabled` state when the cap is
+// reached; the `commitTag` flow is a no-op past the cap as a belt-and-braces
+// guard against direct callback wiring.
+export const PIN_TAG_CAP = 5
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
@@ -234,14 +274,19 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       description     = DEFAULT_DESCRIPTION,
       labels          = DEFAULT_LABELS,
       chatName        = 'This will the chat name to which this pin belongs to.',
-      llm,
       defaultExpanded = false,
       collapseSignal,
       onExpandedChange,
       onInsert,
+      onDuplicate,
+      onExport,
+      onDelete,
       onAddTag,
       userTags,
       userTagColors   = USER_TAG_COLOR_POOL,
+      tagsEditable    = false,
+      deletedLabelIndices: controlledDeletedLabels,
+      onDeleteTag,
       fluid           = false,
       className,
       style,
@@ -254,8 +299,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const [isHovered,  setIsHovered]  = useState(false)
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
-    const [menuOpen,   setMenuOpen]   = useState(false)
-    const menuTriggerRef = useRef<HTMLButtonElement>(null)
     // Extra description lines beyond the base 2 (0–12). Card settles at any snap point.
     const [extraLines, setExtraLines] = useState(0)
 
@@ -265,12 +308,79 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // returns to the chip. Escape / blur-empty cancels back to the chip.
     const [addTagMode,    setAddTagMode]    = useState<'chip' | 'input'>('chip')
     const [tagInputValue, setTagInputValue] = useState('')
+
+    // Shake controls for the leading add-tag slot (whichever of AddTagChip /
+    // ChipInput is currently rendered there). Triggered when the user tries
+    // to add another tag past `PIN_TAG_CAP` — same x-keyframes / duration /
+    // easing as the PinCommentField 2-line cap and the ChipInput 30-char
+    // cap, so "you've hit a limit" reads identically across the system.
+    const addTagShakeControls = useAnimation()
+    const triggerAddTagShake = useCallback(() => {
+      addTagShakeControls.start({
+        x: [0, -3, 3, -2, 2, -1, 1, 0],
+        transition: { duration: 0.25, ease: 'easeInOut' },
+      })
+    }, [addTagShakeControls])
+
+    // ── More-options menu (ellipsis IconButton) ──────────────────────────────
+    // Mounted via <Dropdown.Float> with placement="bottom-end" — that helper
+    // handles the portal-to-body, click-outside, Escape, scroll/resize
+    // re-anchoring, and the 8 px gap automatically. Figma 3139:36280.
+    const [menuOpen, setMenuOpen] = useState(false)
+    const runMenuAction = (cb?: () => void) => () => {
+      setMenuOpen(false)
+      cb?.()
+    }
     // Stable IDs per tag — needed for the layout animation when a new tag
     // pushes the existing ones to the right. With index-based keys, framer
     // would treat each position as "the same element" and animate the wrong
     // values. UUIDs let it match each tag to its own DOM node across reorders.
     const [internalUserTags, setInternalUserTags] = useState<(PinLabel & { id: string })[]>([])
     const userTagsToRender: (PinLabel & { id?: string })[] = userTags ?? internalUserTags
+
+    // Backend labels deleted by the user. The `labels` prop is consumer-owned
+    // and read-only at this surface, so when the user clicks `×` on a backend
+    // label we don't mutate the prop — we just filter the index out at render
+    // time. Two modes:
+    //  - **Controlled**: `deletedLabelIndices` prop is passed (e.g. by
+    //    Pinboard, which lifts the set so it survives the compact ↔ expanded
+    //    transition). Pin reads the prop and skips internal state updates.
+    //  - **Uncontrolled**: prop omitted; Pin keeps a local Set<number>.
+    // Indices in the set always reference the ORIGINAL `labels` array.
+    const [internalDeletedLabels, setInternalDeletedLabels] = useState<Set<number>>(() => new Set())
+    const isLabelsControlled = controlledDeletedLabels !== undefined
+    const deletedLabelIndices: ReadonlySet<number> = isLabelsControlled
+      ? controlledDeletedLabels
+      : internalDeletedLabels
+    const visibleLabels: { label: PinLabel; originalIndex: number }[] = labels
+      .map((label, originalIndex) => ({ label, originalIndex }))
+      .filter(({ originalIndex }) => !deletedLabelIndices.has(originalIndex))
+
+    // Tag-cap math (PIN_TAG_CAP = 5). Backend visible + user-added.
+    const totalTagCount = visibleLabels.length + userTagsToRender.length
+    const atTagCap      = totalTagCount >= PIN_TAG_CAP
+
+    const handleDeleteLabel = (originalIndex: number) => {
+      // Only mutate internal state when uncontrolled — otherwise the consumer
+      // (typically Pinboard) owns the deleted-set and the callback is their
+      // cue to update it.
+      if (!isLabelsControlled) {
+        setInternalDeletedLabels(prev => {
+          if (prev.has(originalIndex)) return prev
+          const next = new Set(prev); next.add(originalIndex); return next
+        })
+      }
+      onDeleteTag?.(originalIndex, 'label')
+    }
+    const handleDeleteUserTag = (index: number) => {
+      // Only mutate internal state when the consumer hasn't taken control via
+      // the `userTags` prop; otherwise they own the list and the callback is
+      // their cue to update.
+      if (userTags === undefined) {
+        setInternalUserTags(prev => prev.filter((_, i) => i !== index))
+      }
+      onDeleteTag?.(index, 'user')
+    }
 
     const tagInputRef = useRef<HTMLInputElement>(null)
 
@@ -309,10 +419,15 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       if (!labelsOverflowing) return
       if (e.pointerType === 'touch') return
       if (e.button !== 0) return
-      // Let interactive children (AddTagChip, ChipInput) handle their own
-      // pointerdown — don't hijack a click into a drag-arm.
+      // Inputs / textareas / selects keep their native text-selection drag —
+      // we don't want to hijack that into a row-scroll. Buttons (chip `×`
+      // ChipButton, AddTag chip) DO arm the drag: pointer-up within 4 px
+      // fires the button's click as normal (delete fires); dragging past
+      // 4 px promotes to a scroll and the synthetic click is swallowed by
+      // the capture-phase listener installed in `endLabelsDrag`. This is
+      // the click-vs-drag distinction the Tabs strip uses too.
       const target = e.target as HTMLElement
-      if (target.closest('button, input, textarea, select, a, [role="button"]')) return
+      if (target.closest('input, textarea, select')) return
       const row = labelsRowRef.current
       if (!row) return
       labelsDragState.current = {
@@ -360,6 +475,15 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const commitTag = (raw: string) => {
       const text = raw.trim()
       if (!text) return
+      // At-cap rejection. The leading add-tag slot is wrapped in a
+      // shake-controlled motion.div, so the same gesture that fires for the
+      // 2-line cap (PinCommentField) and the 30-char cap (ChipInput) plays
+      // here when the user tries to add a 6th tag. The input keeps focus and
+      // its current value so the user can edit-and-resubmit.
+      if (atTagCap) {
+        triggerAddTagShake()
+        return
+      }
       const pool  = userTagColors.length > 0 ? userTagColors : USER_TAG_COLOR_POOL
       const color = pool[Math.floor(Math.random() * pool.length)]!
       if (onAddTag) {
@@ -626,16 +750,11 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }
 
     // Focus + scroll the comment textarea after the expand animation completes.
-    // rAF fires one frame after expansion — the card spring takes ~450 ms to
-    // settle, so scrollIntoView would run while the card is still short and
-    // decide the textarea is already "visible" (inside the inner scroll viewport)
-    // even though the outer clip hasn't revealed it yet. Waiting until the
-    // spring is nearly done ensures the card is at its full height.
     useEffect(() => {
       if (isExpanded && focusCommentRef.current) {
         focusCommentRef.current = false
-        const id = setTimeout(focusAndScrollCommentField, 450)
-        return () => clearTimeout(id)
+        const id = requestAnimationFrame(focusAndScrollCommentField)
+        return () => cancelAnimationFrame(id)
       }
     }, [isExpanded])
 
@@ -650,7 +769,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           borderRadius:    '16px',
           backgroundColor: 'var(--neutral-white)',
           boxShadow:       SHADOW_CARD,
-          overflow:        'hidden',
+          overflow:        'clip',
           isolation:       'isolate',
           ...style,
         }}
@@ -694,6 +813,10 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   fontSize:           'var(--font-size-body)',
                   lineHeight:         'var(--line-height-body)',
                   color:              'var(--neutral-900)',
+                  // Clamp to a maximum of 2 lines; anything beyond truncates
+                  // with an ellipsis. Uses `-webkit-line-clamp` with the
+                  // `-webkit-box` display model — supported in every modern
+                  // engine (Chromium, WebKit, Firefox 68+).
                   display:            '-webkit-box',
                   WebkitLineClamp:    2,
                   WebkitBoxOrient:    'vertical',
@@ -707,64 +830,49 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 {pinTitle}
               </p>
             </div>
-            <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<MoreVerticalIcon size={20} />}
-                  aria-label="More options"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(true) }}
-                />
-                {/* Zero-size Radix trigger anchored to the button position */}
-                <DropdownMenu.Trigger
-                  ref={menuTriggerRef}
-                  style={{
-                    position:     'absolute',
-                    right:        0,
-                    top:          '50%',
-                    width:        1,
-                    height:       1,
-                    opacity:      0,
-                    pointerEvents: 'none',
-                    border:       'none',
-                    background:   'none',
-                    padding:      0,
-                  }}
-                />
-              </div>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
-                  style={{
-                    backgroundColor: 'var(--neutral-white)',
-                    borderRadius:    '12px',
-                    padding:         '4px',
-                    boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-                    zIndex:          200,
-                    minWidth:        '140px',
-                    outline:         'none',
-                  }}
-                >
-                  <DropdownMenu.Item
-                    style={PIN_MENU_ITEM_STYLE}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
-                  >
-                    Duplicate
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    style={{ ...PIN_MENU_ITEM_STYLE, color: 'var(--red-500)' }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)')}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
-                  >
-                    Delete
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+            {/* More-options menu (Figma 3139:36280). Dropdown.Float portals
+                to document.body so it escapes Pin's overflow:clip +
+                isolation:isolate, and applies the 8 px gap + bottom-end
+                placement automatically per the KDS dropdown placement rules. */}
+            <div style={{ flexShrink: 0 }}>
+              <Dropdown.Float
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                placement="bottom-end"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<MoreVerticalIcon size={20} />}
+                    aria-label="More options"
+                  />
+                }
+              >
+                <Dropdown size="sm">
+                  <Dropdown.Section fluid>
+                    <Dropdown.Item
+                      label="Duplicate"
+                      icon={<CopyOneIcon />}
+                      onClick={runMenuAction(onDuplicate)}
+                      fluid
+                    />
+                    <Dropdown.Item
+                      label="Export"
+                      icon={<DownloadThreeIcon />}
+                      onClick={runMenuAction(onExport)}
+                      fluid
+                    />
+                    <Dropdown.Item
+                      variant="danger"
+                      label="Delete"
+                      icon={<CancelCircleIcon />}
+                      onClick={runMenuAction(onDelete)}
+                      fluid
+                    />
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
+            </div>
           </div>
 
           {/* ── Labels row ──
@@ -800,7 +908,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               flexShrink:          0,
               flexWrap:            'nowrap',
               overflowX:           'auto',
-              cursor:              labelsDragging ? 'grabbing' : labelsOverflowing ? 'grab' : undefined,
               // `overflow-x: auto` coerces overflow-y from visible to auto
               // (CSS spec). That clips the 1 px outer ring shadow on badges
               // and the AddTag chip top/bottom. A 1 px padding on the
@@ -815,50 +922,65 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               userSelect:          labelsDragging ? 'none' : undefined,
             }}
           >
-            <AnimatePresence mode="popLayout" initial={false}>
-              {addTagMode === 'chip' ? (
-                <motion.span
-                  key="add-tag-chip"
-                  initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
-                  animate={SWAP_ANIMATE}
-                  exit={reduceMotion ? SWAP_INSTANT : SWAP_EXIT}
-                  transition={SWAP_SPRING}
-                  style={{ display: 'inline-flex', transformOrigin: 'left center' }}
-                >
-                  <AddTagChip
-                    onClick={() => {
-                      setAddTagMode('input')
-                      // Focus is wired via `autoFocus` on the ChipInput once it mounts.
-                    }}
-                  />
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="add-tag-input"
-                  initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
-                  animate={SWAP_ANIMATE}
-                  exit={reduceMotion ? SWAP_INSTANT : SWAP_EXIT}
-                  transition={SWAP_SPRING}
-                  style={{ display: 'inline-flex', transformOrigin: 'left center' }}
-                >
-                  <ChipInput
-                    ref={tagInputRef}
-                    autoFocus
-                    aria-label="Add tag"
-                    placeholder="Add tag…"
-                    value={tagInputValue}
-                    onChange={(e) => setTagInputValue(e.target.value)}
-                    onKeyDown={handleTagInputKeyDown}
-                    onBlur={handleTagInputBlur}
-                  />
-                </motion.span>
-              )}
-            </AnimatePresence>
+            {/* Shake-controlled wrapper around the add-tag slot — drives the
+                rejection animation when the user tries to add past
+                PIN_TAG_CAP. Wraps both modes so it shakes the AddTag chip OR
+                the ChipInput, whichever is rendered. */}
+            <motion.div animate={addTagShakeControls} style={{ display: 'inline-flex' }}>
+              <AnimatePresence mode="popLayout" initial={false}>
+                {addTagMode === 'chip' ? (
+                  <motion.span
+                    key="add-tag-chip"
+                    initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
+                    animate={SWAP_ANIMATE}
+                    exit={reduceMotion ? SWAP_INSTANT : SWAP_EXIT}
+                    transition={SWAP_SPRING}
+                    style={{ display: 'inline-flex', transformOrigin: 'left center' }}
+                  >
+                    <AddTagChip
+                      disabled={atTagCap}
+                      onClick={() => {
+                        if (atTagCap) {
+                          // At cap — shake instead of opening the input.
+                          triggerAddTagShake()
+                          return
+                        }
+                        setAddTagMode('input')
+                        // Focus is wired via `autoFocus` on the ChipInput once it mounts.
+                      }}
+                    />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="add-tag-input"
+                    initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
+                    animate={SWAP_ANIMATE}
+                    exit={reduceMotion ? SWAP_INSTANT : SWAP_EXIT}
+                    transition={SWAP_SPRING}
+                    style={{ display: 'inline-flex', transformOrigin: 'left center' }}
+                  >
+                    <ChipInput
+                      ref={tagInputRef}
+                      autoFocus
+                      aria-label="Add tag"
+                      placeholder="Add tag…"
+                      value={tagInputValue}
+                      onChange={(e) => setTagInputValue(e.target.value)}
+                      onKeyDown={handleTagInputKeyDown}
+                      onBlur={handleTagInputBlur}
+                    />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
             {/* User-added tags come BEFORE backend labels — newest sits right
                 after the AddTagChip and pushes existing ones to the right.
                 `layout` on each motion.span animates the slide; AnimatePresence
-                with the in-place-swap pattern animates each new tag's enter. */}
+                with the in-place-swap pattern animates each new tag's enter.
+                When `tagsEditable` is set (PinboardExpanded only), each tag
+                renders as a deletable `Chip size="Small"` with an inline `×`
+                button instead of a read-only `Badge`. */}
             <AnimatePresence initial={false} mode="popLayout">
               {userTagsToRender.map((l, i) => (
                 <motion.span
@@ -870,11 +992,32 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   transition={SWAP_SPRING}
                   style={{ display: 'inline-flex', transformOrigin: 'left center' }}
                 >
-                  <Badge label={l.text} color={l.color} />
+                  {tagsEditable ? (
+                    <Chip
+                      size="Small"
+                      label={l.text}
+                      color={l.color as ChipColor}
+                      onRemove={() => handleDeleteUserTag(i)}
+                    />
+                  ) : (
+                    <Badge label={l.text} color={l.color} />
+                  )}
                 </motion.span>
               ))}
             </AnimatePresence>
-            {labels.map((l, i) => <Badge key={`label-${i}`} label={l.text} color={l.color} />)}
+            {visibleLabels.map(({ label: l, originalIndex }) => (
+              tagsEditable ? (
+                <Chip
+                  key={`label-${originalIndex}`}
+                  size="Small"
+                  label={l.text}
+                  color={l.color as ChipColor}
+                  onRemove={() => handleDeleteLabel(originalIndex)}
+                />
+              ) : (
+                <Badge key={`label-${originalIndex}`} label={l.text} color={l.color} />
+              )
+            ))}
           </div>
 
           {/* ── Labels-row edge fades ──
@@ -980,54 +1123,23 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               at rest with extraLines > 0: cage grows by extraLines × 16px
               at rest collapsed: 2-line cage (32px)                              ── */}
           {(() => {
-            const visibleLines    = 2 + extraLines
+            const visibleLines  = 2 + extraLines           // base 2 + settled extra
             // +12px when showing extra lines so the last snapped line is never
             // half-clipped — the line-height token alone lands 12px short visually
-            const cageH           = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0)
-            // settled-expanded: pin is open and not mid-drag — description scrolls
-            // internally so meta + comment are always visible below it.
-            const settledExpanded = isExpanded && !isDragging
+            const cageH         = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0)
             return (
               <div
-                className={settledExpanded ? 'kaya-scrollbar' : undefined}
                 style={{
-                  height:     showFull ? 'auto' : `${cageH}px`,
-                  minHeight:  showFull ? undefined : `${cageH}px`,
-                  maxHeight:  settledExpanded
-                    ? `${MAX_SNAP_LINES * LINE_HEIGHT_PX}px`
-                    : showFull ? undefined : `${cageH}px`,
-                  overflowX:  settledExpanded ? 'hidden' : showFull ? 'visible' : 'hidden',
-                  overflowY:  settledExpanded ? 'auto'   : showFull ? 'visible' : 'hidden',
-                  width:      '100%',
+                  height:    showFull ? 'auto' : `${cageH}px`,
+                  minHeight: showFull ? undefined : `${cageH}px`,
+                  maxHeight: showFull ? undefined : `${cageH}px`,
+                  overflow:  showFull ? 'visible' : 'hidden',
+                  width:     '100%',
                   flexShrink: 0,
                   flexGrow:   0,
                 }}
               >
-                <p
-                  style={{
-                    margin:     0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 'var(--font-weight-regular)',
-                    fontSize:   'var(--font-size-caption)',
-                    lineHeight: 'var(--line-height-caption)',
-                    color:      'var(--neutral-500)',
-                    // showFull (drag/expanded): unclamped pre-wrap
-                    // intermediate (extraLines > 0): pre-wrap + overflow:hidden — preserves \n paragraph breaks
-                    // collapsed (extraLines = 0): -webkit-line-clamp for ellipsis on 2 lines
-                    ...(showFull || extraLines > 0
-                      ? { whiteSpace: 'pre-wrap' }
-                      : {
-                          display:         '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: 2,
-                          overflow:        'hidden',
-                          textOverflow:    'ellipsis',
-                        }
-                    ),
-                  }}
-                >
-                  {description}
-                </p>
+                <PinMarkdownRenderer content={description} />
               </div>
             )
           })()}
@@ -1042,7 +1154,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
-                <ExpandedMeta chatName={chatName} llm={llm} />
+                <ExpandedMeta chatName={chatName} />
                 <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
               </motion.div>
             )}
@@ -1137,7 +1249,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName, llm }: { chatName: string; llm?: string }) {
+function ExpandedMeta({ chatName }: { chatName: string }) {
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
       <Badge label="1h" color="Green" />
@@ -1150,11 +1262,9 @@ function ExpandedMeta({ chatName, llm }: { chatName: string; llm?: string }) {
       >
         {chatName}
       </p>
-      {llm && (
-        <div style={{ width: 24, height: 24, borderRadius: '8px', overflow: 'hidden', flexShrink: 0, lineHeight: 0 }}>
-          <LlmIcon id={llm} variant="avatar" size={24} />
-        </div>
-      )}
+      <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+        <LlmIcon id="Claude" variant="avatar" size={24} />
+      </div>
     </div>
   )
 }

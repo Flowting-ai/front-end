@@ -45,6 +45,9 @@
   /* Red opacity variants — used by InputGroup error states */
   --red-400-10:       rgba(238, 48, 48, 0.10);
   --red-400-50:       rgba(238, 48, 48, 0.50);
+  --red-100-60:       rgba(255, 191, 182, 0.60);
+  --red-600-20:       rgba(159,  38,  35, 0.20);
+  --red-600-51:       rgba(159,  38,  35, 0.51);
   --neutral-900-10:   rgba(38, 33, 30, 0.10);
   --neutral-900-15:   rgba(38, 33, 30, 0.15);
   --neutral-950-20:   rgba(18, 12, 8, 0.20);

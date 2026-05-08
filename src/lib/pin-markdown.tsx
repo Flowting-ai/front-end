@@ -2,9 +2,11 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 
 const remarkPlugins = [remarkGfm];
+const rehypePlugins = [rehypeRaw];
 
 const pinComponents: Components = {
   code({ className, children, ...props }) {
@@ -280,6 +282,7 @@ const pinComponents: Components = {
   table({ children, ...props }) {
     return (
       <div
+        className="kaya-scrollbar"
         style={{
           overflowX: "auto",
           margin: "4px 0",
@@ -289,10 +292,11 @@ const pinComponents: Components = {
       >
         <table
           style={{
-            width: "100%",
+            minWidth: "100%",
             borderCollapse: "collapse",
             fontSize: 10,
             lineHeight: "14px",
+            whiteSpace: "nowrap",
           }}
           {...props}
         >
@@ -312,6 +316,7 @@ const pinComponents: Components = {
           color: "var(--neutral-700)",
           borderBottom: "1px solid var(--neutral-200)",
           background: "var(--neutral-50)",
+          whiteSpace: "nowrap",
         }}
         {...props}
       >
@@ -327,6 +332,7 @@ const pinComponents: Components = {
           fontSize: 10,
           color: "var(--neutral-600)",
           borderBottom: "1px solid var(--neutral-100)",
+          whiteSpace: "nowrap",
         }}
         {...props}
       >
@@ -349,6 +355,7 @@ export function PinMarkdownRenderer({ content }: { content: string }) {
     >
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
         components={pinComponents}
       >
         {content}

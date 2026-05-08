@@ -108,6 +108,14 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    * `'Small'` — compact colored tag; always shows × as a `ChipButton`; no hover animation
    */
   size?: 'Medium' | 'Small'
+  /**
+   * Disabled state — applies opacity 0.7 to the chip, switches the cursor
+   * to `not-allowed`, suppresses pointer events on the inner ChipButtons,
+   * and freezes the Medium variant's hover-driven icon swap (chip stays at
+   * its rest visual). Use to communicate "this chip can't be acted on
+   * right now" — e.g. an Add-tag chip when the per-pin tag cap is reached.
+   */
+  disabled?: boolean
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -127,6 +135,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
       rightLabel = 'Open menu',
       color     = 'Blue',
       size      = 'Medium',
+      disabled  = false,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -136,6 +145,13 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
   ) {
     const cfg          = COLOR_CONFIG[color]
     const [isActive, setIsActive] = useState(false)
+    // Disabled freezes the Medium chip's hover-driven icon swap at rest,
+    // ignores all click handlers (onRemove / onChange / onExpand), and
+    // blocks the inner ChipButtons. Visual dimming (0.7 opacity) +
+    // `cursor: not-allowed` are applied on the outer wrapper below.
+    const handleRemove = disabled ? undefined : onRemove
+    const handleChange = disabled ? undefined : onChange
+    const handleExpand = disabled ? undefined : onExpand
     const reduceMotion = useReducedMotion()
 
     const initial = reduceMotion ? SWAP_INSTANT : SWAP_INITIAL
@@ -148,6 +164,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
           ref={ref}
           role="group"
           aria-label={label}
+          aria-disabled={disabled || undefined}
           className={cn(className)}
           style={{
             // Cascade color tokens to all children
@@ -163,6 +180,8 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
             // issue where an absolute overlay div would render above inline children
             backgroundColor: cfg.bg,
             boxShadow:       cfg.shadow,
+            opacity:         disabled ? 0.7 : 1,
+            cursor:          disabled ? 'not-allowed' : undefined,
           } as React.CSSProperties}
           {...props}
         >
@@ -171,7 +190,8 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
             size="16px"
             icon={leftIcon ?? <CancelOneIcon size={14} color={cfg.text} />}
             aria-label={leftLabel}
-            onClick={onRemove}
+            onClick={handleRemove}
+            disabled={disabled}
           />
 
           {/* Label */}
@@ -196,7 +216,8 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
               size="16px"
               icon={rightIcon ?? <ArrowDownOneIcon size={14} color={cfg.text} />}
               aria-label={rightLabel}
-              onClick={onExpand}
+              onClick={handleExpand}
+              disabled={disabled}
             />
           )}
 
@@ -216,18 +237,24 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
     }
 
     // ── Medium chip ────────────────────────────────────────────────────────────
+    // `disabled` freezes the hover-driven icon swap at rest (`effectiveActive`
+    // forced false) and ignores focus, so neither hover nor Tab can flip the
+    // chip into its remove state. The wrapper dims to opacity 0.7 and the
+    // cursor switches to `not-allowed`.
+    const effectiveActive = disabled ? false : isActive
     return (
       <div
         ref={ref}
         role="group"
         aria-label={label}
-        tabIndex={0}
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : 0}
         className={cn('kds-chip', className)}
-        onMouseEnter={(e) => { setIsActive(true); externalMouseEnter?.(e) }}
-        onMouseLeave={(e) => { setIsActive(false); externalMouseLeave?.(e) }}
-        onFocus={() => setIsActive(true)}
+        onMouseEnter={(e) => { if (!disabled) setIsActive(true); externalMouseEnter?.(e) }}
+        onMouseLeave={(e) => { if (!disabled) setIsActive(false); externalMouseLeave?.(e) }}
+        onFocus={() => { if (!disabled) setIsActive(true) }}
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          if (!disabled && !e.currentTarget.contains(e.relatedTarget as Node)) {
             setIsActive(false)
           }
         }}
@@ -236,23 +263,24 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
           display:         'inline-flex',
           alignItems:      'center',
           borderRadius:    '10px',
-          paddingTop:    (!onChange || isActive || !!personaImage) ? '4px' : '2px',
-          paddingBottom: (!onChange || isActive || !!personaImage) ? '4px' : '2px',
-          paddingLeft:   (!onChange || isActive || !!personaImage) ? '4px' : '2px',
-          paddingRight:  (!onChange || isActive || !!personaImage) ? '4px' : '2px',
+          paddingTop:    (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
+          paddingBottom: (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
+          paddingLeft:   (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
+          paddingRight:  (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
           gap:             '2px',
-          backgroundColor: isActive ? 'var(--chip-bg)' : 'transparent',
-          boxShadow:       isActive ? 'var(--chip-shadow)' : 'none',
+          backgroundColor: effectiveActive ? 'var(--chip-bg)' : 'transparent',
+          boxShadow:       effectiveActive ? 'var(--chip-shadow)' : 'none',
           transition:      'background-color 150ms, box-shadow 150ms',
           color:           'var(--chip-text)',
-          cursor:          'pointer',
+          cursor:          disabled ? 'not-allowed' : 'pointer',
+          opacity:         disabled ? 0.7 : 1,
         } as React.CSSProperties}
         {...props}
       >
 
         {/* ── Left: icon/image at rest ↔ remove button on active ── */}
         <AnimatePresence mode="popLayout" initial={false}>
-          {isActive ? (
+          {effectiveActive ? (
             <motion.span
               key="remove"
               initial={initial}
@@ -264,7 +292,8 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
               <ChipButton
                 icon={<CancelOneIcon size={20} color="var(--chip-text)" />}
                 aria-label="Remove"
-                onClick={onRemove}
+                onClick={handleRemove}
+                disabled={disabled}
               />
             </motion.span>
           ) : (
@@ -294,9 +323,11 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
 
         {/* ── Label ── */}
         <div style={{
-          paddingLeft:  (isActive || !onChange || !!personaImage) ? '2px' : 0,
-          paddingRight: (isActive || !onChange || !!personaImage) ? '2px' : 0,
+          paddingLeft:  (effectiveActive || !onChange || !!personaImage) ? '2px' : 0,
+          paddingRight: (effectiveActive || !onChange || !!personaImage) ? '2px' : 0,
           flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
         }}>
           <span style={{
             fontFamily: 'var(--font-body)',
@@ -311,12 +342,13 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
         </div>
 
         {/* ── Right: only rendered when onChange is provided ── */}
-        {onChange && (isActive ? (
+        {onChange && (effectiveActive ? (
           <ChipButton
             icon={<ExchangeOneIcon size={20} color="var(--chip-text)" />}
             aria-label="Change"
             spinOnHover
-            onClick={onChange}
+            onClick={handleChange}
+            disabled={disabled}
           />
         ) : (
           <span
@@ -336,7 +368,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
         ))}
 
         {/* ── Inner shadow overlay — active only ── */}
-        {isActive && (
+        {effectiveActive && (
           <div
             aria-hidden
             style={{

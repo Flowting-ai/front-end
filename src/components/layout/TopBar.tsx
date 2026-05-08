@@ -1,10 +1,16 @@
 "use client";
 
+import React from "react";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { getModelLlmId } from "@/lib/model-icons";
 import { Button } from "@/components/Button";
-import { ArrowDownOneIcon } from "@strange-huge/icons";
+import { IconButton } from "@/components/IconButton";
+import {
+  ArrowDownOneIcon,
+  BubbleChatTemporaryIcon,
+  ShareOneIcon,
+} from "@strange-huge/icons";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,114 +18,104 @@ interface TopBarProps {
   showCitationsToggle?: boolean;
   citationsOpen?: boolean;
   onCitationsToggle?: () => void;
+  onTemporaryChat?: React.MouseEventHandler<HTMLButtonElement>;
+  onShare?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+// Figma 3220:33872 — absolute, top:-1 / left:-1 / right:-1 so the element
+// overlaps the 1px neutral-200 border on three sides. pt-[12px] px-[12px],
+// bg rgba(255,255,255,0.1).
 
 export function TopBar({
-  showCitationsToggle = false,
-  citationsOpen = false,
-  onCitationsToggle,
+  onTemporaryChat,
+  onShare,
 }: TopBarProps) {
-  const { selectedModel, isOpen, open, museActive, museAdvanced } = useModelSelectorContext();
+  const { selectedModel, isOpen, open, museActive, museAdvanced } =
+    useModelSelectorContext();
+
   const modelLlmId = museActive
     ? null
     : getModelLlmId(selectedModel?.companyName, selectedModel?.modelName);
 
+  const label = museActive
+    ? museAdvanced
+      ? "Souvenir Muse (Advanced)"
+      : "Souvenir Muse (Basic)"
+    : selectedModel?.modelName ?? "Souvenir AI · Muse";
+
   return (
-    <header
+    <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        height: "56px",
-        paddingLeft: "20px",
-        paddingRight: "16px",
-        backgroundColor: "var(--neutral-white)",
-        borderBottom: "1px solid var(--neutral-100)",
-        flexShrink: 0,
-        gap: "12px",
+        position:        "absolute",
+        top:             -1,
+        left:            -1,
+        right:           -1,
+        display:         "flex",
+        alignItems:      "center",
+        justifyContent:  "space-between",
+        paddingTop:      "12px",
+        paddingLeft:     "12px",
+        paddingRight:    "12px",
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        zIndex:          1,
       }}
     >
-      {/* ── Left: Model Selector Button ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          flexShrink: 0,
-        }}
+      {/* ── Left: model selector ── */}
+      <Button
+        variant="default"
+        size="sm"
+        rightIcon={<ArrowDownOneIcon />}
+        onClick={(e) => open(e.currentTarget)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
-        <Button
-          variant="ghost"
-          size="md"
-          rightIcon={<ArrowDownOneIcon size={16} />}
-          onClick={(e) => open(e.currentTarget)}
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {(museActive || modelLlmId) && (
-              <span style={{ width: "20px", height: "20px", borderRadius: "4px", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {museActive
-                  ? <img src="/icons/logo/souvenir-logo.svg" width={20} height={20} alt="" style={{ display: "block" }} />
-                  : <LlmIcon id={modelLlmId!} variant="avatar" size={20} />}
-              </span>
-            )}
-            {museActive
-              ? museAdvanced
-                ? "Souvenir AI Muse (Advanced)"
-                : "Souvenir AI Muse (Basic)"
-              : selectedModel?.modelName ?? "Select model"}
-          </span>
-        </Button>
-      </div>
-
-      {/* ── Right: Citations toggle ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          flexShrink: 0,
-        }}
-      >
-        {showCitationsToggle && (
-          <button
-            type="button"
-            onClick={onCitationsToggle}
-            title={citationsOpen ? "Hide citations" : "Show citations"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              border: "none",
-              backgroundColor: citationsOpen
-                ? "var(--blue-50)"
-                : "transparent",
-              cursor: "pointer",
-              color: citationsOpen ? "var(--blue-600)" : "var(--neutral-500)",
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden
+        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {(museActive || modelLlmId) && (
+            <span
+              style={{
+                width:          "16px",
+                height:         "16px",
+                borderRadius:   "4px",
+                overflow:       "hidden",
+                flexShrink:     0,
+                display:        "flex",
+                alignItems:     "center",
+                justifyContent: "center",
+              }}
             >
-              <path
-                d="M2 4h12M2 8h8M2 12h10"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-        )}
+              {museActive ? (
+                <img
+                  src="/icons/souvenir-logo-white.svg"
+                  width={16}
+                  height={16}
+                  alt=""
+                  style={{ display: "block" }}
+                />
+              ) : (
+                <LlmIcon id={modelLlmId!} variant="avatar" size={16} />
+              )}
+            </span>
+          )}
+          {label}
+        </span>
+      </Button>
+
+      {/* ── Right: temporary chat + share (Figma 3220:33874) ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <IconButton
+          variant="ghost"
+          aria-label="New temporary chat"
+          icon={<BubbleChatTemporaryIcon />}
+          onClick={onTemporaryChat}
+        />
+        <IconButton
+          variant="ghost"
+          aria-label="Share chat"
+          icon={<ShareOneIcon />}
+          onClick={onShare}
+        />
       </div>
-    </header>
+    </div>
   );
 }

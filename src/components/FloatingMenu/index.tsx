@@ -99,7 +99,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
             position:      'relative',
             display:       'inline-flex',
             flexDirection: 'column',
-            gap:           '2px',
+            gap:           '4px',
             paddingTop:    '4px',
             paddingRight:  '4px',
             paddingBottom: '6px',
@@ -133,7 +133,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
               position:      'relative',
               display:       'flex',
               flexDirection: 'column',
-              gap:           '2px',
+              gap:           '4px',
             }}
           >
             {children}

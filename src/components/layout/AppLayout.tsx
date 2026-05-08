@@ -6,6 +6,7 @@ import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
+import { usePinboard } from "@/context/pinboard-context";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -26,13 +27,16 @@ export function AppLayout({
   onSelectChat,
   onNewChat,
 }: AppLayoutProps) {
+  const { isOpen: pinboardOpen } = usePinboard()
+
   return (
     <div
       style={{
-        display: "flex",
-        height: "100svh",
-        overflow: "hidden",
-        backgroundColor: "var(--neutral-50)",
+        display:         "flex",
+        alignItems:      "stretch",
+        width:           "100%",
+        height:          "100svh",
+        backgroundColor: "var(--neutral-white)",
       }}
     >
       {/* ── Left sidebar ── */}
@@ -44,38 +48,63 @@ export function AppLayout({
         />
       </Suspense>
 
-      {/* ── Main content column ── */}
+      {/* ── Center column — neutral-50 bg, 10px vertical padding ── */}
       <div
         style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          minWidth: 0,
-          position: "relative",
+          flex:            "1 0 0",
+          minWidth:        0,
+          display:         "flex",
+          padding:         pinboardOpen ? "10px 0" : "10px 10px 10px 0",
+          backgroundColor: "var(--neutral-50)",
         }}
       >
-        <TopBar
-          showCitationsToggle={showCitationsToggle}
-          citationsOpen={citationsOpen}
-          onCitationsToggle={onCitationsToggle}
-        />
-
-        <main
-          className="kaya-scrollbar"
+        {/* ── Inner rounded container (Figma 3220:33871) ──
+            border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
+            overflow-clip, isolate for FloatingPanel z-index scoping. */}
+        <div
           style={{
-            flex: 1,
-            overflow: "auto",
-            backgroundColor: "var(--neutral-white)",
-            display: "flex",
-            flexDirection: "column",
+            position:        "relative",
+            flex:            "1 0 0",
+            minHeight:       0,
+            display:         "flex",
+            flexDirection:   "column",
+            alignItems:      "flex-start",
+            gap:             "2px",
+            padding:         "12px",
+            borderRadius:    "22px",
+            border:          "1px solid var(--neutral-200)",
+            backgroundColor: "rgba(255, 255, 255, 0.2)",
+            overflow:        "hidden",
+            isolation:       "isolate",
           }}
         >
-          {children}
-        </main>
+          {/* ── TopBar — absolute, overlaps the 1px border on three sides ── */}
+          <TopBar
+            showCitationsToggle={showCitationsToggle}
+            citationsOpen={citationsOpen}
+            onCitationsToggle={onCitationsToggle}
+          />
 
-        {/* ── Floating action panel — middle-right of content column ── */}
-        <FloatingPanel />
+          {/* ── Main content — fills remaining height ── */}
+          <main
+            className="kaya-scrollbar"
+            style={{
+              flex:                "1 0 0",
+              minHeight:           0,
+              width:               "100%",
+              overflowY:           "auto",
+              overflowX:           "hidden",
+              overscrollBehaviorY: "contain",
+              display:             "flex",
+              flexDirection:       "column",
+            }}
+          >
+            {children}
+          </main>
+
+          {/* ── Floating action panel — mid-right of rounded container ── */}
+          <FloatingPanel />
+        </div>
       </div>
 
       {/* ── Right sidebar (Pinboard) ── */}

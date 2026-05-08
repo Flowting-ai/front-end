@@ -130,6 +130,7 @@ interface ChatMessageProps {
   message: UIMessage;
   isLast: boolean;
   isNewMessage?: boolean;
+  chatId?: string;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -139,6 +140,7 @@ export function ChatMessage({
   message,
   isLast,
   isNewMessage = false,
+  chatId,
   onRegenerate,
   onEdit,
 }: ChatMessageProps) {
@@ -175,6 +177,7 @@ export function ChatMessage({
       category: "Quote",
       messageId: message.id,
       modelName: message.modelName || message.model,
+      chatId,
     });
     openPinboard();
   };

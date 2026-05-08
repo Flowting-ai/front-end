@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CancelOneIcon,
@@ -29,6 +29,8 @@ import { Badge } from '@/components/Badge'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { type PinboardPin } from '@/components/Pinboard'
 import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-context'
+import { useChatHistoryContext } from '@/context/chat-history-context'
+import { exportSinglePin } from '@/lib/export-pins'
 import type { BadgeColor } from '@/components/Badge'
 import { apiFetch, apiFetchJson } from '@/lib/api/client'
 import {
@@ -97,23 +99,35 @@ const SEARCH_OPEN_W   = 276
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function pinItemToKDS(item: PinItem): PinboardPin {
+function pinItemToKDS(
+  item: PinItem,
+  chatNameById: Map<string, string>,
+  onExport: () => void,
+  onDelete: () => void,
+  onDuplicate: () => void,
+): PinboardPin {
   const tagLabels: { color: BadgeColor; text: string }[] =
     item.tags && item.tags.length > 0
       ? item.tags.map((tag, i) => ({ color: TAG_COLORS[i % TAG_COLORS.length], text: tag }))
       : [{ color: CATEGORY_COLOR[item.category], text: item.category }];
+
+  const chatName = (item.chatId ? chatNameById.get(item.chatId) : undefined)
+    ?? item.chatName
+    ?? ''
 
   return {
     id:          item.id,
     category:    item.category,
     pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
-    chatName:    item.chatName ?? '',
-    llm:         item.modelName || undefined,
+    chatName,
     labels: [
       ...tagLabels,
       ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: item.modelName }] : []),
     ],
+    onExport,
+    onDelete,
+    onDuplicate,
   }
 }
 
@@ -202,7 +216,13 @@ function EmptyState({ title, description, action }: {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
-  const { pins, removePin } = usePinboard()
+  const { pins, removePin, clonePin } = usePinboard()
+  const { chats } = useChatHistoryContext()
+  const chatNameById = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>()
+    for (const chat of chats) map.set(chat.id, chat.title)
+    return map
+  }, [chats])
   const enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT
 
   // ── Loading state — show skeleton until first folder fetch settles ───────
@@ -415,7 +435,15 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     return result
   })()
 
-  const visiblePins = filteredPins.map(pinItemToKDS)
+  const visiblePins = filteredPins.map(p =>
+    pinItemToKDS(
+      p,
+      chatNameById,
+      () => exportSinglePin(p, chatNameById),
+      () => removePin(p.id),
+      () => clonePin(p),
+    )
+  )
 
   const emptyState = (() => {
     if (pins.length === 0)

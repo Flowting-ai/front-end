@@ -145,6 +145,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
+    options?: { webSearch?: boolean; files?: File[] },
   ): Promise<void> => {
     stopRequestedRef.current = false
     const controller = new AbortController()
@@ -162,14 +163,16 @@ export function useStreamingChat({
     try {
       // ── POST to Next.js proxy ─────────────────────────────────────────────
 
+      const fd = new FormData()
+      fd.append("input", input)
+      if (chatId) fd.append("chatId", chatId)
+      if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
+      if (options?.webSearch) fd.append("webSearch", "true")
+      options?.files?.forEach((f) => fd.append("files", f))
+
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId,
-          input,
-          ...(modelId !== null && modelId !== undefined ? { modelId } : {}),
-        }),
+        body: fd,
         signal: controller.signal,
       })
 

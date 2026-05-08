@@ -28,7 +28,8 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
-import { Pin, type PinProps } from '@/components/Pin'
+import { Pin, type PinProps, type PinLabel } from '@/components/Pin'
+import type { BadgeColor } from '@/components/Badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Tooltip } from '@/components/Tooltip'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
@@ -69,6 +70,23 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
    * `PINBOARD_EXPANDED_ENTER_DEFAULT`. Pass `{ enabled: false }` to disable.
    */
   enterAnimation?:  PinboardEnterAnimation
+  /**
+   * Per-pin user-added tags, keyed by pin id. Lifted from Pinboard so the
+   * tags survive the compact ↔ expanded transition. Pin instances inside
+   * this view are rendered with `userTags={userTagsById[id] ?? []}` and
+   * `onAddTag` routed back through `onPinAddTag`.
+   */
+  userTagsById?:    Record<string, PinLabel[]>
+  /**
+   * Per-pin set of original-array indices deleted from `labels`. Same lifting
+   * rationale as `userTagsById`. Threaded into Pin's `deletedLabelIndices`
+   * controlled prop.
+   */
+  deletedLabelsById?: Record<string, Set<number>>
+  /** Forwards to Pin's `onAddTag`. Receives the pin id as the first arg. */
+  onPinAddTag?:     (pinId: string, text: string, color: BadgeColor) => void
+  /** Forwards to Pin's `onDeleteTag`. Receives the pin id as the first arg. */
+  onPinDeleteTag?:  (pinId: string, index: number, source: 'label' | 'user') => void
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -153,6 +171,10 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
       onFilterClick,
       onSortClick,
       enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT,
+      userTagsById,
+      deletedLabelsById,
+      onPinAddTag,
+      onPinDeleteTag,
       style,
       className,
       ...props
@@ -187,14 +209,35 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     // (i.e. when search opens/closes, or when the cluster grows because
     // collapse-all entered). Without this the scrollLeft is technically
     // preserved, but because the visible viewport shrinks/grows the active
-    // tab can fall out of view; `scrollIntoView` with `inline: 'nearest'`
-    // shifts the TabsList just enough to keep it visible.
+    // tab can fall out of view.
+    //
+    // We DON'T use `Element.scrollIntoView` here — it walks every scrolling
+    // ancestor up to the document, which means a docs page hosting multiple
+    // Pinboard stories visibly scrolled the whole page on mount whenever the
+    // active tab landed below the fold. Compute the offset against the strip
+    // and scroll the strip directly so the side-effect is fully contained.
     useEffect(() => {
-      const root   = tabsContainerRef.current
+      const root = tabsContainerRef.current
       if (!root) return
+      // The actual horizontally-scrolling element is the TabsList (rendered
+      // inside the Tabs root). We find it via the closest scrollable ancestor
+      // of the active tab within `root`.
       const active = root.querySelector<HTMLElement>('[data-state="active"]')
       if (!active) return
-      active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+      let strip: HTMLElement | null = active.parentElement
+      while (strip && strip !== root && strip.scrollWidth <= strip.clientWidth) {
+        strip = strip.parentElement
+      }
+      if (!strip || strip === root.parentElement) strip = root
+      const stripRect = strip.getBoundingClientRect()
+      const tabRect   = active.getBoundingClientRect()
+      const overflowLeft  = stripRect.left  - tabRect.left
+      const overflowRight = tabRect.right   - stripRect.right
+      if (overflowLeft <= 0 && overflowRight <= 0) return
+      const target = overflowLeft > 0
+        ? strip.scrollLeft - overflowLeft
+        : strip.scrollLeft + overflowRight
+      strip.scrollTo({ left: target, behavior: 'smooth' })
     }, [searchOpen, hasExpanded])
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -805,6 +848,19 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                 <Pin
                                   collapseSignal={collapseSignal}
                                   onExpandedChange={handlePinExpandedChange(id)}
+                                  tagsEditable
+                                  userTags={userTagsById?.[id] ?? []}
+                                  deletedLabelIndices={deletedLabelsById?.[id]}
+                                  onAddTag={
+                                    onPinAddTag
+                                      ? (text, color) => onPinAddTag(id, text, color)
+                                      : undefined
+                                  }
+                                  onDeleteTag={
+                                    onPinDeleteTag
+                                      ? (index, source) => onPinDeleteTag(id, index, source)
+                                      : undefined
+                                  }
                                   {...pinRest}
                                 />
                               </EnterChunk>

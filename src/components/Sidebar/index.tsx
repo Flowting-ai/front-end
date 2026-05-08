@@ -58,6 +58,19 @@ const DEFAULT_PROJECTS: SidebarProject[] = [
   { id: 'folder-3', label: 'Folder name', chatItems: [{ id: 'folder-3-chat-0', label: 'Label' }, { id: 'folder-3-chat-1', label: 'Label' }] },
 ]
 
+export interface SidebarRecentItem {
+  id:    string
+  label: string
+}
+
+const DEFAULT_RECENTS: SidebarRecentItem[] = [
+  { id: 'recent-0', label: 'Label' },
+  { id: 'recent-1', label: 'Label' },
+  { id: 'recent-2', label: 'Label' },
+  { id: 'recent-3', label: 'Label' },
+  { id: 'recent-4', label: 'Label' },
+]
+
 export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Account display name */
   userName?: string
@@ -85,7 +98,18 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onShowAllProjects?: () => void
   /** Fully custom Projects section content — replaces the entire projects area including header */
   projectItems?: React.ReactNode
-  /** Custom Recents section items — replaces the default chat rows */
+  /**
+   * Recent chats rendered in the Recents section. Each item is editable in
+   * place (double-click → rename). Defaults to five "Label" placeholders.
+   * The "Recents" header and show/hide toggle are always rendered by the
+   * Sidebar — this prop only controls the row data.
+   */
+  recents?: SidebarRecentItem[]
+  /**
+   * Fully custom Recents section items — replaces the default chat rows.
+   * **Removes the "Recents" header and show/hide toggle**, so prefer the
+   * `recents` data prop unless you need a structurally different section.
+   */
   recentItems?: React.ReactNode
   /**
    * Start in collapsed (icon-only) state.
@@ -243,9 +267,11 @@ interface DefaultRecentItemsProps {
   onShowAll?: React.MouseEventHandler<HTMLButtonElement>
   /** Changes when the active section changes — triggers item stagger re-animation */
   sectionKey: string
+  /** Recent chat rows; defaults to five "Label" placeholders. */
+  recents: SidebarRecentItem[]
 }
 
-function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: DefaultRecentItemsProps) {
+function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey, recents }: DefaultRecentItemsProps) {
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<'visible' | 'hidden'>('visible')
   // Skip stagger on first sidebar load; replay it on section switches (key remount).
@@ -255,9 +281,15 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: D
   // starts expanded when switching between Chat Board, Persona, and Workflow.
   useEffect(() => { setShown(true) }, [sectionKey])
   const [editingItem,  setEditingItem]  = useState<string | null>(null)
+  // Local mirror of the `recents` data so in-place rename can mutate labels
+  // without round-tripping through the consumer. Re-syncs whenever the
+  // incoming `recents` reference changes (e.g. consumer adds/removes rows).
   const [itemLabels,   setItemLabels]   = useState<Record<string, string>>(() =>
-    Object.fromEntries((['recent-0','recent-1','recent-2','recent-3','recent-4'] as const).map(id => [id, 'Label']))
+    Object.fromEntries(recents.map(r => [r.id, r.label]))
   )
+  useEffect(() => {
+    setItemLabels(Object.fromEntries(recents.map(r => [r.id, r.label])))
+  }, [recents])
 
   const handleToggle: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     setShown(s => !s)
@@ -285,12 +317,12 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey }: D
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
-            {(['recent-0', 'recent-1', 'recent-2', 'recent-3', 'recent-4'] as const).map((id) => (
+            {recents.map(({ id }) => (
               <motion.div key={id} variants={sectionItemVariants}>
                 <SidebarMenuItem
                   fluid
                   variant={editingItem === id ? 'chat-item-edit' : 'chat-item'}
-                  label={itemLabels[id]}
+                  label={itemLabels[id] ?? 'Label'}
                   selected={selectedItem === id}
                   onClick={() => onSelect(id)}
                   onDoubleClick={() => { if (selectedItem === id) setEditingItem(id) }}
@@ -321,6 +353,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
       projectItems,
+      recents        = DEFAULT_RECENTS,
       recentItems,
       onShowAllRecents,
       defaultCollapsed = false,
@@ -581,7 +614,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} sectionKey={bodySection} />}
+                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} />}
               </div>
             </div>
           </motion.div>

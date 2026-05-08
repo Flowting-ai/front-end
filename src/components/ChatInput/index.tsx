@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { PlusSignIcon, MicTwoIcon, ArrowDownOneIcon, StopCircleIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
+import { Dropdown } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
@@ -139,6 +140,25 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   /** Called when the model selector button is clicked */
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>
   /**
+   * When set, the model-selector Button opens an inline `Dropdown.Float`
+   * panel (Figma 3208:32989) with these contents — typically a `<Dropdown
+   * size="md">` with `<Dropdown.Section>` rows. Open / close state, portal,
+   * placement (`top-start`), keyboard nav, and the trigger ARIA attributes
+   * are all handled internally. Omit to keep the legacy bare-button +
+   * `onModelClick` behaviour.
+   */
+  modelMenu?: React.ReactNode
+  /**
+   * When set, the leading `+` IconButton opens an inline `Dropdown.Float`
+   * panel (Figma 3219:33599) at `placement="top-start"` — the panel sits
+   * above the trigger with its left edge aligned to the button's left edge.
+   * Typical contents: a `<Dropdown size="md">` with rows like "Add files
+   * or photos", "Web search" (with Switch), "Use style" (submenu),
+   * "Add persona" (submenu), "Pin folders" (submenu). Omit to keep the
+   * legacy bare-button + `onAdd` behaviour.
+   */
+  addMenu?: React.ReactNode
+  /**
    * Chip(s) to display in the left footer slot, between the add button and
    * the model selector. Accepts any ReactNode — typically one or more `<Chip>`
    * components.
@@ -159,6 +179,8 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       onAdd,
       modelName = 'Souvenir',
       onModelClick,
+      modelMenu,
+      addMenu,
       chips,
       className,
       onMouseEnter: externalMouseEnter,
@@ -176,6 +198,13 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     const [isRecording,  setIsRecording]  = useState(false)
     const [analyser,     setAnalyser]     = useState<AnalyserNode | null>(null)
     const [isMicHovered, setIsMicHovered] = useState(false)
+    // Open state for the model-selector dropdown (Figma 3208:32989). Only
+    // used when `modelMenu` is passed; otherwise the trigger Button fires
+    // the legacy `onModelClick` callback and this state stays unused.
+    const [modelMenuOpen, setModelMenuOpen] = useState(false)
+    // Open state for the leading `+` add-menu dropdown (Figma 3219:33599).
+    // Only used when `addMenu` is passed.
+    const [addMenuOpen, setAddMenuOpen] = useState(false)
 
     const audioCtxRef = useRef<AudioContext | null>(null)
     const streamRef   = useRef<MediaStream | null>(null)
@@ -291,7 +320,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           flexDirection:   'column',
           gap:             '24px',
           width:           '100%',
-          maxWidth:        '674px',
+          maxWidth:        '754px',
           padding:         '20px',
           borderRadius:    '24px',
           backgroundColor: 'var(--chat-input-bg)',
@@ -403,13 +432,34 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
         >
           {/* Left: attach button + chips slot */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <IconButton
-              variant="ghost"
-              size="md"
-              icon={<PlusSignIcon size={20} />}
-              aria-label="Add attachment"
-              onClick={onAdd}
-            />
+            {addMenu !== undefined ? (
+              // Inline Dropdown — opens above the trigger with its left
+              // edge aligned to the button's left edge (top-start). Figma
+              // 3219:33599.
+              <Dropdown.Float
+                open={addMenuOpen}
+                onOpenChange={setAddMenuOpen}
+                placement="top-start"
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    size="md"
+                    icon={<PlusSignIcon size={20} />}
+                    aria-label="Add attachment"
+                  />
+                }
+              >
+                {addMenu}
+              </Dropdown.Float>
+            ) : (
+              <IconButton
+                variant="ghost"
+                size="md"
+                icon={<PlusSignIcon size={20} />}
+                aria-label="Add attachment"
+                onClick={onAdd}
+              />
+            )}
             {chips && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {chips}
@@ -419,14 +469,36 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
 
           {/* Right: model selector + mic/send button */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <Button
-              variant="ghost"
-              size="md"
-              rightIcon={<ArrowDownOneIcon size={16} />}
-              onClick={onModelClick}
-            >
-              {modelName}
-            </Button>
+            {modelMenu !== undefined ? (
+              // Inline Dropdown — opens above the trigger (top-start) since
+              // ChatInput typically lives at the bottom of its scroll
+              // container. Figma 3208:32989.
+              <Dropdown.Float
+                open={modelMenuOpen}
+                onOpenChange={setModelMenuOpen}
+                placement="top-end"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    rightIcon={<ArrowDownOneIcon size={16} />}
+                  >
+                    {modelName}
+                  </Button>
+                }
+              >
+                {modelMenu}
+              </Dropdown.Float>
+            ) : (
+              <Button
+                variant="ghost"
+                size="md"
+                rightIcon={<ArrowDownOneIcon size={16} />}
+                onClick={onModelClick}
+              >
+                {modelName}
+              </Button>
+            )}
 
             <span
               onMouseEnter={() => setIsMicHovered(true)}

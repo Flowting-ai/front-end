@@ -9,14 +9,17 @@ import {
   FilterMailIcon,
   DownloadThreeIcon,
   FolderLibraryIcon,
+  FolderOneIcon,
   UnfoldLessIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { PinboardHeader } from '@/components/PinboardHeader'
-import { Pin, type PinProps } from '@/components/Pin'
+import { Pin, type PinProps, type PinLabel } from '@/components/Pin'
+import type { BadgeColor } from '@/components/Badge'
 import { Tooltip } from '@/components/Tooltip'
-import { PinboardExpanded } from '@/components/PinboardExpanded'
+import { Dropdown } from '@/components/Dropdown'
+import { PinboardExpanded, type PinboardExpandedFolder } from '@/components/PinboardExpanded'
 import { EnterChunk, PINBOARD_COMPACT_ENTER_DEFAULT, type PinboardEnterAnimation } from './enterAnimation'
 
 export {
@@ -31,10 +34,60 @@ export interface PinboardPin extends Omit<PinProps, 'fluid'> {
   id: string
 }
 
+/**
+ * Item in the Pinboard view-filter dropdown (Figma 3139:36399).
+ * Selecting a view tells the consumer which pins to display — the Pinboard
+ * itself does not filter; it just owns the dropdown UI + selected-id state
+ * and emits `onViewChange` so the consumer can swap `pins`.
+ */
+export interface PinboardView {
+  /** Stable identifier — used for selected-state matching. */
+  id:    string
+  /** Row label (also shown on the trigger when this view is active). */
+  label: string
+}
+
+/**
+ * Default view set: All pins, Recent pins, Unorganized pins. The "Recent pins"
+ * view shows the user's most recently created or interacted-with pins. Append
+ * user folders to this list when constructing the consumer's `views` prop.
+ */
+export const DEFAULT_PINBOARD_VIEWS: PinboardView[] = [
+  { id: 'all',         label: 'All pins' },
+  { id: 'recent',      label: 'Recent pins' },
+  { id: 'unorganized', label: 'Unorganized pins' },
+]
+
 export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> {
   pins?: PinboardPin[]
-  filterLabel?: string
-  onFilterClick?:   () => void
+  /**
+   * Available views for the filter dropdown (Figma 3139:36399). Defaults to
+   * `DEFAULT_PINBOARD_VIEWS` (All / Chat / Unorganized). Spread user folders
+   * onto this list to add them under the defaults.
+   */
+  views?: PinboardView[]
+  /**
+   * Personal folders (user-created from the "+ New folder" affordance in the
+   * expanded sidebar). Forwarded to `PinboardExpanded.personalFolders` AND
+   * appended to the compact view-filter dropdown under a "Your folders"
+   * divided section.
+   */
+  personalFolders?: PinboardExpandedFolder[]
+  /**
+   * Project folders — derived from the user's projects in the Sidebar. See
+   * `specs/patterns/project-pinboard-folder-sync.md`: every project the user
+   * creates auto-creates a corresponding folder in PinboardExpanded and a
+   * filter row in the Pinboard's view dropdown. The consumer owns the
+   * mapping (Sidebar `projects` → Pinboard `projectFolders`); the rule
+   * keeps the two surfaces in lockstep.
+   */
+  projectFolders?:  PinboardExpandedFolder[]
+  /** Controlled selected-view id. */
+  view?: string
+  /** Default selected-view id for uncontrolled use. Defaults to the first view's id. */
+  defaultView?: string
+  /** Fires when the user picks a view from the filter dropdown. */
+  onViewChange?: (viewId: string, view: PinboardView) => void
   onOptionsClick?:  () => void
   onCollapseAll?:   () => void
   onSortClick?:     () => void
@@ -98,8 +151,12 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
   function Pinboard(
     {
       pins          = DEFAULT_PINS,
-      filterLabel   = 'All pins',
-      onFilterClick,
+      views         = DEFAULT_PINBOARD_VIEWS,
+      personalFolders,
+      projectFolders,
+      view,
+      defaultView,
+      onViewChange,
       onOptionsClick,
       onCollapseAll,
       onSortClick,
@@ -133,7 +190,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
 
     const handleOrganizeClick = () => {
       onOrganize?.()
-      // Expanded dialog is owned by the parent via onOrganize — don't open the DS overlay here
+      setExpanded(true)
     }
 
     const handleExpandedClose = () => {
@@ -156,6 +213,71 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     // "collapse all" IconButton.
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
     const hasExpanded = expandedIds.size > 0
+
+    // ── Lifted per-pin tag state ───────────────────────────────────────────
+    // User-added tags + deleted backend-label indices live HERE, keyed by
+    // pin id, so they survive the compact ↔ expanded transition (each view
+    // mounts its own Pin instances; without lifting, those instances would
+    // boot with empty internal state every time the user clicks Organize).
+    // Pinboard threads these maps + handlers down to every Pin instance —
+    // both compact (rendered inline below) and expanded (rendered inside
+    // PinboardExpanded). Tag deletion in PinboardExpanded therefore sticks
+    // when the user closes back to compact, and tags added in compact show
+    // up in PinboardExpanded.
+    const [userTagsById, setUserTagsById] = useState<Record<string, PinLabel[]>>({})
+    const [deletedLabelsById, setDeletedLabelsById] = useState<Record<string, Set<number>>>({})
+
+    const handlePinAddTag = useCallback(
+      (pinId: string, text: string, color: BadgeColor) => {
+        setUserTagsById(prev => ({
+          ...prev,
+          [pinId]: [{ color, text }, ...(prev[pinId] ?? [])],
+        }))
+      },
+      [],
+    )
+    const handlePinDeleteTag = useCallback(
+      (pinId: string, index: number, source: 'label' | 'user') => {
+        if (source === 'label') {
+          setDeletedLabelsById(prev => {
+            const existing = prev[pinId] ?? new Set<number>()
+            if (existing.has(index)) return prev
+            const next = new Set(existing); next.add(index)
+            return { ...prev, [pinId]: next }
+          })
+        } else {
+          setUserTagsById(prev => {
+            const list = prev[pinId] ?? []
+            return { ...prev, [pinId]: list.filter((_, i) => i !== index) }
+          })
+        }
+      },
+      [],
+    )
+
+    // ── View filter (header "All pins" Button + Dropdown) ─────────────────
+    // The Pinboard owns the dropdown UI + selected-view id. The consumer is
+    // responsible for filtering `pins` based on `onViewChange`. Figma
+    // 3139:36399.
+    const [viewMenuOpen, setViewMenuOpen] = useState(false)
+    const [internalViewId, setInternalViewId] = useState(
+      defaultView ?? views[0]?.id ?? 'all',
+    )
+    const currentViewId = view ?? internalViewId
+    // Selection can land on a default view OR a folder row (personal /
+    // project). The trigger button shows the corresponding label, so the
+    // resolver must look across all three lists.
+    const allViewItems: PinboardView[] = [
+      ...views,
+      ...(personalFolders ?? []).map(f => ({ id: f.id, label: f.label })),
+      ...(projectFolders  ?? []).map(f => ({ id: f.id, label: f.label })),
+    ]
+    const currentView = allViewItems.find(v => v.id === currentViewId) ?? views[0]
+    const handleViewSelect = (id: string, item: PinboardView) => {
+      setViewMenuOpen(false)
+      if (view === undefined) setInternalViewId(id)
+      onViewChange?.(id, item)
+    }
 
     const handleCollapseAll = () => {
       setCollapseSignal((s) => s + 1)
@@ -274,14 +396,80 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               width:          '100%',
             }}
           >
-            <Button
-              variant="secondary"
-              size="sm"
-              rightIcon={<ArrowDownOneIcon size={16} />}
-              onClick={onFilterClick}
+            {/* View filter — opens a Dropdown anchored to the trigger's
+                left edge (bottom-start). Selecting a view updates the
+                trigger label and emits onViewChange. Figma 3139:36399. */}
+            <Dropdown.Float
+              open={viewMenuOpen}
+              onOpenChange={setViewMenuOpen}
+              placement="bottom-start"
+              trigger={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  rightIcon={<ArrowDownOneIcon size={16} />}
+                >
+                  {/* In-place text swap — see specs/patterns/in-place-text-swap.md.
+                      The button width auto-adjusts because `popLayout` removes
+                      the exiting span from layout flow as soon as exit starts,
+                      so the new label drives layout immediately. */}
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.span
+                      key={currentViewId}
+                      initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                      exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      style={{ display: 'block', transformOrigin: 'left center' }}
+                    >
+                      {currentView?.label ?? 'All pins'}
+                    </motion.span>
+                  </AnimatePresence>
+                </Button>
+              }
             >
-              {filterLabel}
-            </Button>
+              <Dropdown size="md">
+                <Dropdown.Section fluid>
+                  {views.map(v => (
+                    <Dropdown.Item
+                      key={v.id}
+                      label={v.label}
+                      selected={v.id === currentViewId}
+                      onClick={() => handleViewSelect(v.id, v)}
+                      fluid
+                    />
+                  ))}
+                </Dropdown.Section>
+                {personalFolders && personalFolders.length > 0 && (
+                  <Dropdown.Section label="Your folders" divider fluid>
+                    {personalFolders.map(f => (
+                      <Dropdown.Item
+                        key={f.id}
+                        label={f.label}
+                        icon={<FolderOneIcon />}
+                        selected={f.id === currentViewId}
+                        onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                )}
+                {projectFolders && projectFolders.length > 0 && (
+                  <Dropdown.Section label="Project folders" divider fluid>
+                    {projectFolders.map(f => (
+                      <Dropdown.Item
+                        key={f.id}
+                        label={f.label}
+                        icon={<FolderOneIcon />}
+                        selected={f.id === currentViewId}
+                        onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
+                        fluid
+                      />
+                    ))}
+                  </Dropdown.Section>
+                )}
+              </Dropdown>
+            </Dropdown.Float>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AnimatePresence initial={false}>
@@ -382,6 +570,10 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                     fluid
                     collapseSignal={collapseSignal}
                     onExpandedChange={handlePinExpandedChange(id)}
+                    userTags={userTagsById[id] ?? []}
+                    onAddTag={(text, color) => handlePinAddTag(id, text, color)}
+                    deletedLabelIndices={deletedLabelsById[id]}
+                    onDeleteTag={(index, source) => handlePinDeleteTag(id, index, source)}
                     {...pinRest}
                   />
                 </EnterChunk>
@@ -585,6 +777,13 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               pins={pins}
               onClose={handleExpandedClose}
               onOrganize={onOrganize}
+              personalFolders={personalFolders}
+              projectFolders={projectFolders}
+              activeSidebarId={currentViewId}
+              userTagsById={userTagsById}
+              deletedLabelsById={deletedLabelsById}
+              onPinAddTag={handlePinAddTag}
+              onPinDeleteTag={handlePinDeleteTag}
             />
           </motion.div>,
         ] : null}
