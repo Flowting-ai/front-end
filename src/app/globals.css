@@ -152,3 +152,124 @@
    indicator bar aligns flush with the visible text bounds */
 .kaya-thinking-md p:first-child { margin-top: 0; }
 .kaya-thinking-md p:last-child  { margin-bottom: 0; }
+
+/* ── Attachment scroll strip ─────────────────────────────────────────────── */
+/* Hide webkit scrollbar on the attachment row */
+.kds-attach-scroll::-webkit-scrollbar { display: none; }
+
+/* ── Toast (sonner / KDS wrapper) ────────────────────────────────────────── */
+
+[data-sonner-toaster][data-sonner-theme][data-y-position] {
+  font-family: var(--toast-font-family);
+  --width:         var(--toast-width);
+  --gap:           var(--toast-gap);
+  --border-radius: var(--toast-radius);
+  --normal-bg:     var(--toast-bg);
+  --normal-text:   var(--toast-text);
+  --normal-border: var(--toast-border);
+  --success-bg:    var(--toast-success-bg);
+  --success-text:  var(--toast-success-text);
+  --success-border:var(--toast-success-border);
+  --error-bg:      var(--toast-error-bg);
+  --error-text:    var(--toast-error-text);
+  --error-border:  var(--toast-error-border);
+  --warning-bg:    var(--toast-warning-bg);
+  --warning-text:  var(--toast-warning-text);
+  --warning-border:var(--toast-warning-border);
+  --info-bg:       var(--toast-info-bg);
+  --info-text:     var(--toast-info-text);
+  --info-border:   var(--toast-info-border);
+}
+
+.kds-toast {
+  width:           100%;
+  display:         flex;
+  align-items:     center;
+  justify-content: space-between;
+  gap:             12px;
+  border-radius:   var(--toast-radius);
+  padding:         12px 14px;
+  font-family:     var(--toast-font-family);
+  font-size:       var(--toast-title-size);
+  line-height:     var(--toast-title-line-height);
+  box-shadow:
+    0px 1px 1.5px 0px rgba(82, 75, 71, 0.12),
+    0px 6px 16px -4px rgba(38, 33, 30, 0.10),
+    0px 0px 0px 1px var(--toast-border);
+}
+
+.kds-toast [data-content] { flex: 1 1 auto; min-width: 0; }
+.kds-toast [data-button],
+.kds-toast [data-cancel-button] { flex-shrink: 0; margin-left: auto; }
+.kds-toast [data-cancel-button] + [data-button] { margin-left: 0; }
+
+.kds-toast__title {
+  font-family: var(--toast-font-family);
+  font-weight: var(--toast-title-weight);
+  font-size:   var(--toast-title-size);
+  line-height: var(--toast-title-line-height);
+}
+
+.kds-toast__description {
+  color:       var(--toast-description);
+  font-family: var(--toast-font-family);
+  font-weight: var(--toast-description-weight);
+  font-size:   var(--toast-description-size);
+  line-height: var(--toast-description-line-height);
+  margin-top:  2px;
+}
+
+.kds-toast__action {
+  background:    var(--toast-action-bg);
+  color:         var(--toast-action-text);
+  border-radius: 6px;
+  padding:       4px 10px;
+  font-family:   var(--toast-font-family);
+  font-weight:   var(--toast-button-weight);
+  font-size:     var(--toast-button-size);
+  line-height:   var(--toast-button-line-height);
+  border:        none;
+  cursor:        pointer;
+}
+.kds-toast__action:hover { filter: brightness(1.1); }
+
+.kds-toast__cancel {
+  background:    var(--toast-cancel-bg);
+  color:         var(--toast-cancel-text);
+  border-radius: 6px;
+  padding:       4px 10px;
+  font-family:   var(--toast-font-family);
+  font-weight:   var(--toast-button-weight);
+  font-size:     var(--toast-button-size);
+  line-height:   var(--toast-button-line-height);
+  border:        none;
+  cursor:        pointer;
+}
+.kds-toast__cancel:hover { background: var(--neutral-200); }
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close {
+  width:           24px;
+  height:          24px;
+  display:         inline-flex;
+  align-items:     center;
+  justify-content: center;
+  padding:         3px;
+  border:          none;
+  border-radius:   8px;
+  background:      var(--neutral-white);
+  color:           var(--neutral-600);
+  box-shadow:
+    0px 1px 2px rgba(0,0,0,0.08),
+    inset 0px 1px 0px rgba(255,255,255,0.9);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:hover {
+  background: var(--neutral-100);
+}
+[data-sonner-toaster] [data-sonner-toast] [data-close-button].kds-toast__close.kds-toast__close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.kds-toast__icon   { color: inherit; }
+.kds-toast__loader { color: var(--neutral-700); }

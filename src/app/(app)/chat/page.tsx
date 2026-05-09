@@ -5,10 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
 import { ModelSwitchDialog } from "@/components/chat/ModelSwitchDialog";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { useFileDrop } from "@/hooks/use-file-drop";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import {
@@ -20,23 +23,6 @@ import {
   UserIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
-
-// ── File upload config ─────────────────────────────────────────────────────────
-
-const FILE_ACCEPT = [
-  ".pdf", "application/pdf",
-  ".doc", ".docx", "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ".ppt", ".pptx", "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ".csv", "text/csv",
-  ".xls", ".xlsx", "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".txt", "text/plain",
-  "image/*",
-].join(",")
-
-const MAX_ADD_FILES = 10
 
 // ── Add-menu (Figma 3219:33599) ───────────────────────────────────────────────
 
@@ -181,8 +167,10 @@ function ChatPageInner() {
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([]);
   const [addMenuFiles, setAddMenuFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { processFiles, FILE_ACCEPT } = useFileUpload();
 
   const handleAddFilesClick = () => {
     fileInputRef.current?.click();
@@ -190,8 +178,7 @@ function ChatPageInner() {
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const incoming = Array.from(e.target.files);
-      setAddMenuFiles((prev) => [...prev, ...incoming].slice(0, MAX_ADD_FILES));
+      setNewChatAttachments((prev) => processFiles(e.target.files!, prev));
       e.target.value = "";
     }
   };
@@ -249,6 +236,14 @@ function ChatPageInner() {
 
   const isNewChat = !activeChatId && !hasMessages && !initialPrompt;
 
+  // Drag-and-drop onto the new-chat landing page — placed after isNewChat is defined
+  const { isDragging: isNewChatDragging } = useFileDrop({
+    onFiles: (files) => {
+      setNewChatAttachments((prev) => processFiles(files, prev));
+    },
+    disabled: !isNewChat,
+  });
+
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     openModelSelector(e.currentTarget);
   };
@@ -294,6 +289,11 @@ function ChatPageInner() {
   // New-chat landing page: capture typed message, transition to ChatInterface
   const handleNewChatSend = (value: string) => {
     if (!value.trim()) return;
+    // Carry any new-chat attachments into the addMenuFiles so ChatInterface
+    // picks them up and sends them with the first message.
+    const pendingFiles = newChatAttachments.map((a) => a.file);
+    setAddMenuFiles(pendingFiles);
+    setNewChatAttachments([]);
     setInitialPrompt(value.trim());
     setNewChatInput("");
     setHasMessages(true);
@@ -337,6 +337,27 @@ function ChatPageInner() {
               padding:        "24px 16px",
             }}
           >
+            {/* Drop overlay */}
+            {isNewChatDragging && (
+              <div
+                style={{
+                  position:        "absolute",
+                  inset:           0,
+                  zIndex:          40,
+                  display:         "flex",
+                  alignItems:      "center",
+                  justifyContent:  "center",
+                  backgroundColor: "rgba(255,255,255,0.88)",
+                  border:          "2px dashed var(--focus-ring)",
+                  borderRadius:    "16px",
+                  pointerEvents:   "none",
+                }}
+              >
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "var(--font-size-body-md)", color: "var(--blue-600)", fontWeight: 500 }}>
+                  Drop files here
+                </span>
+              </div>
+            )}
             <div
               style={{
                 display:       "flex",
@@ -368,6 +389,12 @@ function ChatPageInner() {
                   addMenu={addMenu}
                   modelMenu={<DefaultModelMenu />}
                   chips={chips}
+                  attachmentsSlot={
+                    <AttachmentManager
+                      attachments={newChatAttachments}
+                      onAttachmentsChange={setNewChatAttachments}
+                    />
+                  }
                   placeholder="How can I help you today?"
                 />
               </motion.div>

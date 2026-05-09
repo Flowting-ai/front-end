@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { getChatMessages } from "@/lib/api/chat"
+import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
 import type { Message } from "@/types/chat"
 
@@ -25,6 +26,10 @@ export interface UIMessage extends Message {
   images?: GeneratedImage[]
   /** Generated files (documents, CSVs, etc.). */
   generatedFiles?: GeneratedFile[]
+  /** Structured response blocks (table, chart, code, callout, etc.). */
+  responseBlocks?: ResponseBlock[]
+  /** Web citation sources for inline {1} {2} chips in response text. */
+  webCitations?: WebCitation[]
 }
 
 /** Model selection metadata from the backend. */
@@ -45,7 +50,9 @@ export type ActivityType =
   | 'csv-execute'
   | 'fetch-resource'
   | 'tool-call'
+  | 'doc-execute'
   | 'docx-progress'
+  | 'skills'
   | 'other'
 
 /** Status values for tool progress. */
@@ -73,6 +80,8 @@ export interface ActivityItem {
   codePreview?: string
   /** Filename associated with the tool (read_pages, csv, docx). */
   filename?: string
+  /** Human-readable label from backend (e.g. "Generating PDF", "Searching the web"). */
+  label?: string
 }
 
 /** An image generated during the response. */
@@ -88,6 +97,123 @@ export interface GeneratedFile {
   filename: string
   mimeType?: string
 }
+
+// ── Structured output types (response blocks) ─────────────────────────────────
+
+/** A web citation source for inline {1}{2} reference chips (distinct from Message.citations). */
+export interface WebCitation {
+  title: string
+  url?: string
+  domain?: string
+}
+
+export interface TableBadgeStyle { label: string; color: string; bg: string; border?: string }
+
+export type TableCellValue =
+  | string
+  | number
+  | { type: 'badge';  label: string; color: string; bg: string; border?: string }
+  | { type: 'check';  value: boolean }
+  | { type: 'rich';   text: string; sub?: string; badge?: TableBadgeStyle }
+
+export interface TableData {
+  caption?: string
+  headers: string[]
+  rows: TableCellValue[][]
+  variant?: 'basic' | 'striped' | 'compact' | 'badges' | 'financial' | 'hoverable' | 'minimal' | 'feature-comparison' | 'mixed-content'
+  sortable?: boolean
+  totalsRow?: boolean
+  accentRows?: number[]
+  badgeMap?: Record<string, { color: string; bg: string; border?: string }>
+}
+
+export interface BarChartData {
+  title?: string
+  unit?: string
+  bars: { label: string; value: number; color?: string }[]
+  maxValue?: number
+  variant?: 'vertical' | 'horizontal' | 'grouped' | 'stacked' | 'stacked-100' | 'positive-negative'
+  datasets?: { label: string; color?: string; values: number[] }[]
+  labels?: string[]
+}
+
+export interface StepsData {
+  title?: string
+  steps: { label: string; description?: string }[]
+}
+
+export interface CodeData {
+  language: string
+  code: string
+  caption?: string
+}
+
+export interface CalloutData {
+  variant: 'info' | 'warning' | 'success' | 'error' | 'tip'
+  title?: string
+  body: string
+}
+
+export interface TagsData {
+  title?: string
+  tags: { label: string; color?: string }[]
+}
+
+export interface FollowUpsData {
+  prompts: string[]
+}
+
+export interface PieChartData {
+  title?: string
+  unit?: string
+  centerLabel?: string
+  segments: { label: string; value: number; color?: string }[]
+}
+
+export interface LineChartData {
+  title?: string
+  unit?: string
+  xLabel?: string
+  yLabel?: string
+  lines: { label: string; color?: string; points: { x: string; y: number }[] }[]
+}
+
+export interface CardData {
+  title?: string
+  subtitle?: string
+  body: string
+  badge?: string
+  badgeColor?: string
+}
+
+export interface ConnectorErrorData {
+  connector: string
+  icon?: string
+  message: string
+  cta: string
+}
+
+export interface SearchTimeoutData {
+  query: string
+  message: string
+  cta: string
+}
+
+/** Discriminated union of all structured response block types. */
+export type ResponseBlock =
+  | { kind: 'text';            content: string; webCitations?: WebCitation[] }
+  | { kind: 'table';           data: TableData }
+  | { kind: 'bar-chart';       data: BarChartData }
+  | { kind: 'steps';           data: StepsData }
+  | { kind: 'code';            data: CodeData }
+  | { kind: 'callout';         data: CalloutData }
+  | { kind: 'tags';            data: TagsData }
+  | { kind: 'follow-ups';      data: FollowUpsData }
+  | { kind: 'pie-chart';       data: PieChartData }
+  | { kind: 'line-chart';      data: LineChartData }
+  | { kind: 'card';            data: CardData }
+  | { kind: 'connector-error'; data: ConnectorErrorData }
+  | { kind: 'search-timeout';  data: SearchTimeoutData }
 
 // ── Hook result ───────────────────────────────────────────────────────────────
 
@@ -154,7 +280,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     getChatMessages(chatId)
       .then((res) => {
         if (cancelled) return
-        setMessages(res.messages)
+        setMessages(toUIMessages(res.messages))
         setHasMoreMessages(res.has_more)
         cursorRef.current = res.next_cursor ?? undefined
       })
@@ -178,7 +304,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     loadingRef.current = true
     try {
       const res = await getChatMessages(chatId, cursorRef.current)
-      setMessages((prev) => [...res.messages, ...prev])
+      setMessages((prev) => [...toUIMessages(res.messages), ...prev])
       setHasMoreMessages(res.has_more)
       cursorRef.current = res.next_cursor ?? undefined
     } catch (err) {

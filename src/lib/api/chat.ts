@@ -171,6 +171,9 @@ interface BackendMessage {
   }> | null;
   pin_ids?: (string | null)[] | null;
   metadata?: Record<string, unknown>;
+  // Web search sources attached to the message
+  sources?: Array<{ id?: string; url?: string; title?: string; favicon?: string; domain?: string }> | null;
+  web_citations?: Array<{ title?: string; url?: string; domain?: string }> | null;
 }
 
 /** Normalize a backend message entry into one or two Message objects. */
@@ -194,6 +197,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
       });
     }
     if (aiText) {
+      const sources = parseSources(raw);
       messages.push({
         id: `${baseId}-response`,
         role: "assistant",
@@ -201,6 +205,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         created_at: createdAt,
         chat_id: chatId,
         thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
+        sources: sources.length > 0 ? sources : undefined,
       });
     }
     return messages;
@@ -210,6 +215,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
   const senderRaw = (raw.sender ?? raw.role ?? "user").toLowerCase();
   const role: Message["role"] = (senderRaw === "ai" || senderRaw === "assistant") ? "assistant" : "user";
   const content = raw.content ?? raw.message ?? "";
+  const sources = parseSources(raw);
 
   return [{
     id: baseId,
@@ -218,7 +224,49 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     created_at: createdAt,
     chat_id: chatId,
     thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
+    sources: sources.length > 0 ? sources : undefined,
   }];
+}
+
+/** Extract sources from any of the known backend shapes. */
+function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
+  // Explicit sources array
+  if (Array.isArray(raw.sources) && raw.sources.length > 0) {
+    return raw.sources
+      .filter((s) => s && (s.url || s.title))
+      .map((s, i) => ({
+        id: s.id ?? String(i),
+        url: s.url ?? "",
+        title: s.title ?? s.url ?? "",
+        favicon: s.favicon,
+      }));
+  }
+  // Explicit web_citations array
+  if (Array.isArray(raw.web_citations) && raw.web_citations.length > 0) {
+    return raw.web_citations
+      .filter((s) => s && (s.url || s.title))
+      .map((s, i) => ({
+        id: String(i),
+        url: s.url ?? "",
+        title: s.title ?? s.url ?? "",
+      }));
+  }
+  // Buried in metadata
+  const meta = raw.metadata;
+  if (meta) {
+    const ms = (meta.sources ?? meta.web_citations ?? meta.citations) as Array<Record<string, string>> | undefined;
+    if (Array.isArray(ms) && ms.length > 0) {
+      return ms
+        .filter((s) => s && (s.url || s.title))
+        .map((s, i) => ({
+          id: s.id ?? String(i),
+          url: s.url ?? "",
+          title: s.title ?? s.url ?? "",
+          favicon: s.favicon,
+        }));
+    }
+  }
+  return [];
 }
 
 export async function getChatMessages(

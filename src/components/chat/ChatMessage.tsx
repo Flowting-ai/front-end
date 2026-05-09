@@ -6,6 +6,7 @@ import { MarkdownRenderer } from "@/lib/markdown-utils";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
+import { BlockSequenceRenderer, SourceList, renderTextBlock } from "./ResponseBlocks";
 import { usePinboard } from "@/context/pinboard-context";
 import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
 import { IconButton } from "@/components/IconButton";
@@ -124,6 +125,20 @@ function StandaloneActivitiesBlock({
   );
 }
 
+// ── StreamingTextContent — renders live content as inline text with BreathingDot ──
+// Used only while isLoading=true so paragraphs don't "snap in" as markdown blocks.
+
+function StreamingTextContent({ content }: { content: string }) {
+  const dot = (
+    <motion.span
+      animate={{ opacity: [0.15, 1, 0.15] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+      style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
+    />
+  );
+  return <>{renderTextBlock(content, undefined, dot)}</>;
+}
+
 // ── Main ChatMessage Component ────────────────────────────────────────────────
 
 interface ChatMessageProps {
@@ -134,6 +149,8 @@ interface ChatMessageProps {
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
+  onFollowUp?: (prompt: string) => void;
+  onRetry?: () => void;
 }
 
 export function ChatMessage({
@@ -143,6 +160,8 @@ export function ChatMessage({
   chatId,
   onRegenerate,
   onEdit,
+  onFollowUp,
+  onRetry,
 }: ChatMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -302,16 +321,44 @@ export function ChatMessage({
         )}
 
         {/* Message content — assistant only (user handled above) */}
-        {message.content && (
+        {/* When responseBlocks are present, use BlockSequenceRenderer */}
+        {message.responseBlocks && message.responseBlocks.length > 0 ? (
           <motion.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
-            <MarkdownRenderer content={message.content} />
-            <StreamingCursor isVisible={!!isNewMessage && !!message.isLoading} />
+            <BlockSequenceRenderer
+              blocks={message.responseBlocks}
+              static={!message.isLoading}
+              onFollowUp={onFollowUp}
+              onRetry={onRetry}
+            />
           </motion.div>
+        ) : message.content ? (
+          <motion.div
+            ref={contentRef}
+            initial={isNewMessage ? { opacity: 0, y: 5 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* During active streaming on a new message: use renderTextBlock so
+                content renders inline with a trailing BreathingDot rather than
+                as block-level markdown (which "snaps" whole paragraphs in).
+                For completed messages: MarkdownRenderer handles GFM tables etc. */}
+            {isNewMessage && message.isLoading
+              ? <StreamingTextContent content={message.content} />
+              : <MarkdownRenderer content={message.content} />}
+            {!(isNewMessage && message.isLoading) && (
+              <StreamingCursor isVisible={false} />
+            )}
+          </motion.div>
+        ) : null}
+
+        {/* Citation sources — shown below response when citations are present */}
+        {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (
+          <SourceList citations={message.webCitations} />
         )}
 
         {/* Generated images */}

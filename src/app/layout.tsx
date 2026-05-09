@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Besley, Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
+import { Toaster } from "@/components/Toast";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
@@ -52,6 +53,7 @@ export default function RootLayout({
     >
       <body className="h-full antialiased" suppressHydrationWarning>
         <AuthProvider>{children}</AuthProvider>
+        <Toaster />
       </body>
     </html>
   );

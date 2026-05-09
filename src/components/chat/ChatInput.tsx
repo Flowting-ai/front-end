@@ -160,6 +160,11 @@ export interface ChatInputProps
    */
   modelMenu?: React.ReactNode;
   chips?: React.ReactNode;
+  /**
+   * Content rendered inside the input box, above the textarea.
+   * Intended for the AttachmentManager chip strip.
+   */
+  attachmentsSlot?: React.ReactNode;
   isStreaming?: boolean;
   disabled?: boolean;
   compact?: boolean;
@@ -182,6 +187,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       addMenu,
       modelMenu,
       chips,
+      attachmentsSlot,
       isStreaming = false,
       disabled = false,
       compact = false,
@@ -406,6 +412,9 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {isRecording ? "Recording started. Listening." : ""}
         </span>
 
+        {/* ── Attachments slot — chip strip rendered above the textarea ── */}
+        {attachmentsSlot}
+
         {/* ── Main content — textarea + animated placeholder ── */}
         <div style={{ position: "relative" }}>
           {/* Custom animated placeholder — fades out when user starts typing */}
@@ -512,7 +521,10 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                   />
                 }
               >
-                {addMenu}
+                {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
+                <div onClick={() => setAddMenuOpen(false)}>
+                  {addMenu}
+                </div>
               </Dropdown.Float>
             ) : (
               <IconButton

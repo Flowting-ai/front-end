@@ -233,6 +233,17 @@ function normalizeMathDelimiters(content: string): string {
   return out;
 }
 
+// When the model outputs **Title** mid-sentence with no surrounding whitespace
+// (e.g. "...for 2026.**Planning the search**I'll perform..."), insert blank lines
+// so ReactMarkdown treats it as a standalone paragraph/heading rather than inline bold.
+function normalizeInlineBoldTitles(content: string): string {
+  return content
+    // Blank line BEFORE **..** when immediately preceded by a non-whitespace char
+    .replace(/([^\s\n])(\*\*[^*\n]+\*\*)/g, '$1\n\n$2')
+    // Blank line AFTER **..** when immediately followed by a letter (start of new sentence)
+    .replace(/(\*\*[^*\n]+\*\*)([A-Za-z])/g, '$1\n\n$2');
+}
+
 interface MarkdownRendererProps {
   content: string;
 }
@@ -253,7 +264,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         rehypePlugins={rehypePlugins}
         components={components}
       >
-        {closeOpenFences(normalizeMathDelimiters(content))}
+        {closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)))}
       </ReactMarkdown>
     </div>
   );

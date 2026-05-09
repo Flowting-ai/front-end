@@ -1,7 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AiWebBrowsingIcon,
+  PdfIcon,
+  CodeIcon,
+  AiSheetsIcon,
+  Link01Icon,
+  Doc01Icon,
+  AiBrain01Icon,
+  Spinner,
+  Checkmark,
+  Cancel01Icon,
+} from "@hugeicons/core-free-icons";
+import { QuillWriteOneIcon, NeuralNetworkIcon } from "@strange-huge/icons";
 import type { ActivityItem, ActivityType } from "@/hooks/use-chat-state";
 
 // ── Activity type display config ──────────────────────────────────────────────
@@ -12,75 +26,43 @@ const ACTIVITY_VERB: Record<ActivityType, string> = {
   "csv-execute": "Analysing data",
   "fetch-resource": "Fetching resource",
   "tool-call": "Running tool",
+  "doc-execute": "Generating document",
   "docx-progress": "Generating document",
+  "skills": "Loading skill",
   "other": "Processing",
 };
 
-// SVG icons for each activity type (matching preview's HugeIcons style)
-function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean }) {
-  const color = isDone ? "var(--neutral-300, #C0B5AD)" : "var(--neutral-400, #A89488)";
-  switch (type) {
-    case "web-search":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <path d="M21 21l-4.35-4.35" />
-        </svg>
-      );
-    case "read-pages":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-        </svg>
-      );
-    case "csv-execute":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="3" y1="15" x2="21" y2="15" />
-          <line x1="9" y1="3" x2="9" y2="21" />
-          <line x1="15" y1="3" x2="15" y2="21" />
-        </svg>
-      );
-    case "fetch-resource":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="2" y1="12" x2="22" y2="12" />
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
-      );
-    case "tool-call":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="16 18 22 12 16 6" />
-          <polyline points="8 6 2 12 8 18" />
-        </svg>
-      );
-    case "docx-progress":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <path d="M12 18v-6" />
-          <path d="M9 15l3 3 3-3" />
-        </svg>
-      );
-    default:
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
-        </svg>
-      );
-  }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type IconEntry = { icon: any; isHuge: boolean };
+
+const ACTIVITY_ICON: Record<ActivityType, IconEntry> = {
+  "web-search":    { icon: AiWebBrowsingIcon,  isHuge: true  },
+  "read-pages":    { icon: PdfIcon,            isHuge: true  },
+  "csv-execute":   { icon: AiSheetsIcon,       isHuge: true  },
+  "fetch-resource":{ icon: Link01Icon,         isHuge: true  },
+  "tool-call":     { icon: CodeIcon,           isHuge: true  },
+  "doc-execute":   { icon: QuillWriteOneIcon,  isHuge: false },
+  "docx-progress": { icon: Doc01Icon,          isHuge: true  },
+  "skills":        { icon: NeuralNetworkIcon,  isHuge: false },
+  "other":         { icon: AiBrain01Icon,      isHuge: true  },
+};
+
+// ── Icon helper ───────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
+  return <HugeiconsIcon icon={icon} size={size} color={color} strokeWidth={strokeWidth} />;
 }
 
-// Spinner SVG (matching preview)
+function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean }) {
+  const { icon, isHuge } = ACTIVITY_ICON[type] ?? ACTIVITY_ICON["other"];
+  const color = isDone ? "#80B707" : "#827A74";
+  if (isHuge) return <HIcon icon={icon} size={14} color={color} strokeWidth={1.5} />;
+  const Icon = icon as React.ComponentType<{ size?: number; color?: string }>;
+  return <Icon size={14} color={color} />;
+}
+
+// Spinner using HugeIcons Spinner icon (rotating)
 function SpinnerIcon() {
   return (
     <motion.span
@@ -88,20 +70,16 @@ function SpinnerIcon() {
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-300, #B6ACA4)" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 2a10 10 0 0 1 10 10" />
-      </svg>
+      <HIcon icon={Spinner} size={14} color="#B6ACA4" strokeWidth={2} />
     </motion.span>
   );
 }
 
-// Checkmark SVG (matching preview)
+// Checkmark using HugeIcons Checkmark icon (green)
 function CheckmarkIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#80B707" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
+      <HIcon icon={Checkmark} size={14} color="#80B707" strokeWidth={2.5} />
     </span>
   );
 }
@@ -110,11 +88,7 @@ function CheckmarkIcon() {
 function ErrorIcon() {
   return (
     <span style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red-500, #DC3545)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="15" y1="9" x2="9" y2="15" />
-        <line x1="9" y1="9" x2="15" y2="15" />
-      </svg>
+      <HIcon icon={Cancel01Icon} size={14} color="var(--red-500, #DC3545)" strokeWidth={2} />
     </span>
   );
 }
@@ -122,12 +96,15 @@ function ErrorIcon() {
 // ── ActivityRow component ─────────────────────────────────────────────────────
 
 export function ActivityRow({ activity }: { activity: ActivityItem }) {
-  const [resultsOpen, setResultsOpen] = useState(false);
   const isActive = activity.status === "start" || activity.status === "executing" || activity.status === "reading";
   const isDone = activity.status === "done";
   const isError = activity.status === "error";
-  const verb = ACTIVITY_VERB[activity.type] ?? "Processing";
-  const hasResults = isDone && activity.results && activity.results.length > 0;
+  const verb = activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
+  const hasResults = activity.results && activity.results.length > 0;
+  // Web-search results auto-expand (visible inline while done); other types need a click
+  const isWebSearch = activity.type === "web-search";
+  const [manualOpen, setManualOpen] = useState(false);
+  const resultsVisible = isWebSearch ? (isDone && hasResults) : manualOpen;
 
   // Build detail text
   const detailText = activity.detail || activity.toolName?.replace(/_/g, " ") || "";
@@ -136,7 +113,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Header row — clickable when has results */}
       <button
-        onClick={() => hasResults && setResultsOpen(!resultsOpen)}
+        onClick={() => !isWebSearch && hasResults && setManualOpen(!manualOpen)}
         type="button"
         style={{
           display: "flex",
@@ -144,7 +121,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           gap: 8,
           background: "transparent",
           border: "none",
-          cursor: hasResults ? "pointer" : "default",
+          cursor: (!isWebSearch && hasResults) ? "pointer" : "default",
           padding: "4px 0",
           width: "100%",
           textAlign: "left",
@@ -185,9 +162,9 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         )}
 
         {/* Result count */}
-        {hasResults && (
+        {isDone && hasResults && (
           <span style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300, #B6ACA4)", flexShrink: 0 }}>
-            {activity.results!.length} results
+            {activity.results!.length} {activity.type === "web-search" ? "results" : "files"}
           </span>
         )}
 
@@ -209,8 +186,8 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           </motion.span>
         )}
 
-        {/* Action badge + chevron for expandable rows */}
-        {hasResults && (
+        {/* Action badge + chevron for non-web-search expandable rows */}
+        {!isWebSearch && isDone && hasResults && (
           <>
             <span
               style={{
@@ -228,29 +205,20 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
               Action
             </span>
             <motion.svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              animate={{ rotate: resultsOpen ? 180 : 0 }}
+              width="14" height="14" viewBox="0 0 14 14" fill="none"
+              animate={{ rotate: manualOpen ? 180 : 0 }}
               transition={{ type: "spring", stiffness: 380, damping: 28 }}
               style={{ display: "block", flexShrink: 0 }}
             >
-              <path
-                d="M3 5.5 L7 9.5 L11 5.5"
-                stroke="var(--neutral-400, #9C938B)"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M3 5.5 L7 9.5 L11 5.5" stroke="var(--neutral-400, #9C938B)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
             </motion.svg>
           </>
         )}
       </button>
 
-      {/* Collapsible results list (for web search etc.) */}
+      {/* Results list — web-search auto-expands, others behind chevron */}
       <AnimatePresence initial={false}>
-        {resultsOpen && hasResults && (
+        {resultsVisible && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -267,32 +235,18 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                   key={ri}
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: ri * 0.04, duration: 0.18 }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 14,
-                    fontWeight: 400,
-                    minHeight: 20,
-                  }}
+                  transition={{ delay: ri * 0.05, duration: 0.18 }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 400, minHeight: 20 }}
                 >
                   <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>·</span>
-                  <span
-                    style={{
-                      color: "var(--neutral-800, #3B3632)",
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <span style={{ color: "var(--neutral-800, #3B3632)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.title}
                   </span>
-                  {r.domain && (
-                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>
-                      {r.domain}
-                    </span>
+                  {r.domain && r.domain !== "pin" && (
+                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>{r.domain}</span>
+                  )}
+                  {r.domain === "pin" && (
+                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic" }}>pin</span>
                   )}
                 </motion.div>
               ))}

@@ -489,6 +489,52 @@
 
 }
 
+/* ── Toast (sonner) ──────────────────────────────────────────────────────────
+   Semantic tokens consumed by the KDS Toast wrapper and the CSS rules below.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --toast-bg:                 var(--neutral-white);
+  --toast-text:               var(--neutral-900);
+  --toast-border:             var(--neutral-200);
+  --toast-description:        var(--neutral-600);
+
+  --toast-success-bg:         var(--green-50);
+  --toast-success-text:       var(--green-800);
+  --toast-success-border:     var(--green-300);
+
+  --toast-error-bg:           var(--red-50);
+  --toast-error-text:         var(--red-700);
+  --toast-error-border:       var(--red-300);
+
+  --toast-warning-bg:         var(--yellow-50);
+  --toast-warning-text:       var(--yellow-800);
+  --toast-warning-border:     var(--yellow-300);
+
+  --toast-info-bg:            var(--blue-50);
+  --toast-info-text:          var(--blue-800);
+  --toast-info-border:        var(--blue-300);
+
+  --toast-action-bg:          var(--neutral-900);
+  --toast-action-text:        var(--neutral-50);
+  --toast-cancel-bg:          var(--neutral-100);
+  --toast-cancel-text:        var(--neutral-700);
+
+  --toast-radius:             12px;
+  --toast-width:              356px;
+  --toast-gap:                8px;
+
+  --toast-font-family:               var(--font-body);
+  --toast-title-weight:              var(--font-weight-medium);
+  --toast-title-size:                var(--font-size-body);
+  --toast-title-line-height:         var(--line-height-body);
+  --toast-description-weight:        var(--font-weight-regular);
+  --toast-description-size:          var(--font-size-caption);
+  --toast-description-line-height:   var(--line-height-caption);
+  --toast-button-weight:             var(--font-weight-medium);
+  --toast-button-size:               var(--font-size-caption);
+  --toast-button-line-height:        var(--line-height-caption);
+}
+
 /* ── ChipButton hover styles ────────────────────────────────────────────────
    CSS :hover is used instead of React state — synthetic onMouseEnter doesn't
    fire when an element mounts under an already-hovering cursor.

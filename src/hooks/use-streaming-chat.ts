@@ -159,6 +159,9 @@ export function useStreamingChat({
     let reasoningContent = ""
     let streamFinished = false
     let shouldStopReading = false
+    // Maps toolName → activityId so tool_progress events can find the activity
+    // created by the preceding tool_executing event.
+    const toolCallIdByName = new Map<string, string>()
 
     try {
       // ── POST to Next.js proxy ─────────────────────────────────────────────
@@ -311,6 +314,20 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
+            const content = typeof parsed.content === "string" ? parsed.content : ""
+            if (content) {
+              const wasEmpty = !reasoningContent
+              reasoningContent = mergeStreamingText(reasoningContent, content)
+              queueUpdate({
+                thinking: reasoningContent,
+                isThinkingInProgress: true,
+                isLoading: true,
+              }, wasEmpty)
+            }
+            continue
+          }
+
           if (eventName === "chunk") {
             const delta = typeof parsed.delta === "string" ? parsed.delta : ""
             const wasEmpty = !assistantContent
@@ -329,10 +346,43 @@ export function useStreamingChat({
           }
 
           if (eventName === "message_saved") {
-            // Backend confirmed the message was persisted
-            // For new chats, the chat_id may come here
+            // Backend confirmed the message was persisted.
+            // The backend MAY return the saved message object with sources/citations —
+            // if it does, hydrate them onto the loading message so refresh will work.
             const evtChatId = extractChatId(parsed)
             if (evtChatId) adoptChatId(evtChatId)
+
+            // Try to pull sources from the saved message payload
+            const savedMsg = (parsed.message ?? parsed.data) as Record<string, unknown> | undefined
+            const rawSources = Array.isArray(parsed.sources)
+              ? parsed.sources
+              : Array.isArray(savedMsg?.sources)
+                ? savedMsg.sources
+                : null
+
+            if (rawSources && rawSources.length > 0) {
+              const msgId = loadingMessageIdRef.current
+              if (msgId) {
+                const hydratedCitations = (rawSources as Array<Record<string, unknown>>)
+                  .filter((s) => s.url || s.title)
+                  .map((s) => ({
+                    title: asString(s.title) ?? asString(s.url) ?? "",
+                    url: asString(s.url),
+                    domain: asString(s.domain) ?? (() => {
+                      try { return new URL(asString(s.url) ?? "").hostname.replace(/^www\./, "") } catch { return undefined }
+                    })(),
+                  }))
+                if (hydratedCitations.length > 0) {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === msgId
+                        ? { ...msg, webCitations: hydratedCitations }
+                        : msg,
+                    ),
+                  )
+                }
+              }
+            }
             continue
           }
 
@@ -395,24 +445,52 @@ export function useStreamingChat({
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === msgId
-                    ? { ...msg, activities: [...(msg.activities ?? []), activity] }
-                    : msg,
-                ),
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  // Merge new web-search results into webCitations (deduped by url)
+                  const existing = msg.webCitations ?? []
+                  const newCitations = results
+                    .filter((r) => r.url && !existing.some((c) => c.url === r.url))
+                    .map((r) => ({ title: r.title, url: r.url, domain: r.domain ?? "" }))
+                  return {
+                    ...msg,
+                    activities: [...(msg.activities ?? []), activity],
+                    webCitations: newCitations.length > 0 ? [...existing, ...newCitations] : existing,
+                  }
+                }),
               )
             }
             continue
           }
 
+          if (eventName === "structured_block") {
+            // Structured output block — schema: {block: ResponseBlock}
+            const block = parsed.block as import("@/hooks/use-chat-state").ResponseBlock | undefined
+            if (block && typeof block === "object" && "kind" in block) {
+              const msgId = loadingMessageIdRef.current
+              if (msgId) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === msgId
+                      ? { ...msg, responseBlocks: [...(msg.responseBlocks ?? []), block] }
+                      : msg,
+                  ),
+                )
+              }
+            }
+            continue
+          }
+
           if (eventName === "tool_progress") {
-            // Tool progress — schema: {tool, status, filename?, step?, message?, code_preview?}
+            // Tool progress — schema: {tool, label, status, filename, step?, message?, code_preview?}
             const toolName = asString(parsed.tool) ?? "unknown"
+            const label = asString(parsed.label)
             const status = asString(parsed.status) ?? "start"
             const filename = asString(parsed.filename)
             const progressMessage = asString(parsed.message)
             const codePreview = asString(parsed.code_preview)
-            const activityId = `tp-${toolName}-${filename ?? "default"}`
+            // Prefer the activityId linked from tool_executing; fall back to constructed key
+            const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${filename ?? "default"}`
 
             const activityType = toolNameToType(toolName)
 
@@ -428,17 +506,18 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === activityId
-                          ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, progressMessage, codePreview }
+                          ? { ...a, status: status as import("@/hooks/use-chat-state").ActivityStatus, label: label ?? a.label, detail: label ?? a.detail, progressMessage, codePreview }
                           : a,
                       ),
                     }
                   }
-                  // Create new activity
+                  // Create new activity (tool_executing may have been missed)
                   const newActivity: import("@/hooks/use-chat-state").ActivityItem = {
                     id: activityId,
                     type: activityType,
                     toolName,
-                    detail: progressMessage || filename || toolName,
+                    label,
+                    detail: label || progressMessage || filename || toolName,
                     status: status as import("@/hooks/use-chat-state").ActivityStatus,
                     filename,
                     progressMessage,
@@ -452,18 +531,23 @@ export function useStreamingChat({
           }
 
           if (eventName === "tool_executing" || parsed.type === "tool_executing") {
-            // Tool is about to execute — schema: {content (tool name), tool_call: {name, arguments, ...}}
+            // Tool is about to execute — schema: {content (tool name), label, tool_call: {name, arguments, ...}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
             const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? "tool"
-            const toolCallId = asString(toolCall?.tool_call_id) ?? `te-${Date.now()}`
+            const label = asString(parsed.label)
+            const toolCallId = asString(toolCall?.tool_call_id) ?? `te-${toolName}-${Date.now()}`
+
+            // Register this tool_call_id so subsequent tool_progress events can find this activity
+            toolCallIdByName.set(toolName, toolCallId)
 
             const activityType = toolNameToType(toolName)
-            const detail = toolName.replace(/_/g, " ")
+            const detail = label ?? toolName.replace(/_/g, " ")
 
             const activity: import("@/hooks/use-chat-state").ActivityItem = {
               id: toolCallId,
               type: activityType,
               toolName,
+              label,
               detail,
               status: "executing",
             }
@@ -481,11 +565,20 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "tool_calls_streaming" || parsed.type === "tool_calls_streaming") {
+            // Streaming partial tool call arguments — no UI update needed
+            continue
+          }
+
           if (eventName === "tool_complete" || parsed.type === "tool_complete") {
-            // Tool finished — schema: {content (tool name), tool_call: {name, tool_call_id, result, duration_s}}
+            // Tool finished — schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
             const toolCallId = asString(toolCall?.tool_call_id)
+            const label = asString(parsed.label)
             const durationS = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
+            // Clean up the name→id mapping
+            const toolName = asString(toolCall?.name) ?? asString(parsed.content)
+            if (toolName) toolCallIdByName.delete(toolName)
 
             if (toolCallId) {
               const msgId = loadingMessageIdRef.current
@@ -497,7 +590,7 @@ export function useStreamingChat({
                       ...msg,
                       activities: (msg.activities ?? []).map((a) =>
                         a.id === toolCallId
-                          ? { ...a, status: "done" as const, durationS }
+                          ? { ...a, status: "done" as const, durationS, ...(label ? { label, detail: label } : {}) }
                           : a,
                       ),
                     }
@@ -798,10 +891,12 @@ function asString(value: unknown): string | undefined {
 /** Maps backend tool names to our ActivityType for display purposes. */
 function toolNameToType(toolName: string): import("@/hooks/use-chat-state").ActivityType {
   const lower = toolName.toLowerCase()
-  if (lower.includes("web_search") || lower.includes("search")) return "web-search"
-  if (lower.includes("read_pages") || lower.includes("read_pdf")) return "read-pages"
-  if (lower.includes("csv") || lower.includes("data")) return "csv-execute"
-  if (lower.includes("fetch")) return "fetch-resource"
-  if (lower.includes("docx") || lower.includes("document")) return "docx-progress"
+  if (lower === "web_search" || lower.includes("search")) return "web-search"
+  if (lower === "read_pages" || lower.includes("read_pdf")) return "read-pages"
+  if (lower === "csv_execute" || lower.includes("csv")) return "csv-execute"
+  if (lower === "fetch_resource" || lower.includes("fetch")) return "fetch-resource"
+  if (lower === "doc_execute") return "doc-execute"
+  if (lower === "docx_execute" || lower.includes("docx") || lower.includes("document")) return "docx-progress"
+  if (lower === "skills") return "skills"
   return "tool-call"
 }

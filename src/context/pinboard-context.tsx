@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { createPin, deletePin, listPins } from "@/lib/api/pins";
+import { createPin, deletePin, listPins, getPin } from "@/lib/api/pins";
 
 // ── Pin Data Shape ────────────────────────────────────────────────────────────
 
@@ -59,18 +59,48 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   // ── Load pins from API on mount ─────────────────────────────────────────
   useEffect(() => {
     listPins()
-      .then((apiPins) => {
+      .then(async (apiPins) => {
         const items: PinItem[] = apiPins.map((p) => ({
           id: p.id,
           content: p.content,
           title: p.title,
-          category: (p.category as PinCategory) ?? "Quote",
+          category: (p.category as PinCategory) ?? "Code",
           tags: p.tags,
           messageId: p.message_id ?? p.id,
           chatId: p.chat_id,
           createdAt: p.created_at,
         }));
         setPins(items);
+
+        // Lazily enrich pins with tags from the detail endpoint.
+        // The list endpoint may omit tags; the detail endpoint always includes them.
+        const pinsWithoutTags = items.filter((p) => !p.tags || p.tags.length === 0);
+        if (pinsWithoutTags.length === 0) return;
+
+        const enrichments = await Promise.all(
+          pinsWithoutTags.map(async (pin) => {
+            try {
+              const detail = await getPin(pin.id);
+              if (!detail.tags || detail.tags.length === 0) return null;
+              return { id: pin.id, tags: detail.tags };
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        const validEnrichments = enrichments.filter(
+          (e): e is { id: string; tags: string[] } => e !== null,
+        );
+        if (validEnrichments.length === 0) return;
+
+        const tagMap = new Map(validEnrichments.map((e) => [e.id, e.tags]));
+        setPins((prev) =>
+          prev.map((p) => {
+            const tags = tagMap.get(p.id);
+            return tags ? { ...p, tags } : p;
+          }),
+        );
       })
       .catch((err) => console.error("[PinboardContext] Failed to load pins", err));
   }, []);

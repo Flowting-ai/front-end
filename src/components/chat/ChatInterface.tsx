@@ -10,6 +10,7 @@ import {
   type PendingAttachment,
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { useChatState } from "@/hooks/use-chat-state";
 import {
   useStreamingChat,
@@ -71,6 +72,8 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
   const {
     messages: rawMessages,
@@ -153,15 +156,7 @@ export function ChatInterface({
   // File drop (drag-and-drop into the chat area)
   const { isDragging } = useFileDrop({
     onFiles: (files) => {
-      const newAttachments: PendingAttachment[] = files.map((file) => ({
-        id: `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        preview: file.type.startsWith("image/")
-          ? URL.createObjectURL(file)
-          : undefined,
-        uploading: false,
-      }));
-      setAttachments((prev) => [...prev, ...newAttachments].slice(0, 10));
+      setAttachments((prev) => processFiles(files, prev));
     },
     disabled: isStreaming,
   });
@@ -169,13 +164,7 @@ export function ChatInterface({
   // Absorb add-menu files into local attachments so AttachmentManager shows them
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
-    const newAttachments: PendingAttachment[] = addMenuFiles.map((file) => ({
-      id: `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      file,
-      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-      uploading: false,
-    }));
-    setAttachments((prev) => [...prev, ...newAttachments].slice(0, 10));
+    setAttachments((prev) => processFiles(addMenuFiles, prev));
     onClearAddMenuFiles?.();
   }, [addMenuFiles]);
 
@@ -240,16 +229,7 @@ export function ChatInterface({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
-      const newAttachments: PendingAttachment[] = files.map((file) => ({
-        id: `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        preview: file.type.startsWith("image/")
-          ? URL.createObjectURL(file)
-          : undefined,
-        uploading: false,
-      }));
-      setAttachments((prev) => [...prev, ...newAttachments].slice(0, 10));
+      setAttachments((prev) => processFiles(e.target.files!, prev));
       e.target.value = "";
     }
   };
@@ -381,17 +361,6 @@ export function ChatInterface({
           alignItems: "center",
         }}
       >
-        {/* Drag-drop attachment previews */}
-        {attachments.length > 0 && (
-          <div style={{ width: "100%", maxWidth: "674px", marginBottom: "8px" }}>
-            <AttachmentManager
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              disabled={isStreaming}
-            />
-          </div>
-        )}
-
         <div style={{ width: "100%", maxWidth: "754px" }}>
           <ChatInput
             value={inputValue}
@@ -404,6 +373,13 @@ export function ChatInterface({
             addMenu={addMenu}
             modelMenu={modelMenu}
             chips={chips}
+            attachmentsSlot={
+              <AttachmentManager
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+                disabled={isStreaming}
+              />
+            }
             isStreaming={isStreaming}
             disabled={isStreaming}
             placeholder="How can I help you today?"
@@ -415,7 +391,7 @@ export function ChatInterface({
           ref={fileInputRef}
           type="file"
           multiple
-          accept="application/pdf,.docx,text/plain,image/png,image/jpeg,image/webp"
+          accept={FILE_ACCEPT}
           onChange={handleFileSelect}
           style={{ display: "none" }}
           aria-hidden="true"

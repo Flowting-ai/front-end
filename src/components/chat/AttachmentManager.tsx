@@ -1,51 +1,50 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { X, FileText, Image as ImageIcon, Upload } from "lucide-react";
-import type { Attachment } from "@/types/chat";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeftOneIcon,
+  ArrowRightOneIcon,
+  CancelOneIcon,
+  FolderOneIcon,
+  FolderThreeIcon,
+  ImageTwoIcon,
+  SourceCodeIcon,
+  TextIcon,
+} from "@strange-huge/icons";
+import {
+  useFileUpload,
+  getFileTypeLabel,
+  formatFileSize,
+  type PendingAttachment,
+} from "@/hooks/use-file-upload";
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
-const MAX_ATTACHMENTS = 10;
+// Re-export so callers that imported PendingAttachment from here still work.
+export type { PendingAttachment };
 
-const SUPPORTED_TYPES: Record<string, string[]> = {
-  document: [
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "text/plain",
-    "text/markdown",
-    "text/csv",
-  ],
-  image: ["image/png", "image/jpeg", "image/webp", "image/gif"],
-};
+// ── File-type icon helper ─────────────────────────────────────────────────────
+function getFileIcon(file: File): React.ReactNode {
+  const mime = file.type.toLowerCase();
+  const ext  = file.name.split(".").pop()?.toLowerCase() ?? "";
 
-const ACCEPT_STRING = [
-  ...SUPPORTED_TYPES.document,
-  ...SUPPORTED_TYPES.image,
-].join(",");
-
-function isImageFile(type: string): boolean {
-  return SUPPORTED_TYPES.image.includes(type);
+  if (mime.startsWith("image/")) {
+    return <ImageTwoIcon size={14} color="var(--neutral-500)" />;
+  }
+  if (["txt", "md", "csv", "rtf"].includes(ext) ||
+      ["text/plain", "text/markdown", "text/csv", "application/rtf", "text/rtf"].includes(mime)) {
+    return <TextIcon size={14} color="var(--neutral-500)" />;
+  }
+  if (["json", "xml", "html", "htm"].includes(ext) ||
+      ["application/json", "application/xml", "text/xml", "text/html"].includes(mime)) {
+    return <SourceCodeIcon size={14} color="var(--neutral-500)" />;
+  }
+  if (ext === "zip" || mime === "application/zip" || mime === "application/x-zip-compressed") {
+    return <FolderThreeIcon size={14} color="var(--neutral-500)" />;
+  }
+  // Fallback: PDF, Word, Excel, PPT, EPUB, etc.
+  return <FolderOneIcon size={14} color="var(--neutral-500)" />;
 }
 
-function getFileIcon(type: string) {
-  if (isImageFile(type)) return <ImageIcon size={14} />;
-  return <FileText size={14} />;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export interface PendingAttachment {
-  id: string;
-  file: File;
-  preview?: string;
-  uploading: boolean;
-  error?: string;
-}
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface AttachmentManagerProps {
   attachments: PendingAttachment[];
@@ -53,90 +52,74 @@ interface AttachmentManagerProps {
   disabled?: boolean;
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
+/**
+ * Single-row horizontal scroll strip rendered inside the ChatInput box.
+ * Left/right chevron buttons appear automatically when content overflows.
+ * Supports drag-and-drop onto the strip itself.
+ */
 export function AttachmentManager({
   attachments,
   onAttachmentsChange,
   disabled,
 }: AttachmentManagerProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeft,   setShowLeft]   = useState(false);
+  const [showRight,  setShowRight]  = useState(false);
+  const [hoveredId,  setHoveredId]  = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const validateFile = (file: File): string | null => {
-    if (file.size > MAX_FILE_SIZE) {
-      return `File too large (max ${formatFileSize(MAX_FILE_SIZE)})`;
-    }
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
-    const allTypes = [
-      ...SUPPORTED_TYPES.document,
-      ...SUPPORTED_TYPES.image,
-    ];
-    if (!allTypes.includes(file.type)) {
-      return "Unsupported file type. Supported: PDF, DOCX, TXT, PNG, JPG, WEBP";
-    }
-
-    return null;
-  };
-
-  const addFiles = (files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-
-    if (attachments.length + fileArray.length > MAX_ATTACHMENTS) {
-      toast.error(`Max ${MAX_ATTACHMENTS} files allowed`);
-      return;
-    }
-
-    const newAttachments: PendingAttachment[] = [];
-
-    for (const file of fileArray) {
-      // Duplicate check
-      const isDuplicate = attachments.some(
-        (a) => a.file.name === file.name && a.file.size === file.size,
-      );
-      if (isDuplicate) {
-        toast.info(`"${file.name}" already attached`);
-        continue;
-      }
-
-      const error = validateFile(file);
-      if (error) {
-        toast.error(`${file.name}: ${error}`);
-        continue;
-      }
-
-      const preview = isImageFile(file.type)
-        ? URL.createObjectURL(file)
-        : undefined;
-
-      newAttachments.push({
-        id: `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        preview,
-        uploading: false,
-      });
-    }
-
-    if (newAttachments.length > 0) {
-      onAttachmentsChange([...attachments, ...newAttachments]);
-    }
-  };
-
-  const removeAttachment = (id: string) => {
-    const attachment = attachments.find((a) => a.id === id);
-    if (attachment?.preview) {
-      URL.revokeObjectURL(attachment.preview);
-    }
-    onAttachmentsChange(attachments.filter((a) => a.id !== id));
-  };
+  // Re-check scroll buttons whenever attachments are added/removed (RAF lets
+  // the browser finish laying out the new chips before we measure widths).
+  useEffect(() => {
+    const id = requestAnimationFrame(updateScrollButtons);
+    return () => cancelAnimationFrame(id);
+    // updateScrollButtons reads DOM refs — not a reactive dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachments.length]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      addFiles(e.target.files);
+      onAttachmentsChange(processFiles(e.target.files, attachments));
       e.target.value = "";
     }
   };
 
-  const triggerFileSelect = () => {
-    if (!disabled) {
-      inputRef.current?.click();
+  const handleRemove = (id: string) => {
+    onAttachmentsChange(removeOne(id, attachments));
+  };
+
+  const updateScrollButtons = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowLeft(el.scrollLeft > 10);
+    setShowRight(
+      el.scrollWidth > el.clientWidth &&
+        el.scrollLeft < el.scrollWidth - el.clientWidth - 10,
+    );
+  };
+
+  const scrollBy = (delta: number) => {
+    scrollRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  };
+
+  // ── Drag-and-drop handlers ─────────────────────────────────────────────────
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length && !disabled) {
+      onAttachmentsChange(processFiles(e.dataTransfer.files, attachments));
     }
   };
 
@@ -146,7 +129,7 @@ export function AttachmentManager({
         ref={inputRef}
         type="file"
         multiple
-        accept={ACCEPT_STRING}
+        accept={FILE_ACCEPT}
         onChange={handleFileSelect}
         style={{ display: "none" }}
         aria-hidden="true"
@@ -155,137 +138,314 @@ export function AttachmentManager({
   }
 
   return (
-    <div style={{ width: "100%" }}>
+    <>
       <input
         ref={inputRef}
         type="file"
         multiple
-        accept={ACCEPT_STRING}
+        accept={FILE_ACCEPT}
         onChange={handleFileSelect}
         style={{ display: "none" }}
         aria-hidden="true"
       />
 
-      {/* Attachment chips */}
+      {/* ── Scroll container ── */}
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "8px",
-          padding: "8px 0",
+          position: "relative",
+          padding:  "10px 16px 0",
+          width:    "100%",
         }}
       >
-        {attachments.map((attachment) => (
-          <div
-            key={attachment.id}
+        {/* File count badge */}
+        <div
+          style={{
+            display:        "flex",
+            alignItems:     "center",
+            gap:            "4px",
+            marginBottom:   "6px",
+            paddingLeft:    "2px",
+          }}
+        >
+          <span
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 10px",
-              borderRadius: "8px",
-              backgroundColor: "var(--neutral-50)",
-              border: attachment.error
-                ? "1px solid var(--red-300)"
-                : "1px solid var(--neutral-200)",
-              maxWidth: "200px",
+              fontFamily:  "var(--font-body)",
+              fontSize:    "10px",
+              fontWeight:  500,
+              color:       "var(--neutral-500)",
+              lineHeight:  1,
             }}
           >
-            {/* Preview or icon */}
-            {attachment.preview ? (
-              <img
-                src={attachment.preview}
-                alt=""
+            {attachments.length} file{attachments.length !== 1 ? "s" : ""} attached
+          </span>
+        </div>
+        {/* Row */}
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollButtons}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className="kds-attach-scroll"
+          style={{
+            display:              "flex",
+            gap:                  "8px",
+            overflowX:            "auto",
+            overflowY:            "hidden",
+            scrollbarWidth:       "none",
+            msOverflowStyle:      "none",
+            WebkitOverflowScrolling: "touch",
+            borderRadius:         "8px",
+            outline:              isDragging ? "2px dashed var(--focus-ring)" : "none",
+            outlineOffset:        "2px",
+            minHeight:            "46px",
+            transition:           "outline 100ms",
+          }}
+        >
+          {attachments.map((attachment) => {
+            const isImage   = attachment.file.type.startsWith("image/");
+            const typeLabel = getFileTypeLabel(attachment.file);
+
+            const isHovered = hoveredId === attachment.id;
+
+            return isImage ? (
+              // ── Image thumbnail ────────────────────────────────────────────
+              <div
+                key={attachment.id}
+                onMouseEnter={() => setHoveredId(attachment.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "4px",
-                  objectFit: "cover",
+                  position:     "relative",
+                  width:        "46px",
+                  height:       "46px",
+                  borderRadius: "8px",
+                  border:       "1px solid var(--neutral-200)",
+                  overflow:     "hidden",
+                  flexShrink:   0,
+                  cursor:       "default",
                 }}
-              />
+              >
+                {attachment.preview && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={attachment.preview}
+                    alt={attachment.file.name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                )}
+
+                {/* Type badge */}
+                <span
+                  style={{
+                    position:        "absolute",
+                    bottom:          "2px",
+                    left:            "2px",
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    color:           "#fff",
+                    fontSize:        "7px",
+                    fontFamily:      "var(--font-body)",
+                    fontWeight:      600,
+                    lineHeight:      1,
+                    padding:         "2px 3px",
+                    borderRadius:    "3px",
+                    letterSpacing:   "0.02em",
+                  }}
+                >
+                  {typeLabel}
+                </span>
+
+                {/* Remove */}
+                {isHovered && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(attachment.id)}
+                    disabled={disabled}
+                    aria-label={`Remove ${attachment.file.name}`}
+                    style={{
+                      position:        "absolute",
+                      top:             "2px",
+                      right:           "2px",
+                      display:         "flex",
+                      alignItems:      "center",
+                      justifyContent:  "center",
+                      width:           "15px",
+                      height:          "15px",
+                      borderRadius:    "50%",
+                      border:          "none",
+                      backgroundColor: "rgba(0,0,0,0.55)",
+                      color:           "#fff",
+                      cursor:          disabled ? "not-allowed" : "pointer",
+                      padding:         0,
+                    }}
+                  >
+                    <CancelOneIcon size={9} />
+                  </button>
+                )}
+              </div>
             ) : (
-              <span style={{ color: "var(--neutral-500)", display: "flex" }}>
-                {getFileIcon(attachment.file.type)}
-              </span>
-            )}
+              // ── Document chip ──────────────────────────────────────────────
+              <div
+                key={attachment.id}
+                onMouseEnter={() => setHoveredId(attachment.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                style={{
+                  position:        "relative",
+                  display:         "flex",
+                  alignItems:      "center",
+                  gap:             "8px",
+                  width:           "172px",
+                  height:          "46px",
+                  padding:         "0 28px 0 6px",
+                  borderRadius:    "8px",
+                  border:          "1px solid var(--neutral-200)",
+                  backgroundColor: "var(--neutral-50)",
+                  overflow:        "hidden",
+                  flexShrink:      0,
+                  cursor:          "default",
+                }}
+              >
+                {/* Icon box */}
+                <div
+                  style={{
+                    display:         "flex",
+                    alignItems:      "center",
+                    justifyContent:  "center",
+                    width:           "30px",
+                    height:          "30px",
+                    borderRadius:    "6px",
+                    backgroundColor: "var(--neutral-100)",
+                    flexShrink:      0,
+                  }}
+                >
+                  {getFileIcon(attachment.file)}
+                </div>
 
-            {/* File name */}
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "12px",
-                color: "var(--neutral-700)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "120px",
-              }}
-            >
-              {attachment.file.name}
-            </span>
+                {/* Text */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p
+                    style={{
+                      fontFamily:   "var(--font-body)",
+                      fontSize:     "11px",
+                      fontWeight:   500,
+                      color:        "var(--neutral-900)",
+                      overflow:     "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace:   "nowrap",
+                      margin:       0,
+                      lineHeight:   1.2,
+                    }}
+                  >
+                    {attachment.file.name}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize:   "10px",
+                      color:      "var(--neutral-500)",
+                      margin:     "2px 0 0",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {typeLabel} · {formatFileSize(attachment.file.size)}
+                  </p>
+                </div>
 
-            {/* Size */}
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "10px",
-                color: "var(--neutral-400)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {formatFileSize(attachment.file.size)}
-            </span>
+                {/* Remove */}
+                {isHovered && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(attachment.id)}
+                    disabled={disabled}
+                    aria-label={`Remove ${attachment.file.name}`}
+                    style={{
+                      position:        "absolute",
+                      top:             "3px",
+                      right:           "3px",
+                      display:         "flex",
+                      alignItems:      "center",
+                      justifyContent:  "center",
+                      width:           "15px",
+                      height:          "15px",
+                      borderRadius:    "50%",
+                      border:          "1px solid var(--neutral-200)",
+                      backgroundColor: "#fff",
+                      color:           "var(--neutral-600)",
+                      cursor:          disabled ? "not-allowed" : "pointer",
+                      padding:         0,
+                      boxShadow:       "0 1px 2px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <CancelOneIcon size={9} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-            {/* Remove button */}
-            <button
-              type="button"
-              onClick={() => removeAttachment(attachment.id)}
-              aria-label={`Remove ${attachment.file.name}`}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                border: "none",
-                backgroundColor: "var(--neutral-200)",
-                color: "var(--neutral-600)",
-                cursor: "pointer",
-                flexShrink: 0,
-              }}
-            >
-              <X size={10} />
-            </button>
-          </div>
-        ))}
-
-        {/* Add more button */}
-        {attachments.length < MAX_ATTACHMENTS && (
+        {/* ── Left scroll chevron ── */}
+        {showLeft && (
           <button
             type="button"
-            onClick={triggerFileSelect}
-            disabled={disabled}
+            onClick={() => scrollBy(-200)}
+            aria-label="Scroll attachments left"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "6px 10px",
-              borderRadius: "8px",
-              border: "1px dashed var(--neutral-300)",
-              backgroundColor: "transparent",
-              color: "var(--neutral-500)",
-              fontFamily: "var(--font-body)",
-              fontSize: "12px",
-              cursor: disabled ? "not-allowed" : "pointer",
+              position:        "absolute",
+              left:            "4px",
+              top:             "50%",
+              transform:       "translateY(-25%)",
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              width:           "28px",
+              height:          "28px",
+              borderRadius:    "50%",
+              border:          "1px solid var(--neutral-200)",
+              backgroundColor: "#fff",
+              color:           "var(--neutral-700)",
+              boxShadow:       "0 2px 8px rgba(0,0,0,0.10)",
+              cursor:          "pointer",
+              padding:         0,
+              zIndex:          2,
+              transition:      "background-color 120ms",
             }}
           >
-            <Upload size={12} />
-            Add
+            <ArrowLeftOneIcon size={14} />
+          </button>
+        )}
+
+        {/* ── Right scroll chevron ── */}
+        {showRight && (
+          <button
+            type="button"
+            onClick={() => scrollBy(200)}
+            aria-label="Scroll attachments right"
+            style={{
+              position:        "absolute",
+              right:           "4px",
+              top:             "50%",
+              transform:       "translateY(-25%)",
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              width:           "28px",
+              height:          "28px",
+              borderRadius:    "50%",
+              border:          "1px solid var(--neutral-200)",
+              backgroundColor: "#fff",
+              color:           "var(--neutral-700)",
+              boxShadow:       "0 2px 8px rgba(0,0,0,0.10)",
+              cursor:          "pointer",
+              padding:         0,
+              zIndex:          2,
+              transition:      "background-color 120ms",
+            }}
+          >
+            <ArrowRightOneIcon size={14} />
           </button>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
