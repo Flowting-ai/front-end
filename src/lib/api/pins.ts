@@ -8,9 +8,18 @@ import {
   PIN_FOLDERS_ENDPOINT,
   PIN_FOLDERS_CREATE_ENDPOINT,
   PIN_MOVE_ENDPOINT,
+  PIN_COMMENT_ENDPOINT,
+  PIN_COMMENT_CRUD_ENDPOINT,
 } from "@/lib/config";
 
 // ── Normalised shape used throughout the UI ───────────────────────────────────
+
+export interface PinComment {
+  id: string;
+  content: string;
+  created_at: string;
+  updated_at?: string;
+}
 
 export interface Pin {
   id: string;
@@ -28,6 +37,7 @@ export interface Pin {
   created_at: string;
   updated_at?: string;
   color?: string;
+  comments?: PinComment[];
 }
 
 export interface PinFolder {
@@ -73,6 +83,24 @@ function normalizePin(raw: RawPin): Pin {
     tags.push(...rawTags.split(",").map((s) => s.trim()).filter(Boolean));
   }
 
+  // Comments: array of { id, content, created_at, updated_at } from detail endpoint
+  const rawComments = raw.comments ?? raw.pin_comments ?? raw.comment_texts ?? raw.commentTexts ?? [];
+  const comments: PinComment[] = Array.isArray(rawComments)
+    ? rawComments
+        .map((c) => {
+          const rc = c as Record<string, unknown>;
+          return {
+            id:         String(rc.id ?? ""),
+            content:    typeof rc.comment_text === "string" ? rc.comment_text :
+                        typeof rc.content     === "string" ? rc.content     :
+                        String(rc.text ?? ""),
+            created_at: typeof rc.created_at === "string" ? rc.created_at : new Date().toISOString(),
+            updated_at: typeof rc.updated_at === "string" ? rc.updated_at : undefined,
+          };
+        })
+        .filter((c) => c.id)
+    : [];
+
   return {
     id,
     title,
@@ -92,6 +120,7 @@ function normalizePin(raw: RawPin): Pin {
     created_at:  typeof raw.created_at  === "string" ? raw.created_at  : new Date().toISOString(),
     updated_at:  typeof raw.updated_at  === "string" ? raw.updated_at  : undefined,
     color:       typeof raw.color       === "string" ? raw.color       : undefined,
+    comments,
   };
 }
 
@@ -110,7 +139,20 @@ export async function getPin(pinId: string): Promise<Pin> {
 }
 
 export async function listPinFolders(): Promise<PinFolder[]> {
-  return apiFetchJson<PinFolder[]>(PIN_FOLDERS_ENDPOINT);
+  const data = await apiFetchJson<
+    Array<Record<string, unknown>> | { folders: Array<Record<string, unknown>> }
+  >(PIN_FOLDERS_ENDPOINT);
+  const raw = Array.isArray(data) ? data : (data.folders ?? []);
+  return raw.map((f) => ({
+    id:        String(f.id ?? ""),
+    name:
+      (typeof f.name        === "string" ? f.name        : null) ??
+      (typeof f.folder_name === "string" ? f.folder_name : null) ??
+      (typeof f.label       === "string" ? f.label       : null) ??
+      "Untitled Folder",
+    pin_count: typeof f.pin_count === "number" ? f.pin_count :
+               typeof f.pins_count === "number" ? f.pins_count : 0,
+  }));
 }
 
 export async function createPin(messageId: string): Promise<Pin> {
@@ -141,4 +183,29 @@ export async function movePinToFolder(
     body: JSON.stringify({ folder_id: folderId }),
   });
   return normalizePin(raw);
+}
+
+export async function addPinComment(pinId: string, content: string): Promise<PinComment> {
+  return apiFetchJson<PinComment>(PIN_COMMENT_ENDPOINT(pinId), {
+    method: "POST",
+    body: JSON.stringify({ comment_text: content }),
+  });
+}
+
+export async function editPinComment(
+  pinId: string,
+  commentId: string,
+  content: string,
+): Promise<PinComment> {
+  return apiFetchJson<PinComment>(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), {
+    method: "PATCH",
+    body: JSON.stringify({ comment_text: content }),
+  });
+}
+
+export async function deletePinComment(pinId: string, commentId: string): Promise<void> {
+  const res = await apiFetch(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    throw new ApiError(res.status, "api_error", "Failed to delete comment");
+  }
 }

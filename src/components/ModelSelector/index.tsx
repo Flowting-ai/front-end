@@ -5,13 +5,11 @@ import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import {
-  StarIcon,
+  AtomOneIcon,
+  BookmarkTwoIcon,
   TextIcon,
   SourceCodeSquareIcon,
-  AiVisionRecognitionIcon,
   ImageTwoIcon,
-  AudioWaveOneIcon,
-  GlobalSearchIcon,
   SearchOneIcon,
 } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
@@ -26,18 +24,28 @@ const TIER_TABS = [
 ]
 
 const CATEGORY_TABS = [
-  { value: 'favorites', label: 'Favorites', icon: <StarIcon             size={16} /> },
-  { value: 'text',      label: 'Text',      icon: <TextIcon             size={16} /> },
-  { value: 'code',      label: 'Code',      icon: <SourceCodeSquareIcon size={16} /> },
-  { value: 'vision',    label: 'Vision',    icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: 'image',     label: 'Image',     icon: <ImageTwoIcon         size={16} /> },
-  { value: 'audio',     label: 'Audio',     icon: <AudioWaveOneIcon     size={16} /> },
-  { value: 'search',    label: 'Search',    icon: <GlobalSearchIcon     size={16} /> },
+  { value: 'all',        label: 'All',        icon: <AtomOneIcon          size={16} /> },
+  { value: 'favorites',  label: 'Favorites',  icon: <BookmarkTwoIcon      size={16} /> },
+  { value: 'text',       label: 'Text',       icon: <TextIcon             size={16} /> },
+  { value: 'code',       label: 'Code',       icon: <SourceCodeSquareIcon size={16} /> },
+  { value: 'image',      label: 'Image',      icon: <ImageTwoIcon         size={16} /> },
+  { value: 'web-search', label: 'Web Search', icon: <SearchOneIcon        size={16} /> },
 ]
+
+// ── Context ───────────────────────────────────────────────────────────────────
+// Lets descendants (e.g. ModelSelectItem) react to the active category without
+// the consumer having to thread props. Used to suppress the per-row bookmark
+// IconButton when the Favorites category is active — the whole list IS the
+// favorites set, so the per-row toggle would be redundant.
+
+export const ModelSelectorContext = React.createContext<{ category: string } | null>(null)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export interface PresetModelSelectorProps
+// null = neither card active (manual model selected from list — both cards white)
+type FeaturedMode = 'muse' | 'advanced' | null
+
+export interface ModelSelectorProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   /**
    * Model list rows — typically `<ModelSelectItem>` components.
@@ -57,10 +65,55 @@ const captionStyle: React.CSSProperties = {
   whiteSpace:  'nowrap',
 }
 
+// ── Featured-mode row (Muse / Advanced) ───────────────────────────────────────
+// Two ModelFeaturedCards side-by-side, behaving as a radio pair. Per Figma
+// 3457:19624: gap 8px, each card flex: 1 0 0, Muse starts in the Selected
+// variant. Selecting one deselects the other. Selecting a model from the list
+// resets both cards to their default (white) state.
+
+interface FeaturedModeRowProps {
+  mode: FeaturedMode
+  onModeChange: (next: FeaturedMode) => void
+}
+
+function FeaturedModeRow({ mode, onModeChange }: FeaturedModeRowProps) {
+  const description =
+    'Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting.'
+
+  return (
+    <div style={{
+      display:    'flex',
+      gap:        '8px',
+      alignItems: 'flex-start',
+      width:      '100%',
+      flexShrink: 0,
+    }}>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <ModelFeaturedCard
+          title="Muse"
+          description={description}
+          learnMoreHref="#"
+          selected={mode === 'muse'}
+          onSelectedChange={(next) => { if (next) onModeChange('muse') }}
+        />
+      </div>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <ModelFeaturedCard
+          title="Advanced"
+          description={description}
+          learnMoreHref="#"
+          selected={mode === 'advanced'}
+          onSelectedChange={(next) => { if (next) onModeChange('advanced') }}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelSelectorProps>(
-  function PresetModelSelector(
+export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps>(
+  function ModelSelector(
     {
       children,
       className,
@@ -71,9 +124,11 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
   ) {
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('all')
-    const [category,  setCategory]  = useState('favorites')
+    const [category,  setCategory]  = useState('all')
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
+    // Muse starts active; resets to null when a model is selected from the list
+    const [featuredMode, setFeaturedMode] = useState<FeaturedMode>('muse')
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
@@ -86,7 +141,10 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
         ref={ref}
         className={cn(className)}
         style={{
-          padding: '8px',
+          padding:       '8px',
+          height:        '456px',
+          display:       'flex',
+          flexDirection: 'column',
           ...style,
         }}
         {...props}
@@ -96,8 +154,8 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
           display:       'flex',
           flexDirection: 'column',
           gap:           '16px',
-          height:        '440px',
-          maxHeight:     '440px',
+          flex:          '1 0 0',
+          minHeight:     0,
         }}>
 
           {/* ── Header: search + tier tabs ── */}
@@ -128,14 +186,11 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
             </Tabs>
           </div>
 
-          {/* ── Featured model card — Muse ── */}
-          {/* Figma 1115:1338 → ContentSection includes the "Pro switch" cluster
-             (Advanced label + Switch) at the right of the title row. */}
-          <ModelFeaturedCard
-            title="Muse"
-            description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
-            learnMoreHref="#"
-          />
+          {/* ── Featured model row: Muse + Advanced — Figma 3457:19624 ── */}
+          {/* Two ModelFeaturedCards side-by-side (gap 8px), each flex: 1 0 0.
+             Muse defaults to the Selected variant; Advanced to Default. They
+             behave as a radio pair — selecting one deselects the other. */}
+          <FeaturedModeRow mode={featuredMode} onModeChange={setFeaturedMode} />
 
           {/* ── Models: category tabs + list ── */}
           <div style={{
@@ -181,9 +236,11 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
                 {/* Scroll area + gradient overlays */}
                 <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0 }}>
 
+                  {/* Clicking any model item resets both featured cards to white */}
                   <div
                     className="kaya-scrollbar"
                     onScroll={handleScroll}
+                    onClick={() => setFeaturedMode(null)}
                     style={{
                       position:            'absolute',
                       inset:               0,
@@ -194,7 +251,9 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginRight: '-6px' }}>
-                      {children}
+                      <ModelSelectorContext.Provider value={{ category }}>
+                        {children}
+                      </ModelSelectorContext.Provider>
                     </div>
                   </div>
 
@@ -273,6 +332,6 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
   },
 )
 
-PresetModelSelector.displayName = 'PresetModelSelector'
+ModelSelector.displayName = 'ModelSelector'
 
-export default PresetModelSelector
+export default ModelSelector

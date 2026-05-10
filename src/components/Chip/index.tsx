@@ -76,8 +76,13 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
    */
   onChange?: React.MouseEventHandler<HTMLButtonElement>
   /**
-   * Called when the right ChipButton is clicked — **Small only.**
-   * If omitted, the right ChipButton is not rendered. Ignored for Medium chips.
+   * Called when the right ChipButton (chevron-down) is clicked.
+   *  - **Small chips** — chevron renders only when `onExpand` is provided.
+   *  - **Medium chips** — when `onExpand` is provided, an always-visible
+   *    chevron-down `ChipButton` renders in the right slot signalling
+   *    "click to open picker". Used by `ChatInput`'s persona / style auto-
+   *    chips. Mutually exclusive with `onChange` (the spinning ↺ change
+   *    button); pass one or the other, not both.
    */
   onExpand?: React.MouseEventHandler<HTMLButtonElement>
   /**
@@ -137,6 +142,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
       size      = 'Medium',
       disabled  = false,
       className,
+      style: styleOverride,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
       ...props
@@ -182,17 +188,31 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
             boxShadow:       cfg.shadow,
             opacity:         disabled ? 0.7 : 1,
             cursor:          disabled ? 'not-allowed' : undefined,
+            // Consumer overrides last so a `style` prop can tweak cursor /
+            // margin / etc. without obliterating the chip's display / padding
+            // / background / shadow contract. Pre-fix, `{...props}` came
+            // after `style={…}` and a single `style={{ cursor: 'pointer' }}`
+            // from the consumer wiped every inline style, leaving the chip
+            // unstyled (no pill, vertical-stacked children).
+            ...styleOverride,
           } as React.CSSProperties}
           {...props}
         >
-          {/* Left ChipButton — always rendered; icon is swappable via `leftIcon`. */}
-          <ChipButton
-            size="16px"
-            icon={leftIcon ?? <CancelOneIcon size={14} color={cfg.text} />}
-            aria-label={leftLabel}
-            onClick={handleRemove}
-            disabled={disabled}
-          />
+          {/* Left ChipButton — rendered when `onRemove` or a custom
+              `leftIcon` is provided. Omitting both yields a label-only Small
+              chip (used for the "Clear all" filter affordance and any other
+              static-pill case where the entire chip body is the click
+              target). The right ChipButton already follows this rule via
+              `onExpand`. */}
+          {(onRemove !== undefined || leftIcon !== undefined) && (
+            <ChipButton
+              size="16px"
+              icon={leftIcon ?? <CancelOneIcon size={14} color={cfg.text} />}
+              aria-label={leftLabel}
+              onClick={(e) => { e.stopPropagation(); handleRemove?.(e) }}
+              disabled={disabled}
+            />
+          )}
 
           {/* Label */}
           <span
@@ -263,72 +283,97 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
           display:         'inline-flex',
           alignItems:      'center',
           borderRadius:    '10px',
-          paddingTop:    (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
-          paddingBottom: (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
-          paddingLeft:   (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
-          paddingRight:  (!onChange || effectiveActive || !!personaImage) ? '4px' : '2px',
+          // Outer padding stays constant at 4 px so hovering NEVER changes the
+          // chip's outer footprint — surrounding chips don't reflow, and the
+          // hover state is communicated purely by the inner icon swap.
+          // Pre-fix the chip toggled outer padding 2 → 4 on hover and the
+          // left slot toggled 32 → 28; the two transitions ran on different
+          // timings (CSS vs framer popLayout) which produced a visible
+          // shrink/flicker every hover.
+          padding:         '4px',
           gap:             '2px',
-          backgroundColor: effectiveActive ? 'var(--chip-bg)' : 'transparent',
-          boxShadow:       effectiveActive ? 'var(--chip-shadow)' : 'none',
-          transition:      'background-color 150ms, box-shadow 150ms',
+          // Card-like surface is **always visible** in the Medium variant —
+          // structural change in Figma 925:830. Pre-revision the bg / shadow
+          // only painted on hover/active; the chip now reads as a solid
+          // affordance at rest with the bg/shadow lifting it off the canvas.
+          backgroundColor: 'var(--chip-bg)',
+          boxShadow:       'var(--chip-shadow)',
           color:           'var(--chip-text)',
           cursor:          disabled ? 'not-allowed' : 'pointer',
           opacity:         disabled ? 0.7 : 1,
+          // Consumer overrides last — see Small-variant note above.
+          ...styleOverride,
         } as React.CSSProperties}
         {...props}
       >
 
-        {/* ── Left: icon/image at rest ↔ remove button on active ── */}
-        <AnimatePresence mode="popLayout" initial={false}>
-          {effectiveActive ? (
-            <motion.span
-              key="remove"
-              initial={initial}
-              animate={SWAP_ANIMATE}
-              exit={exit}
-              transition={SPRING}
-              style={{ display: 'flex' }}
-            >
-              <ChipButton
-                icon={<CancelOneIcon size={20} color="var(--chip-text)" />}
-                aria-label="Remove"
-                onClick={handleRemove}
-                disabled={disabled}
-              />
-            </motion.span>
-          ) : (
-            <motion.span
-              key="left-icon"
-              initial={initial}
-              animate={SWAP_ANIMATE}
-              exit={exit}
-              transition={SPRING}
-              style={{
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                overflow:       'hidden',
-                padding:        personaImage ? '2px' : !onChange ? '4px' : '6px',
-                borderRadius:   '8px',
-                flexShrink:     0,
-              }}
-            >
-              {personaImage
-                ? <img src={personaImage} alt="" style={{ width: 24, height: 24, borderRadius: '6px', display: 'block' }} />
-                : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
-              }
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {/* ── Left slot — fixed 28×28 wrapper, content swaps via in-place pattern ── */}
+        {/* The wrapper's geometry is locked across rest/hover so the chip's
+            outer footprint never changes during the swap. Total chip height
+            is 4 (outer) + 28 (wrapper) + 4 (outer) = **36 px**, matching
+            both Figma 925:830 ("36 Hug") and the surrounding footer
+            controls (IconButton size="md" = 8+20+8 = 36 px) so adding /
+            removing chips never reflows the chat-input row.
 
-        {/* ── Label ── */}
-        <div style={{
-          paddingLeft:  (effectiveActive || !onChange || !!personaImage) ? '2px' : 0,
-          paddingRight: (effectiveActive || !onChange || !!personaImage) ? '2px' : 0,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-        }}>
+            Inner content centres at all states:
+              • Rest icon (20×20)        → 4 px ring
+              • Persona image (24×24)    → 2 px ring
+              • Active ChipButton (28×28) → flush
+            Visual continuity through the swap comes from the in-place
+            scale+opacity+blur pattern, not a layout tween. */}
+        <span
+          style={{
+            display:        'inline-flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            width:          28,
+            height:         28,
+            flexShrink:     0,
+            borderRadius:   8,
+          }}
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            {effectiveActive ? (
+              <motion.span
+                key="remove"
+                initial={initial}
+                animate={SWAP_ANIMATE}
+                exit={exit}
+                transition={SPRING}
+                style={{ display: 'flex' }}
+              >
+                <ChipButton
+                  icon={<CancelOneIcon size={20} color="var(--chip-text)" />}
+                  aria-label="Remove"
+                  // Stop bubbling so a chip wrapped in a `Dropdown.Float`
+                  // (e.g. the auto-chips ChatInput renders for active state)
+                  // doesn't toggle the picker open when the user is just
+                  // dismissing the chip via ×.
+                  onClick={(e) => { e.stopPropagation(); handleRemove?.(e) }}
+                  disabled={disabled}
+                />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="left-icon"
+                initial={initial}
+                animate={SWAP_ANIMATE}
+                exit={exit}
+                transition={SPRING}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {personaImage
+                  ? <img src={personaImage} alt="" style={{ width: 24, height: 24, borderRadius: '6px', display: 'block' }} />
+                  : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
+                }
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </span>
+
+        {/* ── Label ── label padding is constant `0 2px` so the text never
+            shifts horizontally between rest/hover. ── */}
+        <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0 }}>
           <span style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 'var(--font-weight-medium)',
@@ -341,45 +386,81 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
           </span>
         </div>
 
-        {/* ── Right: only rendered when onChange is provided ── */}
-        {onChange && (effectiveActive ? (
-          <ChipButton
-            icon={<ExchangeOneIcon size={20} color="var(--chip-text)" />}
-            aria-label="Change"
-            spinOnHover
-            onClick={handleChange}
-            disabled={disabled}
-          />
-        ) : (
+        {/* ── Right slot — fixed 28×28 wrapper. Two modes (mutually exclusive):
+              • `onChange` → existing "spinning swap" pattern: at rest a
+                decorative ExchangeOneIcon, on hover an active ChipButton
+                with spinOnHover.
+              • `onExpand` → always-visible ArrowDownOneIcon ChipButton
+                (chevron-down) signalling "click to open picker". Used by
+                ChatInput's persona / style auto-chips (Figma persona-chip
+                frame). Click fires `onExpand`; the parent typically wraps
+                the chip in a `Dropdown.Float` so body click ALSO opens
+                the picker. ── */}
+        {onExpand ? (
           <span
-            aria-hidden
             style={{
-              display:        'flex',
+              display:        'inline-flex',
               alignItems:     'center',
               justifyContent: 'center',
-              overflow:       'hidden',
-              padding:        personaImage ? '4px' : '6px',
-              borderRadius:   '8px',
+              width:          28,
+              height:         28,
               flexShrink:     0,
+              borderRadius:   8,
             }}
           >
-            <ExchangeOneIcon size={20} color="var(--chip-text)" />
+            <ChipButton
+              icon={<ArrowDownOneIcon size={20} color="var(--chip-text)" />}
+              aria-label="Open picker"
+              // Stop bubbling: when the chip is wrapped in `Dropdown.Float`
+              // (the auto-chip pattern in ChatInput), the wrapping span
+              // toggles the picker on click. The chevron's own onExpand
+              // already toggles it — letting the click bubble would re-toggle
+              // the picker closed/open and feel laggy.
+              onClick={(e) => { e.stopPropagation(); handleExpand?.(e) }}
+              disabled={disabled}
+            />
           </span>
-        ))}
-
-        {/* ── Inner shadow overlay — active only ── */}
-        {effectiveActive && (
-          <div
-            aria-hidden
+        ) : onChange && (
+          <span
             style={{
-              position:      'absolute',
-              inset:         0,
-              pointerEvents: 'none',
-              borderRadius:  'inherit',
-              boxShadow:     'var(--chip-inner-shadow)',
+              display:        'inline-flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              width:          28,
+              height:         28,
+              flexShrink:     0,
+              borderRadius:   8,
             }}
-          />
+          >
+            {effectiveActive ? (
+              <ChipButton
+                icon={<ExchangeOneIcon size={20} color="var(--chip-text)" />}
+                aria-label="Change"
+                spinOnHover
+                onClick={handleChange}
+                disabled={disabled}
+              />
+            ) : (
+              <span aria-hidden style={{ display: 'flex' }}>
+                <ExchangeOneIcon size={20} color="var(--chip-text)" />
+              </span>
+            )}
+          </span>
         )}
+
+        {/* ── Inner emboss — always visible per Figma 925:830 (was active-only
+            in the previous Medium chip; the new design carries the bottom
+            emboss at rest as well). ── */}
+        <div
+          aria-hidden
+          style={{
+            position:      'absolute',
+            inset:         0,
+            pointerEvents: 'none',
+            borderRadius:  'inherit',
+            boxShadow:     'var(--chip-inner-shadow)',
+          }}
+        />
 
       </div>
     )

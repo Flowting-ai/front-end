@@ -20,11 +20,17 @@ const SHADOW_FOCUS   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px v
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface PinCommentFieldProps
-  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'children'> {
+  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'children' | 'onSubmit'> {
   /** Stretch to fill parent width instead of fixed 292px */
   fluid?: boolean
   /** Accessible label for the textarea — required when no visible <label> is present */
   'aria-label'?: string
+  /**
+   * Fires when the user presses Enter with a non-empty value.
+   * The field clears itself after calling this handler.
+   * Second line is prevented by default regardless of whether onSubmit is provided.
+   */
+  onSubmit?: (value: string) => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -37,6 +43,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       style,
       placeholder     = 'Type your comment here...',
       defaultValue,
+      onSubmit,
       onChange:     externalChange,
       onKeyDown:    externalKeyDown,
       onFocus:      externalFocus,
@@ -114,9 +121,15 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       }
     }
 
-    // Block Enter — second line comes from word wrap only.
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter') e.preventDefault()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        if (onSubmit && value.trim()) {
+          onSubmit(value.trim())
+          setValue('')
+          setTaHeight(MIN_HEIGHT)
+        }
+      }
       externalKeyDown?.(e)
     }
 

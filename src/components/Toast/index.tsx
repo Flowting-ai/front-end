@@ -7,6 +7,7 @@ import {
   CancelOneIcon,
   TickTwoIcon,
   CancelCircleIcon,
+  AuditTwoIcon,
   InformationCircleIcon,
 } from '@strange-huge/icons'
 import { Spinner } from '@/components/Spinner'
@@ -29,7 +30,7 @@ const DEFAULT_TOAST_OPTIONS: SonnerToasterProps['toastOptions'] = {
 const KDS_TOAST_ICONS: SonnerToasterProps['icons'] = {
   success: <TickTwoIcon size={16} />,
   error:   <CancelCircleIcon size={16} />,
-  warning: <InformationCircleIcon size={16} />,
+  warning: <AuditTwoIcon size={16} />,
   info:    <InformationCircleIcon size={16} />,
   loading: <Spinner size={16} />,
   close:   <CancelOneIcon size={18} />,

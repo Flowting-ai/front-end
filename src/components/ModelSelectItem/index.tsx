@@ -7,6 +7,7 @@ import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@s
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/Tooltip'
+import { ModelSelectorContext } from '@/components/ModelSelector'
 import { cn } from '@/lib/utils'
 
 // ── Shadow constants ───────────────────────────────────────────────────────────
@@ -119,6 +120,11 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
     const [isHovered, setIsHovered] = useState(false)
     const isActive = isHovered || selected
 
+    // When mounted inside a ModelSelector showing the Favorites category,
+    // suppress the per-row bookmark — the list itself IS the favorites set.
+    const selectorCtx = React.useContext(ModelSelectorContext)
+    const showBookmark = bookmark && selectorCtx?.category !== 'favorites'
+
     // Bookmark — controlled vs uncontrolled state. Render the solid icon when on.
     const isBookmarkControlled = bookmarked !== undefined
     const [internalBookmarked, setInternalBookmarked] = useState(defaultBookmarked)
@@ -164,6 +170,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
           alignItems:      'center',
           gap:             '8px',
           padding:         '6px',
+          minHeight:       '36px',
           borderRadius:    '10px',
           overflow:        'hidden',
           backgroundColor: isActive ? 'var(--model-select-item-bg-active)' : 'transparent',
@@ -286,15 +293,29 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
           </div>
         )}
 
-        {/* ── Right bookmark button (built-in, toggleable via `bookmark` prop) ── */}
+        {/* ── Right bookmark slot — outer wrapper stays mounted (reserves the
+             24px column on the row) so toggling Favorites doesn't shift layout.
+             Only the IconButton inside animates in/out. */}
         {bookmark && (
           <div
             style={{
               display:    'flex',
               alignItems: 'center',
               flexShrink: 0,
+              width:      '24px',
+              height:     '24px',
             }}
           >
+            <AnimatePresence initial={false}>
+            {showBookmark && (
+              <motion.div
+                key="bookmark-button"
+                initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                exit={{    scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
             <IconButton
               size="xs"
               variant="ghost"
@@ -350,6 +371,9 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                 onBookmarkClick?.(e)
               }}
             />
+              </motion.div>
+            )}
+            </AnimatePresence>
           </div>
         )}
 

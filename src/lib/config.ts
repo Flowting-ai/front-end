@@ -87,7 +87,10 @@ export const CREATE_PIN_ENDPOINT = (messageId: string) =>
   withBase(`/pins/message/${messageId}`);
 export const PIN_FOLDERS_ENDPOINT = withBase("/pins/folders/all");
 export const PIN_FOLDERS_CREATE_ENDPOINT = withBase("/pins/folders");
-export const PIN_MOVE_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/folder`);
+export const PIN_MOVE_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/folder`)
+export const PIN_TAGS_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/tags`)
+export const PIN_COMMENT_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/comments`)
+export const PIN_COMMENT_CRUD_ENDPOINT = (pinId: string, commentId: string) => withBase(`/pins/${pinId}/comments/${commentId}`);
 
 // ── Workflows ─────────────────────────────────────────────────────────────────
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");

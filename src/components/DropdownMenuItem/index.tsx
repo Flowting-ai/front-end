@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { Switch } from '@/components/Switch'
+import { Checkbox } from '@/components/Checkbox'
 import { cn } from '@/lib/utils'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
@@ -38,6 +39,28 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    * the label with no left indent. Figma 1056:842.
    */
   icon?: React.ReactElement
+  /**
+   * Free-form avatar slot — renders a 24 × 24 rounded-6 element to the left
+   * of the label, used by **persona-style** rows where the avatar is an
+   * arbitrary image (or any ReactNode you want to render in that slot).
+   * Pass an `<img>` for image avatars; pass any element for custom content.
+   * Mutually exclusive with `icon` and `llm`. Figma 3430:39723.
+   */
+  avatar?: React.ReactNode
+  /**
+   * Trailing badge slot — renders a `Badge` (or any ReactNode) inside the
+   * row's left-content cluster, positioned **after the label column** and
+   * **before** the right icon / Switch. Used to surface counts, status
+   * markers, or labels alongside the row's primary text. Figma `1056:839`
+   * (badge variant) + `3437:2664` (spec sheet).
+   *
+   * Default + selected + disabled rows typically use a `Neutral` Badge;
+   * danger rows still render the badge but you'll usually pick a colour
+   * that reads against the soft-red background. Header rows have their
+   * own dedicated `headerBadge` slot — pass the badge there for header
+   * variants.
+   */
+  badge?: React.ReactNode
   /**
    * Canonical model id — renders the corresponding `<LlmIcon variant="avatar" />`
    * from `@strange-huge/icons/llm` between the icon and the label column.
@@ -84,6 +107,21 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
   defaultSwitchChecked?: boolean
   /** Fires when the switch toggles. */
   onSwitchChange?: (checked: boolean) => void
+  /**
+   * Show a leading 16×16 Checkbox at the start of the row's User Info cluster
+   * (before `icon` / `avatar` / `llm`). Used by multi-select dropdowns
+   * (Figma 3437:2664 — `showCheckbox` variant). Pair with `checkboxChecked` /
+   * `defaultCheckboxChecked` / `onCheckboxChange` to control it. Click
+   * anywhere on the row toggles the checkbox (same intent as `showSwitch`).
+   * Default variant only.
+   */
+  showCheckbox?: boolean
+  /** Controlled checkbox state. */
+  checkboxChecked?: boolean
+  /** Uncontrolled checkbox state. */
+  defaultCheckboxChecked?: boolean
+  /** Fires when the checkbox toggles. */
+  onCheckboxChange?: (checked: boolean) => void
   /** Render as a child element — allows Radix DropdownMenu.Item composition. */
   asChild?: boolean
   /**
@@ -150,6 +188,8 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
       label = 'Label',
       subLabel,
       icon,
+      avatar,
+      badge,
       llm,
       rightIcon,
       selected = false,
@@ -160,6 +200,10 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
       switchChecked,
       defaultSwitchChecked,
       onSwitchChange,
+      showCheckbox = false,
+      checkboxChecked,
+      defaultCheckboxChecked,
+      onCheckboxChange,
       asChild = false,
       headerBadge,
       children,
@@ -210,6 +254,22 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
     const toggleSwitch = () => {
       if (disabled) return
       handleSwitchChange(!effectiveSwitchOn)
+    }
+
+    // ── Checkbox state mirror (when showCheckbox) ──────────────────────────
+    // Mirrors the Switch pattern: clicking anywhere on the row toggles the
+    // checkbox. The Checkbox itself stops propagation so we don't double-
+    // toggle (once from Radix, once from the row's onClick).
+    const isCheckboxControlled = checkboxChecked !== undefined
+    const [internalCheckboxOn, setInternalCheckboxOn] = useState(!!defaultCheckboxChecked)
+    const effectiveCheckboxOn = isCheckboxControlled ? !!checkboxChecked : internalCheckboxOn
+    const handleCheckboxChange = (next: boolean) => {
+      if (!isCheckboxControlled) setInternalCheckboxOn(next)
+      onCheckboxChange?.(next)
+    }
+    const toggleCheckbox = () => {
+      if (disabled) return
+      handleCheckboxChange(!effectiveCheckboxOn)
     }
     // Header is a label-only row; danger has only Default + Hover (per Figma —
     // no Selected or Disabled). Default supports Hover, Selected, Disabled.
@@ -270,9 +330,11 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
           if (!isHeader && !disabled && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
-            // When the row carries a Switch, Enter/Space toggles it as well
-            // as firing the consumer's onClick — same intent as a click.
+            // When the row carries a Switch / Checkbox, Enter/Space toggles
+            // it as well as firing the consumer's onClick — same intent as a
+            // click.
             if (showSwitch && !isDanger) toggleSwitch()
+            if (showCheckbox && !isDanger) toggleCheckbox()
             onClick?.(e as unknown as React.MouseEvent<HTMLDivElement>)
           }
           externalKeyDown?.(e)
@@ -281,11 +343,12 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
           isHeader || disabled
             ? undefined
             : (e: React.MouseEvent<HTMLDivElement>) => {
-                // Click anywhere on the row toggles the Switch. Clicks on the
-                // Switch itself stop-propagate at the wrapper, so they don't
-                // reach this handler — Radix toggles them directly via its
-                // own onCheckedChange path. No double-toggle.
+                // Click anywhere on the row toggles the Switch / Checkbox.
+                // Clicks on the control itself stop-propagate at the wrapper,
+                // so they don't reach this handler — Radix toggles them
+                // directly via its own onCheckedChange path. No double-toggle.
                 if (showSwitch && !isDanger) toggleSwitch()
+                if (showCheckbox && !isDanger) toggleCheckbox()
                 onClick?.(e)
               }
         }
@@ -367,6 +430,26 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 minWidth:   1,
               }}
             >
+              {/* Leading checkbox slot — Figma 3437:2664 (showCheckbox).
+                  Sits at the start of the User Info cluster, before icon /
+                  avatar / llm. 16×16, gap-8 from the next slot. Click on
+                  the checkbox itself stops propagation so the row's onClick
+                  doesn't double-toggle it. Default variant only. */}
+              {showCheckbox && !isDanger && (
+                <div
+                  style={{ flexShrink: 0, display: 'inline-flex', lineHeight: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
+                >
+                  <Checkbox
+                    checked={effectiveCheckboxOn}
+                    onCheckedChange={handleCheckboxChange}
+                    disabled={disabled}
+                    aria-label={label}
+                  />
+                </div>
+              )}
+
               {icon && (
                 <div
                   style={{
@@ -378,6 +461,30 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                   }}
                 >
                   {sizedIcon}
+                </div>
+              )}
+
+              {/* Persona / free-form avatar — Figma 3430:39723. Square,
+                  rounded-6 px, 24 px to align vertically with the body-14
+                  label's line-height. Pass an `<img>` for an image avatar,
+                  or any ReactNode for custom content (e.g. an initials
+                  bubble). Mutually exclusive with `icon` and `llm`. */}
+              {avatar && !isDanger && (
+                <div
+                  aria-hidden
+                  style={{
+                    width:        24,
+                    height:       24,
+                    flexShrink:   0,
+                    borderRadius: 6,
+                    overflow:     'hidden',
+                    lineHeight:   0,
+                    display:      'inline-flex',
+                    alignItems:   'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {avatar}
                 </div>
               )}
 
@@ -417,6 +524,26 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 <p style={{ ...labelTextStyle, color: labelColor }}>{label}</p>
                 {subLabel && <p style={subLabelTextStyle}>{subLabel}</p>}
               </div>
+
+              {/* Badge slot — Figma 1056:839 / 3437:2664. Sits after the
+                  label column inside the User Info cluster (so it lives in
+                  the row's left content, NOT the trailing icon slot). The
+                  consumer passes a `<Badge />` (or any ReactNode); the slot
+                  is `flexShrink: 0` so the badge keeps its full width and
+                  the label column is the one that truncates when space is
+                  tight. */}
+              {badge && (
+                <div
+                  style={{
+                    flexShrink:     0,
+                    display:        'inline-flex',
+                    alignItems:     'center',
+                    lineHeight:     0,
+                  }}
+                >
+                  {badge}
+                </div>
+              )}
             </div>
 
             {/* Trailing slot — Switch OR rightIcon (mutually exclusive). Switch

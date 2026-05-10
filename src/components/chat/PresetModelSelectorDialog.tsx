@@ -172,11 +172,8 @@ function PresetModelSelectorContent({
           title="Muse"
           description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
           learnMoreHref="#"
-          proSwitch
           defaultSelected={museActive}
           onSelectedChange={onMuseSelect}
-          advanced={museAdvanced}
-          onAdvancedChange={onMuseAdvancedChange}
         />
 
         {/* ── Category tabs + model list ── */}

@@ -383,19 +383,19 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
             )}
 
             <IconButton
-              variant="ghost-2" size="xs"
+              variant="ghost" size="xs"
               aria-label="Retry message"
               icon={<RedoIcon size={16} />}
               onClick={onRetry}
             />
             <IconButton
-              variant="ghost-2" size="xs"
+              variant="ghost" size="xs"
               aria-label="Edit message"
               icon={<PenOneIcon size={16} />}
               onClick={handleEditStart}
             />
             <IconButton
-              variant="ghost-2" size="xs"
+              variant="ghost" size="xs"
               aria-label={copied ? 'Copied' : 'Copy message'}
               icon={
                 <AnimatePresence mode="popLayout" initial={false}>

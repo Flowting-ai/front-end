@@ -2,18 +2,22 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Switch } from '@/components/Switch'
 import { cn } from '@/lib/utils'
 
 // ── Shadow / text-shadow constants ────────────────────────────────────────────
 
-const SHADOW_OUTER = 'var(--shadow-preset-featured-outer)'
-const SHADOW_INNER = 'var(--shadow-preset-featured-inner)'
+const SHADOW_DEFAULT_OUTER  = 'var(--shadow-model-featured-default-outer)'
+const SHADOW_DEFAULT_INNER  = 'var(--shadow-model-featured-default-inner)'
+const SHADOW_HOVER_OUTER    = 'var(--shadow-model-featured-hover-outer)'
+const SHADOW_HOVER_INNER    = 'var(--shadow-model-featured-hover-inner)'
+const SHADOW_SELECTED_OUTER = 'var(--shadow-model-featured-selected-outer)'
+const SHADOW_SELECTED_INNER = 'var(--shadow-model-featured-selected-inner)'
 
-const TEXT_SHADOW =
+// Selected-state text shadow — emboss letters on the dark gradient.
+const TEXT_SHADOW_SELECTED =
   '0px -0.5px 0.364px rgba(0,0,0,0.25), 0px 0.5px 0.364px rgba(255,255,255,0.25)'
 
-// Blurred rainbow gradient — persistent selected layer and gradient fill flood
+// Blurred rainbow gradient — persistent selected layer and gradient fill flood.
 const SELECTED_GRADIENT =
   'linear-gradient(180deg, rgba(221,221,221,0.5) 0%, rgba(143,116,39,0.5) 21.635%, rgba(104,61,27,0.5) 36.058%, rgba(39,13,42,0.5) 63.462%, rgba(11,53,127,0.5) 82.212%, rgba(13,110,178,0.5) 97.115%)'
 
@@ -34,23 +38,12 @@ export interface ModelFeaturedCardProps
   description: React.ReactNode
   /** URL for the "Learn more" inline link — omit to hide the link */
   learnMoreHref?: string
+  /** Controlled selected state. Pair with `onSelectedChange`. */
+  selected?: boolean
   /** Initial selected state — component manages its own state after mount */
   defaultSelected?: boolean
   /** Callback fired when the selected state changes */
   onSelectedChange?: (selected: boolean) => void
-  /**
-   * Show the trailing "Pro switch" cluster in the header (label + Switch).
-   * Per Figma `1609:2415`, this lives at the right edge of the title row.
-   */
-  proSwitch?: boolean
-  /** Label rendered before the Pro switch. Default "Advanced". */
-  advancedLabel?: string
-  /** Controlled "advanced" toggle state. Pair with `onAdvancedChange`. */
-  advanced?: boolean
-  /** Initial uncontrolled state of the advanced toggle. */
-  defaultAdvanced?: boolean
-  /** Callback fired when the advanced toggle changes. */
-  onAdvancedChange?: (next: boolean) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -61,13 +54,9 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
       title,
       description,
       learnMoreHref,
+      selected,
       defaultSelected = false,
       onSelectedChange,
-      proSwitch        = false,
-      advancedLabel    = 'Advanced',
-      advanced,
-      defaultAdvanced  = false,
-      onAdvancedChange,
       className,
       style,
       onClick,
@@ -75,8 +64,13 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
     },
     ref,
   ) {
-    const [isSelected, setIsSelected] = useState(defaultSelected)
-    const [ripples, setRipples]       = useState<Ripple[]>([])
+    const isControlled = selected !== undefined
+    const [internalSelected, setInternalSelected] = useState(defaultSelected)
+    const isSelected = isControlled ? !!selected : internalSelected
+
+    const [isHovered, setIsHovered] = useState(false)
+    const [ripples, setRipples]     = useState<Ripple[]>([])
+
     const selectTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
     const rippleTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
 
@@ -88,10 +82,14 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
       }
     }, [])
 
+    const setSelected = (next: boolean) => {
+      if (!isControlled) setInternalSelected(next)
+      onSelectedChange?.(next)
+    }
+
     const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
       if (isSelected) {
-        setIsSelected(false)
-        onSelectedChange?.(false)
+        setSelected(false)
         onClick?.(e)
         return
       }
@@ -99,7 +97,6 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
       const rect = e.currentTarget.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      // Radius to reach the farthest corner from the click point
       const r = Math.sqrt(
         Math.max(x, rect.width  - x) ** 2 +
         Math.max(y, rect.height - y) ** 2,
@@ -113,49 +110,77 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
       }, 1000)
       rippleTimersRef.current.add(rippleTimer)
 
-      // Lock in selected state just before the fill starts fading (~480ms),
-      // so the persistent gradient is seamlessly beneath the retreating ripple.
       if (selectTimerRef.current) clearTimeout(selectTimerRef.current)
       selectTimerRef.current = setTimeout(() => {
-        setIsSelected(true)
-        onSelectedChange?.(true)
+        setSelected(true)
         selectTimerRef.current = null
       }, 480)
 
       onClick?.(e)
     }
 
+    // Resolve current visual state
+    const showHover = isHovered && !isSelected
+    const outerShadow = isSelected
+      ? SHADOW_SELECTED_OUTER
+      : showHover
+        ? SHADOW_HOVER_OUTER
+        : SHADOW_DEFAULT_OUTER
+    const innerShadow = isSelected
+      ? SHADOW_SELECTED_INNER
+      : showHover
+        ? SHADOW_HOVER_INNER
+        : SHADOW_DEFAULT_INNER
+
+    // Background per state. Selected uses an absolute gradient overlay (so the
+    // ripple effects above it can blend correctly); default/hover are flat fills.
+    const baseBg = isSelected
+      ? 'transparent'
+      : showHover
+        ? 'var(--neutral-100-60)'
+        : '#FFFFFF'
+
+    const titleColor = isSelected ? 'var(--neutral-50)'  : 'var(--neutral-700)'
+    const descColor  = isSelected ? 'var(--neutral-200)' : 'var(--neutral-600)'
+
     return (
       <div
         ref={ref}
-        className={cn(className)}
+        className={cn('kds-model-featured-card', className)}
+        data-selected={isSelected ? 'true' : 'false'}
         style={{
-          position:     'relative',
-          borderRadius: '12px',
-          overflow:     'clip',
-          padding:      '12px',
-          width:        '100%',
-          flexShrink:   0,
-          boxShadow:    SHADOW_OUTER,
-          cursor:       'pointer',
+          position:        'relative',
+          borderRadius:    '12px',
+          overflow:        'clip',
+          padding:         '12px',
+          width:           '100%',
+          flexShrink:      0,
+          backgroundColor: baseBg,
+          boxShadow:       outerShadow,
+          cursor:          'pointer',
+          transition:      'background-color 150ms ease, box-shadow 150ms ease',
           ...style,
         }}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         {...props}
       >
-        {/* ── Base gradient background ── */}
-        <div
-          aria-hidden
-          style={{
-            position:      'absolute',
-            inset:         0,
-            background:    'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-            borderRadius:  'inherit',
-            pointerEvents: 'none',
-          }}
-        />
+        {/* ── Selected: dark gradient base ── */}
+        {isSelected && (
+          <div
+            aria-hidden
+            style={{
+              position:      'absolute',
+              inset:         0,
+              background:    'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
+              borderRadius: 'inherit',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
 
-        {/* ── Persistent selected gradient ── */}
+        {/* ── Persistent selected gradient (rainbow) ── */}
         {isSelected && (
           <div
             aria-hidden
@@ -173,8 +198,6 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
         {/* ── Click effects — clipped by overflow: clip on the container ── */}
         <AnimatePresence>
           {ripples.flatMap(({ key, x, y, r }) => [
-
-            // Layer 1 — Gradient fill flood (behind the warp ring)
             <motion.div
               key={`${key}-fill`}
               aria-hidden
@@ -195,8 +218,6 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
               exit={{ opacity: 0, transition: { duration: 0.35, ease: 'easeIn' } }}
               transition={{ scale: { duration: 0.65, ease: [0.22, 1, 0.36, 1] } }}
             />,
-
-            // Layer 2 — Warp shockwave ring (runs ahead of the fill, creates spatial distortion feel)
             <motion.div
               key={`${key}-warp`}
               aria-hidden
@@ -208,7 +229,6 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
                 height:          r * 2,
                 borderRadius:    '50%',
                 background:      'transparent',
-                // Glowing ring edge — no fill, just the luminous border
                 boxShadow:       '0 0 32px 12px rgba(220,195,140,0.6), inset 0 0 24px 8px rgba(220,195,140,0.25)',
                 pointerEvents:   'none',
                 transformOrigin: 'center',
@@ -217,8 +237,6 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
               animate={{ scale: 1.1, opacity: 0 }}
               transition={{ duration: 0.42, ease: [0.2, 0.8, 0.4, 1] }}
             />,
-
-            // Layer 3 — Point burst at the click origin (the initial "tear" through space)
             <motion.div
               key={`${key}-burst`}
               aria-hidden
@@ -238,85 +256,44 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
               animate={{ scale: 4, opacity: 0 }}
               transition={{ duration: 0.38, ease: [0.2, 0.65, 0.4, 1] }}
             />,
-
           ])}
         </AnimatePresence>
 
-        {/* ── Content ── */}
+        {/* ── Content (Text Block) ── */}
         <div
           style={{
             position:      'relative',
             display:       'flex',
             flexDirection: 'column',
             gap:           '4px',
-            textShadow:    TEXT_SHADOW,
+            textShadow:    isSelected ? TEXT_SHADOW_SELECTED : 'none',
           }}
         >
-          {/* ── Header row: title + optional Pro switch ── */}
-          <div
+          <p
             style={{
-              display:    'flex',
-              alignItems: 'center',
-              gap:        '8px',
-              width:      '100%',
+              fontFamily:  'var(--font-title)',
+              fontWeight:  400,
+              fontSize:    '24px',
+              lineHeight:  '32px',
+              color:       titleColor,
+              margin:      0,
+              width:       '100%',
             }}
           >
-            <p
-              style={{
-                flex:        '1 0 0',
-                minWidth:    0,
-                fontFamily:  'var(--font-title)',
-                fontWeight:  400,
-                fontSize:    '24px',
-                lineHeight:  '32px',
-                color:       'var(--neutral-50)',
-                margin:      0,
-              }}
-            >
-              {title}
-            </p>
-
-            {proSwitch && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  display:    'flex',
-                  alignItems: 'center',
-                  gap:        '4px',
-                  flexShrink: 0,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily:    'var(--font-body)',
-                    fontWeight:    400,
-                    fontSize:      '11px',
-                    lineHeight:    '16px',
-                    color:         'var(--neutral-200)',
-                    whiteSpace:    'nowrap',
-                  }}
-                >
-                  {advancedLabel}
-                </span>
-                <Switch
-                  {...(advanced !== undefined
-                    ? { checked: advanced }
-                    : { defaultChecked: defaultAdvanced })}
-                  onCheckedChange={onAdvancedChange}
-                  aria-label={advancedLabel}
-                />
-              </div>
-            )}
-          </div>
+            {title}
+          </p>
 
           <p
             style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  400,
-              fontSize:    '11px',
-              lineHeight:  '16px',
-              color:       'var(--neutral-200)',
-              margin:      0,
+              fontFamily:    'var(--font-body)',
+              fontWeight:    400,
+              fontSize:      '11px',
+              lineHeight:    '16px',
+              color:         descColor,
+              margin:        0,
+              overflow:      'hidden',
+              textOverflow:  'ellipsis',
+              width:         '100%',
             }}
           >
             {description}
@@ -338,7 +315,7 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
             position:      'absolute',
             inset:         0,
             borderRadius:  'inherit',
-            boxShadow:     SHADOW_INNER,
+            boxShadow:     innerShadow,
             pointerEvents: 'none',
           }}
         />

@@ -10,10 +10,10 @@ import {
   PlusSignIcon,
   CopyOneIcon,
   DownloadThreeIcon,
-  CancelCircleIcon,
 } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
+import { Checkbox } from '@/components/Checkbox'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { Chip, type ChipColor } from '@/components/Chip'
 import { Button } from '@/components/Button'
@@ -23,6 +23,32 @@ import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { PinMarkdownRenderer } from '@/lib/pin-markdown'
+import { addPinComment, editPinComment, deletePinComment, getPin, type PinComment } from '@/lib/api/pins'
+
+// ── Local icon — exact SVG from @strange-huge/icons (design-system build) ─────
+// DeleteTwoIcon is present in the design-system's icons package but absent from
+// the older build installed in front-end-new. Copied verbatim so the trash-can
+// icon matches the design system exactly without requiring a package upgrade.
+
+function DeleteTwoIcon({ size = 24, color = 'currentColor', ...props }: React.SVGProps<SVGSVGElement> & { size?: number; color?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M9.5 16.5L9.5 10.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M14.5 16.5L14.5 10.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// Pencil / edit icon — 16 px base, stroked, matches DeleteTwoIcon visual weight.
+function PenEditIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2v-3.333L11.333 2.667Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -194,6 +220,11 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   onDelete?:        () => void
   fluid?:           boolean
   /**
+   * Backend pin ID used for comment API calls. When omitted, the comment
+   * field still renders but does not persist to the server.
+   */
+  pinId?:           string
+  /**
    * Called when the user commits a tag via the "Add tag" affordance.
    * If omitted, the Pin manages added tags in its own internal state for
    * demonstration/uncontrolled use.
@@ -240,6 +271,19 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
    * the change in their own data layer (e.g. PATCH the pin record).
    */
   onDeleteTag?:     (index: number, source: 'label' | 'user') => void
+  /**
+   * When `true`, swap the `PinCategory` icon for a 44×44 frame holding a
+   * `Checkbox` (Figma `3457:21629` / `3457:22917`). Used by Pinboard's bulk
+   * "select pins" mode. The category fades out and the checkbox fades in via
+   * `AnimatePresence` (KDS standard scale + opacity + blur preset).
+   */
+  selectable?:        boolean
+  /** Controlled checked state for the selectable checkbox. */
+  selected?:          boolean
+  /** Initial uncontrolled selected state. Defaults to `false`. */
+  defaultSelected?:   boolean
+  /** Fires when the user toggles the selectable checkbox. */
+  onSelectedChange?:  (next: boolean) => void
 }
 
 // ── Tag cap ────────────────────────────────────────────────────────────────────
@@ -281,6 +325,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       onDuplicate,
       onExport,
       onDelete,
+      pinId,
       onAddTag,
       userTags,
       userTagColors   = USER_TAG_COLOR_POOL,
@@ -288,6 +333,10 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       deletedLabelIndices: controlledDeletedLabels,
       onDeleteTag,
       fluid           = false,
+      selectable      = false,
+      selected,
+      defaultSelected = false,
+      onSelectedChange,
       className,
       style,
       onMouseEnter: externalEnter,
@@ -299,6 +348,17 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const [isHovered,  setIsHovered]  = useState(false)
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
+
+    // Selectable checkbox — controlled / uncontrolled. Internal state only
+    // applies in selectable mode; outside it the checkbox is unmounted.
+    const isSelectedControlled = selected !== undefined
+    const [internalSelected, setInternalSelected] = useState(defaultSelected)
+    const isSelected = isSelectedControlled ? !!selected : internalSelected
+    const handleSelectedChange = (next: boolean) => {
+      if (!isSelectedControlled) setInternalSelected(next)
+      onSelectedChange?.(next)
+    }
+
     // Extra description lines beyond the base 2 (0–12). Card settles at any snap point.
     const [extraLines, setExtraLines] = useState(0)
 
@@ -527,6 +587,11 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }
 
     const [contentRef, contentBounds] = useMeasure()
+
+    // ── Comment state ──────────────────────────────────────────────────────────
+    const [comments,         setComments]         = useState<PinComment[]>([])
+    const [commentsLoaded,   setCommentsLoaded]   = useState(false)
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
 
     const commentFieldRef    = useRef<HTMLTextAreaElement>(null)
     const focusCommentRef    = useRef(false)
@@ -758,6 +823,49 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       }
     }, [isExpanded])
 
+    // Load comments from backend once when the pin is first expanded.
+    useEffect(() => {
+      if (!isExpanded || !pinId || commentsLoaded) return
+      getPin(pinId)
+        .then((pin) => {
+          setComments(pin.comments ?? [])
+          setCommentsLoaded(true)
+        })
+        .catch(() => setCommentsLoaded(true))
+    }, [isExpanded, pinId, commentsLoaded])
+
+    const handleCommentSubmit = useCallback(async (text: string) => {
+      if (!pinId) return
+      try {
+        const created = await addPinComment(pinId, text)
+        setComments((prev) => [...prev, created])
+      } catch (err) {
+        console.error('[Pin] Failed to add comment', err)
+      }
+    }, [pinId])
+
+    const handleCommentEdit = useCallback(async (commentId: string, text: string) => {
+      if (!pinId) return
+      try {
+        const updated = await editPinComment(pinId, commentId, text)
+        setComments((prev) => prev.map((c) => c.id === commentId ? updated : c))
+      } catch (err) {
+        console.error('[Pin] Failed to edit comment', err)
+      }
+    }, [pinId])
+
+    const handleCommentDelete = useCallback(async (commentId: string) => {
+      if (!pinId) return
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
+      try {
+        await deletePinComment(pinId, commentId)
+      } catch (err) {
+        console.error('[Pin] Failed to delete comment', err)
+        // Re-fetch to restore state on failure
+        getPin(pinId).then((pin) => setComments(pin.comments ?? [])).catch(() => {})
+      }
+    }, [pinId])
+
     return (
       <motion.div
         ref={mergedRef as React.Ref<HTMLDivElement>}
@@ -768,7 +876,11 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           width:           fluid ? '100%' : '314px',
           borderRadius:    '16px',
           backgroundColor: 'var(--neutral-white)',
-          boxShadow:       SHADOW_CARD,
+          boxShadow:       selectable && isSelected
+            ? '0px 0px 0px 1px var(--focus-ring)'
+            : SHADOW_CARD,
+          transition:      'box-shadow 150ms ease',
+          cursor:          selectable ? 'pointer' : undefined,
           overflow:        'clip',
           isolation:       'isolate',
           ...style,
@@ -777,6 +889,15 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
         onMouseLeave={(e) => {
           if (!isDraggingRef.current) setIsHovered(false)
           externalLeave?.(e as unknown as React.MouseEvent<HTMLDivElement>)
+        }}
+        onClickCapture={(e) => {
+          // In selectable mode, the entire pin is the click target — toggle
+          // the checkbox. Clicks on the checkbox itself stopPropagation below
+          // so they don't double-fire here.
+          if (selectable) {
+            handleSelectedChange(!isSelected)
+            e.stopPropagation()
+          }
         }}
         {...(props as object)}
       >
@@ -804,7 +925,49 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           {/* ── Header row ── */}
           <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-start', width: '100%', flexShrink: 0 }}>
             <div style={{ display: 'flex', flex: '1 0 0', gap: '12px', alignItems: 'flex-start', minWidth: 0 }}>
-              <PinCategory type={category} style={{ flexShrink: 0 }} />
+              {/* ── Category ↔ Checkbox slot — crossfade via AnimatePresence ──
+                   44×44 fixed slot. PinCategory exits as the checkbox + frame
+                   enters (Figma 3457:21629 / 3457:22917). KDS standard preset:
+                   scale 0.85 → 1, opacity 0 → 1, blur 4px → 0, spring 500/30. */}
+              <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {selectable ? (
+                    <motion.div
+                      key="checkbox-slot"
+                      initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
+                      animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                      exit={{    scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position:        'absolute',
+                        inset:           0,
+                        display:         'flex',
+                        alignItems:      'center',
+                        justifyContent:  'center',
+                        backgroundColor: 'var(--neutral-white)',
+                      }}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(v) => handleSelectedChange(v === true)}
+                        aria-label="Select pin"
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="category-slot"
+                      initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
+                      animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
+                      exit={{    scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      style={{ position: 'absolute', inset: 0 }}
+                    >
+                      <PinCategory type={category} style={{ flexShrink: 0 }} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <p
                 style={{
                   flex:               '1 0 0',
@@ -865,7 +1028,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                     <Dropdown.Item
                       variant="danger"
                       label="Delete"
-                      icon={<CancelCircleIcon />}
+                      icon={<DeleteTwoIcon />}
                       onClick={runMenuAction(onDelete)}
                       fluid
                     />
@@ -1144,7 +1307,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
             )
           })()}
 
-          {/* ── Expanded content: metadata + comment field ── */}
+          {/* ── Expanded content: metadata + comment field + comments ── */}
           <AnimatePresence initial={false}>
             {isExpanded && (
               <motion.div
@@ -1155,7 +1318,45 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
                 <ExpandedMeta chatName={chatName} />
-                <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
+                <PinCommentField
+                  ref={commentFieldRef}
+                  fluid
+                  aria-label="Add a comment"
+                  onSubmit={pinId ? handleCommentSubmit : undefined}
+                />
+                {comments.length > 0 && (
+                  <div style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    gap:            6,
+                    paddingTop:     2,
+                  }}>
+                    <div style={{ flex: '1 0 0', height: 1, background: 'var(--neutral-200)' }} />
+                    <span style={{
+                      fontFamily:  'var(--font-body)',
+                      fontWeight:  'var(--font-weight-medium)',
+                      fontSize:    10,
+                      lineHeight:  '14px',
+                      color:       'var(--neutral-400)',
+                      flexShrink:  0,
+                      userSelect:  'none',
+                    }}>
+                      {comments.length === 1 ? '1 comment' : `${comments.length} comments`}
+                    </span>
+                    <div style={{ flex: '1 0 0', height: 1, background: 'var(--neutral-200)' }} />
+                  </div>
+                )}
+                {comments.map((comment) => (
+                  <PinCommentItem
+                    key={comment.id}
+                    comment={comment}
+                    editingId={editingCommentId}
+                    onEditStart={(id) => setEditingCommentId(id)}
+                    onEditCancel={() => setEditingCommentId(null)}
+                    onEditSave={handleCommentEdit}
+                    onDelete={handleCommentDelete}
+                  />
+                ))}
               </motion.div>
             )}
           </AnimatePresence>
@@ -1337,3 +1538,244 @@ function ActionBar({ onInsert, onComment, hideComment = false }: { onInsert?: ()
 
 Pin.displayName = 'Pin'
 export default Pin
+
+// ── PinCommentItem ─────────────────────────────────────────────────────────────
+// Renders a single saved comment with inline edit/delete affordances.
+// Edit mode swaps the text for a constrained textarea; Enter saves, Escape cancels.
+
+// Shared style for the tiny 20×20 action icon buttons inside comment rows.
+const COMMENT_ACTION_BTN: React.CSSProperties = {
+  display:         'inline-flex',
+  alignItems:      'center',
+  justifyContent:  'center',
+  width:           20,
+  height:          20,
+  padding:         0,
+  border:          'none',
+  borderRadius:    4,
+  background:      'transparent',
+  cursor:          'pointer',
+  color:           'var(--neutral-400)',
+  flexShrink:      0,
+  transition:      'background 100ms, color 100ms',
+}
+
+function PinCommentItem({
+  comment,
+  editingId,
+  onEditStart,
+  onEditCancel,
+  onEditSave,
+  onDelete,
+}: {
+  comment:      PinComment
+  editingId:    string | null
+  onEditStart:  (id: string) => void
+  onEditCancel: () => void
+  onEditSave:   (id: string, text: string) => Promise<void>
+  onDelete:     (id: string) => Promise<void>
+}) {
+  const isEditing = editingId === comment.id
+  const [editText, setEditText] = useState(comment.content)
+  const [saving,   setSaving]   = useState(false)
+  const [hovered,  setHovered]  = useState(false)
+
+  useEffect(() => {
+    if (!isEditing) setEditText(comment.content)
+  }, [comment.content, isEditing])
+
+  const commitEdit = async () => {
+    const trimmed = editText.trim()
+    if (!trimmed || trimmed === comment.content) { onEditCancel(); return }
+    setSaving(true)
+    try { await onEditSave(comment.id, trimmed) }
+    finally { setSaving(false) }
+  }
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter')  { e.preventDefault(); commitEdit() }
+    if (e.key === 'Escape') { onEditCancel(); setEditText(comment.content) }
+  }
+
+  if (isEditing) {
+    return (
+      <div style={{
+        position:        'relative',
+        display:         'flex',
+        flexDirection:   'column',
+        gap:              3,
+        padding:         '5px 6px 4px',
+        borderRadius:     6,
+        backgroundColor: 'var(--color-tag-Neutral-bg)',
+        boxShadow:       'var(--color-tag-Neutral-shadow), 0px 0px 0px 2px var(--focus-ring)',
+        overflow:        'clip',
+      }}>
+        <textarea
+          value={editText}
+          autoFocus
+          rows={2}
+          disabled={saving}
+          onChange={(e) => setEditText(e.target.value)}
+          onKeyDown={handleEditKeyDown}
+          style={{
+            position:   'relative',
+            width:      '100%',
+            resize:     'none',
+            border:     'none',
+            outline:    'none',
+            background: 'transparent',
+            padding:    0,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 'var(--font-weight-medium)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--color-tag-Neutral-text)',
+            overflowY:  'hidden',
+          }}
+        />
+        <div style={{ position: 'relative', display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+          <button
+            disabled={saving}
+            onClick={() => { onEditCancel(); setEditText(comment.content) }}
+            style={{
+              border:      'none',
+              background:  'none',
+              cursor:      saving ? 'default' : 'pointer',
+              padding:     '1px 5px',
+              borderRadius: 4,
+              fontFamily:  'var(--font-body)',
+              fontWeight:  'var(--font-weight-medium)',
+              fontSize:     10,
+              lineHeight:  '14px',
+              color:       'var(--neutral-500)',
+              opacity:     saving ? 0.5 : 1,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={saving || !editText.trim()}
+            onClick={commitEdit}
+            style={{
+              border:      'none',
+              background:  'none',
+              cursor:      (saving || !editText.trim()) ? 'default' : 'pointer',
+              padding:     '1px 5px',
+              borderRadius: 4,
+              fontFamily:  'var(--font-body)',
+              fontWeight:  'var(--font-weight-semibold)',
+              fontSize:     10,
+              lineHeight:  '14px',
+              color:       (saving || !editText.trim()) ? 'var(--neutral-300)' : 'var(--neutral-800)',
+            }}
+          >
+            Save
+          </button>
+        </div>
+        <span
+          aria-hidden
+          style={{
+            position:      'absolute',
+            inset:         0,
+            pointerEvents: 'none',
+            borderRadius:  'inherit',
+            boxShadow:     'var(--color-tag-Neutral-inner-shadow)',
+          }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position:        'relative',
+        padding:         hovered ? '6px 8px' : '4px 6px',
+        borderRadius:     6,
+        backgroundColor: 'var(--color-tag-Neutral-bg)',
+        boxShadow:       'var(--color-tag-Neutral-shadow)',
+        overflow:        'clip',
+        transition:      'padding 150ms ease',
+      }}
+    >
+      <p style={{
+        margin:       0,
+        position:     'relative',
+        paddingRight:  hovered ? 46 : 0,
+        fontFamily:   'var(--font-body)',
+        fontWeight:   'var(--font-weight-medium)',
+        fontSize:     'var(--font-size-caption)',
+        lineHeight:   'var(--line-height-caption)',
+        color:        'var(--color-tag-Neutral-text)',
+        wordBreak:    'break-word',
+        whiteSpace:   'normal',
+        transition:   'padding-right 150ms ease',
+      }}>
+        {comment.content}
+      </p>
+
+      {/* Absolutely positioned so they never shift the text layout */}
+      <div
+        style={{
+          position:      'absolute',
+          top:            4,
+          right:          4,
+          display:        'flex',
+          gap:            1,
+          opacity:        hovered ? 1 : 0,
+          pointerEvents:  hovered ? 'auto' : 'none',
+          transition:     'opacity 120ms ease',
+        }}
+      >
+        <button
+          aria-label="Edit comment"
+          onClick={() => { setEditText(comment.content); onEditStart(comment.id) }}
+          style={{ ...COMMENT_ACTION_BTN }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget
+            el.style.background = 'var(--neutral-200)'
+            el.style.color = 'var(--neutral-700)'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget
+            el.style.background = 'transparent'
+            el.style.color = 'var(--neutral-400)'
+          }}
+        >
+          <PenEditIcon size={12} />
+        </button>
+        <button
+          aria-label="Delete comment"
+          onClick={() => onDelete(comment.id)}
+          style={{ ...COMMENT_ACTION_BTN }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget
+            el.style.background = 'var(--neutral-200)'
+            el.style.color = 'var(--color-danger)'
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget
+            el.style.background = 'transparent'
+            el.style.color = 'var(--neutral-400)'
+          }}
+        >
+          <DeleteTwoIcon size={12} />
+        </button>
+      </div>
+
+      {/* Inner depth/highlight shadow — same overlay pattern as Badge */}
+      <span
+        aria-hidden
+        style={{
+          position:      'absolute',
+          inset:         0,
+          pointerEvents: 'none',
+          borderRadius:  'inherit',
+          boxShadow:     'var(--color-tag-Neutral-inner-shadow)',
+        }}
+      />
+    </div>
+  )
+}

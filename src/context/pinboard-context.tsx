@@ -26,6 +26,8 @@ export interface PinItem {
   messageId: string;
   modelName?: string;
   createdAt: string;
+  folderId?: string;
+  folderName?: string;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -42,6 +44,7 @@ interface PinboardContextValue {
   removePinByMessage: (messageId: string) => void;
   isPinned: (messageId: string) => boolean;
   updatePinCategory: (id: string, category: PinCategory) => void;
+  updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
 }
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
@@ -69,6 +72,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           messageId: p.message_id ?? p.id,
           chatId: p.chat_id,
           createdAt: p.created_at,
+          folderId:   p.folder_id,
+          folderName: p.folder_name,
         }));
         setPins(items);
 
@@ -201,6 +206,16 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     setPins((prev) => prev.map((p) => p.id === id ? { ...p, category } : p));
   }, []);
 
+  const updatePinFolder = useCallback((id: string, folderId: string | null, folderName?: string) => {
+    setPins((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, folderId: folderId ?? undefined, folderName: folderName ?? undefined }
+          : p,
+      ),
+    );
+  }, []);
+
   const isPinned = useCallback(
     (messageId: string) => pins.some((p) => p.messageId === messageId),
     [pins],
@@ -208,7 +223,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PinboardContext.Provider
-      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory }}
+      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory, updatePinFolder }}
     >
       {children}
     </PinboardContext.Provider>

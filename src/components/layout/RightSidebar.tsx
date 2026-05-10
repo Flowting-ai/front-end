@@ -1,12 +1,13 @@
 "use client"
 
-import React, { useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePinboard, type PinItem, type PinCategory } from "@/context/pinboard-context"
 import { useChatHistoryContext } from "@/context/chat-history-context"
 import { Pinboard, type PinboardPin } from "@/components/Pinboard"
-import { PinboardExpanded } from "@/components/layout/PinboardExpanded"
+import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
+import { listPinFolders, createPinFolder, movePinToFolder } from "@/lib/api/pins"
 import type { BadgeColor } from "@/components/Badge"
 
 // ── Category → badge color ────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ function toPinboardPin(
 
   return {
     id:          item.id,
+    pinId:       item.id,
     category:    item.category,
     pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
@@ -60,12 +62,13 @@ function toPinboardPin(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RightSidebar() {
-  const { pins, isOpen, close, removePin, clonePin } = usePinboard()
+  const { pins, isOpen, close, removePin, clonePin, updatePinFolder } = usePinboard()
   const { chats } = useChatHistoryContext()
-  const [expandedOpen,   setExpandedOpen]   = useState(false)
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
   const [searchQuery,    setSearchQuery]    = useState("")
   const [sortOrder,      setSortOrder]      = useState<"newest" | "oldest">("newest")
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [folders, setFolders] = useState<PinboardExpandedFolder[]>([])
 
   const chatNameById = useMemo((): Map<string, string> => {
     const map = new Map<string, string>()
@@ -79,8 +82,55 @@ export function RightSidebar() {
   void setSortOrder
   void sortOrder
 
+  // ── Fetch real folders from backend on mount ────────────────────────────
+  useEffect(() => {
+    listPinFolders()
+      .then((raw) => setFolders(raw.map(f => ({ id: f.id, label: f.name }))))
+      .catch((err) => console.error("[RightSidebar] Failed to load folders", err))
+  }, [])
+
+  // ── Folder CRUD ─────────────────────────────────────────────────────────
+  const handleCreateFolder = useCallback(async (name: string) => {
+    const trimmed = name.trim().slice(0, 30)
+    if (!trimmed) return
+    if (folders.some(f => f.label?.toLowerCase() === trimmed.toLowerCase())) return
+    try {
+      const created = await createPinFolder(trimmed)
+      setFolders(prev => [...prev, { id: created.id, label: created.name || trimmed }])
+    } catch (err) {
+      console.error("[RightSidebar] Failed to create folder", err)
+    }
+  }, [folders])
+
+  const handleMoveToFolder = useCallback(async (pinIds: string[], folderId: string) => {
+    const folderName = folders.find(f => f.id === folderId)?.label
+    await Promise.all(
+      pinIds.map(async (pinId) => {
+        try {
+          await movePinToFolder(pinId, folderId)
+          updatePinFolder(pinId, folderId, folderName)
+        } catch (err) {
+          console.error("[RightSidebar] Failed to move pin", err)
+        }
+      }),
+    )
+  }, [folders, updatePinFolder])
+
+  const handleDeletePins = useCallback((pinIds: string[]) => {
+    pinIds.forEach(id => removePin(id))
+  }, [removePin])
+
+  // ── View/folder filter ──────────────────────────────────────────────────
+  const handleViewChange = useCallback((viewId: string) => {
+    const isFolder = folders.some(f => f.id === viewId)
+    setSelectedFolderId(isFolder ? viewId : null)
+  }, [folders])
+
   const filteredRawPins = useMemo((): PinItem[] => {
     let result = pins
+    if (selectedFolderId) {
+      result = result.filter(p => p.folderId === selectedFolderId)
+    }
     if (categoryFilter !== "All") {
       result = result.filter(p => p.category === categoryFilter)
     }
@@ -92,7 +142,7 @@ export function RightSidebar() {
     }
     if (sortOrder === "oldest") result = [...result].reverse()
     return result
-  }, [pins, categoryFilter, searchQuery, sortOrder])
+  }, [pins, selectedFolderId, categoryFilter, searchQuery, sortOrder])
 
   const filteredPins = useMemo((): PinboardPin[] => {
     return filteredRawPins.map(p =>
@@ -126,21 +176,16 @@ export function RightSidebar() {
             <Pinboard
               fluid
               pins={filteredPins}
+              personalFolders={folders}
               onSearch={setSearchQuery}
               onClose={close}
-              onOrganize={() => setExpandedOpen(true)}
               onExport={() => exportPins(filteredRawPins, chatNameById)}
+              onViewChange={(viewId) => handleViewChange(viewId)}
+              onCreateFolder={handleCreateFolder}
+              onMoveToFolder={handleMoveToFolder}
+              onDeletePins={handleDeletePins}
             />
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {expandedOpen && (
-          <PinboardExpanded
-            onClose={() => setExpandedOpen(false)}
-            onExport={(pinIds) => exportPins(pins, chatNameById, pinIds)}
-          />
         )}
       </AnimatePresence>
     </>

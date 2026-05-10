@@ -11,7 +11,11 @@ export function useSquircle(cornerRadius: number, smoothing = 0.6, strokeWidth =
   const compute = useCallback(() => {
     const el = ref.current
     if (!el) return
-    const { width, height } = el.getBoundingClientRect()
+    // Use offsetWidth/offsetHeight (layout box) rather than getBoundingClientRect
+    // which includes ancestor transforms and gives wrong sizes when mounted inside
+    // animating parents (e.g. PinboardExpanded inside Pinboard's scale animation).
+    const width  = el.offsetWidth
+    const height = el.offsetHeight
     if (!width || !height) return
 
     const d = getSvgPath({ width, height, cornerRadius, cornerSmoothing: smoothing })

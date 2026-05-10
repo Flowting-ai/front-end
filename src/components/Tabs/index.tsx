@@ -213,7 +213,7 @@ export const TabsList = React.forwardRef<
       // tab button under the original pointerdown.
       const btn = (target.closest('button') as HTMLButtonElement | null)
       if (btn && !btn.disabled) {
-        btn.focus()
+        btn.focus({ focusVisible: false } as FocusOptions)
         btn.click()
       }
     }

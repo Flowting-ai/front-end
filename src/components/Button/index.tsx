@@ -22,6 +22,10 @@ const SHADOW_SECONDARY_OUTER       = 'var(--shadow-button-secondary-outer)'
 const SHADOW_SECONDARY_OUTER_HOVER = 'var(--shadow-button-secondary-outer-hover)'
 const SHADOW_SECONDARY_INNER       = 'var(--shadow-button-secondary-inner)'
 const SHADOW_SECONDARY_INNER_HOVER = 'var(--shadow-button-secondary-inner-hover)'
+const SHADOW_DANGER_OUTER          = 'var(--shadow-button-danger-outer)'
+const SHADOW_DANGER_OUTER_HOVER    = 'var(--shadow-button-danger-outer-hover)'
+const SHADOW_DANGER_INNER          = 'var(--shadow-button-danger-inner)'
+const SHADOW_DANGER_INNER_HOVER    = 'var(--shadow-button-danger-inner-hover)'
 
 // ── Hover glow gradient ───────────────────────────────────────────────────────
 
@@ -29,7 +33,7 @@ const HOVER_GLOW_GRADIENT = 'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(14
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type ButtonVariant = 'default' | 'ghost' | 'outline' | 'secondary'
+export type ButtonVariant = 'default' | 'ghost' | 'outline' | 'secondary' | 'danger'
 export type ButtonSize = 'md' | 'sm' // md = pt-6 pb-8 px-10, sm = pt-4 pb-6 px-8 (default) / py-5 px-8 (ghost/outline)
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -109,6 +113,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   const isCorrosion = variant === 'default' && !isDisabled
   const isSubtle    = (variant === 'ghost' || variant === 'outline') && !isDisabled
   const isSecondary = variant === 'secondary'
+  const isDanger    = variant === 'danger'
 
   // Spinner color matches the text color per variant
   const spinnerColor: Record<ButtonVariant, string> = {
@@ -116,6 +121,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     ghost:     'var(--button-ghost-text)',
     outline:   'var(--button-outline-text)',
     secondary: 'var(--button-secondary-text)',
+    danger:    'var(--button-danger-text)',
   }
 
   const [isHovered, setIsHovered] = useState(false)
@@ -168,6 +174,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     ghost:     cn(isDisabled && 'opacity-70'),
     outline:   cn(isDisabled && 'opacity-70'),
     secondary: cn(isDisabled && 'opacity-70'),
+    danger:    cn(isDisabled && 'opacity-70'),
   }
 
   // ── Text color ──────────────────────────────────────────────────────────────
@@ -176,6 +183,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     ghost:     isDisabled ? 'var(--button-ghost-text-disabled)'    : 'var(--button-ghost-text)',
     outline:   isDisabled ? 'var(--button-outline-text-disabled)'  : 'var(--button-outline-text)',
     secondary: isDisabled ? 'var(--button-secondary-text-disabled)' : 'var(--button-secondary-text)',
+    danger:    isDisabled ? 'var(--button-danger-text-disabled)'    : 'var(--button-danger-text)',
   }
 
   const textShadow = variant === 'default'
@@ -189,7 +197,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   // ── Background + squircle clip ───────────────────────────────────────────────
   // Secondary skips the squircle clip — white bg + box-shadow applied directly.
   const bgStyle: React.CSSProperties = {
-    ...(clipPath && !isSecondary ? { clipPath } : {}),
+    ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
     ...(variant === 'default'
       ? {
           backgroundImage: isDisabled
@@ -204,6 +212,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       backgroundColor: 'var(--button-secondary-bg)',
       boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
       transition:      'box-shadow 150ms',
+    } : {}),
+    ...(isDanger ? {
+      backgroundColor: 'var(--button-danger-bg)',
+      boxShadow:       isHovered && !isDisabled ? SHADOW_DANGER_OUTER_HOVER : SHADOW_DANGER_OUTER,
+      transition:      'box-shadow 150ms, background-color 150ms',
     } : {}),
   }
 
@@ -429,6 +442,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
+      {/* ── Danger hover background — red-100 fill on hover ── */}
+      {isDanger && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          style={{
+            backgroundColor: isHovered && !isDisabled ? 'var(--button-danger-bg-hover)' : 'transparent',
+            transition: 'background-color 200ms',
+          }}
+        />
+      )}
+
       {/* ── Left image or icon — invisible during loading to preserve width ── */}
       {(image || leftIcon) && (
         <div
@@ -496,6 +521,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
           className="absolute inset-0 pointer-events-none rounded-[inherit]"
           style={{
             boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER,
+            transition: 'box-shadow 150ms',
+          }}
+        />
+      )}
+
+      {/* ── Danger inner shadow — resting cream-red highlight + paired hover highlights ── */}
+      {isDanger && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          style={{
+            boxShadow: isHovered && !isDisabled ? SHADOW_DANGER_INNER_HOVER : SHADOW_DANGER_INNER,
             transition: 'box-shadow 150ms',
           }}
         />
