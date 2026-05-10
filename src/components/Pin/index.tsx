@@ -12,6 +12,7 @@ import {
   DownloadThreeIcon,
 } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
+import { getModelLlmId } from '@/lib/model-icons'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge, type BadgeColor } from '@/components/Badge'
@@ -201,6 +202,10 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   description?:     string
   labels?:          PinLabel[]
   chatName?:        string
+  /** Name of the model that generated this pin's content — used for the LLM avatar in the expanded footer. */
+  modelName?:       string
+  /** ISO 8601 creation timestamp — displayed as a relative time badge (e.g. "2h") in the expanded footer. */
+  createdAt?:       string
   defaultExpanded?: boolean
   /** When this number changes, the pin collapses if it's currently expanded.
    *  Used by Pinboard's "collapse all" action. Initial value is ignored. */
@@ -308,6 +313,23 @@ const DEFAULT_LABELS: PinLabel[] = [
   { color: 'Neutral', text: 'Label' },
 ]
 
+// ── Relative time formatter ──────────────────────────────────────────────────
+// Converts an ISO 8601 string to a compact human-readable label:
+//   < 1 min → "now"  |  < 1 h → "Xm"  |  < 1 d → "Xh"  |  < 7 d → "Xd"  |  ≥ 7 d → "Xw"
+
+function formatRelativeTime(isoString: string): string {
+  const diffMs  = Math.max(0, Date.now() - new Date(isoString).getTime())
+  const mins    = Math.floor(diffMs / 60_000)
+  const hours   = Math.floor(diffMs / 3_600_000)
+  const days    = Math.floor(diffMs / 86_400_000)
+  const weeks   = Math.floor(diffMs / 604_800_000)
+  if (mins  < 1)  return 'now'
+  if (hours < 1)  return `${mins}m`
+  if (days  < 1)  return `${hours}h`
+  if (weeks < 1)  return `${days}d`
+  return `${weeks}w`
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
@@ -318,6 +340,8 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       description     = DEFAULT_DESCRIPTION,
       labels          = DEFAULT_LABELS,
       chatName        = 'This will the chat name to which this pin belongs to.',
+      modelName,
+      createdAt,
       defaultExpanded = false,
       collapseSignal,
       onExpandedChange,
@@ -629,19 +653,47 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // contentBounds → cardHeightMV
     // First measurement after mount: snap instantly (no enter spring) so a
     // freshly-mounted Pinboard / Pin doesn't visually "grow up" from height 0.
-    // Subsequent changes (drag-release, expand toggle, collapse-all) use the
-    // spring (or collapse easing if collapsingRef.current is true).
+    // Expand transitions (user-triggered) use spring for a smooth animation.
+    // Content changes while already expanded (e.g. comment added/edited) snap
+    // immediately — the card must grow without clipping the new content during
+    // the spring travel time (which causes the "squashed" appearance).
     const hasMeasuredRef = useRef(false)
+    // Set true just before the card transitions to expanded so the first
+    // contentBounds update (the expand itself) still uses spring animation.
+    // Cleared in the effect after being consumed.
+    const expandingRef = useRef(false)
+    useLayoutEffect(() => {
+      if (isExpanded) expandingRef.current = true
+    }, [isExpanded])
+
     useEffect(() => {
       if (isDraggingRef.current) return
       if (contentBounds.height > 0) {
-        const cfg = collapsingRef.current ? collapseCfg : springCfg
+        const collapsing = collapsingRef.current
         collapsingRef.current = false
+        const expanding = expandingRef.current
+        expandingRef.current = false
+
         if (reduceMotion || !hasMeasuredRef.current) {
+          // Initial measurement or reduced-motion: always snap
           cardHeightMV.set(contentBounds.height)
           hasMeasuredRef.current = true
+        } else if (collapsing) {
+          // User-triggered collapse: easing curve
+          animate(cardHeightMV, contentBounds.height, collapseCfg)
+        } else if (expanding || !isExpandedRef.current) {
+          // Expand transition or snap-line drag (not yet fully expanded): spring
+          animate(cardHeightMV, contentBounds.height, springCfg)
         } else {
-          animate(cardHeightMV, contentBounds.height, cfg)
+          // Already fully expanded + content changed (comment added/edited/deleted).
+          // Snap UP immediately so new content is never clipped by the card boundary.
+          // Spring DOWN smoothly so a minor shrink (e.g. comment field clearing from
+          // 2→1 line) doesn't read as a jarring collapse.
+          if (contentBounds.height >= cardHeightMV.get()) {
+            cardHeightMV.set(contentBounds.height)
+          } else {
+            animate(cardHeightMV, contentBounds.height, { type: 'spring', stiffness: 600, damping: 40, mass: 0.5 })
+          }
         }
       }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -824,11 +876,18 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }, [isExpanded])
 
     // Load comments from backend once when the pin is first expanded.
+    // IMPORTANT: merge with any in-flight optimistic (temp-*) comments the
+    // user may have submitted before getPin returned, rather than overwriting
+    // them — prevents the race-condition collapse where a quick submit causes
+    // the placeholder to disappear when the load call resolves.
     useEffect(() => {
       if (!isExpanded || !pinId || commentsLoaded) return
       getPin(pinId)
         .then((pin) => {
-          setComments(pin.comments ?? [])
+          setComments((prev) => {
+            const optimistic = prev.filter((c) => c.id.startsWith('temp-'))
+            return [...(pin.comments ?? []), ...optimistic]
+          })
           setCommentsLoaded(true)
         })
         .catch(() => setCommentsLoaded(true))
@@ -836,11 +895,25 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     const handleCommentSubmit = useCallback(async (text: string) => {
       if (!pinId) return
+      // Optimistic update: add a placeholder in the same React batch that
+      // the PinCommentField clears itself. This means the field-shrink and
+      // comment-appear happen in ONE layout pass, so cardHeightMV only ever
+      // needs to grow — no squash-then-expand visual artifact.
+      const tempId = `temp-${Date.now()}`
+      const placeholder: PinComment = {
+        id:         tempId,
+        content:    text,
+        created_at: new Date().toISOString(),
+      }
+      setComments((prev) => [...prev, placeholder])
       try {
         const created = await addPinComment(pinId, text)
-        setComments((prev) => [...prev, created])
+        // Swap placeholder with the real server record (stable key change is fine
+        // here — text is identical so the remount is imperceptible).
+        setComments((prev) => prev.map((c) => c.id === tempId ? created : c))
       } catch (err) {
         console.error('[Pin] Failed to add comment', err)
+        setComments((prev) => prev.filter((c) => c.id !== tempId))
       }
     }, [pinId])
 
@@ -1317,7 +1390,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
-                <ExpandedMeta chatName={chatName} />
+                <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
                 <PinCommentField
                   ref={commentFieldRef}
                   fluid
@@ -1450,10 +1523,12 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName }: { chatName: string }) {
+function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
+  const timeLabel = createdAt ? formatRelativeTime(createdAt) : null
+  const llmId     = modelName ? getModelLlmId(undefined, modelName) : null
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
-      <Badge label="1h" color="Green" />
+      {timeLabel && <Badge label={timeLabel} color="Green" />}
       <p
         style={{
           flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-semibold)',
@@ -1463,9 +1538,11 @@ function ExpandedMeta({ chatName }: { chatName: string }) {
       >
         {chatName}
       </p>
-      <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <LlmIcon id="Claude" variant="avatar" size={24} />
-      </div>
+      {llmId && (
+        <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+          <LlmIcon id={llmId} variant="avatar" size={24} />
+        </div>
+      )}
     </div>
   )
 }
@@ -1588,8 +1665,14 @@ function PinCommentItem({
     const trimmed = editText.trim()
     if (!trimmed || trimmed === comment.content) { onEditCancel(); return }
     setSaving(true)
-    try { await onEditSave(comment.id, trimmed) }
-    finally { setSaving(false) }
+    try {
+      await onEditSave(comment.id, trimmed)
+      onEditCancel()
+    } catch {
+      // keep edit mode open on error so user can retry
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -93,6 +93,23 @@ function ErrorIcon() {
   );
 }
 
+// ── Favicon helper ───────────────────────────────────────────────────────────
+
+function FaviconImg({ domain, size = 14 }: { domain?: string; size?: number }) {
+  if (!domain || domain === "pin") return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+      width={size}
+      height={size}
+      alt=""
+      style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+}
+
 // ── ActivityRow component ─────────────────────────────────────────────────────
 
 export function ActivityRow({ activity }: { activity: ActivityItem }) {
@@ -231,24 +248,39 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingLeft: 48, paddingTop: 4, paddingBottom: 4 }}>
               {activity.results!.map((r, ri) => (
-                <motion.div
+                <motion.a
                   key={ri}
+                  href={r.url || undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: ri * 0.05, duration: 0.18 }}
-                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 400, minHeight: 20 }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    fontSize: 13, fontWeight: 400, minHeight: 20,
+                    textDecoration: "none",
+                    borderRadius: 6,
+                    padding: "2px 4px",
+                    margin: "0 -4px",
+                    color: "inherit",
+                    transition: "background 120ms",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(59,54,50,0.05)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
-                  <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>·</span>
-                  <span style={{ color: "var(--neutral-800, #3B3632)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <FaviconImg domain={r.domain} size={13} />
+                  {!r.domain && <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>·</span>}
+                  <span style={{ color: "var(--neutral-700, #524B47)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.title}
                   </span>
                   {r.domain && r.domain !== "pin" && (
-                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}>{r.domain}</span>
+                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0, fontSize: 11 }}>{r.domain}</span>
                   )}
                   {r.domain === "pin" && (
-                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic" }}>pin</span>
+                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic", fontSize: 11 }}>pin</span>
                   )}
-                </motion.div>
+                </motion.a>
               ))}
             </div>
           </motion.div>

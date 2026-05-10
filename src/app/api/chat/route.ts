@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
   const webSearch          = formData.get("webSearch") === "true"
   const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
 
-  if (!input.trim()) {
-    return new Response("Bad Request: input is required", { status: 400 })
+  if (!input.trim() && clientFiles.length === 0) {
+    return new Response("Bad Request: input or files required", { status: 400 })
   }
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────

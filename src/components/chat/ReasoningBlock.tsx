@@ -2,6 +2,24 @@
 
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AiVisionRecognitionIcon,
+  AiBrain01Icon,
+  HierarchySquare01Icon,
+  Idea01Icon,
+  Task01Icon,
+  Route01Icon,
+  GitMergeIcon,
+  Search01Icon,
+  AiNetworkIcon,
+  Compass01Icon,
+  Layers01Icon,
+  Globe02Icon,
+  Brain01Icon,
+  Brain02Icon,
+  Brain03Icon,
+} from "@hugeicons/core-free-icons";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { MarkdownRenderer } from "@/lib/markdown-utils";
 import { ActivitiesSection } from "./ActivityRow";
@@ -164,23 +182,244 @@ function ModelNameLabel({
   return <span>{modelMeta?.modelName || modelName || "souvenir"}</span>;
 }
 
+// ── Structured reasoning sections (from backend reasoning_sections[]) ────────
+
+type ReasoningSection = { heading: string; body: string };
+
+/** Strip trailing **..** patterns and ellipsis the model sometimes appends. */
+function cleanHeading(heading: string): string {
+  return heading
+    .replace(/\*\*[^*]*\*\*$/, "")
+    .replace(/…$/, "")
+    .replace(/^#+\s*/, "") // strip any leading markdown heading hashes
+    .trim();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const REASONING_ICON_MAP: Array<{ pattern: RegExp; icon: any }> = [
+  { pattern: /consider|observ|perceiv|notic|review|assess/i,          icon: AiVisionRecognitionIcon },
+  { pattern: /evaluat|analys|analyz|weigh|compar|examin/i,            icon: Brain02Icon             },
+  { pattern: /map|chart|structur|hierarch|organiz|categor/i,          icon: HierarchySquare01Icon   },
+  { pattern: /identif|find|discov|recogniz|detect|pinpoint/i,         icon: Idea01Icon              },
+  { pattern: /plan|schedul|sequenc|step|outlin|task|priorit/i,        icon: Task01Icon              },
+  { pattern: /strateg|approach|route|direct|path|tactic/i,            icon: Route01Icon             },
+  { pattern: /synthes|combin|integrat|merge|unif|consolidat/i,        icon: GitMergeIcon            },
+  { pattern: /search|research|web|look|investigat|fetch|query/i,      icon: Search01Icon            },
+  { pattern: /explor|navigat|browse|survey|scan/i,                    icon: Compass01Icon           },
+  { pattern: /layer|section|part|segment|component|module/i,          icon: Layers01Icon            },
+  { pattern: /context|scope|background|domain|global|world/i,         icon: Globe02Icon             },
+  { pattern: /reason|think|process|cogit|reflect|infer/i,             icon: AiBrain01Icon           },
+  { pattern: /brain|neural|cognitive|learn|adapt|model/i,             icon: Brain01Icon             },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getReasoningIcon(heading: string): any {
+  for (const { pattern, icon } of REASONING_ICON_MAP) {
+    if (pattern.test(heading)) return icon;
+  }
+  return AiNetworkIcon; // fallback
+}
+
+/** Render inline markdown bold + text for step summaries */
+function renderStepBody(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={i} style={{ fontWeight: 600, color: "var(--neutral-800, #3B3632)" }}>{part.slice(2, -2)}</strong>;
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function ReasoningStep({
+  section, index, total, isActive,
+}: {
+  section: ReasoningSection;
+  index: number;
+  total: number;
+  isActive: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const heading = cleanHeading(section.heading);
+  const hasBody = section.body.trim().length > 0;
+  const isLast = index === total - 1;
+  const icon = getReasoningIcon(heading);
+
+  const headingStyle: React.CSSProperties = isActive
+    ? {
+        fontWeight: 600,
+        fontSize: 14,
+        backgroundImage: "linear-gradient(90deg, #B6ACA4 0%, #3B3632 45%, #3B3632 55%, #B6ACA4 100%)",
+        backgroundSize: "200% 100%",
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        color: "transparent",
+        animation: "svLabelShimmer 2.4s ease-in-out infinite",
+      }
+    : {
+        fontWeight: 600,
+        fontSize: 14,
+        color: "var(--neutral-800, #26211E)",
+      };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "stretch",
+        paddingBottom: isLast ? 0 : 12,
+      }}
+    >
+      {/* Left column — icon + animated vertical connector */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22, flexShrink: 0 }}>
+        <span
+          style={{
+            width: 22, height: 26,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            lineHeight: 0, flexShrink: 0,
+          }}
+        >
+          <HugeiconsIcon
+            icon={icon}
+            size={15}
+            color={isActive ? "#A89488" : "#C0B5AD"}
+            strokeWidth={1.6}
+          />
+        </span>
+        <AnimatePresence>
+          {!isLast && (
+            <motion.div
+              key="line"
+              initial={{ scaleY: 0, opacity: 0 }}
+              animate={{ scaleY: 1, opacity: 1 }}
+              transition={{ duration: 0.28, ease: "easeOut", delay: 0.1 }}
+              style={{
+                width: 1,
+                flex: 1,
+                background: "var(--neutral-200, #EDE1D7)",
+                transformOrigin: "top",
+                minHeight: 12,
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Right column — heading button + expandable body */}
+      <div style={{ flex: 1, paddingLeft: 9, display: "flex", flexDirection: "column" }}>
+        <button
+          type="button"
+          onClick={() => hasBody && setOpen((o) => !o)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            width: "100%", background: "transparent", border: "none",
+            cursor: hasBody ? "pointer" : "default",
+            padding: "4px 0", textAlign: "left",
+            fontFamily: "var(--font-body)",
+          }}
+        >
+          <span style={{ flex: 1, lineHeight: "22px", ...headingStyle }}>
+            {heading}{isActive ? "…" : ""}
+          </span>
+          {hasBody && !isActive && (
+            <motion.span
+              animate={{ rotate: open ? 90 : 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
+            >
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
+                <path d="M3.5 2 L7 5 L3.5 8" stroke="#C0B5AD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </motion.span>
+          )}
+        </button>
+
+        <AnimatePresence initial={false}>
+          {open && hasBody && !isActive && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--neutral-600, #524B47)",
+                  lineHeight: "21px",
+                  borderLeft: "2px solid var(--neutral-200, #EDE1D7)",
+                  paddingLeft: 10,
+                  margin: "6px 0 4px 0",
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                {renderStepBody(section.body)}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function ReasoningSections({
+  sections,
+  isStreaming,
+}: {
+  sections: ReasoningSection[];
+  isStreaming: boolean;
+}) {
+  const valid = sections.filter((s) => cleanHeading(s.heading).length > 2);
+  if (valid.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {valid.map((s, i) => (
+        <motion.div
+          key={i}
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          transition={{
+            height: { type: "spring", stiffness: 300, damping: 28 },
+            opacity: { duration: 0.24, delay: 0.06, ease: "easeOut" },
+          }}
+          style={{ overflow: "hidden" }}
+        >
+          <ReasoningStep
+            section={s}
+            index={i}
+            total={valid.length}
+            isActive={isStreaming && i === valid.length - 1}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 // ── Left bar + thinking content ────────────────────────────────────────────────
 
 function ThinkingContent({
   thinkingContent,
+  reasoningSections,
   hasActivities,
   activities,
   isStreaming,
 }: {
   thinkingContent: string;
+  reasoningSections?: ReasoningSection[];
   hasActivities: boolean;
   activities?: ActivityItem[];
   isStreaming: boolean;
 }) {
+  // Show structured sections whenever they exist — even during streaming.
+  // When streaming, the last section gets the shimmer "active" treatment.
+  // Fall back to raw thinkingContent only when no sections are available.
+  const hasStructured = reasoningSections && reasoningSections.length > 0;
+
   return (
-    // paddingLeft creates the gutter for the absolutely-positioned bar.
-    // The bar's bottom: 0 aligns with this div's bottom, which is flush
-    // with visible text thanks to .kaya-thinking-md stripping p margins.
     <div style={{ position: "relative", paddingLeft: 12 }}>
       <div
         className={isStreaming ? "kaya-reasoning-active" : undefined}
@@ -198,7 +437,11 @@ function ThinkingContent({
 
       {hasActivities && <ActivitiesSection activities={activities!} />}
 
-      {thinkingContent && (
+      {hasStructured ? (
+        <div style={{ marginTop: hasActivities ? 8 : 0 }}>
+          <ReasoningSections sections={reasoningSections!} isStreaming={isStreaming} />
+        </div>
+      ) : thinkingContent ? (
         <div
           className="kaya-thinking-md"
           style={{
@@ -212,7 +455,7 @@ function ThinkingContent({
           <MarkdownRenderer content={thinkingContent} />
           <StreamingCursor isVisible={isStreaming} />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -226,6 +469,8 @@ interface ReasoningBlockProps {
   modelName?: string;
   modelMeta?: ModelSelectedMeta;
   activities?: ActivityItem[];
+  /** Structured reasoning steps from the backend — rendered as collapsible steps when done. */
+  reasoningSections?: Array<{ heading: string; body: string }>;
 }
 
 export function ReasoningBlock({
@@ -234,6 +479,7 @@ export function ReasoningBlock({
   modelName,
   modelMeta,
   activities,
+  reasoningSections,
 }: ReasoningBlockProps) {
   const [outerOpen, setOuterOpen] = useState(true);
   const [innerOpen, setInnerOpen] = useState(true);
@@ -401,6 +647,7 @@ export function ReasoningBlock({
           >
             <ThinkingContent
               thinkingContent={thinkingContent}
+              reasoningSections={reasoningSections}
               hasActivities={hasActivities}
               activities={activities}
               isStreaming={!!isThinkingInProgress}

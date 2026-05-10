@@ -37,6 +37,7 @@ export interface Pin {
   created_at: string;
   updated_at?: string;
   color?: string;
+  model_name?: string;
   comments?: PinComment[];
 }
 
@@ -120,6 +121,9 @@ function normalizePin(raw: RawPin): Pin {
     created_at:  typeof raw.created_at  === "string" ? raw.created_at  : new Date().toISOString(),
     updated_at:  typeof raw.updated_at  === "string" ? raw.updated_at  : undefined,
     color:       typeof raw.color       === "string" ? raw.color       : undefined,
+    model_name:  typeof raw.model_name  === "string" ? raw.model_name  :
+                 typeof raw.modelName   === "string" ? raw.modelName   :
+                 typeof raw.model       === "string" ? raw.model       : undefined,
     comments,
   };
 }

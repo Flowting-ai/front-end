@@ -42,8 +42,7 @@ export const ModelSelectorContext = React.createContext<{ category: string } | n
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-// null = neither card active (manual model selected from list — both cards white)
-type FeaturedMode = 'muse' | 'advanced' | null
+type FeaturedMode = 'muse' | 'advanced'
 
 export interface ModelSelectorProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
@@ -68,15 +67,10 @@ const captionStyle: React.CSSProperties = {
 // ── Featured-mode row (Muse / Advanced) ───────────────────────────────────────
 // Two ModelFeaturedCards side-by-side, behaving as a radio pair. Per Figma
 // 3457:19624: gap 8px, each card flex: 1 0 0, Muse starts in the Selected
-// variant. Selecting one deselects the other. Selecting a model from the list
-// resets both cards to their default (white) state.
+// variant. Selecting one deselects the other.
 
-interface FeaturedModeRowProps {
-  mode: FeaturedMode
-  onModeChange: (next: FeaturedMode) => void
-}
-
-function FeaturedModeRow({ mode, onModeChange }: FeaturedModeRowProps) {
+function FeaturedModeRow() {
+  const [mode, setMode] = useState<FeaturedMode>('muse')
   const description =
     'Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting.'
 
@@ -94,7 +88,7 @@ function FeaturedModeRow({ mode, onModeChange }: FeaturedModeRowProps) {
           description={description}
           learnMoreHref="#"
           selected={mode === 'muse'}
-          onSelectedChange={(next) => { if (next) onModeChange('muse') }}
+          onSelectedChange={(next) => { if (next) setMode('muse') }}
         />
       </div>
       <div style={{ flex: '1 0 0', minWidth: 0 }}>
@@ -103,7 +97,7 @@ function FeaturedModeRow({ mode, onModeChange }: FeaturedModeRowProps) {
           description={description}
           learnMoreHref="#"
           selected={mode === 'advanced'}
-          onSelectedChange={(next) => { if (next) onModeChange('advanced') }}
+          onSelectedChange={(next) => { if (next) setMode('advanced') }}
         />
       </div>
     </div>
@@ -127,8 +121,6 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
     const [category,  setCategory]  = useState('all')
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
-    // Muse starts active; resets to null when a model is selected from the list
-    const [featuredMode, setFeaturedMode] = useState<FeaturedMode>('muse')
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
@@ -190,7 +182,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
           {/* Two ModelFeaturedCards side-by-side (gap 8px), each flex: 1 0 0.
              Muse defaults to the Selected variant; Advanced to Default. They
              behave as a radio pair — selecting one deselects the other. */}
-          <FeaturedModeRow mode={featuredMode} onModeChange={setFeaturedMode} />
+          <FeaturedModeRow />
 
           {/* ── Models: category tabs + list ── */}
           <div style={{
@@ -236,11 +228,9 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
                 {/* Scroll area + gradient overlays */}
                 <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0 }}>
 
-                  {/* Clicking any model item resets both featured cards to white */}
                   <div
                     className="kaya-scrollbar"
                     onScroll={handleScroll}
-                    onClick={() => setFeaturedMode(null)}
                     style={{
                       position:            'absolute',
                       inset:               0,

@@ -72,6 +72,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           messageId: p.message_id ?? p.id,
           chatId: p.chat_id,
           createdAt: p.created_at,
+          modelName: p.model_name,
           folderId:   p.folder_id,
           folderName: p.folder_name,
         }));

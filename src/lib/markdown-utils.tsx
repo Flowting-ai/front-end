@@ -5,12 +5,72 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { CodeBlock } from "@/components/chat/CodeBlock";
+import { CitationChip } from "@/components/chat/ResponseBlocks";
 import type { Components } from "react-markdown";
+import type { WebCitation } from "@/hooks/use-chat-state";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex];
 
-const components: Components = {
+// ── Base link component (no citation awareness) ───────────────────────────────
+
+function BaseLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        color: "var(--brown-500)",
+        textDecoration: "underline",
+        textUnderlineOffset: "2px",
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+// ── Citation-aware link factory ────────────────────────────────────────────────
+// When webCitations are provided, the `a` renderer intercepts:
+//   1. citation://N  — explicit {N} / [N] markers converted by preprocessCitations()
+//   2. Bare URLs     — auto-linked by remarkGfm that match a known webCitation URL
+
+function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
+  if (!webCitations?.length) return BaseLink;
+
+  // O(1) URL → citation-index lookup
+  const urlMap = new Map<string, number>();
+  webCitations.forEach((c, i) => { if (c.url) urlMap.set(c.url, i); });
+
+  return function CitationAwareLink({ href, children }) {
+    // Explicit citation reference: citation://N (from preprocessCitations)
+    const citRef = href?.match(/^citation:\/\/(\d+)$/);
+    if (citRef) {
+      const n = parseInt(citRef[1], 10);
+      return <CitationChip n={n} citation={webCitations[n - 1]} />;
+    }
+    // URL matches a known webCitation → replace with numbered chip
+    if (href && urlMap.has(href)) {
+      const idx = urlMap.get(href)!;
+      return <CitationChip n={idx + 1} citation={webCitations[idx]} />;
+    }
+    return <BaseLink href={href}>{children}</BaseLink>;
+  };
+}
+
+// ── Convert explicit {N} and [N] citation markers to sentinel links ────────────
+// These survive remark/rehype processing because they become standard links.
+
+function preprocessCitations(content: string): string {
+  return content
+    // {N} → [^N](citation://N)
+    .replace(/\{(\d+)\}/g, (_, n) => `[[${n}]](citation://${n})`)
+    // [N] not already followed by ( — standalone bracketed number
+    .replace(/(?<!\])\[(\d+)\](?!\()/g, (_, n) => `[[${n}]](citation://${n})`);
+}
+
+const BASE_COMPONENTS: Components = {
   code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || "");
     const language = match ? match[1] : undefined;
@@ -49,22 +109,8 @@ const components: Components = {
     // Let CodeBlock handle the wrapping
     return <>{children}</>;
   },
-  a({ href, children, ...props }) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          color: "var(--brown-500)",
-          textDecoration: "underline",
-          textUnderlineOffset: "2px",
-        }}
-        {...props}
-      >
-        {children}
-      </a>
-    );
+  a({ href, children }) {
+    return <BaseLink href={href}>{children}</BaseLink>;
   },
   table({ children, ...props }) {
     return (
@@ -246,9 +292,20 @@ function normalizeInlineBoldTitles(content: string): string {
 
 interface MarkdownRendererProps {
   content: string;
+  /** When provided, bare URLs and {N}/[N] markers are rendered as hoverable CitationChip superscripts. */
+  webCitations?: WebCitation[];
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, webCitations }: MarkdownRendererProps) {
+  const hasCitations = !!webCitations?.length;
+  const resolvedComponents: Components = hasCitations
+    ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
+    : BASE_COMPONENTS;
+
+  const processed = hasCitations
+    ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
+    : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)));
+
   return (
     <div
       style={{
@@ -262,9 +319,9 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
-        components={components}
+        components={resolvedComponents}
       >
-        {closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)))}
+        {processed}
       </ReactMarkdown>
     </div>
   );

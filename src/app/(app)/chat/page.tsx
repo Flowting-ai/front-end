@@ -178,7 +178,12 @@ function ChatPageInner() {
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setNewChatAttachments((prev) => processFiles(e.target.files!, prev));
+      if (isNewChat) {
+        setNewChatAttachments((prev) => processFiles(e.target.files!, prev));
+      } else {
+        // Existing chat: hand files to ChatInterface via addMenuFiles
+        setAddMenuFiles(Array.from(e.target.files!));
+      }
       e.target.value = "";
     }
   };

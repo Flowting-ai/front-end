@@ -2,13 +2,13 @@
 
 import { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MarkdownRenderer } from "@/lib/markdown-utils";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
-import { BlockSequenceRenderer, SourceList, renderTextBlock } from "./ResponseBlocks";
+import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
+import { ContentRenderer } from "@/lib/content-renderer";
 import { usePinboard } from "@/context/pinboard-context";
-import type { UIMessage, ActivityItem } from "@/hooks/use-chat-state";
+import type { UIMessage, ActivityItem, WebCitation } from "@/hooks/use-chat-state";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -127,8 +127,10 @@ function StandaloneActivitiesBlock({
 
 // ── StreamingTextContent — renders live content as inline text with BreathingDot ──
 // Used only while isLoading=true so paragraphs don't "snap in" as markdown blocks.
+// Structured blocks (<table>, <chart>) are rendered as real components even
+// during streaming; only the markdown prose uses the inline inline renderTextBlock path.
 
-function StreamingTextContent({ content }: { content: string }) {
+function StreamingTextContent({ content, citations }: { content: string; citations?: WebCitation[] }) {
   const dot = (
     <motion.span
       animate={{ opacity: [0.15, 1, 0.15] }}
@@ -136,7 +138,7 @@ function StreamingTextContent({ content }: { content: string }) {
       style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
     />
   );
-  return <>{renderTextBlock(content, undefined, dot)}</>;
+  return <ContentRenderer content={content} webCitations={citations} isStreaming cursor={dot} />;
 }
 
 // ── Main ChatMessage Component ────────────────────────────────────────────────
@@ -222,6 +224,74 @@ export function ChatMessage({
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "85%" }}>
+          {/* File attachment chips — appear above the message bubble */}
+          {message.attachments && message.attachments.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
+              {message.attachments.map((att) => {
+                const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "FILE";
+                const isImage = att.file_type.startsWith("image/");
+                return (
+                  <div
+                    key={att.id}
+                    style={{
+                      display:         "inline-flex",
+                      alignItems:      "center",
+                      gap:             "5px",
+                      padding:         "4px 8px",
+                      borderRadius:    "8px",
+                      backgroundColor: "rgba(59,54,50,0.07)",
+                      border:          "1px solid rgba(59,54,50,0.10)",
+                      maxWidth:        "220px",
+                    }}
+                  >
+                    <svg
+                      width="12" height="12" viewBox="0 0 24 24"
+                      fill="none" stroke="var(--neutral-500)" strokeWidth="1.8"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ flexShrink: 0 }}
+                    >
+                      {isImage ? (
+                        <>
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </>
+                      ) : (
+                        <>
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                        </>
+                      )}
+                    </svg>
+                    <span
+                      style={{
+                        fontFamily:   "var(--font-body)",
+                        fontSize:     "11px",
+                        fontWeight:   500,
+                        color:        "var(--neutral-700)",
+                        overflow:     "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace:   "nowrap",
+                      }}
+                    >
+                      {att.file_name}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize:   "10px",
+                        color:      "var(--neutral-400)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {ext}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <MessageBubble
             role="user"
             content={message.content}
@@ -229,31 +299,6 @@ export function ChatMessage({
             onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
             maxWidth="100%"
           />
-
-          {/* Attachments */}
-          {message.attachments && message.attachments.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
-              {message.attachments.map((att) => (
-                <span
-                  key={att.id}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    backgroundColor: "var(--neutral-50)",
-                    border: "1px solid var(--neutral-200)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "11px",
-                    color: "var(--neutral-600)",
-                  }}
-                >
-                  📎 {att.file_name}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       ) : (
         /* ── Assistant message: left-aligned, no bubble ── */
@@ -277,7 +322,7 @@ export function ChatMessage({
                 color: "var(--neutral-600, #524B47)",
               }}
             >
-              {(message.modelName || "souvenir").toLowerCase()}
+              {(message.modelName || message.model_name || message.model || "souvenir").toLowerCase()}
             </span>
           </div>
         )}
@@ -285,7 +330,7 @@ export function ChatMessage({
         {/* Assistant model label when activities exist but no thinking */}
         {!hasThinking && message.activities && message.activities.length > 0 && (
           <StandaloneActivitiesBlock
-            modelName={message.modelName || message.model}
+            modelName={message.modelName || message.model_name || message.model}
             activities={message.activities}
           />
         )}
@@ -314,9 +359,10 @@ export function ChatMessage({
             thinkingContent={message.thinking!}
             isNewMessage={isNewMessage}
             isThinkingInProgress={message.isThinkingInProgress}
-            modelName={message.modelName || message.model}
+            modelName={message.modelName || message.model_name || message.model}
             modelMeta={message.modelMeta}
             activities={message.activities}
+            reasoningSections={message.reasoning_sections}
           />
         )}
 
@@ -348,8 +394,8 @@ export function ChatMessage({
                 as block-level markdown (which "snaps" whole paragraphs in).
                 For completed messages: MarkdownRenderer handles GFM tables etc. */}
             {isNewMessage && message.isLoading
-              ? <StreamingTextContent content={message.content} />
-              : <MarkdownRenderer content={message.content} />}
+              ? <StreamingTextContent content={message.content} citations={message.webCitations} />
+              : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
             {!(isNewMessage && message.isLoading) && (
               <StreamingCursor isVisible={false} />
             )}
@@ -407,50 +453,199 @@ export function ChatMessage({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "6px",
-              marginTop: "10px",
+              gap: "8px",
+              marginTop: "12px",
             }}
           >
-            {message.generatedFiles.map((file, i) => (
-              <motion.a
-                key={i}
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: i * 0.06 }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  backgroundColor: "var(--neutral-50)",
-                  border: "1px solid var(--neutral-200)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "13px",
-                  color: "var(--neutral-700)",
-                  textDecoration: "none",
-                  cursor: "pointer",
-                  transition: "background-color 150ms",
-                  width: "fit-content",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <path d="M12 18v-6" />
-                  <path d="M9 15l3 3 3-3" />
-                </svg>
-                <span style={{ fontWeight: 500 }}>{file.filename}</span>
-                {file.mimeType && (
-                  <span style={{ fontSize: "11px", color: "var(--neutral-400)" }}>
-                    {file.mimeType.split("/").pop()?.toUpperCase()}
+            {message.generatedFiles.map((file, i) => {
+              // ── Derive file type label + badge colour ──────────────────────
+              const ext = (() => {
+                if (file.mimeType) {
+                  const sub = file.mimeType.split("/").pop() ?? ""
+                  if (sub.includes("pdf")) return "PDF"
+                  if (sub.includes("wordprocessingml") || sub.includes("msword")) return "DOCX"
+                  if (sub.includes("spreadsheetml") || sub.includes("excel")) return "XLSX"
+                  if (sub.includes("presentationml") || sub.includes("powerpoint")) return "PPTX"
+                  if (sub.includes("csv")) return "CSV"
+                  if (sub.includes("markdown") || sub.includes("md")) return "MD"
+                  return sub.toUpperCase().slice(0, 5) || "FILE"
+                }
+                const fromName = (file.filename.split(".").pop() ?? "").toUpperCase()
+                return fromName.slice(0, 5) || "FILE"
+              })()
+
+              const badgeColor = (() => {
+                switch (ext) {
+                  case "PDF":  return "#E53E3E"
+                  case "DOCX": case "DOC": return "#3182CE"
+                  case "XLSX": case "XLS": return "#38A169"
+                  case "CSV":  return "#2F855A"
+                  case "PPTX": case "PPT": return "#DD6B20"
+                  case "MD":   return "#805AD5"
+                  default:     return "#6A625D"
+                }
+              })()
+
+              // Download URL goes through our proxy so the browser always saves
+              // the file (avoids CORS + Content-Disposition issues from S3)
+              const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
+
+              return (
+                <motion.div
+                  key={`${file.url}-${i}`}
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 360,
+                    damping: 26,
+                    delay: i * 0.07,
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "8px 10px 8px 8px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(59,54,50,0.05)",
+                    border: "1px solid rgba(59,54,50,0.10)",
+                    width: "fit-content",
+                    maxWidth: "420px",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {/* Coloured type badge */}
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 7,
+                      backgroundColor: badgeColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: "white",
+                        letterSpacing: "0.4px",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {ext}
+                    </span>
+                  </div>
+
+                  {/* Filename */}
+                  <span
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "#524B47",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {file.filename}
                   </span>
-                )}
-              </motion.a>
-            ))}
+
+                  {/* Action buttons */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* View — opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="View"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        transition: "background-color 120ms",
+                        textDecoration: "none",
+                        color: "inherit",
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
+                      }}
+                    >
+                      {/* External link icon */}
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path
+                          d="M10 2h4v4M14 2 8 8M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"
+                          stroke="#9A9089"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </a>
+
+                    {/* Download — proxied through /api/download so browser always saves */}
+                    <a
+                      href={downloadHref}
+                      download={file.filename}
+                      title="Download"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        transition: "background-color 120ms",
+                        textDecoration: "none",
+                        color: "inherit",
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(59,54,50,0.10)"
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
+                      }}
+                    >
+                      {/* Download arrow icon */}
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path
+                          d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M2 13h12"
+                          stroke="#9A9089"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </a>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         )}
 

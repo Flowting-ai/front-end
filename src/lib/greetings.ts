@@ -94,7 +94,7 @@ export const dayGreetings: DayGreetingSlot[] = [
   {
     label: "Weekend",
     days: [0, 6],
-    messages: ["No meetings, no deadlines — just us and your ideas."],
+    messages: ["No meetings, no deadlines - just us and your ideas."],
   },
 ];
 

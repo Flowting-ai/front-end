@@ -290,6 +290,63 @@ export function useStreamingChat({
             parsed = { ...parsed, delta: parsed.content }
           }
 
+          // ── Universal file_attachments extractor ──────────────────────────
+          // Run before any specific handler so file links are captured
+          // regardless of which SSE event the backend places them in.
+          {
+            const universalMsgId = loadingMessageIdRef.current
+            const universalAtts = Array.isArray(parsed.file_attachments)
+              ? (parsed.file_attachments as Array<Record<string, unknown>>)
+              : Array.isArray(
+                  (parsed.message as Record<string, unknown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (
+                  (parsed.message as Record<string, unknown>)
+                    .file_attachments as Array<Record<string, unknown>>
+                )
+              : null
+
+            if (universalMsgId && universalAtts) {
+              const toAdd = universalAtts
+                .filter((a) => a.origin === "generated")
+                .flatMap((a) => {
+                  const url = (
+                    typeof a.file_link === "string" ? a.file_link
+                    : typeof a.url === "string" ? a.url
+                    : typeof a.link === "string" ? a.link
+                    : ""
+                  ).trim()
+                  if (!url) return []
+                  const rawName =
+                    typeof a.file_name === "string" ? a.file_name
+                    : typeof a.name === "string" ? a.name
+                    : undefined
+                  const filename =
+                    rawName?.trim() || url.split("/").pop() || "file"
+                  const mimeType =
+                    typeof a.mime_type === "string" ? a.mime_type : undefined
+                  return [{ url, filename, mimeType }]
+                })
+              if (toAdd.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== universalMsgId) return msg
+                    const existing = msg.generatedFiles ?? []
+                    const existingUrls = new Set(existing.map((f) => f.url))
+                    const newFiles: import("@/hooks/use-chat-state").GeneratedFile[] = []
+                    for (const f of toAdd) {
+                      if (!existingUrls.has(f.url)) newFiles.push(f)
+                    }
+                    return newFiles.length > 0
+                      ? { ...msg, generatedFiles: [...existing, ...newFiles] }
+                      : msg
+                  }),
+                )
+              }
+            }
+          }
+
           // ── Event handlers ──────────────────────────────────────────────────
 
           if (eventName === "metadata" || eventName === "title") {
@@ -347,42 +404,97 @@ export function useStreamingChat({
 
           if (eventName === "message_saved") {
             // Backend confirmed the message was persisted.
-            // The backend MAY return the saved message object with sources/citations —
-            // if it does, hydrate them onto the loading message so refresh will work.
+            // The payload IS the saved message object (top-level fields) or may
+            // wrap it under parsed.message / parsed.data.
             const evtChatId = extractChatId(parsed)
             if (evtChatId) adoptChatId(evtChatId)
 
-            // Try to pull sources from the saved message payload
-            const savedMsg = (parsed.message ?? parsed.data) as Record<string, unknown> | undefined
-            const rawSources = Array.isArray(parsed.sources)
-              ? parsed.sources
-              : Array.isArray(savedMsg?.sources)
-                ? savedMsg.sources
-                : null
+            // The backend sends the full persisted message at top-level in this event.
+            // Also support legacy nesting under parsed.message / parsed.data.
+            const savedMsg = (
+              typeof (parsed.message ?? parsed.data) === "object" && (parsed.message ?? parsed.data) !== null
+                ? (parsed.message ?? parsed.data)
+                : parsed
+            ) as Record<string, unknown>
 
-            if (rawSources && rawSources.length > 0) {
-              const msgId = loadingMessageIdRef.current
-              if (msgId) {
-                const hydratedCitations = (rawSources as Array<Record<string, unknown>>)
-                  .filter((s) => s.url || s.title)
-                  .map((s) => ({
-                    title: asString(s.title) ?? asString(s.url) ?? "",
-                    url: asString(s.url),
-                    domain: asString(s.domain) ?? (() => {
-                      try { return new URL(asString(s.url) ?? "").hostname.replace(/^www\./, "") } catch { return undefined }
-                    })(),
-                  }))
-                if (hydratedCitations.length > 0) {
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === msgId
-                        ? { ...msg, webCitations: hydratedCitations }
-                        : msg,
-                    ),
-                  )
-                }
+            const msgId = loadingMessageIdRef.current
+
+            // ── Replace temp ID with the real backend message ID ─────────────
+            // The backend sends message_id in this event. Without this, the
+            // temp "loading-assistant-…" ID is never replaced and features
+            // like pinning will fail because the backend doesn't know that ID.
+            const realMessageId =
+              asString(savedMsg.message_id ?? savedMsg.id ?? parsed.message_id ?? parsed.messageId)
+            if (realMessageId && msgId && realMessageId !== msgId) {
+              loadingMessageIdRef.current = realMessageId
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === msgId ? { ...msg, id: realMessageId } : msg,
+                ),
+              )
+            }
+
+            // ── sources / citations ──────────────────────────────────────────
+            // Use the (possibly updated) real message ID from the ref.
+            const currentMsgId = loadingMessageIdRef.current
+            const rawSources = Array.isArray(savedMsg.sources) ? savedMsg.sources : null
+            if (rawSources && rawSources.length > 0 && currentMsgId) {
+              const hydratedCitations = (rawSources as Array<Record<string, unknown>>)
+                .filter((s) => s.url || s.title)
+                .map((s) => ({
+                  title: asString(s.title) ?? asString(s.url) ?? "",
+                  url: asString(s.url),
+                  domain: asString(s.domain) ?? (() => {
+                    try { return new URL(asString(s.url) ?? "").hostname.replace(/^www\./, "") } catch { return undefined }
+                  })(),
+                }))
+              if (hydratedCitations.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === currentMsgId ? { ...msg, webCitations: hydratedCitations } : msg,
+                  ),
+                )
               }
             }
+
+            // ── file_attachments → generatedFiles ─────────────────────────────
+            // The backend returns uploaded + generated files in `file_attachments`.
+            // origin === "generated" → render as downloadable files in the assistant bubble.
+            if (currentMsgId) {
+              const rawAtts = Array.isArray(savedMsg.file_attachments)
+                ? (savedMsg.file_attachments as Array<Record<string, unknown>>)
+                : []
+              const generatedFromSaved: import("@/hooks/use-chat-state").GeneratedFile[] = rawAtts
+                .filter((a) => a.origin === "generated")
+                .flatMap((a) => {
+                  const url = (
+                    typeof a.file_link === "string" ? a.file_link :
+                    typeof a.url      === "string" ? a.url :
+                    typeof a.link     === "string" ? a.link : ""
+                  ).trim()
+                  if (!url) return []
+                  const rawName = typeof a.file_name === "string" ? a.file_name
+                    : typeof a.name === "string" ? a.name : undefined
+                  const filename = rawName?.trim() || url.split("/").pop() || "file"
+                  const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
+                  return [{ url, filename, mimeType }]
+                })
+
+              if (generatedFromSaved.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== currentMsgId) return msg
+                    const existing = msg.generatedFiles ?? []
+                    const existingUrls = new Set(existing.map((f) => f.url))
+                    const toAdd = generatedFromSaved.filter((f) => !existingUrls.has(f.url))
+                    return toAdd.length > 0
+                      ? { ...msg, generatedFiles: [...existing, ...toAdd] }
+                      : msg
+                  }),
+                )
+              }
+            }
+
             continue
           }
 
@@ -718,6 +830,39 @@ export function useStreamingChat({
 
             if (resolvedChatIdRef.current) {
               onChatMoveToTop?.(resolvedChatIdRef.current)
+            }
+
+            // Extract generated files from file_attachments in the done payload
+            const doneFileAttachments = Array.isArray(parsed.file_attachments)
+              ? (parsed.file_attachments as Array<Record<string, unknown>>)
+              : []
+            const doneGeneratedFiles = doneFileAttachments
+              .filter((a) => a.origin === "generated")
+              .map((a) => {
+                const url = (
+                  typeof a.file_link === "string" ? a.file_link :
+                  typeof a.url === "string" ? a.url : ""
+                ).trim()
+                const rawName = typeof a.file_name === "string" ? a.file_name : typeof a.name === "string" ? a.name : undefined
+                const filename = rawName?.trim() || url.split("/").pop() || "file"
+                return { url, filename, mimeType: typeof a.mime_type === "string" ? a.mime_type : undefined }
+              })
+              .filter((f) => f.url.length > 0)
+
+            // Merge with any files already set via generated_file SSE events
+            const msgId = loadingMessageIdRef.current
+            if (msgId && doneGeneratedFiles.length > 0) {
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  const existing = msg.generatedFiles ?? []
+                  const existingUrls = new Set(existing.map((f) => f.url))
+                  const toAdd = doneGeneratedFiles.filter((f) => !existingUrls.has(f.url))
+                  return toAdd.length > 0
+                    ? { ...msg, generatedFiles: [...existing, ...toAdd] }
+                    : msg
+                }),
+              )
             }
 
             queueUpdate(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
@@ -230,32 +231,67 @@ export function AttachmentManager({
                   <img
                     src={attachment.preview}
                     alt={attachment.file.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{
+                      width: "100%", height: "100%", objectFit: "cover",
+                      filter: attachment.uploading ? "blur(1.5px)" : "none",
+                      transition: "filter 300ms",
+                    }}
                   />
                 )}
 
-                {/* Type badge */}
-                <span
-                  style={{
-                    position:        "absolute",
-                    bottom:          "2px",
-                    left:            "2px",
-                    backgroundColor: "rgba(0,0,0,0.55)",
-                    color:           "#fff",
-                    fontSize:        "7px",
-                    fontFamily:      "var(--font-body)",
-                    fontWeight:      600,
-                    lineHeight:      1,
-                    padding:         "2px 3px",
-                    borderRadius:    "3px",
-                    letterSpacing:   "0.02em",
-                  }}
-                >
-                  {typeLabel}
-                </span>
+                {/* Circular upload progress ring */}
+                {attachment.uploading && (
+                  <div
+                    style={{
+                      position:        "absolute",
+                      inset:           0,
+                      display:         "flex",
+                      alignItems:      "center",
+                      justifyContent:  "center",
+                      backgroundColor: "rgba(0,0,0,0.2)",
+                      borderRadius:    "8px",
+                    }}
+                  >
+                    <svg width="26" height="26" viewBox="0 0 28 28">
+                      <circle cx="14" cy="14" r="10" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" />
+                      <circle
+                        cx="14" cy="14" r="10"
+                        fill="none"
+                        stroke="#22C55E"
+                        strokeWidth="2.5"
+                        strokeDasharray={`${((attachment.uploadProgress ?? 0) * 62.83) / 100} 62.83`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 14 14)"
+                        style={{ transition: "stroke-dasharray 300ms ease-out" }}
+                      />
+                    </svg>
+                  </div>
+                )}
 
-                {/* Remove */}
-                {isHovered && (
+                {/* Type badge — only after upload */}
+                {!attachment.uploading && (
+                  <span
+                    style={{
+                      position:        "absolute",
+                      bottom:          "2px",
+                      left:            "2px",
+                      backgroundColor: "rgba(0,0,0,0.55)",
+                      color:           "#fff",
+                      fontSize:        "7px",
+                      fontFamily:      "var(--font-body)",
+                      fontWeight:      600,
+                      lineHeight:      1,
+                      padding:         "2px 3px",
+                      borderRadius:    "3px",
+                      letterSpacing:   "0.02em",
+                    }}
+                  >
+                    {typeLabel}
+                  </span>
+                )}
+
+                {/* Remove — only after upload */}
+                {isHovered && !attachment.uploading && (
                   <button
                     type="button"
                     onClick={() => handleRemove(attachment.id)}
@@ -341,17 +377,45 @@ export function AttachmentManager({
                     style={{
                       fontFamily: "var(--font-body)",
                       fontSize:   "10px",
-                      color:      "var(--neutral-500)",
+                      color:      attachment.uploading ? "var(--green-600, #16a34a)" : "var(--neutral-500)",
                       margin:     "2px 0 0",
                       lineHeight: 1,
+                      transition: "color 200ms",
                     }}
                   >
-                    {typeLabel} · {formatFileSize(attachment.file.size)}
+                    {attachment.uploading
+                      ? `Uploading… ${attachment.uploadProgress ?? 0}%`
+                      : `${typeLabel} · ${formatFileSize(attachment.file.size)}`
+                    }
                   </p>
                 </div>
 
-                {/* Remove */}
-                {isHovered && (
+                {/* Progress bar — sits at the bottom of the chip */}
+                {attachment.uploading && (
+                  <div
+                    style={{
+                      position:        "absolute",
+                      bottom:          0,
+                      left:            0,
+                      right:           0,
+                      height:          "3px",
+                      backgroundColor: "var(--neutral-100)",
+                    }}
+                  >
+                    <motion.div
+                      style={{
+                        height:          "100%",
+                        backgroundColor: "#22C55E",
+                        borderRadius:    "0 0 8px 8px",
+                      }}
+                      animate={{ width: `${attachment.uploadProgress ?? 0}%` }}
+                      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                    />
+                  </div>
+                )}
+
+                {/* Remove — only after upload */}
+                {isHovered && !attachment.uploading && (
                   <button
                     type="button"
                     onClick={() => handleRemove(attachment.id)}

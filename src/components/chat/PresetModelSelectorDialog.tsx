@@ -9,14 +9,19 @@ import React, {
 import { AnimatePresence, motion } from "framer-motion";
 import {
   SearchOneIcon,
-  StarIcon,
+  AtomTwoIcon,
+  BookmarkTwoIcon,
   TextIcon,
   SourceCodeSquareIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
+  MicTwoIcon,
+  PlayListIcon,
+  FileTwoIcon,
   AudioWaveOneIcon,
   GlobalSearchIcon,
 } from "@strange-huge/icons";
+import { Tooltip } from "@/components/Tooltip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
@@ -29,18 +34,19 @@ import { InputField } from "@/components/InputField";
 
 const TIER_TABS = [
   { value: "all", label: "All" },
-  { value: "free", label: "Free" },
+  { value: "free", label: "Starter" },
   { value: "pro", label: "Pro" },
 ] as const;
 
 const CATEGORY_TABS = [
-  { value: "favorites", label: "Favorites", icon: <StarIcon size={16} /> },
-  { value: "text", label: "Text", icon: <TextIcon size={16} /> },
-  { value: "code", label: "Code", icon: <SourceCodeSquareIcon size={16} /> },
-  { value: "vision", label: "Vision", icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: "image", label: "Image", icon: <ImageTwoIcon size={16} /> },
-  { value: "audio", label: "Audio", icon: <AudioWaveOneIcon size={16} /> },
-  { value: "search", label: "Search", icon: <GlobalSearchIcon size={16} /> },
+  { value: "all",        label: "All",        icon: <AtomTwoIcon          size={16} /> },
+  { value: "favorites",  label: "Favorites",  icon: <BookmarkTwoIcon      size={16} /> },
+  { value: "text",       label: "Text",       icon: <TextIcon             size={16} /> },
+  { value: "code",       label: "Code",       icon: <SourceCodeSquareIcon size={16} /> },
+  { value: "vision",     label: "Vision",     icon: <AiVisionRecognitionIcon size={16} /> },
+  { value: "image",      label: "Image",      icon: <ImageTwoIcon         size={16} /> },
+  { value: "audio",      label: "Audio",      icon: <AudioWaveOneIcon     size={16} /> },
+  { value: "search",     label: "Web Search", icon: <GlobalSearchIcon     size={16} /> },
 ] as const;
 
 const CAPTION_STYLE: React.CSSProperties = {
@@ -52,24 +58,102 @@ const CAPTION_STYLE: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-// ── Utility: derive capability icons from model modalities ────────────────────
+// ── Input-type icon map — mirrors KDS docs/llm-input-types.md taxonomy ────────
+// Text and Code are universal — never shown (would add noise, not signal).
+
+type InputType = "image" | "audio" | "video" | "doc" | "web"
+
+const INPUT_ICON: Record<InputType, React.ReactNode> = {
+  image: <ImageTwoIcon  size={16} />,
+  audio: <MicTwoIcon    size={16} />,
+  video: <PlayListIcon  size={16} />,
+  doc:   <FileTwoIcon   size={16} />,
+  web:   <SearchOneIcon size={16} />,
+}
+
+const INPUT_LABEL: Record<InputType, string> = {
+  image: "Image",
+  audio: "Audio",
+  video: "Video",
+  doc:   "Document",
+  web:   "Web search",
+}
+
+// Derive which InputTypes a model supports from its modality arrays.
+function getInputTypes(model: AIModel): InputType[] {
+  const inputs  = model.inputModalities  ?? [];
+  const outputs = model.outputModalities ?? [];
+  const types: InputType[] = [];
+
+  if (inputs.includes("image") || inputs.includes("vision"))
+    types.push("image");
+  if (inputs.includes("audio") || outputs.includes("audio"))
+    types.push("audio");
+  if (inputs.includes("video") || outputs.includes("video"))
+    types.push("video");
+  if (inputs.includes("doc") || inputs.includes("document") || inputs.includes("pdf"))
+    types.push("doc");
+  if (inputs.includes("web") || inputs.includes("search"))
+    types.push("web");
+
+  return types;
+}
 
 function getCapabilityIcons(model: AIModel): React.ReactNode {
-  const inputs = model.inputModalities ?? [];
-  const outputs = model.outputModalities ?? [];
-  const icons: React.ReactNode[] = [];
+  const types = getInputTypes(model);
+  if (types.length === 0) return null;
+  return (
+    <>
+      {types.map((t) => (
+        <Tooltip key={t} content={INPUT_LABEL[t]}>
+          <span style={{ display: "inline-flex", lineHeight: 0 }}>
+            {INPUT_ICON[t]}
+          </span>
+        </Tooltip>
+      ))}
+    </>
+  );
+}
 
-  if (inputs.includes("image") || inputs.includes("vision")) {
-    icons.push(<AiVisionRecognitionIcon key="vision" size={16} />);
-  }
-  if (outputs.includes("image")) {
-    icons.push(<ImageTwoIcon key="image" size={16} />);
-  }
-  if (inputs.includes("audio") || outputs.includes("audio")) {
-    icons.push(<AudioWaveOneIcon key="audio" size={16} />);
-  }
+// ── Featured mode row (Muse / Advanced) ──────────────────────────────────────
+// Two ModelFeaturedCards side-by-side, behaving as a radio pair.
+// One card is always selected; initialMode seeds local state on mount.
 
-  return icons.length > 0 ? <>{icons}</> : null;
+type FeaturedMode = "muse" | "advanced"
+
+const FEATURED_DESCRIPTION =
+  "Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
+
+interface FeaturedModeRowProps {
+  initialMode: FeaturedMode
+  onMuseSelect: () => void
+  onAdvancedSelect: () => void
+}
+
+function FeaturedModeRow({ initialMode, onMuseSelect, onAdvancedSelect }: FeaturedModeRowProps) {
+  const [mode, setMode] = useState<FeaturedMode>(initialMode)
+  return (
+    <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", width: "100%", flexShrink: 0 }}>
+      <div style={{ flex: "1 0 0", minWidth: 0 }}>
+        <ModelFeaturedCard
+          title="Muse"
+          description={FEATURED_DESCRIPTION}
+          learnMoreHref="#"
+          selected={mode === "muse"}
+          onSelectedChange={(next) => { if (next) { setMode("muse"); onMuseSelect() } }}
+        />
+      </div>
+      <div style={{ flex: "1 0 0", minWidth: 0 }}>
+        <ModelFeaturedCard
+          title="Advanced"
+          description={FEATURED_DESCRIPTION}
+          learnMoreHref="#"
+          selected={mode === "advanced"}
+          onSelectedChange={(next) => { if (next) { setMode("advanced"); onAdvancedSelect() } }}
+        />
+      </div>
+    </div>
+  )
 }
 
 // ── PresetModelSelectorContent ────────────────────────────────────────────────
@@ -78,24 +162,22 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
-  museActive: boolean;
   museAdvanced: boolean;
-  onMuseSelect: (selected: boolean) => void;
-  onMuseAdvancedChange: (advanced: boolean) => void;
+  onMuseSelect: () => void;
+  onAdvancedSelect: () => void;
 }
 
 function PresetModelSelectorContent({
   models,
   selectedModel,
   onSelect,
-  museActive,
   museAdvanced,
   onMuseSelect,
-  onMuseAdvancedChange,
+  onAdvancedSelect,
 }: PresetModelSelectorContentProps) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
-  const [category, setCategory] = useState("favorites");
+  const [category, setCategory] = useState("all");
   const [atTop, setAtTop] = useState(true);
   const [atBottom, setAtBottom] = useState(false);
 
@@ -166,14 +248,11 @@ function PresetModelSelectorContent({
           </Tabs>
         </div>
 
-        {/* ── Featured Muse card ── */}
-        <ModelFeaturedCard
-          key={String(museActive)}
-          title="Muse"
-          description="Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
-          learnMoreHref="#"
-          defaultSelected={museActive}
-          onSelectedChange={onMuseSelect}
+        {/* ── Featured: Muse + Advanced radio pair ── */}
+        <FeaturedModeRow
+          initialMode={museAdvanced ? "advanced" : "muse"}
+          onMuseSelect={onMuseSelect}
+          onAdvancedSelect={onAdvancedSelect}
         />
 
         {/* ── Category tabs + model list ── */}
@@ -494,10 +573,9 @@ export function PresetModelSelectorDialog() {
             models={models}
             selectedModel={selectedModel}
             onSelect={selectModel}
-            museActive={museActive}
             museAdvanced={museAdvanced}
-            onMuseSelect={(selected) => selected ? activateMuse() : deactivateMuse()}
-            onMuseAdvancedChange={setMuseAdvanced}
+            onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
+            onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
           />
         </motion.div>
       )}

@@ -31,6 +31,17 @@ export interface Source {
   favicon?: string;
 }
 
+/** A file attachment returned by the backend on messages (uploaded or generated). */
+export interface BackendFileAttachment {
+  file_link?: string;
+  url?: string;
+  link?: string;
+  mime_type?: string;
+  origin?: "uploaded" | "generated" | string | null;
+  file_name?: string;
+  name?: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
@@ -38,10 +49,18 @@ export interface Message {
   created_at: string;
   chat_id: string;
   model?: string;
+  /** Model name string as returned by the backend (e.g. "GPT-5 nano"). */
+  model_name?: string;
   attachments?: Attachment[];
+  /** Raw file_attachments from the backend (uploaded + generated files). */
+  file_attachments?: BackendFileAttachment[];
   thinking?: string;
+  /** Structured reasoning steps from the backend (heading + body per step). */
+  reasoning_sections?: Array<{ heading: string; body: string }>;
   citations?: Citation[];
   sources?: Source[];
+  /** Raw web_searches payload from the backend — used to hydrate sources on load. */
+  web_searches?: Array<{ query: string; links: string[] }>;
 }
 
 export interface ChatsListResponse {

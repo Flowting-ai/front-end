@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 /**
  * useFileUpload — global file upload constraints and helpers.
  *
@@ -59,6 +61,8 @@ export interface PendingAttachment {
   /** Object URL for image previews (revoke on removal). */
   preview?: string;
   uploading: boolean;
+  /** 0–100 upload progress (simulated client-side). */
+  uploadProgress?: number;
   error?: string;
 }
 
@@ -130,10 +134,20 @@ export const FILE_ACCEPT = [
   ".zip", ".svg", ".tiff", ".tif", ".avif",
 ].join(",");
 
+/** File extensions that are accepted as a MIME-type fallback. */
+const ALLOWED_EXTENSIONS = new Set([
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv",
+  "txt", "md", "json", "xml", "rtf", "html", "svg", "tiff", 
+  "tif", "avif", "png", "jpg", "jpeg", "webp",
+]);
+
 function isAllowedType(file: File): boolean {
   const mime = file.type.toLowerCase();
   if (mime.startsWith("image/")) return true;
-  return (FILE_CONSTRAINTS.allowedMimeTypes as readonly string[]).some((t) => mime === t);
+  if ((FILE_CONSTRAINTS.allowedMimeTypes as readonly string[]).some((t) => mime === t)) return true;
+  // Fallback: check extension for browsers that don't report a MIME type (e.g. .md → "")
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return ALLOWED_EXTENSIONS.has(ext);
 }
 
 function isDuplicate(file: File, existing: PendingAttachment[]): boolean {
@@ -144,11 +158,49 @@ function isDuplicate(file: File, existing: PendingAttachment[]): boolean {
 
 function makeAttachment(file: File): PendingAttachment {
   return {
-    id:       `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id:            `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     file,
-    preview:  file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-    uploading: false,
+    preview:       file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+    uploading:     true,
+    uploadProgress: 0,
   };
+}
+
+/**
+ * Simulates upload progress for one attachment.
+ * Runs a timed interval and updates the matching attachment via `setAttachments`.
+ * Returns a cleanup function that cancels the interval.
+ */
+export function startUploadSimulation(
+  id: string,
+  fileSize: number,
+  setAttachments: React.Dispatch<React.SetStateAction<PendingAttachment[]>>,
+): () => void {
+  // Scale duration by file size: ~200ms per MB, clamped 500ms–3s
+  const duration = Math.min(Math.max((fileSize / (1024 * 1024)) * 200, 500), 3000);
+  const steps = 20;
+  const stepDuration = duration / steps;
+  let current = 0;
+
+  const interval = setInterval(() => {
+    current += 100 / steps;
+    if (current >= 100) {
+      clearInterval(interval);
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, uploading: false, uploadProgress: 100 } : a,
+        ),
+      );
+    } else {
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, uploadProgress: Math.round(current) } : a,
+        ),
+      );
+    }
+  }, stepDuration);
+
+  return () => clearInterval(interval);
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────

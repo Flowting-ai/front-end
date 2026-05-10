@@ -57,8 +57,13 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
   const [hovered, setHovered] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const isPinned = citation?.domain === "pin";
-  const faviconUrl = citation && !isPinned
-    ? `https://www.google.com/s2/favicons?domain=${citation.domain}&sz=32`
+  // Derive domain from URL if domain field is missing
+  const effectiveDomain = citation?.domain || (() => {
+    if (!citation?.url) return undefined;
+    try { return new URL(citation.url).hostname.replace(/^www\./, ""); } catch { return undefined; }
+  })();
+  const faviconUrl = citation && !isPinned && effectiveDomain
+    ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;
 
   useEffect(() => {
@@ -142,8 +147,12 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
 function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
   const [hovered, setHovered] = useState(false);
   const isPinned = citation.domain === "pin";
-  const faviconUrl = !isPinned
-    ? `https://www.google.com/s2/favicons?domain=${citation.domain}&sz=32`
+  const effectiveDomain = citation.domain || (() => {
+    if (!citation.url) return undefined;
+    try { return new URL(citation.url).hostname.replace(/^www\./, ""); } catch { return undefined; }
+  })();
+  const faviconUrl = !isPinned && effectiveDomain
+    ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;
   return (
     <motion.a

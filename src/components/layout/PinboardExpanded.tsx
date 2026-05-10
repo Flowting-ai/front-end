@@ -117,10 +117,13 @@ function pinItemToKDS(
 
   return {
     id:          item.id,
+    pinId:       item.id,
     category:    item.category,
     pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
     chatName,
+    modelName:   item.modelName,
+    createdAt:   item.createdAt,
     labels: [
       ...tagLabels,
       ...(item.modelName ? [{ color: 'Neutral' as BadgeColor, text: item.modelName }] : []),

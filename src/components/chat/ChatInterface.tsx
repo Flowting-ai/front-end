@@ -10,7 +10,7 @@ import {
   type PendingAttachment,
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { useFileUpload, startUploadSimulation } from "@/hooks/use-file-upload";
 import { useChatState } from "@/hooks/use-chat-state";
 import {
   useStreamingChat,
@@ -72,6 +72,8 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Tracks which attachment IDs already have an active simulation interval
+  const simulationCleanups = useRef<Map<string, () => void>>(new Map());
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
 
@@ -108,6 +110,33 @@ export function ChatInterface({
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
 
+  // Start upload-progress simulation for any newly added uploading attachment.
+  // Runs whenever the attachment list changes (new IDs appear).
+  useEffect(() => {
+    const currentIds = new Set(attachments.map((a) => a.id));
+    // Cancel simulations for removed attachments
+    for (const [id, cancel] of simulationCleanups.current.entries()) {
+      if (!currentIds.has(id)) {
+        cancel();
+        simulationCleanups.current.delete(id);
+      }
+    }
+    // Start simulation for new uploading attachments
+    for (const att of attachments) {
+      if (att.uploading && !simulationCleanups.current.has(att.id)) {
+        const cancel = startUploadSimulation(att.id, att.file.size, setAttachments);
+        simulationCleanups.current.set(att.id, cancel);
+      }
+    }
+  }, [attachments]);
+
+  // Cancel all simulations on unmount
+  useEffect(() => {
+    return () => {
+      for (const cancel of simulationCleanups.current.values()) cancel();
+    };
+  }, []);
+
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
@@ -134,15 +163,28 @@ export function ChatInterface({
     }
   }, [initialPrompt]);
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
+  // We track the previous loading state so we fire exactly once on the
+  // false→true transition, not on every subsequent message change.
+  const prevIsLoadingRef = useRef(false);
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoadingMessages;
+    if (wasLoading && !isLoadingMessages && messages.length > 0) {
+      // Use instant scroll — smooth scroll can leave the user mid-thread.
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }, [isLoadingMessages, messages.length]);
+
+  // Scroll to bottom smoothly as new streaming content arrives.
   const lastMessageContent = messages.length > 0
     ? messages[messages.length - 1]?.content?.length ?? 0
     : 0;
   useEffect(() => {
-    if (messages.length > 0) {
+    if (!isLoadingMessages && messages.length > 0 && isStreaming) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, lastMessageContent]);
+  }, [isStreaming, messages.length, lastMessageContent, isLoadingMessages]);
 
   // Scroll-to-top for pagination
   const handleScroll = () => {
@@ -172,9 +214,11 @@ export function ChatInterface({
   const handleSend = async (text: string) => {
     const allFiles = attachments.map((a) => a.file);
     if (!text.trim() && allFiles.length === 0) return;
+    // Block send while files are still simulating upload
+    if (attachments.some((a) => a.uploading)) return;
 
     const content = text.trim();
-    addOptimisticUserMessage(content);
+    addOptimisticUserMessage(content, allFiles.length > 0 ? allFiles : undefined);
     const loadingId = addLoadingAssistantMessage();
     setInputValue("");
     setAttachments([]);

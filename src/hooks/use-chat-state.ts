@@ -224,7 +224,7 @@ export interface UseChatStateResult {
   hasMoreMessages: boolean
   loadMoreMessages: () => Promise<void>
   /** Inserts an optimistic user message and returns its temp ID. */
-  addOptimisticUserMessage: (content: string) => string
+  addOptimisticUserMessage: (content: string, files?: File[]) => string
   /** Inserts an empty loading assistant message and returns its temp ID. */
   addLoadingAssistantMessage: () => string
   /** Removes the last `n` messages (for rollback on error). */
@@ -316,7 +316,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
-  const addOptimisticUserMessage = useCallback((content: string): string => {
+  const addOptimisticUserMessage = useCallback((content: string, files?: File[]): string => {
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
       id,
@@ -324,6 +324,14 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
       content,
       created_at: new Date().toISOString(),
       chat_id: chatId ?? "",
+      attachments: files && files.length > 0
+        ? files.map((f, i) => ({
+            id:        `opt-att-${i}-${Date.now()}`,
+            file_name: f.name,
+            file_type: f.type || "application/octet-stream",
+            file_size: f.size,
+          }))
+        : undefined,
     }
     setMessages((prev) => [...prev, msg])
     return id
