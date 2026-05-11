@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
+import { PinMentionDropdown } from "./PinMentionDropdown";
 import {
   AttachmentManager,
   type PendingAttachment,
@@ -12,13 +14,74 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload, startUploadSimulation } from "@/hooks/use-file-upload";
 import { useChatState } from "@/hooks/use-chat-state";
+import { usePinOperations } from "@/hooks/use-pin-operations";
 import {
   useStreamingChat,
   type StreamState,
 } from "@/hooks/use-streaming-chat";
+import type { Pin } from "@/lib/api/pins";
 import type { Source } from "@/types/chat";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Upload } from "lucide-react";
+
+// ── Mention chip ──────────────────────────────────────────────────────────────
+
+interface MentionChipProps {
+  label: string;
+  onRemove: () => void;
+}
+
+function MentionChip({ label, onRemove }: MentionChipProps) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        borderRadius: "999px",
+        backgroundColor: "var(--neutral-100, #F5F5F5)",
+        border: "1px solid var(--neutral-200, #E5E5E5)",
+        padding: "2px 8px 2px 10px",
+        fontSize: "12px",
+        fontWeight: 500,
+        color: "var(--neutral-700, #444)",
+        fontFamily: "var(--font-body)",
+        maxWidth: "200px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+        @{label}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove mention @${label}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          background: "none",
+          padding: "1px",
+          cursor: "pointer",
+          color: "var(--neutral-400, #999)",
+          borderRadius: "50%",
+          flexShrink: 0,
+        }}
+      >
+        <X size={11} strokeWidth={2.5} />
+      </button>
+    </span>
+  );
+}
+
+// ── Mentioned pin state type ──────────────────────────────────────────────────
+
+interface MentionedPin {
+  id: string;
+  label: string;
+}
 
 interface ChatInterfaceProps {
   chatId: string | undefined;
@@ -69,13 +132,34 @@ export function ChatInterface({
     null,
   );
 
+  // ── @-mention / pin state ─────────────────────────────────────────────────
+  const [showPinDropdown, setShowPinDropdown] = useState(false);
+  const [pinQuery, setPinQuery] = useState("");
+  const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
+  const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
   // Tracks which attachment IDs already have an active simulation interval
   const simulationCleanups = useRef<Map<string, () => void>>(new Map());
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+
+  // Pin data for the @-mention dropdown.
+  const { pins } = usePinOperations();
+
+  const filteredPins = useMemo<Pin[]>(() => {
+    if (!pinQuery.trim()) return pins.slice(0, 10);
+    const q = pinQuery.toLowerCase();
+    return pins.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.content.toLowerCase().includes(q) ||
+        p.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+  }, [pins, pinQuery]);
 
   const {
     messages: rawMessages,
@@ -210,6 +294,86 @@ export function ChatInterface({
     onClearAddMenuFiles?.();
   }, [addMenuFiles]);
 
+  // ── Pin-mention handlers ────────────────────────────────────────────────────
+
+  // Reset highlighted index whenever the filtered list changes.
+  useEffect(() => {
+    setHighlightedPinIndex(0);
+  }, [filteredPins]);
+
+  // Close the dropdown when the user clicks outside the input wrapper.
+  useEffect(() => {
+    if (!showPinDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        inputWrapperRef.current &&
+        !inputWrapperRef.current.contains(e.target as Node)
+      ) {
+        setShowPinDropdown(false);
+        setPinQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPinDropdown]);
+
+  const handleMentionChange = useCallback((query: string | null) => {
+    if (query === null) {
+      setShowPinDropdown(false);
+      setPinQuery("");
+    } else {
+      setShowPinDropdown(true);
+      setPinQuery(query);
+    }
+  }, []);
+
+  const handlePinSelect = useCallback((pin: Pin) => {
+    const label = (pin.title || pin.content).slice(0, 50) || pin.id;
+    // Strip the `@query` fragment that the user typed from the input value.
+    setInputValue((prev) => {
+      const lastAt = prev.lastIndexOf("@");
+      return lastAt !== -1 ? prev.substring(0, lastAt) : prev;
+    });
+    setMentionedPins((prev) =>
+      prev.some((m) => m.id === pin.id)
+        ? prev
+        : [...prev, { id: pin.id, label }],
+    );
+    setShowPinDropdown(false);
+    setPinQuery("");
+  }, []);
+
+  const handleRemoveMention = useCallback((pinId: string) => {
+    setMentionedPins((prev) => prev.filter((m) => m.id !== pinId));
+  }, []);
+
+  const handlePinNavigate = useCallback(
+    (action: "up" | "down" | "select" | "close") => {
+      switch (action) {
+        case "down":
+          setHighlightedPinIndex((i) =>
+            i < filteredPins.length - 1 ? i + 1 : 0,
+          );
+          break;
+        case "up":
+          setHighlightedPinIndex((i) =>
+            i > 0 ? i - 1 : filteredPins.length - 1,
+          );
+          break;
+        case "select":
+          if (filteredPins[highlightedPinIndex]) {
+            handlePinSelect(filteredPins[highlightedPinIndex]);
+          }
+          break;
+        case "close":
+          setShowPinDropdown(false);
+          setPinQuery("");
+          break;
+      }
+    },
+    [filteredPins, highlightedPinIndex, handlePinSelect],
+  );
+
   // Send message — uses local attachments (which include add-menu files after absorption)
   const handleSend = async (text: string) => {
     const allFiles = attachments.map((a) => a.file);
@@ -222,6 +386,7 @@ export function ChatInterface({
     const loadingId = addLoadingAssistantMessage();
     setInputValue("");
     setAttachments([]);
+    setMentionedPins([]);
     onClearAddMenuFiles?.();
 
     try {
@@ -405,7 +570,20 @@ export function ChatInterface({
           alignItems: "center",
         }}
       >
-        <div style={{ width: "100%", maxWidth: "754px" }}>
+        {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
+        <div
+          ref={inputWrapperRef}
+          style={{ width: "100%", maxWidth: "754px", position: "relative" }}
+        >
+          <PinMentionDropdown
+            isOpen={showPinDropdown}
+            pins={filteredPins}
+            query={pinQuery}
+            highlightedIndex={highlightedPinIndex}
+            onHighlight={setHighlightedPinIndex}
+            onSelect={handlePinSelect}
+          />
+
           <ChatInput
             value={inputValue}
             onChange={setInputValue}
@@ -416,7 +594,22 @@ export function ChatInterface({
             modelName={selectedModel ?? "Souvenir"}
             addMenu={addMenu}
             modelMenu={modelMenu}
-            chips={chips}
+            chips={
+              mentionedPins.length > 0 ? (
+                <>
+                  {mentionedPins.map((mp) => (
+                    <MentionChip
+                      key={mp.id}
+                      label={mp.label}
+                      onRemove={() => handleRemoveMention(mp.id)}
+                    />
+                  ))}
+                  {chips}
+                </>
+              ) : (
+                chips
+              )
+            }
             attachmentsSlot={
               <AttachmentManager
                 attachments={attachments}
@@ -427,6 +620,9 @@ export function ChatInterface({
             isStreaming={isStreaming}
             disabled={isStreaming}
             placeholder="How can I help you today?"
+            onMentionChange={handleMentionChange}
+            isPinDropdownOpen={showPinDropdown}
+            onPinNavigate={handlePinNavigate}
           />
         </div>
 

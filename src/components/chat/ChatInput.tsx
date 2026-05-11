@@ -168,6 +168,22 @@ export interface ChatInputProps
   isStreaming?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  /**
+   * Called when the user triggers an `@`-mention in the textarea.
+   * Receives the text typed after `@` as the query, or `null` when mention
+   * mode ends (space/punctuation typed, `@` deleted, or focus lost).
+   */
+  onMentionChange?: (query: string | null) => void;
+  /**
+   * When true, the Enter key navigates the pin dropdown instead of sending
+   * the message. ArrowUp/Down/Escape are also delegated to `onPinNavigate`.
+   */
+  isPinDropdownOpen?: boolean;
+  /**
+   * Keyboard-navigation callback fired when `isPinDropdownOpen` is true.
+   * The parent moves selection state and calls `onSelect` on "select".
+   */
+  onPinNavigate?: (action: "up" | "down" | "select" | "close") => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -191,6 +207,9 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       isStreaming = false,
       disabled = false,
       compact = false,
+      onMentionChange,
+      isPinDropdownOpen = false,
+      onPinNavigate,
       className,
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
@@ -309,8 +328,34 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (!isControlled) setInternalValue(e.target.value);
-      onChange?.(e.target.value);
+      const newValue = e.target.value;
+      if (!isControlled) setInternalValue(newValue);
+      onChange?.(newValue);
+
+      // @-mention detection — only when the parent opts in via onMentionChange.
+      if (onMentionChange) {
+        const lastChar = newValue[newValue.length - 1];
+        if (lastChar === "@") {
+          // User just typed @: open the dropdown with an empty query.
+          onMentionChange("");
+          return;
+        }
+        if (isPinDropdownOpen) {
+          const lastAtIdx = newValue.lastIndexOf("@");
+          if (lastAtIdx !== -1) {
+            const afterAt = newValue.substring(lastAtIdx + 1);
+            // A space/punctuation after @ means the user abandoned the mention.
+            if (/[\s,.!?;:\n]/.test(afterAt)) {
+              onMentionChange(null);
+            } else {
+              onMentionChange(afterAt);
+            }
+          } else {
+            // @ was deleted — close the dropdown.
+            onMentionChange(null);
+          }
+        }
+      }
     };
 
     const handleSend = () => {
@@ -323,6 +368,31 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // While the pin dropdown is open, delegate arrow keys / Enter / Escape
+      // to the parent so it can move the highlighted selection or confirm.
+      if (isPinDropdownOpen && onPinNavigate) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          onPinNavigate("down");
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          onPinNavigate("up");
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          onPinNavigate("select");
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onPinNavigate("close");
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey && value && !disabled && !isRecording) {
         e.preventDefault();
         handleSend();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
@@ -8,6 +8,8 @@ import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { usePinboard } from "@/context/pinboard-context";
+import { useHighlight } from "@/context/highlight-context";
+import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation } from "@/hooks/use-chat-state";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
@@ -167,13 +169,56 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [selectionOpen, setSelectionOpen] = useState(false);
+  const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const { addPin, removePinByMessage, isPinned, open: openPinboard } = usePinboard();
+  const { addHighlight, open: openHighlightPanel, highlights } = useHighlight();
+
+  const messageHighlights = useMemo(
+    () => highlights
+      .filter(h => h.messageId === message.id)
+      .map(h => ({ text: h.text, colorIndex: (highlights.indexOf(h) % 4) as 0 | 1 | 2 | 3 })),
+    [highlights, message.id],
+  )
 
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
   const pinned = isAssistant ? isPinned(message.id) : false;
+
+  // ── Text selection → SelectionPopover (assistant messages only) ──────────
+  useEffect(() => {
+    if (!isAssistant) return
+
+    const handleMouseUp = () => {
+      requestAnimationFrame(() => {
+        const sel = window.getSelection()
+        if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+        const range = sel.getRangeAt(0)
+        if (!contentRef.current?.contains(range.commonAncestorContainer)) return
+        const rect = range.getBoundingClientRect()
+        if (!rect.width) return
+        setSelectionAnchor(rect)
+        setSelectionOpen(true)
+      })
+    }
+
+    const handleSelectionChange = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed) {
+        setSelectionOpen(false)
+        setSelectionAnchor(null)
+      }
+    }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [isAssistant])
 
   const handleCopy = async () => {
     try {
@@ -203,8 +248,26 @@ export function ChatMessage({
     openPinboard();
   };
 
+  const handleHighlight = () => {
+    const sel = window.getSelection()
+    const text = sel?.toString().trim()
+    if (!text) return
+    addHighlight({ text, messageId: message.id, chatId })
+    openHighlightPanel()
+    sel?.removeAllRanges()
+    setSelectionOpen(false)
+    setSelectionAnchor(null)
+  };
+
+  const handleCopySelection = () => {
+    const sel = window.getSelection()
+    const text = sel?.toString()
+    if (text) navigator.clipboard.writeText(text).catch(() => {})
+  };
+
   return (
     <motion.div
+      data-message-id={message.id}
       initial={isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10, filter: "blur(4px)" }}
       animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
       transition={isUser
@@ -395,7 +458,7 @@ export function ChatMessage({
                 For completed messages: MarkdownRenderer handles GFM tables etc. */}
             {isNewMessage && message.isLoading
               ? <StreamingTextContent content={message.content} citations={message.webCitations} />
-              : <ContentRenderer content={message.content} webCitations={message.webCitations} />}
+              : <ContentRenderer content={message.content} webCitations={message.webCitations} highlights={messageHighlights} />}
             {!(isNewMessage && message.isLoading) && (
               <StreamingCursor isVisible={false} />
             )}
@@ -711,6 +774,16 @@ export function ChatMessage({
           )}
         </AnimatePresence>
         </div>
+      )}
+
+      {/* ── Text-selection toolbar (assistant messages only) ── */}
+      {isAssistant && (
+        <SelectionPopover
+          open={selectionOpen}
+          anchorRect={selectionAnchor}
+          onHighlight={handleHighlight}
+          onCopy={handleCopySelection}
+        />
       )}
     </motion.div>
   );

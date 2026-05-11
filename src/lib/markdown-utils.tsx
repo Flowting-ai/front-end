@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { HighlightMark } from "@/components/HighlightMark";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -11,6 +13,79 @@ import type { WebCitation } from "@/hooks/use-chat-state";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex];
+
+// ── Highlight mark types & rehype plugin ──────────────────────────────────────
+
+export type HighlightSpec = { text: string; colorIndex: 0 | 1 | 2 | 3 }
+
+// Minimal HAST-compatible node shapes — avoids importing @types/hast directly.
+type HastNodeAny = {
+  type:        string
+  value?:      string
+  tagName?:    string
+  properties?: Record<string, unknown>
+  children?:   HastNodeAny[]
+}
+
+const SKIP_TAGS = new Set(['code', 'pre'])
+
+function walkNode(node: HastNodeAny, specs: HighlightSpec[]): void {
+  if (!node.children) return
+  const next: HastNodeAny[] = []
+  for (const child of node.children) {
+    if (child.type === 'text' && typeof child.value === 'string') {
+      next.push(...annotateText(child.value, specs))
+    } else {
+      if (!SKIP_TAGS.has(child.tagName ?? '')) walkNode(child, specs)
+      next.push(child)
+    }
+  }
+  node.children = next
+}
+
+function annotateText(text: string, specs: HighlightSpec[]): HastNodeAny[] {
+  type Match = { start: number; end: number; colorIndex: 0 | 1 | 2 | 3 }
+  const matches: Match[] = []
+  for (const spec of specs) {
+    let pos = 0
+    let idx: number
+    while ((idx = text.indexOf(spec.text, pos)) !== -1) {
+      matches.push({ start: idx, end: idx + spec.text.length, colorIndex: spec.colorIndex })
+      pos = idx + 1
+    }
+  }
+  if (!matches.length) return [{ type: 'text', value: text }]
+  // Sort by start; on tie prefer longer match. Then remove overlaps.
+  matches.sort((a, b) => a.start - b.start || b.end - a.end)
+  const resolved: Match[] = []
+  let cursor = 0
+  for (const m of matches) {
+    if (m.start >= cursor) { resolved.push(m); cursor = m.end }
+  }
+  const nodes: HastNodeAny[] = []
+  let p = 0
+  for (const m of resolved) {
+    if (m.start > p) nodes.push({ type: 'text', value: text.slice(p, m.start) })
+    nodes.push({
+      type:       'element',
+      tagName:    'mark',
+      properties: { className: [`hl-color-${m.colorIndex}`] },
+      children:   [{ type: 'text', value: text.slice(m.start, m.end) }],
+    })
+    p = m.end
+  }
+  if (p < text.length) nodes.push({ type: 'text', value: text.slice(p) })
+  return nodes
+}
+
+// Returns a rehype plugin pre-configured with the highlight specs for this render.
+function makeHighlightMarksPlugin(specs: HighlightSpec[]) {
+  return function () {
+    return function (tree: HastNodeAny) {
+      walkNode(tree, specs)
+    }
+  }
+}
 
 // ── Base link component (no citation awareness) ───────────────────────────────
 
@@ -253,6 +328,11 @@ const BASE_COMPONENTS: Components = {
       </p>
     );
   },
+  mark({ children, className }) {
+    const m = String(className ?? '').match(/hl-color-(\d)/)
+    const colorIndex = (m ? Number(m[1]) : 0) as 0 | 1 | 2 | 3
+    return <HighlightMark colorIndex={colorIndex}>{children}</HighlightMark>
+  },
 };
 
 // During streaming, an unclosed code fence causes react-markdown to extend
@@ -292,11 +372,11 @@ function normalizeInlineBoldTitles(content: string): string {
 
 interface MarkdownRendererProps {
   content: string;
-  /** When provided, bare URLs and {N}/[N] markers are rendered as hoverable CitationChip superscripts. */
   webCitations?: WebCitation[];
+  highlights?: HighlightSpec[];
 }
 
-export function MarkdownRenderer({ content, webCitations }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, webCitations, highlights }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
   const resolvedComponents: Components = hasCitations
     ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
@@ -305,6 +385,14 @@ export function MarkdownRenderer({ content, webCitations }: MarkdownRendererProp
   const processed = hasCitations
     ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
     : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)));
+
+  const resolvedRehypePlugins = useMemo(
+    () => highlights?.length
+      ? [rehypeKatex, makeHighlightMarksPlugin(highlights)]
+      : rehypePlugins,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [highlights],
+  )
 
   return (
     <div
@@ -318,7 +406,7 @@ export function MarkdownRenderer({ content, webCitations }: MarkdownRendererProp
     >
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
-        rehypePlugins={rehypePlugins}
+        rehypePlugins={resolvedRehypePlugins}
         components={resolvedComponents}
       >
         {processed}

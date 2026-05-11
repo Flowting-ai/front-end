@@ -3,10 +3,12 @@
 import { Suspense } from "react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
+import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
 import { usePinboard } from "@/context/pinboard-context";
+import { useHighlight } from "@/context/highlight-context";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -28,6 +30,7 @@ export function AppLayout({
   onNewChat,
 }: AppLayoutProps) {
   const { isOpen: pinboardOpen } = usePinboard()
+  const { isOpen: highlightOpen } = useHighlight()
 
   return (
     <div
@@ -54,7 +57,7 @@ export function AppLayout({
           flex:            "1 0 0",
           minWidth:        0,
           display:         "flex",
-          padding:         pinboardOpen ? "10px 0" : "10px 10px 10px 0",
+          padding:         (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
           backgroundColor: "var(--neutral-50)",
         }}
       >
@@ -109,6 +112,9 @@ export function AppLayout({
 
       {/* ── Right sidebar (Pinboard) ── */}
       <RightSidebar />
+
+      {/* ── Highlight sidebar ── */}
+      <HighlightSidebar />
 
       {/* ── Global dialogs ── */}
       <AppDialogs />

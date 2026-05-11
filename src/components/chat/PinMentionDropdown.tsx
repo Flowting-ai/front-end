@@ -1,136 +1,79 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AtSign } from "lucide-react";
 import type { Pin } from "@/lib/api/pins";
-import { usePinOperations } from "@/hooks/use-pin-operations";
+import { PinInsert } from "@/components/PinInsert";
+import type { PinTag } from "@/components/PinInsert";
+import type { BadgeColor } from "@/components/Badge";
 
-const PIN_COLORS: Record<string, string> = {
-  blue: "var(--blue-100)",
-  red: "var(--red-100)",
-  green: "var(--green-100)",
-  yellow: "var(--yellow-100)",
-  purple: "var(--purple-100)",
-  default: "var(--neutral-100)",
-};
+// ── Badge color rotation for tag chips ────────────────────────────────────────
 
-function getPinColor(color?: string): string {
-  if (!color) return PIN_COLORS.default;
-  return PIN_COLORS[color.toLowerCase()] ?? PIN_COLORS.default;
+const BADGE_COLORS: BadgeColor[] = [
+  "Blue", "Green", "Yellow", "Purple", "Brown", "Red", "Neutral",
+];
+
+function mapTags(tags: string[]): PinTag[] {
+  return tags.map((label, i) => ({
+    label,
+    color: BADGE_COLORS[i % BADGE_COLORS.length],
+  }));
 }
 
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark
-        style={{
-          backgroundColor: "var(--yellow-100)",
-          borderRadius: "2px",
-          padding: "0 1px",
-        }}
-      >
-        {text.slice(idx, idx + query.length)}
-      </mark>
-      {text.slice(idx + query.length)}
-    </>
-  );
-}
+// ── Component ─────────────────────────────────────────────────────────────────
 
-interface PinMentionDropdownProps {
+export interface PinMentionDropdownProps {
   isOpen: boolean;
+  /** Filtered pin list — computed and passed in by the parent. */
+  pins: Pin[];
+  /** Current search query (text typed after `@`). */
   query: string;
-  position: { top: number; left: number };
+  /** Index of the keyboard-highlighted item. */
+  highlightedIndex: number;
+  /** Called when the mouse enters an item row (syncs keyboard selection). */
+  onHighlight: (index: number) => void;
+  /** Called when the user clicks or keyboard-confirms a pin. */
   onSelect: (pin: Pin) => void;
-  onClose: () => void;
 }
 
 export function PinMentionDropdown({
   isOpen,
+  pins,
   query,
-  position,
+  highlightedIndex,
+  onHighlight,
   onSelect,
-  onClose,
 }: PinMentionDropdownProps) {
-  const { pins, isLoading, searchPins } = usePinOperations();
-  const [filteredPins, setFilteredPins] = useState<Pin[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (query) {
-      searchPins(query).then(setFilteredPins);
-    } else {
-      setFilteredPins(pins.slice(0, 10));
-    }
-    setSelectedIndex(0);
-  }, [query, isOpen, pins]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((i) =>
-          i < filteredPins.length - 1 ? i + 1 : 0,
-        );
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) =>
-          i > 0 ? i - 1 : filteredPins.length - 1,
-        );
-      } else if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        if (filteredPins[selectedIndex]) {
-          onSelect(filteredPins[selectedIndex]);
-        }
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, filteredPins, selectedIndex, onSelect, onClose]);
-
-  // Scroll selected into view
+  // Scroll the keyboard-highlighted row into view.
   useEffect(() => {
     if (!listRef.current) return;
-    const item = listRef.current.querySelector(
-      `[data-pin-index="${selectedIndex}"]`,
+    const item = listRef.current.querySelector<HTMLElement>(
+      `[data-pin-index="${highlightedIndex}"]`,
     );
     item?.scrollIntoView({ block: "nearest" });
-  }, [selectedIndex]);
+  }, [highlightedIndex]);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 4 }}
+          exit={{ opacity: 0, y: 6 }}
           transition={{ duration: 0.15 }}
-          role="listbox"
-          aria-label="Pin mentions"
           style={{
-            position: "fixed",
-            top: position.top,
-            left: position.left,
+            position: "absolute",
+            bottom: "calc(100% + 12px)",
+            left: 0,
+            right: 0,
             zIndex: 60,
-            width: "320px",
-            maxHeight: "240px",
-            backgroundColor: "var(--neutral-white)",
-            borderRadius: "12px",
-            boxShadow: "var(--shadow-lg)",
-            border: "1px solid var(--neutral-200)",
+            maxHeight: "320px",
+            backgroundColor: "var(--neutral-white, #fff)",
+            borderRadius: "16px",
+            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+            border: "1px solid var(--neutral-200, #E5E5E5)",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
@@ -139,129 +82,75 @@ export function PinMentionDropdown({
           {/* Header */}
           <div
             style={{
-              padding: "10px 14px",
-              borderBottom: "1px solid var(--neutral-100)",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
+              padding: "8px 16px",
+              borderBottom: "1px solid var(--neutral-100, #F5F5F5)",
+              flexShrink: 0,
             }}
           >
-            <AtSign size={14} style={{ color: "var(--neutral-500)" }} />
             <span
               style={{
                 fontFamily: "var(--font-body)",
-                fontSize: "12px",
+                fontSize: "var(--font-size-caption)",
                 fontWeight: "var(--font-weight-medium)",
-                color: "var(--neutral-600)",
+                color: "var(--neutral-500)",
               }}
             >
-              Mention a Pin
+              {query ? `Searching: "${query}"` : "Select a pin to mention"}
             </span>
           </div>
 
-          {/* List */}
+          {/* Scrollable pin list — role="listbox" owns the option set */}
           <div
             ref={listRef}
+            role="listbox"
+            aria-label="Pin mentions"
             className="kaya-scrollbar"
             style={{ flex: 1, overflowY: "auto", padding: "4px" }}
           >
-            {isLoading && (
+            {pins.length === 0 ? (
               <div
                 style={{
-                  padding: "16px",
+                  padding: "24px 16px",
                   textAlign: "center",
                   fontFamily: "var(--font-body)",
-                  fontSize: "12px",
-                  color: "var(--neutral-500)",
-                }}
-              >
-                Loading pins…
-              </div>
-            )}
-
-            {!isLoading && filteredPins.length === 0 && (
-              <div
-                style={{
-                  padding: "16px",
-                  textAlign: "center",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "12px",
+                  fontSize: "var(--font-size-body)",
                   color: "var(--neutral-500)",
                 }}
               >
                 {query
-                  ? `No pins matching "@${query}"`
-                  : "No pins yet"}
+                  ? `No pins matching "${query}"`
+                  : "No pins yet — create one from a message."}
               </div>
-            )}
+            ) : (
+              pins.map((pin, idx) => {
+                const hasTags = pin.tags && pin.tags.length > 0;
+                const subtitle =
+                  pin.content.length > 80
+                    ? pin.content.slice(0, 80) + "…"
+                    : pin.content;
 
-            {filteredPins.map((pin, idx) => (
-              <button
-                key={pin.id}
-                type="button"
-                role="option"
-                aria-selected={idx === selectedIndex}
-                data-pin-index={idx}
-                onClick={() => onSelect(pin)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor:
-                    idx === selectedIndex
-                      ? "var(--neutral-100)"
-                      : "transparent",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "background-color 100ms",
-                }}
-              >
-                {/* Color dot */}
-                <span
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    backgroundColor: getPinColor(pin.color),
-                    border: "1px solid var(--neutral-300)",
-                    flexShrink: 0,
-                  }}
-                />
-
-                {/* Title */}
-                <span
-                  style={{
-                    flex: 1,
-                    fontFamily: "var(--font-body)",
-                    fontSize: "13px",
-                    color: "var(--neutral-800)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {highlightMatch(pin.title, query)}
-                </span>
-
-                {/* Folder */}
-                {pin.folder_name && (
-                  <span
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: "11px",
-                      color: "var(--neutral-400)",
-                      whiteSpace: "nowrap",
-                    }}
+                return (
+                  // Wrapper carries data-pin-index for the scrollIntoView query
+                  // and routes mouse-enter back to the parent's index tracker.
+                  <div
+                    key={pin.id}
+                    data-pin-index={idx}
+                    onMouseEnter={() => onHighlight(idx)}
                   >
-                    {pin.folder_name}
-                  </span>
-                )}
-              </button>
-            ))}
+                    <PinInsert
+                      title={pin.title || subtitle}
+                      type={hasTags ? "with-badges" : "with-subtitle"}
+                      tags={hasTags ? mapTags(pin.tags) : []}
+                      subtitle={!hasTags ? subtitle : undefined}
+                      highlight={!!query}
+                      searchQuery={query}
+                      isFocused={idx === highlightedIndex}
+                      onAdd={() => onSelect(pin)}
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
         </motion.div>
       )}

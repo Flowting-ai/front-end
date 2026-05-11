@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
+import CompareModels from "@/components/compare/CompareModels";
+import { useCompare } from "@/context/compare-context";
+import { useModelSelectorContext } from "@/context/model-selector-context";
+import type { AIModel } from "@/types/ai-model";
 
 // ── Event types ───────────────────────────────────────────────────────────────
 
@@ -25,6 +30,64 @@ export function openDeleteChatDialog(payload: DeleteChatPayload) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
+function CompareDialog() {
+  const { isOpen, close } = useCompare();
+  const { selectModel } = useModelSelectorContext();
+
+  const handleModelSelect = (model: AIModel) => {
+    selectModel(model);
+    close();
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            key="compare-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={close}
+            style={{
+              position:        "fixed",
+              inset:           0,
+              zIndex:          100,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            }}
+          />
+          {/* Dialog */}
+          <motion.div
+            key="compare-dialog"
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1,    y: 0  }}
+            exit={{    opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+            style={{
+              position:        "fixed",
+              inset:           0,
+              zIndex:          101,
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              pointerEvents:   "none",
+            }}
+          >
+            <div style={{ pointerEvents: "auto", position: "relative" }}>
+              <CompareModels
+                onClose={close}
+                onModelSelect={handleModelSelect}
+              />
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export function AppDialogs() {
   const [deleteChatState, setDeleteChatState] =
@@ -54,6 +117,7 @@ export function AppDialogs() {
           onCancel={() => setDeleteChatState(null)}
         />
       )}
+      <CompareDialog />
     </>
   );
 }

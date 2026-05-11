@@ -17,6 +17,7 @@
 import React from "react"
 import { parseContentSegments } from "./content-parser"
 import { MarkdownRenderer } from "./markdown-utils"
+import type { HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
 import { renderTextBlock } from "@/components/chat/ResponseBlocks"
@@ -74,17 +75,9 @@ function PendingBlockPlaceholder({ tag }: { tag: "table" | "chart" }) {
 interface ContentRendererProps {
   content: string
   webCitations?: WebCitation[]
-  /**
-   * True while the message is actively streaming.
-   * When true, markdown segments use renderTextBlock (inline, with cursor)
-   * rather than ReactMarkdown (block-level, causes jarring snaps during stream).
-   */
   isStreaming?: boolean
-  /**
-   * The cursor element to append after the last markdown segment.
-   * Only used when isStreaming=true.
-   */
   cursor?: React.ReactNode
+  highlights?: HighlightSpec[]
 }
 
 export function ContentRenderer({
@@ -92,6 +85,7 @@ export function ContentRenderer({
   webCitations,
   isStreaming,
   cursor,
+  highlights,
 }: ContentRendererProps) {
   const segments = parseContentSegments(content)
   const lastIdx = segments.length - 1
@@ -138,6 +132,7 @@ export function ContentRenderer({
                 key={i}
                 content={seg.text}
                 webCitations={webCitations}
+                highlights={highlights}
               />
             )
           }
