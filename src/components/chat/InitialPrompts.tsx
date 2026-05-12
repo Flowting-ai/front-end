@@ -21,7 +21,6 @@ export function InitialPrompts() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
         padding: "0 24px",
         textAlign: "center",
         maxWidth: "640px",
@@ -30,6 +29,9 @@ export function InitialPrompts() {
     >
       <h1
         style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
           fontFamily: "var(--font-title)",
           fontSize: "28px",
           fontWeight: 200,
@@ -38,6 +40,14 @@ export function InitialPrompts() {
           lineHeight: 1.25,
         }}
       >
+        <img
+          src="/icons/souvenir-logo-gray.svg"
+          alt=""
+          aria-hidden="true"
+          width={28}
+          height={28}
+          style={{ flexShrink: 0 }}
+        />
         {greeting}
       </h1>
 

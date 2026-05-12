@@ -10,8 +10,15 @@ export function HighlightSidebar() {
   const handleJump = (id: string) => {
     const h = highlights.find(h => h.id === id)
     if (!h?.messageId) return
-    const el = document.querySelector(`[data-message-id="${h.messageId}"]`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    const msgEl = document.querySelector(`[data-message-id="${h.messageId}"]`)
+    if (!msgEl) return
+
+    // Scroll to the specific <mark> element that contains the highlighted text.
+    // Falls back to the message container if no matching mark is found.
+    const marks = Array.from(msgEl.querySelectorAll('mark'))
+    const target = marks.find(m => m.textContent?.trim() === h.text.trim()) ?? msgEl
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   return (

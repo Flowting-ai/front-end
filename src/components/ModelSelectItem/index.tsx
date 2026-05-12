@@ -139,7 +139,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
     // and `overflow: hidden` (matching the original Figma design) so square
     // fills (e.g. Anthropic's solid-orange Claude tile) round their corners.
     const resolvedAvatar =
-      image ?? (llm ? <LlmIcon id={llm} variant="avatar" size={18} /> : null)
+      image ?? (llm ? <LlmIcon id={llm} variant="color" size={18} /> : null)
     const resolvedImage = resolvedAvatar ? (
       <span
         style={{

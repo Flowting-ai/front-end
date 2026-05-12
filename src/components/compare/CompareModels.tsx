@@ -1,8 +1,15 @@
 "use client";
-import React, { useState, useEffect, useLayoutEffect, useRef, type JSX } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, type JSX } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { springs } from "@/lib/springs";
+import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
-import { X, ArrowLeft, Sparkles, ArrowUp, ExternalLink, Mail } from "lucide-react";
+import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
 import { LlmIcon } from "@strange-huge/icons/llm";
+import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
+import { Button } from "@/components/Button";
+import { IconButton } from "@/components/IconButton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import type { AIModel } from "@/types/ai-model";
 import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
@@ -25,39 +32,91 @@ const CHIP_COLORS: Record<ChipColor, { bg: string; text: string }> = {
   blue:    { bg: "#CADCF1", text: "#135487" },
 };
 
-const CARD_SHADOW   = "0 2px 2.8px rgba(82,75,71,0.12)";
-const CARD_BORDER   = "1px solid #EDE1D7";
-const SEL_BORDER    = "1.5px solid #0D6EB2";
-const SEL_BG        = "rgba(13, 110, 178, 0.05)";
-const PRIMARY       = "#26211E";
-const SECONDARY     = "#524B47";
-const TERTIARY      = "#827A74";
-const ICON_BTN_BG   = "#F7F2ED";
-const RESP_BORDER   = "#E5DAD0";
-const DARK_GRADIENT = "linear-gradient(180deg, #524B47 0%, #26211E 100%)";
+const CHIP_SHADOW: Record<ChipColor, string> = {
+  neutral: "0px 1px 1.5px 0px rgba(18,12,8,0.2),0px 0px 0px 1px rgba(106,98,93,0.5)",
+  brown:   "0px 1px 1.5px 0px rgba(20,12,5,0.2),0px 0px 0px 1px rgba(126,84,53,0.5)",
+  red:     "0px 1px 1.5px 0px rgba(24,2,2,0.2),0px 0px 0px 1px rgba(159,38,35,0.5)",
+  green:   "0px 1px 1.5px 0px rgba(17,25,1,0.2),0px 0px 0px 1px rgba(128,183,7,0.5)",
+  blue:    "0px 1px 1.5px 0px rgba(2,15,24,0.2),0px 0px 0px 1px rgba(13,110,178,0.5)",
+};
+
+const CHIP_INNER: Record<ChipColor, string> = {
+  neutral: "inset 0px 1px 0px 0px rgba(247,242,237,0.7),inset 0px -1px 0px 0px rgba(106,98,93,0.1)",
+  brown:   "inset 0px 1px 0px 0px rgba(250,241,235,0.7),inset 0px -1px 0px 0px rgba(126,84,53,0.1)",
+  red:     "inset 0px 1px 0px 0px rgba(253,231,231,0.7),inset 0px -1px 0px 0px rgba(159,38,35,0.1)",
+  green:   "inset 0px 1px 0px 0px rgba(247,254,230,0.7),inset 0px -1px 0px 0px rgba(128,183,7,0.1)",
+  blue:    "inset 0px 1px 0px 0px rgba(231,244,253,0.7),inset 0px -1px 0px 0px rgba(13,110,178,0.1)",
+};
+
+const CARD_SHADOW        = "0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
+const CARD_SHADOW_RAISED = "0px 1px 1.5px 0px rgba(82,75,71,0.12),0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
+const CARD_INSET         = "inset 0px 1px 0px 0px rgba(247,242,237,0.61),inset 0px -1px 0px 0px rgba(106,98,93,0.05)";
+const CARD_BORDER        = "1px solid #EDE1D7";
+const PRIMARY            = "#26211E";
+const SECONDARY          = "#524B47";
+const TERTIARY           = "#827A74";
+const ICON_BTN_BG        = "#F7F2ED";
+const RESP_BORDER        = "#E5DAD0";
+const DARK_GRADIENT      = "linear-gradient(180deg, #524B47 0%, #3B3632 100%)";
+const DIALOG_SHADOW      = "0px 19px 32px 0px rgba(18,12,8,0.15),0px 2px 2.8px 0px rgba(130,122,116,0.1),0px 0px 0px 1px #EDE1D7";
+const TRAY_BG_SHADOW     = "inset 0px -1px 0px 0px rgba(255,255,255,0.9),inset 0px 1px 0px 0px #EDE1D7,inset 0px 0px 4px 0px rgba(209,198,189,0.5)";
+const SLOT_SHADOW        = "0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
+const BTN_SHADOW         = "0px 0px 0px 1px #3B3632,0px 1.091px 1.091px 0px rgba(59,54,50,0.1),0px 1.455px 3.127px 0px rgba(59,54,50,0.4)";
+const BTN_INSET          = "inset 0px 1.455px 0.364px 0px #6A625D,inset 0px -2.182px 0.364px 0px #3B3632,inset 0px -2.545px 6.9px -2.182px #827A74";
 
 // ── Chip ───────────────────────────────────────────────────────────────────────
 
-function Chip({ label, color }: { label: string; color: ChipColor }) {
+function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor; noCapitalize?: boolean }) {
   const { bg, text } = CHIP_COLORS[color];
   return (
-    <span
-      style={{
-        display:         "inline-flex",
-        alignItems:      "center",
-        padding:         "2px 8px",
-        borderRadius:    999,
-        fontSize:        11,
-        fontWeight:      500,
-        lineHeight:      "16px",
-        backgroundColor: bg,
-        color:           text,
-        whiteSpace:      "nowrap",
-        flexShrink:      0,
-      }}
-    >
-      {label}
-    </span>
+    <div style={{
+      position:       "relative",
+      display:        "inline-flex",
+      alignItems:     "center",
+      justifyContent: "center",
+      overflow:       "hidden",
+      padding:        2,
+      borderRadius:   6,
+      boxShadow:      CHIP_SHADOW[color],
+      flexShrink:     0,
+    }}>
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 6, backgroundColor: bg }} />
+      <div style={{ position: "relative", display: "inline-flex", alignItems: "center", paddingLeft: 2, paddingRight: 2 }}>
+        <span style={{
+          fontSize:      11,
+          fontWeight:    500,
+          lineHeight:    "16px",
+          color:         text,
+          whiteSpace:    "nowrap",
+          fontFamily:    "var(--font-body)",
+          textAlign:     "center",
+          ...(noCapitalize ? {} : { textTransform: "capitalize" as const }),
+        }}>
+          {label}
+        </span>
+      </div>
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "inherit", boxShadow: CHIP_INNER[color] }} />
+    </div>
+  );
+}
+
+// ── CornerNotch ────────────────────────────────────────────────────────────────
+// Creates the inverted-border-radius "browser tab" notch effect.
+// A beige box with a white circle peeking from one corner produces a concave curve
+// that visually joins the active tab to the white content panel below.
+function CornerNotch({ side }: { side: "left" | "right" }) {
+  return (
+    <div style={{ width: 8, height: 8, background: "#EDE1D7", overflow: "hidden", position: "relative", flexShrink: 0, alignSelf: "flex-end" }}>
+      <div style={{
+        position:     "absolute",
+        top:          0,
+        [side === "left" ? "left" : "right"]: 0,
+        width:        16,
+        height:       16,
+        borderRadius: "50%",
+        background:   "#FFFFFF",
+      }} />
+    </div>
   );
 }
 
@@ -482,7 +541,11 @@ function ModelCard({
   isDisabled: boolean;
   onClick:    () => void;
 }) {
-  const llmId = getModelLlmId(model.companyName, model.rawModelName) ?? "";
+  const [isHovered, setIsHovered] = useState(false);
+  const llmId    = getModelLlmId(model.companyName, model.rawModelName) ?? "";
+  const isActive = isSelected || isHovered;
+  const tierColor: ChipColor = /^pro$/i.test(model.tierLabel) ? "blue" : "neutral";
+
   return (
     <div
       role="button"
@@ -490,89 +553,117 @@ function ModelCard({
       aria-pressed={isSelected}
       onClick={() => !isDisabled && onClick()}
       onKeyDown={(e) => { if (!isDisabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(); } }}
+      onMouseEnter={() => !isDisabled && setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       title={!model.requestModelId ? "This model is missing a backend ID and cannot be tested." : undefined}
       style={{
-        width:           381,
+        width:           "100%",
+        height:          "100%",
         borderRadius:    16,
-        border:          isSelected ? SEL_BORDER : CARD_BORDER,
-        backgroundColor: isSelected ? SEL_BG : "#FFFFFF",
-        boxShadow:       CARD_SHADOW,
-        padding:         "12px 12px 16px 12px",
+        boxShadow:       isActive ? CARD_SHADOW_RAISED : CARD_SHADOW,
+        backgroundColor: "#FFFFFF",
+        paddingTop:      12,
+        paddingBottom:   16,
+        paddingLeft:     12,
+        paddingRight:    12,
         display:         "flex",
         flexDirection:   "column",
         gap:             8,
         cursor:          isDisabled ? "not-allowed" : "pointer",
         opacity:         isDisabled ? 0.5 : 1,
         position:        "relative",
-        transition:      "border-color 0.15s, background-color 0.15s",
+        transition:      "box-shadow 0.15s",
         outline:         "none",
         boxSizing:       "border-box",
+        overflow:        "hidden",
       }}
     >
-      {/* Selected checkmark */}
+      {/* Hover warm overlay */}
+      {isHovered && !isSelected && (
+        <div aria-hidden style={{
+          position:      "absolute",
+          inset:         0,
+          pointerEvents: "none",
+          borderRadius:  16,
+          background:    "linear-gradient(90deg,rgba(237,225,215,0.6) 0%,rgba(237,225,215,0.6) 100%),linear-gradient(90deg,#FFF 0%,#FFF 100%)",
+        }} />
+      )}
+      {/* Selected warm overlay */}
       {isSelected && (
-        <div style={{
+        <div aria-hidden style={{
           position:        "absolute",
-          top:             12,
-          right:           12,
-          width:           18,
-          height:          18,
-          borderRadius:    "50%",
-          backgroundColor: "#0D6EB2",
-          display:         "flex",
-          alignItems:      "center",
-          justifyContent:  "center",
-          flexShrink:      0,
-        }}>
-          <svg width={10} height={8} viewBox="0 0 10 8" fill="none">
-            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
+          inset:           0,
+          pointerEvents:   "none",
+          borderRadius:    16,
+          backgroundColor: "rgba(237,225,215,0.6)",
+        }} />
+      )}
+      {/* Inset highlight for both hover and selected */}
+      {isActive && (
+        <div aria-hidden style={{
+          position:      "absolute",
+          inset:         0,
+          pointerEvents: "none",
+          borderRadius:  "inherit",
+          boxShadow:     CARD_INSET,
+        }} />
       )}
 
       {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, width: "100%", flexShrink: 0 }}>
         <div style={{
           width:           44,
           height:          44,
           borderRadius:    10,
           padding:         8,
           flexShrink:      0,
-          backgroundColor: ICON_BTN_BG,
+          backgroundColor: "rgba(255,255,255,0)",
           display:         "flex",
           alignItems:      "center",
           justifyContent:  "center",
+          overflow:        "hidden",
         }}>
-          <LlmIcon id={llmId} variant="avatar" size={24} />
+          <LlmIcon id={llmId} variant="color" size={24} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: PRIMARY, lineHeight: "22px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 500, color: PRIMARY, lineHeight: "22px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
             {model.modelName}
           </div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: SECONDARY, lineHeight: "16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: SECONDARY, lineHeight: "16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
             {model.company}
           </div>
         </div>
+        {/* Inline checkmark for selected state */}
+        {isSelected && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 3, borderRadius: 6, flexShrink: 0 }}>
+            <TickTwoIcon animated size={18} color={PRIMARY} />
+          </div>
+        )}
       </div>
 
-      {/* Description */}
+      {/* Description — flex:1 pushes badge row to bottom */}
       <div style={{
+        position:        "relative",
         fontSize:        11,
-        color:           TERTIARY,
+        color:           isActive ? SECONDARY : TERTIARY,
         lineHeight:      "16px",
+        maxHeight:       48,
+        overflow:        "hidden",
         display:         "-webkit-box",
         WebkitLineClamp: 3,
         WebkitBoxOrient: "vertical" as const,
-        overflow:        "hidden",
+        width:           "100%",
+        fontFamily:      "var(--font-body)",
+        flex:            1,
       }}>
         {model.description}
       </div>
 
-      {/* Badge row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 8, gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Chip label={model.tierLabel}    color="brown" />
-          <Chip label={model.contextLabel} color="red"   />
+      {/* Badge row — stays at bottom via marginTop auto */}
+      <div style={{ position: "relative", display: "flex", alignItems: "center", paddingTop: 8, gap: 6, width: "100%", marginTop: "auto", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+          <Chip label={model.tierLabel}    color={tierColor} />
+          <Chip label={model.contextLabel} color="red" noCapitalize />
         </div>
         {model.featureLabel && <Chip label={model.featureLabel} color="green" />}
       </div>
@@ -591,18 +682,61 @@ export interface CompareModelsProps {
 export default function CompareModels({ selectedModel, onModelSelect, onClose }: CompareModelsProps = {}) {
   void selectedModel;
 
-  const [selectedModels,      setSelectedModels]      = useState<string[]>([]);
-  const [showResults,         setShowResults]          = useState(false);
-  const [prompt,              setPrompt]               = useState("");
-  const [models,              setModels]               = useState<CompareModel[]>([]);
-  const [isLoading,           setIsLoading]            = useState(true);
-  const [testResponses,       setTestResponses]        = useState<Record<string, string>>({});
-  const [isTesting,           setIsTesting]            = useState(false);
-  const [streamingModels,     setStreamingModels]      = useState<Set<string>>(new Set());
-  const [fullModels,          setFullModels]           = useState<AIModel[]>([]);
-  const [promptInputCollapsed, setPromptInputCollapsed] = useState(false);
+  const [selectedModels,       setSelectedModels]       = useState<string[]>([]);
+  const [showResults,          setShowResults]           = useState(false);
+  const [prompt,               setPrompt]                = useState("");
+  const [models,               setModels]                = useState<CompareModel[]>([]);
+  const [isLoading,            setIsLoading]             = useState(true);
+  const [testResponses,        setTestResponses]         = useState<Record<string, string>>({});
+  const [isTesting,            setIsTesting]             = useState(false);
+  const [streamingModels,      setStreamingModels]       = useState<Set<string>>(new Set());
+  const [fullModels,           setFullModels]            = useState<AIModel[]>([]);
+  const [promptInputCollapsed, setPromptInputCollapsed]  = useState(false);
+  const [activeTab,            setActiveTab]             = useState<string>("all");
+  const [searchQuery,          setSearchQuery]           = useState("");
+  const [showSearch,           setShowSearch]            = useState(false);
+  const [atTop,           setAtTop]           = useState(true);
+  const [atBottom,        setAtBottom]        = useState(false);
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+  const [testCredits,     setTestCredits]     = useState<Record<string, number>>({});
+  const [filterOpen,      setFilterOpen]      = useState(false);
+  const [selectedTiers,   setSelectedTiers]   = useState<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptInputRef     = useRef<HTMLTextAreaElement>(null);
+  const gridScrollRef      = useRef<HTMLDivElement>(null);
+
+  const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    setAtTop(el.scrollTop < 34);
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
+  }, []);
+
+  const companies = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of models) counts[m.company] = (counts[m.company] ?? 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
+  }, [models]);
+
+  const filteredModels = useMemo(() => {
+    let result = activeTab === "all" ? models : models.filter((m) => m.company === activeTab);
+    if (selectedTiers.size > 0) {
+      result = result.filter((m) => {
+        const t = (m.tierLabel ?? "").toLowerCase();
+        if (selectedTiers.has("starter") && (t === "free" || t === "starter")) return true;
+        if (selectedTiers.has("pro")     && (t === "paid" || t === "pro"))     return true;
+        return false;
+      });
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((m) =>
+        m.modelName.toLowerCase().includes(q) ||
+        m.company.toLowerCase().includes(q) ||
+        m.description.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [models, activeTab, searchQuery, selectedTiers]);
 
   // ── Auto-grow textarea ───────────────────────────────────────────────────────
 
@@ -652,7 +786,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
   const handleSelect = (model: CompareModel) => {
     if (!model.requestModelId) return;
-    if (selectedModels.length < 3 && !selectedModels.includes(model.requestModelId)) {
+    if (selectedModels.includes(model.requestModelId)) {
+      setSelectedModels((prev) => prev.filter((id) => id !== model.requestModelId));
+    } else if (selectedModels.length < 3) {
       setSelectedModels((prev) => [...prev, model.requestModelId!]);
     }
   };
@@ -676,6 +812,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setPromptInputCollapsed(true);
     setIsTesting(true);
     setTestResponses({});
+    setTestCredits({});
     setStreamingModels(new Set());
 
     try {
@@ -769,6 +906,13 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             case "end": {
               const final = typeof payload.response === "string" ? payload.response : "";
               if (final) { streamingResponses[modelIdStr] = final; setTestResponses({ ...streamingResponses }); }
+              const creditsRaw =
+                typeof payload.credits_used  === "number" ? payload.credits_used  :
+                typeof payload.creditsUsed   === "number" ? payload.creditsUsed   :
+                typeof payload.credits       === "number" ? payload.credits       :
+                typeof payload.cost          === "number" ? payload.cost          :
+                null;
+              if (creditsRaw !== null) setTestCredits((prev) => ({ ...prev, [modelIdStr]: creditsRaw }));
               setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
               break;
             }
@@ -785,12 +929,15 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         const processChunk = (chunk: string) => {
           const lines = chunk.split("\n");
           let explicitEvent = "";
-          let dataStr = "";
+          const dataLines: string[] = [];
           for (const line of lines) {
-            if (line.startsWith("event:")) explicitEvent = line.slice(6).trim().toLowerCase();
-            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+            const trimmedLine = line.replace(/\r$/, "");
+            if (trimmedLine.startsWith("event:")) explicitEvent = trimmedLine.slice(6).trim().toLowerCase();
+            else if (trimmedLine.startsWith("data:")) dataLines.push(trimmedLine.slice(5));
           }
-          if (!dataStr) return;
+          if (dataLines.length === 0) return;
+          const dataStr = dataLines.join("\n").trim();
+          if (!dataStr || dataStr === "[DONE]") return;
           try {
             const payload = JSON.parse(dataStr) as Record<string, unknown>;
             handleEvent(resolveEventType(explicitEvent, payload), payload);
@@ -800,7 +947,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
           const events = buffer.split("\n\n");
           buffer = events.pop() || "";
           for (const ev of events) processChunk(ev);
@@ -830,274 +977,291 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
       .map((id) => models.find((m) => m.requestModelId === id))
       .filter((c): c is CompareModel => Boolean(c));
 
+    const expandedModel = expandedModelId
+      ? (modelsToShow.find((m) => m.requestModelId === expandedModelId) ?? null)
+      : null;
+
+    const handleGoBack = () => { setShowResults(false); setExpandedModelId(null); };
+
     return (
       <div style={{
-        width:           1050,
-        maxHeight:       "90vh",
-        borderRadius:    16,
-        border:          CARD_BORDER,
-        backgroundColor: "#F7F2ED",
-        boxShadow:       CARD_SHADOW,
-        display:         "flex",
-        flexDirection:   "column",
-        overflow:        "hidden",
+        width:         1212,
+        height:        "98vh",
+        maxHeight:     "98vh",
+        borderRadius:  20,
+        background:    "#F7F2ED",
+        boxShadow:     DIALOG_SHADOW,
+        display:       "flex",
+        flexDirection: "column",
+        overflow:      "hidden",
+        padding:       8,
+        boxSizing:     "border-box",
       }}>
-        {/* Header */}
+        {/* Inner wrapper */}
         <div style={{
-          padding:         "14px 20px",
-          display:         "flex",
-          alignItems:      "center",
-          gap:             12,
-          backgroundColor: "#FFFFFF",
-          borderBottom:    CARD_BORDER,
-          flexShrink:      0,
+          borderRadius:  20,
+          display:       "flex",
+          flexDirection: "column",
+          gap:           12,
+          flex:          1,
+          minHeight:     0,
+          padding:       16,
+          overflow:      "hidden",
         }}>
-          <button
-            onClick={() => setShowResults(false)}
-            aria-label="Back"
-            style={{
-              width:           32,
-              height:          32,
-              borderRadius:    8,
-              border:          CARD_BORDER,
-              backgroundColor: "#FFFFFF",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              cursor:          "pointer",
-              flexShrink:      0,
-            }}
-          >
-            <ArrowLeft size={16} color={PRIMARY} />
-          </button>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "Clash Grotesk Variable", fontWeight: 400, fontSize: 20, lineHeight: "120%", letterSpacing: "-0.02em", color: PRIMARY }}>
-              Compare results
-            </div>
-            <div style={{ fontSize: 13, color: TERTIARY, marginTop: 2 }}>
-              Analyze model performance across your test prompts.
-            </div>
-          </div>
-
-          {onClose && (
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                width:           28,
-                height:          28,
-                borderRadius:    8,
-                border:          CARD_BORDER,
-                backgroundColor: "#FFFFFF",
-                display:         "flex",
-                alignItems:      "center",
-                justifyContent:  "center",
-                cursor:          "pointer",
-                flexShrink:      0,
-              }}
-            >
-              <X size={14} color={SECONDARY} />
-            </button>
-          )}
-        </div>
-
-        {/* Model output columns */}
-        <div style={{
-          flex:     1,
-          minHeight: 0,
-          display:  "flex",
-          gap:      12,
-          padding:  "12px 12px 0 12px",
-          overflow: "hidden",
-        }}>
-          {modelsToShow.map((model) => {
-            const responseKey     = model.requestModelId ?? model.id;
-            const modelResponse   = testResponses[responseKey];
-            const isModelStreaming = streamingModels.has(responseKey);
-            const llmId           = getModelLlmId(model.companyName, model.rawModelName) ?? "";
-
-            return (
-              <div
-                key={model.id}
-                style={{
-                  flex:            1,
-                  minWidth:        0,
-                  minHeight:       0,
-                  borderRadius:    8,
-                  border:          CARD_BORDER,
-                  backgroundColor: "#FFFFFF",
-                  boxShadow:       CARD_SHADOW,
-                  display:         "flex",
-                  flexDirection:   "column",
-                  gap:             10,
-                  padding:         12,
-                  boxSizing:       "border-box",
-                }}
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", paddingLeft: 4, flex: 1, minWidth: 0 }}>
+              <button
+                onClick={handleGoBack}
+                aria-label="Back"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 10, border: "none", backgroundColor: "transparent", cursor: "pointer", flexShrink: 0 }}
               >
-                {/* Column header */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
-                    <div style={{
-                      width:           44,
-                      height:          44,
-                      borderRadius:    10,
-                      padding:         8,
-                      flexShrink:      0,
-                      backgroundColor: ICON_BTN_BG,
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                    }}>
-                      <LlmIcon id={llmId} variant="avatar" size={24} />
-                    </div>
-                    <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14, lineHeight: "22px", color: PRIMARY }}>
-                      <span style={{ fontWeight: 700 }}>{model.company}</span>
-                      {model.modelName && <span style={{ fontWeight: 400 }}>/{model.modelName}</span>}
-                    </div>
-                  </div>
-                  <button
-                    aria-label="Expand"
-                    style={{
-                      width:           28,
-                      height:          28,
-                      borderRadius:    10,
-                      border:          CARD_BORDER,
-                      backgroundColor: "#FFFFFF",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      cursor:          "pointer",
-                      flexShrink:      0,
-                    }}
-                  >
-                    <ExternalLink size={12} color={SECONDARY} />
-                  </button>
+                <ArrowLeftOneIcon animated size={20} color={PRIMARY} />
+              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, justifyContent: "center", flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 24, lineHeight: "32px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  Compare results
                 </div>
-
-                {/* Use this model */}
-                <button
-                  onClick={() => handleSelectModel(model.requestModelId ?? model.id)}
-                  style={{
-                    width:       "100%",
-                    padding:     "8px 16px",
-                    borderRadius: 8,
-                    border:      "none",
-                    background:  DARK_GRADIENT,
-                    color:       "#F7F2ED",
-                    fontSize:    14,
-                    fontWeight:  500,
-                    textShadow:  "0 0.364px 0.364px rgba(255,255,255,0.25), 0 -0.727px 0.364px rgba(0,0,0,0.25)",
-                    cursor:      "pointer",
-                    flexShrink:  0,
-                  }}
-                >
-                  ✓ Use this model
-                </button>
-
-                {/* Response area */}
-                <div
-                  className="kaya-scrollbar"
-                  style={{
-                    flex:         1,
-                    minHeight:    0,
-                    overflowY:    "auto",
-                    borderTop:    `1px solid ${RESP_BORDER}`,
-                    borderBottom: `1px solid ${RESP_BORDER}`,
-                    borderRadius: 20,
-                    padding:      10,
-                    display:      "flex",
-                    flexDirection: "column",
-                    alignItems:   modelResponse ? "flex-start" : "center",
-                    justifyContent: modelResponse ? "flex-start" : "center",
-                  }}
-                >
-                  {isModelStreaming ? (
-                    <div style={{ width: "100%", fontSize: 11, lineHeight: "16px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      {modelResponse || ""}
-                      <span className={styles.streamingCursor} />
-                    </div>
-                  ) : isTesting && !modelResponse ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
-                      <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center" }}>
-                        Waiting to generate...
-                      </div>
-                    </div>
-                  ) : modelResponse ? (
-                    <FormattedResponse content={modelResponse} modelId={responseKey} />
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
-                      <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center" }}>
-                        Run a prompt to see<br />{model.modelName}&apos;s<br />answer here.
-                      </div>
-                    </div>
-                  )}
+                <div style={{ fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  Analyze model performance across your test prompts.
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Compare chat input */}
-        <div style={{ padding: "12px 12px 16px", flexShrink: 0 }}>
-          <div style={{
-            borderRadius:    24,
-            border:          "1px solid rgba(59,54,50,0.1)",
-            boxShadow:       CARD_SHADOW,
-            backgroundColor: "#FFFFFF",
-            padding:         20,
-            display:         "flex",
-            alignItems:      "flex-end",
-            gap:             24,
-          }}>
-            <textarea
-              ref={promptInputRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onFocus={() => setPromptInputCollapsed(false)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleTestModels(); } }}
-              placeholder="How can I help you today?"
-              disabled={isTesting}
-              rows={1}
-              style={{
-                flex:        1,
-                fontSize:    16,
-                fontWeight:  400,
-                lineHeight:  "22px",
-                color:       prompt ? "#26211E" : "#6A625D",
-                fontFamily:  "var(--font-geist-sans, Geist, sans-serif)",
-                background:  "none",
-                border:      "none",
-                outline:     "none",
-                resize:      "none",
-                minHeight:   22,
-                opacity:     isTesting ? 0.6 : 1,
-              }}
-            />
-            <button
-              onClick={handleTestModels}
-              disabled={!prompt.trim() || isTesting}
-              aria-label="Send"
-              style={{
-                width:          36,
-                height:         36,
-                borderRadius:   10,
-                background:     DARK_GRADIENT,
-                border:         "1px solid #000000",
-                display:        "flex",
-                alignItems:     "center",
-                justifyContent: "center",
-                cursor:         !prompt.trim() || isTesting ? "not-allowed" : "pointer",
-                flexShrink:     0,
-                opacity:        !prompt.trim() || isTesting ? 0.5 : 1,
-                transition:     "opacity 0.15s",
-              }}
-            >
-              <ArrowUp size={20} color="#FFFFFF" />
-            </button>
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 8, border: "none", backgroundColor: "transparent", cursor: "pointer", flexShrink: 0 }}
+              >
+                <CancelOneIcon animated size={20} color={SECONDARY} />
+              </button>
+            )}
           </div>
+
+          {/* Content: expanded tab view OR normal columns tray */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            {expandedModelId ? (
+              /* ── Expanded tab view ─────────────────────────────────────────── */
+              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW, padding: 12 }}>
+                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "#EDE1D7", boxShadow: CARD_SHADOW }}>
+                  {/* Tabs header */}
+                  <div style={{ display: "flex", alignItems: "stretch", background: "#EDE1D7", flexShrink: 0 }}>
+                    {/* Collapse button */}
+                    <div style={{ display: "flex", alignItems: "center", paddingLeft: 12, paddingRight: 4, paddingTop: 10, paddingBottom: 10, flexShrink: 0 }}>
+                      <button
+                        onClick={() => setExpandedModelId(null)}
+                        aria-label="Collapse"
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 10, border: "none", backgroundColor: "transparent", cursor: "pointer" }}
+                      >
+                        <ArrowShrinkTwoIcon animated size={20} color={SECONDARY} />
+                      </button>
+                    </div>
+                    {/* Tab items */}
+                    {modelsToShow.map((model) => {
+                      const isActive = model.requestModelId === expandedModelId;
+                      const llmId = getModelLlmId(model.companyName, model.rawModelName) ?? "";
+                      if (isActive) {
+                        return (
+                          <div key={model.id} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#FFFFFF", borderRadius: "8px 8px 0 0", flexShrink: 0 }}>
+                            <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                              <LlmIcon id={llmId} variant="color" size={24} />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
+                                {model.displayName}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <button
+                          key={model.id}
+                          onClick={() => setExpandedModelId(model.requestModelId)}
+                          style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, backgroundColor: "#EDE1D7", borderRadius: "8px 8px 0 0", border: "none", cursor: "pointer", flexShrink: 0 }}
+                        >
+                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            <LlmIcon id={llmId} variant="color" size={24} />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", height: 44, justifyContent: "center", paddingRight: 8, flexShrink: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
+                              {model.displayName}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <div style={{ flex: 1 }} />
+                  </div>
+                {/* Expanded content panel */}
+                <AnimatePresence mode="wait" initial={false}>
+                {expandedModel && (() => {
+                  const responseKey      = expandedModel.requestModelId ?? expandedModel.id;
+                  const modelResponse    = testResponses[responseKey];
+                  const isModelStreaming = streamingModels.has(responseKey);
+                  const credits          = testCredits[responseKey];
+                  return (
+                    <motion.div
+                      key={expandedModelId}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={springs.fast}
+                      style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 12, padding: 12, background: "#FFFFFF", borderRadius: 8 }}
+                    >
+                      {/* Response area */}
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, paddingTop: 10, paddingLeft: 10, paddingRight: 10 }}>
+                        {isModelStreaming ? (
+                          <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
+                            {modelResponse || ""}<span className={styles.streamingCursor} />
+                          </div>
+                        ) : isTesting && !modelResponse ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
+                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
+                          </div>
+                        ) : modelResponse ? (
+                          <FormattedResponse content={modelResponse} modelId={responseKey} />
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
+                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
+                              Run a prompt to see<br />{expandedModel.modelName}&apos;s<br />answer here.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Bottom action bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
+                          {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                        </div>
+                        {/* Save Pin */}
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          leftIcon={<PinIcon animated size={16} />}
+                        >
+                          Save Pin
+                        </Button>
+                        {/* Use this model */}
+                        <Button
+                          variant="default"
+                          size="md"
+                          onClick={() => handleSelectModel(expandedModel.requestModelId ?? expandedModel.id)}
+                          leftIcon={<TickTwoIcon animated size={16} />}
+                        >
+                          Use this model
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+                </AnimatePresence>
+                </div>
+              </div>
+            ) : (
+              /* ── Normal columns tray ───────────────────────────────────────── */
+              <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", gap: 12, padding: 12, borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW }}>
+                {modelsToShow.map((model) => {
+                  const responseKey      = model.requestModelId ?? model.id;
+                  const modelResponse    = testResponses[responseKey];
+                  const isModelStreaming = streamingModels.has(responseKey);
+                  const llmId            = getModelLlmId(model.companyName, model.rawModelName) ?? "";
+                  const credits          = testCredits[responseKey];
+                  return (
+                    <div key={model.id} style={{ flex: 1, minWidth: 0, minHeight: 0, borderRadius: 8, backgroundColor: "#FFFFFF", boxShadow: CARD_SHADOW, display: "flex", flexDirection: "column", gap: 10, padding: 12, boxSizing: "border-box" }}>
+                      {/* Column header */}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
+                        <div style={{ display: "flex", flex: 1, alignItems: "flex-start", gap: 6, minWidth: 0 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 10, padding: 8, flexShrink: 0, backgroundColor: "rgba(255,255,255,0)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            <LlmIcon id={llmId} variant="color" size={24} />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, minWidth: 0, alignSelf: "stretch" }}>
+                            <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
+                              {model.displayName}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setExpandedModelId(model.requestModelId)}
+                          aria-label="Expand"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 10, border: "none", backgroundColor: "transparent", cursor: "pointer", flexShrink: 0 }}
+                        >
+                          <ArrowExpandOneIcon animated size={20} color={SECONDARY} />
+                        </button>
+                      </div>
+                      {/* Use this model button */}
+                      <div style={{ flexShrink: 0 }}>
+                        <Button
+                          variant="default"
+                          size="md"
+                          fluid
+                          onClick={() => handleSelectModel(model.requestModelId ?? model.id)}
+                          leftIcon={<TickTwoIcon animated size={16} />}
+                        >
+                          Use this model
+                        </Button>
+                      </div>
+                      {/* Response area */}
+                      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", borderRadius: 20, padding: 10, display: "flex", flexDirection: "column", alignItems: modelResponse ? "flex-start" : "center", justifyContent: modelResponse ? "flex-start" : "center" }}>
+                        {isModelStreaming ? (
+                          <div style={{ width: "100%", fontSize: 14, lineHeight: "22px", color: PRIMARY, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "var(--font-body)" }}>
+                            {modelResponse || ""}<span className={styles.streamingCursor} />
+                          </div>
+                        ) : isTesting && !modelResponse ? (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
+                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
+                          </div>
+                        ) : modelResponse ? (
+                          <FormattedResponse content={modelResponse} modelId={responseKey} />
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                            <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
+                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
+                              Run a prompt to see<br />{model.modelName}&apos;s<br />answer here.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Credits badge */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
+                        {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Chat input */}
+          <div style={{ flexShrink: 0, paddingLeft: 9, paddingRight: 9 }}>
+            <div style={{ borderRadius: 12, border: "1px solid rgba(59,54,50,0.1)", boxShadow: CARD_SHADOW, backgroundColor: "#FFFFFF", padding: 20, display: "flex", alignItems: "center", gap: 24 }}>
+              <textarea
+                ref={promptInputRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onFocus={() => setPromptInputCollapsed(false)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleTestModels(); } }}
+                placeholder="How can I help you today?"
+                disabled={isTesting}
+                rows={1}
+                style={{ flex: 1, fontSize: 16, fontWeight: 400, lineHeight: "22px", color: prompt ? "#26211E" : "#6A625D", fontFamily: "var(--font-body)", background: "none", border: "none", outline: "none", resize: "none", minHeight: 22, opacity: isTesting ? 0.6 : 1 }}
+              />
+              <IconButton
+                variant="default"
+                size="md"
+                onClick={handleTestModels}
+                disabled={!prompt.trim() || isTesting}
+                aria-label="Send"
+                icon={<ArrowUpTwoIcon animated size={20} />}
+              />
+            </div>
+          </div>
+
         </div>
       </div>
     );
@@ -1107,197 +1271,452 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
   return (
     <div style={{
-      width:           858,
-      maxHeight:       "90vh",
-      borderRadius:    16,
-      border:          CARD_BORDER,
-      backgroundColor: "#FFFFFF",
-      boxShadow:       CARD_SHADOW,
-      display:         "flex",
-      flexDirection:   "column",
-      overflow:        "hidden",
+      width:         1212,
+      height:        "98vh",
+      maxHeight:     "98vh",
+      borderRadius:  20,
+      background:    "#F7F2ED",
+      boxShadow:     DIALOG_SHADOW,
+      display:       "flex",
+      flexDirection: "column",
+      overflow:      "hidden",
+      padding:       8,
+      boxSizing:     "border-box",
     }}>
-      {/* Header */}
-      <div style={{ padding: "16px 20px 12px", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontFamily: "Clash Grotesk Variable", fontWeight: 400, fontSize: 20, lineHeight: "120%", letterSpacing: "-0.02em", color: PRIMARY }}>
-            Compare & select
+      {/* Inner content wrapper */}
+      <div style={{
+        borderRadius:  20,
+        background:    "#F7F2ED",
+        padding:       16,
+        display:       "flex",
+        flexDirection: "column",
+        gap:           12,
+        flex:          1,
+        minHeight:     0,
+        overflow:      "hidden",
+      }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{
+              fontFamily:   "var(--font-title)",
+              fontWeight:   400,
+              fontSize:     24,
+              lineHeight:   "32px",
+              color:        PRIMARY,
+              overflow:     "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace:   "nowrap",
+            }}>
+              Compare Models
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 400, lineHeight: "22px", color: PRIMARY, fontFamily: "var(--font-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Select models to compare
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: TERTIARY, marginTop: 4 }}>
-            Pick up to 3 models to pit against each other.
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              style={{
+                padding:         6,
+                borderRadius:    8,
+                border:          "none",
+                backgroundColor: "transparent",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
+                cursor:          "pointer",
+                flexShrink:      0,
+              }}
+            >
+              <X size={20} color={SECONDARY} />
+            </button>
+          )}
         </div>
-        {onClose && (
-          <button
-            onClick={onClose}
-            aria-label="Close"
+
+        {/* Scrollable main area */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+
+          {/* Tabs + search row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            {/* Available Models label / Search input */}
+            {!showSearch ? (
+              <div style={{ flex: 1, minWidth: 0, fontSize: 16, fontWeight: 500, lineHeight: "22px", color: PRIMARY, fontFamily: "var(--font-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Available Models
+              </div>
+            ) : (
+              <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search models..."
+                  style={{
+                    width:        "100%",
+                    padding:      "7px 36px 7px 10px",
+                    borderRadius: 10,
+                    border:       "none",
+                    outline:      "none",
+                    background:   "var(--neutral-white)",
+                    boxShadow:    "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)",
+                    fontFamily:   "var(--font-body)",
+                    fontSize:     "var(--font-size-body)",
+                    lineHeight:   "var(--line-height-body)",
+                    color:        "var(--neutral-700)",
+                  }}
+                />
+                <button
+                  onClick={() => { setSearchQuery(""); setShowSearch(false); }}
+                  aria-label="Clear search"
+                  style={{
+                    position:        "absolute",
+                    right:           8,
+                    top:             "50%",
+                    transform:       "translateY(-50%)",
+                    padding:         3,
+                    borderRadius:    4,
+                    border:          "none",
+                    backgroundColor: "transparent",
+                    display:         "flex",
+                    alignItems:      "center",
+                    cursor:          "pointer",
+                  }}
+                >
+                  <X size={14} color={TERTIARY} />
+                </button>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList size="small">
+                <TabsTrigger value="all" icon={<AtomTwoIcon size={16} />}>
+                  All
+                </TabsTrigger>
+                {companies.map((company) => {
+                  const repModel = models.find((m) => m.company === company);
+                  const repLlmId = repModel ? (getModelLlmId(repModel.companyName, repModel.rawModelName) ?? "") : "";
+                  return (
+                    <TabsTrigger
+                      key={company}
+                      value={company}
+                      icon={repLlmId ? <LlmIcon id={repLlmId} variant="color" size={16} /> : undefined}
+                    >
+                      {company}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
+
+            {/* Search + Filter buttons */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <button
+                onClick={() => { setShowSearch((v) => !v); if (showSearch) setSearchQuery(""); }}
+                aria-label={showSearch ? "Close search" : "Search models"}
+                style={{ padding: 6, borderRadius: 8, border: "none", backgroundColor: "transparent", display: "flex", alignItems: "center", cursor: "pointer" }}
+              >
+                <SearchOneIcon animated size={20} color={SECONDARY} />
+              </button>
+              <Dropdown.Float
+                trigger={
+                  <button
+                    aria-label="Filter models"
+                    style={{ padding: 6, borderRadius: 8, border: "none", backgroundColor: "transparent", display: "flex", alignItems: "center", cursor: "pointer" }}
+                  >
+                    <FilterMailIcon animated size={20} color={selectedTiers.size > 0 ? PRIMARY : SECONDARY} />
+                  </button>
+                }
+                open={filterOpen}
+                onOpenChange={setFilterOpen}
+                placement="bottom-end"
+              >
+                <Dropdown size="sm">
+                  <Dropdown.Section label="Tier" fluid>
+                    {([
+                      { id: "starter", label: "Starter" },
+                      { id: "pro",     label: "Pro"     },
+                      { id: "power",   label: "Power",  disabled: true },
+                    ] as { id: string; label: string; disabled?: boolean }[]).map((tier, i) => (
+                      <motion.div key={tier.id} {...dropdownItemStagger(i)}>
+                        <Dropdown.Item
+                          label={tier.label}
+                          showCheckbox
+                          checkboxChecked={selectedTiers.has(tier.id)}
+                          onCheckboxChange={() => {
+                            setSelectedTiers((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(tier.id)) next.delete(tier.id); else next.add(tier.id);
+                              return next;
+                            });
+                          }}
+                          disabled={tier.disabled}
+                          fluid
+                        />
+                      </motion.div>
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
+            </div>
+          </div>
+
+          {/* Card grid */}
+          <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+          <div
+            ref={gridScrollRef}
+            className="kaya-scrollbar"
+            onScroll={handleGridScroll}
             style={{
-              width:           28,
-              height:          28,
-              borderRadius:    8,
-              border:          CARD_BORDER,
-              backgroundColor: "#FFFFFF",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              cursor:          "pointer",
-              flexShrink:      0,
-              marginLeft:      12,
+              position:            "absolute",
+              inset:               0,
+              overflowY:           "auto",
+              overscrollBehaviorY: "contain",
+              padding:             2,
             }}
           >
-            <X size={14} color={SECONDARY} />
-          </button>
-        )}
-      </div>
-
-      {/* Selected model slots */}
-      <div style={{ padding: "0 20px 16px", display: "flex", gap: 8, flexShrink: 0 }}>
-        {[0, 1, 2].map((i) => {
-          const modelId = selectedModels[i];
-          const model   = models.find((m) => m.requestModelId === modelId);
-          const llmId   = model ? (getModelLlmId(model.companyName, model.rawModelName) ?? "") : "";
-          return (
-            <div key={i} style={{ flex: 1, minWidth: 0 }}>
-              {model ? (
-                <div style={{
-                  height:          40,
-                  borderRadius:    8,
-                  border:          CARD_BORDER,
-                  backgroundColor: "#FFFFFF",
-                  boxShadow:       CARD_SHADOW,
-                  display:         "flex",
-                  alignItems:      "center",
-                  padding:         "0 12px",
-                  gap:             8,
-                  boxSizing:       "border-box",
-                }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                    <LlmIcon id={llmId} variant="avatar" size={20} />
+            {isLoading ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} style={{
+                    borderRadius: 16, boxShadow: CARD_SHADOW,
+                    backgroundColor: "#EDE1D7", display: "flex", flexDirection: "column",
+                    gap: 12, padding: 12, boxSizing: "border-box",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ height: 16, borderRadius: 4, backgroundColor: "#D5C9C0", width: "60%" }} className="animate-pulse" />
+                        <div style={{ height: 11, borderRadius: 4, backgroundColor: "#D5C9C0", width: "40%" }} className="animate-pulse" />
+                      </div>
+                    </div>
+                    <div style={{ height: 48, borderRadius: 4, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ height: 20, width: 64, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                      <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
+                    </div>
                   </div>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {model.displayName}
-                  </span>
-                  <button
-                    onClick={() => handleRemove(modelId)}
-                    aria-label="Remove"
-                    style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 2 }}
-                  >
-                    <X size={14} color={TERTIARY} />
-                  </button>
-                </div>
-              ) : (
-                <div style={{
-                  height:          40,
-                  borderRadius:    8,
-                  border:          "1px dashed rgba(156,147,139,1)",
-                  backgroundColor: "transparent",
-                  display:         "flex",
-                  alignItems:      "center",
-                  padding:         "0 12px",
-                  gap:             8,
-                  boxSizing:       "border-box",
-                }}>
-                  <div style={{ width: 20, height: 20, borderRadius: 4, border: "1px dashed #B6ACA4", flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: TERTIARY }}>Empty slot {i + 1}</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Divider */}
-      <div style={{ borderTop: `1px dashed #EDE1D7`, margin: "0 20px", flexShrink: 0 }} />
-
-      {/* Section header */}
-      <div style={{ padding: "12px 20px 8px", fontSize: 13, fontWeight: 600, color: SECONDARY, flexShrink: 0 }}>
-        Available models
-      </div>
-
-      {/* Model card grid */}
-      <div className="kaya-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 20px 20px" }}>
-        {isLoading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 381px)", gap: 16, justifyContent: "center" }}>
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <div
-                key={idx}
-                style={{ width: 381, borderRadius: 16, border: CARD_BORDER, backgroundColor: "#EDE1D7", display: "flex", flexDirection: "column", gap: 12, padding: 12, boxSizing: "border-box" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ height: 14, borderRadius: 4, backgroundColor: "#D5C9C0", width: "60%" }} className="animate-pulse" />
-                    <div style={{ height: 11, borderRadius: 4, backgroundColor: "#D5C9C0", width: "40%" }} className="animate-pulse" />
-                  </div>
-                </div>
-                <div style={{ height: 48, borderRadius: 4, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <div style={{ height: 20, width: 64, borderRadius: 999, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                  <div style={{ height: 20, width: 56, borderRadius: 999, backgroundColor: "#D5C9C0" }} className="animate-pulse" />
-                </div>
+                ))}
               </div>
-            ))}
+            ) : filteredModels.length === 0 ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, fontSize: 14, color: TERTIARY, fontFamily: "var(--font-body)" }}>
+                No models available
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {filteredModels.map((model) => {
+                  const isSelected = !!model.requestModelId && selectedModels.includes(model.requestModelId);
+                  const isDisabled = (selectedModels.length >= 3 && !isSelected) || !model.requestModelId;
+                  return (
+                    <ModelCard
+                      key={model.id}
+                      model={model}
+                      isSelected={isSelected}
+                      isDisabled={isDisabled}
+                      onClick={() => handleSelect(model)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ) : models.length === 0 ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, fontSize: 14, color: TERTIARY }}>
-            No models available
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 381px)", gap: 16, justifyContent: "center" }}>
-            {models.map((model) => {
-              const isSelected = !!model.requestModelId && selectedModels.includes(model.requestModelId);
-              const isDisabled = (selectedModels.length >= 3 && !isSelected) || !model.requestModelId;
-              return (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  isSelected={isSelected}
-                  isDisabled={isDisabled}
-                  onClick={() => handleSelect(model)}
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* Footer */}
-      <div style={{
-        padding:         "12px 20px",
-        borderTop:       CARD_BORDER,
-        display:         "flex",
-        alignItems:      "center",
-        justifyContent:  "space-between",
-        flexShrink:      0,
-        backgroundColor: "#FFFFFF",
-      }}>
-        <span style={{ fontSize: 12, color: TERTIARY }}>
-          {selectedModels.length} of 3 models selected
-        </span>
-        <button
-          onClick={() => selectedModels.length >= 2 && setShowResults(true)}
-          disabled={selectedModels.length < 2}
-          style={{
-            height:      36,
-            padding:     "0 16px",
-            borderRadius: 8,
-            border:      "none",
-            background:  selectedModels.length >= 2 ? DARK_GRADIENT : "#EDE1D7",
-            color:       selectedModels.length >= 2 ? "#F7F2ED" : TERTIARY,
-            fontSize:    14,
-            fontWeight:  500,
-            cursor:      selectedModels.length >= 2 ? "pointer" : "not-allowed",
-            display:     "flex",
-            alignItems:  "center",
-            gap:         8,
-            transition:  "background 0.2s, color 0.2s",
-          }}
-        >
-          Test models
-          <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden>
-            <path d="M2.5 7h9M7.5 3l4 4-4 4" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+          {/* Top blur */}
+          {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }]
+            .map(({ height, blur }) => (
+              <div key={blur} aria-hidden style={{
+                position:             "absolute",
+                top: 0, left: 0, right: 0,
+                height:               `${height}px`,
+                backdropFilter:       `blur(${blur}px)`,
+                WebkitBackdropFilter: `blur(${blur}px)`,
+                maskImage:            "linear-gradient(to bottom, black 0%, transparent 100%)",
+                WebkitMaskImage:      "linear-gradient(to bottom, black 0%, transparent 100%)",
+                pointerEvents:        "none",
+                zIndex:               10,
+                opacity:              atTop ? 0 : 1,
+                transition:           "opacity 150ms ease",
+              }} />
+            ))}
+          <div aria-hidden style={{
+            position:      "absolute",
+            top:           0, left: 0, right: 0,
+            height:        "40px",
+            background:    "linear-gradient(to bottom, #F7F2ED 0%, transparent 100%)",
+            pointerEvents: "none",
+            zIndex:        11,
+            opacity:       atTop ? 0 : 1,
+            transition:    "opacity 150ms ease",
+          }} />
+
+          {/* Bottom blur */}
+          {[{ height: 40, blur: 2 }, { height: 28, blur: 3 }, { height: 18, blur: 5 }, { height: 10, blur: 6 }]
+            .map(({ height, blur }) => (
+              <div key={blur} aria-hidden style={{
+                position:             "absolute",
+                bottom: 0, left: 0, right: 0,
+                height:               `${height}px`,
+                backdropFilter:       `blur(${blur}px)`,
+                WebkitBackdropFilter: `blur(${blur}px)`,
+                maskImage:            "linear-gradient(to top, black 0%, transparent 100%)",
+                WebkitMaskImage:      "linear-gradient(to top, black 0%, transparent 100%)",
+                pointerEvents:        "none",
+                zIndex:               10,
+                opacity:              atBottom ? 0 : 1,
+                transition:           "opacity 150ms ease",
+              }} />
+            ))}
+          <div aria-hidden style={{
+            position:      "absolute",
+            bottom:        0, left: 0, right: 0,
+            height:        "40px",
+            background:    "linear-gradient(to top, #F7F2ED 0%, transparent 100%)",
+            pointerEvents: "none",
+            zIndex:        11,
+            opacity:       atBottom ? 0 : 1,
+            transition:    "opacity 150ms ease",
+          }} />
+          </div>
+        </div>
+
+        {/* Bottom section: tray + footer */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, flexShrink: 0 }}>
+
+          {/* Model selection tray */}
+          <div style={{ padding: 1 }}>
+            <div style={{
+              position:        "relative",
+              display:         "flex",
+              alignItems:      "stretch",
+              justifyContent:  "center",
+              gap:             8,
+              padding:         "8px 16px",
+              borderRadius:    10,
+              backgroundColor: "rgba(247,242,237,0.5)",
+            }}>
+              <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 10 }}>
+                <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 10, backgroundColor: "rgba(247,242,237,0.5)" }} />
+                <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: TRAY_BG_SHADOW }} />
+              </div>
+              {[0, 1, 2].map((i) => {
+                const modelId = selectedModels[i];
+                const model   = models.find((m) => m.requestModelId === modelId);
+                const llmId   = model ? (getModelLlmId(model.companyName, model.rawModelName) ?? "") : "";
+                return model ? (
+                  <div key={i} style={{
+                    position:        "relative",
+                    flex:            1,
+                    alignSelf:       "stretch",
+                    display:         "flex",
+                    alignItems:      "center",
+                    gap:             8,
+                    borderRadius:    8,
+                    backgroundColor: "#FFFFFF",
+                    boxShadow:       SLOT_SHADOW,
+                    padding:         12,
+                    boxSizing:       "border-box",
+                    overflow:        "hidden",
+                  }}>
+                    <div style={{ display: "flex", flex: 1, alignItems: "center", minWidth: 0 }}>
+                      <div style={{ display: "flex", flex: 1, gap: 12, alignItems: "center", minWidth: 0 }}>
+                        <div style={{
+                          width:           44,
+                          height:          44,
+                          borderRadius:    10,
+                          padding:         8,
+                          flexShrink:      0,
+                          backgroundColor: "rgba(255,255,255,0)",
+                          display:         "flex",
+                          alignItems:      "center",
+                          justifyContent:  "center",
+                          overflow:        "hidden",
+                        }}>
+                          <LlmIcon id={llmId} variant="color" size={24} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
+                            {model.company}/{model.modelName}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                      <button
+                        onClick={() => handleRemove(modelId)}
+                        aria-label="Remove model"
+                        style={{
+                          display:         "flex",
+                          alignItems:      "center",
+                          justifyContent:  "center",
+                          padding:         3,
+                          borderRadius:    6,
+                          border:          "none",
+                          backgroundColor: "transparent",
+                          cursor:          "pointer",
+                        }}
+                      >
+                        <X size={18} color={SECONDARY} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={i} style={{
+                    position:     "relative",
+                    flex:         1,
+                    alignSelf:    "stretch",
+                    display:      "flex",
+                    alignItems:   "center",
+                    borderRadius: 8,
+                    padding:      12,
+                    boxSizing:    "border-box",
+                    overflow:     "hidden",
+                  }}>
+                    <div aria-hidden style={{
+                      position:      "absolute",
+                      inset:         0,
+                      borderRadius:  8,
+                      border:        "1px dashed #9C938B",
+                      pointerEvents: "none",
+                    }} />
+                    <div style={{ display: "flex", flex: 1, gap: 12, alignItems: "center", minWidth: 0 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 4, border: "1px dashed #B6ACA4", flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "var(--font-body)" }}>
+                          Empty Slot {i + 1}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Footer action bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Chip label={`${selectedModels.length} of 3 selected`} color="neutral" noCapitalize />
+            <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, lineHeight: "22px", color: PRIMARY, fontFamily: "var(--font-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Pick up-to 3 models to compare
+            </div>
+            <Button
+              variant="default"
+              size="md"
+              disabled={selectedModels.length < 2}
+              onClick={() => selectedModels.length >= 2 && setShowResults(true)}
+              rightIcon={
+                <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M8.5 4l4.5 4-4.5 4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              }
+            >
+              Test models
+            </Button>
+          </div>
+        </div>
+
       </div>
     </div>
   );

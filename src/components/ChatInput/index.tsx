@@ -15,6 +15,7 @@ import {
   QuillWriteTwoIcon,
   UserIcon,
 } from '@strange-huge/icons'
+import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
@@ -418,12 +419,12 @@ function DefaultModelMenu() {
           <Dropdown size="md">
             <Dropdown.Section label="Most used" fluid>
               {DEFAULT_MOST_USED_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
+                <Dropdown.Item key={m.id} label={m.label} icon={<LlmIcon id={m.llm} variant="color" />} fluid />
               ))}
             </Dropdown.Section>
             <Dropdown.Section label="Recents" divider fluid>
               {DEFAULT_RECENT_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
+                <Dropdown.Item key={m.id} label={m.label} icon={<LlmIcon id={m.llm} variant="color" />} fluid />
               ))}
             </Dropdown.Section>
           </Dropdown>

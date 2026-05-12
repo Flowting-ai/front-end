@@ -80,6 +80,11 @@ export const PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT = (
   messageId: string,
 ) => withBase(`/persona/${personaId}/chats/${chatId}/message/${messageId}`);
 
+// ── Highlights ───────────────────────────────────────────────────────────────
+export const HIGHLIGHTS_ENDPOINT = withBase('/highlights')
+export const HIGHLIGHT_DETAIL_ENDPOINT = (highlightId: string) =>
+  withBase(`/highlights/${highlightId}`)
+
 // ── Pins ─────────────────────────────────────────────────────────────────────
 export const PINS_ENDPOINT = withBase("/pins");
 export const PIN_DETAIL_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}`);
