@@ -14,10 +14,18 @@ export function HighlightSidebar() {
     const msgEl = document.querySelector(`[data-message-id="${h.messageId}"]`)
     if (!msgEl) return
 
-    // Scroll to the specific <mark> element that contains the highlighted text.
-    // Falls back to the message container if no matching mark is found.
-    const marks = Array.from(msgEl.querySelectorAll('mark'))
-    const target = marks.find(m => m.textContent?.trim() === h.text.trim()) ?? msgEl
+    // data-highlight-id is stamped on every <mark> by the rehype plugin.
+    // This gives us a precise DOM target even when the same text appears
+    // multiple times in a message.
+    const target =
+      msgEl.querySelector(`[data-highlight-id="${id}"]`) ??
+      // Fallback: first mark whose text content matches (handles the brief
+      // window while the temp ID is being swapped for the server UUID).
+      Array.from(msgEl.querySelectorAll('mark')).find(
+        m => m.textContent?.trim() === h.text.trim(),
+      ) ??
+      msgEl
+
     target.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 

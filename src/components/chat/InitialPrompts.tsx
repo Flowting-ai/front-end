@@ -29,9 +29,6 @@ export function InitialPrompts() {
     >
       <h1
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
           fontFamily: "var(--font-title)",
           fontSize: "28px",
           fontWeight: 200,
@@ -46,7 +43,11 @@ export function InitialPrompts() {
           aria-hidden="true"
           width={28}
           height={28}
-          style={{ flexShrink: 0 }}
+          style={{
+            display: "inline-block",
+            verticalAlign: "middle",
+            marginRight: "10px",
+          }}
         />
         {greeting}
       </h1>
@@ -56,7 +57,7 @@ export function InitialPrompts() {
           fontFamily: "var(--font-body)",
           fontSize: "16px",
           fontWeight: 400,
-          color: "var(--neutral-500)",
+          color: "var(--neutral-800)",
           margin: "0",
           lineHeight: 1.5,
           maxWidth: "480px",

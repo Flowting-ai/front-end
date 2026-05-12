@@ -5,6 +5,7 @@ import { HighlightProvider } from "@/context/highlight-context";
 import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
+import { ProjectsProvider } from "@/context/projects-context";
 
 export default function AppGroupLayout({
   children,
@@ -12,17 +13,19 @@ export default function AppGroupLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ChatHistoryProvider>
-      <PinboardProvider>
-        <HighlightProvider>
-          <CompareProvider>
-            <ModelSelectorProvider>
-              <AppLayout>{children}</AppLayout>
-              <PresetModelSelectorDialog />
-            </ModelSelectorProvider>
-          </CompareProvider>
-        </HighlightProvider>
-      </PinboardProvider>
-    </ChatHistoryProvider>
+    <ProjectsProvider>
+      <ChatHistoryProvider>
+        <PinboardProvider>
+          <HighlightProvider>
+            <CompareProvider>
+              <ModelSelectorProvider>
+                <AppLayout>{children}</AppLayout>
+                <PresetModelSelectorDialog />
+              </ModelSelectorProvider>
+            </CompareProvider>
+          </HighlightProvider>
+        </PinboardProvider>
+      </ChatHistoryProvider>
+    </ProjectsProvider>
   );
 }

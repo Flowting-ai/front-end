@@ -2,10 +2,12 @@
 
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton } from "@/components/ui";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
+import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
+import { useProjects } from "@/context/projects-context";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 
@@ -184,6 +186,114 @@ function RecentsSection(props: SectionProps) {
   );
 }
 
+// ── Projects section — reads from ProjectsContext ──────────────────────────────
+
+const PROJECT_LIMIT = 5
+
+function ProjectsSection() {
+  const router   = useRouter()
+  const pathname = usePathname()
+  const { projects, getChats } = useProjects()
+
+  const [shown,        setShown]        = useState(true)
+  const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
+  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(new Set())
+
+  const visibleProjects = projects.slice(0, PROJECT_LIMIT)
+  const hasMore = projects.length > PROJECT_LIMIT
+
+  function toggleExpand(id: string, expanded: boolean) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      expanded ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Projects"
+        shown={shown}
+        onShowClick={() => setShown(s => !s)}
+      />
+      <motion.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          <SidebarMenuItem
+            fluid
+            variant="default"
+            label="New project"
+            icon={<FolderAddIcon size={20} />}
+            onClick={() => router.push("/projects/new")}
+          />
+
+          {projects.length === 0 && (
+            <div style={{
+              padding:    "8px 6px",
+              fontFamily: "var(--font-body)",
+              fontSize:   "var(--font-size-caption)",
+              color:      "var(--neutral-400)",
+            }}>
+              No projects yet
+            </div>
+          )}
+
+          {visibleProjects.map(project => {
+            const chats     = getChats(project.id)
+            const isActive  = pathname.startsWith(`/project/${project.id}`)
+            const isExpanded = expandedIds.has(project.id)
+
+            return (
+              <SidebarProjectsSection
+                key={project.id}
+                fluid
+                label={project.name}
+                active={isActive}
+                expanded={isExpanded}
+                onClick={() => router.push(`/project/${project.id}`)}
+                onExpandedChange={(v) => toggleExpand(project.id, v)}
+              >
+                {chats.length > 0 && [
+                  <SidebarMenuItem key="__header" fluid variant="header" label="Recent" />,
+                  ...chats.slice(0, 5).map(chat => (
+                    <SidebarMenuItem
+                      key={chat.id}
+                      fluid
+                      variant="chat-item"
+                      label={chat.title}
+                      selected={pathname === `/project/${project.id}/chat/${chat.id}`}
+                      onClick={() => router.push(`/project/${project.id}/chat/${chat.id}`)}
+                    />
+                  )),
+                ]}
+              </SidebarProjectsSection>
+            )
+          })}
+
+          {hasMore && (
+            <SidebarMenuItem
+              fluid
+              variant="default"
+              icon={<MoreHorizontalIcon size={20} />}
+              label="Show all"
+              onClick={() => router.push("/projects")}
+            />
+          )}
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
 // ── LeftSidebar ───────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
@@ -250,6 +360,7 @@ export function LeftSidebar({
         /* wired in Day 7 — search dialog */
       }}
       onSettingsClick={() => router.push("/settings")}
+      projectItems={<ProjectsSection />}
       recentItems={
         // Both sections share sectionProps; StarredSection self-hides when empty.
         // gap:'8px' on the wrapper adds space between Starred and Recents only

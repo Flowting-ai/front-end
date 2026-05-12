@@ -178,7 +178,11 @@ export function ChatMessage({
   const messageHighlights = useMemo(
     () => highlights
       .filter(h => h.messageId === message.id)
-      .map(h => ({ text: h.text, colorIndex: (highlights.indexOf(h) % 4) as 0 | 1 | 2 | 3 })),
+      .map(h => ({
+        id:         h.id,
+        text:       h.text,
+        colorIndex: (highlights.indexOf(h) % 4) as 0 | 1 | 2 | 3,
+      })),
     [highlights, message.id],
   )
 

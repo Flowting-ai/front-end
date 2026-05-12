@@ -57,9 +57,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { id: serverId } = await createHighlight({
-        text:       entry.text,
-        message_id: entry.messageId,
-        chat_id:    entry.chatId,
+        selected_text: entry.text,
       })
       // Replace the temporary ID with the persisted server UUID.
       setHighlights(prev =>

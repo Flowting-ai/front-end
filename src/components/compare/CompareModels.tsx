@@ -15,6 +15,7 @@ import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
+import { usePinboard } from "@/context/pinboard-context";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
@@ -697,8 +698,9 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [showSearch,           setShowSearch]            = useState(false);
   const [atTop,           setAtTop]           = useState(true);
   const [atBottom,        setAtBottom]        = useState(false);
-  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
-  const [testCredits,     setTestCredits]     = useState<Record<string, number>>({});
+  const [expandedModelId,  setExpandedModelId]  = useState<string | null>(null);
+  const [testCredits,      setTestCredits]      = useState<Record<string, number>>({});
+  const [testMessageIds,   setTestMessageIds]   = useState<Record<string, string>>({});
   const [filterOpen,      setFilterOpen]      = useState(false);
   const [selectedTiers,   setSelectedTiers]   = useState<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -806,6 +808,17 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     }
   };
 
+  const { addPin, isPinned, open: openPinboard } = usePinboard();
+
+  const handleSavePin = useCallback((responseKey: string, modelDisplayName: string) => {
+    const content   = testResponses[responseKey] ?? "";
+    const messageId = testMessageIds[responseKey];
+    if (!content || !messageId) return;
+    const title = content.split("\n")[0].slice(0, 80) || modelDisplayName;
+    addPin({ content, title, category: "Quote", messageId, modelName: modelDisplayName });
+    openPinboard();
+  }, [testResponses, testMessageIds, addPin, openPinboard]);
+
   const handleTestModels = async () => {
     if (!prompt.trim() || selectedModels.length < 2 || isTesting) return;
 
@@ -813,6 +826,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setIsTesting(true);
     setTestResponses({});
     setTestCredits({});
+    setTestMessageIds({});
     setStreamingModels(new Set());
 
     try {
@@ -876,6 +890,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           const modelIdStr = resolveModelIdFromPayload(payload);
           if (!modelIdStr || !selectedModelSet.has(modelIdStr)) return;
           if (!(modelIdStr in streamingResponses)) streamingResponses[modelIdStr] = "";
+
+          // Extract message_id from any event that carries it
+          const rawMsgId = payload.message_id ?? payload.messageId ?? null;
+          if (typeof rawMsgId === "string" && rawMsgId.trim()) {
+            setTestMessageIds((prev) =>
+              prev[modelIdStr] === rawMsgId.trim() ? prev : { ...prev, [modelIdStr]: rawMsgId.trim() },
+            );
+          }
 
           switch (eventType) {
             case "metadata":
@@ -1141,9 +1163,11 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         <Button
                           variant="secondary"
                           size="md"
+                          disabled={!modelResponse || isModelStreaming || !testMessageIds[responseKey]}
+                          onClick={() => handleSavePin(responseKey, expandedModel.displayName)}
                           leftIcon={<PinIcon animated size={16} />}
                         >
-                          Save Pin
+                          {testMessageIds[responseKey] && isPinned(testMessageIds[responseKey]) ? "Pinned" : "Save Pin"}
                         </Button>
                         {/* Use this model */}
                         <Button
@@ -1226,9 +1250,20 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         )}
                       </div>
-                      {/* Credits badge */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
-                        {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                      {/* Bottom bar: credits + save pin */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={!modelResponse || isModelStreaming || !testMessageIds[responseKey]}
+                          onClick={() => handleSavePin(responseKey, model.displayName)}
+                          leftIcon={<PinIcon animated size={14} />}
+                        >
+                          {testMessageIds[responseKey] && isPinned(testMessageIds[responseKey]) ? "Pinned" : "Save Pin"}
+                        </Button>
                       </div>
                     </div>
                   );

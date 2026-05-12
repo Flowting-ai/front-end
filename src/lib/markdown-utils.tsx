@@ -16,7 +16,7 @@ const rehypePlugins = [rehypeKatex];
 
 // ── Highlight mark types & rehype plugin ──────────────────────────────────────
 
-export type HighlightSpec = { text: string; colorIndex: 0 | 1 | 2 | 3 }
+export type HighlightSpec = { id: string; text: string; colorIndex: 0 | 1 | 2 | 3 }
 
 // Minimal HAST-compatible node shapes — avoids importing @types/hast directly.
 type HastNodeAny = {
@@ -44,13 +44,13 @@ function walkNode(node: HastNodeAny, specs: HighlightSpec[]): void {
 }
 
 function annotateText(text: string, specs: HighlightSpec[]): HastNodeAny[] {
-  type Match = { start: number; end: number; colorIndex: 0 | 1 | 2 | 3 }
+  type Match = { start: number; end: number; colorIndex: 0 | 1 | 2 | 3; id: string }
   const matches: Match[] = []
   for (const spec of specs) {
     let pos = 0
     let idx: number
     while ((idx = text.indexOf(spec.text, pos)) !== -1) {
-      matches.push({ start: idx, end: idx + spec.text.length, colorIndex: spec.colorIndex })
+      matches.push({ start: idx, end: idx + spec.text.length, colorIndex: spec.colorIndex, id: spec.id })
       pos = idx + 1
     }
   }
@@ -69,7 +69,7 @@ function annotateText(text: string, specs: HighlightSpec[]): HastNodeAny[] {
     nodes.push({
       type:       'element',
       tagName:    'mark',
-      properties: { className: [`hl-color-${m.colorIndex}`] },
+      properties: { className: [`hl-color-${m.colorIndex}`], 'data-highlight-id': m.id },
       children:   [{ type: 'text', value: text.slice(m.start, m.end) }],
     })
     p = m.end
@@ -328,10 +328,16 @@ const BASE_COMPONENTS: Components = {
       </p>
     );
   },
-  mark({ children, className }) {
+  mark({ children, className, node }) {
     const m = String(className ?? '').match(/hl-color-(\d)/)
     const colorIndex = (m ? Number(m[1]) : 0) as 0 | 1 | 2 | 3
-    return <HighlightMark colorIndex={colorIndex}>{children}</HighlightMark>
+    const rawId = node?.properties?.['data-highlight-id']
+    const highlightId = typeof rawId === 'string' ? rawId : undefined
+    return (
+      <HighlightMark colorIndex={colorIndex} data-highlight-id={highlightId}>
+        {children}
+      </HighlightMark>
+    )
   },
 };
 
