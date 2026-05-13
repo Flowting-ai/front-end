@@ -10,9 +10,9 @@ import {
   PlusSignIcon,
   CopyOneIcon,
   DownloadThreeIcon,
+  DeleteTwoIcon,
 } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
-import { getModelLlmId } from '@/lib/model-icons'
 import { PinCategory, type PinCategoryType } from '@/components/PinCategory'
 import { Checkbox } from '@/components/Checkbox'
 import { Badge, type BadgeColor } from '@/components/Badge'
@@ -23,33 +23,6 @@ import { PinCommentField } from '@/components/PinCommentField'
 import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
-import { PinMarkdownRenderer } from '@/lib/pin-markdown'
-import { addPinComment, editPinComment, deletePinComment, getPin, type PinComment } from '@/lib/api/pins'
-
-// ── Local icon — exact SVG from @strange-huge/icons (design-system build) ─────
-// DeleteTwoIcon is present in the design-system's icons package but absent from
-// the older build installed in front-end-new. Copied verbatim so the trash-can
-// icon matches the design system exactly without requiring a package upgrade.
-
-function DeleteTwoIcon({ size = 24, color = 'currentColor', ...props }: React.SVGProps<SVGSVGElement> & { size?: number; color?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
-      <path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M9.5 16.5L9.5 10.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M14.5 16.5L14.5 10.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-// Pencil / edit icon — 16 px base, stroked, matches DeleteTwoIcon visual weight.
-function PenEditIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2v-3.333L11.333 2.667Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -202,10 +175,6 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   description?:     string
   labels?:          PinLabel[]
   chatName?:        string
-  /** Name of the model that generated this pin's content — used for the LLM avatar in the expanded footer. */
-  modelName?:       string
-  /** ISO 8601 creation timestamp — displayed as a relative time badge (e.g. "2h") in the expanded footer. */
-  createdAt?:       string
   defaultExpanded?: boolean
   /** When this number changes, the pin collapses if it's currently expanded.
    *  Used by Pinboard's "collapse all" action. Initial value is ignored. */
@@ -224,11 +193,6 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   onExport?:        () => void
   onDelete?:        () => void
   fluid?:           boolean
-  /**
-   * Backend pin ID used for comment API calls. When omitted, the comment
-   * field still renders but does not persist to the server.
-   */
-  pinId?:           string
   /**
    * Called when the user commits a tag via the "Add tag" affordance.
    * If omitted, the Pin manages added tags in its own internal state for
@@ -313,23 +277,6 @@ const DEFAULT_LABELS: PinLabel[] = [
   { color: 'Neutral', text: 'Label' },
 ]
 
-// ── Relative time formatter ──────────────────────────────────────────────────
-// Converts an ISO 8601 string to a compact human-readable label:
-//   < 1 min → "now"  |  < 1 h → "Xm"  |  < 1 d → "Xh"  |  < 7 d → "Xd"  |  ≥ 7 d → "Xw"
-
-function formatRelativeTime(isoString: string): string {
-  const diffMs  = Math.max(0, Date.now() - new Date(isoString).getTime())
-  const mins    = Math.floor(diffMs / 60_000)
-  const hours   = Math.floor(diffMs / 3_600_000)
-  const days    = Math.floor(diffMs / 86_400_000)
-  const weeks   = Math.floor(diffMs / 604_800_000)
-  if (mins  < 1)  return 'now'
-  if (hours < 1)  return `${mins}m`
-  if (days  < 1)  return `${hours}h`
-  if (weeks < 1)  return `${days}d`
-  return `${weeks}w`
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
@@ -340,8 +287,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       description     = DEFAULT_DESCRIPTION,
       labels          = DEFAULT_LABELS,
       chatName        = 'This will the chat name to which this pin belongs to.',
-      modelName,
-      createdAt,
       defaultExpanded = false,
       collapseSignal,
       onExpandedChange,
@@ -349,7 +294,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       onDuplicate,
       onExport,
       onDelete,
-      pinId,
       onAddTag,
       userTags,
       userTagColors   = USER_TAG_COLOR_POOL,
@@ -382,7 +326,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       if (!isSelectedControlled) setInternalSelected(next)
       onSelectedChange?.(next)
     }
-
     // Extra description lines beyond the base 2 (0–12). Card settles at any snap point.
     const [extraLines, setExtraLines] = useState(0)
 
@@ -612,11 +555,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     const [contentRef, contentBounds] = useMeasure()
 
-    // ── Comment state ──────────────────────────────────────────────────────────
-    const [comments,         setComments]         = useState<PinComment[]>([])
-    const [commentsLoaded,   setCommentsLoaded]   = useState(false)
-    const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
-
     const commentFieldRef    = useRef<HTMLTextAreaElement>(null)
     const focusCommentRef    = useRef(false)
     const cardRef            = useRef<HTMLDivElement>(null)
@@ -653,47 +591,19 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // contentBounds → cardHeightMV
     // First measurement after mount: snap instantly (no enter spring) so a
     // freshly-mounted Pinboard / Pin doesn't visually "grow up" from height 0.
-    // Expand transitions (user-triggered) use spring for a smooth animation.
-    // Content changes while already expanded (e.g. comment added/edited) snap
-    // immediately — the card must grow without clipping the new content during
-    // the spring travel time (which causes the "squashed" appearance).
+    // Subsequent changes (drag-release, expand toggle, collapse-all) use the
+    // spring (or collapse easing if collapsingRef.current is true).
     const hasMeasuredRef = useRef(false)
-    // Set true just before the card transitions to expanded so the first
-    // contentBounds update (the expand itself) still uses spring animation.
-    // Cleared in the effect after being consumed.
-    const expandingRef = useRef(false)
-    useLayoutEffect(() => {
-      if (isExpanded) expandingRef.current = true
-    }, [isExpanded])
-
     useEffect(() => {
       if (isDraggingRef.current) return
       if (contentBounds.height > 0) {
-        const collapsing = collapsingRef.current
+        const cfg = collapsingRef.current ? collapseCfg : springCfg
         collapsingRef.current = false
-        const expanding = expandingRef.current
-        expandingRef.current = false
-
         if (reduceMotion || !hasMeasuredRef.current) {
-          // Initial measurement or reduced-motion: always snap
           cardHeightMV.set(contentBounds.height)
           hasMeasuredRef.current = true
-        } else if (collapsing) {
-          // User-triggered collapse: easing curve
-          animate(cardHeightMV, contentBounds.height, collapseCfg)
-        } else if (expanding || !isExpandedRef.current) {
-          // Expand transition or snap-line drag (not yet fully expanded): spring
-          animate(cardHeightMV, contentBounds.height, springCfg)
         } else {
-          // Already fully expanded + content changed (comment added/edited/deleted).
-          // Snap UP immediately so new content is never clipped by the card boundary.
-          // Spring DOWN smoothly so a minor shrink (e.g. comment field clearing from
-          // 2→1 line) doesn't read as a jarring collapse.
-          if (contentBounds.height >= cardHeightMV.get()) {
-            cardHeightMV.set(contentBounds.height)
-          } else {
-            animate(cardHeightMV, contentBounds.height, { type: 'spring', stiffness: 600, damping: 40, mass: 0.5 })
-          }
+          animate(cardHeightMV, contentBounds.height, cfg)
         }
       }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -875,70 +785,6 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       }
     }, [isExpanded])
 
-    // Load comments from backend once when the pin is first expanded.
-    // IMPORTANT: merge with any in-flight optimistic (temp-*) comments the
-    // user may have submitted before getPin returned, rather than overwriting
-    // them — prevents the race-condition collapse where a quick submit causes
-    // the placeholder to disappear when the load call resolves.
-    useEffect(() => {
-      if (!isExpanded || !pinId || commentsLoaded) return
-      getPin(pinId)
-        .then((pin) => {
-          setComments((prev) => {
-            const optimistic = prev.filter((c) => c.id.startsWith('temp-'))
-            return [...(pin.comments ?? []), ...optimistic]
-          })
-          setCommentsLoaded(true)
-        })
-        .catch(() => setCommentsLoaded(true))
-    }, [isExpanded, pinId, commentsLoaded])
-
-    const handleCommentSubmit = useCallback(async (text: string) => {
-      if (!pinId) return
-      // Optimistic update: add a placeholder in the same React batch that
-      // the PinCommentField clears itself. This means the field-shrink and
-      // comment-appear happen in ONE layout pass, so cardHeightMV only ever
-      // needs to grow — no squash-then-expand visual artifact.
-      const tempId = `temp-${Date.now()}`
-      const placeholder: PinComment = {
-        id:         tempId,
-        content:    text,
-        created_at: new Date().toISOString(),
-      }
-      setComments((prev) => [...prev, placeholder])
-      try {
-        const created = await addPinComment(pinId, text)
-        // Swap placeholder with the real server record (stable key change is fine
-        // here — text is identical so the remount is imperceptible).
-        setComments((prev) => prev.map((c) => c.id === tempId ? created : c))
-      } catch (err) {
-        console.error('[Pin] Failed to add comment', err)
-        setComments((prev) => prev.filter((c) => c.id !== tempId))
-      }
-    }, [pinId])
-
-    const handleCommentEdit = useCallback(async (commentId: string, text: string) => {
-      if (!pinId) return
-      try {
-        const updated = await editPinComment(pinId, commentId, text)
-        setComments((prev) => prev.map((c) => c.id === commentId ? updated : c))
-      } catch (err) {
-        console.error('[Pin] Failed to edit comment', err)
-      }
-    }, [pinId])
-
-    const handleCommentDelete = useCallback(async (commentId: string) => {
-      if (!pinId) return
-      setComments((prev) => prev.filter((c) => c.id !== commentId))
-      try {
-        await deletePinComment(pinId, commentId)
-      } catch (err) {
-        console.error('[Pin] Failed to delete comment', err)
-        // Re-fetch to restore state on failure
-        getPin(pinId).then((pin) => setComments(pin.comments ?? [])).catch(() => {})
-      }
-    }, [pinId])
-
     return (
       <motion.div
         ref={mergedRef as React.Ref<HTMLDivElement>}
@@ -1011,6 +857,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                       animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
                       exit={{    scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      // Outer pin owns the click target in selectable mode —
+                      // suppress propagation so the checkbox's own onClick
+                      // doesn't fire AND bubble up to the pin (double-toggle).
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         position:        'absolute',
@@ -1375,12 +1224,36 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   flexGrow:   0,
                 }}
               >
-                <PinMarkdownRenderer content={description} />
+                <p
+                  style={{
+                    margin:     0,
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 'var(--font-weight-regular)',
+                    fontSize:   'var(--font-size-caption)',
+                    lineHeight: 'var(--line-height-caption)',
+                    color:      'var(--neutral-500)',
+                    // showFull (drag/expanded): unclamped pre-wrap
+                    // intermediate (extraLines > 0): pre-wrap + overflow:hidden — preserves \n paragraph breaks
+                    // collapsed (extraLines = 0): -webkit-line-clamp for ellipsis on 2 lines
+                    ...(showFull || extraLines > 0
+                      ? { whiteSpace: 'pre-wrap' }
+                      : {
+                          display:         '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: 2,
+                          overflow:        'hidden',
+                          textOverflow:    'ellipsis',
+                        }
+                    ),
+                  }}
+                >
+                  {description}
+                </p>
               </div>
             )
           })()}
 
-          {/* ── Expanded content: metadata + comment field + comments ── */}
+          {/* ── Expanded content: metadata + comment field ── */}
           <AnimatePresence initial={false}>
             {isExpanded && (
               <motion.div
@@ -1390,46 +1263,8 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
-                <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
-                <PinCommentField
-                  ref={commentFieldRef}
-                  fluid
-                  aria-label="Add a comment"
-                  onSubmit={pinId ? handleCommentSubmit : undefined}
-                />
-                {comments.length > 0 && (
-                  <div style={{
-                    display:        'flex',
-                    alignItems:     'center',
-                    gap:            6,
-                    paddingTop:     2,
-                  }}>
-                    <div style={{ flex: '1 0 0', height: 1, background: 'var(--neutral-200)' }} />
-                    <span style={{
-                      fontFamily:  'var(--font-body)',
-                      fontWeight:  'var(--font-weight-medium)',
-                      fontSize:    10,
-                      lineHeight:  '14px',
-                      color:       'var(--neutral-400)',
-                      flexShrink:  0,
-                      userSelect:  'none',
-                    }}>
-                      {comments.length === 1 ? '1 comment' : `${comments.length} comments`}
-                    </span>
-                    <div style={{ flex: '1 0 0', height: 1, background: 'var(--neutral-200)' }} />
-                  </div>
-                )}
-                {comments.map((comment) => (
-                  <PinCommentItem
-                    key={comment.id}
-                    comment={comment}
-                    editingId={editingCommentId}
-                    onEditStart={(id) => setEditingCommentId(id)}
-                    onEditCancel={() => setEditingCommentId(null)}
-                    onEditSave={handleCommentEdit}
-                    onDelete={handleCommentDelete}
-                  />
-                ))}
+                <ExpandedMeta chatName={chatName} />
+                <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1523,12 +1358,10 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
-  const timeLabel = createdAt ? formatRelativeTime(createdAt) : null
-  const llmId     = modelName ? getModelLlmId(undefined, modelName) : null
+function ExpandedMeta({ chatName }: { chatName: string }) {
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
-      {timeLabel && <Badge label={timeLabel} color="Green" />}
+      <Badge label="1h" color="Green" />
       <p
         style={{
           flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-semibold)',
@@ -1538,11 +1371,9 @@ function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; mo
       >
         {chatName}
       </p>
-      {llmId && (
-        <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-          <LlmIcon id={llmId} variant="avatar" size={24} />
-        </div>
-      )}
+      <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+        <LlmIcon id="Claude" variant="avatar" size={24} />
+      </div>
     </div>
   )
 }
@@ -1615,250 +1446,3 @@ function ActionBar({ onInsert, onComment, hideComment = false }: { onInsert?: ()
 
 Pin.displayName = 'Pin'
 export default Pin
-
-// ── PinCommentItem ─────────────────────────────────────────────────────────────
-// Renders a single saved comment with inline edit/delete affordances.
-// Edit mode swaps the text for a constrained textarea; Enter saves, Escape cancels.
-
-// Shared style for the tiny 20×20 action icon buttons inside comment rows.
-const COMMENT_ACTION_BTN: React.CSSProperties = {
-  display:         'inline-flex',
-  alignItems:      'center',
-  justifyContent:  'center',
-  width:           20,
-  height:          20,
-  padding:         0,
-  border:          'none',
-  borderRadius:    4,
-  background:      'transparent',
-  cursor:          'pointer',
-  color:           'var(--neutral-400)',
-  flexShrink:      0,
-  transition:      'background 100ms, color 100ms',
-}
-
-function PinCommentItem({
-  comment,
-  editingId,
-  onEditStart,
-  onEditCancel,
-  onEditSave,
-  onDelete,
-}: {
-  comment:      PinComment
-  editingId:    string | null
-  onEditStart:  (id: string) => void
-  onEditCancel: () => void
-  onEditSave:   (id: string, text: string) => Promise<void>
-  onDelete:     (id: string) => Promise<void>
-}) {
-  const isEditing = editingId === comment.id
-  const [editText, setEditText] = useState(comment.content)
-  const [saving,   setSaving]   = useState(false)
-  const [hovered,  setHovered]  = useState(false)
-
-  useEffect(() => {
-    if (!isEditing) setEditText(comment.content)
-  }, [comment.content, isEditing])
-
-  const commitEdit = async () => {
-    const trimmed = editText.trim()
-    if (!trimmed || trimmed === comment.content) { onEditCancel(); return }
-    setSaving(true)
-    try {
-      await onEditSave(comment.id, trimmed)
-      onEditCancel()
-    } catch {
-      // keep edit mode open on error so user can retry
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter')  { e.preventDefault(); commitEdit() }
-    if (e.key === 'Escape') { onEditCancel(); setEditText(comment.content) }
-  }
-
-  if (isEditing) {
-    return (
-      <div style={{
-        position:        'relative',
-        display:         'flex',
-        flexDirection:   'column',
-        gap:              3,
-        padding:         '5px 6px 4px',
-        borderRadius:     6,
-        backgroundColor: 'var(--color-tag-Neutral-bg)',
-        boxShadow:       'var(--color-tag-Neutral-shadow), 0px 0px 0px 2px var(--focus-ring)',
-        overflow:        'clip',
-      }}>
-        <textarea
-          value={editText}
-          autoFocus
-          rows={2}
-          disabled={saving}
-          onChange={(e) => setEditText(e.target.value)}
-          onKeyDown={handleEditKeyDown}
-          style={{
-            position:   'relative',
-            width:      '100%',
-            resize:     'none',
-            border:     'none',
-            outline:    'none',
-            background: 'transparent',
-            padding:    0,
-            fontFamily: 'var(--font-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--color-tag-Neutral-text)',
-            overflowY:  'hidden',
-          }}
-        />
-        <div style={{ position: 'relative', display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <button
-            disabled={saving}
-            onClick={() => { onEditCancel(); setEditText(comment.content) }}
-            style={{
-              border:      'none',
-              background:  'none',
-              cursor:      saving ? 'default' : 'pointer',
-              padding:     '1px 5px',
-              borderRadius: 4,
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-medium)',
-              fontSize:     10,
-              lineHeight:  '14px',
-              color:       'var(--neutral-500)',
-              opacity:     saving ? 0.5 : 1,
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            disabled={saving || !editText.trim()}
-            onClick={commitEdit}
-            style={{
-              border:      'none',
-              background:  'none',
-              cursor:      (saving || !editText.trim()) ? 'default' : 'pointer',
-              padding:     '1px 5px',
-              borderRadius: 4,
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-semibold)',
-              fontSize:     10,
-              lineHeight:  '14px',
-              color:       (saving || !editText.trim()) ? 'var(--neutral-300)' : 'var(--neutral-800)',
-            }}
-          >
-            Save
-          </button>
-        </div>
-        <span
-          aria-hidden
-          style={{
-            position:      'absolute',
-            inset:         0,
-            pointerEvents: 'none',
-            borderRadius:  'inherit',
-            boxShadow:     'var(--color-tag-Neutral-inner-shadow)',
-          }}
-        />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        position:        'relative',
-        padding:         hovered ? '6px 8px' : '4px 6px',
-        borderRadius:     6,
-        backgroundColor: 'var(--color-tag-Neutral-bg)',
-        boxShadow:       'var(--color-tag-Neutral-shadow)',
-        overflow:        'clip',
-        transition:      'padding 150ms ease',
-      }}
-    >
-      <p style={{
-        margin:       0,
-        position:     'relative',
-        paddingRight:  hovered ? 46 : 0,
-        fontFamily:   'var(--font-body)',
-        fontWeight:   'var(--font-weight-medium)',
-        fontSize:     'var(--font-size-caption)',
-        lineHeight:   'var(--line-height-caption)',
-        color:        'var(--color-tag-Neutral-text)',
-        wordBreak:    'break-word',
-        whiteSpace:   'normal',
-        transition:   'padding-right 150ms ease',
-      }}>
-        {comment.content}
-      </p>
-
-      {/* Absolutely positioned so they never shift the text layout */}
-      <div
-        style={{
-          position:      'absolute',
-          top:            4,
-          right:          4,
-          display:        'flex',
-          gap:            1,
-          opacity:        hovered ? 1 : 0,
-          pointerEvents:  hovered ? 'auto' : 'none',
-          transition:     'opacity 120ms ease',
-        }}
-      >
-        <button
-          aria-label="Edit comment"
-          onClick={() => { setEditText(comment.content); onEditStart(comment.id) }}
-          style={{ ...COMMENT_ACTION_BTN }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget
-            el.style.background = 'var(--neutral-200)'
-            el.style.color = 'var(--neutral-700)'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget
-            el.style.background = 'transparent'
-            el.style.color = 'var(--neutral-400)'
-          }}
-        >
-          <PenEditIcon size={12} />
-        </button>
-        <button
-          aria-label="Delete comment"
-          onClick={() => onDelete(comment.id)}
-          style={{ ...COMMENT_ACTION_BTN }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget
-            el.style.background = 'var(--neutral-200)'
-            el.style.color = 'var(--color-danger)'
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget
-            el.style.background = 'transparent'
-            el.style.color = 'var(--neutral-400)'
-          }}
-        >
-          <DeleteTwoIcon size={12} />
-        </button>
-      </div>
-
-      {/* Inner depth/highlight shadow — same overlay pattern as Badge */}
-      <span
-        aria-hidden
-        style={{
-          position:      'absolute',
-          inset:         0,
-          pointerEvents: 'none',
-          borderRadius:  'inherit',
-          boxShadow:     'var(--color-tag-Neutral-inner-shadow)',
-        }}
-      />
-    </div>
-  )
-}

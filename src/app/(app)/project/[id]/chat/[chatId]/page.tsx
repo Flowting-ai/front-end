@@ -1,33 +1,373 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, QuillWriteTwoIcon, PinIcon, FolderOneIcon } from '@strange-huge/icons'
-import { useProjects } from '@/context/projects-context'
-import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
-import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
-import { EditProjectModal } from '@/components/EditProjectModal'
-import { ChatInput } from '@/components/ChatInput'
-import { IconButton } from '@/components/IconButton'
-import { Tooltip } from '@/components/Tooltip'
-import { Pinboard, DEFAULT_PINBOARD_VIEWS } from '@/components/Pinboard'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
+import { X } from 'lucide-react'
+import { ChatInterface }                                   from '@/components/chat/ChatInterface'
+import { ChatInput }                                       from '@/components/chat/ChatInput'
+import { AttachmentManager, type PendingAttachment }       from '@/components/chat/AttachmentManager'
+import { InitialPrompts }                                  from '@/components/chat/InitialPrompts'
+import { ModelSwitchDialog }                               from '@/components/chat/ModelSwitchDialog'
+import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
+import { useModelSelectorContext }                         from '@/context/model-selector-context'
+import { useChatHistoryContext }                           from '@/context/chat-history-context'
+import { useProjects }                                     from '@/context/projects-context'
+import { useFileUpload }                                   from '@/hooks/use-file-upload'
+import { useFileDrop }                                     from '@/hooks/use-file-drop'
+import { usePinOperations }                                from '@/hooks/use-pin-operations'
+import { Dropdown }                                        from '@/components/Dropdown'
+import { Chip }                                            from '@/components/Chip'
+import { Button }                                          from '@/components/Button'
+import {
+  ArrowRightOneIcon,
+  FolderAddIcon,
+  FolderOneIcon,
+  GlobalSearchIcon,
+  QuillWriteTwoIcon,
+  UserIcon,
+  QuillWriteOneIcon,
+  NeuralNetworkIcon,
+  AiVisionRecognitionIcon,
+  AiWebBrowsingIcon,
+  CalendarFoldIcon,
+  StickyNoteTwoIcon,
+  AuctionIcon,
+} from '@strange-huge/icons'
+import type { AIModel } from '@/types/ai-model'
+import type { Pin }     from '@/lib/api/pins'
 
-type RightPanelMode = 'instructions' | 'files' | 'pinboard'
+// ── Mentioned-pin state type ──────────────────────────────────────────────────
+
+interface MentionedPin { id: string; label: string }
+
+// ── Mention chip ──────────────────────────────────────────────────────────────
+
+function MentionChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span
+      style={{
+        display:         'inline-flex',
+        alignItems:      'center',
+        gap:             '4px',
+        borderRadius:    '999px',
+        backgroundColor: 'var(--neutral-100)',
+        border:          '1px solid var(--neutral-200)',
+        padding:         '2px 8px 2px 10px',
+        fontSize:        '12px',
+        fontWeight:      500,
+        color:           'var(--neutral-700)',
+        fontFamily:      'var(--font-body)',
+        maxWidth:        '200px',
+        whiteSpace:      'nowrap',
+      }}
+    >
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>@{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove mention @${label}`}
+        style={{
+          display:        'inline-flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          border:         'none',
+          background:     'none',
+          padding:        '1px',
+          cursor:         'pointer',
+          color:          'var(--neutral-400)',
+          borderRadius:   '50%',
+          flexShrink:     0,
+        }}
+      >
+        <X size={11} strokeWidth={2.5} />
+      </button>
+    </span>
+  )
+}
+
+// ── Template card ─────────────────────────────────────────────────────────────
+
+function TemplateCard({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flex:          1,
+        background:    'white',
+        border:        `1px solid ${hovered ? 'var(--neutral-300)' : 'var(--neutral-200)'}`,
+        borderRadius:  '12px',
+        padding:       '14px 12px',
+        cursor:        'pointer',
+        display:       'flex',
+        flexDirection: 'column',
+        alignItems:    'flex-start',
+        gap:           '10px',
+        textAlign:     'left',
+        boxShadow:     hovered ? '0 2px 8px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+        transition:    'box-shadow 150ms, border-color 150ms',
+        minWidth:      0,
+      }}
+    >
+      <div style={{ flexShrink: 0 }}>{icon}</div>
+      <p
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   '13px',
+          fontWeight: 500,
+          color:      'var(--neutral-700)',
+          margin:     0,
+          lineHeight: 1.4,
+        }}
+      >
+        {label}
+      </p>
+    </button>
+  )
+}
+
+// ── Chat mode ─────────────────────────────────────────────────────────────────
+
+type ChatMode = 'write' | 'research' | 'think' | 'build'
+
+const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
+  { mode: 'write',    label: 'Write',    icon: <QuillWriteOneIcon       size={16} animated /> },
+  { mode: 'research', label: 'Research', icon: <NeuralNetworkIcon       size={16} animated />, disabled: true },
+  { mode: 'think',    label: 'Think',    icon: <AiVisionRecognitionIcon size={16} animated /> },
+  { mode: 'build',    label: 'Build',    icon: <AiWebBrowsingIcon       size={16} animated /> },
+]
+
+const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
+  write:    'What would you like to write?',
+  research: 'What would you like to research?',
+  think:    'What would you like to think through?',
+  build:    'What would you like to build?',
+}
+
+const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: string }> = [
+  { icon: <CalendarFoldIcon  size={24} color="var(--yellow-500)" animated />, label: 'Prep me for an upcoming meeting',    prompt: 'Help me prepare for an upcoming meeting' },
+  { icon: <StickyNoteTwoIcon size={24} color="#141B34"           animated />, label: 'Help me draft and structure my notes', prompt: 'Help me draft and structure my notes' },
+  { icon: <AuctionIcon       size={24} color="var(--green-500)"  animated />, label: 'Compare and evaluate my options',     prompt: 'Help me compare and evaluate my options' },
+]
+
+// ── Add-menu ──────────────────────────────────────────────────────────────────
+
+function AddMenu({
+  webSearchEnabled,
+  onWebSearchChange,
+  onAddFilesClick,
+}: {
+  webSearchEnabled: boolean
+  onWebSearchChange: (enabled: boolean) => void
+  onAddFilesClick: () => void
+}) {
+  return (
+    <Dropdown style={{ width: 200 }}>
+      <Dropdown.Section fluid>
+        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}     fluid onClick={onAddFilesClick} />
+        <Dropdown.Item label="Web search"           icon={<GlobalSearchIcon />}  fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
+        <Dropdown.Item label="Use style"            icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+        <Dropdown.Item label="Add persona"          icon={<UserIcon />}          fluid rightIcon={<ArrowRightOneIcon />} />
+        <Dropdown.Item label="Pin folders"          icon={<FolderOneIcon />}     fluid rightIcon={<ArrowRightOneIcon />} />
+      </Dropdown.Section>
+    </Dropdown>
+  )
+}
+
+// ── Model menus — shared with regular chat ─────────────────────────────────────
+
+const MOST_USED_MODELS = [
+  { id: 'claude',   llm: 'Claude'   as const, label: 'Claude Opus 4.5' },
+  { id: 'gpt5',     llm: 'OpenAI'   as const, label: 'GPT-5' },
+  { id: 'gemini',   llm: 'Gemini'   as const, label: 'Gemini 2.5 Pro' },
+  { id: 'deepseek', llm: 'DeepSeek' as const, label: 'DeepSeek V3' },
+  { id: 'grok',     llm: 'Grok'     as const, label: 'Grok 4' },
+]
+
+const RECENT_MODELS = [
+  { id: 'sonnet',    llm: 'Claude'  as const, label: 'Claude Sonnet 4.5' },
+  { id: 'haiku',     llm: 'Claude'  as const, label: 'Claude Haiku 4.5' },
+  { id: 'gpt5-mini', llm: 'OpenAI'  as const, label: 'GPT-5 Mini' },
+  { id: 'mistral',   llm: 'Mistral' as const, label: 'Mistral Large' },
+  { id: 'qwen',      llm: 'Qwen'    as const, label: 'Qwen 3 Max' },
+]
+
+function DefaultModelMenu() {
+  const [moreOpen, setMoreOpen] = React.useState(false)
+  return (
+    <Dropdown size="md">
+      <Dropdown.Section fluid>
+        <Dropdown.Item label="Souvenir : Advance" subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
+        <Dropdown.Item label="Adaptive thinking"  subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
+        <Dropdown.Float open={moreOpen} onOpenChange={setMoreOpen} placement="right-end" trigger={
+          <Dropdown.Item label="More models" rightIcon={<ArrowRightOneIcon />} fluid />
+        }>
+          <Dropdown size="md">
+            <Dropdown.Section label="Most used" fluid>
+              {MOST_USED_MODELS.map(m => <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />)}
+            </Dropdown.Section>
+            <Dropdown.Section label="Recents" divider fluid>
+              {RECENT_MODELS.map(m => <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />)}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+      </Dropdown.Section>
+    </Dropdown>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ProjectChatPage() {
-  const params  = useParams<{ id: string; chatId: string }>()
-  const router  = useRouter()
-  const { getProject, getChats, updateProject, addFile, removeFile } = useProjects()
+  const params       = useParams<{ id: string; chatId: string }>()
+  const searchParams = useSearchParams()
+  const qParam       = searchParams.get('q')
+
+  const { getProject, getChats }   = useProjects()
+  const { addOptimistic }          = useChatHistoryContext()
+  const { processFiles, FILE_ACCEPT } = useFileUpload()
 
   const project = getProject(params.id)
   const chats   = getChats(params.id)
-  const chat    = chats.find((c) => c.id === params.chatId)
+  const chat    = chats.find(c => c.id === params.chatId)
 
-  const [rightPanel,       setRightPanel]       = useState<RightPanelMode>('pinboard')
-  const [activeChatFilter, setActiveChatFilter] = useState(`chat-${params.chatId}`)
-  const [editOpen,         setEditOpen]         = useState(false)
-  const [inputValue,       setInputValue]       = useState('')
+  const [hasMessages,        setHasMessages]        = useState(!!qParam)
+  const [initialPrompt,      setInitialPrompt]      = useState<string | null>(qParam)
+  const [newChatInput,       setNewChatInput]       = useState('')
+  const [selectedMode,       setSelectedMode]       = useState<ChatMode | null>(null)
+  const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
+  const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
+  const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
+  const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null)
+
+  const fileInputRef           = useRef<HTMLInputElement>(null)
+  const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
+
+  // ── Pin @-mention state ───────────────────────────────────────────────────
+
+  const [showPinDropdown,     setShowPinDropdown]     = useState(false)
+  const [pinQuery,            setPinQuery]            = useState('')
+  const [highlightedPinIndex, setHighlightedPinIndex] = useState(0)
+  const [mentionedPins,       setMentionedPins]       = useState<MentionedPin[]>([])
+
+  const { pins } = usePinOperations()
+
+  const filteredPins = useMemo<Pin[]>(() => {
+    if (!pinQuery.trim()) return pins.slice(0, 10)
+    const q = pinQuery.toLowerCase()
+    return pins.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.content.toLowerCase().includes(q) ||
+      p.tags.some(t => t.toLowerCase().includes(q))
+    )
+  }, [pins, pinQuery])
+
+  useEffect(() => { setHighlightedPinIndex(0) }, [filteredPins])
+
+  useEffect(() => {
+    if (!showPinDropdown) return
+    const handler = (e: MouseEvent) => {
+      if (newChatInputWrapperRef.current && !newChatInputWrapperRef.current.contains(e.target as Node)) {
+        setShowPinDropdown(false)
+        setPinQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPinDropdown])
+
+  const handleMentionChange = useCallback((query: string | null) => {
+    if (query === null) { setShowPinDropdown(false); setPinQuery('') }
+    else                { setShowPinDropdown(true);  setPinQuery(query) }
+  }, [])
+
+  const handlePinSelect = useCallback((pin: Pin) => {
+    const label = (pin.title || pin.content).slice(0, 50) || pin.id
+    setNewChatInput(prev => { const i = prev.lastIndexOf('@'); return i !== -1 ? prev.substring(0, i) : prev })
+    setMentionedPins(prev => prev.some(m => m.id === pin.id) ? prev : [...prev, { id: pin.id, label }])
+    setShowPinDropdown(false)
+    setPinQuery('')
+  }, [])
+
+  const handlePinNavigate = useCallback((action: 'up' | 'down' | 'select' | 'close') => {
+    switch (action) {
+      case 'down':   setHighlightedPinIndex(i => i < filteredPins.length - 1 ? i + 1 : 0); break
+      case 'up':     setHighlightedPinIndex(i => i > 0 ? i - 1 : filteredPins.length - 1); break
+      case 'select': if (filteredPins[highlightedPinIndex]) handlePinSelect(filteredPins[highlightedPinIndex]); break
+      case 'close':  setShowPinDropdown(false); setPinQuery(''); break
+    }
+  }, [filteredPins, highlightedPinIndex, handlePinSelect])
+
+  // ── File handling ─────────────────────────────────────────────────────────
+
+  const { isDragging } = useFileDrop({
+    onFiles: files => { setNewChatAttachments(prev => processFiles(files, prev)) },
+    disabled: hasMessages,
+  })
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      if (!hasMessages) setNewChatAttachments(prev => processFiles(e.target.files!, prev))
+      else              setAddMenuFiles(Array.from(e.target.files!))
+      e.target.value = ''
+    }
+  }
+
+  // ── Model selector ────────────────────────────────────────────────────────
+
+  const { selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced } = useModelSelectorContext()
+
+  const modelButtonLabel = museActive
+    ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'
+    : selectedModel?.modelName
+
+  const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { openModelSelector(e.currentTarget) }
+
+  const handleModelSwitchConfirm = () => {
+    if (pendingModelSwitch) { selectModel(pendingModelSwitch); setPendingModelSwitch(null) }
+  }
+
+  // ── Chips ─────────────────────────────────────────────────────────────────
+
+  const webSearchChip = webSearchEnabled ? (
+    <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
+  ) : null
+
+  const newChatChips: React.ReactNode = mentionedPins.length > 0 ? (
+    <>
+      {mentionedPins.map(mp => (
+        <MentionChip key={mp.id} label={mp.label} onRemove={() => setMentionedPins(prev => prev.filter(m => m.id !== mp.id))} />
+      ))}
+      {webSearchChip}
+    </>
+  ) : webSearchChip
+
+  const addMenu = (
+    <AddMenu
+      webSearchEnabled={webSearchEnabled}
+      onWebSearchChange={setWebSearchEnabled}
+      onAddFilesClick={() => fileInputRef.current?.click()}
+    />
+  )
+
+  // ── Send ──────────────────────────────────────────────────────────────────
+
+  const handleSend = (value: string) => {
+    if (!value.trim()) return
+    setAddMenuFiles(newChatAttachments.map(a => a.file))
+    setNewChatAttachments([])
+    setMentionedPins([])
+    setInitialPrompt(value.trim())
+    setNewChatInput('')
+    setHasMessages(true)
+    setSelectedMode(null)
+  }
+
+  // ── Guard ─────────────────────────────────────────────────────────────────
 
   if (!project || !chat) {
     return (
@@ -37,250 +377,201 @@ export default function ProjectChatPage() {
     )
   }
 
-  // Capture for use inside closures (TS doesn't narrow across callbacks)
-  const projectId = project.id
-
-  const pinboardViews = [
-    ...DEFAULT_PINBOARD_VIEWS,
-    ...chats.map((c) => ({ id: `chat-${c.id}`, label: c.title })),
-  ]
+  const isNewChat = !hasMessages && !initialPrompt
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100%', overflow: 'hidden' }}>
+    <div
+      style={{
+        flex:          1,
+        position:      'relative',
+        display:       'flex',
+        flexDirection: 'column',
+        height:        '100%',
+        minHeight:     '400px',
+        overflow:      'hidden',
+      }}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={FILE_ACCEPT}
+        onChange={handleFileInputChange}
+        style={{ display: 'none' }}
+        aria-hidden
+      />
 
-      {/* ── Main chat area ───────────────────────────────────────────────── */}
-      <div
-        style={{
-          flex:          '1 0 0',
-          minWidth:      0,
-          display:       'flex',
-          flexDirection: 'column',
-          overflow:      'hidden',
-          position:      'relative',
-        }}
-      >
-        {/* Header breadcrumb */}
-        <div
-          style={{
-            display:         'flex',
-            alignItems:      'center',
-            gap:             '8px',
-            padding:         '12px 24px',
-            borderBottom:    '1px solid var(--neutral-100)',
-            flexShrink:      0,
-          }}
-        >
-          <button
-            onClick={() => router.push(`/project/${projectId}`)}
-            style={{
-              display:      'flex',
-              alignItems:   'center',
-              background:   'transparent',
-              border:       'none',
-              cursor:       'pointer',
-              padding:      '6px',
-              borderRadius: '8px',
-              color:        '#524b47',
-            }}
-            aria-label="Back to project"
+      <AnimatePresence mode="sync" initial={false}>
+        {isNewChat ? (
+          <motion.div
+            key="new-chat"
+            exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
+            style={{ position: 'absolute', inset: 0, overflowY: 'auto' }}
           >
-            <ArrowLeftOneIcon style={{ width: 20, height: 20 }} />
-          </button>
-          <p
-            style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-medium)',
-              fontSize:    '14px',
-              lineHeight:  '22px',
-              color:       '#524b47',
-              margin:      0,
-            }}
-          >
-            {project.name} · {chat.title}
-          </p>
-        </div>
+            {/* Drag-and-drop overlay */}
+            {isDragging && (
+              <div
+                style={{
+                  position:        'fixed',
+                  inset:           0,
+                  zIndex:          40,
+                  display:         'flex',
+                  alignItems:      'center',
+                  justifyContent:  'center',
+                  backgroundColor: 'rgba(255,255,255,0.88)',
+                  border:          '2px dashed var(--focus-ring)',
+                  borderRadius:    '16px',
+                  pointerEvents:   'none',
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body-md)', color: 'var(--blue-600)', fontWeight: 500 }}>
+                  Drop files here
+                </span>
+              </div>
+            )}
 
-        {/* Chat thread (empty — real messages out of scope) */}
-        <div
-          style={{
-            flex:      '1 1 0',
-            overflowY: 'auto',
-            padding:   '24px',
-            display:   'flex',
-            flexDirection: 'column',
-            gap:       '16px',
-          }}
-        >
-          <div
-            style={{
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              height:         '100%',
-            }}
-          >
-            <p
+            {/* Centering wrapper */}
+            <div
               style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '14px',
-                lineHeight: '22px',
-                color:      '#a39b95',
+                minHeight:      '100%',
+                display:        'flex',
+                flexDirection:  'column',
+                alignItems:     'center',
+                justifyContent: 'center',
+                padding:        '40px 16px 48px',
               }}
             >
-              Start the conversation…
-            </p>
-          </div>
-        </div>
+              <div
+                style={{
+                  display:       'flex',
+                  flexDirection: 'column',
+                  alignItems:    'center',
+                  gap:           '24px',
+                  maxWidth:      '768px',
+                  width:         '100%',
+                }}
+              >
+                <motion.div exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}>
+                  <InitialPrompts />
+                </motion.div>
 
-        {/* Floating action buttons */}
-        <div
-          style={{
-            position:      'absolute',
-            right:         '10px',
-            top:           '50%',
-            transform:     'translateY(-50%)',
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           '4px',
-            padding:       '4px 4px 6px',
-            borderRadius:  '12px',
-            background:    'var(--neutral-white)',
-            boxShadow:     '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-200)',
-          }}
-        >
-          <Tooltip content="Instructions" side="left">
-            <IconButton
-              variant={rightPanel === 'instructions' ? 'secondary' : 'ghost'}
-              size="sm"
-              icon={<QuillWriteTwoIcon />}
-              aria-label="Instructions"
-              onClick={() => setRightPanel('instructions')}
-            />
-          </Tooltip>
-          <Tooltip content="Files" side="left">
-            <IconButton
-              variant={rightPanel === 'files' ? 'secondary' : 'ghost'}
-              size="sm"
-              icon={<FolderOneIcon />}
-              aria-label="Files"
-              onClick={() => setRightPanel('files')}
-            />
-          </Tooltip>
-          <Tooltip content="Pinboard" side="left">
-            <IconButton
-              variant={rightPanel === 'pinboard' ? 'secondary' : 'ghost'}
-              size="sm"
-              icon={<PinIcon />}
-              aria-label="Pinboard"
-              onClick={() => setRightPanel('pinboard')}
-            />
-          </Tooltip>
-        </div>
+                <motion.div
+                  style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}
+                  exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
+                >
+                  <div ref={newChatInputWrapperRef} style={{ width: '100%', position: 'relative' }}>
+                    <PinMentionDropdown
+                      isOpen={showPinDropdown}
+                      pins={filteredPins}
+                      query={pinQuery}
+                      highlightedIndex={highlightedPinIndex}
+                      onHighlight={setHighlightedPinIndex}
+                      onSelect={handlePinSelect}
+                    />
+                    <ChatInput
+                      value={newChatInput}
+                      onChange={setNewChatInput}
+                      onSend={handleSend}
+                      modelName={modelButtonLabel}
+                      onModelClick={handleModelClick}
+                      addMenu={addMenu}
+                      modelMenu={<DefaultModelMenu />}
+                      chips={newChatChips}
+                      attachmentsSlot={
+                        <AttachmentManager
+                          attachments={newChatAttachments}
+                          onAttachmentsChange={setNewChatAttachments}
+                        />
+                      }
+                      placeholder={selectedMode ? MODE_PLACEHOLDERS[selectedMode] : 'How can I help you today?'}
+                      onMentionChange={handleMentionChange}
+                      isPinDropdownOpen={showPinDropdown}
+                      onPinNavigate={handlePinNavigate}
+                    />
+                  </div>
 
-        {/* Chat input footer */}
-        <div
-          style={{
-            padding:     '12px 24px 24px',
-            flexShrink:  0,
-          }}
-        >
-          <p
-            style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-regular)',
-              fontSize:    '11px',
-              lineHeight:  '16px',
-              color:       '#a39b95',
-              textAlign:   'center',
-              marginBottom:'8px',
-            }}
+                  {/* Mode buttons */}
+                  <div
+                    style={{
+                      display:        'flex',
+                      justifyContent: 'center',
+                      gap:            '8px',
+                      marginTop:      '16px',
+                      flexWrap:       'wrap',
+                    }}
+                  >
+                    {ACTION_BUTTONS.map(btn => (
+                      <div key={btn.mode} style={{ opacity: (btn.disabled || (selectedMode && selectedMode !== btn.mode)) ? 0.4 : 1, transition: 'opacity 150ms' }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          leftIcon={btn.icon}
+                          disabled={btn.disabled}
+                          onClick={btn.disabled ? undefined : () => setSelectedMode(prev => prev === btn.mode ? null : btn.mode)}
+                        >
+                          {btn.label}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Template cards */}
+                  <div style={{ marginTop: '28px' }}>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontSize:   '13px',
+                        fontWeight: 500,
+                        color:      'var(--neutral-500)',
+                        margin:     '0 0 10px',
+                        textAlign:  'left',
+                      }}
+                    >
+                      Not sure where to start?
+                    </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {TEMPLATE_CARDS.map((card, i) => (
+                        <TemplateCard key={i} icon={card.icon} label={card.label} onClick={() => handleSend(card.prompt)} />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="active-chat"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0, 0, 0.2, 1] } }}
+            style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}
           >
-            Claude is AI and can make mistakes. Please double-check responses.
-          </p>
-          <ChatInput
-            placeholder="How can I help you today?"
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={(text) => {
-              setInputValue('')
-            }}
-          />
-        </div>
-      </div>
-
-      {/* ── Right panel ──────────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={rightPanel}
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 16 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-          style={{
-            width:         '395px',
-            flexShrink:    0,
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           '14px',
-            padding:       '24px',
-            overflowY:     'auto',
-            boxSizing:     'border-box',
-          }}
-        >
-          {rightPanel === 'instructions' && (
-            <ProjectInstructionsPanel
-              value={project.instructions}
-              onSave={(text) => updateProject(projectId, { instructions: text })}
+            <ChatInterface
+              chatId={params.chatId}
+              onChatCreated={() => {}}
+              onTitleUpdate={() => {}}
+              onChatMoveToTop={() => {}}
+              selectedModel={modelButtonLabel}
+              selectedModelId={selectedModel?.id}
+              onModelClick={handleModelClick}
+              addMenu={addMenu}
+              modelMenu={<DefaultModelMenu />}
+              initialPrompt={initialPrompt}
+              webSearchEnabled={webSearchEnabled}
+              addMenuFiles={addMenuFiles}
+              onClearAddMenuFiles={() => setAddMenuFiles([])}
+              chips={webSearchChip ? [webSearchChip] : undefined}
             />
-          )}
-
-          {rightPanel === 'files' && (
-            <ProjectFilesPanel
-              files={project.files}
-              usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
-              totalBytes={100 * 1024 * 1024}
-              onUpload={(fileList) => {
-                Array.from(fileList).forEach((f) => {
-                  addFile(projectId, {
-                    id:         `file-${Date.now()}-${Math.random()}`,
-                    name:       f.name,
-                    type:       f.name.split('.').pop()?.toUpperCase() ?? 'FILE',
-                    sizeBytes:  f.size,
-                    sizeLabel:  f.size < 1024 * 1024
-                                  ? `${(f.size / 1024).toFixed(0)} KB`
-                                  : `${(f.size / (1024 * 1024)).toFixed(1)} MB`,
-                    uploadedAt: 'Just now',
-                    url:        URL.createObjectURL(f),
-                  })
-                })
-              }}
-              onRemove={(fileId) => removeFile(projectId, fileId)}
-            />
-          )}
-
-          {rightPanel === 'pinboard' && (
-            <Pinboard
-              pins={[]}
-              views={pinboardViews}
-              view={activeChatFilter}
-              onViewChange={setActiveChatFilter}
-              onExport={() => {}}
-              onOrganize={() => {}}
-              onClose={() => setRightPanel('files')}
-              fluid
-            />
-          )}
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* Edit modal */}
-      <EditProjectModal
-        open={editOpen}
-        name={project.name}
-        description={project.description}
-        onSave={(name, description) => updateProject(projectId, { name, description })}
-        onClose={() => setEditOpen(false)}
+      <ModelSwitchDialog
+        isOpen={!!pendingModelSwitch}
+        fromModel={selectedModel}
+        toModel={pendingModelSwitch}
+        onConfirm={handleModelSwitchConfirm}
+        onCancel={() => setPendingModelSwitch(null)}
       />
     </div>
   )

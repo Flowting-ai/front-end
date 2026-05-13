@@ -44,7 +44,6 @@ function toPinboardPin(
 
   return {
     id:          item.id,
-    pinId:       item.id,
     category:    item.category,
     pinTitle:    item.title || item.content.split("\n")[0].slice(0, 120) || "Untitled Pin",
     description: item.content,
@@ -181,9 +180,6 @@ export function RightSidebar() {
               onClose={close}
               onExport={() => exportPins(filteredRawPins, chatNameById)}
               onViewChange={(viewId) => handleViewChange(viewId)}
-              onCreateFolder={handleCreateFolder}
-              onMoveToFolder={handleMoveToFolder}
-              onDeletePins={handleDeletePins}
             />
           </motion.div>
         )}

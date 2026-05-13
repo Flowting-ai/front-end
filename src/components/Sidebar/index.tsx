@@ -8,6 +8,7 @@ import {
   UserAiIcon,
   NeuralNetworkIcon,
   FolderAddIcon,
+  FolderLibraryIcon,
   FolderOneIcon,
   SidebarLeftIcon,
   MoreHorizontalIcon,
@@ -86,6 +87,10 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onSearch?: () => void
   /** Called when the sidebar collapse/toggle button is clicked */
   onCollapse?: () => void
+  /** Called when the Projects nav item is clicked */
+  onProjectsClick?: () => void
+  /** Called when the Persona nav item is clicked */
+  onPersonasClick?: () => void
   /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
   /**
@@ -117,6 +122,20 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    * @default false
    */
   defaultCollapsed?: boolean
+  /**
+   * Controlled "current chat" id — driven by the app router. When set, the
+   * Sidebar highlights the matching chat row (in Recents or inside a project)
+   * and auto-expands the parent project. The Sidebar itself never sets this
+   * value; consumers update it after handling `onSelectChat`.
+   */
+  activeChatId?: string | null
+  /**
+   * Fires when the user clicks a chat row. Pair with `activeChatId` for
+   * controlled selection: handle navigation in the consumer (e.g. router.push)
+   * and then pass the new id back as `activeChatId`. If omitted, the Sidebar
+   * falls back to its internal selection state so it still works standalone.
+   */
+  onSelectChat?: (id: string) => void
 }
 
 // ── Section show/hide animation ───────────────────────────────────────────────
@@ -162,13 +181,15 @@ interface DefaultProjectItemsProps {
   activeFolder: string | null
   expandedFolders: Set<string>
   selectedItem: string | null
+  activeChatId?: string | null
   onSelect: (id: string) => void
+  onChatClick: (id: string) => void
   onFolderOpen: (id: string) => void
   onFolderExpand: (id: string, expanded: boolean) => void
   onShowAllProjects?: () => void
 }
 
-function DefaultProjectItems({ projects, activeFolder, expandedFolders, selectedItem, onSelect, onFolderOpen, onFolderExpand, onShowAllProjects }: DefaultProjectItemsProps) {
+function DefaultProjectItems({ projects, activeFolder, expandedFolders, selectedItem, activeChatId, onSelect, onChatClick, onFolderOpen, onFolderExpand, onShowAllProjects }: DefaultProjectItemsProps) {
   const [shown, setShown] = useState(true)
   const [overflow, setOverflow] = useState<'visible' | 'hidden'>('visible')
   const shouldAnimate = projectsAnimatedOnce
@@ -225,20 +246,28 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
               >
                 {project.chatItems && project.chatItems.length > 0 && [
                   <SidebarMenuItem key="header" fluid variant="header" label="Recent" />,
-                  ...project.chatItems.map((chat) => (
+                  ...project.chatItems.map((chat) => {
+                    // Controlled when activeChatId is provided; falls back to
+                    // internal selectedItem otherwise so the Sidebar still
+                    // works standalone (Storybook etc.).
+                    const isSelected = activeChatId != null
+                      ? activeChatId === chat.id
+                      : selectedItem === chat.id
+                    return (
                     <SidebarMenuItem
                       key={chat.id}
                       fluid
                       variant={editingItem === chat.id ? 'chat-item-edit' : 'chat-item'}
                       label={chatLabels[chat.id] ?? chat.label}
-                      selected={selectedItem === chat.id}
-                      onClick={() => onSelect(chat.id)}
-                      onDoubleClick={() => { if (selectedItem === chat.id) setEditingItem(chat.id) }}
+                      selected={isSelected}
+                      onClick={() => onChatClick(chat.id)}
+                      onDoubleClick={() => { if (isSelected) setEditingItem(chat.id) }}
                       onRename={() => setEditingItem(chat.id)}
                       onCommit={(val) => { setChatLabels(prev => ({ ...prev, [chat.id]: val || prev[chat.id] })); setEditingItem(null) }}
                       onCancel={() => setEditingItem(null)}
                     />
-                  )),
+                    )
+                  }),
                 ]}
               </SidebarProjectsSection>
             </motion.div>
@@ -263,7 +292,9 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
 
 interface DefaultRecentItemsProps {
   selectedItem: string | null
+  activeChatId?: string | null
   onSelect: (id: string) => void
+  onChatClick: (id: string) => void
   onShowAll?: React.MouseEventHandler<HTMLButtonElement>
   /** Changes when the active section changes — triggers item stagger re-animation */
   sectionKey: string
@@ -271,7 +302,7 @@ interface DefaultRecentItemsProps {
   recents: SidebarRecentItem[]
 }
 
-function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey, recents }: DefaultRecentItemsProps) {
+function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, onChatClick, onShowAll, sectionKey, recents }: DefaultRecentItemsProps) {
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<'visible' | 'hidden'>('visible')
   // Skip stagger on first sidebar load; replay it on section switches (key remount).
@@ -317,21 +348,26 @@ function DefaultRecentItems({ selectedItem, onSelect, onShowAll, sectionKey, rec
             variants={sectionStaggerVariants}
             style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
           >
-            {recents.map(({ id }) => (
+            {recents.map(({ id }) => {
+              const isSelected = activeChatId != null
+                ? activeChatId === id
+                : selectedItem === id
+              return (
               <motion.div key={id} variants={sectionItemVariants}>
                 <SidebarMenuItem
                   fluid
                   variant={editingItem === id ? 'chat-item-edit' : 'chat-item'}
                   label={itemLabels[id] ?? 'Label'}
-                  selected={selectedItem === id}
-                  onClick={() => onSelect(id)}
-                  onDoubleClick={() => { if (selectedItem === id) setEditingItem(id) }}
+                  selected={isSelected}
+                  onClick={() => onChatClick(id)}
+                  onDoubleClick={() => { if (isSelected) setEditingItem(id) }}
                   onRename={() => setEditingItem(id)}
                   onCommit={(val) => { setItemLabels(prev => ({ ...prev, [id]: val || prev[id] })); setEditingItem(null) }}
                   onCancel={() => setEditingItem(null)}
                 />
               </motion.div>
-            ))}
+              )
+            })}
           </motion.div>
       </motion.div>
     </>
@@ -350,6 +386,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onNewChat,
       onSearch,
       onCollapse,
+      onProjectsClick,
+      onPersonasClick,
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
       projectItems,
@@ -357,6 +395,8 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       recentItems,
       onShowAllRecents,
       defaultCollapsed = false,
+      activeChatId,
+      onSelectChat,
       className,
       ...props
     },
@@ -366,6 +406,30 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     const [collapseHovered,  setCollapseHovered]  = useState(false)
     const [atScrollTop,      setAtScrollTop]      = useState(true)
     const [atScrollBottom,   setAtScrollBottom]   = useState(false)
+
+    // Scroll-position memory across collapse ↔ expand. When collapsing, the
+    // body's overflow flips to `hidden`; if we leave scrollTop where it was,
+    // the user's existing offset clips the top section (Chat board / Persona /
+    // Workflow) out of view. So we stash scrollTop, jump to 0 on collapse, and
+    // restore it on expand. Per-frame restore via rAF — the layout has to
+    // settle (overflow flipping back to `auto`) before scrollTop will stick.
+    const bodyScrollRef       = useRef<HTMLDivElement>(null)
+    const savedScrollTopRef   = useRef(0)
+    useEffect(() => {
+      const el = bodyScrollRef.current
+      if (!el) return
+      if (isCollapsed) {
+        savedScrollTopRef.current = el.scrollTop
+        el.scrollTop = 0
+      } else {
+        // Wait for the next frame so `overflow: auto` has reapplied before
+        // assigning scrollTop, otherwise the assignment is silently ignored.
+        const id = requestAnimationFrame(() => {
+          if (bodyScrollRef.current) bodyScrollRef.current.scrollTop = savedScrollTopRef.current
+        })
+        return () => cancelAnimationFrame(id)
+      }
+    }, [isCollapsed])
 
     const handleBodyScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
@@ -388,6 +452,13 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     }
     // Select any non-section item (chat items, new-project, etc.) — preserves bodySection
     const onSelect = (id: string) => { setSelectedItem(id); setActiveFolder(null) }
+    // Chat-row click — controlled flow when consumer provides onSelectChat: fire
+    // the callback and let the consumer drive `activeChatId` back; otherwise
+    // fall back to internal selection so standalone use still highlights.
+    const handleChatClick = (id: string) => {
+      if (onSelectChat) onSelectChat(id)
+      else onSelect(id)
+    }
     // Row click — only sets active folder; never affects expansion (icon-only)
     const handleFolderOpen = (id: string) => {
       setActiveFolder(id)
@@ -401,6 +472,21 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
         return next
       })
     }
+
+    // Auto-expand the project that contains `activeChatId` so the user's
+    // current chat is always visible in context. Only adds — never collapses
+    // other folders (per the Multiple-folders-can-be-expanded rule).
+    useEffect(() => {
+      if (!activeChatId) return
+      const parent = projects.find(p => p.chatItems?.some(c => c.id === activeChatId))
+      if (!parent) return
+      setExpandedFolders(prev => {
+        if (prev.has(parent.id)) return prev
+        const next = new Set(prev)
+        next.add(parent.id)
+        return next
+      })
+    }, [activeChatId, projects])
     const handleCollapse = useCallback(() => {
       setIsCollapsed(v => !v)
       onCollapse?.()
@@ -512,7 +598,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
         </div>
 
         {/* ── Scrollable body ── */}
-        <div className={isCollapsed ? undefined : 'kaya-scrollbar'} onScroll={handleBodyScroll} style={{
+        <div ref={bodyScrollRef} className={isCollapsed ? undefined : 'kaya-scrollbar'} onScroll={handleBodyScroll} style={{
           position:      'absolute',
           top:           '148px',
           bottom:        '68px',
@@ -539,29 +625,41 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingBottom: '8px',
             flexShrink:    0,
           }}>
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<BubbleChatIcon size={20} />}
-              label="Chat board"
-              selected={selectedItem === 'chat-board'}
-              onClick={() => onSelectSection('chat-board')}
-            />
+            <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<BubbleChatIcon size={20} />}
+                label="Chat board"
+                selected={selectedItem === 'chat-board'}
+                onClick={() => onSelectSection('chat-board')}
+              />
+            </div>
             <SidebarMenuItem
               {...(isCollapsed ? { collapsed: true } : { fluid: true })}
               variant="default"
               icon={<UserAiIcon size={20} />}
               label="Persona"
               selected={selectedItem === 'persona'}
-              onClick={() => onSelectSection('persona')}
+              onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
             />
+            <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<NeuralNetworkIcon size={20} animated />}
+                label="Brain"
+                selected={selectedItem === 'workflow'}
+                onClick={() => onSelectSection('workflow')}
+              />
+            </div>
             <SidebarMenuItem
               {...(isCollapsed ? { collapsed: true } : { fluid: true })}
               variant="default"
-              icon={<NeuralNetworkIcon size={20} />}
-              label="Workflow"
-              selected={selectedItem === 'workflow'}
-              onClick={() => onSelectSection('workflow')}
+              icon={<FolderLibraryIcon size={20} />}
+              label="Projects"
+              selected={selectedItem === 'projects'}
+              onClick={() => { onSelect('projects'); onProjectsClick?.() }}
             />
           </div>
 
@@ -592,7 +690,9 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
                         activeFolder={activeFolder}
                         expandedFolders={expandedFolders}
                         selectedItem={selectedItem}
+                        activeChatId={activeChatId}
                         onSelect={onSelect}
+                        onChatClick={handleChatClick}
                         onFolderOpen={handleFolderOpen}
                         onFolderExpand={handleFolderExpand}
                         onShowAllProjects={onShowAllProjects}
@@ -614,7 +714,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} onSelect={onSelect} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} />}
+                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} />}
               </div>
             </div>
           </motion.div>

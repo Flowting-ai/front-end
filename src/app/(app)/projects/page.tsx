@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SearchOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { useProjects } from '@/context/projects-context'
 import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
@@ -10,14 +10,6 @@ import { Button } from '@/components/Button'
 import { Dropdown } from '@/components/Dropdown'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import type { Project } from '@/context/projects-context'
-
-// ── Template cards ─────────────────────────────────────────────────────────────
-
-const TEMPLATES = [
-  { name: 'Product Design Sprint',  subtitle: 'Design · Discovery' },
-  { name: 'Research Repository',    subtitle: 'Research · Synthesis' },
-  { name: 'Engineering Planning',   subtitle: 'Engineering · Roadmap' },
-]
 
 type SortKey = 'recent' | 'alphabetical' | 'active'
 
@@ -54,7 +46,7 @@ export default function ProjectsPage() {
     const sorted = sortProjects(projects, sort)
     if (!query.trim()) return sorted
     const q = query.toLowerCase()
-    return sorted.filter((p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+    return sorted.filter((p) => p.name.toLowerCase().includes(q))
   }, [projects, query, sort])
 
   const sortLabels: Record<SortKey, string> = {
@@ -72,6 +64,7 @@ export default function ProjectsPage() {
         width:          '100%',
         height:         '100%',
         overflowY:      'auto',
+        overflowX:      'hidden',
         padding:        '35px 24px 40px',
         boxSizing:      'border-box',
       }}
@@ -80,8 +73,8 @@ export default function ProjectsPage() {
 
         {/* Heading row */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0, flex: '1 1 0' }}>
               <h1
                 style={{
                   fontFamily:  'var(--font-title)',
@@ -94,22 +87,24 @@ export default function ProjectsPage() {
               >
                 Projects
               </h1>
-              <Badge label={`${projects.length} Projects`} color="Neutral" />
+              <div style={{ alignSelf: 'flex-start' }}>
+                <Badge label={`${projects.length} Projects`} color="Neutral" />
+              </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
               {/* Sort dropdown */}
               <Dropdown.Float
                 open={sortOpen}
                 onOpenChange={setSortOpen}
                 placement="bottom-end"
                 trigger={
-                  <Button variant="outline" rightIcon={<span style={{ fontSize: 10 }}>▾</span>}>
+                  <Button variant="outline" rightIcon={<ArrowDownOneIcon animated />}>
                     {sortLabels[sort]}
                   </Button>
                 }
               >
-                <Dropdown size="sm">
+                <Dropdown>
                   <Dropdown.Section>
                     {(['recent', 'alphabetical', 'active'] as SortKey[]).map((k) => (
                       <Dropdown.Item
@@ -125,8 +120,8 @@ export default function ProjectsPage() {
               </Dropdown.Float>
 
               {/* New Project */}
-              <Button variant="default" onClick={() => router.push('/projects/new')}>
-                + New Project
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => router.push('/projects/new')}>
+                New Project
               </Button>
             </div>
           </div>
@@ -166,91 +161,15 @@ export default function ProjectsPage() {
           />
         </div>
 
-        {/* Templates section (hidden when searching) */}
-        {!query.trim() && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <p
-              style={{
-                fontFamily:  'var(--font-body)',
-                fontWeight:  'var(--font-weight-medium)',
-                fontSize:    '16px',
-                lineHeight:  '22px',
-                color:       '#6a625d',
-                margin:      0,
-              }}
-            >
-              Start from a template
-            </p>
-            <div style={{ display: 'flex', alignItems: 'stretch', gap: '24px' }}>
-              {TEMPLATES.map((t) => (
-                <button
-                  key={t.name}
-                  onClick={() => router.push('/projects/new')}
-                  style={{
-                    flex:          '1 1 0',
-                    display:       'flex',
-                    flexDirection: 'column',
-                    gap:           '4px',
-                    alignItems:    'flex-start',
-                    padding:       '12px 12px 16px',
-                    borderRadius:  '16px',
-                    background:    'var(--neutral-50)',
-                    border:        '1px dashed var(--neutral-300)',
-                    boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                    cursor:        'pointer',
-                    textAlign:     'left',
-                    transition:    'background-color 120ms ease',
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-100)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-50)' }}
-                >
-                  <p
-                    style={{
-                      fontFamily:   'var(--font-body)',
-                      fontWeight:   'var(--font-weight-regular)',
-                      fontSize:     '16px',
-                      lineHeight:   '22px',
-                      color:        'var(--neutral-900)',
-                      overflow:     'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace:   'nowrap',
-                      maxWidth:     '100%',
-                      margin:       0,
-                    }}
-                  >
-                    {t.name}
-                  </p>
-                  <p
-                    style={{
-                      fontFamily:   'var(--font-code)',
-                      fontWeight:   'var(--font-weight-regular)',
-                      fontSize:     '13px',
-                      lineHeight:   '16px',
-                      color:        'var(--neutral-500)',
-                      overflow:     'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace:   'nowrap',
-                      maxWidth:     '100%',
-                      margin:       0,
-                    }}
-                  >
-                    {t.subtitle}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Project grid */}
         {filtered.length === 0 ? (
           query.trim() ? (
             <p
               style={{
-                fontFamily: 'var(--font-body)',
+                fontFamily: 'var(--font-title)',
                 fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '14px',
-                lineHeight: '22px',
+                fontSize:   '24px',
+                lineHeight: '32px',
                 color:      '#857a72',
                 textAlign:  'center',
                 margin:     '40px 0',
@@ -273,10 +192,10 @@ export default function ProjectsPage() {
             >
               <p
                 style={{
-                  fontFamily:  'var(--font-body)',
+                  fontFamily:  'var(--font-title)',
                   fontWeight:  'var(--font-weight-regular)',
-                  fontSize:    '16px',
-                  lineHeight:  '22px',
+                  fontSize:    '24px',
+                  lineHeight:  '32px',
                   color:       '#857a72',
                   textAlign:   'center',
                   margin:      0,
@@ -284,8 +203,8 @@ export default function ProjectsPage() {
               >
                 No projects yet. Create your first one to get started.
               </p>
-              <Button variant="default" onClick={() => router.push('/projects/new')}>
-                + New Project
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => router.push('/projects/new')}>
+                New Project
               </Button>
             </div>
           )
@@ -321,8 +240,9 @@ export default function ProjectsPage() {
         open={!!editTarget}
         name={editTarget?.name ?? ''}
         description={editTarget?.description ?? ''}
-        onSave={(name, description) => {
-          if (editTarget) updateProject(editTarget.id, { name, description })
+        tags={editTarget?.tags ?? []}
+        onSave={(name, description, tags) => {
+          if (editTarget) updateProject(editTarget.id, { name, description, tags })
         }}
         onClose={() => setEditTarget(null)}
       />

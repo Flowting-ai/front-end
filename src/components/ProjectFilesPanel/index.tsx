@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useRef } from 'react'
-import { PlusSignIcon, CancelOneIcon, FolderOneIcon, FileTwoIcon } from '@strange-huge/icons'
+import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
-import { Badge } from '@/components/Badge'
+import { DocumentCard } from '@/components/DocumentCard'
 import type { ProjectFile } from '@/context/projects-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -14,18 +14,6 @@ export interface ProjectFilesPanelProps {
   totalBytes: number
   onUpload?:  (files: FileList) => void
   onRemove?:  (fileId: string) => void
-}
-
-// ── File type → badge color mapping ──────────────────────────────────────────
-
-function fileBadgeColor(type: string) {
-  const t = type.toUpperCase()
-  if (t === 'PDF')           return 'Red'    as const
-  if (t === 'FIG')           return 'Blue'   as const
-  if (t === 'DOC' || t === 'DOCX') return 'Blue' as const
-  if (t === 'MD')            return 'Neutral' as const
-  if (t === 'URL')           return 'Green'  as const
-  return 'Neutral' as const
 }
 
 function formatBytes(bytes: number) {
@@ -80,7 +68,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
           border:        '1px dashed var(--neutral-300)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',
-          flex:          '1 1 0',
+          minHeight:     '400px',
           boxSizing:     'border-box',
           overflow:      'hidden',
         }}
@@ -154,71 +142,24 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
               </p>
             </div>
 
-            {/* File list */}
+            {/* File grid */}
             <div
               style={{
-                display:   'flex',
-                flexDirection: 'column',
-                gap:       '2px',
-                overflowY: 'auto',
-                flex:      '1 1 0',
+                display:               'grid',
+                gridTemplateColumns:   'repeat(2, 1fr)',
+                gap:                   '8px',
+                overflowY:             'auto',
+                flex:                  '1 1 0',
               }}
             >
               {files.map((file) => (
-                <div
+                <DocumentCard
                   key={file.id}
-                  style={{
-                    display:         'flex',
-                    alignItems:      'center',
-                    gap:             '8px',
-                    padding:         '6px 8px',
-                    borderRadius:    '8px',
-                    backgroundColor: 'transparent',
-                    transition:      'background-color 120ms ease',
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--neutral-100)' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent' }}
-                >
-                  <FileTwoIcon style={{ width: 16, height: 16, color: '#857a72', flexShrink: 0 }} />
-                  <span
-                    style={{
-                      flex:        '1 0 0',
-                      minWidth:    0,
-                      fontFamily:  'var(--font-body)',
-                      fontWeight:  'var(--font-weight-regular)',
-                      fontSize:    '13px',
-                      lineHeight:  '20px',
-                      color:       '#1a1714',
-                      overflow:    'hidden',
-                      textOverflow:'ellipsis',
-                      whiteSpace:  'nowrap',
-                    }}
-                  >
-                    {file.name}
-                  </span>
-                  <Badge label={file.type} color={fileBadgeColor(file.type)} />
-                  <span
-                    style={{
-                      fontFamily:  'var(--font-body)',
-                      fontWeight:  'var(--font-weight-regular)',
-                      fontSize:    '11px',
-                      lineHeight:  '16px',
-                      color:       '#a39b95',
-                      flexShrink:  0,
-                    }}
-                  >
-                    {file.sizeLabel}
-                  </span>
-                  {onRemove && (
-                    <IconButton
-                      variant="ghost"
-                      size="xs"
-                      icon={<CancelOneIcon />}
-                      aria-label={`Remove ${file.name}`}
-                      onClick={() => onRemove(file.id)}
-                    />
-                  )}
-                </div>
+                  name={file.name}
+                  type={file.type}
+                  sizeLabel={file.sizeLabel}
+                  onRemove={onRemove ? () => onRemove(file.id) : undefined}
+                />
               ))}
             </div>
           </>
@@ -243,7 +184,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
               boxShadow:       '0px 0px 0px 1px rgba(59,54,50,0.3)',
               cursor:          'pointer',
               padding:         '8px 12px',
-              minHeight:       '120px',
+              minHeight:       '300px',
             }}
           >
             <FolderOneIcon style={{ width: 16, height: 16, color: 'var(--neutral-700)', flexShrink: 0 }} />

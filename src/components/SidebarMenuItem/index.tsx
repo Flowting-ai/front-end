@@ -144,23 +144,11 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
     const lastEnterRef = useRef<number>(0)
 
     useEffect(() => {
-      if (isEditVariant) {
-        // Sync to the latest label so a previously renamed chat shows the correct title.
-        // label is intentionally excluded from deps — we only want to sync on entry.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        setEditValue(label)
+      if (isEditVariant && inputRef.current) {
+        inputRef.current.focus()
+        inputRef.current.select()
         cancelledRef.current = false
-        // rAF defers focus + cursor until after React flushes the setEditValue re-render,
-        // so inputRef.current.value already reflects the synced label when we read its length.
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            inputRef.current.focus()
-            const len = inputRef.current.value.length
-            inputRef.current.setSelectionRange(len, len)
-          }
-        })
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditVariant])
 
     // ── chat-item marquee ──────────────────────────────────────────────────────
@@ -210,9 +198,6 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
       externalBlur?.(e)
     }
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // The edit input handles its own keys. Without this guard the space key
-      // bubbles to this handler, which calls e.preventDefault() and swallows it.
-      if (isEditVariant) return
       if (!isHeader && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault()
         if (isChatItem && e.key === 'Enter') {

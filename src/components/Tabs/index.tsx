@@ -213,7 +213,11 @@ export const TabsList = React.forwardRef<
       // tab button under the original pointerdown.
       const btn = (target.closest('button') as HTMLButtonElement | null)
       if (btn && !btn.disabled) {
-        btn.focus({ focusVisible: false } as FocusOptions)
+        // focusVisible:false → suppress :focus-visible ring on pointer-driven
+        // activation. Keyboard nav goes through Radix's own onKeyDown and
+        // still triggers the ring as expected.
+        ;(btn as HTMLButtonElement & { focus: (opts?: { preventScroll?: boolean; focusVisible?: boolean }) => void })
+          .focus({ focusVisible: false })
         btn.click()
       }
     }

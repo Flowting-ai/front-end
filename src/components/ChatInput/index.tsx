@@ -9,13 +9,12 @@ import {
   StopCircleIcon,
   ArrowUpTwoIcon,
   ArrowRightOneIcon,
-  FolderAddIcon,
+  FileAddIcon,
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  UserIcon,
+  UserAddOneIcon,
 } from '@strange-huge/icons'
-import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
@@ -30,7 +29,7 @@ import { cn } from '@/lib/utils'
 // `addMenu` / `modelMenu`; pass `null` to opt out and use the bare-button +
 // `onAdd` / `onModelClick` callbacks instead.
 //
-// Folder icon: `<FolderOneIcon animated />`. The icon is
+// Folder icon: `<FolderOneIcon variant="static" animated />`. The icon is
 // otherwise reserved for Sidebar surfaces (see CLAUDE.md "Folder Icon —
 // Sidebar Only Rule"); the Pin-folders row inside the Add menu is the
 // declared exception, mandated by the user. Don't generalise.
@@ -219,7 +218,7 @@ function PersonaSubmenu({
 // PinboardExpanded sidebar (project ↔ pinboard folder sync rule):
 //   • "Your folders"    — personal user-created folders
 //   • "Project folders" — derived from Sidebar projects
-// Each row uses `<FolderOneIcon animated />`. The folder
+// Each row uses `<FolderOneIcon variant="static" animated />`. The folder
 // icon is otherwise sidebar-only; this submenu (alongside the parent
 // "Pin folders" row) is the declared exception per CLAUDE.md.
 
@@ -239,7 +238,7 @@ function PinFoldersSubmenu({
             <Dropdown.Item
               key={f.id}
               label={f.label}
-              icon={<FolderOneIcon animated />}
+              icon={<FolderOneIcon variant="static" animated />}
               selected={activeId === f.id}
               onClick={() => setActiveId(f.id)}
               fluid
@@ -253,7 +252,7 @@ function PinFoldersSubmenu({
             <Dropdown.Item
               key={f.id}
               label={f.label}
-              icon={<FolderOneIcon animated />}
+              icon={<FolderOneIcon variant="static" animated />}
               selected={activeId === f.id}
               onClick={() => setActiveId(f.id)}
               fluid
@@ -292,7 +291,7 @@ function DefaultAddMenu({
   return (
     <Dropdown style={{ width: 200 }}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />} fluid />
+        <Dropdown.Item label="Add files or photos" icon={<FileAddIcon />} fluid />
         <Dropdown.Item
           label="Web search"
           icon={<GlobalSearchIcon />}
@@ -339,7 +338,7 @@ function DefaultAddMenu({
           trigger={
             <Dropdown.Item
               label="Add persona"
-              icon={<UserIcon />}
+              icon={<UserAddOneIcon />}
               rightIcon={<ArrowRightOneIcon />}
               fluid
             />
@@ -358,7 +357,7 @@ function DefaultAddMenu({
           trigger={
             <Dropdown.Item
               label="Pin folders"
-              icon={<FolderOneIcon animated />}
+              icon={<FolderOneIcon variant="static" animated />}
               rightIcon={<ArrowRightOneIcon />}
               fluid
             />
@@ -419,12 +418,12 @@ function DefaultModelMenu() {
           <Dropdown size="md">
             <Dropdown.Section label="Most used" fluid>
               {DEFAULT_MOST_USED_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} icon={<LlmIcon id={m.llm} variant="color" />} fluid />
+                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
               ))}
             </Dropdown.Section>
             <Dropdown.Section label="Recents" divider fluid>
               {DEFAULT_RECENT_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} icon={<LlmIcon id={m.llm} variant="color" />} fluid />
+                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
               ))}
             </Dropdown.Section>
           </Dropdown>

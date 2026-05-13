@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { usePathname } from "next/navigation";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
@@ -31,6 +32,11 @@ export function AppLayout({
 }: AppLayoutProps) {
   const { isOpen: pinboardOpen } = usePinboard()
   const { isOpen: highlightOpen } = useHighlight()
+  const pathname = usePathname()
+  // Suppress FloatingPanel on project listing / detail pages, but NOT on
+  // project chat pages — those use the same global FloatingPanel as regular chats.
+  const isProjectPage = pathname.startsWith('/project') && !pathname.includes('/chat/')
+  const isPersonaPage = pathname.startsWith('/personas') || pathname.startsWith('/persona')
 
   return (
     <div
@@ -61,34 +67,8 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {/* ── Inner rounded container (Figma 3220:33871) ──
-            border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
-            overflow-clip, isolate for FloatingPanel z-index scoping. */}
-        <div
-          style={{
-            position:        "relative",
-            flex:            "1 0 0",
-            minHeight:       0,
-            display:         "flex",
-            flexDirection:   "column",
-            alignItems:      "flex-start",
-            gap:             "2px",
-            padding:         "12px",
-            borderRadius:    "22px",
-            border:          "1px solid var(--neutral-200)",
-            backgroundColor: "rgba(255, 255, 255, 0.2)",
-            overflow:        "hidden",
-            isolation:       "isolate",
-          }}
-        >
-          {/* ── TopBar — absolute, overlaps the 1px border on three sides ── */}
-          <TopBar
-            showCitationsToggle={showCitationsToggle}
-            citationsOpen={citationsOpen}
-            onCitationsToggle={onCitationsToggle}
-          />
-
-          {/* ── Main content — fills remaining height ── */}
+        {isPersonaPage ? (
+          /* ── Persona pages: no rounded container, no TopBar, no FloatingPanel ── */
           <main
             className="kaya-scrollbar"
             style={{
@@ -104,10 +84,55 @@ export function AppLayout({
           >
             {children}
           </main>
+        ) : (
+          /* ── Inner rounded container (Figma 3220:33871) ──
+              border 1px neutral-200, rounded-22px, bg rgba(255,255,255,0.2),
+              overflow-clip, isolate for FloatingPanel z-index scoping. */
+          <div
+            style={{
+              position:        "relative",
+              flex:            "1 0 0",
+              minHeight:       0,
+              display:         "flex",
+              flexDirection:   "column",
+              alignItems:      "flex-start",
+              gap:             "2px",
+              padding:         "12px",
+              borderRadius:    "22px",
+              border:          "1px solid var(--neutral-200)",
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              overflow:        "hidden",
+              isolation:       "isolate",
+            }}
+          >
+            {/* ── TopBar — absolute, overlaps the 1px border on three sides ── */}
+            <TopBar
+              showCitationsToggle={showCitationsToggle}
+              citationsOpen={citationsOpen}
+              onCitationsToggle={onCitationsToggle}
+            />
 
-          {/* ── Floating action panel — mid-right of rounded container ── */}
-          <FloatingPanel />
-        </div>
+            {/* ── Main content — fills remaining height ── */}
+            <main
+              className="kaya-scrollbar"
+              style={{
+                flex:                "1 0 0",
+                minHeight:           0,
+                width:               "100%",
+                overflowY:           "auto",
+                overflowX:           "hidden",
+                overscrollBehaviorY: "contain",
+                display:             "flex",
+                flexDirection:       "column",
+              }}
+            >
+              {children}
+            </main>
+
+            {/* ── Floating action panel — mid-right of rounded container ── */}
+            {!isProjectPage && <FloatingPanel />}
+          </div>
+        )}
       </div>
 
       {/* ── Right sidebar (Pinboard) ── */}

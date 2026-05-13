@@ -8,20 +8,29 @@ import { Button } from '@/components/Button'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectInstructionsPanelProps {
-  value:       string
-  onSave:      (text: string) => void
-  maxLength?:  number
+  value:          string
+  onSave:         (text: string) => void
+  maxLength?:     number
+  /**
+   * When provided, the edit button opens a modal instead of inline editing.
+   * Pass a function that opens the SystemInstructionsModal.
+   */
+  onOpenEditor?:  () => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, ProjectInstructionsPanelProps>(
-  function ProjectInstructionsPanel({ value, onSave, maxLength = 2000 }, ref) {
-    const [editing,  setEditing]  = useState(false)
-    const [draft,    setDraft]    = useState(value)
+  function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor }, ref) {
+    const [editing, setEditing] = useState(false)
+    const [draft,   setDraft]   = useState(value)
     const isEmpty = !value.trim()
 
     function handleEdit() {
+      if (onOpenEditor) {
+        onOpenEditor()
+        return
+      }
       setDraft(value)
       setEditing(true)
     }
@@ -40,16 +49,16 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
       <div
         ref={ref}
         style={{
-          display:         'flex',
-          flexDirection:   'column',
-          gap:             '12px',
-          padding:         '12px 12px 16px',
-          borderRadius:    '16px',
-          background:      'var(--neutral-50)',
-          border:          '1px dashed var(--neutral-300)',
-          boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-          width:           '100%',
-          boxSizing:       'border-box',
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           '12px',
+          padding:       '12px 12px 16px',
+          borderRadius:  '16px',
+          background:    'var(--neutral-50)',
+          border:        '1px dashed var(--neutral-300)',
+          boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+          width:         '100%',
+          boxSizing:     'border-box',
         }}
       >
         {/* Header */}
@@ -70,7 +79,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
             <IconButton
               variant="ghost"
               size="xs"
-              icon={isEmpty ? <PlusSignIcon /> : <PenOneIcon />}
+              icon={isEmpty ? <PlusSignIcon /> : <PenOneIcon animated />}
               aria-label={isEmpty ? 'Add instructions' : 'Edit instructions'}
               onClick={handleEdit}
             />
@@ -86,19 +95,19 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
               maxLength={maxLength}
               placeholder="Add instructions to steer this project towards the right direction..."
               style={{
-                fontFamily:      'var(--font-body)',
-                fontWeight:      'var(--font-weight-regular)',
-                fontSize:        '14px',
-                lineHeight:      '22px',
-                color:           '#1a1714',
-                background:      'transparent',
-                border:          'none',
-                outline:         'none',
-                resize:          'none',
-                width:           '100%',
-                minHeight:       '120px',
-                padding:         0,
-                boxSizing:       'border-box',
+                fontFamily:  'var(--font-body)',
+                fontWeight:  'var(--font-weight-regular)',
+                fontSize:    '14px',
+                lineHeight:  '22px',
+                color:       '#1a1714',
+                background:  'transparent',
+                border:      'none',
+                outline:     'none',
+                resize:      'none',
+                width:       '100%',
+                minHeight:   '120px',
+                padding:     0,
+                boxSizing:   'border-box',
               }}
               autoFocus
             />

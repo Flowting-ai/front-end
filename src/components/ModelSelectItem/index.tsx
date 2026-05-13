@@ -23,11 +23,13 @@ const SHADOW_INNER =
 
 export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Canonical model id — rendered as an `<LlmIcon variant="avatar" size={18} />`
-   * inside the 22×22 image slot. This is the **default and preferred** way to
-   * supply a model avatar. Look up valid ids in `LLM_AVATAR` from
+   * Canonical model id — rendered as an `<LlmIcon size={18} />` inside the
+   * 22×22 image slot. This is the **default and preferred** way to supply a
+   * model avatar. Look up valid ids in `LLM_AVATAR` / `LLM_COLOR` from
    * `@strange-huge/icons/llm` (e.g. `"Claude"`, `"OpenAI"`, `"Gemini"`,
    * `"Meta"`, `"Mistral"`, `"Perplexity"`, `"Grok"`, `"DeepSeek"`).
+   *
+   * OpenAI uses `variant="color"` automatically; all others use `"avatar"`.
    *
    * If a needed id is missing from the registry, request that it be added to
    * `@strange-huge/icons` — never inline an SVG or fall back to a placeholder.
@@ -139,7 +141,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
     // and `overflow: hidden` (matching the original Figma design) so square
     // fills (e.g. Anthropic's solid-orange Claude tile) round their corners.
     const resolvedAvatar =
-      image ?? (llm ? <LlmIcon id={llm} variant="color" size={18} /> : null)
+      image ?? (llm ? <LlmIcon id={llm} variant={llm === 'OpenAI' ? 'color' : 'avatar'} size={18} /> : null)
     const resolvedImage = resolvedAvatar ? (
       <span
         style={{

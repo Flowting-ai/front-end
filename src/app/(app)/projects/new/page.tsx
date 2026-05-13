@@ -57,19 +57,33 @@ export default function NewProjectPage() {
           >
             What&apos;s this project about?
           </h1>
-          <Badge label={`${projects.length} Projects`} color="Neutral" />
+          <div style={{ alignSelf: 'flex-start' }}>
+            <Badge label={`${projects.length} Projects`} color="Neutral" />
+          </div>
         </div>
 
         {/* Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <InputField
-            label="What are we working on"
-            placeholder="Name your project"
-            value={name}
-            onChange={setName}
-            fluid
-            autoFocus
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label
+              style={{
+                fontFamily:  'var(--font-body)',
+                fontWeight:  'var(--font-weight-medium)',
+                fontSize:    '14px',
+                lineHeight:  '22px',
+                color:       '#524b47',
+              }}
+            >
+              What are we working on
+            </label>
+            <InputField
+              placeholder="Name your project"
+              value={name}
+              onChange={setName}
+              fluid
+              autoFocus
+            />
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label

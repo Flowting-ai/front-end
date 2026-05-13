@@ -29,14 +29,32 @@ const HOVER_GLOW_GRADIENT = 'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(14
 export type IconButtonVariant = 'default' | 'ghost' | 'outline' | 'ghost-2' | 'secondary'
 export type IconButtonSize = 'md' | 'sm' | 'xs' // md = 36px, sm = 32px, xs = 24px
 
-export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: IconButtonVariant
-  size?: IconButtonSize
-  asChild?: boolean
-  icon?: React.ReactNode
-  /** Show a loading spinner in place of the icon. Disables the button and sets aria-busy. */
-  loading?: boolean
-}
+/**
+ * IconButton has no visible label, so an accessible name is mandatory.
+ * Pass either:
+ *  - `aria-label` (recommended — describe the action, not the icon: `"Close"`,
+ *    not `"X icon"`), OR
+ *  - `aria-labelledby` (when an existing element already labels the button —
+ *    e.g. an off-screen heading or visible adjacent text).
+ *
+ * One of the two is required at the type level. Without it, screen readers
+ * announce nothing useful when the button receives focus.
+ */
+type IconButtonAccessibleName =
+  | { 'aria-label': string;       'aria-labelledby'?: string }
+  | { 'aria-label'?: string;      'aria-labelledby': string  }
+
+export type IconButtonProps =
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label' | 'aria-labelledby'>
+  & IconButtonAccessibleName
+  & {
+    variant?: IconButtonVariant
+    size?: IconButtonSize
+    asChild?: boolean
+    icon?: React.ReactNode
+    /** Show a loading spinner in place of the icon. Disables the button and sets aria-busy. */
+    loading?: boolean
+  }
 
 // ── Loading spinner ───────────────────────────────────────────────────────────
 

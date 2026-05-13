@@ -83,7 +83,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       name,
       description,
       instructions: '',
-      tags:         [],
+      tags:         [
+        { id: 'tag-default-1', label: 'Private',  color: 'Brown'  },
+        { id: 'tag-default-2', label: 'Research',  color: 'Blue'   },
+      ],
       files:        [],
       chatCount:    0,
       updatedAt:    now,

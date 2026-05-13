@@ -506,7 +506,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                       lineHeight:   0,
                     }}
                   >
-                    <LlmIcon id={llm} variant="color" size={avatarSize} />
+                    <LlmIcon id={llm} variant="avatar" size={avatarSize} />
                   </div>
                 )
               })()}

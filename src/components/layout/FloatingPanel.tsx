@@ -75,6 +75,7 @@ export function FloatingPanel() {
             icon={<PinIcon size={20} />}
             label="Pin board"
             active={pinboardOpen}
+            disabled
             onClick={handleTogglePinboard}
           />
           <FloatingMenuItem

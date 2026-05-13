@@ -5,7 +5,7 @@ import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModelFeaturedCard } from '@/components/ModelFeaturedCard'
 import {
-  AtomOneIcon,
+  AtomTwoIcon,
   BookmarkTwoIcon,
   TextIcon,
   SourceCodeSquareIcon,
@@ -18,13 +18,12 @@ import { cn } from '@/lib/utils'
 // ── Hardcoded data ────────────────────────────────────────────────────────────
 
 const TIER_TABS = [
-  { value: 'all',  label: 'All'  },
   { value: 'free', label: 'Free' },
   { value: 'pro',  label: 'Pro'  },
 ]
 
 const CATEGORY_TABS = [
-  { value: 'all',        label: 'All',        icon: <AtomOneIcon          size={16} /> },
+  { value: 'all',        label: 'All',        icon: <AtomTwoIcon          size={16} /> },
   { value: 'favorites',  label: 'Favorites',  icon: <BookmarkTwoIcon      size={16} /> },
   { value: 'text',       label: 'Text',       icon: <TextIcon             size={16} /> },
   { value: 'code',       label: 'Code',       icon: <SourceCodeSquareIcon size={16} /> },
@@ -41,8 +40,6 @@ const CATEGORY_TABS = [
 export const ModelSelectorContext = React.createContext<{ category: string } | null>(null)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-type FeaturedMode = 'muse' | 'advanced'
 
 export interface ModelSelectorProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
@@ -68,6 +65,8 @@ const captionStyle: React.CSSProperties = {
 // Two ModelFeaturedCards side-by-side, behaving as a radio pair. Per Figma
 // 3457:19624: gap 8px, each card flex: 1 0 0, Muse starts in the Selected
 // variant. Selecting one deselects the other.
+
+type FeaturedMode = 'muse' | 'advanced'
 
 function FeaturedModeRow() {
   const [mode, setMode] = useState<FeaturedMode>('muse')
@@ -117,7 +116,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
     ref,
   ) {
     const [search,    setSearch]    = useState('')
-    const [tier,      setTier]      = useState('all')
+    const [tier,      setTier]      = useState('free')
     const [category,  setCategory]  = useState('all')
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
@@ -183,6 +182,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
              Muse defaults to the Selected variant; Advanced to Default. They
              behave as a radio pair — selecting one deselects the other. */}
           <FeaturedModeRow />
+
 
           {/* ── Models: category tabs + list ── */}
           <div style={{

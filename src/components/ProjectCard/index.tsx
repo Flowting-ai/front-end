@@ -29,9 +29,22 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
     ref,
   ) {
     const [hovered,  setHovered]  = useState(false)
+    const [focused,  setFocused]  = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
 
-    const showMenu = hovered || menuOpen || active
+    const showMenu = hovered || focused || menuOpen || !!active
+
+    const backgroundColor = (() => {
+      if (focused || active) return 'rgba(74,131,191,0.07)'
+      if (hovered || menuOpen) return 'var(--neutral-50)'
+      return 'var(--neutral-white)'
+    })()
+
+    const boxShadow = (() => {
+      if (active) return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-500)'
+      if (focused) return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-300)'
+      return '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
+    })()
 
     return (
       <div
@@ -42,106 +55,114 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.() }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false) }}
         style={{
           display:         'flex',
           flexDirection:   'column',
-          gap:             '8px',
+          height:          '160px',
           padding:         '12px',
+          boxSizing:       'border-box',
           borderRadius:    '12px',
-          backgroundColor: hovered || menuOpen ? 'var(--neutral-50)' : 'var(--neutral-white)',
-          boxShadow:       active
-            ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 2px var(--blue-500)'
-            : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+          backgroundColor,
+          boxShadow,
           cursor:          'pointer',
           transition:      'background-color 120ms ease, box-shadow 120ms ease',
           outline:         'none',
           width:           '100%',
-          boxSizing:       'border-box',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
-              <p
-                style={{
-                  flex:         '1 0 0',
-                  minWidth:     0,
-                  fontFamily:   'var(--font-body)',
-                  fontWeight:   'var(--font-weight-regular)',
-                  fontSize:     '16px',
-                  lineHeight:   'var(--line-height-body)',
-                  color:        '#1a1714',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                  margin:       0,
-                }}
-              >
-                {title}
-              </p>
+        {/* Title row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <p
+            style={{
+              flex:         '1 0 0',
+              minWidth:     0,
+              fontFamily:   'var(--font-body)',
+              fontWeight:   'var(--font-weight-medium)',
+              fontSize:     '15px',
+              lineHeight:   '22px',
+              color:        '#1a1714',
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+              margin:       0,
+            }}
+          >
+            {title}
+          </p>
 
-              {/* ⋮ menu */}
-              <div
-                style={{
-                  opacity:    showMenu ? 1 : 0,
-                  transition: 'opacity 120ms ease',
-                  flexShrink: 0,
-                  marginLeft: '8px',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Dropdown.Float
-                  open={menuOpen}
-                  onOpenChange={setMenuOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      size="xs"
-                      icon={<MoreVerticalIcon />}
-                      aria-label="Project options"
-                    />
-                  }
-                >
-                  <Dropdown size="sm">
-                    <Dropdown.Section>
-                      <Dropdown.Item label="Edit" onClick={onEdit} fluid />
-                      <Dropdown.Item label="Archive" onClick={onArchive} fluid />
-                      <Dropdown.Item label="Delete" variant="danger" onClick={onDelete} fluid />
-                    </Dropdown.Section>
-                  </Dropdown>
-                </Dropdown.Float>
-              </div>
-            </div>
-
-            {/* Tags */}
-            {tags && tags.length > 0 && (
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                {tags.map((tag, i) => (
-                  <Badge key={i} label={tag.label} color={tag.color ?? 'Blue'} />
-                ))}
-              </div>
-            )}
+          {/* ⋮ menu — fades in on hover/focus */}
+          <div
+            style={{
+              opacity:    showMenu ? 1 : 0,
+              transition: 'opacity 120ms ease',
+              flexShrink: 0,
+              marginLeft: '4px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Dropdown.Float
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              placement="bottom-end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  icon={<MoreVerticalIcon size={16} triggered={showMenu} />}
+                  aria-label="Project options"
+                />
+              }
+            >
+              <Dropdown size="md">
+                <Dropdown.Section fluid>
+                  <Dropdown.Item label="Edit"    onClick={onEdit}    fluid />
+                  <Dropdown.Item label="Archive" onClick={onArchive} disabled fluid />
+                </Dropdown.Section>
+                <Dropdown.Section divider fluid>
+                  <Dropdown.Item label="Delete"  variant="danger" onClick={onDelete} fluid />
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
           </div>
         </div>
 
-        {/* Description */}
+        {/* Tags — single non-wrapping row; padding prevents shadow clip */}
+        {tags && tags.length > 0 && (
+          <div
+            style={{
+              display:    'flex',
+              gap:        '4px',
+              flexWrap:   'nowrap',
+              overflow:   'hidden',
+              flexShrink: 0,
+              marginTop:  '3px',
+              padding:    '2px 1px',
+            }}
+          >
+            {tags.map((tag, i) => (
+              <Badge key={i} label={tag.label} color={tag.color ?? 'Blue'} />
+            ))}
+          </div>
+        )}
+
+        {/* Description — fills remaining space, 4-line clamp */}
         <p
           style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-regular)',
-            fontSize:     '11px',
-            lineHeight:   '16px',
-            color:        '#857a72',
-            overflow:     'hidden',
-            display:      '-webkit-box',
+            flex:            '1 1 0',
+            minHeight:       0,
+            fontFamily:      'var(--font-body)',
+            fontWeight:      'var(--font-weight-regular)',
+            fontSize:        '11px',
+            lineHeight:      '16px',
+            color:           '#857a72',
+            overflow:        'hidden',
+            display:         '-webkit-box',
             WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
-            height:       '48px',
-            margin:       0,
-            width:        '100%',
+            margin:          0,
+            marginTop:       '6px',
           }}
         >
           {description ?? ''}
@@ -153,7 +174,8 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'space-between',
-            width:          '100%',
+            flexShrink:     0,
+            marginTop:      '6px',
             fontFamily:     'var(--font-body)',
             fontWeight:     'var(--font-weight-regular)',
             fontSize:       '11px',

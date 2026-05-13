@@ -268,8 +268,6 @@ export function SelectionPopover({
           key="selection-popover"
           role="toolbar"
           aria-label="Text actions"
-          // Prevents mousedown on toolbar buttons from clearing the text selection
-          onMouseDown={e => e.preventDefault()}
           initial={{ opacity: 0, scale: 0.92, y: enterY }}
           animate={{ opacity: 1, scale: 1,    y: 0       }}
           exit={{    opacity: 0, scale: 0.92, y: enterY  }}

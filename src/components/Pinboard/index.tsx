@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
@@ -30,7 +30,7 @@ export {
   type PinboardEnterAnimation,
 } from './enterAnimation'
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PinboardPin extends Omit<PinProps, 'fluid'> {
   id: string
@@ -38,12 +38,12 @@ export interface PinboardPin extends Omit<PinProps, 'fluid'> {
 
 /**
  * Item in the Pinboard view-filter dropdown (Figma 3139:36399).
- * Selecting a view tells the consumer which pins to display â€” the Pinboard
+ * Selecting a view tells the consumer which pins to display — the Pinboard
  * itself does not filter; it just owns the dropdown UI + selected-id state
  * and emits `onViewChange` so the consumer can swap `pins`.
  */
 export interface PinboardView {
-  /** Stable identifier â€” used for selected-state matching. */
+  /** Stable identifier — used for selected-state matching. */
   id:    string
   /** Row label (also shown on the trigger when this view is active). */
   label: string
@@ -66,7 +66,7 @@ export const DEFAULT_PINBOARD_VIEWS: PinboardView[] = [
  * `PinboardExpanded` so a `<Pinboard />` with no consumer-provided folders
  * still shows the canonical two-section dropdown out of the box.
  *
- * Override by passing `personalFolders={[]}` (or your own list) â€” the
+ * Override by passing `personalFolders={[]}` (or your own list) — the
  * section auto-hides when the array is empty.
  */
 export const DEFAULT_PINBOARD_PERSONAL_FOLDERS: PinboardExpandedFolder[] = [
@@ -77,7 +77,7 @@ export const DEFAULT_PINBOARD_PERSONAL_FOLDERS: PinboardExpandedFolder[] = [
 
 /**
  * Default project-folder set. In production the consumer should always
- * derive this from the Sidebar's `projects` (project â†” pinboard folder
+ * derive this from the Sidebar's `projects` (project ↔ pinboard folder
  * sync rule), but Pinboard ships with three placeholder folders so the
  * standalone preview shows the full layout.
  */
@@ -87,7 +87,7 @@ export const DEFAULT_PINBOARD_PROJECT_FOLDERS: PinboardExpandedFolder[] = [
   { id: 'project-b', label: 'Project B' },
 ]
 
-// â”€â”€ Filter / Sort menu data types (Figma 3442:23357 / 3442:23366) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Filter / Sort menu data types (Figma 3442:23357 / 3442:23366) ─────────────
 
 /** Single row in the Filter dropdown's Tags submenu (Figma 3442:23350). */
 export interface PinboardTag {
@@ -149,9 +149,9 @@ export const DEFAULT_PINBOARD_SORT_OPTIONS: PinboardSortOption[] = [
   { id: 'reverse-alphabetical', label: 'Reverse alphabetical' },
 ]
 
-// â”€â”€ Tag search input (Figma 3442:23350 â€” sticky header) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Tag search input (Figma 3442:23350 — sticky header) ─────────────────────
 // Same anatomy as ChatInput's PersonaSearchInput: 10 px radius, KDS field
-// shadow stack, padding 7 Ã— 10, body-14 regular text. Lives in the Popover
+// shadow stack, padding 7 × 10, body-14 regular text. Lives in the Popover
 // `header` slot so it never scrolls out of view. Keystrokes stop-propagate
 // so they don't drive the parent dropdown's arrow-key navigation.
 
@@ -195,8 +195,8 @@ function TagSearchInput({
   )
 }
 
-// â”€â”€ Tags submenu (Figma 3442:23350) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Sticky search input + checkbox rows. Multi-select â€” selecting a row leaves
+// ── Tags submenu (Figma 3442:23350) ─────────────────────────────────────────
+// Sticky search input + checkbox rows. Multi-select — selecting a row leaves
 // the menu open so the user can keep checking tags. Filter is case-insensitive
 // substring match on the tag's label.
 
@@ -237,8 +237,8 @@ function TagsSubmenu({
   )
 }
 
-// â”€â”€ Category / Content type submenus (Figma 3442:23377 / 3442:23386) â”€â”€â”€â”€â”€â”€â”€â”€
-// Plain checkbox lists. Multi-select. No header. Same anatomy for both â€”
+// ── Category / Content type submenus (Figma 3442:23377 / 3442:23386) ────────
+// Plain checkbox lists. Multi-select. No header. Same anatomy for both —
 // share one helper.
 
 function CheckboxListSubmenu<T extends { id: string; label: string }>({
@@ -268,7 +268,7 @@ function CheckboxListSubmenu<T extends { id: string; label: string }>({
   )
 }
 
-// â”€â”€ Default Filter menu (Figma 3442:23357) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Default Filter menu (Figma 3442:23357) ──────────────────────────────────
 // Three rows, each opens a submenu: Tags / Category / Content type.
 
 interface DefaultFilterMenuProps {
@@ -347,7 +347,7 @@ function DefaultFilterMenu({
   )
 }
 
-// â”€â”€ Default Sort menu (Figma 3442:23366) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Default Sort menu (Figma 3442:23366) ────────────────────────────────────
 // Plain rows, single-select. Selecting a row updates the active sort and
 // closes the menu (single-select dropdowns close on commit; multi-select
 // filter dropdowns stay open).
@@ -378,21 +378,21 @@ function DefaultSortMenu({
   )
 }
 
-// â”€â”€ Filter chip bar (Figma 2603:16332 â€” active-filter chips row) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Filter chip bar (Figma 2603:16332 — active-filter chips row) ────────────
 // Sits in the Pinboard's top overlay BELOW the filter / sort row, between
 // the filter trigger and the pin list. Mounts only when at least one filter
 // group has a selection. Contents in render order:
 //
-//   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-//   â”‚  [Clear all]  [Ã— Tag: A â–¾]  [Ã— 2 Categories â–¾]  [Ã— Content typeâ€¦ â”‚
-//   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+//   ┌───────────────────────────────────────────────────────────────────┐
+//   │  [Clear all]  [× Tag: A ▾]  [× 2 Categories ▾]  [× Content type… │
+//   └───────────────────────────────────────────────────────────────────┘
 //
-//   â€¢ Clear all â€” neutral Chip, no chip buttons; entire body click clears
+//   • Clear all — neutral Chip, no chip buttons; entire body click clears
 //     every group.
-//   â€¢ Tag chip â€” `Tag: <name>` for 1 selection, `N Tags` for 2+. Body /
+//   • Tag chip — `Tag: <name>` for 1 selection, `N Tags` for 2+. Body /
 //     chevron click opens the Tags submenu anchored bottom-start to the
-//     chip; Ã— clears every selected tag.
-//   â€¢ Category chip / Content type chip â€” same rule, mirroring the Filter
+//     chip; × clears every selected tag.
+//   • Category chip / Content type chip — same rule, mirroring the Filter
 //     dropdown's submenus.
 //
 // Overflow follows the Pin labels horizontal scroll strip pattern (single
@@ -437,7 +437,7 @@ function FilterBar({
   const [catOpen,   setCatOpen]   = useState(false)
   const [ctypeOpen, setCtypeOpen] = useState(false)
 
-  // Chip labels â€” `1 â†’ "<Type>: <name>"`, `2+ â†’ "N <Type>s"`. Falls back to
+  // Chip labels — `1 → "<Type>: <name>"`, `2+ → "N <Type>s"`. Falls back to
   // the id if a label can't be resolved (the consumer passed a stale id).
   const firstTagId   = selectedTagIds.size === 1
     ? Array.from(selectedTagIds)[0]
@@ -464,7 +464,7 @@ function FilterBar({
       ? `Content type: ${contentTypes.find(c => c.id === firstCtypeId)?.label ?? firstCtypeId}`
       : `${selectedContentTypeIds.size} Content types`
 
-  // â”€â”€ Horizontal scroll edge-fade state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Horizontal scroll edge-fade state ────────────────────────────────────
   const rowRef = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
   const [atStart,     setAtStart]     = useState(true)
@@ -488,10 +488,10 @@ function FilterBar({
     return () => ro.disconnect()
   }, [recompute, tagChipLabel, categoryChipLabel, ctypeChipLabel])
 
-  // â”€â”€ Pointer drag-to-scroll (mirrors Pin labels-row, see
-  // specs/patterns/horizontal-scroll-strip.md) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Mouse / pen only â€” touch keeps native horizontal panning. Below the
-  // 4 px threshold a click on an inner ChipButton (Ã— / chevron) still
+  // ── Pointer drag-to-scroll (mirrors Pin labels-row, see
+  // specs/patterns/horizontal-scroll-strip.md) ───────────────────────────
+  // Mouse / pen only — touch keeps native horizontal panning. Below the
+  // 4 px threshold a click on an inner ChipButton (× / chevron) still
   // fires; past the threshold the move promotes to a drag and the
   // synthetic click is swallowed in `endDrag` so the underlying chip
   // doesn't activate at release. `data-dragging="true"` on the row is
@@ -509,7 +509,7 @@ function FilterBar({
     if (e.pointerType === 'touch') return
     if (e.button !== 0) return
     // Inputs keep their native text-selection drag (the Tags submenu
-    // search input also lives inside chip-anchored Dropdown.Float panels â€”
+    // search input also lives inside chip-anchored Dropdown.Float panels —
     // those are portaled to body, but defensively skip anyway).
     const target = e.target as HTMLElement
     if (target.closest('input, textarea, select')) return
@@ -546,7 +546,7 @@ function FilterBar({
     try { rowRef.current?.releasePointerCapture(s.pointerId) } catch {}
     if (wasDrag) {
       // Swallow the synthetic click that follows a drag so an underlying
-      // chip body / Ã— / chevron doesn't fire its onClick on release.
+      // chip body / × / chevron doesn't fire its onClick on release.
       const row = rowRef.current
       if (row) {
         const swallow = (ev: MouseEvent) => { ev.stopPropagation(); ev.preventDefault() }
@@ -578,11 +578,11 @@ function FilterBar({
           overscrollBehaviorX:  'contain',
           scrollbarWidth:       'none',
           touchAction:          'pan-x',
-          // Match Figma `3442:25651` â€” `p-px` on the frame.
+          // Match Figma `3442:25651` — `p-px` on the frame.
           padding:              1,
         }}
       >
-        {/* "Clear all" â€” label-only Small chip (no left/right buttons),
+        {/* "Clear all" — label-only Small chip (no left/right buttons),
             entire body click fires onClearAll. */}
         <Chip
           size="Small"
@@ -661,12 +661,12 @@ function FilterBar({
         )}
       </div>
 
-      {/* â”€â”€ Edge fades â€” same anatomy as Pin labels row.
+      {/* ── Edge fades — same anatomy as Pin labels row.
           4 progressive backdrop-blur strips (widths 24/18/12/8, blur 2/3/5/6)
           + a 24 px colour gradient on each edge. Gradient base is
           `var(--neutral-50)` so it matches the Pinboard root background.
           Opacity gates: left visible when overflowing && !atStart; right
-          visible when overflowing && !atEnd. â”€â”€ */}
+          visible when overflowing && !atEnd. ── */}
       {[
         { width: 24, blur: 2 },
         { width: 18, blur: 3 },
@@ -769,11 +769,11 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
    */
   personalFolders?: PinboardExpandedFolder[]
   /**
-   * Project folders â€” derived from the user's projects in the Sidebar. See
+   * Project folders — derived from the user's projects in the Sidebar. See
    * `specs/patterns/project-pinboard-folder-sync.md`: every project the user
    * creates auto-creates a corresponding folder in PinboardExpanded and a
    * filter row in the Pinboard's view dropdown. The consumer owns the
-   * mapping (Sidebar `projects` â†’ Pinboard `projectFolders`); the rule
+   * mapping (Sidebar `projects` → Pinboard `projectFolders`); the rule
    * keeps the two surfaces in lockstep.
    */
   projectFolders?:  PinboardExpandedFolder[]
@@ -800,17 +800,11 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   onOrganize?:      () => void
   onClose?:         () => void
   onSearch?:        (q: string) => void
-  /** Called when the user creates a new folder (name already trimmed to 30 chars). */
-  onCreateFolder?:  (name: string) => void
-  /** Called when the user moves pins to a folder in organize mode. */
-  onMoveToFolder?:  (pinIds: string[], folderId: string) => void
-  /** Called when the user deletes pins in organize mode. */
-  onDeletePins?:    (pinIds: string[]) => void
   fluid?: boolean
   /**
    * Controlled expanded state. When `true`, the Pinboard morphs into the
    * full-panel `PinboardExpanded` view via Framer's layout animation.
-   * When omitted the component manages its own expanded state â€” clicking
+   * When omitted the component manages its own expanded state — clicking
    * "Organize" toggles to expanded and the close button on the expanded
    * view returns to the compact layout.
    */
@@ -820,7 +814,7 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   /** Default expanded state for uncontrolled usage. Defaults to `false`. */
   defaultExpanded?: boolean
   /**
-   * Width (px) of the expanded variant. Defaults to **924** â€” the Figma hug-
+   * Width (px) of the expanded variant. Defaults to **924** — the Figma hug-
    * width 916 (outer px-8 + sidebar 240 + Content Wrapper p-12 + Pin Grid 636)
    * plus 8px: 4px so the Pin's 1px outer ring isn't clipped, plus 4px so the
    * thin (3px) `kaya-scrollbar` reserves space without overlapping pins.
@@ -829,9 +823,9 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   /** Height (px) of the expanded variant. Defaults to 817 (Figma sidebar h-817). */
   expandedHeight?:  number
   /**
-   * Backdrop fill â€” any CSS color (alpha included). Defaults to `var(--overlay-bg)`,
+   * Backdrop fill — any CSS color (alpha included). Defaults to `var(--overlay-bg)`,
    * the universal KDS overlay token (`rgba(18,12,8,0.5)` per Figma 2893:57254).
-   * **Do not override** without a strong reason â€” the rule is enforced by
+   * **Do not override** without a strong reason — the rule is enforced by
    * `specs/patterns/overlay-backdrop.md`.
    */
   overlayBackdrop?: string
@@ -843,14 +837,14 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   /** Click-to-close on backdrop. Defaults to `true`. ESC always closes. */
   overlayCloseOnBackdrop?: boolean
   /**
-   * First-paint stagger config â€” controls how the top overlay, each Pin, and
+   * First-paint stagger config — controls how the top overlay, each Pin, and
    * the bottom toolbar fade in on mount. Defaults to
    * `PINBOARD_COMPACT_ENTER_DEFAULT`. Pass `{ enabled: false }` to disable.
    */
   enterAnimation?: PinboardEnterAnimation
   /**
    * Contents of the Filter dropdown (Figma 3442:23357). Defaults to the
-   * canonical KDS filter menu â€” `Tags` / `Category` / `Content type` rows,
+   * canonical KDS filter menu — `Tags` / `Category` / `Content type` rows,
    * each opening a checkbox submenu. Pass a custom `<Dropdown>` to override,
    * or `null` to opt out and revert to the bare-button + `onOptionsClick`
    * callback. Mirrors the `addMenu` / `modelMenu` pattern in `ChatInput`.
@@ -877,7 +871,7 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
    * Ignored when `filterMenu` is overridden.
    */
   contentTypes?: PinboardContentType[]
-  // â”€â”€ Filter selection state (controlled-or-uncontrolled) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Filter selection state (controlled-or-uncontrolled) ────────────────
   /** Selected tag ids. Pair with `onSelectedTagIdsChange`. */
   selectedTagIds?:        ReadonlyArray<string>
   defaultSelectedTagIds?: ReadonlyArray<string>
@@ -892,7 +886,7 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   onSelectedContentTypeIdsChange?: (next: ReadonlyArray<string>) => void
   /**
    * Contents of the Sort dropdown (Figma 3442:23366). Defaults to the
-   * canonical KDS sort menu â€” Newest / Oldest / Most used / Alphabetical /
+   * canonical KDS sort menu — Newest / Oldest / Most used / Alphabetical /
    * Reverse alphabetical. Pass a custom `<Dropdown>` to override, or `null`
    * to opt out and revert to the bare-button + `onSortClick` callback.
    */
@@ -908,13 +902,13 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   onSelectedSortIdChange?: (next: string | null) => void
 }
 
-// â”€â”€ Defaults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Defaults ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_PINS: PinboardPin[] = Array.from({ length: 7 }, (_, i) => ({
   id: `pin-${i}`,
 }))
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
   function Pinboard(
@@ -933,9 +927,6 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       onOrganize,
       onClose,
       onSearch,
-      onCreateFolder,
-      onMoveToFolder,
-      onDeletePins,
       fluid         = false,
       expanded:        controlledExpanded,
       onExpandedChange,
@@ -985,6 +976,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
 
     const handleExpandedClose = () => {
       setExpanded(false)
+      onClose?.()
     }
 
     const scrollRef    = useRef<HTMLDivElement>(null)
@@ -1000,19 +992,19 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     const [bottomH, setBottomH] = useState(68)
     const [atTop,    setAtTop]    = useState(true)
     const [atBottom, setAtBottom] = useState(false)
-    // Incremented on "collapse all" click â€” every Pin watches this and folds.
+    // Incremented on "collapse all" click — every Pin watches this and folds.
     const [collapseSignal, setCollapseSignal] = useState(0)
-    // Set of pin IDs currently expanded â€” drives visibility of the
+    // Set of pin IDs currently expanded — drives visibility of the
     // "collapse all" IconButton.
     const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
     const hasExpanded = expandedIds.size > 0
 
-    // â”€â”€ Lifted per-pin tag state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Lifted per-pin tag state ───────────────────────────────────────────
     // User-added tags + deleted backend-label indices live HERE, keyed by
-    // pin id, so they survive the compact â†” expanded transition (each view
+    // pin id, so they survive the compact ↔ expanded transition (each view
     // mounts its own Pin instances; without lifting, those instances would
     // boot with empty internal state every time the user clicks Organize).
-    // Pinboard threads these maps + handlers down to every Pin instance â€”
+    // Pinboard threads these maps + handlers down to every Pin instance —
     // both compact (rendered inline below) and expanded (rendered inside
     // PinboardExpanded). Tag deletion in PinboardExpanded therefore sticks
     // when the user closes back to compact, and tags added in compact show
@@ -1048,7 +1040,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       [],
     )
 
-    // â”€â”€ View filter (header "All pins" Button + Dropdown) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── View filter (header "All pins" Button + Dropdown) ─────────────────
     // The Pinboard owns the dropdown UI + selected-view id. The consumer is
     // responsible for filtering `pins` based on `onViewChange`. Figma
     // 3139:36399.
@@ -1072,7 +1064,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       onViewChange?.(id, item)
     }
 
-    // â”€â”€ Filter dropdown (Figma 3442:23357) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Filter dropdown (Figma 3442:23357) ─────────────────────────────────
     // Component-level menu, mirroring ChatInput's `addMenu` pattern. Three
     // controlled-or-uncontrolled multi-select pairs (tags / categories /
     // content types), all kept as Sets internally for O(1) toggle. The Set
@@ -1140,9 +1132,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       />
     ) : filterMenuProp
 
-    // â”€â”€ Filter chip bar â€” bulk-clear handlers + active-filter signal â”€â”€â”€â”€â”€â”€â”€
+    // ── Filter chip bar — bulk-clear handlers + active-filter signal ───────
     // The bar mounts only when at least one group has a selection. Clearing
-    // a chip's Ã— clears that group; the "Clear all" chip clears all three.
+    // a chip's × clears that group; the "Clear all" chip clears all three.
     const hasActiveFilters =
       tagIdSet.size > 0 || categoryIdSet.size > 0 || ctypeIdSet.size > 0
     const clearTags = () => {
@@ -1163,7 +1155,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       clearContentTypes()
     }
 
-    // Shared FilterBar JSX â€” rendered once in the compact top overlay and
+    // Shared FilterBar JSX — rendered once in the compact top overlay and
     // once passed into `PinboardExpanded` so the same selection state
     // surfaces in both variants. Two FilterBar instances mean independent
     // scroll / dropdown-open state per bar (correct: each surface tracks
@@ -1187,7 +1179,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       />
     )
 
-    // â”€â”€ Sort dropdown (Figma 3442:23366) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Sort dropdown (Figma 3442:23366) ───────────────────────────────────
     const [sortMenuOpen, setSortMenuOpen] = useState(false)
     const isSortControlled = selectedSortIdProp !== undefined
     const [internalSortId, setInternalSortId] = useState<string | null>(defaultSelectedSortId)
@@ -1195,7 +1187,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     const handleSortSelect = (id: string) => {
       if (!isSortControlled) setInternalSortId(id)
       onSelectedSortIdChange?.(id)
-      // Keep the menu open after selection â€” same interaction model as the
+      // Keep the menu open after selection — same interaction model as the
       // multi-select Filter submenus. The user explicitly requested that
       // dropdowns don't auto-close on commit; close happens on click-outside
       // or Escape per the standard `Dropdown.Float` behaviour.
@@ -1259,7 +1251,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     // Recompute atTop / atBottom whenever the scroll container OR its content
     // changes size. The previous useEffect only ran on prop changes, so the
     // bottom edge fade was missing on first paint when pins laid out late
-    // (staggered enter animation, async font/icon load) â€” atBottom defaulted
+    // (staggered enter animation, async font/icon load) — atBottom defaulted
     // false but never re-evaluated until the user actually scrolled. With a
     // ResizeObserver on both the viewport and the inner content div, the
     // fades reflect overflow state from the very first paint after layout.
@@ -1278,7 +1270,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       return () => ro.disconnect()
     }, [pins.length, topH, bottomH])
 
-    // â”€â”€ Modal overlay: ESC closes â”€â”€
+    // ── Modal overlay: ESC closes ──
     useEffect(() => {
       if (!isExpanded) return
       const onKey = (e: KeyboardEvent) => {
@@ -1288,7 +1280,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       return () => window.removeEventListener('keydown', onKey)
     }, [isExpanded])
 
-    // â”€â”€ Compact (always inline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Compact (always inline) ────────────────────────────────────────────────
     const compactNode = (
       <div
         ref={ref}
@@ -1307,11 +1299,11 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
         }}
         {...props}
       >
-        {/* â”€â”€ Top overlay â€” header + filter bar â”€â”€
+        {/* ── Top overlay — header + filter bar ──
             Rendered FIRST in DOM so tab order matches visual order:
-            close/search â†’ filter â†’ sort/options â†’ pins â†’ Export â†’ Organize.
+            close/search → filter → sort/options → pins → Export → Organize.
             Wrapped in <EnterChunk index={0}> so it staggers in as the first
-            chunk on first paint (see ./enterAnimation.tsx). â”€â”€ */}
+            chunk on first paint (see ./enterAnimation.tsx). ── */}
         <EnterChunk
           ref={topOverlayRef}
           cfg={enterAnimation}
@@ -1339,7 +1331,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               width:          '100%',
             }}
           >
-            {/* View filter â€” opens a Dropdown anchored to the trigger's
+            {/* View filter — opens a Dropdown anchored to the trigger's
                 left edge (bottom-start). Selecting a view updates the
                 trigger label and emits onViewChange. Figma 3139:36399. */}
             <Dropdown.Float
@@ -1352,7 +1344,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                   size="sm"
                   rightIcon={<ArrowDownOneIcon size={16} />}
                 >
-                  {/* In-place text swap â€” see specs/patterns/in-place-text-swap.md.
+                  {/* In-place text swap — see specs/patterns/in-place-text-swap.md.
                       The button width auto-adjusts because `popLayout` removes
                       the exiting span from layout flow as soon as exit starts,
                       so the new label drives layout immediately. */}
@@ -1389,7 +1381,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                       <Dropdown.Item
                         key={f.id}
                         label={f.label}
-                        icon={<FolderOneIcon animated />}
+                        icon={<FolderOneIcon variant="static" animated />}
                         selected={f.id === currentViewId}
                         onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
                         fluid
@@ -1403,7 +1395,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                       <Dropdown.Item
                         key={f.id}
                         label={f.label}
-                        icon={<FolderOneIcon animated />}
+                        icon={<FolderOneIcon variant="static" animated />}
                         selected={f.id === currentViewId}
                         onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
                         fluid
@@ -1515,11 +1507,11 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             </div>
           </div>
 
-          {/* â”€â”€ Active-filter chip bar (Figma 2603:16332) â”€â”€
+          {/* ── Active-filter chip bar (Figma 2603:16332) ──
               Mounts only when at least one filter group has a selection.
               Animates height + opacity on enter / exit; the top overlay's
               ResizeObserver pushes the pin list down by the bar's measured
-              height. â”€â”€ */}
+              height. ── */}
           <AnimatePresence initial={false}>
             {hasActiveFilters && (
               <motion.div
@@ -1536,10 +1528,10 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
           </AnimatePresence>
         </EnterChunk>
 
-        {/* â”€â”€ Scrollable pin list â”€â”€
+        {/* ── Scrollable pin list ──
             tabIndex={-1} keeps the scroller out of the tab sequence (Chrome
             auto-focuses keyboard-scrollable elements) while its children
-            (pins) remain individually focusable. â”€â”€ */}
+            (pins) remain individually focusable. ── */}
         <div
           ref={scrollRef}
           tabIndex={-1}
@@ -1571,7 +1563,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             }}
           >
             {pins.length === 0 && hasActiveFilters ? (
-              // Empty result â€” filters returned no pins. Per user spec:
+              // Empty result — filters returned no pins. Per user spec:
               // "no pin match" copy in place of the list. The hasActiveFilters
               // gate keeps the message off the screen when the consumer
               // simply hasn't passed any pins yet (vacant pinboard).
@@ -1616,9 +1608,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
           </div>
         </div>
 
-        {/* â”€â”€ Top edge fade â€” progressive blur (behind) + color fade (in front) â”€â”€
+        {/* ── Top edge fade — progressive blur (behind) + color fade (in front) ──
             Sits at the bottom edge of the top overlay, softening pins scrolling
-            up underneath the filter bar. Hidden when scroll is at top.           â”€â”€ */}
+            up underneath the filter bar. Hidden when scroll is at top.           ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },
@@ -1661,9 +1653,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
           }}
         />
 
-        {/* â”€â”€ Bottom edge fade â€” progressive blur (behind) + color fade (in front) â”€â”€
+        {/* ── Bottom edge fade — progressive blur (behind) + color fade (in front) ──
             Sits just above the toolbar, softening pins scrolling down
-            underneath it. Hidden when scroll is at bottom.                       â”€â”€ */}
+            underneath it. Hidden when scroll is at bottom.                       ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },
@@ -1706,9 +1698,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
           }}
         />
 
-        {/* â”€â”€ Bottom overlay â€” toolbar â”€â”€
-            Last chunk in the cascade â€” fires after all pins. ref is forwarded
-            through EnterChunk so bottomH measurement still works. â”€â”€ */}
+        {/* ── Bottom overlay — toolbar ──
+            Last chunk in the cascade — fires after all pins. ref is forwarded
+            through EnterChunk so bottomH measurement still works. ── */}
         <EnterChunk
           ref={bottomBarRef}
           cfg={enterAnimation}
@@ -1748,13 +1740,13 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
       </div>
     )
 
-    // â”€â”€ Expanded modal overlay (portal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Expanded modal overlay (portal) ────────────────────────────────────────
     // AnimatePresence pattern used here:
     //   - Two sibling children inside one <AnimatePresence>, returned as an
     //     array. Each is a keyed motion element with its own initial/animate/
     //     exit so AnimatePresence can track and animate both independently on
     //     mount AND unmount (the previous structure wrapped them in a plain
-    //     <div>, which made AnimatePresence's exit a no-op â€” close = instant).
+    //     <div>, which made AnimatePresence's exit a no-op — close = instant).
     //   - mode is left at the default (sync). backdrop and panel enter/exit
     //     together so the close reads as a single coordinated motion.
     //   - Panel uses fixed positioning with top/left/width/height (no
@@ -1774,9 +1766,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               position:             'fixed',
               inset:                0,
               zIndex:               1000,
-              // Token-driven overlay â€” see specs/patterns/overlay-backdrop.md.
+              // Token-driven overlay — see specs/patterns/overlay-backdrop.md.
               // The token already encodes alpha; the motion.div's `opacity`
-              // animates 0â†’1 to fade the whole layer in/out.
+              // animates 0→1 to fade the whole layer in/out.
               background:           overlayBackdrop,
               backdropFilter:       `blur(${overlayBackdropBlur})`,
               WebkitBackdropFilter: `blur(${overlayBackdropBlur})`,
@@ -1794,10 +1786,10 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             transition={{ type: 'spring', stiffness: 380, damping: 24, mass: 0.9 }}
             style={{
               position:        'fixed',
-              top:             `max(16px, calc(50% - ${expandedHeight / 2}px))`,
+              top:             `calc(50% - ${expandedHeight / 2}px)`,
               left:            `calc(50% - ${expandedWidth / 2}px)`,
               width:           expandedWidth,
-              height:          `min(${expandedHeight}px, calc(100dvh - 32px))`,
+              height:          expandedHeight,
               zIndex:          1001,
               background:      'var(--neutral-50)',
               borderRadius:    28,
@@ -1811,7 +1803,6 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               pins={pins}
               onClose={handleExpandedClose}
               onOrganize={onOrganize}
-              onExportClick={onExport}
               personalFolders={personalFolders}
               projectFolders={projectFolders}
               activeSidebarId={currentViewId}
@@ -1823,9 +1814,6 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               hasActiveFilters={hasActiveFilters}
               filterMenu={filterMenu}
               sortMenu={sortMenu}
-              onCreateFolder={onCreateFolder}
-              onMoveToFolder={onMoveToFolder}
-              onDeletePins={onDeletePins}
             />
           </motion.div>,
         ] : null}

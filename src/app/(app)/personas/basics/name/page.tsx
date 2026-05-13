@@ -1,0 +1,133 @@
+'use client'
+
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { Button } from '@/components/Button'
+import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
+
+// ── Derive a URL-safe handle slug from name ───────────────────────────────────
+
+function toHandle(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, '')
+}
+
+// ── Inner page ────────────────────────────────────────────────────────────────
+
+function NamePageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const template = searchParams.get('template') ?? ''
+  const purpose  = searchParams.get('purpose')  ?? ''
+
+  const [name, setName] = useState('')
+
+  function buildQuery(extra: Record<string, string>) {
+    const p = new URLSearchParams()
+    if (template) p.set('template', template)
+    if (purpose)  p.set('purpose',  purpose)
+    Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v) })
+    const qs = p.toString()
+    return qs ? `?${qs}` : ''
+  }
+
+  const handle = name.trim() ? `@${toHandle(name)}01` : ''
+
+  return (
+    <WizardShell steps={STEPS_BASICS}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 35, alignItems: 'center', width: '100%' }}>
+
+        {/* Heading */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', textAlign: 'center' }}>
+          <p style={{
+            fontFamily: 'var(--font-title)', fontWeight: 400,
+            fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0,
+          }}>
+            What should we call it?
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400,
+            fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0,
+          }}>
+            This is how it appears in your library and in chat.
+          </p>
+        </div>
+
+        {/* Input area */}
+        <div style={{ display: 'flex', flexDirection: 'column', width: 436 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Input */}
+            <div style={{
+              background: 'var(--neutral-white)',
+              borderRadius: 10,
+              boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+              padding: '12px 10px',
+            }}>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Legal Assistant"
+                style={{
+                  width: '100%',
+                  fontFamily: 'var(--font-body)', fontWeight: 400,
+                  fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
+                  background: 'transparent', border: 'none', outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Handle preview */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+              fontSize: 14, lineHeight: '22px', color: '#827a74',
+              minHeight: 22,
+            }}>
+              {handle && (
+                <span>
+                  @<strong style={{ fontWeight: 'var(--font-weight-medium)' }}>{toHandle(name)}</strong>01
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            paddingTop: 64,
+          }}>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<ArrowLeftOneIcon size={16} />}
+              onClick={() => router.push(`/personas/basics/purpose${buildQuery({})}`)}
+            >
+              Back
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              rightIcon={<ArrowRightOneIcon size={16} />}
+              disabled={name.trim().length === 0}
+              onClick={() => router.push(`/personas/basics/tone${buildQuery({ name })}`)}
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </WizardShell>
+  )
+}
+
+// ── Page export ───────────────────────────────────────────────────────────────
+
+export default function PersonaNamePage() {
+  return (
+    <Suspense>
+      <NamePageContent />
+    </Suspense>
+  )
+}

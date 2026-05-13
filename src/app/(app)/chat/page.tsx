@@ -26,7 +26,7 @@ import {
   QuillWriteTwoIcon,
   UserIcon,
   QuillWriteOneIcon,
-  BrainTwoIcon,
+  NeuralNetworkIcon,
   AiVisionRecognitionIcon,
   AiWebBrowsingIcon,
   CalendarFoldIcon,
@@ -147,11 +147,11 @@ function TemplateCard({
 
 type ChatMode = "write" | "research" | "think" | "build";
 
-const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode }> = [
-  { mode: "write",    label: "Write",    icon: <QuillWriteOneIcon size={16} animated /> },
-  { mode: "research", label: "Research", icon: <BrainTwoIcon size={16} animated /> },
+const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
+  { mode: "write",    label: "Write",    icon: <QuillWriteOneIcon      size={16} animated /> },
+  { mode: "research", label: "Research", icon: <NeuralNetworkIcon      size={16} animated />, disabled: true },
   { mode: "think",    label: "Think",    icon: <AiVisionRecognitionIcon size={16} animated /> },
-  { mode: "build",    label: "Build",    icon: <AiWebBrowsingIcon size={16} animated /> },
+  { mode: "build",    label: "Build",    icon: <AiWebBrowsingIcon      size={16} animated /> },
 ];
 
 const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
@@ -720,7 +720,7 @@ function ChatPageInner() {
                       <div
                         key={btn.mode}
                         style={{
-                          opacity:    selectedMode && selectedMode !== btn.mode ? 0.4 : 1,
+                          opacity:    (btn.disabled || (selectedMode && selectedMode !== btn.mode)) ? 0.4 : 1,
                           transition: "opacity 150ms",
                         }}
                       >
@@ -728,7 +728,8 @@ function ChatPageInner() {
                           variant="outline"
                           size="sm"
                           leftIcon={btn.icon}
-                          onClick={() =>
+                          disabled={btn.disabled}
+                          onClick={btn.disabled ? undefined : () =>
                             setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))
                           }
                         >

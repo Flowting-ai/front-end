@@ -32,7 +32,7 @@ export function InitialPrompts() {
           fontFamily: "var(--font-title)",
           fontSize: "28px",
           fontWeight: 200,
-          color: "var(--neutral-700)",
+          color: "var(--neutral-800)",
           margin: "0 0 6px",
           lineHeight: 1.25,
         }}

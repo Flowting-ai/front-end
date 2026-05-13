@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
@@ -197,9 +197,21 @@ function ProjectsSection() {
 
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
-  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(new Set())
+  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(() => new Set(projects.map(p => p.id)))
 
   const visibleProjects = projects.slice(0, PROJECT_LIMIT)
+
+  // Auto-expand the project whose route is active (only expands, never collapses).
+  React.useEffect(() => {
+    const active = projects.find(p => pathname.startsWith(`/project/${p.id}`))
+    if (!active) return
+    setExpandedIds(prev => {
+      if (prev.has(active.id)) return prev
+      const next = new Set(prev)
+      next.add(active.id)
+      return next
+    })
+  }, [pathname, projects])
   const hasMore = projects.length > PROJECT_LIMIT
 
   function toggleExpand(id: string, expanded: boolean) {
@@ -359,6 +371,8 @@ export function LeftSidebar({
       onSearch={() => {
         /* wired in Day 7 — search dialog */
       }}
+      onProjectsClick={() => router.push("/projects")}
+      onPersonasClick={() => router.push("/personas")}
       onSettingsClick={() => router.push("/settings")}
       projectItems={<ProjectsSection />}
       recentItems={

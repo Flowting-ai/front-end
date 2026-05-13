@@ -1,17 +1,17 @@
-﻿'use client'
+'use client'
 
 /**
- * ChatThumbnail â€” 120Ã—120 attachment card rendered above the `ChatInput`
+ * ChatThumbnail — 120×120 attachment card rendered above the `ChatInput`
  * textarea (in the `pinCards` slot). Mirrors Figma `3207:33563` and the
  * spec sheet at `3406:1400`.
  *
  * Four `type` variants:
- *   pin    â€” 16 px radius, white surface, Caption/11 title, neutral pin-icon badge
- *   folder â€” 16 px radius, white surface, Body/14 title, neutral folder-icon badge
- *   file   â€” 18 px radius, white surface, Caption/11 filename (fixed 68 px), file-type Badge
- *   image  â€” 18 px radius, image cover, Neutral Badge with format + size at bottom
+ *   pin    — 16 px radius, white surface, Caption/11 title, neutral pin-icon badge
+ *   folder — 16 px radius, white surface, Body/14 title, neutral folder-icon badge
+ *   file   — 18 px radius, white surface, Caption/11 filename (fixed 68 px), file-type Badge
+ *   image  — 18 px radius, image cover, Neutral Badge with format + size at bottom
  *
- * Hover state surfaces a Ã— IconButton positioned at top-right (overflows the
+ * Hover state surfaces a × IconButton positioned at top-right (overflows the
  * card); driven by `hover` (controlled) or internal mouse hover / button focus.
  */
 
@@ -22,43 +22,43 @@ import { Badge, type BadgeColor } from '@/components/Badge'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ChatThumbnailType = 'pin' | 'file' | 'image' | 'folder'
 
 export interface ChatThumbnailProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
-  /** Variant â€” Figma `type`. */
+  /** Variant — Figma `type`. */
   type: ChatThumbnailType
 
   /**
    * Top-line text. Required for all types:
-   *  - `pin` / `folder` â€” title rendered in the card
-   *  - `file` â€” filename (with extension); the extension drives the badge color
-   *  - `image` â€” descriptive name (used as default `imageAlt` if none provided)
+   *  - `pin` / `folder` — title rendered in the card
+   *  - `file` — filename (with extension); the extension drives the badge color
+   *  - `image` — descriptive name (used as default `imageAlt` if none provided)
    */
   title: string
 
-  /** File / Image â€” formatted size string (e.g. `"1.2 MB"`) appended after the format in the badge. */
+  /** File / Image — formatted size string (e.g. `"1.2 MB"`) appended after the format in the badge. */
   fileSize?: string
 
-  /** Image â€” format label shown before the size in the badge (e.g. `"PNG"`). Defaults to `"IMG"`. */
+  /** Image — format label shown before the size in the badge (e.g. `"PNG"`). Defaults to `"IMG"`. */
   imageFormat?: string
 
-  /** Image â€” src URL. */
+  /** Image — src URL. */
   imageSrc?: string
 
-  /** Image â€” alt text. Defaults to `title`. */
+  /** Image — alt text. Defaults to `title`. */
   imageAlt?: string
 
   /**
-   * Forces the hover visual â€” Figma `hover`. When omitted, the component
+   * Forces the hover visual — Figma `hover`. When omitted, the component
    * derives it from internal mouse hover OR remove-button keyboard focus.
    */
   hover?: boolean
 
   /**
-   * When provided, renders a Ã— remove button at the top-right corner. The
+   * When provided, renders a × remove button at the top-right corner. The
    * button is in the DOM whenever `onRemove` is set so keyboard users can
    * always reach it; it's invisible-but-focusable at rest and animates to
    * visible on hover or focus.
@@ -66,7 +66,7 @@ export interface ChatThumbnailProps
   onRemove?: React.MouseEventHandler<HTMLButtonElement>
 }
 
-// â”€â”€ File extension â†’ badge color â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── File extension → badge color ──────────────────────────────────────────────
 
 const FILE_EXT_COLOR: Record<string, BadgeColor> = {
   pdf:  'Red',
@@ -92,11 +92,17 @@ function extractFileExt(fileName: string): { ext: string; color: BadgeColor } {
   }
 }
 
-// â”€â”€ Card-level shadow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Card-level shadow (Figma 3207:33563 `Event` node) ─────────────────────────
+// `0px 4px 4px 0px rgba(82,75,71,0.12)` (= --neutral-700-12) +
+// `0px 0px 0px 1px var(--neutral-100)`.
+
 const CARD_SHADOW =
   '0px 4px 4px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
 
-// â”€â”€ IconBadge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── IconBadge ─────────────────────────────────────────────────────────────────
+// Small Neutral-tinted chip used for the pin / folder badge at the bottom of
+// the card. Matches the Neutral KDS color-tag (background, outer + inner
+// shadows) but contains a 20×20 icon glyph instead of a text label.
 
 function IconBadge({
   icon,
@@ -139,7 +145,10 @@ function IconBadge({
   )
 }
 
-// â”€â”€ Remove button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Remove button ─────────────────────────────────────────────────────────────
+// 28×28 (4 px padding + 20 px icon) — borrows the `IconButton variant="secondary"`
+// shadow stack and white surface. Always in the DOM when `onRemove` is set so
+// keyboard users can always Tab to it; invisible-but-focusable at rest.
 
 function RemoveButton({
   onRemove,
@@ -161,6 +170,7 @@ function RemoveButton({
       onClick={onRemove}
       tabIndex={0}
       onFocus={(e) => {
+        // Pattern 2 — only show the focus ring when focus arrived via keyboard.
         if (typeof e.target.matches === 'function' && e.target.matches(':focus-visible')) {
           setIsFocused(true)
           onFocusChange(true)
@@ -198,7 +208,7 @@ function RemoveButton({
   )
 }
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps>(
   function ChatThumbnail(
@@ -229,6 +239,11 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
       <motion.div
         ref={ref}
         layout
+        // Enter — scale up + de-blur (220 ms ease-out cubic)
+        // Exit  — scale down + fade out + blur out (180 ms ease-in cubic)
+        // The wrapper's `layout` prop makes sibling thumbnails reflow as
+        // one is removed, so the exit animation sits cleanly on top of
+        // the row's collapse.
         initial={{ opacity: 0, scale: 0.7, filter: 'blur(4px)' }}
         animate={{
           opacity: 1, scale: 1, filter: 'blur(0px)',
@@ -244,7 +259,7 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
         style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, ...style }}
         {...(props as Record<string, unknown>)}
       >
-        {/* â”€â”€ Pin / Folder card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Pin / Folder card ─────────────────────────────────────────────── */}
         {(type === 'pin' || type === 'folder') && (
           <div
             style={{
@@ -289,15 +304,15 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
                 {title}
               </p>
               {type === 'pin'    && <IconBadge icon={<PinIcon       size={20} color="currentColor" />} ariaLabel="Pin"    />}
-              {type === 'folder' && <IconBadge icon={<FolderOneIcon size={20} color="currentColor" />} ariaLabel="Folder" />}
+              {type === 'folder' && <IconBadge icon={<FolderOneIcon variant="static" size={20} color="currentColor" />} ariaLabel="Folder" />}
             </div>
           </div>
         )}
 
-        {/* â”€â”€ File card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── File card ─────────────────────────────────────────────────────── */}
         {type === 'file' && (() => {
           const { ext, color } = extractFileExt(title)
-          const badgeLabel = fileSize ? `${ext} â€¢ ${fileSize}` : ext
+          const badgeLabel = fileSize ? `${ext} • ${fileSize}` : ext
           return (
             <div
               style={{
@@ -349,9 +364,9 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
           )
         })()}
 
-        {/* â”€â”€ Image card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Image card ────────────────────────────────────────────────────── */}
         {type === 'image' && (() => {
-          const badgeLabel = fileSize ? `${imageFormat} â€¢ ${fileSize}` : imageFormat
+          const badgeLabel = fileSize ? `${imageFormat} • ${fileSize}` : imageFormat
           return (
             <div
               style={{
@@ -374,22 +389,22 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
                   src={imageSrc}
                   alt={imageAlt ?? title}
                   style={{
-                    position:  'absolute',
-                    inset:     0,
-                    width:     '100%',
-                    height:    '100%',
-                    objectFit: 'cover',
-                    display:   'block',
+                    position:     'absolute',
+                    inset:        0,
+                    width:        '100%',
+                    height:       '100%',
+                    objectFit:    'cover',
+                    display:      'block',
                   }}
                 />
               )}
               {/* Bottom-left badge sits above the cover image */}
               <div
                 style={{
-                  position:   'relative',
-                  display:    'flex',
-                  alignItems: 'flex-start',
-                  flexShrink: 0,
+                  position:    'relative',
+                  display:     'flex',
+                  alignItems:  'flex-start',
+                  flexShrink:  0,
                 }}
               >
                 <Badge label={badgeLabel} color="Neutral" />
@@ -398,7 +413,7 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
           )
         })()}
 
-        {/* â”€â”€ Ã— remove button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── × remove button ───────────────────────────────────────────────── */}
         {onRemove && (
           <RemoveButton
             onRemove={onRemove}
