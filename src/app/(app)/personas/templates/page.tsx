@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowRightOneIcon, GalaxyIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
 
@@ -18,13 +18,7 @@ const TEMPLATE_ROWS = [
 // ── Generic icon for template cards ──────────────────────────────────────────
 
 function TemplateIcon() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden>
-      <circle cx="15" cy="15" r="11"   stroke="#26211e" strokeWidth="1.5" />
-      <circle cx="15" cy="15" r="5.5"  stroke="#26211e" strokeWidth="1.5" />
-      <circle cx="15" cy="15" r="2"    fill="#26211e" />
-    </svg>
-  )
+  return <GalaxyIcon size={30} color="#26211e" />
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────

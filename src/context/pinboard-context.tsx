@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { createPin, deletePin, listPins, getPin } from "@/lib/api/pins";
+import { createPin, deletePin, listPins, getPin, updatePinTags as updatePinTags_api } from "@/lib/api/pins";
 
 // ── Pin Data Shape ────────────────────────────────────────────────────────────
 
@@ -45,6 +45,7 @@ interface PinboardContextValue {
   isPinned: (messageId: string) => boolean;
   updatePinCategory: (id: string, category: PinCategory) => void;
   updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
+  updatePinTags: (id: string, tags: string[]) => void;
 }
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
@@ -217,6 +218,15 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const updatePinTags = useCallback((id: string, tags: string[]) => {
+    setPins((prev) => prev.map((p) => p.id === id ? { ...p, tags } : p));
+    if (!id.startsWith('pin-temp-')) {
+      updatePinTags_api(id, tags).catch((err) =>
+        console.error('[PinboardContext] Failed to update pin tags', err),
+      );
+    }
+  }, []);
+
   const isPinned = useCallback(
     (messageId: string) => pins.some((p) => p.messageId === messageId),
     [pins],
@@ -224,7 +234,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PinboardContext.Provider
-      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory, updatePinFolder }}
+      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory, updatePinFolder, updatePinTags }}
     >
       {children}
     </PinboardContext.Provider>

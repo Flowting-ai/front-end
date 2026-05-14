@@ -57,7 +57,7 @@ export function InitialPrompts() {
           fontFamily: "var(--font-body)",
           fontSize: "16px",
           fontWeight: 400,
-          color: "var(--neutral-800)",
+          color: "#3B3632",
           margin: "0",
           lineHeight: 1.5,
           maxWidth: "480px",

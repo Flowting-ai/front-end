@@ -154,23 +154,109 @@ const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: stri
   { icon: <AuctionIcon       size={24} color="var(--green-500)"  animated />, label: 'Compare and evaluate my options',     prompt: 'Help me compare and evaluate my options' },
 ]
 
+// ── Style / Tone options ─────────────────────────────────────────────────────
+
+const USE_STYLE_OPTIONS = [
+  { id: 'none',         label: 'None',         subLabel: 'Default AI behavior' },
+  { id: 'professional', label: 'Professional', subLabel: 'Polished, structured, business-ready' },
+  { id: 'balanced',     label: 'Balanced',     subLabel: 'Friendly yet professional' },
+  { id: 'casual',       label: 'Casual',       subLabel: 'Relaxed and conversational' },
+  { id: 'witty',        label: 'Witty',        subLabel: 'Sharp, clever, playful' },
+  { id: 'concise',      label: 'Concise',      subLabel: 'Short, direct, no fluff' },
+  { id: 'executive',    label: 'Executive',    subLabel: 'Strategic, decision-oriented' },
+  { id: 'academic',     label: 'Academic',     subLabel: 'Scholarly, precise, well-cited' },
+  { id: 'creative',     label: 'Creative',     subLabel: 'Imaginative and unconventional' },
+  { id: 'teaching',     label: 'Teaching',     subLabel: 'Step-by-step, builds understanding' },
+  { id: 'socratic',     label: 'Socratic',     subLabel: 'Guides through questions' },
+  { id: 'empathetic',   label: 'Empathetic',   subLabel: 'Warm, supportive, emotionally aware' },
+] as const
+
+const USE_TONE_OPTIONS = [
+  { id: 'formal',        label: 'Formal',        subLabel: 'Polished and professional' },
+  { id: 'friendly',      label: 'Friendly',      subLabel: 'Warm and approachable' },
+  { id: 'assertive',     label: 'Assertive',     subLabel: 'Confident and direct' },
+  { id: 'persuasive',    label: 'Persuasive',    subLabel: 'Compelling and convincing' },
+  { id: 'empathetic',    label: 'Empathetic',    subLabel: 'Understanding and supportive' },
+  { id: 'neutral',       label: 'Neutral',       subLabel: 'Balanced and objective' },
+  { id: 'humorous',      label: 'Humorous',      subLabel: 'Light-hearted and fun' },
+  { id: 'inspirational', label: 'Inspirational', subLabel: 'Motivating and uplifting' },
+] as const
+
 // ── Add-menu ──────────────────────────────────────────────────────────────────
 
 function AddMenu({
   webSearchEnabled,
   onWebSearchChange,
   onAddFilesClick,
+  selectedStyleId,
+  onStyleChange,
+  selectedToneId,
+  onToneChange,
 }: {
   webSearchEnabled: boolean
   onWebSearchChange: (enabled: boolean) => void
   onAddFilesClick: () => void
+  selectedStyleId: string | null
+  onStyleChange: (id: string | null) => void
+  selectedToneId: string | null
+  onToneChange: (id: string | null) => void
 }) {
+  const [styleMenuOpen, setStyleMenuOpen] = useState(false)
+  const [toneMenuOpen,  setToneMenuOpen]  = useState(false)
   return (
     <Dropdown style={{ width: 200 }}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}     fluid onClick={onAddFilesClick} />
-        <Dropdown.Item label="Web search"           icon={<GlobalSearchIcon />}  fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
-        <Dropdown.Item label="Use style"            icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
+        <Dropdown.Item label="Web search"           icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
+        {/* Use Dropdown.Float (click-triggered, stopsPropagation on trigger) so
+            clicks on "Use style" don't bubble to the ChatInput's close-on-click
+            wrapper and close the outer dropdown before options can be shown. */}
+        <Dropdown.Float
+          open={styleMenuOpen}
+          onOpenChange={setStyleMenuOpen}
+          placement="right-start"
+          trigger={
+            <Dropdown.Item label="Use style" icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+          }
+        >
+          <Dropdown size="md">
+            <Dropdown.Section fluid>
+              {USE_STYLE_OPTIONS.map((opt) => (
+                <Dropdown.Item
+                  key={opt.id}
+                  label={opt.label}
+                  subLabel={opt.subLabel}
+                  selected={selectedStyleId === opt.id}
+                  onClick={() => { onStyleChange(opt.id); setStyleMenuOpen(false) }}
+                  fluid
+                />
+              ))}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+        <Dropdown.Float
+          open={toneMenuOpen}
+          onOpenChange={setToneMenuOpen}
+          placement="right-start"
+          trigger={
+            <Dropdown.Item label="Use tone" icon={<QuillWriteOneIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+          }
+        >
+          <Dropdown size="md">
+            <Dropdown.Section fluid>
+              {USE_TONE_OPTIONS.map((opt) => (
+                <Dropdown.Item
+                  key={opt.id}
+                  label={opt.label}
+                  subLabel={opt.subLabel}
+                  selected={selectedToneId === opt.id}
+                  onClick={() => { onToneChange(selectedToneId === opt.id ? null : opt.id); setToneMenuOpen(false) }}
+                  fluid
+                />
+              ))}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
         <Dropdown.Item label="Add persona"          icon={<UserIcon />}          fluid rightIcon={<ArrowRightOneIcon />} />
         <Dropdown.Item label="Pin folders"          icon={<FolderOneIcon />}     fluid rightIcon={<ArrowRightOneIcon />} />
       </Dropdown.Section>
@@ -243,6 +329,10 @@ export default function ProjectChatPage() {
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
   const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null)
+  const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
+  const [selectedToneId,     setSelectedToneId]     = useState<string | null>(null)
+  const [styleChipOpen,      setStyleChipOpen]      = useState(false)
+  const [toneChipOpen,       setToneChipOpen]       = useState(false)
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
   const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
@@ -333,24 +423,89 @@ export default function ProjectChatPage() {
 
   // ── Chips ─────────────────────────────────────────────────────────────────
 
-  const webSearchChip = webSearchEnabled ? (
-    <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
-  ) : null
+  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
+  const activeTone  = USE_TONE_OPTIONS.find(t => t.id === selectedToneId)   ?? null
 
-  const newChatChips: React.ReactNode = mentionedPins.length > 0 ? (
+  const newChatChips: React.ReactNode = (
     <>
+      {activeStyle && (
+        <Dropdown.Float
+          open={styleChipOpen}
+          onOpenChange={setStyleChipOpen}
+          placement="top-start"
+          trigger={
+            <Chip
+              label={activeStyle.label}
+              icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+              onRemove={() => setSelectedStyleId(null)}
+              onExpand={() => setStyleChipOpen(v => !v)}
+            />
+          }
+        >
+          <Dropdown size="md">
+            <Dropdown.Section fluid>
+              {USE_STYLE_OPTIONS.map(opt => (
+                <Dropdown.Item
+                  key={opt.id}
+                  label={opt.label}
+                  subLabel={opt.subLabel}
+                  selected={selectedStyleId === opt.id}
+                  onClick={() => { setSelectedStyleId(opt.id); setStyleChipOpen(false) }}
+                  fluid
+                />
+              ))}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+      )}
+      {activeTone && (
+        <Dropdown.Float
+          open={toneChipOpen}
+          onOpenChange={setToneChipOpen}
+          placement="top-start"
+          trigger={
+            <Chip
+              label={activeTone.label}
+              icon={<QuillWriteOneIcon size={20} color="var(--chip-text)" />}
+              onRemove={() => setSelectedToneId(null)}
+              onExpand={() => setToneChipOpen(v => !v)}
+            />
+          }
+        >
+          <Dropdown size="md">
+            <Dropdown.Section fluid>
+              {USE_TONE_OPTIONS.map(opt => (
+                <Dropdown.Item
+                  key={opt.id}
+                  label={opt.label}
+                  subLabel={opt.subLabel}
+                  selected={selectedToneId === opt.id}
+                  onClick={() => { setSelectedToneId(opt.id); setToneChipOpen(false) }}
+                  fluid
+                />
+              ))}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+      )}
       {mentionedPins.map(mp => (
         <MentionChip key={mp.id} label={mp.label} onRemove={() => setMentionedPins(prev => prev.filter(m => m.id !== mp.id))} />
       ))}
-      {webSearchChip}
+      {webSearchEnabled && (
+        <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
+      )}
     </>
-  ) : webSearchChip
+  )
 
   const addMenu = (
     <AddMenu
       webSearchEnabled={webSearchEnabled}
       onWebSearchChange={setWebSearchEnabled}
       onAddFilesClick={() => fileInputRef.current?.click()}
+      selectedStyleId={selectedStyleId}
+      onStyleChange={setSelectedStyleId}
+      selectedToneId={selectedToneId}
+      onToneChange={setSelectedToneId}
     />
   )
 
@@ -560,7 +715,7 @@ export default function ProjectChatPage() {
               webSearchEnabled={webSearchEnabled}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={() => setAddMenuFiles([])}
-              chips={webSearchChip ? [webSearchChip] : undefined}
+              chips={newChatChips}
             />
           </motion.div>
         )}

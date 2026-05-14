@@ -216,7 +216,7 @@ function EmptyState({ title, description, action }: {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
-  const { pins, removePin, clonePin } = usePinboard()
+  const { pins, removePin, clonePin, updatePinTags } = usePinboard()
   const { chats } = useChatHistoryContext()
   const chatNameById = useMemo((): Map<string, string> => {
     const map = new Map<string, string>()
@@ -252,6 +252,13 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   // ── Expanded pin tracking ─────────────────────────────────────────────────
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
   const hasExpanded = expandedIds.size > 0
+
+  // ── Per-pin tag state ─────────────────────────────────────────────────────
+  // Lifted here so tag edits survive re-renders and the organize-mode overlay.
+  // userTagsById: user-added tags keyed by pin id.
+  // deletedLabelsById: indices into the `labels` prop deleted by the user.
+  const [userTagsById,    setUserTagsById]    = useState<Record<string, { color: BadgeColor; text: string }[]>>({})
+  const [deletedLabelsById, setDeletedLabelsById] = useState<Record<string, Set<number>>>({})
 
   // ── Tabs + search width math (mirrors DS PinboardExpanded) ────────────────
   const tabsContainerRef = useRef<HTMLDivElement>(null)
@@ -372,6 +379,40 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       await apiFetch(`${PIN_FOLDERS_CREATE_ENDPOINT}/${folderId}`, { method: 'DELETE' })
     } catch {}
   }
+
+  // ── Pin tag operations ────────────────────────────────────────────────────
+
+  const handlePinAddTag = useCallback((pinId: string, text: string, color: BadgeColor) => {
+    const item = pins.find(p => p.id === pinId)
+    const backendTags = item?.tags ?? []
+    const deletedSet  = deletedLabelsById[pinId] ?? new Set<number>()
+    const remaining   = backendTags.filter((_, i) => !deletedSet.has(i))
+    const existing    = userTagsById[pinId] ?? []
+    const newUser     = [...existing, { color, text }]
+    const allTags     = [...remaining, ...newUser.map(t => t.text)]
+    setUserTagsById(prev => ({ ...prev, [pinId]: newUser }))
+    updatePinTags(pinId, allTags)
+  }, [pins, deletedLabelsById, userTagsById, updatePinTags])
+
+  const handlePinDeleteTag = useCallback((pinId: string, index: number, source: 'label' | 'user') => {
+    const item = pins.find(p => p.id === pinId)
+    const backendTags = item?.tags ?? []
+    let newDeletedSet = deletedLabelsById[pinId] ?? new Set<number>()
+    let newUser       = userTagsById[pinId] ?? []
+
+    if (source === 'label') {
+      // Skip if the deleted label index points to the model-name badge (past real tags).
+      if (index >= backendTags.length) return
+      newDeletedSet = new Set([...newDeletedSet, index])
+      setDeletedLabelsById(prev => ({ ...prev, [pinId]: newDeletedSet }))
+    } else {
+      newUser = newUser.filter((_, i) => i !== index)
+      setUserTagsById(prev => ({ ...prev, [pinId]: newUser }))
+    }
+
+    const remaining = backendTags.filter((_, i) => !newDeletedSet.has(i))
+    updatePinTags(pinId, [...remaining, ...newUser.map(t => t.text)])
+  }, [pins, deletedLabelsById, userTagsById, updatePinTags])
 
   // ── Pin operations ────────────────────────────────────────────────────────
 
@@ -1064,6 +1105,10 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                               <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex} style={{ minWidth: 0 }}>
                                 <PinGridCell
                                   pin={p}
+                                  userTags={userTagsById[id] ?? []}
+                                  deletedLabelIndices={deletedLabelsById[id] ?? new Set()}
+                                  onAddTag={(text, color) => handlePinAddTag(id, text, color)}
+                                  onDeleteTag={(index, source) => handlePinDeleteTag(id, index, source)}
                                   isOrganizing={isOrganizing}
                                   isSelected={selectedPinIds.has(id)}
                                   collapseSignal={collapseSignal}
@@ -1383,18 +1428,26 @@ function SidebarFolderItem({
 
 function PinGridCell({
   pin,
+  userTags,
+  deletedLabelIndices,
+  onAddTag,
+  onDeleteTag,
   isOrganizing,
   isSelected,
   collapseSignal,
   onToggle,
   onExpandedChange,
 }: {
-  pin:              PinboardPin
-  isOrganizing:     boolean
-  isSelected:       boolean
-  collapseSignal:   number
-  onToggle:         () => void
-  onExpandedChange?: (expanded: boolean) => void
+  pin:                 PinboardPin
+  userTags:            { color: BadgeColor; text: string }[]
+  deletedLabelIndices: Set<number>
+  onAddTag:            (text: string, color: BadgeColor) => void
+  onDeleteTag:         (index: number, source: 'label' | 'user') => void
+  isOrganizing:        boolean
+  isSelected:          boolean
+  collapseSignal:      number
+  onToggle:            () => void
+  onExpandedChange?:   (expanded: boolean) => void
 }) {
   const { id, ...pinProps } = pin
 
@@ -1413,6 +1466,11 @@ function PinGridCell({
         fluid
         collapseSignal={collapseSignal}
         onExpandedChange={onExpandedChange}
+        tagsEditable
+        userTags={userTags}
+        deletedLabelIndices={deletedLabelIndices}
+        onAddTag={onAddTag}
+        onDeleteTag={onDeleteTag}
         style={{ pointerEvents: isOrganizing ? 'none' : 'auto' }}
         {...pinProps}
       />

@@ -10,6 +10,7 @@ import {
   PIN_MOVE_ENDPOINT,
   PIN_COMMENT_ENDPOINT,
   PIN_COMMENT_CRUD_ENDPOINT,
+  PIN_TAGS_ENDPOINT,
 } from "@/lib/config";
 
 // ── Normalised shape used throughout the UI ───────────────────────────────────
@@ -187,6 +188,13 @@ export async function movePinToFolder(
     body: JSON.stringify({ folder_id: folderId }),
   });
   return normalizePin(raw);
+}
+
+export async function updatePinTags(pinId: string, tags: string[]): Promise<void> {
+  await apiFetch(PIN_TAGS_ENDPOINT(pinId), {
+    method: 'PATCH',
+    body:   JSON.stringify({ tags }),
+  })
 }
 
 export async function addPinComment(pinId: string, content: string): Promise<PinComment> {

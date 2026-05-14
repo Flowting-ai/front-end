@@ -2,15 +2,47 @@
 
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { ArrowDownTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
 import type { Pin } from "@/lib/api/pins";
 import { PinInsert } from "@/components/PinInsert";
 import type { PinTag } from "@/components/PinInsert";
-import type { BadgeColor } from "@/components/Badge";
+import { Badge, type BadgeColor } from "@/components/Badge";
+
+// ── Shortcut chip for keyboard navigation hints ────────────────────────────────
+
+function ShortcutChip({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: 20,
+        padding: 2,
+        borderRadius: 4,
+        background:
+          "linear-gradient(180deg, var(--neutral-white) 0%, var(--neutral-50) 100%)",
+        boxShadow:
+          "0px 1px 1.5px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-300-40)",
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 // ── Badge color rotation for tag chips ────────────────────────────────────────
 
 const BADGE_COLORS: BadgeColor[] = [
-  "Blue", "Green", "Yellow", "Purple", "Brown", "Red", "Neutral",
+  "Blue",
+  "Green",
+  "Yellow",
+  "Purple",
+  "Brown",
+  "Red",
+  "Neutral",
 ];
 
 function mapTags(tags: string[]): PinTag[] {
@@ -59,53 +91,98 @@ export function PinMentionDropdown({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 6 }}
-          transition={{ duration: 0.15 }}
+          initial={{ opacity: 0, scaleY: 0.95, y: 4 }}
+          animate={{ opacity: 1, scaleY: 1, y: 0 }}
+          exit={{ opacity: 0, scaleY: 0.95, y: 4 }}
+          transition={{ duration: 0.2 }}
           style={{
             position: "absolute",
-            bottom: "calc(100% + 12px)",
+            bottom: "calc(100% + 8px)",
             left: 0,
             right: 0,
             zIndex: 60,
-            maxHeight: "320px",
-            backgroundColor: "var(--neutral-white, #fff)",
-            borderRadius: "16px",
-            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-            border: "1px solid var(--neutral-200, #E5E5E5)",
+            maxHeight: "400px",
+            backgroundColor: "var(--neutral-white)",
+            borderRadius: "12px",
+            boxShadow:
+              "0 8px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--neutral-100)",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
+            transformOrigin: "bottom center",
           }}
         >
-          {/* Header */}
+          {/* Header — matches KDS design exactly (Figma 3208:33092) */}
           <div
             style={{
               padding: "8px 16px",
-              borderBottom: "1px solid var(--neutral-100, #F5F5F5)",
+              borderBottom: "1px solid var(--neutral-100)",
               flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--font-size-caption)",
-                fontWeight: "var(--font-weight-medium)",
-                color: "var(--neutral-500)",
-              }}
-            >
-              {query ? `Searching: "${query}"` : "Select a pin to mention"}
-            </span>
+            {/* Left: "Your pins" / "Search results" + count badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--font-weight-medium)",
+                  fontSize: "var(--font-size-caption)",
+                  lineHeight: "var(--line-height-caption)",
+                  color: "var(--neutral-500)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {query ? "Search results" : "Your pins"}
+              </span>
+              <Badge
+                label={`${pins.length} ${pins.length === 1 ? "pin" : "pins"}`}
+                color="Blue"
+              />
+            </div>
+
+            {/* Right: "Navigate" + arrow key hints */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontWeight: "var(--font-weight-medium)",
+                  fontSize: "var(--font-size-caption)",
+                  lineHeight: "var(--line-height-caption)",
+                  color: "var(--neutral-500)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Navigate
+              </span>
+              <ShortcutChip>
+                <ArrowDownTwoIcon
+                  size={16}
+                  color="var(--color-text-default)"
+                />
+              </ShortcutChip>
+              <ShortcutChip>
+                <ArrowUpTwoIcon size={16} color="var(--color-text-default)" />
+              </ShortcutChip>
+            </div>
           </div>
 
-          {/* Scrollable pin list — role="listbox" owns the option set */}
+          {/* Scrollable pin list */}
           <div
             ref={listRef}
             role="listbox"
-            aria-label="Pin mentions"
-            className="kaya-scrollbar"
-            style={{ flex: 1, overflowY: "auto", padding: "4px" }}
+            aria-label="Pins"
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "4px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              minHeight: 0, // Ensure flex child respects overflow
+            }}
           >
             {pins.length === 0 ? (
               <div
@@ -123,25 +200,21 @@ export function PinMentionDropdown({
               </div>
             ) : (
               pins.map((pin, idx) => {
-                const hasTags = pin.tags && pin.tags.length > 0;
-                const subtitle =
-                  pin.content.length > 80
-                    ? pin.content.slice(0, 80) + "…"
-                    : pin.content;
+                // Always show tags if available, otherwise fall back to category for stable height
+                const tags = (pin.tags && pin.tags.length > 0)
+                  ? pin.tags
+                  : (pin.category ? [pin.category] : []);
 
                 return (
-                  // Wrapper carries data-pin-index for the scrollIntoView query
-                  // and routes mouse-enter back to the parent's index tracker.
                   <div
                     key={pin.id}
                     data-pin-index={idx}
                     onMouseEnter={() => onHighlight(idx)}
                   >
                     <PinInsert
-                      title={pin.title || subtitle}
-                      type={hasTags ? "with-badges" : "with-subtitle"}
-                      tags={hasTags ? mapTags(pin.tags) : []}
-                      subtitle={!hasTags ? subtitle : undefined}
+                      title={pin.title}
+                      type="with-badges"
+                      tags={mapTags(tags)}
                       highlight={!!query}
                       searchQuery={query}
                       isFocused={idx === highlightedIndex}
