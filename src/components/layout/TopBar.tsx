@@ -167,8 +167,8 @@ export function TopBar({ onTemporaryChat, onShare }: TopBarProps) {
         </>
       ) : (
         <>
-          {/* ── Left: model selector ── */}
-          {modelSelectorButton}
+          {/* ── Left: model selector (hidden on project pages) ── */}
+          {!isProjectDetailPage && modelSelectorButton}
 
           {/* ── Right: temp+share (regular chat) | nothing (project detail) ── */}
           {!isProjectDetailPage && (

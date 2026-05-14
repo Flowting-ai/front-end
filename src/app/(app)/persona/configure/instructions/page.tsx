@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, Suspense } from 'react'
+import React, { useState, Suspense, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -8,25 +8,37 @@ import {
   MoreVerticalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
+  UserAiIcon,
+  AiIdeaIcon,
+  FolderLibraryIcon,
   AtomOneIcon,
   ArrowDownOneIcon,
-  StarIcon,
   PlusSignIcon,
   CancelOneIcon,
   ExpandIcon,
+  ViewOffSlashIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
+import ExampleConversationModal from '@/app/(app)/persona/configure/components/ExampleConversationModal'
+import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TABS = ['Instructions', 'Profile', 'Knowledge base', 'Connectors', 'Sharing'] as const
+const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
 // Tabs with muted colour (not yet configured / lower priority)
-const MUTED_TABS = new Set<Tab>(['Knowledge base', 'Connectors', 'Sharing'])
+const MUTED_TABS = new Set<Tab>(['Knowledge', 'Sharing'])
+
+const TAB_ROUTES: Partial<Record<Tab, string>> = {
+  Profile:    '/persona/configure/profile',
+  Knowledge:  '/persona/configure/knowledge',
+  Connectors: '/persona/configure/connectors',
+  Sharing:    '/persona/configure/sharing',
+}
 
 function getTemperatureLabel(v: number): string {
   if (v <= 0.12) return 'Very Precise'
@@ -71,7 +83,7 @@ function FloatingMenu({
         }}
       />
 
-      {/* Icon 1 — toggles test chat panel */}
+      {/* Icon 1 — test persona chat */}
       <button
         onClick={onToggleTestChat}
         title={testChatOpen ? 'Close test chat' : 'Open test chat'}
@@ -104,10 +116,10 @@ function FloatingMenu({
             }}
           />
         )}
-        <AtomOneIcon size={20} color="var(--neutral-700)" />
+        <UserAiIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 2 */}
+      {/* Icon 2 — AI idea */}
       <button
         style={{
           display: 'flex',
@@ -120,10 +132,10 @@ function FloatingMenu({
           backgroundColor: 'transparent',
         }}
       >
-        <MoreVerticalIcon size={20} color="var(--neutral-700)" />
+        <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 3 — dimmed */}
+      {/* Icon 3 — save versions */}
       <button
         style={{
           display: 'flex',
@@ -137,7 +149,7 @@ function FloatingMenu({
           opacity: 0.7,
         }}
       >
-        <StarIcon size={20} color="var(--neutral-700)" />
+        <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
       </button>
     </div>
   )
@@ -145,16 +157,51 @@ function FloatingMenu({
 
 // ── Main page content ─────────────────────────────────────────────────────────
 
+// Session-storage key for tracking if a persona has been published
+function publishedKey(name: string) {
+  return `persona_published_${name.trim().toLowerCase()}`
+}
+
 function PersonaConfigureInstructionsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const personaName = searchParams.get('name') ?? ''
-  const [activeTab, setActiveTab] = useState<Tab>('Instructions')
   const [instruction, setInstruction] = useState('')
   const [temperature, setTemperature] = useState(0)
   const [testChatOpen, setTestChatOpen] = useState(false)
+  const [exampleConvOpen, setExampleConvOpen] = useState(false)
+  const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
+  const [republishModalOpen, setRepublishModalOpen] = useState(false)
+
+  // Tracks whether this persona has already been published in this browser session
+  const hasPublishedRef = useRef(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && personaName) {
+      hasPublishedRef.current = sessionStorage.getItem(publishedKey(personaName)) === '1'
+    }
+  }, [personaName])
 
   const hasContent = instruction.trim().length > 0
+
+  function handlePublish() {
+    if (hasPublishedRef.current) {
+      setRepublishModalOpen(true)
+    } else {
+      if (typeof window !== 'undefined' && personaName) {
+        sessionStorage.setItem(publishedKey(personaName), '1')
+      }
+      hasPublishedRef.current = true
+      router.push(`/personas/published?name=${encodeURIComponent(personaName)}`)
+    }
+  }
+
+  const handleAddConversation = (userSays: string, personaReplies: string) => {
+    setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
+  }
+
+  const handleRemoveConversation = (id: string) => {
+    setExampleConversations(prev => prev.filter(c => c.id !== id))
+  }
 
   return (
     <div
@@ -176,7 +223,7 @@ function PersonaConfigureInstructionsContent() {
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          overflow: 'hidden',
+          position: 'relative',
           paddingBottom: 12,
           paddingTop: 10,
           paddingLeft: 12,
@@ -223,11 +270,14 @@ function PersonaConfigureInstructionsContent() {
               />
               <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }}>
                 {TABS.map(tab => {
-                  const isActive = activeTab === tab
+                  const isActive = tab === 'Instructions'
                   return (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => {
+                        const route = TAB_ROUTES[tab]
+                        if (route) router.push(`${route}?${searchParams.toString()}`)
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -302,6 +352,7 @@ function PersonaConfigureInstructionsContent() {
                 size="sm"
                 disabled={!hasContent}
                 rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={handlePublish}
               >
                 Publish
               </Button>
@@ -573,65 +624,210 @@ function PersonaConfigureInstructionsContent() {
             </div>
 
             {/* ── Example conversations ──────────────────────────────────────── */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 12,
-                height: 56,
-                border: '1px dashed var(--neutral-300)',
-                borderRadius: 16,
-                backgroundColor: 'var(--neutral-50)',
-                boxShadow:
-                  '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                flexShrink: 0,
-              }}
-            >
-              <span
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+              {/* Section header row */}
+              <div
                 style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: '#0a0a0a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 12,
+                  height: 56,
+                  border: '1px dashed var(--neutral-300)',
+                  borderRadius: 16,
+                  backgroundColor: 'var(--neutral-50)',
+                  boxShadow:
+                    '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                 }}
               >
-                Example conversations (optional)
-              </span>
-              <IconButton
-                variant="outline"
-                size="sm"
-                icon={<PlusSignIcon size={20} />}
-                aria-label="Add example conversation"
-              />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 14,
+                      lineHeight: '22px',
+                      color: '#0a0a0a',
+                    }}
+                  >
+                    Example conversations (optional)
+                  </span>
+                  {exampleConversations.length > 0 && (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 11,
+                        lineHeight: '16px',
+                        color: 'var(--neutral-700)',
+                        backgroundColor: 'var(--neutral-100)',
+                        border: '1px solid rgba(106,98,93,0.3)',
+                        borderRadius: 6,
+                        padding: '1px 6px',
+                      }}
+                    >
+                      {exampleConversations.length}
+                    </span>
+                  )}
+                </div>
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  icon={<PlusSignIcon size={20} />}
+                  aria-label="Add example conversation"
+                  onClick={() => setExampleConvOpen(true)}
+                />
+              </div>
+
+              {/* Added conversations list */}
+              {exampleConversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: 'var(--neutral-white)',
+                    border: '1px solid var(--neutral-200)',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Remove button */}
+                  <button
+                    onClick={() => handleRemoveConversation(conv.id)}
+                    aria-label="Remove conversation"
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 3,
+                      borderRadius: 6,
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <CancelOneIcon size={14} color="var(--neutral-500)" />
+                  </button>
+                  {conv.userSays && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 500,
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          color: '#ee3030',
+                        }}
+                      >
+                        User says
+                      </span>
+                      <p
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 400,
+                          fontSize: 13,
+                          lineHeight: '20px',
+                          color: 'var(--neutral-700)',
+                          margin: 0,
+                        }}
+                      >
+                        {conv.userSays}
+                      </p>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 11,
+                        lineHeight: '16px',
+                        color: 'var(--neutral-600)',
+                      }}
+                    >
+                      Persona replies
+                    </span>
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 400,
+                        fontSize: 13,
+                        lineHeight: '20px',
+                        color: 'var(--neutral-700)',
+                        margin: 0,
+                        paddingRight: 24,
+                      }}
+                    >
+                      {conv.personaReplies}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Bottom breathing room */}
             <div style={{ height: 24, flexShrink: 0 }} />
           </div>
         </div>
+
+        {/* ── Floating vertical menu (pinboard-style: always anchored to right of configure panel) */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 16,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 10,
+          }}
+        >
+          <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
+        </div>
       </div>
+
+      {/* ── Example conversation modal ────────────────────────────────────── */}
+      <ExampleConversationModal
+        open={exampleConvOpen}
+        onClose={() => setExampleConvOpen(false)}
+        onAdd={handleAddConversation}
+      />
+
+      {/* ── Republish modal ───────────────────────────────────────────────── */}
+      {republishModalOpen && (
+        <RepublishModal
+          personaName={personaName || 'Persona'}
+          superLinkActive={false}
+          onClose={() => setRepublishModalOpen(false)}
+          onDone={() => {
+            setRepublishModalOpen(false)
+            router.push('/personas')
+          }}
+        />
+      )}
 
       {/* ── Test chat panel (slides in from right) ─────────────────────────── */}
       <AnimatePresence>
         {testChatOpen && (
           <motion.div
             key="test-chat"
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 40 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 34, mass: 0.9 }}
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 448, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
             style={{
-              flex: '1 0 0',
-              minWidth: 0,
+              flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
               height: '100%',
               backgroundColor: 'var(--neutral-white)',
               border: '1px solid var(--neutral-200)',
-              borderRadius: 22,
+              borderRadius: 16,
               padding: 12,
               overflow: 'hidden',
             }}
@@ -676,6 +872,7 @@ function PersonaConfigureInstructionsContent() {
                   <Button
                     variant="outline"
                     size="sm"
+                    leftIcon={<ViewOffSlashIcon size={16} />}
                     rightIcon={<ArrowDownOneIcon size={16} />}
                   >
                     Mock connector
@@ -734,32 +931,6 @@ function PersonaConfigureInstructionsContent() {
         )}
       </AnimatePresence>
 
-      {/* ── Floating vertical menu ────────────────────────────────────────────
-           When chat is closed: absolutely positioned on right edge.
-           When chat is open: inline between the two panels.            ── */}
-      {testChatOpen ? (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
-        </div>
-      ) : (
-        <div
-          style={{
-            position: 'absolute',
-            right: 22,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-          }}
-        >
-          <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
-        </div>
-      )}
     </div>
   )
 }

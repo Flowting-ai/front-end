@@ -65,7 +65,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
           padding:       '12px 12px 16px',
           borderRadius:  '16px',
           background:    'var(--neutral-50)',
-          border:        '1px dashed var(--neutral-300)',
+          border:        '1px solid var(--neutral-100)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',
           minHeight:     '400px',
@@ -75,20 +75,34 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-regular)',
-              fontSize:   '16px',
-              lineHeight: 'var(--line-height-body)',
-              color:      '#000',
-              margin:     0,
-            }}
-          >
-            {isEmpty
-              ? 'Files'
-              : `${fileCount} ${fileCount === 1 ? 'File' : 'Files'}${urlCount > 0 ? ` / ${urlCount} ${urlCount === 1 ? 'Url' : 'Urls'}` : ''}`}
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   '16px',
+                lineHeight: '22px',
+                color:      '#000',
+                margin:     0,
+                flexShrink: 0,
+              }}
+            >
+              Files
+            </p>
+            {!isEmpty && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  fontSize:   '11px',
+                  lineHeight: '16px',
+                  color:      'var(--neutral-700)',
+                }}
+              >
+                {fileCount} {fileCount === 1 ? 'File' : 'Files'}{urlCount > 0 ? ` / ${urlCount} ${urlCount === 1 ? 'Url' : 'Urls'}` : ''}
+              </span>
+            )}
+          </div>
           <IconButton
             variant="ghost"
             size="xs"
@@ -110,11 +124,23 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
           <>
             {/* Capacity bar */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
+              <p
+                style={{
+                  fontFamily:  'var(--font-body)',
+                  fontWeight:  'var(--font-weight-regular)',
+                  fontSize:    '11px',
+                  lineHeight:  '16px',
+                  color:       '#857a72',
+                  margin:      0,
+                }}
+              >
+                {usedMB} MB of {totalMB} MB used
+              </p>
               <div
                 style={{
                   height:       '4px',
                   borderRadius: '2px',
-                  background:   'var(--neutral-200)',
+                  background:   'var(--neutral-white)',
                   overflow:     'hidden',
                 }}
               >
@@ -128,25 +154,13 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
                   }}
                 />
               </div>
-              <p
-                style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-regular)',
-                  fontSize:    '11px',
-                  lineHeight:  '16px',
-                  color:       '#857a72',
-                  margin:      0,
-                }}
-              >
-                {usedMB} MB of {totalMB} MB used
-              </p>
             </div>
 
             {/* File grid */}
             <div
               style={{
                 display:               'grid',
-                gridTemplateColumns:   'repeat(2, 1fr)',
+                gridTemplateColumns:   '1fr',
                 gap:                   '8px',
                 overflowY:             'auto',
                 flex:                  '1 1 0',
