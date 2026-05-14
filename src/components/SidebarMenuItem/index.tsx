@@ -478,6 +478,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
             <input
               ref={inputRef}
               type="text"
+              autoFocus
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {

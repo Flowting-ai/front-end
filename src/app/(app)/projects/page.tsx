@@ -36,7 +36,7 @@ function formatUpdated(iso: string) {
 
 export default function ProjectsPage() {
   const router                                    = useRouter()
-  const { projects, updateProject, deleteProject } = useProjects()
+  const { projects, loading, updateProject, deleteProject } = useProjects()
   const [query,      setQuery]                    = useState('')
   const [sort,       setSort]                     = useState<SortKey>('recent')
   const [sortOpen,   setSortOpen]                 = useState(false)
@@ -88,7 +88,7 @@ export default function ProjectsPage() {
                 Projects
               </h1>
               <div style={{ alignSelf: 'flex-start' }}>
-                <Badge label={`${projects.length} Projects`} color="Neutral" />
+                <Badge label={`${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
               </div>
             </div>
 
@@ -162,7 +162,26 @@ export default function ProjectsPage() {
         </div>
 
         {/* Project grid */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div
+            style={{
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              padding:        '64px 24px',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   '14px',
+                color:      '#857a72',
+              }}
+            >
+              Loading projects…
+            </p>
+          </div>
+        ) : filtered.length === 0 ? (
           query.trim() ? (
             <p
               style={{

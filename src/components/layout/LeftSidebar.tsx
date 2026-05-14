@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
 import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { ChatHistoryItem } from "./ChatHistoryItem";
+import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
+import type { ProjectChat } from "@/context/projects-context";
 
 // ── Collapse state persistence ────────────────────────────────────────────────
 
@@ -186,14 +189,150 @@ function RecentsSection(props: SectionProps) {
   );
 }
 
+// ── Shared dropdown item styles ────────────────────────────────────────────────
+
+const menuItemStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  padding: "7px 10px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontFamily: "var(--font-body)",
+  fontWeight: "var(--font-weight-medium)",
+  fontSize: "var(--font-size-body)",
+  lineHeight: "var(--line-height-body)",
+  color: "var(--neutral-700)",
+  outline: "none",
+  userSelect: "none",
+}
+
+const menuItemDestructiveStyle: React.CSSProperties = {
+  ...menuItemStyle,
+  color: "var(--red-500)",
+}
+
+// ── ProjectChatItem — sidebar project chat row with rename/delete menu ─────────
+
+interface ProjectChatItemProps {
+  chat:     ProjectChat
+  isActive: boolean
+  onSelect: () => void
+  onRename: (chatId: string, title: string) => Promise<void>
+  onDelete: (chatId: string) => void
+}
+
+function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: ProjectChatItemProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [menuOpen,  setMenuOpen]  = useState(false)
+  const triggerRef       = useRef<HTMLButtonElement>(null)
+  const pendingRenameRef = useRef(false)
+
+  const handleCommit = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== chat.title) void onRename(chat.id, trimmed)
+    setIsEditing(false)
+  }
+
+  const handleMoreClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    e.stopPropagation()
+    setMenuOpen(true)
+  }
+
+  const handleDelete = () => {
+    openDeleteChatDialog({
+      chatId:    chat.id,
+      chatTitle: chat.title,
+      onConfirm: async () => onDelete(chat.id),
+    })
+  }
+
+  return (
+    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+      <div style={{ position: "relative", width: "100%" }}>
+        <SidebarMenuItem
+          fluid
+          variant={isEditing ? "chat-item-edit" : "chat-item"}
+          label={chat.title}
+          selected={isActive}
+          onClick={() => { if (!isEditing) onSelect() }}
+          onMoreClick={handleMoreClick}
+          onRename={() => setIsEditing(true)}
+          onCommit={handleCommit}
+          onCancel={() => setIsEditing(false)}
+        />
+        <DropdownMenu.Trigger
+          ref={triggerRef}
+          style={{
+            position: "absolute",
+            right: "8px",
+            top: "50%",
+            width: 1,
+            height: 1,
+            opacity: 0,
+            pointerEvents: "none",
+            border: "none",
+            background: "none",
+            padding: 0,
+          }}
+        />
+      </div>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          side="bottom"
+          align="end"
+          sideOffset={4}
+          onCloseAutoFocus={(e) => {
+            if (pendingRenameRef.current) {
+              e.preventDefault()
+              pendingRenameRef.current = false
+            }
+          }}
+          style={{
+            backgroundColor: "var(--neutral-white)",
+            borderRadius: "12px",
+            padding: "4px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
+            zIndex: 200,
+            minWidth: "168px",
+            outline: "none",
+          }}
+        >
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => { pendingRenameRef.current = true; setIsEditing(true) }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--neutral-50)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
+          >
+            Rename
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator style={{ height: "1px", backgroundColor: "var(--neutral-100)", margin: "4px 0" }} />
+
+          <DropdownMenu.Item
+            style={menuItemDestructiveStyle}
+            onSelect={handleDelete}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--red-50, #fff5f5)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
+          >
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+
 // ── Projects section — reads from ProjectsContext ──────────────────────────────
 
 const PROJECT_LIMIT = 5
 
 function ProjectsSection() {
-  const router   = useRouter()
-  const pathname = usePathname()
-  const { projects, getChats } = useProjects()
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const chatHistory = useChatHistoryContext()
+  const { projects, getChats, removeChat, renameChat } = useProjects()
 
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
@@ -277,13 +416,16 @@ function ProjectsSection() {
                 {chats.length > 0 && [
                   <SidebarMenuItem key="__header" fluid variant="header" label="Recent" />,
                   ...chats.slice(0, 5).map(chat => (
-                    <SidebarMenuItem
+                    <ProjectChatItem
                       key={chat.id}
-                      fluid
-                      variant="chat-item"
-                      label={chat.title}
-                      selected={pathname === `/project/${project.id}/chat/${chat.id}`}
-                      onClick={() => router.push(`/project/${project.id}/chat/${chat.id}`)}
+                      chat={chat}
+                      isActive={pathname === `/project/${project.id}/chat/${chat.id}`}
+                      onSelect={() => router.push(`/project/${project.id}/chat/${chat.id}`)}
+                      onRename={async (chatId, title) => {
+                        renameChat(project.id, chatId, title)
+                        await chatHistory.rename(chatId, title)
+                      }}
+                      onDelete={(chatId) => removeChat(project.id, chatId)}
                     />
                   )),
                 ]}
@@ -323,7 +465,19 @@ export function LeftSidebar({
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const chatHistory = useChatHistoryContext();
+  const { chats: projectChats } = useProjects();
   const collapsedRef = useRef<boolean>(readCollapsed());
+
+  // Exclude project chats from the Recents/Starred lists — they are already
+  // shown inside the Projects section and would be confusing duplicates.
+  const projectChatIdSet = useMemo(
+    () => new Set(projectChats.map(c => c.id)),
+    [projectChats],
+  );
+  const filteredChatHistory = useMemo(
+    () => ({ ...chatHistory, chats: chatHistory.chats.filter(c => !projectChatIdSet.has(c.id)) }),
+    [chatHistory, projectChatIdSet],
+  );
 
   const resolvedActiveChatId = activeChatId ?? searchParams.get("id") ?? undefined;
 
@@ -357,7 +511,7 @@ export function LeftSidebar({
   const sectionProps: SectionProps = {
     activeChatId: resolvedActiveChatId,
     onSelectChat: handleSelectChat,
-    chatHistory,
+    chatHistory: filteredChatHistory,
   };
 
   return (

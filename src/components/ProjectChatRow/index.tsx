@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MoreVerticalIcon, PinIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
@@ -8,14 +8,14 @@ import { Dropdown } from '@/components/Dropdown'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectChatRowProps {
-  title:        string
-  timestamp:    string
-  pinCount:     number
-  active?:      boolean
-  onChatClick?: () => void
-  onPinsClick?: (e: React.MouseEvent) => void
-  onRename?:    () => void
-  onDelete?:    () => void
+  title:            string
+  timestamp:        string
+  pinCount:         number
+  active?:          boolean
+  onChatClick?:     () => void
+  onPinsClick?:     (e: React.MouseEvent) => void
+  onRename?:        (newTitle: string) => void
+  onDelete?:        () => void
 }
 
 // ── Empty-state row ────────────────────────────────────────────────────────────
@@ -60,12 +60,37 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
     { title, timestamp, pinCount, active, onChatClick, onPinsClick, onRename, onDelete },
     ref,
   ) {
-    const [hovered,  setHovered]  = useState(false)
-    const [menuOpen, setMenuOpen] = useState(false)
+    const [hovered,   setHovered]   = useState(false)
+    const [menuOpen,  setMenuOpen]  = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
+    const [editValue, setEditValue] = useState(title)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    // Sync edit value when title changes externally
+    useEffect(() => { setEditValue(title) }, [title])
+
+    // Focus the input when editing starts
+    useEffect(() => {
+      if (isEditing) {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }, [isEditing])
+
+    const commitRename = () => {
+      const trimmed = editValue.trim()
+      if (trimmed && trimmed !== title) onRename?.(trimmed)
+      setIsEditing(false)
+    }
+
+    const cancelRename = () => {
+      setEditValue(title)
+      setIsEditing(false)
+    }
 
     // ⋮ menu only visible on hover/menu-open
     const showMoreMenu = hovered || menuOpen
-    // Pins button gets warm styling on hover, menu-open, or active
+    // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
     const backgroundColor = (hovered || menuOpen) ? 'var(--neutral-100)' : 'transparent'
@@ -88,8 +113,8 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
         ref={ref}
         role="button"
         tabIndex={0}
-        onClick={onChatClick}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onChatClick?.() }}
+        onClick={() => { if (!isEditing) onChatClick?.() }}
+        onKeyDown={(e) => { if (!isEditing && (e.key === 'Enter' || e.key === ' ')) onChatClick?.() }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -101,7 +126,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
           backgroundColor,
           boxShadow,
           outline,
-          cursor:          'pointer',
+          cursor:          isEditing ? 'default' : 'pointer',
           transition:      'background-color 120ms ease, box-shadow 120ms ease',
           width:           '100%',
           boxSizing:       'border-box',
@@ -109,21 +134,49 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
       >
         {/* Left: title + timestamp */}
         <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <p
-            style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   'var(--font-weight-medium)',
-              fontSize:     '15px',
-              lineHeight:   '22px',
-              color:        '#1a1714',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-              margin:       0,
-            }}
-          >
-            {title}
-          </p>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter')  { e.preventDefault(); commitRename() }
+                if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+                e.stopPropagation()
+              }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                fontFamily:      'var(--font-body)',
+                fontWeight:      'var(--font-weight-medium)',
+                fontSize:        '15px',
+                lineHeight:      '22px',
+                color:           '#1a1714',
+                border:          'none',
+                outline:         'none',
+                background:      'transparent',
+                width:           '100%',
+                padding:         0,
+                margin:          0,
+              }}
+            />
+          ) : (
+            <p
+              style={{
+                fontFamily:   'var(--font-body)',
+                fontWeight:   'var(--font-weight-medium)',
+                fontSize:     '15px',
+                lineHeight:   '22px',
+                color:        '#1a1714',
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+                margin:       0,
+              }}
+            >
+              {title}
+            </p>
+          )}
           <p
             style={{
               fontFamily:   'var(--font-body)',
@@ -142,77 +195,139 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
         </div>
 
         {/* ⋮ menu — hover-revealed */}
-        <div
-          style={{
-            opacity:    showMoreMenu ? 1 : 0,
-            transition: 'opacity 120ms ease',
-            flexShrink: 0,
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Dropdown.Float
-            open={menuOpen}
-            onOpenChange={setMenuOpen}
-            placement="bottom-end"
-            trigger={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<MoreVerticalIcon triggered={showMoreMenu} />}
-                aria-label="Chat options"
-              />
-            }
+        {!isEditing && (
+          <div
+            style={{
+              display:    'flex',
+              alignItems: 'center',
+              opacity:    showMoreMenu ? 1 : 0,
+              transition: 'opacity 120ms ease',
+              flexShrink: 0,
+            }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Dropdown size="sm">
-              <Dropdown.Section>
-                <Dropdown.Item label="Rename" onClick={onRename} fluid />
-                <Dropdown.Item label="Delete" variant="danger" onClick={onDelete} fluid />
-              </Dropdown.Section>
-            </Dropdown>
-          </Dropdown.Float>
-        </div>
+            <Dropdown.Float
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              placement="bottom-end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<MoreVerticalIcon triggered={showMoreMenu} />}
+                  aria-label="Chat options"
+                />
+              }
+            >
+              <Dropdown size="sm">
+                <Dropdown.Section fluid>
+                  <Dropdown.Item
+                    label="Rename"
+                    onClick={() => { setMenuOpen(false); setIsEditing(true) }}
+                    fluid
+                  />
+                  <Dropdown.Item
+                    label="Delete"
+                    variant="danger"
+                    onClick={() => { setMenuOpen(false); onDelete?.() }}
+                    fluid
+                  />
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
+          </div>
+        )}
 
-        {/* Pins badge — always visible, styled on hover/active */}
+        {/* Pin count badge */}
         <button
           onClick={(e) => {
             e.stopPropagation()
             if (pinCount > 0) onPinsClick?.(e)
           }}
           disabled={pinCount === 0}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            gap:             '4px',
-            padding:         '5px 8px',
-            borderRadius:    '8px',
-            border:          'none',
-            backgroundColor: showPinAction
-              ? 'rgba(237,225,215,0.6)'
-              : 'transparent',
-            boxShadow: showPinAction
-              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4), inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
-              : '0px 0px 0px 1px rgba(59,54,50,0.2)',
-            cursor:     pinCount > 0 ? 'pointer' : 'default',
-            flexShrink: 0,
-            transition: 'background-color 120ms ease, box-shadow 120ms ease',
-          }}
           aria-label={pinCount > 0 ? `${pinCount} pins` : 'No pins'}
+          style={{
+            position:       'relative',
+            display:        'inline-flex',
+            alignItems:     'center',
+            justifyContent: 'center',
+            gap:            '4px',
+            border:         'none',
+            background:     'transparent',
+            padding:        '6px 8px',
+            flexShrink:     0,
+            borderRadius:   '8px',
+            cursor:         pinCount > 0 ? 'pointer' : 'default',
+            width:          pinCount === 0 ? '78px' : undefined,
+            overflow:       'hidden',
+            boxShadow:      (showPinAction && pinCount > 0)
+              ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+              : '0px 0px 0px 1px rgba(59,54,50,0.3)',
+            transition:     'box-shadow 120ms ease',
+          }}
         >
-          {pinCount > 0 && (
-            <PinIcon style={{ width: 14, height: 14, color: 'var(--neutral-700)', flexShrink: 0 }} />
+          {/* Warm fill on hover/active when there are pins */}
+          {pinCount > 0 && showPinAction && (
+            <div
+              aria-hidden
+              style={{
+                position:      'absolute',
+                inset:         0,
+                background:    'rgba(237,225,215,0.6)',
+                pointerEvents: 'none',
+                borderRadius:  '8px',
+              }}
+            />
           )}
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-medium)',
-              fontSize:   '13px',
-              lineHeight: '20px',
-              color:      'var(--neutral-700)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {pinCount > 0 ? `${pinCount} pins` : 'No pins'}
-          </span>
+
+          {pinCount > 0 ? (
+            <>
+              <PinIcon
+                animated
+                style={{ width: 16, height: 16, color: '#857a72', flexShrink: 0, position: 'relative' }}
+              />
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  fontSize:   '13px',
+                  lineHeight: '20px',
+                  color:      '#524b47',
+                  whiteSpace: 'nowrap',
+                  position:   'relative',
+                }}
+              >
+                {pinCount} pins
+              </span>
+            </>
+          ) : (
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-medium)',
+                fontSize:   '13px',
+                lineHeight: '20px',
+                color:      '#857a72',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              No pins
+            </span>
+          )}
+
+          {/* Inset highlight on hover/active when there are pins */}
+          {pinCount > 0 && showPinAction && (
+            <div
+              aria-hidden
+              style={{
+                position:      'absolute',
+                inset:         0,
+                pointerEvents: 'none',
+                borderRadius:  '8px',
+                boxShadow:     'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+              }}
+            />
+          )}
         </button>
       </div>
     )

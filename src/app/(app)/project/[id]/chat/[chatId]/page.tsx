@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
@@ -310,19 +310,36 @@ function DefaultModelMenu() {
 
 export default function ProjectChatPage() {
   const params       = useParams<{ id: string; chatId: string }>()
+  const router       = useRouter()
   const searchParams = useSearchParams()
   const qParam       = searchParams.get('q')
 
-  const { getProject, getChats }   = useProjects()
+  const { getProject, getChats, addChat, loadProjectChats } = useProjects()
   const { addOptimistic }          = useChatHistoryContext()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
+  const isNewChat = params.chatId === 'new'
+
   const project = getProject(params.id)
   const chats   = getChats(params.id)
-  const chat    = chats.find(c => c.id === params.chatId)
+  const chat    = isNewChat ? undefined : chats.find(c => c.id === params.chatId)
+
+  useEffect(() => { loadProjectChats(params.id) }, [params.id, loadProjectChats])
 
   const [hasMessages,        setHasMessages]        = useState(!!qParam)
   const [initialPrompt,      setInitialPrompt]      = useState<string | null>(qParam)
+
+  // useSearchParams() returns empty on the server, so qParam is null during SSR
+  // and useState is initialized with null. This effect syncs the real value on
+  // the client so the chat page immediately starts generating without re-entering text.
+  useEffect(() => {
+    if (qParam && isNewChat && !hasMessages) {
+      setInitialPrompt(qParam)
+      setHasMessages(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qParam])
+
   const [newChatInput,       setNewChatInput]       = useState('')
   const [selectedMode,       setSelectedMode]       = useState<ChatMode | null>(null)
   const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
@@ -524,7 +541,7 @@ export default function ProjectChatPage() {
 
   // ── Guard ─────────────────────────────────────────────────────────────────
 
-  if (!project || !chat) {
+  if (!project || (!isNewChat && !chat)) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Chat not found.</p>
@@ -532,7 +549,10 @@ export default function ProjectChatPage() {
     )
   }
 
-  const isNewChat = !hasMessages && !initialPrompt
+  // Show the new-chat UI only when we are on the /chat/new route AND
+  // neither a manual send nor a URL prompt has been provided yet.
+  // Existing chats (real chatId) always skip straight to ChatInterface.
+  const isNewChatState = isNewChat && !hasMessages && !initialPrompt
 
   return (
     <div
@@ -557,7 +577,7 @@ export default function ProjectChatPage() {
       />
 
       <AnimatePresence mode="sync" initial={false}>
-        {isNewChat ? (
+        {isNewChatState ? (
           <motion.div
             key="new-chat"
             exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
@@ -702,8 +722,11 @@ export default function ProjectChatPage() {
             style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}
           >
             <ChatInterface
-              chatId={params.chatId}
-              onChatCreated={() => {}}
+              chatId={isNewChat ? undefined : params.chatId}
+              onChatCreated={(newChatId) => {
+                addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
+                router.replace(`/project/${params.id}/chat/${newChatId}`)
+              }}
               onTitleUpdate={() => {}}
               onChatMoveToTop={() => {}}
               selectedModel={modelButtonLabel}

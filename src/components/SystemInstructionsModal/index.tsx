@@ -187,7 +187,7 @@ export function SystemInstructionsModal({
                   margin:      0,
                 }}
               >
-                Tell Claude how to think and respond across every chat in this project. Instructions apply automatically to all conversations.
+                Set context for every chat in this project.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 0', minHeight: 0 }}>

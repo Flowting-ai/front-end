@@ -97,6 +97,13 @@ export const PIN_TAGS_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/tag
 export const PIN_COMMENT_ENDPOINT = (pinId: string) => withBase(`/pins/${pinId}/comments`)
 export const PIN_COMMENT_CRUD_ENDPOINT = (pinId: string, commentId: string) => withBase(`/pins/${pinId}/comments/${commentId}`);
 
+// ── Projects ──────────────────────────────────────────────────────────────────
+export const PROJECTS_ENDPOINT = withBase('/projects')
+export const PROJECT_DETAIL_ENDPOINT = (projectId: string) => withBase(`/projects/${projectId}`)
+export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/projects/${projectId}/chats`)
+export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
+  withBase(`/projects/${projectId}/chats/${chatId}`)
+
 // ── Workflows ─────────────────────────────────────────────────────────────────
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");
 export const WORKFLOW_DETAIL_ENDPOINT = (workflowId: string) =>

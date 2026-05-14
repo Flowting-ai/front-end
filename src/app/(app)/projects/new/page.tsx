@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
@@ -17,8 +18,13 @@ export default function NewProjectPage() {
   async function handleCreate() {
     if (!name.trim()) return
     setLoading(true)
-    const project = createProject(name.trim(), description.trim())
-    router.push(`/project/${project.id}`)
+    try {
+      const project = await createProject(name.trim(), description.trim())
+      router.push(`/project/${project.id}`)
+    } catch (err) {
+      toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
+      setLoading(false)
+    }
   }
 
   return (
