@@ -82,7 +82,7 @@ function AnimatedLogo({
 }) {
   const llmId = getModelLlmId(modelMeta?.company, modelMeta?.modelName || modelName);
   const hasModel = !!(modelMeta?.modelName || modelName);
-  const showModel = hasModel && !isThinkingInProgress;
+  const showModel = hasModel;
 
   const iconWrap: React.CSSProperties = {
     width: 16, height: 16, borderRadius: 4, overflow: "hidden",

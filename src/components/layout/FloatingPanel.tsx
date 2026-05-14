@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { PinIcon, AtomOneIcon, QuillWriteOneIcon } from '@strange-huge/icons'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -10,10 +11,23 @@ import { usePinboard } from '@/context/pinboard-context'
 import { useHighlight } from '@/context/highlight-context'
 import { useCompare } from '@/context/compare-context'
 
+// Derives the active chat ID from the URL so the gutter can be filtered
+// per-chat. Handles both URL patterns used in the app:
+//   • Regular chat : /chat?id={chatId}
+//   • Project chat : /project/[projectId]/chat/[chatId]
+function useCurrentChatId(): string | undefined {
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+  const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
+  if (m) return m[1]
+  return searchParams.get('id') ?? undefined
+}
+
 export function FloatingPanel() {
   const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
+  const currentChatId = useCurrentChatId()
 
   const handleTogglePinboard = () => {
     if (!pinboardOpen) closeHighlight()
@@ -28,20 +42,37 @@ export function FloatingPanel() {
   const handleJump = (id: string) => {
     const h = highlights.find(h => h.id === id)
     if (!h?.messageId) return
-    const el = document.querySelector(`[data-message-id="${h.messageId}"]`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    const msgEl = document.querySelector(`[data-message-id="${h.messageId}"]`)
+    if (!msgEl) return
+
+    // Prefer the precise inline mark; fall back to text-content match; last
+    // resort is the message container itself.
+    const target =
+      msgEl.querySelector(`[data-highlight-id="${id}"]`) ??
+      Array.from(msgEl.querySelectorAll('mark')).find(
+        m => m.textContent?.trim() === h.text.trim(),
+      ) ??
+      msgEl
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  const gutterMarks: GutterMark[] = highlights.map((h, i) => ({
-    id: h.id,
-    colorIndex: (i % 4) as 0 | 1 | 2 | 3,
-  }))
+  // Only show marks for the current chat. Highlights whose chatId is not yet
+  // known (loaded from backend before chat_id is returned) are shown as a safe
+  // fallback until the backend provides chat_id in the response.
+  const gutterMarks: GutterMark[] = highlights
+    .filter(h => !currentChatId || !h.chatId || h.chatId === currentChatId)
+    .map(h => ({
+      id:         h.id,
+      colorIndex: h.colorIndex,
+    }))
 
   return (
     <>
       {/* Gutter — right edge of chat, between TopBar and FloatingMenu */}
       <AnimatePresence>
-        {highlightOpen && gutterMarks.length > 0 && (
+        {gutterMarks.length > 0 && (
           <motion.div
             key="chat-gutter"
             initial={{ opacity: 0 }}

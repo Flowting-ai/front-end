@@ -5,7 +5,7 @@ import { HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import type { HighlightColorIndex } from '@/components/HighlightCard'
 import { cn } from '@/lib/utils'
 
-export interface HighlightMarkProps {
+export interface HighlightMarkProps extends Omit<React.HTMLAttributes<HTMLElement>, 'color'> {
   /** Which highlight color to use — matches the colorIndex on HighlightCard / JumpTimestampGutter. */
   colorIndex: HighlightColorIndex
   children:   React.ReactNode
@@ -17,11 +17,12 @@ export interface HighlightMarkProps {
  * Renders as a semantic <mark> element so screen readers announce it correctly.
  * box-decoration-break: clone ensures each wrapped line gets its own background capsule.
  */
-export function HighlightMark({ colorIndex, children, className }: HighlightMarkProps) {
+export function HighlightMark({ colorIndex, children, className, ...rest }: HighlightMarkProps) {
   const { bg } = HIGHLIGHT_COLORS[colorIndex]
 
   return (
     <mark
+      {...rest}
       className={cn(className)}
       style={{
         backgroundColor:           bg,

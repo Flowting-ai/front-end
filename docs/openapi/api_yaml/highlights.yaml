@@ -1,0 +1,159 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Highlights
+  version: 0.1.0
+paths:
+  /highlights:
+    patch:
+      tags:
+      - highlights
+      summary: Create New Highlight
+      operationId: create_new_highlight_highlights_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HighlightResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /highlights/{highlight_id}:
+    patch:
+      tags:
+      - highlights
+      summary: Remove Highlight
+      operationId: remove_highlight_highlights__highlight_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: highlight_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Highlight Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HighlightCreate:
+      properties:
+        message_id:
+          type: string
+          format: uuid
+          title: Message Id
+        selected_text:
+          type: string
+          minLength: 1
+          title: Selected Text
+        start_offset:
+          type: integer
+          minimum: 0.0
+          title: Start Offset
+        end_offset:
+          type: integer
+          minimum: 0.0
+          title: End Offset
+      type: object
+      required:
+      - message_id
+      - selected_text
+      - start_offset
+      - end_offset
+      title: HighlightCreate
+    HighlightResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        message_id:
+          type: string
+          format: uuid
+          title: Message Id
+        selected_text:
+          type: string
+          title: Selected Text
+        start_offset:
+          type: integer
+          title: Start Offset
+        end_offset:
+          type: integer
+          title: End Offset
+        color_index:
+          type: integer
+          title: Color Index
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - message_id
+      - selected_text
+      - start_offset
+      - end_offset
+      - color_index
+      - created_at
+      title: HighlightResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

@@ -2,16 +2,20 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { createHighlight, removeHighlight } from '@/lib/api/highlights'
+import { createHighlight, removeHighlight, getHighlights } from '@/lib/api/highlights'
+import type { HighlightResponse } from '@/lib/api/highlights'
 import { ApiError } from '@/lib/api/client'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface HighlightEntry {
-  id:         string
-  text:       string
-  messageId?: string
-  chatId?:    string
+  id:          string
+  text:        string
+  colorIndex:  0 | 1 | 2 | 3
+  messageId:   string
+  startOffset: number
+  endOffset:   number
+  chatId?:     string
 }
 
 interface HighlightContextValue {
@@ -20,7 +24,7 @@ interface HighlightContextValue {
   open:            () => void
   close:           () => void
   toggle:          () => void
-  addHighlight:    (entry: Omit<HighlightEntry, 'id'>) => Promise<string>
+  addHighlight:    (entry: Omit<HighlightEntry, 'id' | 'colorIndex'>) => Promise<string>
   deleteHighlight: (id: string) => Promise<void>
   copyHighlight:   (id: string) => void
 }
@@ -28,6 +32,20 @@ interface HighlightContextValue {
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const HighlightContext = createContext<HighlightContextValue | null>(null)
+
+// ── Response → Entry mapper ────────────────────────────────────────────────────
+
+function responseToEntry(r: HighlightResponse): HighlightEntry {
+  return {
+    id:          r.id,
+    text:        r.selected_text,
+    colorIndex:  (r.color_index % 4) as 0 | 1 | 2 | 3,
+    messageId:   r.message_id,
+    startOffset: r.start_offset,
+    endOffset:   r.end_offset,
+    chatId:      r.chat_id,
+  }
+}
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +58,13 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const highlightsRef = useRef<HighlightEntry[]>([])
   useEffect(() => { highlightsRef.current = highlights }, [highlights])
 
+  // ── Load persisted highlights on mount ────────────────────────────────────
+  useEffect(() => {
+    getHighlights()
+      .then(data => setHighlights(data.map(responseToEntry)))
+      .catch(() => {/* silently ignore — user starts with empty list */})
+  }, [])
+
   const open   = useCallback(() => setIsOpen(true),        [])
   const close  = useCallback(() => setIsOpen(false),       [])
   const toggle = useCallback(() => setIsOpen(v => !v),     [])
@@ -49,21 +74,26 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
    * temporary client ID for the server UUID. Rolls back on failure.
    */
   const addHighlight = useCallback(async (
-    entry: Omit<HighlightEntry, 'id'>,
+    entry: Omit<HighlightEntry, 'id' | 'colorIndex'>,
   ): Promise<string> => {
-    const tempId = `hl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const tempId     = `hl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const colorIndex = (highlightsRef.current.length % 4) as 0 | 1 | 2 | 3
 
-    setHighlights(prev => [{ ...entry, id: tempId }, ...prev])
+    setHighlights(prev => [{ ...entry, id: tempId, colorIndex }, ...prev])
 
     try {
-      const { id: serverId } = await createHighlight({
+      const result = await createHighlight({
+        message_id:    entry.messageId,
         selected_text: entry.text,
+        start_offset:  entry.startOffset,
+        end_offset:    entry.endOffset,
+        color_index:   colorIndex,
       })
-      // Replace the temporary ID with the persisted server UUID.
+      // Replace temp ID and apply all server-assigned fields via the shared mapper.
       setHighlights(prev =>
-        prev.map(h => h.id === tempId ? { ...h, id: serverId } : h),
+        prev.map(h => h.id === tempId ? { ...responseToEntry(result), chatId: entry.chatId } : h),
       )
-      return serverId
+      return result.id
     } catch (err) {
       setHighlights(prev => prev.filter(h => h.id !== tempId))
       toast.error('Failed to save highlight', {

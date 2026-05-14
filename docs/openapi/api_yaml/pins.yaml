@@ -1,0 +1,567 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Pins
+  version: 0.1.0
+paths:
+  /pins:
+    get:
+      tags:
+      - pins
+      summary: Get All Pins
+      operationId: get_all_pins_pins_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PinListItem'
+                type: array
+                title: Response Get All Pins Pins Get
+      security:
+      - HTTPBearer: []
+  /pins/{pin_id}:
+    get:
+      tags:
+      - pins
+      summary: Get Pin By Id
+      operationId: get_pin_by_id_pins__pin_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PinResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - pins
+      summary: Remove Pin
+      operationId: remove_pin_pins__pin_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /pins/message/{message_id}:
+    post:
+      tags:
+      - pins
+      summary: Create New Pin
+      operationId: create_new_pin_pins_message__message_id__post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: message_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Message Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PinResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /pins/folders/all:
+    get:
+      tags:
+      - pins
+      summary: Get All Folders
+      operationId: get_all_folders_pins_folders_all_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/FolderResponse'
+                type: array
+                title: Response Get All Folders Pins Folders All Get
+      security:
+      - HTTPBearer: []
+  /pins/folders:
+    post:
+      tags:
+      - pins
+      summary: Create New Folder
+      operationId: create_new_folder_pins_folders_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolder'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /pins/{pin_id}/folder:
+    patch:
+      tags:
+      - pins
+      summary: Move Pin To Folder
+      operationId: move_pin_to_folder_pins__pin_id__folder_patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovePin'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PinResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /pins/{pin_id}/tags:
+    put:
+      tags:
+      - pins
+      summary: Replace Pin Tags
+      operationId: replace_pin_tags_pins__pin_id__tags_put
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceTags'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PinResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /pins/{pin_id}/comments:
+    post:
+      tags:
+      - pins
+      summary: Add Pin Comment
+      operationId: add_pin_comment_pins__pin_id__comments_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /pins/{pin_id}/comments/{comment_id}:
+    patch:
+      tags:
+      - pins
+      summary: Edit Pin Comment
+      operationId: edit_pin_comment_pins__pin_id__comments__comment_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      - name: comment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Comment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - pins
+      summary: Delete Pin Comment
+      operationId: delete_pin_comment_pins__pin_id__comments__comment_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: pin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Pin Id
+      - name: comment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Comment Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    CommentCreate:
+      properties:
+        comment_text:
+          type: string
+          minLength: 1
+          title: Comment Text
+      type: object
+      required:
+      - comment_text
+      title: CommentCreate
+    CommentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        comment_text:
+          type: string
+          title: Comment Text
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - comment_text
+      - created_at
+      - updated_at
+      title: CommentResponse
+    CommentUpdate:
+      properties:
+        comment_text:
+          type: string
+          minLength: 1
+          title: Comment Text
+      type: object
+      required:
+      - comment_text
+      title: CommentUpdate
+    CreateFolder:
+      properties:
+        folder_name:
+          type: string
+          maxLength: 255
+          title: Folder Name
+      type: object
+      required:
+      - folder_name
+      title: CreateFolder
+    FolderResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        folder_name:
+          type: string
+          title: Folder Name
+        pin_count:
+          type: integer
+          title: Pin Count
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - folder_name
+      - created_at
+      title: FolderResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    MovePin:
+      properties:
+        folder_id:
+          type: string
+          format: uuid
+          title: Folder Id
+      type: object
+      required:
+      - folder_id
+      title: MovePin
+    PinListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        pins_title:
+          type: string
+          title: Pins Title
+        message_id:
+          type: string
+          format: uuid
+          title: Message Id
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        folder_id:
+          type: string
+          format: uuid
+          title: Folder Id
+        content:
+          type: string
+          title: Content
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - pins_title
+      - message_id
+      - chat_id
+      - folder_id
+      - content
+      - created_at
+      title: PinListItem
+    PinResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        pins_title:
+          type: string
+          title: Pins Title
+        message_id:
+          type: string
+          format: uuid
+          title: Message Id
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        folder_id:
+          type: string
+          format: uuid
+          title: Folder Id
+        content:
+          type: string
+          title: Content
+        tags:
+          items:
+            $ref: '#/components/schemas/TagResponse'
+          type: array
+          title: Tags
+          default: []
+        comments:
+          items:
+            $ref: '#/components/schemas/CommentResponse'
+          type: array
+          title: Comments
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - pins_title
+      - message_id
+      - chat_id
+      - folder_id
+      - content
+      - created_at
+      title: PinResponse
+    ReplaceTags:
+      properties:
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+      type: object
+      title: ReplaceTags
+    TagResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        tag_name:
+          type: string
+          title: Tag Name
+      type: object
+      required:
+      - id
+      - tag_name
+      title: TagResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

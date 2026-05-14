@@ -19,6 +19,7 @@ export interface UseChatHistoryResult {
   refresh: () => void;
   create: (model?: string) => Promise<Chat | null>;
   rename: (chatId: string, title: string) => Promise<void>;
+  renameLocal: (chatId: string, title: string) => void;
   remove: (chatId: string) => Promise<void>;
   star: (chatId: string) => Promise<void>;
   addOptimistic: (chat: Chat) => void;
@@ -112,6 +113,12 @@ export function useChatHistory(): UseChatHistoryResult {
     setChats((prev) => [chat, ...prev.filter((c) => c.id !== chat.id)]);
   };
 
+  const renameLocal = (chatId: string, title: string) => {
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, title } : c)),
+    );
+  };
+
   return {
     chats,
     isLoading,
@@ -120,6 +127,7 @@ export function useChatHistory(): UseChatHistoryResult {
     refresh: () => loadChats(true),
     create: handleCreate,
     rename: handleRename,
+    renameLocal,
     remove: handleDelete,
     star: handleStar,
     addOptimistic,

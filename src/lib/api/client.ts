@@ -188,9 +188,21 @@ export async function apiFetchJson<T>(
         error?: string;
         code?: string;
         message?: string;
+        // FastAPI validation error format
+        detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
       };
       code = body.code ?? code;
-      message = body.message ?? body.error ?? message;
+      if (body.message ?? body.error) {
+        message = body.message ?? body.error ?? message;
+      } else if (Array.isArray(body.detail) && body.detail.length > 0) {
+        // Surface FastAPI pydantic validation errors
+        message = body.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[apiFetchJson] 422 validation detail:', body.detail);
+        }
+      } else if (typeof body.detail === 'string') {
+        message = body.detail;
+      }
     } catch {
       // non-JSON error body — keep defaults
     }

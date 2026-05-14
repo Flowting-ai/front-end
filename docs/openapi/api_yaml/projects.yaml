@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Projects
+  version: 0.1.0
+paths:
+  /projects:
+    get:
+      tags:
+      - projects
+      summary: List Projects
+      operationId: list_projects_projects_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProjectSummary'
+                type: array
+                title: Response List Projects Projects Get
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - projects
+      summary: Create Project
+      operationId: create_project_projects_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_create_project_projects_post'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /projects/{project_id}:
+    get:
+      tags:
+      - projects
+      summary: Get Project
+      operationId: get_project_projects__project_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - projects
+      summary: Update Project
+      operationId: update_project_projects__project_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_update_project_projects__project_id__patch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - projects
+      summary: Delete Project
+      operationId: delete_project_projects__project_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /projects/{project_id}/chats:
+    get:
+      tags:
+      - projects
+      summary: List Project Chats
+      operationId: list_project_chats_projects__project_id__chats_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectChatSummary'
+                title: Response List Project Chats Projects  Project Id  Chats Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /projects/{project_id}/chats/{chat_id}:
+    post:
+      tags:
+      - projects
+      summary: Add Chat To Project
+      operationId: add_chat_to_project_projects__project_id__chats__chat_id__post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - projects
+      summary: Remove Chat From Project
+      operationId: remove_chat_from_project_projects__project_id__chats__chat_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Project Id
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Body_create_project_projects_post:
+      properties:
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+          default: ''
+        system_instruction:
+          type: string
+          title: System Instruction
+          default: ''
+        files:
+          anyOf:
+          - items:
+              type: string
+              contentMediaType: application/octet-stream
+            type: array
+          - type: 'null'
+          title: Files
+      type: object
+      required:
+      - title
+      title: Body_create_project_projects_post
+    Body_update_project_projects__project_id__patch:
+      properties:
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        system_instruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: System Instruction
+        remove_document_ids:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remove Document Ids
+        files:
+          anyOf:
+          - items:
+              type: string
+              contentMediaType: application/octet-stream
+            type: array
+          - type: 'null'
+          title: Files
+      type: object
+      title: Body_update_project_projects__project_id__patch
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ProjectChatSummary:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        chat_title:
+          type: string
+          title: Chat Title
+        starred:
+          type: boolean
+          title: Starred
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        message_count:
+          type: integer
+          title: Message Count
+      type: object
+      required:
+      - id
+      - chat_title
+      - starred
+      - updated_at
+      - message_count
+      title: ProjectChatSummary
+    ProjectDocumentResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        document_filename:
+          type: string
+          title: Document Filename
+        document_s3_key:
+          type: string
+          title: Document S3 Key
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - document_filename
+      - document_s3_key
+      - created_at
+      title: ProjectDocumentResponse
+    ProjectResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        system_instruction:
+          type: string
+          title: System Instruction
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        documents:
+          items:
+            $ref: '#/components/schemas/ProjectDocumentResponse'
+          type: array
+          title: Documents
+          default: []
+      type: object
+      required:
+      - id
+      - title
+      - description
+      - system_instruction
+      - created_at
+      - updated_at
+      title: ProjectResponse
+    ProjectSummary:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        chat_count:
+          type: integer
+          title: Chat Count
+        document_count:
+          type: integer
+          title: Document Count
+      type: object
+      required:
+      - id
+      - title
+      - description
+      - updated_at
+      - chat_count
+      - document_count
+      title: ProjectSummary
+      description: Row shape returned by GET /projects (list view).
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

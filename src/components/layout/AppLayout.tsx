@@ -130,7 +130,11 @@ export function AppLayout({
             </main>
 
             {/* ── Floating action panel — mid-right of rounded container ── */}
-            {!isProjectPage && <FloatingPanel />}
+            {!isProjectPage && (
+              <Suspense fallback={null}>
+                <FloatingPanel />
+              </Suspense>
+            )}
           </div>
         )}
       </div>

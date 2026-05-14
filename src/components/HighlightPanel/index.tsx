@@ -12,9 +12,11 @@ import { cn } from '@/lib/utils'
 
 export interface HighlightEntry {
   /** Unique identifier. Passed back through onJump, onCopy, onDelete. */
-  id:   string
+  id:         string
   /** The full quote text. Displayed without truncation inside a HighlightCard. */
-  text: string
+  text:       string
+  /** Color assigned at creation time (0–3). Persisted so colors are stable across deletes/reorders. */
+  colorIndex: 0 | 1 | 2 | 3
 }
 
 export interface HighlightPanelProps {
@@ -261,7 +263,7 @@ export function HighlightPanel({
             >
               <HighlightCard
                 text={h.text}
-                colorIndex={(highlights.indexOf(h) % HIGHLIGHT_COLORS.length) as 0|1|2|3}
+                colorIndex={h.colorIndex}
                 onJump={onJump     ? () => onJump(h.id)     : undefined}
                 onCopy={onCopy     ? () => onCopy(h.id)     : undefined}
                 onDelete={onDelete ? () => onDelete(h.id)   : undefined}

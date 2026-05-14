@@ -498,7 +498,7 @@ function ChatPageInner() {
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
-  const { rename: renameChat, addOptimistic } = useChatHistoryContext();
+  const { rename: renameChat, renameLocal, addOptimistic } = useChatHistoryContext();
 
   // Sync URL param into local state (e.g. sidebar navigation)
   useEffect(() => {
@@ -548,7 +548,9 @@ function ChatPageInner() {
   };
 
   const handleTitleUpdate = (chatId: string, title: string) => {
-    renameChat(chatId, title);
+    // Update local state immediately — the backend already set the title via SSE,
+    // so there's no need to call the rename API here.
+    renameLocal(chatId, title);
   };
 
   const handleChatMoveToTop = (chatId: string) => {

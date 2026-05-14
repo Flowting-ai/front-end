@@ -177,11 +177,15 @@ export function ChatMessage({
 
   const messageHighlights = useMemo(
     () => highlights
-      .filter(h => h.messageId === message.id)
+      // Include highlights that belong to this message, OR highlights whose
+      // messageId is missing/null (e.g. created before the API sent message_id).
+      // For the latter case the rehype plugin's text-search naturally limits
+      // the mark to whichever message actually contains the selected text.
+      .filter(h => h.messageId === message.id || !h.messageId)
       .map(h => ({
         id:         h.id,
         text:       h.text,
-        colorIndex: (highlights.indexOf(h) % 4) as 0 | 1 | 2 | 3,
+        colorIndex: h.colorIndex,
       })),
     [highlights, message.id],
   )
@@ -254,11 +258,26 @@ export function ChatMessage({
 
   const handleHighlight = () => {
     const sel = window.getSelection()
-    const text = sel?.toString().trim()
+    if (!sel || sel.rangeCount === 0) return
+    const text = sel.toString().trim()
     if (!text) return
-    addHighlight({ text, messageId: message.id, chatId })
+
+    // Compute character offsets within the message content element so the
+    // backend can reconstruct the exact range when re-rendering the mark.
+    let startOffset = 0
+    let endOffset   = 0
+    if (contentRef.current) {
+      const range    = sel.getRangeAt(0)
+      const preRange = range.cloneRange()
+      preRange.selectNodeContents(contentRef.current)
+      preRange.setEnd(range.startContainer, range.startOffset)
+      startOffset = preRange.toString().length
+      endOffset   = startOffset + text.length
+    }
+
+    addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })
     openHighlightPanel()
-    sel?.removeAllRanges()
+    sel.removeAllRanges()
     setSelectionOpen(false)
     setSelectionAnchor(null)
   };
