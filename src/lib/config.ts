@@ -51,17 +51,24 @@ export const MODELS_TEST_ENDPOINT = withBase("/llm/models/test");
 
 // ── Personas ─────────────────────────────────────────────────────────────────
 export const PERSONAS_ENDPOINT = withBase("/persona");
-export const PERSONA_DETAIL_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}`);
+export const PERSONA_DETAIL_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}`);
 export const PERSONA_ENHANCE_ENDPOINT = withBase("/persona/enhance-prompt");
-export const PERSONA_TEST_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/test`);
-export const PERSONA_PAUSE_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/pause`);
-export const PERSONA_DOCUMENT_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/document`);
-export const PERSONA_DOCUMENT_DELETE_ENDPOINT = (personaId: string, documentId: string) =>
-  withBase(`/persona/${personaId}/document/${documentId}`);
+export const PERSONA_PAUSE_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/pause`);
+export const PERSONA_ACTIVE_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/active`);
+// Versions
+export const PERSONA_VERSIONS_ENDPOINT = (repoId: string) =>
+  withBase(`/persona/${repoId}/versions`);
+export const PERSONA_VERSION_DETAIL_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}`);
+export const PERSONA_VERSION_TEST_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/test`);
+export const PERSONA_VERSION_DOCUMENT_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/document`);
+export const PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT = (repoId: string, versionId: string, documentId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/document/${documentId}`);
 export const PERSONA_CHATS_ENDPOINT = (personaId: string) =>
   withBase(`/persona/${personaId}/chats`);
 export const PERSONA_CHATS_CREATE_ENDPOINT = (personaId: string) =>

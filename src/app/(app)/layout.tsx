@@ -6,6 +6,7 @@ import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { PresetModelSelectorDialog } from "@/components/chat/PresetModelSelectorDialog";
 import { ProjectsProvider } from "@/context/projects-context";
+import { OnboardingGuard } from "@/components/shared/OnboardingGuard";
 
 export default function AppGroupLayout({
   children,
@@ -13,19 +14,21 @@ export default function AppGroupLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ProjectsProvider>
-      <ChatHistoryProvider>
-        <PinboardProvider>
-          <HighlightProvider>
-            <CompareProvider>
-              <ModelSelectorProvider>
-                <AppLayout>{children}</AppLayout>
-                <PresetModelSelectorDialog />
-              </ModelSelectorProvider>
-            </CompareProvider>
-          </HighlightProvider>
-        </PinboardProvider>
-      </ChatHistoryProvider>
-    </ProjectsProvider>
+    <OnboardingGuard>
+      <ProjectsProvider>
+        <ChatHistoryProvider>
+          <PinboardProvider>
+            <HighlightProvider>
+              <CompareProvider>
+                <ModelSelectorProvider>
+                  <AppLayout>{children}</AppLayout>
+                  <PresetModelSelectorDialog />
+                </ModelSelectorProvider>
+              </CompareProvider>
+            </HighlightProvider>
+          </PinboardProvider>
+        </ChatHistoryProvider>
+      </ProjectsProvider>
+    </OnboardingGuard>
   );
 }

@@ -17,6 +17,7 @@ export type KnowledgeFile = {
 type KnowledgeTabProps = {
   files: KnowledgeFile[];
   onFilesChange: (files: KnowledgeFile[]) => void;
+  onRawFilesSelected?: (files: File[]) => void;
 };
 
 const FILE_LIMIT = 20;
@@ -236,7 +237,7 @@ function FileRow({ file, onRemove, onPriorityChange }: {
   );
 }
 
-export default function KnowledgeTab({ files, onFilesChange }: KnowledgeTabProps) {
+export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected }: KnowledgeTabProps) {
   const [urlInput, setUrlInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
@@ -252,21 +253,27 @@ export default function KnowledgeTab({ files, onFilesChange }: KnowledgeTabProps
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (!selected) return;
-    const newFiles: KnowledgeFile[] = [];
-    for (const file of Array.from(selected)) {
-      const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      newFiles.push({
-        id: `${Date.now()}-${file.name}`,
-        name: file.name,
-        type: "file",
-        fileType: ext,
-        size: `${sizeMB} MB`,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        priority: "Priority",
+    const raw = Array.from(selected);
+    if (onRawFilesSelected) {
+      // Delegate actual upload to the parent page (which has repoId/versionId)
+      onRawFilesSelected(raw);
+    } else {
+      // Fallback: optimistic local state only
+      const newFiles: KnowledgeFile[] = raw.map(file => {
+        const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        return {
+          id: `${Date.now()}-${file.name}`,
+          name: file.name,
+          type: "file",
+          fileType: ext,
+          size: `${sizeMB} MB`,
+          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          priority: "Priority",
+        };
       });
+      onFilesChange([...files, ...newFiles]);
     }
-    onFilesChange([...files, ...newFiles]);
     e.target.value = "";
   };
 

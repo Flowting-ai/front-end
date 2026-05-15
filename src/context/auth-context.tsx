@@ -26,6 +26,7 @@ export interface AuthUser {
   firstName?: string | null;
   lastName?: string | null;
   phoneNumber?: string | null;
+  onboardingCompleted?: boolean | null;
   planType?: "starter" | "pro" | "power" | null;
   planName?: string | null;
   subscriptionStatus?: string | null;
@@ -97,6 +98,7 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
     lastName,
     name: [firstName, lastName].filter(Boolean).join(" ") || profile.email || null,
     phoneNumber: profile.phone_number ?? null,
+    onboardingCompleted: profile.onboarding?.completed ?? null,
     planType: profile.plan_type ?? null,
     planName: profile.plan_type ? profile.plan_type.toUpperCase() : "NONE",
     subscriptionStatus: profile.subscription_status ?? null,

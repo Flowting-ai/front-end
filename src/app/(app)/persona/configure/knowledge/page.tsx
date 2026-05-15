@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, Suspense } from 'react'
+import React, { useState, Suspense, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -16,10 +16,17 @@ import {
   ExpandIcon,
   ViewOffSlashIcon,
 } from '@strange-huge/icons'
+import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
 import KnowledgeTab, { KnowledgeFile } from '@/app/(app)/persona/configure/components/KnowledgeTab'
+import {
+  getVersion,
+  uploadDocument,
+  deleteDocument,
+  type PersonaVersionResponse,
+} from '@/lib/api/personas'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +40,23 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Profile:      '/persona/configure/profile',
   Connectors:   '/persona/configure/connectors',
   Sharing:      '/persona/configure/sharing',
+}
+
+// ── Convert backend documents to KnowledgeFile ────────────────────────────────
+
+function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
+  return (version.documents ?? []).map(doc => {
+    const ext = doc.document_filename.split('.').pop()?.toUpperCase() ?? 'FILE'
+    return {
+      id:       doc.id,
+      name:     doc.document_filename,
+      type:     'file' as const,
+      fileType: ext,
+      size:     '—',
+      date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      priority: 'Priority' as const,
+    }
+  })
 }
 
 // ── Floating menu ─────────────────────────────────────────────────────────────
@@ -58,7 +82,6 @@ function FloatingMenu({
         position: 'relative',
       }}
     >
-      {/* Inner bottom edge shadow */}
       <div
         aria-hidden
         style={{
@@ -69,8 +92,6 @@ function FloatingMenu({
           pointerEvents: 'none',
         }}
       />
-
-      {/* Icon 1 — test persona chat */}
       <button
         onClick={onToggleTestChat}
         title={testChatOpen ? 'Close test chat' : 'Open test chat'}
@@ -105,35 +126,18 @@ function FloatingMenu({
         )}
         <UserAiIcon size={20} color="var(--neutral-700)" animated />
       </button>
-
-      {/* Icon 2 — AI idea */}
       <button
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: 'transparent',
         }}
       >
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </button>
-
-      {/* Icon 3 — save versions */}
       <button
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
-          opacity: 0.7,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', backgroundColor: 'transparent', opacity: 0.7,
         }}
       >
         <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
@@ -147,29 +151,93 @@ function FloatingMenu({
 function PersonaConfigureKnowledgeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  const repoId    = searchParams.get('repoId')    ?? ''
+  const versionId = searchParams.get('versionId') ?? ''
   const personaName = searchParams.get('name') ?? ''
 
   const [testChatOpen, setTestChatOpen] = useState(false)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
+  const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
-  const handleTabClick = (tab: Tab) => {
-    const route = TAB_ROUTES[tab]
-    if (route) {
-      router.push(`${route}?${searchParams.toString()}`)
+  // ── Load existing documents from API on mount ──────────────────────────────
+
+  useEffect(() => {
+    if (!repoId || !versionId) return
+    setIsLoading(true)
+    getVersion(repoId, versionId)
+      .then(version => setFiles(docsToFiles(version)))
+      .catch(err => {
+        console.error('[KnowledgePage] load error:', err)
+        toast.error('Failed to load knowledge files')
+      })
+      .finally(() => setIsLoading(false))
+  }, [repoId, versionId])
+
+  // ── Handle file upload (called from KnowledgeTab's file picker) ──────────
+
+  const handleFilesChange = useCallback(async (nextFiles: KnowledgeFile[]) => {
+    if (!repoId || !versionId) {
+      setFiles(nextFiles)
+      return
+    }
+
+    // Find newly added local files (those whose id starts with a timestamp, not a UUID)
+    const currentIds = new Set(files.map(f => f.id))
+    const added = nextFiles.filter(f => !currentIds.has(f.id) && f.type === 'file')
+
+    // Find removed (deleted) files — these are real API files with UUID ids
+    const nextIds = new Set(nextFiles.map(f => f.id))
+    const removed = files.filter(f => !nextIds.has(f.id) && /^[0-9a-f-]{36}$/i.test(f.id))
+
+    // Optimistically update local state
+    setFiles(nextFiles)
+
+    // Upload new files
+    for (const file of added) {
+      // KnowledgeTab generates temp ids like "123456789-filename.pdf"
+      // We need the actual File object — but KnowledgeTab doesn't expose it.
+      // We use the input's FileList via a custom event on the DOM.
+      // Since we can't get File objects here, uploads are handled in handleRawFileInput.
+    }
+
+    // Delete removed files
+    for (const file of removed) {
+      try {
+        const updated = await deleteDocument(repoId, versionId, file.id)
+        setFiles(docsToFiles(updated))
+      } catch (err) {
+        console.error('[KnowledgePage] delete error:', err)
+        toast.error(`Failed to remove ${file.name}`)
+      }
+    }
+  }, [repoId, versionId, files])
+
+  // ── Handle raw File objects from the file input ───────────────────────────
+
+  async function uploadFiles(rawFiles: File[]) {
+    if (!repoId || !versionId) return
+    for (const raw of rawFiles) {
+      try {
+        const updated = await uploadDocument(repoId, versionId, raw)
+        setFiles(docsToFiles(updated))
+        toast.success(`Uploaded ${raw.name}`)
+      } catch (err) {
+        console.error('[KnowledgePage] upload error:', err)
+        toast.error(`Failed to upload ${raw.name}`)
+      }
     }
   }
 
+  // ── Tab navigation ────────────────────────────────────────────────────────
+
+  const handleTabClick = (tab: Tab) => {
+    const route = TAB_ROUTES[tab]
+    if (route) router.push(`${route}?${searchParams.toString()}`)
+  }
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 7,
-        alignItems: 'stretch',
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-      }}
-    >
+    <div style={{ display: 'flex', gap: 7, alignItems: 'stretch', width: '100%', height: '100%', position: 'relative' }}>
       {/* ── Left configure panel ─────────────────────────────────────────────── */}
       <div
         style={{
@@ -191,23 +259,9 @@ function PersonaConfigureKnowledgeContent() {
       >
         {/* ── Top navigation bar ────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              height: 36,
-            }}
-          >
-            {/* Back arrow */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
             <div style={{ flexShrink: 0 }}>
-              <IconButton
-                variant="ghost"
-                size="md"
-                icon={<ArrowLeftOneIcon size={20} />}
-                aria-label="Go back"
-                onClick={() => router.back()}
-              />
+              <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={() => router.back()} />
             </div>
 
             {/* Tabs */}
@@ -215,12 +269,9 @@ function PersonaConfigureKnowledgeContent() {
               <div
                 aria-hidden
                 style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: 10,
+                  position: 'absolute', inset: 0, borderRadius: 10,
                   backgroundColor: 'rgba(247,242,237,0.5)',
-                  boxShadow:
-                    'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
+                  boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
                 }}
               />
               <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -231,42 +282,20 @@ function PersonaConfigureKnowledgeContent() {
                       key={tab}
                       onClick={() => handleTabClick(tab)}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '7px 8px',
-                        borderRadius: 10,
-                        border: 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '7px 8px', borderRadius: 10, border: 'none',
                         cursor: TAB_ROUTES[tab] ? 'pointer' : 'default',
                         backgroundColor: isActive ? 'var(--neutral-white)' : 'transparent',
-                        boxShadow: isActive
-                          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)'
-                          : 'none',
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 500,
-                        fontSize: 14,
-                        lineHeight: '22px',
-                        color: isActive
-                          ? 'var(--neutral-700)'
-                          : MUTED_TABS.has(tab)
-                          ? 'var(--neutral-500)'
-                          : 'var(--neutral-700)',
+                        boxShadow: isActive ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)' : 'none',
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+                        color: isActive ? 'var(--neutral-700)' : MUTED_TABS.has(tab) ? 'var(--neutral-500)' : 'var(--neutral-700)',
                         whiteSpace: 'nowrap',
                         transition: 'background-color 150ms, box-shadow 150ms, color 150ms',
                         position: 'relative',
                       }}
                     >
                       {isActive && (
-                        <div
-                          aria-hidden
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: 'inherit',
-                            boxShadow: 'inset 0px -1px 0px 0px rgba(38,33,30,0.1)',
-                            pointerEvents: 'none',
-                          }}
-                        />
+                        <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px -1px 0px 0px rgba(38,33,30,0.1)', pointerEvents: 'none' }} />
                       )}
                       {tab}
                     </button>
@@ -277,39 +306,15 @@ function PersonaConfigureKnowledgeContent() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-              <IconButton
-                variant="outline"
-                size="md"
-                icon={<MoreVerticalIcon size={20} />}
-                aria-label="More options"
-              />
+              <IconButton variant="outline" size="md" icon={<MoreVerticalIcon size={20} />} aria-label="More options" />
               {testChatOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<QuillWriteOneIcon size={20} />}
-                  aria-label="Save version"
-                />
+                <IconButton variant="outline" size="md" icon={<QuillWriteOneIcon size={20} />} aria-label="Save version" />
               ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                >
-                  Save version
-                </Button>
+                <Button variant="outline" size="sm" leftIcon={<QuillWriteOneIcon size={16} />}>Save version</Button>
               )}
-              <Button
-                variant="default"
-                size="sm"
-                rightIcon={<ArrowUpRightOneIcon size={16} />}
-              >
-                Publish
-              </Button>
+              <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>Publish</Button>
             </div>
           </div>
-
-          {/* Spacer below nav */}
           <div style={{ height: 32, flexShrink: 0 }} />
         </div>
 
@@ -317,43 +322,30 @@ function PersonaConfigureKnowledgeContent() {
         <div
           className="kaya-scrollbar"
           style={{
-            flex: '1 0 0',
-            minHeight: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            display: 'flex',
-            justifyContent: 'center',
+            flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
+            display: 'flex', justifyContent: 'center',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 24,
-              width: '100%',
-              maxWidth: 714,
-              paddingBottom: 32,
-            }}
-          >
-            <KnowledgeTab files={files} onFilesChange={setFiles} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', maxWidth: 714, paddingBottom: 32 }}>
+            {isLoading ? (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
+            ) : (
+              <KnowledgeTab
+                files={files}
+                onFilesChange={handleFilesChange}
+                onRawFilesSelected={uploadFiles}
+              />
+            )}
           </div>
         </div>
 
         {/* ── Floating vertical menu ────────────────────────────────────────── */}
-        <div
-          style={{
-            position: 'absolute',
-            right: 16,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-          }}
-        >
+        <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
         </div>
       </div>
 
-      {/* ── Test chat panel (slides in from right) ─────────────────────────── */}
+      {/* ── Test chat panel ────────────────────────────────────────────────── */}
       <AnimatePresence>
         {testChatOpen && (
           <motion.div
@@ -363,112 +355,33 @@ function PersonaConfigureKnowledgeContent() {
             exit={{ width: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
             style={{
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              height: '100%',
-              backgroundColor: 'var(--neutral-white)',
-              border: '1px solid var(--neutral-200)',
-              borderRadius: 16,
-              padding: 12,
-              overflow: 'hidden',
+              flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%',
+              backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)',
+              borderRadius: 16, padding: 12, overflow: 'hidden',
             }}
           >
-            {/* Chat panel header */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexShrink: 0,
-              }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    flexShrink: 0,
-                    backgroundColor: 'var(--neutral-100)',
-                    boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
-                    overflow: 'hidden',
-                  }}
-                />
-                <p
-                  style={{
-                    fontFamily: 'var(--font-title)',
-                    fontWeight: 400,
-                    fontSize: 24,
-                    lineHeight: '32px',
-                    color: '#1a1916',
-                    margin: 0,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
+                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }} />
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
                   {personaName || 'Name'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <div style={{ opacity: 0.7 }}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<ViewOffSlashIcon size={16} />}
-                    rightIcon={<ArrowDownOneIcon size={16} />}
-                  >
-                    Mock connector
-                  </Button>
+                  <Button variant="outline" size="sm" leftIcon={<ViewOffSlashIcon size={16} />} rightIcon={<ArrowDownOneIcon size={16} />}>Mock connector</Button>
                 </div>
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<ExpandIcon size={20} />}
-                  aria-label="Expand test chat"
-                />
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<CancelOneIcon size={20} />}
-                  aria-label="Close test chat"
-                  onClick={() => setTestChatOpen(false)}
-                />
+                <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" />
+                <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => setTestChatOpen(false)} />
               </div>
             </div>
-
-            {/* Messages area */}
-            <div
-              className="kaya-scrollbar"
-              style={{
-                flex: '1 0 0',
-                minHeight: 0,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: 16,
-                  lineHeight: '22px',
-                  color: 'var(--neutral-600)',
-                  margin: 0,
-                }}
-              >
+            <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
                 {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
               </p>
             </div>
-
-            {/* Chat input */}
             <div style={{ flexShrink: 0 }}>
-              <ChatInput
-                placeholder={`Message ${personaName || 'persona'}...`}
-                textareaLabel="Test message"
-                modelName="Souvenir"
-              />
+              <ChatInput placeholder={`Message ${personaName || 'persona'}...`} textareaLabel="Test message" modelName="Souvenir" />
             </div>
           </motion.div>
         )}

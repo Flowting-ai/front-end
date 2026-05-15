@@ -37,6 +37,25 @@ export function AppLayout({
   // project chat pages — those use the same global FloatingPanel as regular chats.
   const isProjectPage = pathname.startsWith('/project') && !pathname.includes('/chat/')
   const isPersonaPage = pathname.startsWith('/personas') || pathname.startsWith('/persona')
+  const isSettingsPage = pathname.startsWith('/settings')
+
+  // Settings pages manage their own sidebar — bypass global LeftSidebar, TopBar, FloatingPanel.
+  if (isSettingsPage) {
+    return (
+      <div
+        style={{
+          display:         'flex',
+          alignItems:      'stretch',
+          width:           '100%',
+          height:          '100svh',
+          backgroundColor: 'var(--neutral-white)',
+        }}
+      >
+        {children}
+        <AppDialogs />
+      </div>
+    )
+  }
 
   return (
     <div

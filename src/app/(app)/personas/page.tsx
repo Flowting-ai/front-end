@@ -15,7 +15,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, deletePersona, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,10 @@ const RECOMMENDED: Persona[] = [
     tags: [],
     temperature: 0.5,
     isActive: true,
-    status: 'completed',
+    isPaused: false,
+    status: 'active',
+    activeVersionId: null,
+    versionCount: 1,
     createdAt: '',
     updatedAt: '',
   },
@@ -47,7 +50,10 @@ const RECOMMENDED: Persona[] = [
     tags: [],
     temperature: 0.3,
     isActive: true,
-    status: 'completed',
+    isPaused: false,
+    status: 'active',
+    activeVersionId: null,
+    versionCount: 1,
     createdAt: '',
     updatedAt: '',
   },
@@ -60,7 +66,10 @@ const RECOMMENDED: Persona[] = [
     tags: [],
     temperature: 0.3,
     isActive: true,
-    status: 'completed',
+    isPaused: false,
+    status: 'active',
+    activeVersionId: null,
+    versionCount: 1,
     createdAt: '',
     updatedAt: '',
   },
@@ -125,9 +134,10 @@ interface PersonaCardProps {
   onChat: () => void
   onEdit: () => void
   onDelete: () => void
+  onPauseToggle: () => void
 }
 
-function PersonaCard({ persona, onChat, onEdit, onDelete }: PersonaCardProps) {
+function PersonaCard({ persona, onChat, onEdit, onDelete, onPauseToggle }: PersonaCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null)
   const btnRef = React.useRef<HTMLSpanElement>(null)
@@ -243,6 +253,7 @@ function PersonaCard({ persona, onChat, onEdit, onDelete }: PersonaCardProps) {
               <Dropdown>
                 <Dropdown.Section>
                   <Dropdown.Item label="Edit configuration" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit() }} fluid />
+                  <Dropdown.Item label={persona.isPaused ? 'Resume' : 'Pause'} onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPauseToggle() }} fluid />
                   <Dropdown.Item label="Delete" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete() }} fluid />
                 </Dropdown.Section>
               </Dropdown>
@@ -491,6 +502,17 @@ export default function PersonasPage() {
     }
   }
 
+  async function handlePauseToggle(id: string) {
+    try {
+      await togglePause(id)
+      setPersonas(prev => prev.map(p =>
+        p.id === id ? { ...p, isPaused: !p.isPaused, isActive: p.isPaused } : p
+      ))
+    } catch (err) {
+      console.error('Failed to toggle pause:', err)
+    }
+  }
+
   function openSort(e: React.MouseEvent) {
     e.stopPropagation()
     if (sortBtnRef.current) {
@@ -694,8 +716,9 @@ export default function PersonasPage() {
                       key={persona.id}
                       persona={persona}
                       onChat={() => router.push(`/personas/${persona.id}/chat`)}
-                      onEdit={() => router.push(`/personas/new/configure?personaId=${persona.id}`)}
+                      onEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
                       onDelete={() => setDeleteTarget(persona)}
+                      onPauseToggle={() => handlePauseToggle(persona.id)}
                     />
                   ))}
                 </div>

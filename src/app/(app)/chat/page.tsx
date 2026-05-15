@@ -3,6 +3,7 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
+import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { X } from "lucide-react";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -303,6 +304,7 @@ export default function ChatPage() {
   return (
     <Suspense fallback={null}>
       <ChatPageInner />
+      <WelcomeModal />
     </Suspense>
   );
 }
