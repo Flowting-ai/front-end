@@ -462,10 +462,12 @@ export function LeftSidebar({
   onNewChat,
 }: LeftSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
+  const isPersonaPage = pathname?.startsWith("/personas") || pathname?.startsWith("/persona");
   const collapsedRef = useRef<boolean>(readCollapsed());
 
   // Exclude project chats from the Recents/Starred lists - they are already
@@ -483,7 +485,8 @@ export function LeftSidebar({
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
-    if (typeof window !== "undefined") {
+    // Don't persist persona-page collapse state — it always starts collapsed.
+    if (typeof window !== "undefined" && !isPersonaPage) {
       localStorage.setItem("sidebar_collapsed", String(collapsedRef.current));
     }
   };
@@ -516,10 +519,11 @@ export function LeftSidebar({
 
   return (
     <Sidebar
+      key={isPersonaPage ? "persona" : "default"}
       userName={displayName || "Account"}
       userEmail={user?.email ?? ""}
       avatarSrc={undefined}
-      defaultCollapsed={collapsedRef.current}
+      defaultCollapsed={isPersonaPage ? true : collapsedRef.current}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
       onSearch={() => {

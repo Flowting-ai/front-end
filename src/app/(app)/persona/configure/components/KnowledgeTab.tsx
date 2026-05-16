@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Search, Upload, MoreHorizontal, Eye, ArrowDownToLine, SlidersHorizontal, ChevronDown, ArrowUpToLine, ArrowUp } from "lucide-react";
 
 export type KnowledgeFile = {
@@ -11,7 +11,15 @@ export type KnowledgeFile = {
   size?: string;
   date?: string;
   source?: string;
-  priority?: "Priority" | "Normal" | "Low";
+  url?: string;
+  priority?: "High" | "Medium" | "Low";
+  weight?: number;
+};
+
+const PRIORITY_WEIGHTS: Record<"High" | "Medium" | "Low", number> = {
+  High:   1.0,
+  Medium: 0.5,
+  Low:    0.3,
 };
 
 type KnowledgeTabProps = {
@@ -19,6 +27,7 @@ type KnowledgeTabProps = {
   onFilesChange: (files: KnowledgeFile[]) => void;
   onRawFilesSelected?: (files: File[]) => void;
   onRemoveFile?: (id: string) => void;
+  onPreviewFile?: (file: KnowledgeFile) => void;
 };
 
 const FILE_LIMIT = 20;
@@ -68,14 +77,42 @@ function FileBadge({ label }: { label: string }) {
   );
 }
 
-function FileRow({ file, onRemove, onPriorityChange }: {
+function FileRow({ file, onRemove, onPriorityChange, onPreview }: {
   file: KnowledgeFile;
   onRemove: (id: string) => void;
-  onPriorityChange: (id: string, p: string) => void;
+  onPriorityChange: (id: string, p: "High" | "Medium" | "Low") => void;
+  onPreview?: (file: KnowledgeFile) => void;
 }) {
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const [showActionMenu,   setShowActionMenu]   = useState(false);
+  const [hoveredPriority, setHoveredPriority]   = useState<string | null>(null);
+  const priorityMenuRef = useRef<HTMLDivElement>(null);
+  const actionMenuRef   = useRef<HTMLDivElement>(null);
   const badgeLabel = file.type === "url" ? "URLs" : (file.fileType ?? "PDF");
+
+  // Close priority dropdown when clicking outside
+  useEffect(() => {
+    if (!showPriorityMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (priorityMenuRef.current && !priorityMenuRef.current.contains(e.target as Node)) {
+        setShowPriorityMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showPriorityMenu]);
+
+  // Close action dropdown when clicking outside
+  useEffect(() => {
+    if (!showActionMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setShowActionMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showActionMenu]);
 
   return (
     <div
@@ -140,68 +177,85 @@ function FileRow({ file, onRemove, onPriorityChange }: {
         )}
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, position: "relative" }}>
-        <button
-          type="button"
-          onClick={() => setShowPriorityMenu((p) => !p)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            height: 32,
-            padding: "5px 8px",
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 500,
-            fontFamily: "var(--font-body)",
-            color: "#524b47",
-            backgroundColor: "transparent",
-            border: "1px solid rgba(59,54,50,0.3)",
-            cursor: "pointer",
-          }}
-        >
-          {file.priority ?? "Priority"}
-          <ChevronDown size={16} color="#524b47" />
-        </button>
-        {showPriorityMenu && (
-          <div
+        <div ref={priorityMenuRef} style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setShowPriorityMenu((p) => !p)}
             style={{
-              position: "absolute",
-              top: 36,
-              right: 0,
-              backgroundColor: "white",
-              border: "1px solid #d1c6bd",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 2,
+              width: 90,
+              height: 32,
+              padding: "5px 8px",
               borderRadius: 8,
-              boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-              zIndex: 1000,
-              minWidth: 120,
-              overflow: "hidden",
+              fontSize: 14,
+              fontWeight: 500,
+              fontFamily: "var(--font-body)",
+              color: "#524b47",
+              backgroundColor: "transparent",
+              border: "1px solid rgba(59,54,50,0.3)",
+              cursor: "pointer",
+              flexShrink: 0,
             }}
           >
-            {["Priority", "Normal", "Low"].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => { onPriorityChange(file.id, p); setShowPriorityMenu(false); }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "8px 12px",
-                  fontSize: 14,
-                  fontFamily: "var(--font-body)",
-                  color: "#524b47",
-                  backgroundColor: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        )}
+            {file.priority ?? "Priority"}
+            <ChevronDown size={16} color="#524b47" />
+          </button>
+          {showPriorityMenu && (
+            <div
+              style={{
+                position: "absolute",
+                top: 36,
+                right: 0,
+                backgroundColor: "white",
+                border: "1px solid #d1c6bd",
+                borderRadius: 8,
+                boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
+                zIndex: 1000,
+                minWidth: 120,
+                overflow: "hidden",
+              }}
+            >
+              {(["High", "Medium", "Low"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { onPriorityChange(file.id, p); setShowPriorityMenu(false); }}
+                  onMouseEnter={() => setHoveredPriority(p)}
+                  onMouseLeave={() => setHoveredPriority(null)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "8px 12px",
+                    fontSize: 14,
+                    fontFamily: "var(--font-body)",
+                    color: file.priority === p || hoveredPriority === p ? "#3b3632" : "#524b47",
+                    backgroundColor: file.priority === p ? "#f7f2ed" : hoveredPriority === p ? "#faf6f3" : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: file.priority === p ? 600 : 400,
+                    transition: "background-color 0.1s, color 0.1s",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {file.type !== "connected" && (
           <button
             type="button"
+            onClick={() => {
+              if (onPreview) {
+                onPreview(file);
+              } else if (file.url) {
+                window.open(file.url, "_blank", "noopener,noreferrer");
+              }
+            }}
+            title="Preview file"
             style={{
               display: "flex",
               alignItems: "center",
@@ -217,57 +271,59 @@ function FileRow({ file, onRemove, onPriorityChange }: {
             <Eye size={20} color="#524b47" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setShowActionMenu((p) => !p)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: 32,
-            width: 32,
-            borderRadius: 8,
-            border: "1px solid rgba(59,54,50,0.3)",
-            backgroundColor: "transparent",
-            cursor: "pointer",
-          }}
-        >
-          <MoreHorizontal size={20} color="#524b47" />
-        </button>
-        {showActionMenu && (
-          <div
+        <div ref={actionMenuRef} style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setShowActionMenu((p) => !p)}
             style={{
-              position: "absolute",
-              top: 36,
-              right: 0,
-              backgroundColor: "white",
-              border: "1px solid #d1c6bd",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 32,
+              width: 32,
               borderRadius: 8,
-              boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-              zIndex: 1000,
-              minWidth: 120,
-              overflow: "hidden",
+              border: "1px solid rgba(59,54,50,0.3)",
+              backgroundColor: "transparent",
+              cursor: "pointer",
             }}
           >
-            <button
-              type="button"
-              onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
+            <MoreHorizontal size={20} color="#524b47" />
+          </button>
+          {showActionMenu && (
+            <div
               style={{
-                width: "100%",
-                textAlign: "left",
-                padding: "8px 12px",
-                fontSize: 14,
-                fontFamily: "var(--font-body)",
-                color: "#c0392b",
-                backgroundColor: "transparent",
-                border: "none",
-                cursor: "pointer",
+                position: "absolute",
+                top: 36,
+                right: 0,
+                backgroundColor: "white",
+                border: "1px solid #d1c6bd",
+                borderRadius: 8,
+                boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
+                zIndex: 1000,
+                minWidth: 120,
+                overflow: "hidden",
               }}
             >
-              Delete
-            </button>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  fontFamily: "var(--font-body)",
+                  color: "#c0392b",
+                  backgroundColor: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -305,7 +361,7 @@ function DropOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile }: KnowledgeTabProps) {
+export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile, onPreviewFile }: KnowledgeTabProps) {
   const [urlInput, setUrlInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
@@ -351,7 +407,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
         fileType: ext,
         size: `${sizeMB} MB`,
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        priority: "Priority",
+        url: URL.createObjectURL(file),
       };
     });
     onFilesChange([...files, ...newFiles]);
@@ -405,11 +461,11 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
       {
         id: `url-${Date.now()}`,
         name,
+        url,
         type: "url",
         fileType: "URLs",
         size: "-",
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        priority: "Priority",
       },
     ]);
     setUrlInput("");
@@ -424,7 +480,8 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
   };
 
   const handlePriorityChange = (id: string, priority: string) => {
-    onFilesChange(files.map((f) => f.id === id ? { ...f, priority: priority as KnowledgeFile["priority"] } : f));
+    const p = priority as "High" | "Medium" | "Low";
+    onFilesChange(files.map((f) => f.id === id ? { ...f, priority: p, weight: PRIORITY_WEIGHTS[p] } : f));
   };
 
   const filteredFiles = files.filter((f) => {
@@ -823,7 +880,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Files</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {regularFiles.map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} onPreview={onPreviewFile} />
             ))}
           </div>
         </div>
@@ -834,7 +891,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} onPreview={onPreviewFile} />
             ))}
           </div>
         </div>
@@ -882,7 +939,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               ? connectedFiles.filter((f) => f.source === activeConnectorFilter)
               : connectedFiles
             ).map((f) => (
-              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} />
+              <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} onPreview={onPreviewFile} />
             ))}
           </div>
         </div>

@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
-import ConnectorsTab, { ConnectorItem } from '@/app/(app)/persona/configure/components/ConnectorsTab'
+import ConnectorsTab, { Connector } from '@/app/(app)/persona/configure/components/ConnectorsTab'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -149,7 +149,12 @@ function PersonaConfigureConnectorsContent() {
   const personaName = searchParams.get('name') ?? ''
 
   const [testChatOpen, setTestChatOpen] = useState(false)
-  const [items, setItems] = useState<ConnectorItem[]>([])
+  const [connectors, setConnectors] = useState<Connector[]>(() => [
+    { id: 'ws-figma-1', name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'workspace', workspaceName: 'Workspace name' },
+    { id: 'ws-figma-2', name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'workspace', workspaceName: 'Workspace name' },
+    { id: 'pe-figma',   name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'personal',  authorized: true,  enabled: true },
+    { id: 'pe-slack',   name: 'Slack', description: 'Create and update contacts and deals', logo: 'slack', scope: 'personal',  authorized: false },
+  ])
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -324,7 +329,7 @@ function PersonaConfigureConnectorsContent() {
               paddingBottom: 32,
             }}
           >
-            <ConnectorsTab items={items} onItemsChange={setItems} />
+            <ConnectorsTab connectors={connectors} onChange={setConnectors} />
           </div>
         </div>
 
@@ -400,7 +405,7 @@ function PersonaConfigureConnectorsContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div style={{ opacity: 0.7 }}>
+                {/* <div style={{ opacity: 0.7 }}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -415,7 +420,7 @@ function PersonaConfigureConnectorsContent() {
                   size="md"
                   icon={<ExpandIcon size={20} />}
                   aria-label="Expand test chat"
-                />
+                /> */}
                 <IconButton
                   variant="outline"
                   size="md"

@@ -494,7 +494,8 @@ function PersonaConfigureInstructionsContent() {
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
 
-  const hasPublishedRef = useRef(false)
+  const hasPublishedRef   = useRef(false)
+  const hasInitialisedRef = useRef(false)
 
   // ── Test-chat state ─────────────────────────────────────────────────────────
 
@@ -556,6 +557,11 @@ function PersonaConfigureInstructionsContent() {
   // ── Initialise: fetch models, then create or load persona ──────────────────
 
   const initialise = useCallback(async () => {
+    // Guard against React Strict Mode double-invocation: reading sessionStorage
+    // a second time would find an empty draft (already removed on the first run)
+    // and create a second repo named "Untitled Persona".
+    if (hasInitialisedRef.current) return
+    hasInitialisedRef.current = true
     setIsInitialising(true)
     try {
       // Read wizard state from sessionStorage (new-persona flow)
@@ -629,13 +635,12 @@ function PersonaConfigureInstructionsContent() {
         }
         setSelectedModel(firstModel)
 
-        const effectiveName    = wizardName || 'Untitled Persona'
-        const effectivePurpose = wizardPurpose.trim()
+        const effectiveName = wizardName || 'Untitled Persona'
 
         if (wizardName) setPersonaName(wizardName)
 
-        // Purpose seeds the instruction field; tone is expressed via model settings, not raw text
-        const initialPrompt = effectivePurpose
+        // Purpose is stored as the persona description only - system instruction starts empty
+        const initialPrompt = ''
 
         const repo = await createPersonaRepo({
           name:    effectiveName,
@@ -1180,12 +1185,12 @@ function PersonaConfigureInstructionsContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div style={{ opacity: 0.7 }}>
+                {/* <div style={{ opacity: 0.7 }}>
                   <Button variant="outline" size="sm" leftIcon={<ViewOffSlashIcon size={16} />} rightIcon={<ArrowDownOneIcon size={16} />}>
                     Mock connector
                   </Button>
-                </div>
-                <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" />
+                </div> */}
+                {/* <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" /> */}
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => setTestChatOpen(false)} />
               </div>
             </div>

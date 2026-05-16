@@ -2,24 +2,52 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, ArrowRightOneIcon, GalaxyIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  CustomerService01Icon,
+  GoldSellIcon,
+  CourtHouseIcon,
+  SearchVisualIcon,
+  ContentWritingIcon,
+  InspectCodeIcon,
+  Login01Icon,
+  Target02Icon,
+  AnalysisTextLinkIcon,
+  OfficeChairIcon,
+  Briefcase08Icon,
+  Mortarboard01Icon,
+  Analytics01Icon,
+  MentoringIcon,
+} from '@hugeicons/core-free-icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_TEMPLATE } from '../_components/WizardShell'
 
 // ── Template categories ───────────────────────────────────────────────────────
 
-const TEMPLATE_ROWS = [
+const TEMPLATE_ICONS: Record<string, typeof CustomerService01Icon> = {
+  'Customer Support': CustomerService01Icon,
+  'Sales': GoldSellIcon,
+  'Legal': CourtHouseIcon,
+  'Research': SearchVisualIcon,
+  'Content Writer': ContentWritingIcon,
+  'Code Review': InspectCodeIcon,
+  'Onboarding': Login01Icon,
+  'Marketing': Target02Icon,
+  'Data Analyst': AnalysisTextLinkIcon,
+  'HR & Recruiting': OfficeChairIcon,
+  'Executive Assistant': Briefcase08Icon,
+  'Education': Mortarboard01Icon,
+  'Productivity': Analytics01Icon,
+  'Tutoring': MentoringIcon,
+}
+
+const TEMPLATE_ROWS: string[][] = [
   ['Customer Support', 'Sales', 'Legal', 'Research'],
   ['Content Writer', 'Code Review', 'Onboarding', 'Marketing'],
   ['Data Analyst', 'HR & Recruiting', 'Executive Assistant', 'Education'],
   ['Productivity', 'Tutoring'],
 ]
-
-// ── Generic icon for template cards ──────────────────────────────────────────
-
-function TemplateIcon() {
-  return <GalaxyIcon size={30} color="#26211e" />
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -108,7 +136,12 @@ export default function PersonaTemplatesPage() {
                       transition: 'border-color 150ms, box-shadow 150ms',
                     }}
                   >
-                    <TemplateIcon />
+                    <HugeiconsIcon
+                      icon={TEMPLATE_ICONS[name]}
+                      size={30}
+                      color="#26211e"
+                      strokeWidth={1.5}
+                    />
                     <span style={{
                       fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
                       fontSize: 16, lineHeight: '22px', color: 'var(--neutral-950)',

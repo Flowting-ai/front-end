@@ -54,7 +54,6 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
       fileType: ext,
       size:     '-',
       date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      priority: 'Priority' as const,
     }
   })
 }
@@ -164,11 +163,17 @@ function PersonaConfigureKnowledgeContent() {
   // after an API reload (which strips size info). Uses a ref to avoid stale
   // closure issues inside async upload functions.
   const fileSizeMapRef = useRef<Record<string, number>>({})
+  // Tracks blob preview URLs by filename so the eye-icon preview survives
+  // the API reload that replaces placeholder entries with server records.
+  const fileUrlMapRef  = useRef<Record<string, string>>({})
 
   function docsToFilesWithSizes(version: PersonaVersionResponse): KnowledgeFile[] {
     return docsToFiles(version).map(f => {
       const bytes = fileSizeMapRef.current[f.name]
-      return bytes != null ? { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` } : f
+      // Check by doc ID first — survives API filename normalisation (spaces→underscores etc.)
+      const url   = fileUrlMapRef.current[f.id] ?? fileUrlMapRef.current[f.name]
+      const withSize = bytes != null ? { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` } : f
+      return url ? { ...withSize, url } : withSize
     })
   }
 
@@ -220,8 +225,19 @@ function PersonaConfigureKnowledgeContent() {
   async function uploadFiles(rawFiles: File[]) {
     if (!repoId || !versionId) return
 
-    // Record file sizes before uploading so the MB counter stays accurate
-    rawFiles.forEach(f => { fileSizeMapRef.current[f.name] = f.size })
+    // Record file sizes and create blob preview URLs before uploading
+    rawFiles.forEach(f => {
+      fileSizeMapRef.current[f.name] = f.size
+      // Only create a new blob URL if we don't already have one (avoid leaking)
+      if (!fileUrlMapRef.current[f.name]) {
+        const blobUrl = URL.createObjectURL(f)
+        // Store under several normalised keys so we survive API filename renaming
+        fileUrlMapRef.current[f.name]                                    = blobUrl // original
+        fileUrlMapRef.current[f.name.toLowerCase()]                      = blobUrl // lowercase
+        fileUrlMapRef.current[f.name.toLowerCase().replace(/\s+/g, '_')] = blobUrl // spaces→underscores
+        fileUrlMapRef.current[f.name.toLowerCase().replace(/_+/g, ' ')]  = blobUrl // underscores→spaces
+      }
+    })
 
     // Show placeholder entries immediately so the UI doesn't appear frozen
     const placeholders: KnowledgeFile[] = rawFiles.map(raw => ({
@@ -231,7 +247,7 @@ function PersonaConfigureKnowledgeContent() {
       fileType: raw.name.split('.').pop()?.toUpperCase() ?? 'FILE',
       size:     `${(raw.size / 1024 / 1024).toFixed(1)} MB`,
       date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      priority: 'Priority' as const,
+      url:      fileUrlMapRef.current[raw.name],
     }))
     setFiles(prev => [...prev, ...placeholders])
 
@@ -239,6 +255,20 @@ function PersonaConfigureKnowledgeContent() {
     const results = await Promise.allSettled(
       rawFiles.map(raw => uploadDocument(repoId, versionId, raw))
     )
+
+    // Also key blob URLs by document ID so the lookup works even when the API
+    // normalises filenames (e.g. "My File.pdf" → "my_file.pdf").
+    results.forEach((result, i) => {
+      if (result.status !== 'fulfilled') return
+      const blobUrl = fileUrlMapRef.current[rawFiles[i].name]
+      if (!blobUrl) return
+      const rawNameLower = rawFiles[i].name.toLowerCase()
+      const match = (result.value.documents ?? []).find(d =>
+        d.document_filename.toLowerCase() === rawNameLower ||
+        d.document_filename.toLowerCase().replace(/[\s_]/g, '') === rawNameLower.replace(/[\s_]/g, '')
+      )
+      if (match) fileUrlMapRef.current[match.id] = blobUrl
+    })
 
     // Reload from API to get the authoritative file list (avoids race-condition with parallel responses)
     try {
@@ -248,9 +278,14 @@ function PersonaConfigureKnowledgeContent() {
       setFiles(prev => {
         const apiFiles = docsToFiles(version)
         return apiFiles.map(f => {
+          // Restore preview URL — check by doc ID first, then by name, then prev state
+          const url = fileUrlMapRef.current[f.id]
+            ?? fileUrlMapRef.current[f.name]
+            ?? prev.find(e => e.name.toLowerCase() === f.name.toLowerCase())?.url
+
           // 1. Ref lookup by doc ID (most reliable)
           const bytes = fileSizeMapRef.current[f.id] ?? fileSizeMapRef.current[f.name]
-          if (bytes != null) return { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` }
+          if (bytes != null) return { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB`, ...(url ? { url } : {}) }
           // 2. Fallback: find placeholder with matching name (case-insensitive to
           //    survive minor API filename normalisation like "GRAD2.pdf" → "grad2.pdf")
           const fNameLower = f.name.toLowerCase()
@@ -258,7 +293,8 @@ function PersonaConfigureKnowledgeContent() {
             (e.name === f.name || e.name.toLowerCase() === fNameLower) &&
             e.size && e.size !== '-'
           )
-          return ph ? { ...f, size: ph.size! } : f
+          const withSize = ph ? { ...f, size: ph.size! } : f
+          return url ? { ...withSize, url } : withSize
         })
       })
     } catch {
@@ -276,6 +312,35 @@ function PersonaConfigureKnowledgeContent() {
         toast.error(`Failed to upload ${rawFiles[i].name}`)
       }
     })
+  }
+
+  // ── Preview a file ─────────────────────────────────────────────────────────
+
+  function handlePreviewFile(file: KnowledgeFile) {
+    // 1. Exact lookup by doc ID (set in post-upload loop)
+    // 2. Exact lookup by filename as stored (original raw.name)
+    // 3. Inline url on the file object
+    const exact = fileUrlMapRef.current[file.id]
+      ?? fileUrlMapRef.current[file.name]
+      ?? file.url
+
+    if (exact) {
+      window.open(exact, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    // 4. Fuzzy fallback: strip all non-alphanumeric chars and compare.
+    //    Handles API renaming like "My File.pdf" → "my_file.pdf".
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const target = norm(file.name)
+    const fuzzyEntry = Object.entries(fileUrlMapRef.current).find(([key]) => norm(key) === target)
+    if (fuzzyEntry) {
+      window.open(fuzzyEntry[1], '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    // Nothing found — file was likely uploaded in a previous session
+    toast.error('Preview not available')
   }
 
   // ── Delete a single file ──────────────────────────────────────────────────
@@ -424,6 +489,7 @@ function PersonaConfigureKnowledgeContent() {
                 onFilesChange={handleFilesChange}
                 onRawFilesSelected={uploadFiles}
                 onRemoveFile={handleDeleteFile}
+                onPreviewFile={handlePreviewFile}
               />
             )}
           </div>
@@ -458,10 +524,10 @@ function PersonaConfigureKnowledgeContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div style={{ opacity: 0.7 }}>
+                {/* <div style={{ opacity: 0.7 }}>
                   <Button variant="outline" size="sm" leftIcon={<ViewOffSlashIcon size={16} />} rightIcon={<ArrowDownOneIcon size={16} />}>Mock connector</Button>
-                </div>
-                <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" />
+                </div> */}
+                {/* <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" /> */}
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => setTestChatOpen(false)} />
               </div>
             </div>

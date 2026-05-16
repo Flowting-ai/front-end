@@ -502,7 +502,7 @@ function PersonaConfigureProfileContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div style={{ opacity: 0.7 }}>
+                {/* <div style={{ opacity: 0.7 }}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -517,7 +517,7 @@ function PersonaConfigureProfileContent() {
                   size="md"
                   icon={<ExpandIcon size={20} />}
                   aria-label="Expand test chat"
-                />
+                /> */}
                 <IconButton
                   variant="outline"
                   size="md"
