@@ -7,6 +7,7 @@ import type { AIModel } from "@/types/ai-model";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { getModelLlmId } from "@/lib/model-icons";
 import { Badge } from "@/components/Badge";
+import { recordModelUsage } from "@/lib/model-usage";
 
 interface ModelSelectorProps {
   models: AIModel[];
@@ -199,6 +200,7 @@ export function ModelSelector({
                         key={`${model.id}-${model.modelId}`}
                         type="button"
                         onClick={() => {
+                          recordModelUsage(model);
                           onSelect(model);
                           onOpenChange(false);
                         }}

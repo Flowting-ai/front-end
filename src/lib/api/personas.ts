@@ -11,8 +11,11 @@ import {
   PERSONA_VERSION_DETAIL_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
+  PERSONA_CHATS_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
+  PERSONA_CHAT_MESSAGES_ENDPOINT,
   PERSONA_CHAT_STREAM_ENDPOINT,
+  PERSONA_CHATS_RENAME_ENDPOINT,
 } from "@/lib/config";
 
 // ── Backend types (match OpenAPI schema) ──────────────────────────────────────
@@ -247,6 +250,57 @@ export async function enhancePrompt(prompt: string): Promise<EnhancePromptRespon
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: form.toString(),
+  });
+}
+
+// ── Persona chat history ──────────────────────────────────────────────────────
+
+export interface PersonaChat {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PersonaMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export async function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
+  const data = await apiFetchJson<PersonaChat[] | { chats: PersonaChat[] }>(
+    PERSONA_CHATS_ENDPOINT(repoId),
+  );
+  return Array.isArray(data) ? data : (data.chats ?? []);
+}
+
+export async function fetchPersonaChatMessages(
+  repoId: string,
+  chatId: string,
+): Promise<PersonaMessage[]> {
+  const data = await apiFetchJson<PersonaMessage[] | { messages: PersonaMessage[] }>(
+    PERSONA_CHAT_MESSAGES_ENDPOINT(repoId, chatId),
+  );
+  return Array.isArray(data) ? data : (data.messages ?? []);
+}
+
+export async function renamePersonaChat(
+  repoId: string,
+  chatId: string,
+  title: string,
+): Promise<void> {
+  await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(repoId), {
+    method: "PATCH",
+    body: JSON.stringify({ chat_id: chatId, title }),
+  });
+}
+
+export async function deletePersonaChat(repoId: string, chatId: string): Promise<void> {
+  await apiFetch(PERSONA_CHATS_ENDPOINT(repoId), {
+    method: "DELETE",
+    body: JSON.stringify({ chat_id: chatId }),
   });
 }
 

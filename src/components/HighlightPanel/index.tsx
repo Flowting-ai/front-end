@@ -28,6 +28,8 @@ export interface HighlightPanelProps {
   onCopy?:    (id: string) => void
   /** Forwarded to each card's Delete button. `id` matches HighlightEntry.id. Omit to hide Delete on all cards. */
   onDelete?:  (id: string) => void
+  /** Called when the close button is clicked. Omit to hide the close button. */
+  onClose?:   () => void
   /** Extra classes applied to the panel root element. */
   className?: string
 }
@@ -39,6 +41,7 @@ export function HighlightPanel({
   onJump,
   onCopy,
   onDelete,
+  onClose,
   className,
 }: HighlightPanelProps) {
   const [searchOpen,  setSearchOpen]  = useState(false)
@@ -179,7 +182,7 @@ export function HighlightPanel({
           <AnimatePresence initial={false}>
             {searchOpen && (
               <motion.div
-                key="close-btn"
+                key="close-search-btn"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -203,6 +206,15 @@ export function HighlightPanel({
             aria-pressed={searchOpen}
             onClick={searchOpen ? undefined : openSearch}
           />
+          {onClose && (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<CancelOneIcon size={20} />}
+              aria-label="Close highlight panel"
+              onClick={onClose}
+            />
+          )}
         </div>
       </div>
 

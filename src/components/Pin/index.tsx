@@ -44,6 +44,31 @@ const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
 const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 const SWAP_INSTANT = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatRelativeTime(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60)   return 'just now'
+  const m = Math.floor(s  / 60);  if (m  < 60)   return `${m}m`
+  const h = Math.floor(m  / 60);  if (h  < 24)   return `${h}h`
+  const d = Math.floor(h  / 24);  if (d  <  7)   return `${d}d`
+  const w = Math.floor(d  /  7);  if (w  <  5)   return `${w}w`
+  const mo = Math.floor(d / 30);  if (mo < 12)   return `${mo}mo`
+  return `${Math.floor(d / 365)}y`
+}
+
+function modelToIconId(modelName?: string): string {
+  if (!modelName) return 'Claude'
+  const n = modelName.toLowerCase()
+  if (n.includes('claude'))                      return 'Claude'
+  if (n.includes('gpt') || n.includes('openai')) return 'GPT-4'
+  if (n.includes('gemini'))                      return 'Gemini'
+  if (n.includes('llama') || n.includes('meta')) return 'Llama'
+  if (n.includes('mistral'))                     return 'Mistral'
+  if (n.includes('deepseek'))                    return 'DeepSeek'
+  return 'Claude'
+}
+
 // ── useMeasure ────────────────────────────────────────────────────────────────
 // Wraps ResizeObserver to track an element's border-box dimensions.
 // Returns [ref, bounds] - attach ref to the INNER element, animate the OUTER.
@@ -167,6 +192,13 @@ export interface PinLabel {
   text:  string
 }
 
+export interface PinComment {
+  id:         string
+  content:    string
+  created_at: string
+  updated_at?: string
+}
+
 export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   'children' | 'onDrag' | 'onDragEnd' | 'onDragStart' | 'onDragEnter' | 'onDragLeave' | 'onDragOver' | 'onDrop'
 > {
@@ -253,6 +285,12 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   defaultSelected?:   boolean
   /** Fires when the user toggles the selectable checkbox. */
   onSelectedChange?:  (next: boolean) => void
+  /** Model that generated the pinned message — shown as an icon in the expanded meta row. */
+  modelName?:   string
+  /** ISO 8601 creation timestamp — shown as relative time in the expanded meta row. */
+  createdAt?:   string
+  /** Existing comments to display in the expanded view above the comment field. */
+  comments?:    PinComment[]
 }
 
 // ── Tag cap ────────────────────────────────────────────────────────────────────
@@ -305,6 +343,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       selected,
       defaultSelected = false,
       onSelectedChange,
+      modelName,
+      createdAt,
+      comments,
       className,
       style,
       onMouseEnter: externalEnter,
@@ -440,7 +481,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       ro.observe(row)
       for (const child of Array.from(row.children)) ro.observe(child as Element)
       return () => ro.disconnect()
-    }, [recomputeLabelsScroll, addTagMode, labels.length, userTagsToRender.length, tagInputValue])
+    }, [recomputeLabelsScroll, addTagMode, labels.length, userTagsToRender.length])
 
     const onLabelsPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
       if (!labelsOverflowing) return
@@ -1004,6 +1045,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               overscrollBehaviorX: 'contain',
               scrollbarWidth:      'none' as const,
               touchAction:         'pan-x',
+              cursor:              labelsOverflowing ? (labelsDragging ? 'grabbing' : 'grab') : undefined,
               userSelect:          labelsDragging ? 'none' : undefined,
             }}
           >
@@ -1118,32 +1160,24 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               are offset by `left: -1` to align with the row's true edge.
               The right side stays at `right: 0` because the wrapper is
               width:100% and the row's right edge ends at that boundary. */}
-          {[
-            { width: 24, blur: 2 },
-            { width: 18, blur: 3 },
-            { width: 12, blur: 5 },
-            { width: 8,  blur: 6 },
-          ].map(({ width, blur }) => (
-            <div
-              key={`labels-left-blur-${blur}`}
-              aria-hidden
-              style={{
-                position:             'absolute',
-                top:                  0,
-                bottom:               0,
-                left:                 -1,
-                width,
-                backdropFilter:       `blur(${blur}px)`,
-                WebkitBackdropFilter: `blur(${blur}px)`,
-                maskImage:            'linear-gradient(to right, black 0%, transparent 100%)',
-                WebkitMaskImage:      'linear-gradient(to right, black 0%, transparent 100%)',
-                pointerEvents:        'none',
-                zIndex:               1,
-                opacity:              labelsAtStart || !labelsOverflowing ? 0 : 1,
-                transition:           'opacity 150ms ease',
-              }}
-            />
-          ))}
+          <div
+            aria-hidden
+            style={{
+              position:             'absolute',
+              top:                  0,
+              bottom:               0,
+              left:                 -1,
+              width:                24,
+              backdropFilter:       'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              maskImage:            'linear-gradient(to right, black 0%, transparent 100%)',
+              WebkitMaskImage:      'linear-gradient(to right, black 0%, transparent 100%)',
+              pointerEvents:        'none',
+              zIndex:               1,
+              opacity:              labelsAtStart || !labelsOverflowing ? 0 : 1,
+              transition:           'opacity 150ms ease',
+            }}
+          />
           <div
             aria-hidden
             style={{
@@ -1160,32 +1194,24 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
             }}
           />
 
-          {[
-            { width: 24, blur: 2 },
-            { width: 18, blur: 3 },
-            { width: 12, blur: 5 },
-            { width: 8,  blur: 6 },
-          ].map(({ width, blur }) => (
-            <div
-              key={`labels-right-blur-${blur}`}
-              aria-hidden
-              style={{
-                position:             'absolute',
-                top:                  0,
-                bottom:               0,
-                right:                0,
-                width,
-                backdropFilter:       `blur(${blur}px)`,
-                WebkitBackdropFilter: `blur(${blur}px)`,
-                maskImage:            'linear-gradient(to left, black 0%, transparent 100%)',
-                WebkitMaskImage:      'linear-gradient(to left, black 0%, transparent 100%)',
-                pointerEvents:        'none',
-                zIndex:               1,
-                opacity:              labelsAtEnd || !labelsOverflowing ? 0 : 1,
-                transition:           'opacity 150ms ease',
-              }}
-            />
-          ))}
+          <div
+            aria-hidden
+            style={{
+              position:             'absolute',
+              top:                  0,
+              bottom:               0,
+              right:                0,
+              width:                24,
+              backdropFilter:       'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              maskImage:            'linear-gradient(to left, black 0%, transparent 100%)',
+              WebkitMaskImage:      'linear-gradient(to left, black 0%, transparent 100%)',
+              pointerEvents:        'none',
+              zIndex:               1,
+              opacity:              labelsAtEnd || !labelsOverflowing ? 0 : 1,
+              transition:           'opacity 150ms ease',
+            }}
+          />
           <div
             aria-hidden
             style={{
@@ -1263,7 +1289,12 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
-                <ExpandedMeta chatName={chatName} />
+                <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
+                {comments && comments.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+                    {comments.map((c) => <PinCommentItem key={c.id} comment={c} />)}
+                  </div>
+                )}
                 <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
               </motion.div>
             )}
@@ -1358,10 +1389,12 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
-function ExpandedMeta({ chatName }: { chatName: string }) {
+function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; modelName?: string; createdAt?: string }) {
+  const timeLabel = createdAt ? formatRelativeTime(createdAt) : null
+  const iconId    = modelToIconId(modelName)
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
-      <Badge label="1h" color="Green" />
+      {timeLabel && <Badge label={timeLabel} color="Green" />}
       <p
         style={{
           flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-semibold)',
@@ -1372,8 +1405,46 @@ function ExpandedMeta({ chatName }: { chatName: string }) {
         {chatName}
       </p>
       <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <LlmIcon id="Claude" variant="avatar" size={24} />
+        <LlmIcon id={iconId} variant="avatar" size={24} />
       </div>
+    </div>
+  )
+}
+
+function PinCommentItem({ comment }: { comment: PinComment }) {
+  return (
+    <div
+      style={{
+        padding:         '6px 8px',
+        borderRadius:    8,
+        backgroundColor: 'var(--neutral-50)',
+        display:         'flex',
+        flexDirection:   'column',
+        gap:             2,
+      }}
+    >
+      <p
+        style={{
+          fontFamily:  'var(--font-body)',
+          fontSize:    'var(--font-size-caption)',
+          lineHeight:  'var(--line-height-caption)',
+          color:       'var(--color-text-primary)',
+          margin:      0,
+          wordBreak:   'break-word',
+          whiteSpace:  'pre-wrap',
+        }}
+      >
+        {comment.content}
+      </p>
+      <span
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          color:      'var(--neutral-400)',
+        }}
+      >
+        {formatRelativeTime(comment.created_at)}
+      </span>
     </div>
   )
 }

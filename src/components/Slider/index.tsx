@@ -26,6 +26,8 @@ export interface SliderProps
   label?:         React.ReactNode
   variant?:       SliderVariant
   fluid?:         boolean
+  /** CSS color for the filled (active) portion of the track. Defaults to `var(--neutral-700)`. */
+  fillColor?:     string
 }
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -58,7 +60,8 @@ export const Slider = React.forwardRef<
     valueFormat,
     label,
     variant = 'default',
-    fluid   = true,
+    fluid     = true,
+    fillColor = 'var(--neutral-700)',
     disabled,
     ...props
   },
@@ -139,7 +142,7 @@ export const Slider = React.forwardRef<
             style={{
               position:        'absolute',
               height:          '100%',
-              backgroundColor: 'var(--neutral-700)',
+              backgroundColor: fillColor,
               borderRadius:    999,
             }}
           />

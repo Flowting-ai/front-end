@@ -192,7 +192,7 @@ export async function movePinToFolder(
 
 export async function updatePinTags(pinId: string, tags: string[]): Promise<void> {
   await apiFetch(PIN_TAGS_ENDPOINT(pinId), {
-    method: 'PATCH',
+    method: 'PUT',
     body:   JSON.stringify({ tags }),
   })
 }

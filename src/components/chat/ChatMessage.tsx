@@ -150,6 +150,7 @@ interface ChatMessageProps {
   isLast: boolean;
   isNewMessage?: boolean;
   chatId?: string;
+  showReasoning?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -162,6 +163,7 @@ export function ChatMessage({
   isLast,
   isNewMessage = false,
   chatId,
+  showReasoning = true,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -439,8 +441,8 @@ export function ChatMessage({
           </div>
         )}
 
-        {/* Reasoning block */}
-        {hasThinking && (
+        {/* Reasoning block — shown when adaptive thinking is enabled */}
+        {hasThinking && showReasoning && (
           <ReasoningBlock
             thinkingContent={message.thinking!}
             isNewMessage={isNewMessage}

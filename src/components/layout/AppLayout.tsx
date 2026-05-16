@@ -35,8 +35,10 @@ export function AppLayout({
   const pathname = usePathname()
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
-  const isProjectPage = pathname.startsWith('/project') && !pathname.includes('/chat/')
-  const isPersonaPage = pathname.startsWith('/personas') || pathname.startsWith('/persona')
+  const isProjectPage    = pathname.startsWith('/project') && !pathname.includes('/chat/')
+  const isPersonaPage    = pathname.startsWith('/personas') || pathname.startsWith('/persona')
+  // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
+  const isPersonaChatPage = /^\/personas\/[^/]+\/chat/.test(pathname)
   const isSettingsPage = pathname.startsWith('/settings')
 
   // Settings pages manage their own sidebar - bypass global LeftSidebar, TopBar, FloatingPanel.
@@ -82,21 +84,21 @@ export function AppLayout({
           flex:            "1 0 0",
           minWidth:        0,
           display:         "flex",
-          padding:         (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
+          padding:         "10px 0",
           backgroundColor: "var(--neutral-50)",
         }}
       >
         {isPersonaPage ? (
           /* ── Persona pages: no rounded container, no TopBar, no FloatingPanel ── */
           <main
-            className="kaya-scrollbar"
+            className={isPersonaChatPage ? undefined : "kaya-scrollbar"}
             style={{
               flex:                "1 0 0",
               minHeight:           0,
               width:               "100%",
-              overflowY:           "auto",
+              overflowY:           isPersonaChatPage ? "hidden" : "auto",
               overflowX:           "hidden",
-              overscrollBehaviorY: "contain",
+              overscrollBehaviorY: isPersonaChatPage ? undefined : "contain",
               display:             "flex",
               flexDirection:       "column",
             }}

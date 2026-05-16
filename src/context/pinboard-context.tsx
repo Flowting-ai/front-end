@@ -2,7 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { createPin, deletePin, listPins, getPin, updatePinTags as updatePinTags_api } from "@/lib/api/pins";
+import {
+  createPin,
+  deletePin,
+  listPins,
+  listPinFolders,
+  getPin,
+  updatePinTags as updatePinTags_api,
+  type PinComment,
+} from "@/lib/api/pins";
 
 // ── Pin Data Shape ────────────────────────────────────────────────────────────
 
@@ -14,6 +22,13 @@ export type PinCategory =
   | "Tasks"
   | "Quote"
   | "Workflow";
+
+export type { PinComment };
+
+export interface PinFolderView {
+  id: string;
+  label: string;
+}
 
 export interface PinItem {
   id: string;
@@ -28,12 +43,15 @@ export interface PinItem {
   createdAt: string;
   folderId?: string;
   folderName?: string;
+  comments?: PinComment[];
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 interface PinboardContextValue {
   pins: PinItem[];
+  folders: PinFolderView[];
+  isLoading: boolean;
   isOpen: boolean;
   open: () => void;
   close: () => void;
@@ -46,6 +64,7 @@ interface PinboardContextValue {
   updatePinCategory: (id: string, category: PinCategory) => void;
   updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
   updatePinTags: (id: string, tags: string[]) => void;
+  addFolder: (folder: PinFolderView) => void;
 }
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
@@ -53,63 +72,86 @@ const PinboardContext = createContext<PinboardContextValue | null>(null);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
-  const [pins, setPins] = useState<PinItem[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [pins,      setPins]      = useState<PinItem[]>([]);
+  const [folders,   setFolders]   = useState<PinFolderView[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOpen,    setIsOpen]    = useState(false);
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
+  const open   = useCallback(() => setIsOpen(true), []);
+  const close  = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
 
-  // ── Load pins from API on mount ─────────────────────────────────────────
+  // ── Load pins + folders in parallel on mount ────────────────────────────
   useEffect(() => {
-    listPins()
-      .then(async (apiPins) => {
+    Promise.all([listPins(), listPinFolders()])
+      .then(async ([apiPins, apiFolders]) => {
         const items: PinItem[] = apiPins.map((p) => ({
-          id: p.id,
-          content: p.content,
-          title: p.title,
-          category: (p.category as PinCategory) ?? "Code",
-          tags: p.tags,
-          messageId: p.message_id ?? p.id,
-          chatId: p.chat_id,
-          createdAt: p.created_at,
-          modelName: p.model_name,
+          id:         p.id,
+          content:    p.content,
+          title:      p.title,
+          category:   (p.category as PinCategory) ?? "Code",
+          tags:       p.tags,
+          messageId:  p.message_id ?? p.id,
+          chatId:     p.chat_id,
+          createdAt:  p.created_at,
+          modelName:  p.model_name,
           folderId:   p.folder_id,
           folderName: p.folder_name,
+          comments:   p.comments,
         }));
-        setPins(items);
 
-        // Lazily enrich pins with tags from the detail endpoint.
-        // The list endpoint may omit tags; the detail endpoint always includes them.
+        setFolders(apiFolders.map((f) => ({ id: f.id, label: f.name })));
+        setPins(items);
+        setIsLoading(false); // unblock FCP — pins render immediately with whatever the list returned
+
+        // Background tag + comment enrichment.
+        // The list endpoint may omit tags; the detail endpoint always has them.
+        // This second pass is intentionally non-blocking: pins are visible before it completes.
         const pinsWithoutTags = items.filter((p) => !p.tags || p.tags.length === 0);
-        if (pinsWithoutTags.length === 0) return;
+        if (!pinsWithoutTags.length) return;
 
         const enrichments = await Promise.all(
           pinsWithoutTags.map(async (pin) => {
             try {
-              const detail = await getPin(pin.id);
-              if (!detail.tags || detail.tags.length === 0) return null;
-              return { id: pin.id, tags: detail.tags };
+              const detail   = await getPin(pin.id);
+              const hasTags  = detail.tags     && detail.tags.length     > 0;
+              const hasCmts  = detail.comments && detail.comments.length > 0;
+              if (!hasTags && !hasCmts) return null;
+              return {
+                id:       pin.id,
+                tags:     hasTags ? detail.tags     : undefined,
+                comments: hasCmts ? detail.comments : undefined,
+              };
             } catch {
               return null;
             }
           }),
         );
 
-        const validEnrichments = enrichments.filter(
-          (e): e is { id: string; tags: string[] } => e !== null,
-        );
-        if (validEnrichments.length === 0) return;
+        const valid = enrichments.filter(Boolean) as Array<{
+          id: string;
+          tags?: string[];
+          comments?: PinComment[];
+        }>;
+        if (!valid.length) return;
 
-        const tagMap = new Map(validEnrichments.map((e) => [e.id, e.tags]));
+        const enrichMap = new Map(valid.map((e) => [e.id, e]));
         setPins((prev) =>
           prev.map((p) => {
-            const tags = tagMap.get(p.id);
-            return tags ? { ...p, tags } : p;
+            const e = enrichMap.get(p.id);
+            if (!e) return p;
+            return {
+              ...p,
+              ...(e.tags     ? { tags:     e.tags     } : {}),
+              ...(e.comments ? { comments: e.comments } : {}),
+            };
           }),
         );
       })
-      .catch((err) => console.error("[PinboardContext] Failed to load pins", err));
+      .catch((err) => {
+        console.error("[PinboardContext] Failed to load pins", err);
+        setIsLoading(false);
+      });
   }, []);
 
   // ── addPin - optimistic, persisted to backend ───────────────────────────
@@ -122,7 +164,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       return [{ ...pin, id, createdAt: new Date().toISOString() }, ...prev];
     });
 
-    if (!tempId) return; // already pinned
+    if (!tempId) return;
 
     try {
       const backendPin = await createPin(pin.messageId);
@@ -131,8 +173,9 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           p.id === tempId
             ? {
                 ...p,
-                id: backendPin.id,
-                tags: backendPin.tags?.length ? backendPin.tags : p.tags,
+                id:        backendPin.id,
+                tags:      backendPin.tags?.length     ? backendPin.tags     : p.tags,
+                comments:  backendPin.comments?.length ? backendPin.comments : p.comments,
                 createdAt: backendPin.created_at ?? p.createdAt,
               }
             : p,
@@ -145,16 +188,10 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── clonePin - duplicate an existing pin via POST /pins/message/{messageId}
-  // Bypasses the messageId deduplication check in addPin so that a pin can be
-  // duplicated even when one for the same message already exists.
+  // ── clonePin ────────────────────────────────────────────────────────────
   const clonePin = useCallback(async (original: PinItem) => {
-    const tempId = `pin-temp-${Date.now()}`;
-    const optimistic: PinItem = {
-      ...original,
-      id: tempId,
-      createdAt: new Date().toISOString(),
-    };
+    const tempId    = `pin-temp-${Date.now()}`;
+    const optimistic: PinItem = { ...original, id: tempId, createdAt: new Date().toISOString() };
     setPins((prev) => [optimistic, ...prev]);
 
     try {
@@ -164,8 +201,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           p.id === tempId
             ? {
                 ...original,
-                id: backendPin.id,
-                tags: backendPin.tags?.length ? backendPin.tags : original.tags,
+                id:        backendPin.id,
+                tags:      backendPin.tags?.length ? backendPin.tags : original.tags,
                 createdAt: backendPin.created_at ?? optimistic.createdAt,
               }
             : p,
@@ -179,7 +216,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── removePin - optimistic, persisted to backend ────────────────────────
+  // ── removePin ───────────────────────────────────────────────────────────
   const removePin = useCallback((id: string) => {
     setPins((prev) => prev.filter((p) => p.id !== id));
     if (!id.startsWith("pin-temp-")) {
@@ -194,7 +231,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     let targetId: string | undefined;
     setPins((prev) => {
       const pin = prev.find((p) => p.messageId === messageId);
-      targetId = pin?.id;
+      targetId  = pin?.id;
       return prev.filter((p) => p.messageId !== messageId);
     });
     if (targetId && !targetId.startsWith("pin-temp-")) {
@@ -204,8 +241,15 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const addFolder = useCallback((folder: PinFolderView) => {
+    setFolders((prev) => {
+      if (prev.some((f) => f.id === folder.id)) return prev;
+      return [...prev, folder];
+    });
+  }, []);
+
   const updatePinCategory = useCallback((id: string, category: PinCategory) => {
-    setPins((prev) => prev.map((p) => p.id === id ? { ...p, category } : p));
+    setPins((prev) => prev.map((p) => (p.id === id ? { ...p, category } : p)));
   }, []);
 
   const updatePinFolder = useCallback((id: string, folderId: string | null, folderName?: string) => {
@@ -219,10 +263,10 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updatePinTags = useCallback((id: string, tags: string[]) => {
-    setPins((prev) => prev.map((p) => p.id === id ? { ...p, tags } : p));
-    if (!id.startsWith('pin-temp-')) {
+    setPins((prev) => prev.map((p) => (p.id === id ? { ...p, tags } : p)));
+    if (!id.startsWith("pin-temp-")) {
       updatePinTags_api(id, tags).catch((err) =>
-        console.error('[PinboardContext] Failed to update pin tags', err),
+        console.error("[PinboardContext] Failed to update pin tags", err),
       );
     }
   }, []);
@@ -234,7 +278,12 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PinboardContext.Provider
-      value={{ pins, isOpen, open, close, toggle, addPin, clonePin, removePin, removePinByMessage, isPinned, updatePinCategory, updatePinFolder, updatePinTags }}
+      value={{
+        pins, folders, isLoading, isOpen,
+        open, close, toggle,
+        addPin, clonePin, removePin, removePinByMessage, isPinned,
+        updatePinCategory, updatePinFolder, updatePinTags, addFolder,
+      }}
     >
       {children}
     </PinboardContext.Provider>
@@ -245,8 +294,6 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
 export function usePinboard(): PinboardContextValue {
   const ctx = useContext(PinboardContext);
-  if (!ctx) {
-    throw new Error("usePinboard must be used within PinboardProvider");
-  }
+  if (!ctx) throw new Error("usePinboard must be used within PinboardProvider");
   return ctx;
 }

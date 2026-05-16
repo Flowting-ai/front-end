@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -667,32 +667,24 @@ function FilterBar({
           `var(--neutral-50)` so it matches the Pinboard root background.
           Opacity gates: left visible when overflowing && !atStart; right
           visible when overflowing && !atEnd. ── */}
-      {[
-        { width: 24, blur: 2 },
-        { width: 18, blur: 3 },
-        { width: 12, blur: 5 },
-        { width: 8,  blur: 6 },
-      ].map(({ width, blur }) => (
-        <div
-          key={`fb-left-blur-${blur}`}
-          aria-hidden
-          style={{
-            position:             'absolute',
-            top:                  0,
-            bottom:               0,
-            left:                 0,
-            width,
-            backdropFilter:       `blur(${blur}px)`,
-            WebkitBackdropFilter: `blur(${blur}px)`,
-            maskImage:            'linear-gradient(to right, black 0%, transparent 100%)',
-            WebkitMaskImage:      'linear-gradient(to right, black 0%, transparent 100%)',
-            pointerEvents:        'none',
-            zIndex:               1,
-            opacity:              !overflowing || atStart ? 0 : 1,
-            transition:           'opacity 150ms ease',
-          }}
-        />
-      ))}
+      <div
+        aria-hidden
+        style={{
+          position:             'absolute',
+          top:                  0,
+          bottom:               0,
+          left:                 0,
+          width:                24,
+          backdropFilter:       'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          maskImage:            'linear-gradient(to right, black 0%, transparent 100%)',
+          WebkitMaskImage:      'linear-gradient(to right, black 0%, transparent 100%)',
+          pointerEvents:        'none',
+          zIndex:               1,
+          opacity:              !overflowing || atStart ? 0 : 1,
+          transition:           'opacity 150ms ease',
+        }}
+      />
       <div
         aria-hidden
         style={{
@@ -708,32 +700,24 @@ function FilterBar({
           transition:    'opacity 150ms ease',
         }}
       />
-      {[
-        { width: 24, blur: 2 },
-        { width: 18, blur: 3 },
-        { width: 12, blur: 5 },
-        { width: 8,  blur: 6 },
-      ].map(({ width, blur }) => (
-        <div
-          key={`fb-right-blur-${blur}`}
-          aria-hidden
-          style={{
-            position:             'absolute',
-            top:                  0,
-            bottom:               0,
-            right:                0,
-            width,
-            backdropFilter:       `blur(${blur}px)`,
-            WebkitBackdropFilter: `blur(${blur}px)`,
-            maskImage:            'linear-gradient(to left, black 0%, transparent 100%)',
-            WebkitMaskImage:      'linear-gradient(to left, black 0%, transparent 100%)',
-            pointerEvents:        'none',
-            zIndex:               1,
-            opacity:              !overflowing || atEnd ? 0 : 1,
-            transition:           'opacity 150ms ease',
-          }}
-        />
-      ))}
+      <div
+        aria-hidden
+        style={{
+          position:             'absolute',
+          top:                  0,
+          bottom:               0,
+          right:                0,
+          width:                24,
+          backdropFilter:       'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          maskImage:            'linear-gradient(to left, black 0%, transparent 100%)',
+          WebkitMaskImage:      'linear-gradient(to left, black 0%, transparent 100%)',
+          pointerEvents:        'none',
+          zIndex:               1,
+          opacity:              !overflowing || atEnd ? 0 : 1,
+          transition:           'opacity 150ms ease',
+        }}
+      />
       <div
         aria-hidden
         style={{
@@ -1083,15 +1067,21 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     const [internalCtypeIds, setInternalCtypeIds] = useState<ReadonlySet<string>>(
       () => new Set(defaultSelectedContentTypeIds),
     )
-    const tagIdSet      = isTagsControlled
-      ? new Set(selectedTagIdsProp)
-      : internalTagIds
-    const categoryIdSet = isCatsControlled
-      ? new Set(selectedCategoryIdsProp)
-      : internalCatIds
-    const ctypeIdSet    = isCtypesControlled
-      ? new Set(selectedContentTypeIdsProp)
-      : internalCtypeIds
+    const tagIdSet = useMemo(
+      () => isTagsControlled ? new Set(selectedTagIdsProp) : internalTagIds,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [isTagsControlled, selectedTagIdsProp, internalTagIds],
+    )
+    const categoryIdSet = useMemo(
+      () => isCatsControlled ? new Set(selectedCategoryIdsProp) : internalCatIds,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [isCatsControlled, selectedCategoryIdsProp, internalCatIds],
+    )
+    const ctypeIdSet = useMemo(
+      () => isCtypesControlled ? new Set(selectedContentTypeIdsProp) : internalCtypeIds,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [isCtypesControlled, selectedContentTypeIdsProp, internalCtypeIds],
+    )
 
     const toggleInSet = (
       set: ReadonlySet<string>,
@@ -1611,32 +1601,24 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
         {/* ── Top edge fade - progressive blur (behind) + color fade (in front) ──
             Sits at the bottom edge of the top overlay, softening pins scrolling
             up underneath the filter bar. Hidden when scroll is at top.           ── */}
-        {[
-          { height: 40, blur: 2 },
-          { height: 28, blur: 3 },
-          { height: 18, blur: 5 },
-          { height: 10, blur: 6 },
-        ].map(({ height, blur }) => (
-          <div
-            key={`top-blur-${blur}`}
-            aria-hidden
-            style={{
-              position:             'absolute',
-              top:                  TOP_BAR_H,
-              left:                 0,
-              right:                0,
-              height,
-              backdropFilter:       `blur(${blur}px)`,
-              WebkitBackdropFilter: `blur(${blur}px)`,
-              maskImage:            'linear-gradient(to bottom, black 0%, transparent 100%)',
-              WebkitMaskImage:      'linear-gradient(to bottom, black 0%, transparent 100%)',
-              pointerEvents:        'none',
-              zIndex:               1,
-              opacity:              atTop ? 0 : 1,
-              transition:           'opacity 150ms ease',
-            }}
-          />
-        ))}
+        <div
+          aria-hidden
+          style={{
+            position:             'absolute',
+            top:                  TOP_BAR_H,
+            left:                 0,
+            right:                0,
+            height:               40,
+            backdropFilter:       'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            maskImage:            'linear-gradient(to bottom, black 0%, transparent 100%)',
+            WebkitMaskImage:      'linear-gradient(to bottom, black 0%, transparent 100%)',
+            pointerEvents:        'none',
+            zIndex:               1,
+            opacity:              atTop ? 0 : 1,
+            transition:           'opacity 150ms ease',
+          }}
+        />
         <div
           aria-hidden
           style={{
@@ -1656,32 +1638,24 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
         {/* ── Bottom edge fade - progressive blur (behind) + color fade (in front) ──
             Sits just above the toolbar, softening pins scrolling down
             underneath it. Hidden when scroll is at bottom.                       ── */}
-        {[
-          { height: 40, blur: 2 },
-          { height: 28, blur: 3 },
-          { height: 18, blur: 5 },
-          { height: 10, blur: 6 },
-        ].map(({ height, blur }) => (
-          <div
-            key={`bottom-blur-${blur}`}
-            aria-hidden
-            style={{
-              position:             'absolute',
-              bottom:               bottomH,
-              left:                 0,
-              right:                0,
-              height,
-              backdropFilter:       `blur(${blur}px)`,
-              WebkitBackdropFilter: `blur(${blur}px)`,
-              maskImage:            'linear-gradient(to top, black 0%, transparent 100%)',
-              WebkitMaskImage:      'linear-gradient(to top, black 0%, transparent 100%)',
-              pointerEvents:        'none',
-              zIndex:               1,
-              opacity:              atBottom ? 0 : 1,
-              transition:           'opacity 150ms ease',
-            }}
-          />
-        ))}
+        <div
+          aria-hidden
+          style={{
+            position:             'absolute',
+            bottom:               bottomH,
+            left:                 0,
+            right:                0,
+            height:               40,
+            backdropFilter:       'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            maskImage:            'linear-gradient(to top, black 0%, transparent 100%)',
+            WebkitMaskImage:      'linear-gradient(to top, black 0%, transparent 100%)',
+            pointerEvents:        'none',
+            zIndex:               1,
+            opacity:              atBottom ? 0 : 1,
+            transition:           'opacity 150ms ease',
+          }}
+        />
         <div
           aria-hidden
           style={{
@@ -1786,15 +1760,19 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             transition={{ type: 'spring', stiffness: 380, damping: 24, mass: 0.9 }}
             style={{
               position:        'fixed',
-              top:             `calc(50% - ${expandedHeight / 2}px)`,
-              left:            `calc(50% - ${expandedWidth / 2}px)`,
+              top:             '50%',
+              left:            '50%',
+              x:               '-50%',
+              y:               '-50%',
               width:           expandedWidth,
+              maxWidth:        'calc(100vw - 32px)',
               height:          expandedHeight,
+              maxHeight:       '98vh',
               zIndex:          1001,
               background:      'var(--neutral-50)',
               borderRadius:    28,
               overflow:        'hidden',
-              transformOrigin: '100% 50%',
+              transformOrigin: '50% 50%',
               boxShadow:
                 '0 19px 32px 8px rgba(18,12,8,0.15), 0 2px 2.8px 0 rgba(130,122,116,0.10), 0 0 0 1px var(--neutral-100)',
             }}

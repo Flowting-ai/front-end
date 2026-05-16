@@ -36,6 +36,8 @@ import {
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
 import type { Pin } from "@/lib/api/pins";
+import { getTopUsedModels, getRecentModels, recordModelUsage } from "@/lib/model-usage";
+import { getModelLlmId } from "@/lib/model-icons";
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -233,45 +235,63 @@ function AddMenu({ webSearchEnabled, onWebSearchChange, onAddFilesClick }: AddMe
 
 // ── Model-menu (Figma 3208:32989) ─────────────────────────────────────────────
 
-const MOST_USED_MODELS = [
-  { id: "claude",   llm: "Claude"   as const, label: "Claude Opus 4.5" },
-  { id: "gpt5",     llm: "OpenAI"   as const, label: "GPT-5" },
-  { id: "gemini",   llm: "Gemini"   as const, label: "Gemini 2.5 Pro" },
-  { id: "deepseek", llm: "DeepSeek" as const, label: "DeepSeek V3" },
-  { id: "grok",     llm: "Grok"     as const, label: "Grok 4" },
-];
-
-const RECENT_MODELS = [
-  { id: "sonnet",    llm: "Claude"  as const, label: "Claude Sonnet 4.5" },
-  { id: "haiku",     llm: "Claude"  as const, label: "Claude Haiku 4.5" },
-  { id: "gpt5-mini", llm: "OpenAI"  as const, label: "GPT-5 Mini" },
-  { id: "mistral",   llm: "Mistral" as const, label: "Mistral Large" },
-  { id: "qwen",      llm: "Qwen"    as const, label: "Qwen 3 Max" },
-];
-
-function DefaultModelMenu() {
+function ChatModelMenu({ onClose }: { onClose?: () => void }) {
   const [moreOpen, setMoreOpen] = React.useState(false);
+
+  const {
+    models,
+    museAdvanced,
+    activateMuse,
+    deactivateMuse,
+    setMuseAdvanced,
+    museActive,
+    selectModel,
+    enableReasoning,
+    setEnableReasoning,
+  } = useModelSelectorContext();
+
+  // Compute directly from localStorage on every render so the list is always
+  // current regardless of whether moreOpen toggled or the Float stayed mounted.
+  const topUsed = moreOpen && models.length > 0 ? getTopUsedModels(models, 5) : [];
+  const recents = moreOpen && models.length > 0 ? getRecentModels(models, 5) : [];
+
+  const handleMoreModelSelect = (model: AIModel) => {
+    recordModelUsage(model);
+    setMoreOpen(false);
+    selectModel(model);
+    onClose?.();
+  };
+
   return (
     <Dropdown size="md">
       <Dropdown.Section fluid>
         <Dropdown.Item
-          label="Souvenir : Advance"
+          label="Souvenir Muse: Advanced"
           subLabel="Most capable for ambitious work"
           showSwitch
-          defaultSwitchChecked={false}
+          switchChecked={museActive && museAdvanced}
+          onSwitchChange={(checked) => {
+            if (checked) {
+              setMuseAdvanced(true);
+            } else if (museActive) {
+              deactivateMuse();
+            } else {
+              activateMuse();
+            }
+          }}
           fluid
         />
         <Dropdown.Item
           label="Adaptive thinking"
-          subLabel="Most capable for ambitious work"
+          subLabel="Enable extended reasoning"
           showSwitch
-          defaultSwitchChecked={false}
+          switchChecked={enableReasoning}
+          onSwitchChange={setEnableReasoning}
           fluid
         />
-        <Dropdown.Float
+        <Dropdown.Submenu
           open={moreOpen}
           onOpenChange={setMoreOpen}
-          placement="right-end"
           trigger={
             <Dropdown.Item
               label="More models"
@@ -282,17 +302,37 @@ function DefaultModelMenu() {
         >
           <Dropdown size="md">
             <Dropdown.Section label="Most used" fluid>
-              {MOST_USED_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
-              ))}
+              {topUsed.length > 0 ? (
+                topUsed.map((m) => (
+                  <Dropdown.Item
+                    key={`${m.id}-${m.modelId}`}
+                    label={m.modelName}
+                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
+                    fluid
+                    onClick={() => handleMoreModelSelect(m)}
+                  />
+                ))
+              ) : (
+                <Dropdown.Item label="No model history yet" fluid disabled />
+              )}
             </Dropdown.Section>
             <Dropdown.Section label="Recents" divider fluid>
-              {RECENT_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
-              ))}
+              {recents.length > 0 ? (
+                recents.map((m) => (
+                  <Dropdown.Item
+                    key={`${m.id}-${m.modelId}`}
+                    label={m.modelName}
+                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
+                    fluid
+                    onClick={() => handleMoreModelSelect(m)}
+                  />
+                ))
+              ) : (
+                <Dropdown.Item label="No recent models" fluid disabled />
+              )}
             </Dropdown.Section>
           </Dropdown>
-        </Dropdown.Float>
+        </Dropdown.Submenu>
       </Dropdown.Section>
     </Dropdown>
   );
@@ -352,6 +392,19 @@ function ChatPageInner() {
   useEffect(() => {
     setNewChatHighlightedPinIndex(0);
   }, [newChatFilteredPins]);
+
+  // When no active chat is open, listen for pin:insert events from the Pinboard
+  // and append the pin's content to the new-chat input. ChatInterface handles
+  // the same event for active chats, so only register here when there's no chatId.
+  useEffect(() => {
+    if (activeChatId) return;
+    const handler = (e: Event) => {
+      const content = (e as CustomEvent<{ content: string }>).detail?.content;
+      if (content) setNewChatInput((prev) => prev ? `${prev}\n\n${content}` : content);
+    };
+    window.addEventListener("pin:insert", handler);
+    return () => window.removeEventListener("pin:insert", handler);
+  }, [activeChatId]);
 
   // Close pin dropdown on outside click
   useEffect(() => {
@@ -492,6 +545,7 @@ function ChatPageInner() {
     open: openModelSelector,
     museActive,
     museAdvanced,
+    enableReasoning,
   } = useModelSelectorContext();
 
   const modelButtonLabel = museActive
@@ -691,7 +745,7 @@ function ChatPageInner() {
                       modelName={modelButtonLabel}
                       onModelClick={handleModelClick}
                       addMenu={addMenu}
-                      modelMenu={<DefaultModelMenu />}
+                      modelMenu={<ChatModelMenu />}
                       chips={newChatChips}
                       attachmentsSlot={
                         <AttachmentManager
@@ -793,9 +847,10 @@ function ChatPageInner() {
               selectedModelId={selectedModel?.id}
               onModelClick={handleModelClick}
               addMenu={addMenu}
-              modelMenu={<DefaultModelMenu />}
+              modelMenu={<ChatModelMenu />}
               initialPrompt={initialPrompt}
               webSearchEnabled={webSearchEnabled}
+              enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}

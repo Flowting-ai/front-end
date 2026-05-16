@@ -520,7 +520,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                 gap:            24,
                 flexShrink:     0,
                 width:          644,
-                height:         788,
+                height:         '100%',
               }}
             >
               {/* ── Header - Figma 2565:34104 ──

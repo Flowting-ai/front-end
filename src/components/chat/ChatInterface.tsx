@@ -99,6 +99,8 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   /** Whether web search is currently enabled (controlled by parent). */
   webSearchEnabled?: boolean;
+  /** Whether adaptive reasoning is enabled (sends enable_thinking to backend). */
+  enableReasoning?: boolean;
   /** Files selected via the add-menu file picker (controlled by parent). */
   addMenuFiles?: File[];
   /** Called after send to let the parent clear its add-menu file list. */
@@ -119,12 +121,25 @@ export function ChatInterface({
   modelMenu,
   initialPrompt,
   webSearchEnabled,
+  enableReasoning,
   addMenuFiles,
   onClearAddMenuFiles,
   chips,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
+
+  // Listen for pin:insert events dispatched by the Pinboard sidebar / expanded modal.
+  // Appends the pin's content to the current input value.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const content = (e as CustomEvent<{ content: string }>).detail?.content;
+      if (content) setInputValue((prev) => prev ? `${prev}\n\n${content}` : content);
+    };
+    window.addEventListener("pin:insert", handler);
+    return () => window.removeEventListener("pin:insert", handler);
+  }, []);
+
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [citationsOpen, setCitationsOpen] = useState(false);
   const [citationsSources, setCitationsSources] = useState<Source[]>([]);
@@ -235,6 +250,7 @@ export function ChatInterface({
       onClearAddMenuFiles?.();
       fetchAiResponse(content, null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
+        enableReasoning,
         files: files.length > 0 ? files : undefined,
       });
     }
@@ -392,6 +408,7 @@ export function ChatInterface({
     try {
       await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
         webSearch: webSearchEnabled,
+        enableReasoning,
         files: allFiles.length > 0 ? allFiles : undefined,
       });
     } catch {
@@ -528,6 +545,7 @@ export function ChatInterface({
                 isLast={idx === messages.length - 1}
                 isNewMessage={idx === messages.length - 1 && isStreaming}
                 chatId={chatId}
+                showReasoning={enableReasoning}
                 onRegenerate={
                   idx === messages.length - 1 &&
                   message.role === "assistant" &&

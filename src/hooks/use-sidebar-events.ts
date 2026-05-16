@@ -5,6 +5,14 @@ import { useEffect } from "react";
 const SIDEBAR_OPEN_EVENT = "sidebar:open";
 const SIDEBAR_CLOSE_EVENT = "sidebar:close";
 const SIDEBAR_NEW_CHAT_EVENT = "sidebar:new-chat";
+const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
+const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
+
+export interface PersonaChatEventDetail {
+  personaId: string;
+  chatId: string;
+  title: string;
+}
 
 export function emitSidebarOpen() {
   if (typeof window !== "undefined") {
@@ -21,6 +29,18 @@ export function emitSidebarClose() {
 export function emitSidebarNewChat() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(SIDEBAR_NEW_CHAT_EVENT));
+  }
+}
+
+export function emitPersonaChatCreated(detail: PersonaChatEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_CREATED_EVENT, { detail }));
+  }
+}
+
+export function emitPersonaChatTitleUpdated(detail: PersonaChatEventDetail) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_TITLE_UPDATED_EVENT, { detail }));
   }
 }
 

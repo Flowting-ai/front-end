@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
 import {
   CancelOneIcon,
   SearchOneIcon,
@@ -18,6 +19,7 @@ import {
   ShapesOneIcon,
   StarIcon,
   SourceCodeSquareIcon,
+  MessagePreviewOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -32,13 +34,7 @@ import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { exportSinglePin } from '@/lib/export-pins'
 import type { BadgeColor } from '@/components/Badge'
-import { apiFetch, apiFetchJson } from '@/lib/api/client'
-import {
-  PIN_FOLDERS_ENDPOINT,
-  PIN_FOLDERS_CREATE_ENDPOINT,
-  PIN_DETAIL_ENDPOINT,
-  PIN_MOVE_ENDPOINT,
-} from '@/lib/config'
+import { listPinFolders, createPinFolder, movePinToFolder } from '@/lib/api/pins'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
 import { PinboardExpandedSkeleton } from '@/components/PinboardExpandedSkeleton'
 
@@ -50,7 +46,7 @@ export interface PinFolder {
   type?: 'personal' | 'project'
 }
 
-type FolderFilter  = 'all' | 'unorganized' | string
+type FolderFilter  = 'all' | 'unorganized' | 'this-chat' | string
 type SortField     = 'date_created' | 'title' | 'category'
 type SortDirection = 'asc' | 'desc'
 
@@ -90,12 +86,9 @@ const CATEGORY_COLOR: Record<PinCategory, BadgeColor> = {
 
 const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Purple', 'Yellow', 'Red', 'Neutral', 'Brown']
 
-// Width math mirrors DS PinboardExpanded exactly
-const CVW_WIDTH       = 644
-const ICON_BUTTON_W   = 32
-const ICON_BUTTON_GAP = 4
-const ROW_GAP         = 32
-const SEARCH_OPEN_W   = 276
+const ICON_BUTTON_W  = 32
+const ROW_GAP        = 32
+const SEARCH_OPEN_W  = 276
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,6 +121,9 @@ function pinItemToKDS(
     onExport,
     onDelete,
     onDuplicate,
+    onInsert: () => window.dispatchEvent(
+      new CustomEvent('pin:insert', { detail: { content: item.content } })
+    ),
   }
 }
 
@@ -216,8 +212,10 @@ function EmptyState({ title, description, action }: {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
-  const { pins, removePin, clonePin, updatePinTags } = usePinboard()
+  const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder } = usePinboard()
   const { chats } = useChatHistoryContext()
+  const searchParams  = useSearchParams()
+  const activeChatId  = searchParams.get('id')
   const chatNameById = useMemo((): Map<string, string> => {
     const map = new Map<string, string>()
     for (const chat of chats) map.set(chat.id, chat.title)
@@ -245,9 +243,11 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const searchQuery = useDebounce(rawSearch, 150)
 
   // ── Organize mode ─────────────────────────────────────────────────────────
-  const [isOrganizing,   setIsOrganizing]   = useState(false)
-  const [selectedPinIds, setSelectedPinIds] = useState<Set<string>>(new Set())
-  const [collapseSignal, setCollapseSignal] = useState(0)
+  const [isOrganizing,     setIsOrganizing]     = useState(false)
+  const [selectedPinIds,   setSelectedPinIds]   = useState<Set<string>>(new Set())
+  const [collapseSignal,   setCollapseSignal]   = useState(0)
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
+  const folderPickerRef = useRef<HTMLDivElement>(null)
 
   // ── Expanded pin tracking ─────────────────────────────────────────────────
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
@@ -260,14 +260,8 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const [userTagsById,    setUserTagsById]    = useState<Record<string, { color: BadgeColor; text: string }[]>>({})
   const [deletedLabelsById, setDeletedLabelsById] = useState<Record<string, Set<number>>>({})
 
-  // ── Tabs + search width math (mirrors DS PinboardExpanded) ────────────────
+  // ── Search slot width (collapses to icon, expands to input) ─────────────────
   const tabsContainerRef = useRef<HTMLDivElement>(null)
-  const buttonCount      = hasExpanded ? 5 : 4
-  const baseClusterWidth = buttonCount * ICON_BUTTON_W + (buttonCount - 1) * ICON_BUTTON_GAP
-  const clusterWidth     = searchOpen
-    ? baseClusterWidth + (SEARCH_OPEN_W - ICON_BUTTON_W)
-    : baseClusterWidth
-  const tabsAreaWidth    = CVW_WIDTH - ROW_GAP - clusterWidth
   const searchSlotWidth  = searchOpen ? SEARCH_OPEN_W : ICON_BUTTON_W
 
   useEffect(() => {
@@ -323,13 +317,9 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
 
   // ── Fetch folders on mount ────────────────────────────────────────────────
   useEffect(() => {
-    apiFetch(PIN_FOLDERS_ENDPOINT)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: unknown) => {
-        if (Array.isArray(data))
-          setFolders(data as PinFolder[])
-        else if (data && Array.isArray((data as { data?: unknown }).data))
-          setFolders((data as { data: PinFolder[] }).data)
+    listPinFolders()
+      .then((apiFolders) => {
+        setFolders(apiFolders.map(f => ({ id: f.id, name: f.name, type: 'personal' as const })))
         setFoldersLoaded(true)
       })
       .catch(() => { setFoldersLoaded(true) })
@@ -345,39 +335,29 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     const name = newFolderName.trim()
     if (!name) { setIsCreatingFolder(false); setNewFolderName(''); return }
     const optimisticId = `folder-${Date.now()}`
-    setFolders(prev => [...prev, { id: optimisticId, name, type: 'personal' }])
     setIsCreatingFolder(false)
     setNewFolderName('')
+    setFolders(prev => [...prev, { id: optimisticId, name, type: 'personal' as const }])
     try {
-      const created = await apiFetchJson<PinFolder>(PIN_FOLDERS_CREATE_ENDPOINT, {
-        method: 'POST',
-        body:   JSON.stringify({ name }),
-      })
-      setFolders(prev => prev.map(f => f.id === optimisticId ? created : f))
+      const created = await createPinFolder(name)
+      const folder = { id: created.id, name: created.name, type: 'personal' as const }
+      setFolders(prev => prev.map(f => f.id === optimisticId ? folder : f))
+      addFolder({ id: created.id, label: created.name })
     } catch {
       setFolders(prev => prev.filter(f => f.id !== optimisticId))
     }
   }
 
-  const handleRenameFolder = async (folderId: string) => {
+  const handleRenameFolder = (folderId: string) => {
     const name = editingFolderName.trim()
     setEditingFolderId(null)
     if (!name) return
     setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name } : f))
-    try {
-      await apiFetch(`${PIN_FOLDERS_CREATE_ENDPOINT}/${folderId}`, {
-        method: 'PATCH',
-        body:   JSON.stringify({ name }),
-      })
-    } catch {}
   }
 
-  const handleDeleteFolder = async (folderId: string) => {
+  const handleDeleteFolder = (folderId: string) => {
     setFolders(prev => prev.filter(f => f.id !== folderId))
     if (activeFolderId === folderId) setActiveFolderId('all')
-    try {
-      await apiFetch(`${PIN_FOLDERS_CREATE_ENDPOINT}/${folderId}`, { method: 'DELETE' })
-    } catch {}
   }
 
   // ── Pin tag operations ────────────────────────────────────────────────────
@@ -416,27 +396,25 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
 
   // ── Pin operations ────────────────────────────────────────────────────────
 
-  const handleMoveToFolder = async (folderId: string | null) => {
-    for (const pinId of selectedPinIds) {
-      try {
-        await apiFetch(PIN_MOVE_ENDPOINT(pinId), {
-          method: 'PATCH',
-          body:   JSON.stringify({ folder_id: folderId }),
-        })
-      } catch {}
-    }
+  const handleMoveToFolder = async (folderId: string) => {
+    const folderName = folders.find(f => f.id === folderId)?.name
+    const ids = Array.from(selectedPinIds)
     setSelectedPinIds(new Set())
+    await Promise.all(
+      ids.map(async (pinId) => {
+        try {
+          await movePinToFolder(pinId, folderId)
+          updatePinFolder(pinId, folderId, folderName)
+        } catch (err) {
+          console.error('[PinboardExpanded] Failed to move pin', pinId, err)
+        }
+      }),
+    )
   }
 
-  const handleDeleteSelected = async () => {
-    const ids = Array.from(selectedPinIds)
-    ids.forEach(id => removePin(id))
+  const handleDeleteSelected = () => {
+    selectedPinIds.forEach(id => removePin(id))
     setSelectedPinIds(new Set())
-    for (const id of ids) {
-      try {
-        await apiFetch(PIN_DETAIL_ENDPOINT(id), { method: 'DELETE' })
-      } catch {}
-    }
   }
 
   const handleExport = () => {
@@ -447,12 +425,31 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const handleExitOrganize = () => {
     setIsOrganizing(false)
     setSelectedPinIds(new Set())
+    setShowFolderPicker(false)
   }
+
+  useEffect(() => {
+    if (!showFolderPicker) return
+    const handler = (e: MouseEvent) => {
+      if (!folderPickerRef.current?.contains(e.target as Node)) setShowFolderPicker(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFolderPicker])
 
   // ── Filtering & sorting ───────────────────────────────────────────────────
 
   const filteredPins = (() => {
     let result: PinItem[] = pins
+
+    // View/folder filtering
+    if (activeFolderId === 'this-chat') {
+      result = activeChatId ? result.filter(p => p.chatId === activeChatId) : []
+    } else if (activeFolderId === 'unorganized') {
+      result = result.filter(p => !p.folderId)
+    } else if (activeFolderId !== 'all') {
+      result = result.filter(p => p.folderId === activeFolderId)
+    }
 
     if (activeTab !== 'all' && activeTab !== 'Favorites') {
       result = result.filter(p => p.category === activeTab)
@@ -487,10 +484,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   )
 
   const emptyState = (() => {
-    if (pins.length === 0)
-      return { title: 'No pins yet', description: 'Pin any chat message to save it here.' }
     if (searchQuery.trim() && filteredPins.length === 0)
       return { title: `No results for "${searchQuery}"` }
+    if (activeFolderId === 'this-chat' && filteredPins.length === 0)
+      return { title: 'No pins yet', description: 'Pin any message in this chat to save it here.' }
+    if (activeFolderId !== 'all' && activeFolderId !== 'this-chat' && filteredPins.length === 0)
+      return { title: 'No pins yet', description: 'Move pins to this folder to see them here.' }
+    if (pins.length === 0)
+      return { title: 'No pins yet', description: 'Pin any chat message to save it here.' }
     if (filteredPins.length === 0)
       return {
         title:  'No pins match these filters',
@@ -526,7 +527,25 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const personalFolders = folders.filter(f => !f.type || f.type === 'personal')
   const projectFolders  = folders.filter(f => f.type === 'project')
 
+  const lastUpdatedLabel = (() => {
+    if (filteredPins.length === 0) return null
+    const latest = filteredPins.reduce((max, p) => {
+      const t = new Date(p.createdAt).getTime()
+      return t > max ? t : max
+    }, 0)
+    if (!latest) return null
+    const diff  = Date.now() - latest
+    const mins  = Math.floor(diff / 60_000)
+    const hours = Math.floor(diff / 3_600_000)
+    const days  = Math.floor(diff / 86_400_000)
+    if (mins  <  1) return 'Updated just now'
+    if (mins  < 60) return `Updated ${mins}m ago`
+    if (hours < 24) return `Updated ${hours}h ago`
+    return `Updated ${days}d ago`
+  })()
+
   const activeTitle = activeFolderId === 'all'         ? 'All pins'
+                    : activeFolderId === 'this-chat'    ? 'This chat'
                     : activeFolderId === 'unorganized'  ? 'Unorganized pins'
                     : folders.find(f => f.id === activeFolderId)?.name ?? 'Pins'
 
@@ -553,10 +572,9 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         exit={{   opacity: 0, scale: 0.96 }}
         transition={{ type: 'spring', stiffness: 260, damping: 32 }}
         style={{
-          width:        924,
-          height:       'min(817px, calc(100vh - 32px))',
-          maxWidth:     'calc(100vw - 32px)',
-          maxHeight:    'calc(100vh - 32px)',
+          width:        'min(1280px, calc(100vw - 32px))',
+          height:       'min(817px, 98vh)',
+          maxHeight:    '98vh',
           borderRadius: 28,
           boxShadow:    '0px 24px 48px -12px rgba(38,33,30,0.18), 0px 0px 0px 1px rgba(82,75,71,0.12)',
           display:      'flex',
@@ -567,7 +585,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         {!foldersLoaded ? (
           <PinboardExpandedSkeleton
             width={924}
-            style={{ width: '100%', height: '100%', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)', borderRadius: 28, boxShadow: 'none' }}
+            style={{ width: '100%', height: '100%', maxWidth: 'calc(100vw - 32px)', maxHeight: '98vh', borderRadius: 28, boxShadow: 'none' }}
           />
         ) : (
         /* ── Outer flex row - matches DS PinboardExpanded outer container ── */
@@ -646,6 +664,16 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                     selected={activeFolderId === 'unorganized'}
                     onClick={() => setActiveFolderId('unorganized')}
                   />
+                  {activeChatId && (
+                    <SidebarMenuItem
+                      variant="default"
+                      fluid
+                      label="This chat"
+                      icon={<MessagePreviewOneIcon size={20} />}
+                      selected={activeFolderId === 'this-chat'}
+                      onClick={() => setActiveFolderId('this-chat')}
+                    />
+                  )}
                 </div>
 
                 {/* Your folders */}
@@ -825,6 +853,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                       <Badge color="Neutral" label={`${visiblePins.length} pins`} />
+                      {lastUpdatedLabel && <Badge color="Neutral" label={lastUpdatedLabel} />}
                     </div>
                   </div>
 
@@ -883,15 +912,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                       flexShrink: 0,
                     }}
                   >
-                    {/* Tabs strip - width snaps via style.width matching DS behavior */}
+                    {/* Tabs strip - takes all remaining space left by the action cluster */}
                     <div
                       ref={tabsContainerRef}
                       style={{
-                        flex:     '0 0 auto',
-                        minWidth: 1,
+                        flex:     '1 1 0',
+                        minWidth: 0,
                         padding:  '1px 0 1px 1px',
                         overflow: 'hidden',
-                        width:    tabsAreaWidth,
                       }}
                     >
                       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1248,17 +1276,114 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                       : 'Select pins to bulk-edit'}
                   </p>
                   <div style={{ flex: '1 1 0' }} />
-                  <Tooltip content="Move to folder">
+                  <div ref={folderPickerRef} style={{ position: 'relative' }}>
                     <Button
                       variant="secondary"
                       size="sm"
                       leftIcon={<FolderOneIcon size={16} />}
-                      disabled={selectedPinIds.size === 0}
-                      onClick={() => { if (folders.length > 0) handleMoveToFolder(folders[0].id) }}
+                      disabled={selectedPinIds.size === 0 || folders.length === 0}
+                      onClick={() => setShowFolderPicker(v => !v)}
                     >
                       Move to folder
                     </Button>
-                  </Tooltip>
+                    <AnimatePresence>
+                      {showFolderPicker && (
+                        <motion.div
+                          key="folder-picker"
+                          initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{   opacity: 0, y: 6, scale: 0.97 }}
+                          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                          style={{
+                            position:  'absolute',
+                            bottom:    'calc(100% + 6px)',
+                            left:      0,
+                            background: 'var(--neutral-white, #fff)',
+                            border:    '1px solid var(--neutral-200)',
+                            borderRadius: 12,
+                            boxShadow: '0px 8px 24px -4px rgba(38,33,30,0.14), 0px 0px 0px 1px var(--neutral-100)',
+                            padding:   4,
+                            minWidth:  192,
+                            zIndex:    20,
+                          }}
+                        >
+                          {personalFolders.map(folder => (
+                            <button
+                              key={folder.id}
+                              onClick={() => {
+                                handleMoveToFolder(folder.id)
+                                setShowFolderPicker(false)
+                              }}
+                              style={{
+                                display:      'flex',
+                                alignItems:   'center',
+                                gap:          8,
+                                width:        '100%',
+                                padding:      '6px 10px',
+                                background:   'transparent',
+                                border:       'none',
+                                cursor:       'pointer',
+                                borderRadius: 8,
+                                textAlign:    'left',
+                                fontFamily:   'var(--font-body)',
+                                fontWeight:   'var(--font-weight-medium)',
+                                fontSize:     'var(--font-size-body)',
+                                lineHeight:   'var(--line-height-body)',
+                                color:        'var(--neutral-800)',
+                                transition:   'background 100ms',
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--neutral-100)' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                            >
+                              <FolderOneIcon size={16} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {folder.name}
+                              </span>
+                            </button>
+                          ))}
+                          {projectFolders.length > 0 && (
+                            <>
+                              <div style={{ height: 1, background: 'var(--neutral-100)', margin: '4px 10px' }} />
+                              {projectFolders.map(folder => (
+                                <button
+                                  key={folder.id}
+                                  onClick={() => {
+                                    handleMoveToFolder(folder.id)
+                                    setShowFolderPicker(false)
+                                  }}
+                                  style={{
+                                    display:      'flex',
+                                    alignItems:   'center',
+                                    gap:          8,
+                                    width:        '100%',
+                                    padding:      '6px 10px',
+                                    background:   'transparent',
+                                    border:       'none',
+                                    cursor:       'pointer',
+                                    borderRadius: 8,
+                                    textAlign:    'left',
+                                    fontFamily:   'var(--font-body)',
+                                    fontWeight:   'var(--font-weight-medium)',
+                                    fontSize:     'var(--font-size-body)',
+                                    lineHeight:   'var(--line-height-body)',
+                                    color:        'var(--neutral-800)',
+                                    transition:   'background 100ms',
+                                  }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--neutral-100)' }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                                >
+                                  <FolderOneIcon size={16} />
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {folder.name}
+                                  </span>
+                                </button>
+                              ))}
+                            </>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <Button
                     variant="secondary"
                     size="sm"

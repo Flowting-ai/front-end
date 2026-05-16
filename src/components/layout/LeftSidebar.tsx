@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo, useState } from "react";
+import React, { useRef, useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -9,6 +9,9 @@ import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection }
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
+import { fetchPersonaChats } from "@/lib/api/personas";
+import type { PersonaChat } from "@/lib/api/personas";
+import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
 import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
@@ -448,6 +451,112 @@ function ProjectsSection() {
   )
 }
 
+// ── Personas section - recent chats for the active persona ───────────────────
+
+function PersonasSection() {
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const searchParams = useSearchParams()
+
+  const personaMatch = pathname?.match(/^\/personas\/([^/]+)\/chat/)
+  const personaId    = personaMatch?.[1] ?? null
+  const activeChatId = searchParams.get("chatId")
+
+  const [shown,     setShown]     = useState(true)
+  const [overflow,  setOverflow]  = useState<"visible" | "hidden">("visible")
+  const [chats,     setChats]     = useState<PersonaChat[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!personaId) return
+    setIsLoading(true)
+    fetchPersonaChats(personaId)
+      .then(setChats)
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+  }, [personaId])
+
+  useEffect(() => {
+    if (!personaId) return
+
+    const handleCreated = (e: Event) => {
+      const { personaId: eid, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      if (eid !== personaId) return
+      setChats((prev) => {
+        if (prev.some((c) => c.id === chatId)) return prev
+        return [{ id: chatId, title, created_at: new Date().toISOString() }, ...prev]
+      })
+    }
+
+    const handleTitleUpdated = (e: Event) => {
+      const { personaId: eid, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
+      if (eid !== personaId) return
+      setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title } : c)))
+    }
+
+    window.addEventListener("persona:chat-created",       handleCreated)
+    window.addEventListener("persona:chat-title-updated", handleTitleUpdated)
+    return () => {
+      window.removeEventListener("persona:chat-created",       handleCreated)
+      window.removeEventListener("persona:chat-title-updated", handleTitleUpdated)
+    }
+  }, [personaId])
+
+  if (!personaId) return null
+
+  return (
+    <>
+      <SidebarMenuItem
+        fluid
+        variant="header"
+        label="Recent chats"
+        shown={shown}
+        onShowClick={() => setShown((s) => !s)}
+      />
+      <motion.div
+        animate={shown ? "open" : "closed"}
+        initial={false}
+        variants={sectionHeightVariants}
+        style={{ overflow }}
+        onAnimationStart={(def) => { if (def === "closed") setOverflow("hidden") }}
+        onAnimationComplete={(def) => { if (def === "open") setOverflow("visible") }}
+      >
+        <div style={{ paddingTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          {isLoading && chats.length === 0 && (
+            Array.from({ length: 3 }).map((_, i) => (
+              <SidebarMenuSkeleton key={i} fluid />
+            ))
+          )}
+
+          {!isLoading && chats.length === 0 && (
+            <div
+              style={{
+                padding:    "8px 6px",
+                fontFamily: "var(--font-body)",
+                fontSize:   "var(--font-size-caption)",
+                color:      "var(--neutral-400)",
+              }}
+            >
+              No recent persona chats yet
+            </div>
+          )}
+
+          {chats.map((chat) => (
+            <SidebarMenuItem
+              key={chat.id}
+              fluid
+              variant="chat-item"
+              label={chat.title}
+              selected={chat.id === activeChatId}
+              onClick={() => router.push(`/personas/${personaId}/chat?chatId=${chat.id}`)}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </>
+  )
+}
+
 // ── LeftSidebar ───────────────────────────────────────────────────────────────
 
 interface LeftSidebarProps {
@@ -534,13 +643,17 @@ export function LeftSidebar({
       onSettingsClick={() => router.push("/settings")}
       projectItems={<ProjectsSection />}
       recentItems={
-        // Both sections share sectionProps; StarredSection self-hides when empty.
-        // gap:'8px' on the wrapper adds space between Starred and Recents only
-        // when both are present - gap does not apply to null children.
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <StarredSection {...sectionProps} />
-          <RecentsSection {...sectionProps} />
-        </div>
+        isPersonaPage ? (
+          <PersonasSection />
+        ) : (
+          // Both sections share sectionProps; StarredSection self-hides when empty.
+          // gap:'8px' on the wrapper adds space between Starred and Recents only
+          // when both are present - gap does not apply to null children.
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <StarredSection {...sectionProps} />
+            <RecentsSection {...sectionProps} />
+          </div>
+        )
       }
     />
   );

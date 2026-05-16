@@ -8,11 +8,7 @@ import { LlmIcon } from "@strange-huge/icons/llm";
 import { getModelLlmId } from "@/lib/model-icons";
 import { Button } from "@/components/Button";
 import { IconButton } from "@/components/IconButton";
-import {
-  ArrowDownOneIcon,
-  BubbleChatTemporaryIcon,
-  ShareOneIcon,
-} from "@strange-huge/icons";
+import { ArrowDownOneIcon } from "@strange-huge/icons";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,13 +16,11 @@ interface TopBarProps {
   showCitationsToggle?: boolean;
   citationsOpen?: boolean;
   onCitationsToggle?: () => void;
-  onTemporaryChat?: React.MouseEventHandler<HTMLButtonElement>;
-  onShare?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TopBar({ onTemporaryChat, onShare }: TopBarProps) {
+export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }: TopBarProps) {
   const { selectedModel, isOpen, open, museActive, museAdvanced } =
     useModelSelectorContext();
   const { getProject, getChats } = useProjects();
@@ -159,24 +153,12 @@ export function TopBar({ onTemporaryChat, onShare }: TopBarProps) {
             </div>
           </div>
 
-          {/* ── Right: incognito + share ── */}
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-            <IconButton variant="ghost" aria-label="New temporary chat" icon={<BubbleChatTemporaryIcon />} onClick={onTemporaryChat} />
-            <IconButton variant="ghost" aria-label="Share chat"         icon={<ShareOneIcon />}             onClick={onShare} />
-          </div>
         </>
       ) : (
         <>
           {/* ── Left: model selector (hidden on project pages) ── */}
           {!isProjectDetailPage && modelSelectorButton}
 
-          {/* ── Right: temp+share (regular chat) | nothing (project detail) ── */}
-          {!isProjectDetailPage && (
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <IconButton variant="ghost" aria-label="New temporary chat" icon={<BubbleChatTemporaryIcon />} onClick={onTemporaryChat} />
-              <IconButton variant="ghost" aria-label="Share chat"         icon={<ShareOneIcon />}             onClick={onShare} />
-            </div>
-          )}
         </>
       )}
     </div>

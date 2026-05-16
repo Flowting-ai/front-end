@@ -5,7 +5,7 @@ import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
 
 export function HighlightSidebar() {
-  const { highlights, isOpen, deleteHighlight, copyHighlight } = useHighlight()
+  const { highlights, isOpen, close: closeHighlight, deleteHighlight, copyHighlight } = useHighlight()
 
   const handleJump = (id: string) => {
     const h = highlights.find(h => h.id === id)
@@ -45,6 +45,7 @@ export function HighlightSidebar() {
             onJump={handleJump}
             onCopy={copyHighlight}
             onDelete={deleteHighlight}
+            onClose={closeHighlight}
           />
         </motion.div>
       )}

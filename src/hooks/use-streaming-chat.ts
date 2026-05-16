@@ -145,7 +145,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[] },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean },
   ): Promise<void> => {
     stopRequestedRef.current = false
     const controller = new AbortController()
@@ -157,6 +157,16 @@ export function useStreamingChat({
 
     let assistantContent = ""
     let reasoningContent = ""
+    // Accumulated structured reasoning sections from heading/body SSE events
+    const reasoningSectionsAcc: Array<{ heading: string; body: string }> = []
+    let currentReasHeading = ""
+    let currentReasBody = ""
+    // Returns a snapshot of all sections including the in-progress one
+    const snapshotSections = (): Array<{ heading: string; body: string }> => {
+      const out = [...reasoningSectionsAcc]
+      if (currentReasHeading) out.push({ heading: currentReasHeading, body: currentReasBody })
+      return out
+    }
     let streamFinished = false
     let shouldStopReading = false
     // Maps toolName → activityId so tool_progress events can find the activity
@@ -171,6 +181,7 @@ export function useStreamingChat({
       if (chatId) fd.append("chatId", chatId)
       if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
       if (options?.webSearch) fd.append("webSearch", "true")
+      if (options?.enableReasoning) fd.append("enable_thinking", "true")
       options?.files?.forEach((f) => fd.append("files", f))
 
       const response = await fetch("/api/chat", {
@@ -371,15 +382,38 @@ export function useStreamingChat({
             continue
           }
 
-          if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
+          if (eventName === "reasoning_heading") {
             const content = typeof parsed.content === "string" ? parsed.content : ""
             if (content) {
+              // Commit the previous section before starting a new one
+              if (currentReasHeading) {
+                reasoningSectionsAcc.push({ heading: currentReasHeading, body: currentReasBody })
+              }
+              currentReasHeading = content
+              currentReasBody = ""
               const wasEmpty = !reasoningContent
               reasoningContent = mergeStreamingText(reasoningContent, content)
               queueUpdate({
                 thinking: reasoningContent,
                 isThinkingInProgress: true,
                 isLoading: true,
+                reasoning_sections: snapshotSections(),
+              }, wasEmpty)
+            }
+            continue
+          }
+
+          if (eventName === "reasoning_body") {
+            const content = typeof parsed.content === "string" ? parsed.content : ""
+            if (content) {
+              currentReasBody = mergeStreamingText(currentReasBody, content)
+              const wasEmpty = !reasoningContent
+              reasoningContent = mergeStreamingText(reasoningContent, content)
+              queueUpdate({
+                thinking: reasoningContent,
+                isThinkingInProgress: true,
+                isLoading: true,
+                reasoning_sections: snapshotSections(),
               }, wasEmpty)
             }
             continue
@@ -873,6 +907,7 @@ export function useStreamingChat({
                 isThinkingInProgress: false,
                 isLoading: false,
                 stoppedByUser: false,
+                reasoning_sections: snapshotSections().length > 0 ? snapshotSections() : undefined,
               },
               true,
             )
@@ -953,6 +988,7 @@ export function useStreamingChat({
               thinking: finalReasoning || undefined,
               isThinkingInProgress: false,
               isLoading: false,
+              reasoning_sections: snapshotSections().length > 0 ? snapshotSections() : undefined,
             },
             true,
           )

@@ -7,19 +7,19 @@ import {
   PlusSignIcon,
   SearchOneIcon,
   ArrowDownOneIcon,
-  MoreVerticalIcon,
   CopyOneIcon,
   PenOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
+import Tabs from '@/components/Tabs'
+import { PersonaCard } from '@/components/PersonaCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'my-personas' | 'super-links' | 'community'
+type TabId = 'my-personas' | 'shared' | 'super-links' | 'community'
 type SortKey = 'activity' | 'recent' | 'alphabetical'
 
 // ── Mock recommended personas (community templates) ───────────────────────────
@@ -127,144 +127,6 @@ function PersonaAvatar({ imageUrl, name, size = 65 }: { imageUrl: string | null;
   )
 }
 
-// ── PersonaCard ───────────────────────────────────────────────────────────────
-
-interface PersonaCardProps {
-  persona: Persona
-  onChat: () => void
-  onEdit: () => void
-  onDelete: () => void
-  onPauseToggle: () => void
-}
-
-function PersonaCard({ persona, onChat, onEdit, onDelete, onPauseToggle }: PersonaCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null)
-  const btnRef = React.useRef<HTMLSpanElement>(null)
-
-  function openMenu(e: React.MouseEvent) {
-    e.stopPropagation()
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setMenuAnchor({ top: rect.bottom + 4, left: rect.right - 160 })
-    }
-    setMenuOpen(true)
-  }
-
-  return (
-    <div
-      onClick={onChat}
-      style={{
-        background: 'var(--neutral-white)',
-        borderRadius: 16,
-        padding: 12,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 9,
-        boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        cursor: 'pointer',
-        transition: 'box-shadow 150ms',
-        position: 'relative',
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%' }}>
-        <PersonaAvatar imageUrl={persona.imageUrl} name={persona.name} />
-
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Name row */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
-            <div style={{ minWidth: 0, flex: '1 0 0' }}>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize: 16,
-                lineHeight: '22px',
-                color: 'var(--neutral-900)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                margin: 0,
-              }}>
-                {persona.name}
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize: 13,
-                lineHeight: '16px',
-                color: 'var(--neutral-500)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                margin: 0,
-              }}>
-                {persona.handle}
-              </p>
-            </div>
-
-            <span ref={btnRef}>
-              <IconButton
-                variant="ghost-2"
-                size="sm"
-                icon={<MoreVerticalIcon size={20} />}
-                aria-label={`Actions for ${persona.name}`}
-                onClick={openMenu}
-              />
-            </span>
-          </div>
-
-          {/* Tags */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <Badge label="Private" color="Neutral" />
-            <Badge label="Research" color="Neutral" />
-          </div>
-        </div>
-      </div>
-
-      {/* Description */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 'var(--font-weight-regular)',
-        fontSize: 11,
-        lineHeight: '16px',
-        color: '#857a72',
-        overflow: 'hidden',
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        margin: 0,
-      }}>
-        {persona.description || 'No description provided.'}
-      </p>
-
-      {/* Context menu */}
-      <AnimatePresence>
-        {menuOpen && menuAnchor && (
-          <>
-            <div
-              style={{ position: 'fixed', inset: 0, zIndex: 49 }}
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }}
-            />
-            <motion.div
-              {...DROPDOWN_SCALE_PRESET}
-              style={{ position: 'fixed', top: menuAnchor.top, left: menuAnchor.left, zIndex: 50 }}
-            >
-              <Dropdown>
-                <Dropdown.Section>
-                  <Dropdown.Item label="Edit configuration" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit() }} fluid />
-                  <Dropdown.Item label={persona.isPaused ? 'Resume' : 'Pause'} onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onPauseToggle() }} fluid />
-                  <Dropdown.Item label="Delete" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete() }} fluid />
-                </Dropdown.Section>
-              </Dropdown>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
 // ── RecommendedCard ───────────────────────────────────────────────────────────
 
 function RecommendedCard({ persona }: { persona: Persona }) {
@@ -361,65 +223,6 @@ function RecommendedCard({ persona }: { persona: Persona }) {
   )
 }
 
-// ── Inline tab bar ────────────────────────────────────────────────────────────
-
-interface TabBarProps {
-  active: TabId
-  onChange: (id: TabId) => void
-  personaCount: number
-}
-
-function TabBar({ active, onChange, personaCount }: TabBarProps) {
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'my-personas', label: `My Personas (${personaCount})` },
-    { id: 'super-links', label: 'Super Links' },
-    { id: 'community',   label: 'Community' },
-  ]
-
-  return (
-    <div style={{
-      display: 'inline-flex',
-      padding: 3,
-      borderRadius: 10,
-      background: 'rgba(247,242,237,0.5)',
-      boxShadow: 'inset 0px -1px 0px 0px rgba(255,255,255,0.9), inset 0px 1px 0px 0px var(--neutral-100), inset 0px 0px 4px 0px rgba(209,198,189,0.5)',
-    }}>
-      {tabs.map((tab) => {
-        const isActive = tab.id === active
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChange(tab.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '7px 8px',
-              borderRadius: 10,
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-medium)',
-              fontSize: 14,
-              lineHeight: '22px',
-              color: isActive ? 'var(--neutral-700)' : 'var(--neutral-500)',
-              background: isActive ? 'var(--neutral-white)' : 'transparent',
-              boxShadow: isActive
-                ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)'
-                : 'none',
-              whiteSpace: 'nowrap',
-              transition: 'all 150ms',
-            }}
-          >
-            {tab.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 // ── Delete confirmation dialog ────────────────────────────────────────────────
 
 function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
@@ -455,15 +258,16 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
 export default function PersonasPage() {
   const router = useRouter()
 
-  const [activeTab, setActiveTab]   = useState<TabId>('my-personas')
-  const [personas,  setPersonas]    = useState<Persona[]>([])
-  const [isLoading, setIsLoading]   = useState(true)
-  const [search,    setSearch]      = useState('')
-  const [sortOpen,  setSortOpen]    = useState(false)
-  const [sort,      setSort]        = useState<SortKey>('activity')
-  const [sortAnchor, setSortAnchor] = useState<{ top: number; left: number } | null>(null)
-  const sortBtnRef = React.useRef<HTMLSpanElement>(null)
-
+  const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
+  const [personas,     setPersonas]     = useState<Persona[]>([])
+  const [isLoading,    setIsLoading]    = useState(true)
+  const [search,       setSearch]       = useState('')
+  const [sort,         setSort]         = useState<SortKey>('activity')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all')
+  const [filterTags,   setFilterTags]   = useState<string[]>([])
+  const [sortOpen,     setSortOpen]     = useState(false)
+  const [allOpen,      setAllOpen]      = useState(false)
+  const [filterOpen,   setFilterOpen]   = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Persona | null>(null)
 
   // Load personas on mount
@@ -478,6 +282,9 @@ export default function PersonasPage() {
   // Filter + sort
   const filtered = useMemo(() => {
     let list = [...personas]
+    if (filterStatus === 'active') list = list.filter(p => p.isActive && !p.isPaused)
+    if (filterStatus === 'paused') list = list.filter(p => p.isPaused)
+    if (filterTags.length > 0) list = list.filter(p => filterTags.some(t => p.tags.includes(t)))
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
@@ -485,7 +292,7 @@ export default function PersonasPage() {
     if (sort === 'alphabetical') list.sort((a, b) => a.name.localeCompare(b.name))
     else if (sort === 'recent')  list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     return list
-  }, [personas, search, sort])
+  }, [personas, search, sort, filterStatus, filterTags])
 
   const sortLabels: Record<SortKey, string> = {
     activity:     'Activity',
@@ -511,15 +318,6 @@ export default function PersonasPage() {
     } catch (err) {
       console.error('Failed to toggle pause:', err)
     }
-  }
-
-  function openSort(e: React.MouseEvent) {
-    e.stopPropagation()
-    if (sortBtnRef.current) {
-      const rect = sortBtnRef.current.getBoundingClientRect()
-      setSortAnchor({ top: rect.bottom + 4, left: rect.right - 180 })
-    }
-    setSortOpen(true)
   }
 
   return (
@@ -568,15 +366,37 @@ export default function PersonasPage() {
 
             {/* Tabs + toolbar */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <TabBar active={activeTab} onChange={setActiveTab} personaCount={personas.length} />
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+                <Tabs.List>
+                  <Tabs.Trigger value="my-personas">My Personas ({personas.length})</Tabs.Trigger>
+                  <Tabs.Trigger value="shared" disabled>Shared</Tabs.Trigger>
+                  <Tabs.Trigger value="super-links" disabled>Super Links</Tabs.Trigger>
+                  <Tabs.Trigger value="community" disabled>Community</Tabs.Trigger>
+                </Tabs.List>
+              </Tabs>
 
               {/* Toolbar */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* All filter button */}
-                  <Button variant="outline" rightIcon={<ArrowDownOneIcon size={16} />}>
-                    All
-                  </Button>
+                  {/* Status filter */}
+                  <Dropdown.Float
+                    open={allOpen}
+                    onOpenChange={setAllOpen}
+                    placement="bottom-start"
+                    trigger={
+                      <Button variant="secondary" rightIcon={<ArrowDownOneIcon size={16} />}>
+                        {filterStatus === 'all' ? 'All' : filterStatus === 'active' ? 'Active' : 'Paused'}
+                      </Button>
+                    }
+                  >
+                    <Dropdown>
+                      <Dropdown.Section>
+                        <Dropdown.Item label="All"    selected={filterStatus === 'all'}    onClick={() => { setFilterStatus('all');    setAllOpen(false) }} fluid />
+                        <Dropdown.Item label="Active" selected={filterStatus === 'active'} onClick={() => { setFilterStatus('active'); setAllOpen(false) }} fluid />
+                        <Dropdown.Item label="Paused" selected={filterStatus === 'paused'} onClick={() => { setFilterStatus('paused'); setAllOpen(false) }} fluid />
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
 
                   {/* Search */}
                   <div style={{
@@ -612,17 +432,59 @@ export default function PersonasPage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* Sort button */}
-                  <span ref={sortBtnRef}>
-                    <Button variant="outline" onClick={openSort}>
-                      Sort by : {sortLabels[sort]}
-                    </Button>
-                  </span>
+                  {/* Sort dropdown */}
+                  <Dropdown.Float
+                    open={sortOpen}
+                    onOpenChange={setSortOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button variant="secondary">
+                        Sort by : {sortLabels[sort]}
+                      </Button>
+                    }
+                  >
+                    <Dropdown>
+                      <Dropdown.Section>
+                        {(['activity', 'recent', 'alphabetical'] as SortKey[]).map(k => (
+                          <Dropdown.Item
+                            key={k}
+                            label={sortLabels[k]}
+                            selected={sort === k}
+                            onClick={() => { setSort(k); setSortOpen(false) }}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
 
-                  {/* Filter button */}
-                  <Button variant="outline">
-                    Filter
-                  </Button>
+                  {/* Tag filter dropdown */}
+                  <Dropdown.Float
+                    open={filterOpen}
+                    onOpenChange={setFilterOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button variant="secondary">
+                        {filterTags.length > 0 ? `Filter (${filterTags.length})` : 'Filter'}
+                      </Button>
+                    }
+                  >
+                    <Dropdown>
+                      <Dropdown.Section label="Tags">
+                        {(['Private', 'Research', 'Public', 'Draft'] as const).map(tag => (
+                          <Dropdown.Item
+                            key={tag}
+                            label={tag}
+                            selected={filterTags.includes(tag)}
+                            onClick={() => setFilterTags(prev =>
+                              prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                            )}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
                 </div>
               </div>
             </div>
@@ -673,7 +535,7 @@ export default function PersonasPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 24,
-                    padding: '112px 24px',
+                    padding: '48px 24px',
                   }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
                       <p style={{
@@ -714,11 +576,19 @@ export default function PersonasPage() {
                   {filtered.map(persona => (
                     <PersonaCard
                       key={persona.id}
-                      persona={persona}
-                      onChat={() => router.push(`/personas/${persona.id}/chat`)}
+                      name={persona.name}
+                      handle={persona.handle.replace(/^@/, '')}
+                      description={persona.description}
+                      avatarUrl={persona.imageUrl ?? undefined}
+                      paused={persona.isPaused}
+                      visibility="private"
+                      onClick={() => router.push(`/personas/${persona.id}/chat`)}
                       onEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                      onDelete={() => setDeleteTarget(persona)}
-                      onPauseToggle={() => handlePauseToggle(persona.id)}
+                      onUseInChat={() => router.push(`/personas/${persona.id}/chat`)}
+                      onResume={() => handlePauseToggle(persona.id)}
+                      onMenuEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                      onMenuPauseToggle={() => handlePauseToggle(persona.id)}
+                      onMenuDelete={() => setDeleteTarget(persona)}
                     />
                   ))}
                 </div>
@@ -751,33 +621,6 @@ export default function PersonasPage() {
 
         </div>
       </div>
-
-      {/* ── Sort dropdown ── */}
-      <AnimatePresence>
-        {sortOpen && sortAnchor && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setSortOpen(false)} />
-            <motion.div
-              {...DROPDOWN_SCALE_PRESET}
-              style={{ position: 'fixed', top: sortAnchor.top, left: sortAnchor.left, zIndex: 50 }}
-            >
-              <Dropdown>
-                <Dropdown.Section>
-                  {(['activity', 'recent', 'alphabetical'] as SortKey[]).map(k => (
-                    <Dropdown.Item
-                      key={k}
-                      label={sortLabels[k]}
-                      selected={sort === k}
-                      onClick={() => { setSort(k); setSortOpen(false) }}
-                      fluid
-                    />
-                  ))}
-                </Dropdown.Section>
-              </Dropdown>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* ── Delete confirmation ── */}
       {deleteTarget && (

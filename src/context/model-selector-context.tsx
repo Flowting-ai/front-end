@@ -26,6 +26,9 @@ interface ModelSelectorContextValue {
   activateMuse: () => void;
   deactivateMuse: () => void;
   setMuseAdvanced: (advanced: boolean) => void;
+  // ── Adaptive thinking ──
+  enableReasoning: boolean;
+  setEnableReasoning: (v: boolean) => void;
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -52,6 +55,7 @@ export function ModelSelectorProvider({
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [museActive, setMuseActive] = useState(false);
   const [museAdvanced, setMuseAdvanced] = useState(false);
+  const [enableReasoning, setEnableReasoning] = useState(true);
 
   const open = useCallback((anchor: HTMLElement) => {
     setIsOpen((prev) => {
@@ -113,6 +117,8 @@ export function ModelSelectorProvider({
         activateMuse,
         deactivateMuse,
         setMuseAdvanced: setMuseAdvancedFn,
+        enableReasoning,
+        setEnableReasoning,
       }}
     >
       {children}
