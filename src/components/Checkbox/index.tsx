@@ -11,7 +11,7 @@ const SIZE = 16
 const RADIUS = 4
 
 // Delay (ms) before the tick draws after the box flips checked. The fill
-// cross-fade plays first, then the stroke draws on top — reads as a confident
+// cross-fade plays first, then the stroke draws on top - reads as a confident
 // two-beat snap rather than everything happening at once.
 const TICK_DRAW_DELAY_MS = 120
 
@@ -37,7 +37,7 @@ const Checkbox = React.forwardRef<
   // Required because the Checkbox's resting box-shadow contains a 1 px ring
   // at the box edge (gray off / blue on); a class-based outline on the inner
   // button would stack outside that ring and read as two concentric rings on
-  // focus — same precedent as Switch. See specs/accessibility/focus-visible.md
+  // focus - same precedent as Switch. See specs/accessibility/focus-visible.md
   // → "Two-rings issue (Switch precedent)".
   const [isFocused, setIsFocused] = React.useState(false)
   React.useEffect(() => {
@@ -50,7 +50,7 @@ const Checkbox = React.forwardRef<
 
   return (
     <motion.span
-      // Explicit tabIndex={-1} keeps the wrapper out of the Tab order — the
+      // Explicit tabIndex={-1} keeps the wrapper out of the Tab order - the
       // inner Radix button is the actual focus target. Without this, some
       // browsers gave the wrapper its own Tab stop, forcing the user to Tab
       // twice to reach the Checkbox. Same precedent as IconButton / Switch.
@@ -60,7 +60,7 @@ const Checkbox = React.forwardRef<
       style={{
         display:       'inline-flex',
         lineHeight:    0,
-        // Pattern 2 — state-gated outline on the wrapper. Keeps the focus
+        // Pattern 2 - state-gated outline on the wrapper. Keeps the focus
         // indicator off the inner button (whose box-shadow already paints a
         // 1 px design ring at the box edge), preventing the "two concentric
         // rings on focus" issue.
@@ -111,7 +111,7 @@ const Checkbox = React.forwardRef<
         width: SIZE,
         height: SIZE,
         borderRadius: RADIUS,
-        // Tick is centered via flex on the Root itself — no absolute overlay.
+        // Tick is centered via flex on the Root itself - no absolute overlay.
         // This guarantees the full 16×16 button surface receives clicks; an
         // overlay span can intercept events even with pointer-events: none if
         // a descendant attaches its own listeners.

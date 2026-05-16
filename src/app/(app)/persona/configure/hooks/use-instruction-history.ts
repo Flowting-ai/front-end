@@ -9,7 +9,7 @@ interface UseInstructionHistoryReturn {
   setInstruction: (instruction: string) => void;
   undo: () => void;
   redo: () => void;
-  reset: () => void;
+  reset: (nextInitial?: string) => void;
 }
 
 const MAX_HISTORY_SIZE = 50;
@@ -49,8 +49,9 @@ export function useInstructionHistory(initialInstruction: string = ''): UseInstr
     if (canRedo) setHistoryIndex((prev) => prev + 1);
   }, [canRedo]);
 
-  const reset = useCallback(() => {
-    setInstructionHistory([initialInstruction]);
+  const reset = useCallback((nextInitial?: string) => {
+    const v = nextInitial ?? initialInstruction;
+    setInstructionHistory([v]);
     setHistoryIndex(0);
   }, [initialInstruction]);
 

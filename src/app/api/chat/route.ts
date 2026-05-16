@@ -13,13 +13,13 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  * request, and pipes the backend SSE stream back to the browser.
  *
  * Accepts multipart/form-data with fields:
- *   input              — required user message
- *   chatId             — existing chat ID (omit or "temp-*" for new chats)
- *   modelId            — optional model override
- *   pinIds             — optional JSON-stringified pin ID array
- *   referenceMessageId — optional reference message for context
- *   webSearch          — "true" to enable web search tool
- *   files              — zero or more File parts (uploaded attachments)
+ *   input              - required user message
+ *   chatId             - existing chat ID (omit or "temp-*" for new chats)
+ *   modelId            - optional model override
+ *   pinIds             - optional JSON-stringified pin ID array
+ *   referenceMessageId - optional reference message for context
+ *   webSearch          - "true" to enable web search tool
+ *   files              - zero or more File parts (uploaded attachments)
  */
 export async function POST(request: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         await writer.write(value)
       }
     } catch {
-      // Stream closed by client (abort) — ignore
+      // Stream closed by client (abort) - ignore
     } finally {
       writer.close().catch(() => {})
     }

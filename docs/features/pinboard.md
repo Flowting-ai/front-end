@@ -6,7 +6,7 @@ A persistent right-side panel where the user saves and organises full chat messa
 **KDS ready components used:** `FloatingMenu` · `FloatingMenuItem` · `Pinboard` · `PinboardHeader` · `PinboardExpanded` · `Pin` · `PinCategory` · `PinCommentField` · `Badge` · `Tabs` · `Button` · `IconButton`  
 **KDS pending components used:** `FilterMenu` · `SortMenu` · `ContextMenu` · `EmptyState`
 
-> **Highlight is a separate feature.** When a user selects text in a message, that goes into a `HighlightBoard` — not the Pinboard. `HighlightBoard` is not yet designed. See pending note at the bottom of this doc.
+> **Highlight is a separate feature.** When a user selects text in a message, that goes into a `HighlightBoard` - not the Pinboard. `HighlightBoard` is not yet designed. See pending note at the bottom of this doc.
 
 ---
 
@@ -22,7 +22,7 @@ Chat area                         │  FloatingMenu (right edge)
                                   │    when pin icon is active
 ```
 
-The `FloatingMenu` sits fixed on the right edge of the chat content area. It is always visible — not inside the Sidebar, not inside the TopBar.
+The `FloatingMenu` sits fixed on the right edge of the chat content area. It is always visible - not inside the Sidebar, not inside the TopBar.
 
 ---
 
@@ -34,7 +34,7 @@ FloatingMenu (KDS)
 ├── FloatingMenuItem icon=PinIcon  label="Pinboard"  active={pinboardOpen}
 │   └── opens/closes compact Pinboard
 └── FloatingMenuItem icon=HighlightIcon  label="Highlights"  active={highlightOpen}
-    └── HighlightBoard (pending — returns null for now)
+    └── HighlightBoard (pending - returns null for now)
 
 Pinboard (KDS, compact, 332px wide)
 ├── PinboardHeader (KDS)
@@ -69,14 +69,14 @@ PinboardExpanded (KDS, 924×817px, overlays chat)
 │   ├── [2-column pin grid]
 │   │   ├── Pin × N
 │   │   └── EmptyState (pending) when results = 0
-│   └── [bottom toolbar — organize mode only]
+│   └── [bottom toolbar - organize mode only]
 │       ├── "[N] selected"
 │       ├── Button "Move to folder" → folder picker dropdown
 │       ├── Button "Export"         → PDF of selected pins
 │       ├── Button "Delete"         → confirm → DELETE /pins bulk
 │       └── Button "Done"           → exits organize mode
 └── [organize mode overlay on each Pin]
-    └── checkbox (top-left corner) — visible when isOrganizing = true
+    └── checkbox (top-left corner) - visible when isOrganizing = true
 ```
 
 ---
@@ -100,7 +100,7 @@ PinboardExpanded (KDS, 924×817px, overlays chat)
 </FloatingMenu>
 ```
 
-The FloatingMenu auto-expands after 2s hover (KDS internal behaviour — do not re-implement).
+The FloatingMenu auto-expands after 2s hover (KDS internal behaviour - do not re-implement).
 
 ---
 
@@ -112,7 +112,7 @@ Pins are created from the **message action bar** in the chat (copy · thumbs up 
 User clicks pin button in message action bar
     ↓
 POST /pins/message/{messageId}
-    ↓  (optimistic — add to local pins list immediately)
+    ↓  (optimistic - add to local pins list immediately)
 Pin button: icon swaps to filled PinIcon, brief green tint (150ms), reverts to filled state
     ↓
 If compact Pinboard is closed → open it (setPinboardOpen(true))
@@ -152,11 +152,11 @@ Exiting organize mode (Done button or Escape): unchecks all, hides toolbar, rest
 ## Search & Filter
 
 **Search** (PinboardHeader / PinboardExpanded search input):
-- Client-side filter on `pinTitle + description` — no API call
+- Client-side filter on `pinTitle + description` - no API call
 - Debounce: 150ms before filtering
 - Clears on Escape
 
-**Filter** (FilterMenu — pending KDS):
+**Filter** (FilterMenu - pending KDS):
 ```tsx
 <FilterMenu
   options={FILTER_OPTIONS}        // category types + label colors
@@ -169,13 +169,13 @@ Exiting organize mode (Done button or Escape): unchecks all, hides toolbar, rest
 />
 ```
 
-`FILTER_OPTIONS` — two groups:
+`FILTER_OPTIONS` - two groups:
 - Category: Code · Research · Creative · Planning · Tasks · Quote · Workflow  
 - Label colour: Blue · Red · Green · Yellow · Purple · Brown · Neutral
 
 Filters are combined with AND: a pin must match all active filters to show.
 
-**Sort** (SortMenu — pending KDS):
+**Sort** (SortMenu - pending KDS):
 - Default: `date_updated desc`
 - Options: Last updated · Date created · Title · Category
 - Ascending/descending toggle
@@ -223,7 +223,7 @@ Both search and filter/sort are client-side against the in-memory `pins` array. 
 | `pinboardOpen` | Local (lifted to layout) | Controls FloatingMenuItem active state + Pinboard visibility |
 | `pins` | `GET /pins` | Fetched on mount, updated optimistically |
 | `isLoadingPins` | During fetch | Show Pin skeletons (3 rows) |
-| `expandedPinIds` | Local | Tracks which pins are expanded — passed as `collapseSignal` |
+| `expandedPinIds` | Local | Tracks which pins are expanded - passed as `collapseSignal` |
 | `isOrganizing` | Local | Organize mode on/off |
 | `selectedPinIds` | Local | Set of checked pin IDs in organize mode |
 | `activeFilters` | Local | `string[]` of active filter option IDs |
@@ -255,7 +255,7 @@ DELETE /pins/folders/{folderId}    → folders deleted, pins become unorganized
 // Re-fetch GET /pins to sync (or update local state optimistically)
 ```
 
-> **Note for Shyam:** The V1 API had `POST /pins/message/{id}` — confirm this endpoint is stable on Sahil's V2 API before wiring it up.
+> **Note for Shyam:** The V1 API had `POST /pins/message/{id}` - confirm this endpoint is stable on Sahil's V2 API before wiring it up.
 
 ---
 
@@ -266,8 +266,8 @@ DELETE /pins/folders/{folderId}    → folders deleted, pins become unorganized
 | Compact Pinboard open | Framer Motion | `x: 40→0`, `opacity: 0→1`, spring `{ stiffness: 300, damping: 28 }` |
 | Compact Pinboard close | Framer Motion | `x: 0→40`, `opacity: 1→0`, 150ms `easeIn` |
 | New pin appears | Pattern 3 (message appear) | `opacity: 0→1`, `y: 12→0`, 220ms `easeOut` |
-| Compact ↔ Expanded morph | KDS internal | Spring `{ stiffness: 260, damping: 32 }` — do not re-implement |
-| Pin expand/collapse | KDS internal | Drag-handle spring — do not re-implement |
+| Compact ↔ Expanded morph | KDS internal | Spring `{ stiffness: 260, damping: 32 }` - do not re-implement |
+| Pin expand/collapse | KDS internal | Drag-handle spring - do not re-implement |
 | Organize mode checkboxes | CSS | `opacity: 0→1`, 150ms `ease` |
 | Bulk toolbar appear | Framer Motion | `y: 8→0`, `opacity: 0→1`, 200ms `easeOut` |
 | CollapseAll | KDS internal | `collapseSignal` prop propagates to all `Pin` children |
@@ -292,7 +292,7 @@ Highlights (text selections from chat messages) are a **separate feature** from 
 ```
 User selects text in a message
     ↓
-HighlightPopover (pending KDS — currently returns null)
+HighlightPopover (pending KDS - currently returns null)
     ↓
 User clicks "Save highlight"
     ↓

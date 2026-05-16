@@ -1,17 +1,17 @@
 'use client'
 
 /**
- * PinInsert — single row inside the @-mention pin-insertion listbox.
+ * PinInsert - single row inside the @-mention pin-insertion listbox.
  *
  * Mirrors Figma `3193:6740` exactly. The variant matrix is `type × hover ×
  * highlight` (8 cells). Use `<PinInsert>` inside a parent `role="listbox"`
- * surface — the parent owns keyboard navigation, focused-index state, and
+ * surface - the parent owns keyboard navigation, focused-index state, and
  * the listbox `aria-activedescendant` wiring. This component is `role="option"`,
  * non-tabbable (`tabIndex={-1}`), and reflects its keyboard-focused state
  * via `aria-selected={isFocused}` so screen readers announce the active
  * row as the parent moves focus.
  *
- * The Figma `highlight` prop lights up when the user is searching — the
+ * The Figma `highlight` prop lights up when the user is searching - the
  * substring of `title` that matches `searchQuery` is wrapped in a `<mark>`
  * with `var(--blue-600)` background and white text. Pass `highlight=true`
  * whenever there's an active query (for example: while the user is typing
@@ -42,10 +42,10 @@ export interface PinTag {
 export type PinInsertType = 'with-badges' | 'with-subtitle'
 
 export interface PinInsertProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'aria-selected'> {
-  /** The pin's title — top line of the row. */
+  /** The pin's title - top line of the row. */
   title: string
 
-  /** Layout variant — Figma `type`. Defaults to `'with-badges'`. */
+  /** Layout variant - Figma `type`. Defaults to `'with-badges'`. */
   type?: PinInsertType
 
   /** Tags shown as `Badge` chips when `type='with-badges'`. */
@@ -55,14 +55,14 @@ export interface PinInsertProps extends Omit<React.HTMLAttributes<HTMLDivElement
   subtitle?: string
 
   /**
-   * Forces the hover visual state — Figma `hover`. When omitted, the
+   * Forces the hover visual state - Figma `hover`. When omitted, the
    * component derives it from internal mouse hover OR `isFocused`.
    * Pass explicitly to lock the variant for stories or design-system docs.
    */
   hover?: boolean
 
   /**
-   * Forces the title-highlight visual state — Figma `highlight`. When
+   * Forces the title-highlight visual state - Figma `highlight`. When
    * `true` AND `searchQuery` is non-empty, the matched substring is
    * wrapped in a `<mark>` with `--blue-600` background and white text.
    * Without `searchQuery`, no highlight is drawn even when `highlight=true`.
@@ -70,20 +70,20 @@ export interface PinInsertProps extends Omit<React.HTMLAttributes<HTMLDivElement
   highlight?: boolean
 
   /**
-   * The active search query — drives the `<mark>` placement when
+   * The active search query - drives the `<mark>` placement when
    * `highlight=true`. Typically the text the user has typed after `@`
    * in the chat input.
    */
   searchQuery?: string
 
   /**
-   * Keyboard-driven selection — applies hover styles without mouse hover
+   * Keyboard-driven selection - applies hover styles without mouse hover
    * and reflects via `aria-selected` so screen readers announce this row
    * as the active option.
    */
   isFocused?: boolean
 
-  /** Click / Enter / Space — fires when this pin is selected. */
+  /** Click / Enter / Space - fires when this pin is selected. */
   onAdd?: () => void
 }
 
@@ -139,7 +139,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
 
     // When the controlled `hover` prop is undefined, derive from internal
     // pointer hover OR keyboard focus. `isFocused` and mouse hover both
-    // produce the same visual — the row is "active".
+    // produce the same visual - the row is "active".
     const isActive = hover ?? (hovered || isFocused)
 
     const showSubtitle = type === 'with-subtitle'
@@ -178,7 +178,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
           borderRadius:    '10px',
           cursor:          'pointer',
           backgroundColor: 'var(--neutral-white)',
-          // Figma hover variant — outer drop + 1 px warm border ring.
+          // Figma hover variant - outer drop + 1 px warm border ring.
           // Tokens: --neutral-700-12 (drop), --neutral-300-40 (ring).
           boxShadow: isActive
             ? '0px 1px 1.5px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-300-40)'
@@ -190,7 +190,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
         }}
         {...props}
       >
-        {/* Hover background overlay — Figma 3193:6741 (`bg-[rgba(237,225,215,0.6)]`). */}
+        {/* Hover background overlay - Figma 3193:6741 (`bg-[rgba(237,225,215,0.6)]`). */}
         {isActive && (
           <div
             aria-hidden
@@ -236,7 +236,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
               : title}
           </p>
 
-          {/* Bottom row — badges OR subtitle */}
+          {/* Bottom row - badges OR subtitle */}
           {showBadges && (
             <div
               style={{
@@ -272,7 +272,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
           )}
         </div>
 
-        {/* ── + IconButton — visible on hover/focus ───────────────────────────
+        {/* ── + IconButton - visible on hover/focus ───────────────────────────
              KDS IconButton (variant=ghost size=sm → 32×32, 8 px radius).
              Visual-only: row click owns selection so the button is hidden
              from screen readers (`aria-hidden`), removed from the tab order
@@ -306,7 +306,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
           )}
         </AnimatePresence>
 
-        {/* Inner shadow overlay — Figma hover state inset highlight + depth. */}
+        {/* Inner shadow overlay - Figma hover state inset highlight + depth. */}
         {isActive && (
           <div
             aria-hidden

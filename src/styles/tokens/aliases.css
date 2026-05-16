@@ -1,6 +1,6 @@
 /* ── Layer 2: Alias Tokens ────────────────────────────────────────────────────
    Format: --color-[category]-[intent]-[property]-[state]
-   Light mode only — dark mode values to be added when dark primitives are ready
+   Light mode only - dark mode values to be added when dark primitives are ready
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -20,7 +20,7 @@
   --color-interactive-subtle-text-disabled: var(--neutral-800);     /* #3b3632 */
   --color-interactive-subtle-surface-hover: var(--neutral-100-60);  /* rgba(237,225,215,0.6) */
 
-  /* ── Interactive / Subtle — hover border ─────────────────────────────────── */
+  /* ── Interactive / Subtle - hover border ─────────────────────────────────── */
   --color-interactive-subtle-border-hover: var(--neutral-300-40);  /* rgba(182,172,164,0.4) */
 
   /* ── Borders ──────────────────────────────────────────────────────────────── */
@@ -30,17 +30,17 @@
   --color-focus-ring: #0081DB;
 
   /* ── Text ─────────────────────────────────────────────────────────────────── */
-  --color-text-primary:     var(--neutral-900);  /* #26211e — input text, primary content */
-  --color-text-default:     var(--neutral-700);  /* #524b47 — standard UI labels */
-  --color-text-muted:       var(--neutral-500);  /* #827a74 — secondary / muted labels */
-  --color-text-placeholder: var(--neutral-600);  /* #6a625d — input placeholders */
+  --color-text-primary:     var(--neutral-900);  /* #26211e - input text, primary content */
+  --color-text-default:     var(--neutral-700);  /* #524b47 - standard UI labels */
+  --color-text-muted:       var(--neutral-500);  /* #827a74 - secondary / muted labels */
+  --color-text-placeholder: var(--neutral-600);  /* #6a625d - input placeholders */
 
   /* ── Surface ──────────────────────────────────────────────────────────────── */
-  --color-surface-default: var(--neutral-white);  /* #ffffff — cards, inputs, panels */
-  --color-surface-badge:   var(--neutral-100);    /* #ede1d7 — badge backgrounds */
+  --color-surface-default: var(--neutral-white);  /* #ffffff - cards, inputs, panels */
+  --color-surface-badge:   var(--neutral-100);    /* #ede1d7 - badge backgrounds */
 
   /* ── Scrollbar ────────────────────────────────────────────────────────────── */
-  --color-scrollbar-thumb: var(--neutral-500-60);  /* rgba(130,122,116,0.60) — translucent warm thumb */
+  --color-scrollbar-thumb: var(--neutral-500-60);  /* rgba(130,122,116,0.60) - translucent warm thumb */
 
   /* ── Color tags ───────────────────────────────────────────────────────────────
      Shared 7-colour palette for Chip, Badge, PinCategory.
@@ -70,9 +70,9 @@
   --color-tag-Red-inner-shadow:   inset 0px 1px 0px 0px var(--color-tag-Red-highlight), inset 0px -1px 0px 0px var(--color-tag-Red-depth);
   --color-tag-Red-button-shadow:  inset 0px -1px 0px 0px rgba(255,255,255,0.9),  inset 0px 1px 0px 0px rgba(159,38,35,0.3);
 
-  /* Green — `bg` is the strong tint (PinCategory `Code`); `bg-soft` is the lighter Chip/Badge tint */
+  /* Green - `bg` is the strong tint (PinCategory `Code`); `bg-soft` is the lighter Chip/Badge tint */
   --color-tag-Green-bg:            var(--green-100);   /* #E5F2C5 */
-  --color-tag-Green-bg-soft:       var(--green-50);    /* #F7FEE6 — Chip / Badge */
+  --color-tag-Green-bg-soft:       var(--green-50);    /* #F7FEE6 - Chip / Badge */
   --color-tag-Green-text:          var(--green-800);   /* #456211 */
   --color-tag-Green-text-strong:   var(--green-600);   /* #80B707 */
   --color-tag-Green-ring:          rgba(128,183,7,0.5);
@@ -106,8 +106,8 @@
 
   /* Brown */
   --color-tag-Brown-bg:            var(--brown-100); /* #E6D5CA */
-  --color-tag-Brown-text:          var(--brown-700); /* #683D1B — Chip / Badge */
-  --color-tag-Brown-text-strong:   var(--brown-600); /* #7E5435 — PinCategory */
+  --color-tag-Brown-text:          var(--brown-700); /* #683D1B - Chip / Badge */
+  --color-tag-Brown-text-strong:   var(--brown-600); /* #7E5435 - PinCategory */
   --color-tag-Brown-ring:          rgba(126,84,53,0.5);
   --color-tag-Brown-highlight:     rgba(250,241,235,0.7);
   --color-tag-Brown-depth:         rgba(126,84,53,0.1);
@@ -128,6 +128,6 @@
 
 }
 
-/* Dark mode — to be filled when dark primitives are ready */
+/* Dark mode - to be filled when dark primitives are ready */
 .dark {
 }

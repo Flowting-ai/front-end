@@ -92,7 +92,7 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
             {title}
           </p>
 
-          {/* ⋮ menu — fades in on hover/focus */}
+          {/* ⋮ menu - fades in on hover/focus */}
           <div
             style={{
               opacity:    showMenu ? 1 : 0,
@@ -128,7 +128,7 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
           </div>
         </div>
 
-        {/* Tags — single non-wrapping row; padding prevents shadow clip */}
+        {/* Tags - single non-wrapping row; padding prevents shadow clip */}
         {tags && tags.length > 0 && (
           <div
             style={{
@@ -147,7 +147,7 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
           </div>
         )}
 
-        {/* Description — fills remaining space, 4-line clamp */}
+        {/* Description - fills remaining space, 4-line clamp */}
         <p
           style={{
             flex:            '1 1 0',

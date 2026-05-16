@@ -24,9 +24,9 @@ export interface QuestionCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
   options: QuestionCardOption[]
   selected?: string | string[]
   onSelect?: (id: string) => void
-  /** "1/3" — shows ‹ › pagination nav */
+  /** "1/3" - shows ‹ › pagination nav */
   paginationLabel?: string
-  /** "N Selected" in header — single-question mode */
+  /** "N Selected" in header - single-question mode */
   selectionCount?: number
   openEndedLabel?: string
   /** Fires with the typed text when user sends the open-ended answer */
@@ -130,7 +130,7 @@ function SendButton({ onClick }: { onClick?: React.MouseEventHandler<HTMLButtonE
 }
 
 // ── RankableRow ───────────────────────────────────────────────────────────────
-// The entire row is the drag surface. No dragControls needed — default
+// The entire row is the drag surface. No dragControls needed - default
 // dragListener picks up pointer events anywhere on the row.
 
 function RankableRow({ option, index }: { option: QuestionCardOption; index: number }) {
@@ -194,7 +194,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
     const openEndedRef  = useRef<HTMLTextAreaElement>(null)
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])
 
-    // Auto-grow textarea — fires on open (initial size) and on every keystroke
+    // Auto-grow textarea - fires on open (initial size) and on every keystroke
     useEffect(() => {
       const el = openEndedRef.current
       if (!el) return
@@ -231,10 +231,10 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
 
     const hasPagination    = paginationLabel != null
     const hasSelectionMode = selectionCount  != null
-    // Key for AnimatePresence — ONLY single/multi animate; rank is never in AnimatePresence
+    // Key for AnimatePresence - ONLY single/multi animate; rank is never in AnimatePresence
     const optionsKey = `q:${question}:${type}`
 
-    // Badge exits on click (one step) — not deferred to when typing starts
+    // Badge exits on click (one step) - not deferred to when typing starts
     const showEditBadge = !openEndedOpen
 
     return (
@@ -284,10 +284,10 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
           </div>
         </div>
 
-        {/* ── Wide section — options + footer, extends to 10px from card edges ─ */}
+        {/* ── Wide section - options + footer, extends to 10px from card edges ─ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginLeft: -10, marginRight: -10 }}>
 
-          {/* ─ Options — rank is NEVER inside AnimatePresence (required for Reorder drag) */}
+          {/* ─ Options - rank is NEVER inside AnimatePresence (required for Reorder drag) */}
           {type === 'rank' ? (
             <Reorder.Group
               as="div"
@@ -329,7 +329,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
             </AnimatePresence>
           )}
 
-          {/* ─ Footer row — pencil badge + label/textarea + Skip + Send ───────── */}
+          {/* ─ Footer row - pencil badge + label/textarea + Skip + Send ───────── */}
           {/* The ROW ITSELF transforms: label → inline textarea in the same flex slot */}
           <div
             style={{
@@ -340,7 +340,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
               flexShrink: 0,
             }}
           >
-            {/* Badge — exits immediately when user clicks (openEndedOpen), AnimatePresence pops it from layout */}
+            {/* Badge - exits immediately when user clicks (openEndedOpen), AnimatePresence pops it from layout */}
             <AnimatePresence mode="popLayout" initial={false}>
               {showEditBadge && (
                 <motion.div
@@ -355,7 +355,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
               )}
             </AnimatePresence>
 
-            {/* Text slot — same position, same font — click to open, becomes textarea */}
+            {/* Text slot - same position, same font - click to open, becomes textarea */}
             <div style={{ flex: '1 0 0', minWidth: 1 }}>
               {openEndedOpen ? (
                 <textarea
@@ -405,7 +405,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
               )}
             </div>
 
-            {/* Skip + Send — always present, always visible */}
+            {/* Skip + Send - always present, always visible */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <SkipButton onClick={onSkip} />
               <SendButton

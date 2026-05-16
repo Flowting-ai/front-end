@@ -21,7 +21,7 @@ export interface UseStreamingChatParams {
   onTitleUpdate?: (chatId: string, title: string) => void
   /** Called when the stream finishes so the sidebar can re-order the chat. */
   onChatMoveToTop?: (chatId: string) => void
-  /** Optional — lets the caller render a loading indicator from stream state. */
+  /** Optional - lets the caller render a loading indicator from stream state. */
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
 }
 
@@ -41,7 +41,7 @@ export function useStreamingChat({
   const abortControllerRef = useRef<AbortController | null>(null)
   const stopRequestedRef = useRef(false)
 
-  // Pending message field updates — flushed to React every FLUSH_INTERVAL_MS
+  // Pending message field updates - flushed to React every FLUSH_INTERVAL_MS
   const pendingFieldsRef = useRef<Partial<UIMessage> | null>(null)
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const rafScheduledRef = useRef(false)
@@ -136,7 +136,7 @@ export function useStreamingChat({
    * Opens an SSE stream to the /api/chat proxy route and applies incoming
    * events to the loading placeholder message identified by `loadingMessageId`.
    *
-   * The function is NOT memoised — re-creating it every render ensures it
+   * The function is NOT memoised - re-creating it every render ensures it
    * always closes over the freshest callbacks without ref gymnastics.
    * It is only ever called from event handlers, so identity changes are safe.
    */
@@ -243,7 +243,7 @@ export function useStreamingChat({
           try {
             parsed = JSON.parse(dataStr)
           } catch {
-            // Plain text token (not JSON) — treat as content chunk
+            // Plain text token (not JSON) - treat as content chunk
             // The backend sends `data: <token>` for LLM content
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, dataStr)
@@ -499,7 +499,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "model_selected") {
-            // Backend selected a model — update the loading message with model info
+            // Backend selected a model - update the loading message with model info
             const modelName = asString(parsed.model_name) ?? asString(parsed.modelName)
             if (modelName) {
               queueUpdate({
@@ -519,7 +519,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "web_search") {
-            // Web search activity — schema: {query, links[]}
+            // Web search activity - schema: {query, links[]}
             const query = asString(parsed.query) ?? ""
             const rawLinks = Array.isArray(parsed.links) ? parsed.links : []
             const results = rawLinks
@@ -576,7 +576,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "structured_block") {
-            // Structured output block — schema: {block: ResponseBlock}
+            // Structured output block - schema: {block: ResponseBlock}
             const block = parsed.block as import("@/hooks/use-chat-state").ResponseBlock | undefined
             if (block && typeof block === "object" && "kind" in block) {
               const msgId = loadingMessageIdRef.current
@@ -594,7 +594,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "tool_progress") {
-            // Tool progress — schema: {tool, label, status, filename, step?, message?, code_preview?}
+            // Tool progress - schema: {tool, label, status, filename, step?, message?, code_preview?}
             const toolName = asString(parsed.tool) ?? "unknown"
             const label = asString(parsed.label)
             const status = asString(parsed.status) ?? "start"
@@ -643,7 +643,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "tool_executing" || parsed.type === "tool_executing") {
-            // Tool is about to execute — schema: {content (tool name), label, tool_call: {name, arguments, ...}}
+            // Tool is about to execute - schema: {content (tool name), label, tool_call: {name, arguments, ...}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
             const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? "tool"
             const label = asString(parsed.label)
@@ -678,12 +678,12 @@ export function useStreamingChat({
           }
 
           if (eventName === "tool_calls_streaming" || parsed.type === "tool_calls_streaming") {
-            // Streaming partial tool call arguments — no UI update needed
+            // Streaming partial tool call arguments - no UI update needed
             continue
           }
 
           if (eventName === "tool_complete" || parsed.type === "tool_complete") {
-            // Tool finished — schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
+            // Tool finished - schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
             const toolCallId = asString(toolCall?.tool_call_id)
             const label = asString(parsed.label)
@@ -714,7 +714,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "image" || parsed.type === "image") {
-            // Image event — either inline from LLM ({images: string[]}) or named ({url, s3_key})
+            // Image event - either inline from LLM ({images: string[]}) or named ({url, s3_key})
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               if (Array.isArray(parsed.images)) {
@@ -741,7 +741,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "generated_file") {
-            // Generated file — schema: {url, s3_key, filename, mime_type}
+            // Generated file - schema: {url, s3_key, filename, mime_type}
             const msgId = loadingMessageIdRef.current
             if (msgId) {
               const file = {
@@ -762,7 +762,7 @@ export function useStreamingChat({
           }
 
           if (eventName === "docx_progress") {
-            // Document generation progress — schema: {step, message, filename, code_preview?}
+            // Document generation progress - schema: {step, message, filename, code_preview?}
             const step = asString(parsed.step) ?? "start"
             const filename = asString(parsed.filename) ?? "document"
             const progressMessage = asString(parsed.message) ?? ""
@@ -818,7 +818,7 @@ export function useStreamingChat({
             flushPending()
 
             if (isToolCallRound) {
-              // Agentic intermediate round — tool calls are about to execute.
+              // Agentic intermediate round - tool calls are about to execute.
               // More content rounds are coming; do not finalise the message.
               queueUpdate({ isThinkingInProgress: false }, true)
               continue
@@ -941,7 +941,7 @@ export function useStreamingChat({
       stopFlushInterval()
       flushPending()
 
-      // Stream ended without a done or error event — treat accumulated content
+      // Stream ended without a done or error event - treat accumulated content
       // as the complete response
       if (!streamFinished) {
         if (assistantContent) {
@@ -969,7 +969,7 @@ export function useStreamingChat({
       stopFlushInterval()
       flushPending()
 
-      // User-initiated stop — not an error
+      // User-initiated stop - not an error
       if (stopRequestedRef.current) {
         setStreamState?.("aborted")
         return

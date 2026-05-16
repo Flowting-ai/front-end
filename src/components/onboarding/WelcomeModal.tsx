@@ -63,7 +63,7 @@ function StatusCard({ icon, title, subtitle }: { icon: string; title: string; su
 function SouvenirWordmark() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "11.5px" }}>
-      {/* Simple logo placeholder — matches design proportions */}
+      {/* Simple logo placeholder - matches design proportions */}
       <svg
         width="40"
         height="40"
@@ -118,7 +118,7 @@ export function WelcomeModal() {
     setVisible(false);
   };
 
-  const tone = user ? undefined : "Balanced"; // fallback — real value comes from API
+  const tone = user ? undefined : "Balanced"; // fallback - real value comes from API
   const hasImport = false; // will be true when context imports are implemented
 
   return (

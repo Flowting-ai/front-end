@@ -44,7 +44,7 @@ export function useChatHistory(): UseChatHistoryResult {
       cursorRef.current = res.next_cursor ?? undefined;
       setHasMore(res.has_more ?? false);
     } catch {
-      // Silent — sidebar missing chats is non-fatal
+      // Silent - sidebar missing chats is non-fatal
     } finally {
       loadingRef.current = false;
       setIsLoading(false);

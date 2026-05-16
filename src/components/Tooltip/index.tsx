@@ -11,7 +11,7 @@ import { springs } from '@/lib/springs'
 export type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 
 export interface TooltipProps {
-  /** Tooltip label — plain text or any ReactNode */
+  /** Tooltip label - plain text or any ReactNode */
   content: ReactNode
   /** The element that triggers the tooltip on hover/focus */
   children: React.ReactElement
@@ -56,7 +56,7 @@ export function Tooltip({
   const [open,    setOpen]    = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Close gracefully when disabled — exit animation will play naturally.
+  // Close gracefully when disabled - exit animation will play naturally.
   useEffect(() => {
     if (disabled) setOpen(false)
   }, [disabled])
@@ -97,7 +97,7 @@ export function Tooltip({
               <motion.div
                 className={cn(className)}
                 style={{
-                  // ── Visual — matches Figma node 960:1464 exactly ────────────
+                  // ── Visual - matches Figma node 960:1464 exactly ────────────
                   position:        'relative',
                   display:         'inline-flex',
                   alignItems:      'center',
@@ -136,7 +136,7 @@ export function Tooltip({
                   {content}
                 </span>
 
-                {/* Inner depth shadow — same language as Default button, scaled down */}
+                {/* Inner depth shadow - same language as Default button, scaled down */}
                 <div
                   aria-hidden
                   style={{

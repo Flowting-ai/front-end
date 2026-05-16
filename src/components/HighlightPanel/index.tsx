@@ -77,7 +77,7 @@ export function HighlightPanel({
     setAtBottom(!overflowing || el.scrollTop + el.clientHeight >= el.scrollHeight - 1)
   }, [])
 
-  // Observe size changes — content additions/removals + font/icon load can
+  // Observe size changes - content additions/removals + font/icon load can
   // shift the overflow state without firing onScroll. Re-run when the
   // filtered list changes, in case items mount with their own animations.
   useEffect(() => {
@@ -309,7 +309,7 @@ export function HighlightPanel({
         </AnimatePresence>
       </div>
 
-      {/* ── Top edge fade — 4 progressive backdrop-blur layers + 1 surface gradient ── */}
+      {/* ── Top edge fade - 4 progressive backdrop-blur layers + 1 surface gradient ── */}
       {[
         { height: 40, blur: 2 },
         { height: 28, blur: 3 },

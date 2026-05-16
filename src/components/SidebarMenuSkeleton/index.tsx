@@ -7,12 +7,12 @@ import { cn } from '@/lib/utils'
 
 export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Show an icon placeholder on the left — matches `default` variant icon slot.
+   * Show an icon placeholder on the left - matches `default` variant icon slot.
    * @default false
    */
   showIcon?: boolean
   /**
-   * Full width instead of fixed 217px — always pass inside Sidebar.
+   * Full width instead of fixed 217px - always pass inside Sidebar.
    * @default false
    */
   fluid?: boolean

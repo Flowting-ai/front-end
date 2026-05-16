@@ -1,6 +1,6 @@
 # Feature: Left Sidebar
 
-Persistent navigation panel. Shows: navigation links (Chat, Personas, Brain, Settings), recent chats, starred chats, and project folders. Uses KDS `Sidebar` + `SidebarMenuItem` + `SidebarProjectsSection` — copy all three.
+Persistent navigation panel. Shows: navigation links (Chat, Personas, Brain, Settings), recent chats, starred chats, and project folders. Uses KDS `Sidebar` + `SidebarMenuItem` + `SidebarProjectsSection` - copy all three.
 
 **Component:** `src/components/layout/LeftSidebar.tsx`  
 **KDS sources to copy:** `Sidebar`, `SidebarMenuItem`, `SidebarMenuSkeleton`, `SidebarProjectsSection`, `SidebarInset`
@@ -70,7 +70,7 @@ Call on mount. Re-call after a new chat is created or a chat is deleted.
 ### Star / unstar a chat
 ```ts
 POST /chats/{chatId}/star
-// toggles starred state — no body needed
+// toggles starred state - no body needed
 ```
 
 ### Delete a chat
@@ -88,7 +88,7 @@ Body: { chat_id: string, title: string }
 
 ---
 
-## SidebarMenuItem — "chat-item" variant
+## SidebarMenuItem - "chat-item" variant
 
 Each chat entry in the list. Props:
 ```tsx
@@ -118,7 +118,7 @@ If you need to animate something outside of KDS (e.g., a custom section), use th
 
 ## Keyboard Shortcut
 
-KDS `Sidebar` binds `⌘ B` (Mac) / `Ctrl B` (Windows) to toggle the sidebar. This is internal to the component — do not re-bind it.
+KDS `Sidebar` binds `⌘ B` (Mac) / `Ctrl B` (Windows) to toggle the sidebar. This is internal to the component - do not re-bind it.
 
 ---
 
@@ -134,4 +134,4 @@ KDS `Sidebar` binds `⌘ B` (Mac) / `Ctrl B` (Windows) to toggle the sidebar. Th
 
 ## Mobile
 
-Below `md` breakpoint, the Sidebar overlays instead of pushing content. This is handled by KDS `Sidebar` internally via the `isMobile` prop (or auto-detected). Pass `isMobile={useIsMobile()}` — the hook is at `src/hooks/use-mobile.ts` (already built).
+Below `md` breakpoint, the Sidebar overlays instead of pushing content. This is handled by KDS `Sidebar` internally via the `isMobile` prop (or auto-detected). Pass `isMobile={useIsMobile()}` - the hook is at `src/hooks/use-mobile.ts` (already built).

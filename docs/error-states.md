@@ -1,6 +1,6 @@
 # Error States
 
-Errors in V2 are inline and non-blocking. They appear inside the message flow — never as modals, never as full-screen states. The user can always dismiss, retry, or keep chatting.
+Errors in V2 are inline and non-blocking. They appear inside the message flow - never as modals, never as full-screen states. The user can always dismiss, retry, or keep chatting.
 
 ---
 
@@ -14,20 +14,20 @@ All errors arrive as an SSE event:
 Or as a failed HTTP response (network error, 401, 429, 5xx) before the SSE stream opens.
 
 Two rendering locations:
-1. **Inline in the message bubble** — for errors that happen after stream starts (E1, E2, E3)
-2. **Input bar banner** — for errors that happen before the stream starts (auth, rate limit)
+1. **Inline in the message bubble** - for errors that happen after stream starts (E1, E2, E3)
+2. **Input bar banner** - for errors that happen before the stream starts (auth, rate limit)
 
 ---
 
 ## Error Types
 
-### E1 — Connector Auth Failure
+### E1 - Connector Auth Failure
 
 The user's connected integration (e.g. Google Drive, Notion) has an expired or revoked token. Souvenir attempted to fetch context from it and failed.
 
 **When it fires:** During `researching` or `thinking` phase  
 **SSE event code:** `connector_auth_failed`  
-**Retryable:** No — user must re-authenticate the connector
+**Retryable:** No - user must re-authenticate the connector
 
 **What to render (inline in message):**
 
@@ -49,13 +49,13 @@ The user's connected integration (e.g. Google Drive, Notion) has an expired or r
 - The message above the error card still renders (partial response is valid)
 - Do NOT clear the message or prevent future sends
 
-### E2 — Web Search Timeout
+### E2 - Web Search Timeout
 
 A web search was initiated but timed out or returned no usable results.
 
-**When it fires:** During `researching` phase — some sources may have already loaded  
+**When it fires:** During `researching` phase - some sources may have already loaded  
 **SSE event code:** `research_timeout` or `research_failed`  
-**Retryable:** Yes — "Try again" resends the same message
+**Retryable:** Yes - "Try again" resends the same message
 
 **What to render (inline in message):**
 
@@ -73,10 +73,10 @@ A web search was initiated but timed out or returned no usable results.
 - Background: `var(--color-surface-subtle)`
 - Border: `var(--color-border-default)`
 - Icon: HugeIcons `Search01Icon` 16px (muted)
-- The stream continues after this error — do NOT stop rendering the response
+- The stream continues after this error - do NOT stop rendering the response
 - "Try again" sends a new stream request with the same `input` string
 
-### E3 — Model Error (generic)
+### E3 - Model Error (generic)
 
 The model returned an error or the stream ended unexpectedly.
 
@@ -100,7 +100,7 @@ The model returned an error or the stream ended unexpectedly.
 - Border: `var(--color-border-error)`
 - Icon: HugeIcons `Cancel01Icon` 16px
 
-### E4 — Rate Limit (429)
+### E4 - Rate Limit (429)
 
 User has hit their daily message limit.
 
@@ -112,7 +112,7 @@ User has hit their daily message limit.
 ```
 ┌─────────────────────────────────────────────────────┐
 │  You've reached your daily limit ({N} messages).   │
-│  Resets at midnight UTC — or upgrade for more.     │
+│  Resets at midnight UTC - or upgrade for more.     │
 │                               [Upgrade plan]        │
 └─────────────────────────────────────────────────────┘
 ```
@@ -122,7 +122,7 @@ User has hit their daily message limit.
 - "Upgrade plan" → `/settings/usage-and-billing/change-plan`
 - Check `canAccessFeature(plan, 'unlimitedWebSearch')` to determine if the limit is for web searches specifically
 
-### E5 — Auth Expired (401)
+### E5 - Auth Expired (401)
 
 The session token expired mid-stream.
 
@@ -152,7 +152,7 @@ For retryable errors (E2, E3):
 function retryLastMessage() {
   // Re-send the exact same input that caused the error
   // Clear the error state from the failed message
-  // Do NOT show a new user bubble — it's a retry of the same send
+  // Do NOT show a new user bubble - it's a retry of the same send
   sendMessage(lastUserInput)
 }
 ```
@@ -178,13 +178,13 @@ reportError({
 })
 ```
 
-Add Sentry alongside `error-reporter.ts` — do NOT replace it. Both can run concurrently.
+Add Sentry alongside `error-reporter.ts` - do NOT replace it. Both can run concurrently.
 
 ---
 
 ## What not to do
 
-- Do not show a toast notification for stream errors — inline error cards are the pattern
+- Do not show a toast notification for stream errors - inline error cards are the pattern
 - Do not clear the conversation on error
-- Do not show a spinner indefinitely if the stream stalls — set a 30s timeout and transition to E3
-- Do not swallow errors silently — always call `reportError()`
+- Do not show a spinner indefinitely if the stream stalls - set a 30s timeout and transition to E3
+- Do not swallow errors silently - always call `reportError()`

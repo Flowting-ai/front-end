@@ -181,11 +181,11 @@ function StatBox({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   try {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   } catch {
-    return '—'
+    return '-'
   }
 }
 
@@ -197,7 +197,7 @@ function fmtAmount(cents: number, currency = 'usd'): string {
 }
 
 function fmtNum(n: number | null | undefined): string {
-  if (n == null) return '—'
+  if (n == null) return '-'
   return n.toLocaleString('en-US')
 }
 
@@ -306,7 +306,7 @@ export default function BillingPage() {
               }}>
                 {planName}
               </h2>
-              {nextBilling !== '—' && (
+              {nextBilling !== '-' && (
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,

@@ -11,6 +11,8 @@ import {
   PERSONA_VERSION_DETAIL_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
+  PERSONA_CHATS_CREATE_ENDPOINT,
+  PERSONA_CHAT_STREAM_ENDPOINT,
 } from "@/lib/config";
 
 // ── Backend types (match OpenAPI schema) ──────────────────────────────────────
@@ -225,11 +227,15 @@ export async function uploadDocument(repoId: string, versionId: string, file: Fi
   );
 }
 
-export async function deleteDocument(repoId: string, versionId: string, documentId: string): Promise<PersonaVersionResponse> {
-  return apiFetchJson<PersonaVersionResponse>(
+export async function deleteDocument(repoId: string, versionId: string, documentId: string): Promise<void> {
+  const response = await apiFetch(
     PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT(repoId, versionId, documentId),
     { method: "DELETE" },
   );
+  if (!response.ok) {
+    throw new Error(`Failed to delete document (${response.status})`);
+  }
+  // 2xx — success. DELETE often returns 204 No Content; don't attempt JSON parse.
 }
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
@@ -242,4 +248,151 @@ export async function enhancePrompt(prompt: string): Promise<EnhancePromptRespon
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: form.toString(),
   });
+}
+
+// ── Persona test chat ─────────────────────────────────────────────────────────
+
+export interface PersonaChatStreamCallbacks {
+  /** Called with the chatId extracted from the X-Chat-Id response header. */
+  onChatId?: (chatId: string) => void;
+  /** Called for each streamed text token. */
+  onChunk?: (delta: string) => void;
+  /** Called when the stream finishes successfully. */
+  onDone?: () => void;
+  /** Called on error (network or stream-level). */
+  onError?: (error: string) => void;
+}
+
+/** Shared SSE reader used by both create-chat and stream-message. */
+async function readPersonaSSEStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<void> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (value) {
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const chunk of events) {
+          const lines = chunk.split("\n");
+          let eventName = "";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+          let parsed: Record<string, unknown>;
+          try { parsed = JSON.parse(dataStr); } catch { continue; }
+          // Resolve event name from inline `type` field when no named event header
+          if (!eventName && typeof parsed.type === "string") eventName = parsed.type;
+          if (eventName === "content") {
+            callbacks.onChunk?.(typeof parsed.content === "string" ? parsed.content : "");
+          } else if (eventName === "done") {
+            callbacks.onDone?.();
+            return;
+          } else if (eventName === "error") {
+            callbacks.onError?.(typeof parsed.error === "string" ? parsed.error : "Stream error");
+            return;
+          }
+        }
+      }
+      if (done) break;
+    }
+    callbacks.onDone?.();
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Stream read error");
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
+
+/**
+ * Create a new persona chat session and stream the first assistant response.
+ * The chatId is surfaced via `callbacks.onChatId` so callers can store it
+ * for follow-up messages.
+ * Returns an abort function that cancels the in-flight request.
+ */
+export async function createAndStreamPersonaChat(
+  repoId: string,
+  input: string,
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<() => void> {
+  const controller = new AbortController();
+  const form = new FormData();
+  form.append("input", input);
+  let response: Response;
+  try {
+    response = await apiFetch(PERSONA_CHATS_CREATE_ENDPOINT(repoId), {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Failed to create persona chat");
+    }
+    return () => controller.abort();
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    callbacks.onError?.(text || `HTTP ${response.status}`);
+    return () => controller.abort();
+  }
+  const chatId = response.headers.get("X-Chat-Id");
+  if (chatId) callbacks.onChatId?.(chatId);
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+  readPersonaSSEStream(reader, callbacks);
+  return () => controller.abort();
+}
+
+/**
+ * Send a follow-up message in an existing persona chat session and stream
+ * the assistant response.
+ * Returns an abort function that cancels the in-flight request.
+ */
+export async function streamPersonaMessage(
+  repoId: string,
+  chatId: string,
+  input: string,
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<() => void> {
+  const controller = new AbortController();
+  const form = new FormData();
+  form.append("input", input);
+  let response: Response;
+  try {
+    response = await apiFetch(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId), {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Failed to stream message");
+    }
+    return () => controller.abort();
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    callbacks.onError?.(text || `HTTP ${response.status}`);
+    return () => controller.abort();
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+  readPersonaSSEStream(reader, callbacks);
+  return () => controller.abort();
 }

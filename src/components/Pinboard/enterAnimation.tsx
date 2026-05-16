@@ -10,11 +10,11 @@ import type { Transition } from 'framer-motion'
  * Each top-level chunk in either component is wrapped in <EnterChunk>; the
  * chunk's index controls its position in the staggered cascade.
  *
- * Each component owns its own default (compact vs expanded — the expanded
+ * Each component owns its own default (compact vs expanded - the expanded
  * panel uses a slower / more dramatic cascade that reads against the larger
  * surface). Consumers can override per-instance via the `enterAnimation` prop.
  *
- * The animation runs on mount only — once the chunks settle, the wrapping
+ * The animation runs on mount only - once the chunks settle, the wrapping
  * motion.div is at identity transform / no filter and is invisible to its
  * children's behaviour. Reduced motion is honoured via the app-root
  * <MotionConfig reducedMotion="user">.
@@ -36,7 +36,7 @@ export interface PinboardEnterAnimation {
   transition: Transition
 }
 
-/** Compact Pinboard — quicker cascade for the smaller surface. */
+/** Compact Pinboard - quicker cascade for the smaller surface. */
 export const PINBOARD_COMPACT_ENTER_DEFAULT: PinboardEnterAnimation = {
   enabled:          true,
   firstItemDelayMs: 70,
@@ -45,7 +45,7 @@ export const PINBOARD_COMPACT_ENTER_DEFAULT: PinboardEnterAnimation = {
   transition:       { duration: 0.4, ease: [0.2, 0, 0, 1] },
 }
 
-/** Expanded Pinboard — slower, longer-tail cascade for the larger surface. */
+/** Expanded Pinboard - slower, longer-tail cascade for the larger surface. */
 export const PINBOARD_EXPANDED_ENTER_DEFAULT: PinboardEnterAnimation = {
   enabled:          true,
   firstItemDelayMs: 210,
@@ -55,9 +55,9 @@ export const PINBOARD_EXPANDED_ENTER_DEFAULT: PinboardEnterAnimation = {
 }
 
 export interface EnterChunkProps {
-  /** Resolved animation config — either a default or a consumer override. */
+  /** Resolved animation config - either a default or a consumer override. */
   cfg:        PinboardEnterAnimation
-  /** Stagger position — chunk 0 fires first, then 1, 2, … */
+  /** Stagger position - chunk 0 fires first, then 1, 2, … */
   index:      number
   children:   React.ReactNode
   /** Spread onto the underlying motion.div. */

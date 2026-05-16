@@ -21,7 +21,7 @@ function readCollapsed(): boolean {
   return localStorage.getItem("sidebar_collapsed") === "true";
 }
 
-// ── Section show/hide animation — matches Sidebar design system ───────────────
+// ── Section show/hide animation - matches Sidebar design system ───────────────
 
 const sectionHeightVariants = {
   open: {
@@ -158,7 +158,7 @@ function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) 
   );
 }
 
-// ── Recents section — header with show/hide + animated collapse ───────────────
+// ── Recents section - header with show/hide + animated collapse ───────────────
 
 function RecentsSection(props: SectionProps) {
   const [shown, setShown] = useState(true);
@@ -212,7 +212,7 @@ const menuItemDestructiveStyle: React.CSSProperties = {
   color: "var(--red-500)",
 }
 
-// ── ProjectChatItem — sidebar project chat row with rename/delete menu ─────────
+// ── ProjectChatItem - sidebar project chat row with rename/delete menu ─────────
 
 interface ProjectChatItemProps {
   chat:     ProjectChat
@@ -324,7 +324,7 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
   )
 }
 
-// ── Projects section — reads from ProjectsContext ──────────────────────────────
+// ── Projects section - reads from ProjectsContext ──────────────────────────────
 
 const PROJECT_LIMIT = 5
 
@@ -468,7 +468,7 @@ export function LeftSidebar({
   const { chats: projectChats } = useProjects();
   const collapsedRef = useRef<boolean>(readCollapsed());
 
-  // Exclude project chats from the Recents/Starred lists — they are already
+  // Exclude project chats from the Recents/Starred lists - they are already
   // shown inside the Projects section and would be confusing duplicates.
   const projectChatIdSet = useMemo(
     () => new Set(projectChats.map(c => c.id)),
@@ -523,7 +523,7 @@ export function LeftSidebar({
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
       onSearch={() => {
-        /* wired in Day 7 — search dialog */
+        /* wired in Day 7 - search dialog */
       }}
       onProjectsClick={() => router.push("/projects")}
       onPersonasClick={() => router.push("/personas")}
@@ -532,7 +532,7 @@ export function LeftSidebar({
       recentItems={
         // Both sections share sectionProps; StarredSection self-hides when empty.
         // gap:'8px' on the wrapper adds space between Starred and Recents only
-        // when both are present — gap does not apply to null children.
+        // when both are present - gap does not apply to null children.
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <StarredSection {...sectionProps} />
           <RecentsSection {...sectionProps} />

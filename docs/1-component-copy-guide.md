@@ -9,7 +9,7 @@ How to bring a Kaya DS component into the V2 codebase. Read this before touching
 Importing from the KDS package couples your feature logic to the DS release cycle. If Utkarsh changes a prop name or refactors internals, your feature breaks. Copying creates a local snapshot:
 
 - Your feature logic never breaks from upstream DS changes
-- When Utkarsh ships a visual update, you copy again and merge — one file diff
+- When Utkarsh ships a visual update, you copy again and merge - one file diff
 - Storybook tests stay in the DS repo where they belong
 - The copy is the contract: the file you copy is exactly what Utkarsh intended
 
@@ -17,7 +17,7 @@ Importing from the KDS package couples your feature logic to the DS release cycl
 
 ## The 3-Step Process
 
-### Step 1 — Locate the source
+### Step 1 - Locate the source
 
 KDS source is at `/tmp/kaya-ds/src/components/[ComponentName]/`. Every component has:
 ```
@@ -27,7 +27,7 @@ KDS source is at `/tmp/kaya-ds/src/components/[ComponentName]/`. Every component
 └── [ComponentName].stories.tsx  ← do NOT copy this
 ```
 
-### Step 2 — Copy verbatim, zero modifications
+### Step 2 - Copy verbatim, zero modifications
 
 ```bash
 # Example: copying Button
@@ -38,18 +38,18 @@ Rules during the copy:
 - Do not rename props
 - Do not change the visual JSX or CSS
 - Do not add business logic (no API calls, no store access, no routing)
-- Do not change import paths yet — fix those in Step 3
+- Do not change import paths yet - fix those in Step 3
 - Do not copy `.stories.tsx` files
 
-### Step 3 — Fix internal imports only
+### Step 3 - Fix internal imports only
 
 KDS components import from:
 - `../../tokens/...` → point to your local token CSS (already imported globally)
 - Other KDS components → point to your local copies of those
-- `@strange-huge/icons` → leave as-is (already in your dependencies — wait, actually use `@hugeicons/react` per CLAUDE.md)
+- `@strange-huge/icons` → leave as-is (already in your dependencies - wait, actually use `@hugeicons/react` per CLAUDE.md)
 - `framer-motion` → leave as-is
 
-After copying, run `tsc --noEmit` to catch any broken import paths. Fix those — nothing else.
+After copying, run `tsc --noEmit` to catch any broken import paths. Fix those - nothing else.
 
 ---
 
@@ -64,7 +64,7 @@ src/components/Button/
 ```
 
 ```tsx
-// AppButton.tsx — business logic lives here, not in index.tsx
+// AppButton.tsx - business logic lives here, not in index.tsx
 import { Button } from './index'
 
 export function DeleteChatButton({ chatId }: { chatId: string }) {
@@ -123,8 +123,8 @@ function ChatBoard() {
 
 1. Read the KDS changelog or ask Utkarsh what changed
 2. Copy the new `index.tsx` over the old one
-3. Run `tsc --noEmit` — fix any new import paths
-4. If props changed, update your wrapper (AppButton, etc.) — not the copied source
+3. Run `tsc --noEmit` - fix any new import paths
+4. If props changed, update your wrapper (AppButton, etc.) - not the copied source
 5. Done. Feature logic is untouched.
 
 ---
@@ -144,7 +144,7 @@ function ChatBoard() {
 
 ### ChatInput
 
-Has internal state for attachment management. The KDS version is headless for attachments — you control the attachment array. Use `use-chat-input.ts` hook to manage files, pin mentions, and the tone selector state.
+Has internal state for attachment management. The KDS version is headless for attachments - you control the attachment array. Use `use-chat-input.ts` hook to manage files, pin mentions, and the tone selector state.
 
 ### Sidebar + SidebarMenuItem
 

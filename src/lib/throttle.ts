@@ -149,7 +149,7 @@ export async function exponentialBackoff<T>(
 }
 
 /**
- * Circuit breaker — prevents cascading failures.
+ * Circuit breaker - prevents cascading failures.
  *
  * States: CLOSED (normal) → OPEN (rejecting) → HALF_OPEN (probing) → CLOSED
  *

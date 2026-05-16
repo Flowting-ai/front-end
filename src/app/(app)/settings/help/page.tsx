@@ -234,7 +234,7 @@ export default function HelpPage() {
                 color:      'var(--neutral-500)',
                 margin:     0,
               }}>
-                We&apos;re building Souvenir with you, not just for you. Tell us what would make your experience better — we read every request.
+                We&apos;re building Souvenir with you, not just for you. Tell us what would make your experience better - we read every request.
               </p>
             </div>
             <GhostButton>Suggest a feature</GhostButton>
@@ -291,7 +291,7 @@ export default function HelpPage() {
           <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider />
           <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    divider />
           <LinkRow title="Community Discord"   description="Connect with other Souvenir users, share workflows, get tips"        divider />
-          <LinkRow title="What's new"          description="Changelog — see every feature release, fix, and update" />
+          <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" />
         </InfoCard>
 
         {/* ── Legal card ── */}

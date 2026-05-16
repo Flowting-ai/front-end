@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
 
-// ── Size context — set by TabsList, consumed by TabsTrigger ───────────────────
+// ── Size context - set by TabsList, consumed by TabsTrigger ───────────────────
 
 type TabsSize = 'medium' | 'small'
 const TabsSizeContext = React.createContext<TabsSize>('medium')
@@ -19,10 +19,10 @@ export interface TabsListProps
   /**
    * When true the List fills its parent width and only the triggers row
    * scrolls horizontally. The beige pill background stays fixed at the
-   * container width — it does not grow with the content.
+   * container width - it does not grow with the content.
    */
   scrollable?: boolean
-  /** Size variant — medium (default) or small. Propagates to all TabsTrigger children via context. */
+  /** Size variant - medium (default) or small. Propagates to all TabsTrigger children via context. */
   size?: TabsSize
 }
 
@@ -42,10 +42,10 @@ Tabs.displayName = 'Tabs'
 
 // ── List (pill container) ─────────────────────────────────────────────────────
 //
-// Default mode — inline-flex, sizes to content. Pill layers (bg + shadow)
+// Default mode - inline-flex, sizes to content. Pill layers (bg + shadow)
 // live inside rowRef, animated via Framer motion animate prop.
 //
-// Scrollable mode — display:block fills the parent container. rowRef has
+// Scrollable mode - display:block fills the parent container. rowRef has
 // overflow-x:auto. The List clips in X (overflow-x:clip) so the shadow
 // never bleeds past the edges, while overflow-y:visible (CSS spec preserves
 // it when the other axis is clip, not auto/hidden/scroll) lets the bottom
@@ -53,10 +53,10 @@ Tabs.displayName = 'Tabs'
 //
 // The outer drop-shadow is hoisted to the List level (outside the scroll
 // container) so it is never clipped by the scroll container. Its DOM style
-// is updated two ways — both via direct style mutation to avoid any
+// is updated two ways - both via direct style mutation to avoid any
 // React or Framer Motion render-cycle lag:
 //   • Tab switch → spring via animate(from, to, { onUpdate }) → style.transform / style.width
-//   • Scroll     → shadowEl.style.transform directly — frame-perfect, zero lag
+//   • Scroll     → shadowEl.style.transform directly - frame-perfect, zero lag
 
 export const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
@@ -160,7 +160,7 @@ export const TabsList = React.forwardRef<
 
   // ── Scrollable: pointer-drag to scroll the row ─────────────────────────────
   //
-  // Mouse / pen only — touch devices use native horizontal scrolling, which
+  // Mouse / pen only - touch devices use native horizontal scrolling, which
   // already includes momentum + rubber-band. We arm on pointerdown, only
   // promote to a drag once the pointer has moved past a 4 px threshold (so
   // a click on a tab still selects it), and suppress the synthetic click
@@ -313,7 +313,7 @@ export const TabsList = React.forwardRef<
         >
           {pill && (
             <>
-              {/* White bg — in scrollable mode has no outer shadow (hoisted above) */}
+              {/* White bg - in scrollable mode has no outer shadow (hoisted above) */}
               <motion.div
                 aria-hidden
                 style={{
@@ -325,7 +325,7 @@ export const TabsList = React.forwardRef<
                 initial={false}
                 transition={springs.fast}
               />
-              {/* Inner bottom shadow — above the white bg */}
+              {/* Inner bottom shadow - above the white bg */}
               <motion.div
                 aria-hidden
                 style={{ ...pillBase, boxShadow: 'var(--shadow-tab-item-selected-inner)' }}
@@ -352,7 +352,7 @@ export const TabsTrigger = React.forwardRef<
 >(function TabsTrigger({ children, icon, className, ...props }, ref) {
   const size = React.useContext(TabsSizeContext)
   return (
-    // asChild makes Radix use Slot — it merges data-state, aria-selected, role="tab"
+    // asChild makes Radix use Slot - it merges data-state, aria-selected, role="tab"
     // etc. onto TabItem, which reads data-state to derive its selected visual state.
     // disableSelectedStyle suppresses TabItem's own bg/shadow since TabsList's
     // animated pill handles the selected treatment.

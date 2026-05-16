@@ -66,7 +66,7 @@ const Switch = React.forwardRef<
   // Internal pointer state
   const [hovered, setHovered] = React.useState(false)
   const [pressed, setPressed] = React.useState(false)
-  // Keyboard-focus state — drives the wrapper outline (Pattern 2). Toggled
+  // Keyboard-focus state - drives the wrapper outline (Pattern 2). Toggled
   // via :focus-visible on the inner SwitchPrimitive.Root so the ring only
   // appears on keyboard navigation, never on mouse / touch clicks.
   const [isFocused, setIsFocused] = React.useState(false)
@@ -87,7 +87,7 @@ const Switch = React.forwardRef<
   const thumbHeight = animateShape && pressed ? THUMB - PRESS_SHRINK : THUMB
   const thumbY      = animateShape && pressed ? INSET + PRESS_SHRINK / 2 : INSET
   const extraWidth  = thumbWidth - THUMB
-  // When extending, grow inward — keep the edge anchored to the resting side
+  // When extending, grow inward - keep the edge anchored to the resting side
   const thumbX = isOn ? INSET + TRAVEL - extraWidth : INSET
 
   // motion value for x (so pointer drag can drive it without re-rendering)
@@ -158,7 +158,7 @@ const Switch = React.forwardRef<
 
   return (
     <motion.span
-      // Explicit tabIndex={-1} keeps the wrapper out of the Tab order — the
+      // Explicit tabIndex={-1} keeps the wrapper out of the Tab order - the
       // inner Radix button is the actual focus target. Without this, some
       // browsers gave the wrapper its own Tab stop (likely because of the
       // outline declaration), forcing the user to Tab twice to reach the
@@ -169,11 +169,11 @@ const Switch = React.forwardRef<
       style={{
         display:       'inline-flex',
         lineHeight:    0,
-        // Pattern 2 — state-gated outline on the wrapper. Keeps the focus
+        // Pattern 2 - state-gated outline on the wrapper. Keeps the focus
         // indicator off the inner button (whose box-shadow already paints a
         // 1 px design ring at the track edge), preventing the "two
         // concentric rings on focus" issue.
-        borderRadius:  TRACK_H,                       // pill — match the Switch's resting shape
+        borderRadius:  TRACK_H,                       // pill - match the Switch's resting shape
         outlineStyle:  'solid',
         outlineWidth:  '2px',
         outlineOffset: '2px',

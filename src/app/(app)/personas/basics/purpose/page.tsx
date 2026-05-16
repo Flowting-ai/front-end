@@ -7,6 +7,7 @@ import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 
 const MAX_CHARS = 120
+const WIZARD_KEY = 'persona_wizard_draft'
 
 // ── Inner page (needs Suspense for useSearchParams) ───────────────────────────
 
@@ -15,14 +16,29 @@ function PurposePageContent() {
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
-  const [purpose, setPurpose] = useState('')
+  const [purpose, setPurpose] = useState(() => {
+    // Prefill from sessionStorage if user navigated back
+    if (typeof window === 'undefined') return ''
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      return draft.purpose ?? ''
+    } catch { return '' }
+  })
 
-  function buildQuery(extra: Record<string, string>) {
+  function buildQuery() {
     const p = new URLSearchParams()
     if (template) p.set('template', template)
-    Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v) })
     const qs = p.toString()
     return qs ? `?${qs}` : ''
+  }
+
+  function handleContinue() {
+    try {
+      const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      // Clear name/tone from previous runs in case user came back and changed purpose
+      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, purpose, name: undefined, tone: undefined }))
+    } catch { /* ignore */ }
+    router.push(`/personas/basics/name${buildQuery()}`)
   }
 
   return (
@@ -41,7 +57,7 @@ function PurposePageContent() {
             fontFamily: 'var(--font-body)', fontWeight: 400,
             fontSize: 14, lineHeight: '22px', color: '#827a74', margin: 0,
           }}>
-            One sentence is perfect — this becomes its purpose and card description.
+            One sentence is perfect - this becomes its purpose and card description.
           </p>
         </div>
 
@@ -77,7 +93,7 @@ function PurposePageContent() {
               fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
               fontSize: 14, lineHeight: '22px', color: '#827a74',
             }}>
-              <span>Keep it tight — this shows on the card</span>
+              <span>Keep it tight - this shows on the card</span>
               <span>{purpose.length}/{MAX_CHARS}</span>
             </div>
           </div>
@@ -91,7 +107,7 @@ function PurposePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => router.push(`/personas/templates${buildQuery({})}`)}
+              onClick={() => router.push(`/personas/templates${buildQuery()}`)}
             >
               Back
             </Button>
@@ -100,7 +116,7 @@ function PurposePageContent() {
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
               disabled={purpose.trim().length === 0}
-              onClick={() => router.push(`/personas/basics/name${buildQuery({ purpose })}`)}
+              onClick={handleContinue}
             >
               Continue
             </Button>

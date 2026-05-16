@@ -697,7 +697,7 @@ export default function PersonasPage() {
                         maxWidth: 427,
                         margin: 0,
                       }}>
-                        Personas are your custom AI configurations — define behavior, connect knowledge, and share via link.
+                        Personas are your custom AI configurations - define behavior, connect knowledge, and share via link.
                       </p>
                     </div>
                     <Button variant="default" onClick={() => router.push('/personas/templates')}>

@@ -10,18 +10,18 @@ import { cn } from '@/lib/utils'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type OptionRowVariant =
-  | 'default'        // single-select, idle        — numbered badge, white bg
-  | 'selected'       // single-select, selected     — inline white badge + tick, neutral/100 bg
-  | 'rank'           // drag-to-rank, idle          — numbered badge, white bg, drag handle
-  | 'rank-focused'   // drag-to-rank, kbd focused   — numbered badge, neutral/50, blue border, drag handle
-  | 'multi'          // multi-select, unchecked     — inline white checkbox (no tick), white bg
-  | 'multi-selected' // multi-select, checked       — inline white checkbox + tick, neutral/50 bg
+  | 'default'        // single-select, idle        - numbered badge, white bg
+  | 'selected'       // single-select, selected     - inline white badge + tick, neutral/100 bg
+  | 'rank'           // drag-to-rank, idle          - numbered badge, white bg, drag handle
+  | 'rank-focused'   // drag-to-rank, kbd focused   - numbered badge, neutral/50, blue border, drag handle
+  | 'multi'          // multi-select, unchecked     - inline white checkbox (no tick), white bg
+  | 'multi-selected' // multi-select, checked       - inline white checkbox + tick, neutral/50 bg
 
 export interface OptionRowProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: OptionRowVariant
   num?: number
   label?: string
-  /** Props spread onto the drag-handle div — used to wire useDragControls in rank mode */
+  /** Props spread onto the drag-handle div - used to wire useDragControls in rank mode */
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
@@ -32,10 +32,10 @@ const BG_NEUTRAL_50  = 'var(--neutral-50, #f7f2ed)'
 const BG_NEUTRAL_100 = 'var(--neutral-100, #ede1d7)'
 const BORDER_BLUE    = '1px solid var(--blue-400, #6e98cb)'
 
-// Shadow for the numbered badge — shared constant
+// Shadow for the numbered badge - shared constant
 const BADGE_OUTER_SHADOW = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
 const BADGE_INNER_SHADOW = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
-// Shadow for the check/checkbox badge — white with yellow inner glow
+// Shadow for the check/checkbox badge - white with yellow inner glow
 const CHECK_INNER_SHADOW = 'inset 0px 1px 0px 0px var(--yellow-200, #d8c9a7), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 
 // ── Badge animation variants ───────────────────────────────────────────────────
@@ -58,7 +58,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
 
     const showDrag = variant === 'rank' || variant === 'rank-focused'
 
-    // Background resolves hover internally — no consumer involvement needed
+    // Background resolves hover internally - no consumer involvement needed
     const bg = (() => {
       if (variant === 'selected')                          return BG_NEUTRAL_100
       if (variant === 'multi-selected')                    return BG_NEUTRAL_50
@@ -105,7 +105,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
         }}
         {...props}
       >
-        {/* Badge slot — AnimatePresence swaps between number / check / checkbox / checkbox-checked */}
+        {/* Badge slot - AnimatePresence swaps between number / check / checkbox / checkbox-checked */}
         <div style={{ width: 28, height: 28, flexShrink: 0, position: 'relative' }}>
           <AnimatePresence mode="popLayout" initial={false}>
 
@@ -116,7 +116,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
               </motion.div>
             )}
 
-            {/* Selected — white badge + tick */}
+            {/* Selected - white badge + tick */}
             {badgeKey === 'check' && (
               <motion.div key="check" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
@@ -160,7 +160,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
               </motion.div>
             )}
 
-            {/* Multi unchecked — white badge, no tick */}
+            {/* Multi unchecked - white badge, no tick */}
             {badgeKey === 'checkbox' && (
               <motion.div key="checkbox" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
@@ -201,7 +201,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
               </motion.div>
             )}
 
-            {/* Multi checked — white badge + tick */}
+            {/* Multi checked - white badge + tick */}
             {badgeKey === 'checkbox-checked' && (
               <motion.div key="checkbox-checked" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
@@ -267,7 +267,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
           {label}
         </p>
 
-        {/* Drag handle — rank modes only, receives onPointerDown from useDragControls */}
+        {/* Drag handle - rank modes only, receives onPointerDown from useDragControls */}
         {showDrag && (
           <div
             {...dragHandleProps}

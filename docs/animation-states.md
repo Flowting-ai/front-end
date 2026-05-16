@@ -11,7 +11,7 @@ All motion in V2 uses Framer Motion 12. CSS transitions only for surface-level i
 | `instant` | 100ms | Hover background, icon color changes |
 | `fast` | 150ms | Press states, closing transitions |
 | `default` | 200ms | Content fade/slide, opacity changes |
-| `moderate` | 280ms | Height/layout changes — expand/collapse |
+| `moderate` | 280ms | Height/layout changes - expand/collapse |
 
 Closing is always 50–100ms shorter than opening to feel snappy.
 
@@ -40,11 +40,11 @@ export const springs = {
 
 ---
 
-## Pattern 1 — Expand / Collapse (three layers)
+## Pattern 1 - Expand / Collapse (three layers)
 
 Used for: ReasoningBlock, SidebarProjectsSection, any collapsible section.
 
-**Critical:** height animation and stagger orchestration must live on separate `motion.div`s — combining on one element causes them to conflict.
+**Critical:** height animation and stagger orchestration must live on separate `motion.div`s - combining on one element causes them to conflict.
 
 ```tsx
 import { AnimatePresence, motion } from 'framer-motion'
@@ -71,7 +71,7 @@ function CollapsibleSection({ isOpen, children }) {
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.div                                   // Layer 1 — height clip
+        <motion.div                                   // Layer 1 - height clip
           key="content"
           initial="closed" animate="open" exit="closed"
           variants={heightVariants}
@@ -79,9 +79,9 @@ function CollapsibleSection({ isOpen, children }) {
           onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
           onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
         >
-          <motion.div variants={staggerVariants}>    {/* Layer 2 — stagger */}
+          <motion.div variants={staggerVariants}>    {/* Layer 2 - stagger */}
             {React.Children.map(children, (child, i) => (
-              <motion.div key={i} variants={itemVariants}> {/* Layer 3 — per item */}
+              <motion.div key={i} variants={itemVariants}> {/* Layer 3 - per item */}
                 {child}
               </motion.div>
             ))}
@@ -95,7 +95,7 @@ function CollapsibleSection({ isOpen, children }) {
 
 ---
 
-## Pattern 2 — Text Swap (in-place label change)
+## Pattern 2 - Text Swap (in-place label change)
 
 Used for: model chip label in TopBar, status labels that change while visible.
 
@@ -122,7 +122,7 @@ function AnimatedLabel({ label }: { label: string }) {
 
 ---
 
-## Pattern 3 — Message Appear
+## Pattern 3 - Message Appear
 
 New messages (both user and assistant) slide up and fade in when they mount.
 
@@ -147,9 +147,9 @@ function MessageBubble({ children }) {
 
 ---
 
-## Pattern 4 — Streaming Cursor
+## Pattern 4 - Streaming Cursor
 
-A blinking cursor shown at the end of streaming text. Pure CSS — no Framer Motion.
+A blinking cursor shown at the end of streaming text. Pure CSS - no Framer Motion.
 
 ```tsx
 function StreamingCursor() {
@@ -178,9 +178,9 @@ Remove the cursor element (or set `isStreaming={false}`) when the `text_end` SSE
 
 ---
 
-## Pattern 5 — Research Sources Load (one by one)
+## Pattern 5 - Research Sources Load (one by one)
 
-Each source card in the ResearchPanel fades in sequentially as `research_source` SSE events arrive. No stagger variant needed — the natural SSE timing provides the stagger.
+Each source card in the ResearchPanel fades in sequentially as `research_source` SSE events arrive. No stagger variant needed - the natural SSE timing provides the stagger.
 
 ```tsx
 function SourceCard({ source, index }: { source: Source; index: number }) {
@@ -207,7 +207,7 @@ When `research_end` fires, animate the panel collapsing to a pill:
 
 ---
 
-## Pattern 6 — Routing / Thinking Label (TopBar Souvenir logo area)
+## Pattern 6 - Routing / Thinking Label (TopBar Souvenir logo area)
 
 During `routing` and `thinking` phases, the TopBar shows a status label next to the Souvenir mark. The label changes as phases advance. Use Pattern 2 (Text Swap) for the label transitions.
 
@@ -225,9 +225,9 @@ Labels by phase:
 
 1. **Always `initial={false}`** on `AnimatePresence` unless you specifically want mount animation on first render. Without it, every component animates in on page load.
 
-2. **Use `mode="popLayout"`** for text swaps (labels, status chips) — it prevents layout jump when old content exits.
+2. **Use `mode="popLayout"`** for text swaps (labels, status chips) - it prevents layout jump when old content exits.
 
-3. **Use `mode="wait"`** only when you need the exiting element to fully leave before the entering one appears. Avoid it for most cases — it creates noticeable delay.
+3. **Use `mode="wait"`** only when you need the exiting element to fully leave before the entering one appears. Avoid it for most cases - it creates noticeable delay.
 
 4. **`key` must change** for AnimatePresence to detect a swap. If the key doesn't change, no animation fires.
 

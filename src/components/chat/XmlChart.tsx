@@ -17,7 +17,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 
 // ---------------------------------------------------------------------------
-// Palette — mirrors souvenir-chat-preview BAR_PALETTE / PIE_COLORS_HEX
+// Palette - mirrors souvenir-chat-preview BAR_PALETTE / PIE_COLORS_HEX
 // ---------------------------------------------------------------------------
 
 const BAR_PALETTE = [
@@ -82,7 +82,7 @@ function readChartAttrs(el: Element): ChartAttrs {
 }
 
 // ---------------------------------------------------------------------------
-// Shared chart card wrapper — mirrors BarChartShell from preview
+// Shared chart card wrapper - mirrors BarChartShell from preview
 // ---------------------------------------------------------------------------
 
 function ChartShell({ title, children }: { title?: string; children: React.ReactNode }) {
@@ -97,7 +97,7 @@ function ChartShell({ title, children }: { title?: string; children: React.React
 }
 
 // ---------------------------------------------------------------------------
-// Bar Chart (vertical) — spring scaleY, grid lines, value labels
+// Bar Chart (vertical) - spring scaleY, grid lines, value labels
 // ---------------------------------------------------------------------------
 
 interface BarDatum { label: string; value: number }
@@ -165,7 +165,7 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Pie Chart (donut) — R=90 SW=26, sequential reveal, two-column legend
+// Pie Chart (donut) - R=90 SW=26, sequential reveal, two-column legend
 // ---------------------------------------------------------------------------
 
 interface SliceDatum { label: string; value: number }
@@ -263,7 +263,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
 }
 
 // ---------------------------------------------------------------------------
-// Line Chart — pathLength draw animation + crosshair + dark tooltip
+// Line Chart - pathLength draw animation + crosshair + dark tooltip
 // ---------------------------------------------------------------------------
 
 interface PointDatum { x: string | number; y: number }
@@ -353,7 +353,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           <motion.polygon points={areaPts} fill={`${color}10`} stroke="none"
             initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: 0.35, duration: 0.4 }} />
 
-          {/* Line — pathLength draw trick */}
+          {/* Line - pathLength draw trick */}
           <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5}
             pathLength={1} strokeDasharray="1"
             strokeDashoffset={revealed ? 0 : 1} strokeLinecap="round" strokeLinejoin="round"
@@ -378,7 +378,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           {/* X-axis baseline */}
           <line x1={PAD.left} x2={PAD.left + chartW} y1={PAD.top + chartH} y2={PAD.top + chartH} stroke="rgba(59,54,50,0.14)" strokeWidth={0.8} />
 
-          {/* X-axis labels — sparse */}
+          {/* X-axis labels - sparse */}
           {points.map((p, i) => {
             if (i % skip !== 0 && i !== points.length - 1) return null
             const { x } = toSVGPt(i, 0)
@@ -428,7 +428,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
 }
 
 // ---------------------------------------------------------------------------
-// Histogram — bins raw observations (Sturges rule) then renders as bar chart
+// Histogram - bins raw observations (Sturges rule) then renders as bar chart
 // ---------------------------------------------------------------------------
 
 interface Bin { label: string; count: number; rangeStart: number; rangeEnd: number }

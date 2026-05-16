@@ -19,7 +19,7 @@ export interface FloatingMenuProps extends React.HTMLAttributes<HTMLDivElement> 
    */
   opened?: boolean
   /**
-   * Accessible name for the toolbar — required for screen readers.
+   * Accessible name for the toolbar - required for screen readers.
    * Describe the set of actions, e.g. "Chat actions" or "Document tools".
    */
   'aria-label'?: string
@@ -45,7 +45,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
     const [autoExpanded, setAutoExpanded] = useState(false)
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    // Effective expanded state — explicit prop OR hover/focus-triggered auto-expand.
+    // Effective expanded state - explicit prop OR hover/focus-triggered auto-expand.
     const expanded = opened || autoExpanded
 
     // Clean up any pending timer on unmount.
@@ -116,7 +116,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
           {...props}
         >
 
-          {/* ── White background — clips to rounded corners via parent overflow: hidden ── */}
+          {/* ── White background - clips to rounded corners via parent overflow: hidden ── */}
           <div
             aria-hidden
             style={{
@@ -127,7 +127,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
             }}
           />
 
-          {/* ── Items — rendered above the white background ── */}
+          {/* ── Items - rendered above the white background ── */}
           <div
             style={{
               position:      'relative',
@@ -139,7 +139,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
             {children}
           </div>
 
-          {/* ── Inner shadow overlay — renders above all content ── */}
+          {/* ── Inner shadow overlay - renders above all content ── */}
           <div
             aria-hidden
             style={{

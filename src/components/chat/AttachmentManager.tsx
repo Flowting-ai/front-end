@@ -79,7 +79,7 @@ export function AttachmentManager({
   useEffect(() => {
     const id = requestAnimationFrame(updateScrollButtons);
     return () => cancelAnimationFrame(id);
-    // updateScrollButtons reads DOM refs — not a reactive dep
+    // updateScrollButtons reads DOM refs - not a reactive dep
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachments.length]);
 
@@ -268,7 +268,7 @@ export function AttachmentManager({
                   </div>
                 )}
 
-                {/* Type badge — only after upload */}
+                {/* Type badge - only after upload */}
                 {!attachment.uploading && (
                   <span
                     style={{
@@ -290,7 +290,7 @@ export function AttachmentManager({
                   </span>
                 )}
 
-                {/* Remove — only after upload */}
+                {/* Remove - only after upload */}
                 {isHovered && !attachment.uploading && (
                   <button
                     type="button"
@@ -390,7 +390,7 @@ export function AttachmentManager({
                   </p>
                 </div>
 
-                {/* Progress bar — sits at the bottom of the chip */}
+                {/* Progress bar - sits at the bottom of the chip */}
                 {attachment.uploading && (
                   <div
                     style={{
@@ -414,7 +414,7 @@ export function AttachmentManager({
                   </div>
                 )}
 
-                {/* Remove — only after upload */}
+                {/* Remove - only after upload */}
                 {isHovered && !attachment.uploading && (
                   <button
                     type="button"

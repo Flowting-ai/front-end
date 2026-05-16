@@ -112,7 +112,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       .catch((err) => console.error("[PinboardContext] Failed to load pins", err));
   }, []);
 
-  // ── addPin — optimistic, persisted to backend ───────────────────────────
+  // ── addPin - optimistic, persisted to backend ───────────────────────────
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {
     let tempId: string | null = null;
     setPins((prev) => {
@@ -145,7 +145,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── clonePin — duplicate an existing pin via POST /pins/message/{messageId}
+  // ── clonePin - duplicate an existing pin via POST /pins/message/{messageId}
   // Bypasses the messageId deduplication check in addPin so that a pin can be
   // duplicated even when one for the same message already exists.
   const clonePin = useCallback(async (original: PinItem) => {
@@ -179,7 +179,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── removePin — optimistic, persisted to backend ────────────────────────
+  // ── removePin - optimistic, persisted to backend ────────────────────────
   const removePin = useCallback((id: string) => {
     setPins((prev) => prev.filter((p) => p.id !== id));
     if (!id.startsWith("pin-temp-")) {

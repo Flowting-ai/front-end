@@ -242,7 +242,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
   const cursorRef = useRef<string | undefined>(undefined)
   const loadingRef = useRef(false)
-  // Track chat IDs that were created optimistically during streaming —
+  // Track chat IDs that were created optimistically during streaming -
   // we must NOT clear messages when navigating to these since the streaming
   // hook is still actively writing to the message list.
   const optimisticChatIdsRef = useRef<Set<string>>(new Set())
@@ -265,7 +265,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
     hasPreviousChatRef.current = true
 
     // If this chatId was just created during an active stream, skip the
-    // fetch-and-clear cycle — the stream is still writing messages.
+    // fetch-and-clear cycle - the stream is still writing messages.
     if (optimisticChatIdsRef.current.has(chatId)) {
       optimisticChatIdsRef.current.delete(chatId)
       return

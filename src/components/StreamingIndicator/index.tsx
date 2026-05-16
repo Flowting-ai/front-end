@@ -19,7 +19,7 @@ const WORD_ENTER = { opacity: 0, filter: 'blur(4px)', scale: 0.75 }
 const WORD_SHOW  = { opacity: 1, filter: 'blur(0px)', scale: 1    }
 const WORD_EXIT  = { opacity: 0, filter: 'blur(4px)', scale: 0.75 }
 
-// Logo swap — smooth crossfade with gentle scale
+// Logo swap - smooth crossfade with gentle scale
 const LOGO_EXIT  = { opacity: 0, scale: 0.6, filter: 'blur(4px)' }
 const LOGO_ENTER = { opacity: 0, scale: 0.6, filter: 'blur(4px)' }
 const LOGO_SHOW  = { opacity: 1, scale: 1,   filter: 'blur(0px)' }
@@ -30,10 +30,10 @@ export const THINKING_WORDS = ['Thinking…', 'Analysing…', 'Processing…', '
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 /**
- * thinking  — Souvenir mark spinning; cycling shimmer label
- * choosing  — Souvenir mark spinning faster; row pulses opacity; shimmer label
- * streaming — Model logo shown; stable label; response generating
- * complete  — Model logo shown; static label
+ * thinking  - Souvenir mark spinning; cycling shimmer label
+ * choosing  - Souvenir mark spinning faster; row pulses opacity; shimmer label
+ * streaming - Model logo shown; stable label; response generating
+ * complete  - Model logo shown; static label
  */
 export type StreamingPhase = 'thinking' | 'choosing' | 'streaming' | 'complete'
 
@@ -42,7 +42,7 @@ export interface StreamingIndicatorProps {
   /** Static label shown in choosing / streaming / complete phases */
   label?: string
   /**
-   * LLM icon ID from @strange-huge/icons/llm — e.g. "Claude", "Gemini", "OpenAI".
+   * LLM icon ID from @strange-huge/icons/llm - e.g. "Claude", "Gemini", "OpenAI".
    * Shown once phase reaches "streaming". Souvenir mark shown before that.
    */
   llmId?: string
@@ -112,7 +112,7 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <AnimatePresence mode="popLayout" initial={false}>
         {!showModel ? (
-          // Souvenir mark — spins during thinking + choosing
+          // Souvenir mark - spins during thinking + choosing
           <motion.div
             key="souvenir"
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
@@ -135,7 +135,7 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
             <LogoIcon size={size} color="var(--streaming-indicator-label)" />
           </motion.div>
         ) : (
-          // Model icon — smooth crossfade in
+          // Model icon - smooth crossfade in
           <motion.div
             key={`model-${llmId ?? 'default'}`}
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
@@ -218,7 +218,7 @@ export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndi
           ...style,
         }}
       >
-        {/* ── Logo — always shown, handles its own swap internally ── */}
+        {/* ── Logo - always shown, handles its own swap internally ── */}
         <StreamingLogo phase={phase} llmId={llmId} size={16} />
 
         {/* ── Label ── */}

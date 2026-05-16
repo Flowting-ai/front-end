@@ -21,7 +21,7 @@ const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
 // ── Shadow / focus constants ──────────────────────────────────────────────────
 const SHADOW_OUTER = 'var(--shadow-message-bubble-user)'
 const SHADOW_INNER = 'var(--shadow-message-bubble-user-inner)'
-// #4A83BF — blue focus ring for edit mode (specified by design)
+// #4A83BF - blue focus ring for edit mode (specified by design)
 const SHADOW_FOCUS = '0 0 0 1.5px #4A83BF'
 
 // ── Canvas font constants (pretext prep) ─────────────────────────────────────
@@ -34,7 +34,7 @@ export const LINE_HEIGHT_PX   = 22
 
 // ── Edit CTA sizing ───────────────────────────────────────────────────────────
 // Both root paddingBottom reservation and the CTA absolute offset derive from
-// these two numbers — update here if Button size="sm" height changes.
+// these two numbers - update here if Button size="sm" height changes.
 const CTA_HEIGHT = 36   // Button size="sm" rendered height
 const CTA_GAP    = 8    // gap between bubble bottom edge and CTA row
 const CTA_ZONE   = CTA_GAP + CTA_HEIGHT  // 44px total reserved in paddingBottom
@@ -67,7 +67,7 @@ export interface MessageBubbleProps extends React.HTMLAttributes<HTMLDivElement>
   content:     string
   timestamp?:  string
   onRetry?:    () => void
-  /** Called when the user saves an edit — parent handles re-submission */
+  /** Called when the user saves an edit - parent handles re-submission */
   onEditSave?: (newContent: string) => void
   onCopy?:     () => void
   maxWidth?:   string | number
@@ -92,7 +92,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
 
     const textareaRef     = useRef<HTMLTextAreaElement>(null)
     const bubbleCardRef   = useRef<HTMLDivElement>(null)
-    // Pixel width captured just before entering edit mode — used to animate back on exit.
+    // Pixel width captured just before entering edit mode - used to animate back on exit.
     const naturalWidthRef = useRef<number>(0)
     const timers          = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
 
@@ -223,7 +223,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
               : `width ${WIDTH_MS}ms ease-out, box-shadow 0.15s ease-out`,
           }}
         >
-          {/* White bg overlay — per Figma node structure */}
+          {/* White bg overlay - per Figma node structure */}
           <div
             aria-hidden
             style={{
@@ -235,14 +235,14 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
             }}
           />
 
-          {/* ── Content area — CSS grid trick ──────────────────────────────────── */}
+          {/* ── Content area - CSS grid trick ──────────────────────────────────── */}
           {/*                                                                        */}
           {/* A hidden mirror <div> always occupies gridArea 1/1 driving the cell   */}
           {/* dimensions. The visible <p> or <textarea> overlays it in the same     */}
           {/* cell. On edit entry the textarea sees identical dimensions to the <p>  */}
-          {/* — zero jump. As user types, the mirror updates and the cell grows.     */}
+          {/* - zero jump. As user types, the mirror updates and the cell grows.     */}
           <div style={{ display: 'grid', position: 'relative', width: '100%' }}>
-            {/* Mirror — always hidden, always rendered, drives cell size */}
+            {/* Mirror - always hidden, always rendered, drives cell size */}
             <div
               aria-hidden
               style={{
@@ -281,7 +281,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
             )}
           </div>
 
-          {/* Inner depth shadow — hidden in edit mode */}
+          {/* Inner depth shadow - hidden in edit mode */}
           {!editing && (
             <div
               aria-hidden
@@ -296,7 +296,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
           )}
         </div>
 
-        {/* ── Edit CTAs — Cancel + Save ── */}
+        {/* ── Edit CTAs - Cancel + Save ── */}
         {/* Absolute so bubble never shifts when CTAs appear/disappear. Root       */}
         {/* wrapper's paddingBottom reserves CTA_ZONE px to protect page siblings. */}
         <AnimatePresence>
@@ -326,7 +326,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
               >
                 Save
               </Button>
-              {/* Keyboard shortcut hint — discoverable but unobtrusive */}
+              {/* Keyboard shortcut hint - discoverable but unobtrusive */}
               <kbd
                 style={{
                   fontFamily: 'var(--font-body)',
@@ -347,7 +347,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
         </AnimatePresence>
 
         {/* ── Hover action bar ── */}
-        {/* position:absolute — zero layout shift. paddingTop bridges the gap so   */}
+        {/* position:absolute - zero layout shift. paddingTop bridges the gap so   */}
         {/* mouseleave never fires between bubble bottom and button hit area.       */}
         {!editing && (
           <motion.div

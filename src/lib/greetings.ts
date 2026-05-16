@@ -29,7 +29,7 @@ export const timeGreetings: TimeGreetingSlot[] = [
     endHour: 9,
     messages: [
       "Rise and grind, {username}. I've been waiting.",
-      "Fresh morning, fresh ideas — let's go.",
+      "Fresh morning, fresh ideas - let's go.",
       "The day is a blank canvas, {username}. Let's paint.",
     ],
   },
@@ -56,7 +56,7 @@ export const timeGreetings: TimeGreetingSlot[] = [
     startHour: 15,
     endHour: 18,
     messages: [
-      "The golden hour of productivity — don't blink.",
+      "The golden hour of productivity - don't blink.",
       "Almost evening, {username}. Finish strong.",
     ],
   },
@@ -168,7 +168,7 @@ export const subheadings: SubheadingCategory[] = [
     label: "Big Picture / Positioning",
     messages: [
       "Intelligence that compounds over time.",
-      "Not just smarter answers — a smarter system.",
+      "Not just smarter answers - a smarter system.",
       "The operating system for your thinking.",
       "Where context lives and great work begins.",
       "Stop starting from zero. Start from everything.",

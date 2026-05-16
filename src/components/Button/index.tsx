@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { useCorrosion } from '@/lib/useCorrosion'
 import { useSquircle } from '@/lib/useSquircle'
 
-// ── Shadows — all reference semantic CSS variables ────────────────────────────
+// ── Shadows - all reference semantic CSS variables ────────────────────────────
 
 const SHADOW_OUTER                    = 'var(--shadow-button-default-outer)'
 const SHADOW_SUBTLE_OUTER_HOVER       = 'var(--shadow-button-subtle-outer-hover)'
@@ -195,7 +195,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     : undefined
 
   // ── Background + squircle clip ───────────────────────────────────────────────
-  // Secondary skips the squircle clip — white bg + box-shadow applied directly.
+  // Secondary skips the squircle clip - white bg + box-shadow applied directly.
   const bgStyle: React.CSSProperties = {
     ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
     ...(variant === 'default'
@@ -271,7 +271,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       )}
 
       {/* ── Ghost/Outline hover ring: expanded squircle (same technique as default stroke) ──
-           Lives in the wrapper — outside the button's clip-path — so it's never clipped.
+           Lives in the wrapper - outside the button's clip-path - so it's never clipped.
            The inner fill div covers the interior with the page background so the ring colour
            doesn't bleed through the semi-transparent hover background inside the button. ── */}
       {isSubtle && strokeClipPath && clipPath && (
@@ -286,7 +286,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
             transition: 'background-color 200ms',
           }}
         >
-          {/* Interior fill — prevents ring colour bleeding through the semi-transparent hover bg.
+          {/* Interior fill - prevents ring colour bleeding through the semi-transparent hover bg.
               Transparent at rest so the ghost button default state stays transparent. */}
           <div
             style={{
@@ -403,7 +403,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
-      {/* ── Outline resting stroke — inset 1px ring, fades on hover as hover ring takes over ── */}
+      {/* ── Outline resting stroke - inset 1px ring, fades on hover as hover ring takes over ── */}
       {outlineStrokeColor && (
         <div
           aria-hidden
@@ -442,7 +442,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
-      {/* ── Danger hover background — red-100 fill on hover ── */}
+      {/* ── Danger hover background - red-100 fill on hover ── */}
       {isDanger && (
         <div
           aria-hidden
@@ -454,7 +454,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
-      {/* ── Left image or icon — invisible during loading to preserve width ── */}
+      {/* ── Left image or icon - invisible during loading to preserve width ── */}
       {(image || leftIcon) && (
         <div
           className="relative shrink-0 size-[16px] flex items-center justify-center overflow-hidden"
@@ -466,7 +466,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         </div>
       )}
 
-      {/* ── Label — invisible during loading to preserve width ── */}
+      {/* ── Label - invisible during loading to preserve width ── */}
       <span
         className="relative flex items-center justify-center px-[2px] shrink-0 whitespace-nowrap"
         style={{
@@ -482,7 +482,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         {children}
       </span>
 
-      {/* ── Right icon — invisible during loading to preserve width ── */}
+      {/* ── Right icon - invisible during loading to preserve width ── */}
       {rightIcon && (
         <div
           className="relative shrink-0 size-[16px] flex items-center justify-center"
@@ -492,7 +492,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         </div>
       )}
 
-      {/* ── Loading spinner — absolutely centered, replaces visible content ── */}
+      {/* ── Loading spinner - absolutely centered, replaces visible content ── */}
       {loading && (
         <div
           aria-hidden
@@ -502,7 +502,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         </div>
       )}
 
-      {/* ── Ghost/Outline hover inner shadow — LAST child, renders above all content ── */}
+      {/* ── Ghost/Outline hover inner shadow - LAST child, renders above all content ── */}
       {isSubtle && (
         <div
           aria-hidden
@@ -514,7 +514,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
-      {/* ── Secondary inner shadow — LAST child, resting + hover states ── */}
+      {/* ── Secondary inner shadow - LAST child, resting + hover states ── */}
       {isSecondary && (
         <div
           aria-hidden
@@ -526,7 +526,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         />
       )}
 
-      {/* ── Danger inner shadow — resting cream-red highlight + paired hover highlights ── */}
+      {/* ── Danger inner shadow - resting cream-red highlight + paired hover highlights ── */}
       {isDanger && (
         <div
           aria-hidden

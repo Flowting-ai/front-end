@@ -13,11 +13,11 @@ const SHADOW_HOVER_INNER    = 'var(--shadow-model-featured-hover-inner)'
 const SHADOW_SELECTED_OUTER = 'var(--shadow-model-featured-selected-outer)'
 const SHADOW_SELECTED_INNER = 'var(--shadow-model-featured-selected-inner)'
 
-// Selected-state text shadow — emboss letters on the dark gradient.
+// Selected-state text shadow - emboss letters on the dark gradient.
 const TEXT_SHADOW_SELECTED =
   '0px -0.5px 0.364px rgba(0,0,0,0.25), 0px 0.5px 0.364px rgba(255,255,255,0.25)'
 
-// Blurred rainbow gradient — persistent selected layer and gradient fill flood.
+// Blurred rainbow gradient - persistent selected layer and gradient fill flood.
 const SELECTED_GRADIENT =
   'linear-gradient(180deg, rgba(221,221,221,0.5) 0%, rgba(143,116,39,0.5) 21.635%, rgba(104,61,27,0.5) 36.058%, rgba(39,13,42,0.5) 63.462%, rgba(11,53,127,0.5) 82.212%, rgba(13,110,178,0.5) 97.115%)'
 
@@ -32,15 +32,15 @@ interface Ripple {
 
 export interface ModelFeaturedCardProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
-  /** Model name — rendered in the title font */
+  /** Model name - rendered in the title font */
   title: string
   /** Short description below the title */
   description: React.ReactNode
-  /** URL for the "Learn more" inline link — omit to hide the link */
+  /** URL for the "Learn more" inline link - omit to hide the link */
   learnMoreHref?: string
   /** Controlled selected state. Pair with `onSelectedChange`. */
   selected?: boolean
-  /** Initial selected state — component manages its own state after mount */
+  /** Initial selected state - component manages its own state after mount */
   defaultSelected?: boolean
   /** Callback fired when the selected state changes */
   onSelectedChange?: (selected: boolean) => void
@@ -195,7 +195,7 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
           />
         )}
 
-        {/* ── Click effects — clipped by overflow: clip on the container ── */}
+        {/* ── Click effects - clipped by overflow: clip on the container ── */}
         <AnimatePresence>
           {ripples.flatMap(({ key, x, y, r }) => [
             <motion.div
@@ -308,7 +308,7 @@ export const ModelFeaturedCard = React.forwardRef<HTMLDivElement, ModelFeaturedC
           </p>
         </div>
 
-        {/* ── Inner depth shadow — sits above all effect layers ── */}
+        {/* ── Inner depth shadow - sits above all effect layers ── */}
         <div
           aria-hidden
           style={{

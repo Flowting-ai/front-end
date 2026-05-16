@@ -57,7 +57,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
         }}
         {...props}
       >
-        {/* Title — absolutely positioned so it never affects flow width */}
+        {/* Title - absolutely positioned so it never affects flow width */}
         <AnimatePresence initial={false}>
           {!isSearchOpen && (
             <motion.p
@@ -153,7 +153,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
           </div>
         </Tooltip>
 
-        {/* Cancel button — sibling of the expanding div, never inside it */}
+        {/* Cancel button - sibling of the expanding div, never inside it */}
         <Tooltip content="Close Pinboard">
           <IconButton
             variant="ghost"

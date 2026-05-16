@@ -7,7 +7,7 @@ import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
 // ── Color variants ─────────────────────────────────────────────────────────────
-// Auto-assigned by index (highlights.length % 4) — never set by the user.
+// Auto-assigned by index (highlights.length % 4) - never set by the user.
 // fold is the -200 / -300 step of the same hue, used for the dog-ear triangle.
 
 export const HIGHLIGHT_COLORS = [
@@ -20,7 +20,7 @@ export const HIGHLIGHT_COLORS = [
 export type HighlightColorIndex = 0 | 1 | 2 | 3
 
 // ── Shadow constants ───────────────────────────────────────────────────────────
-// No 1px ring — the ring creates a hard right-angle at the bottom-left (BL radius = 0)
+// No 1px ring - the ring creates a hard right-angle at the bottom-left (BL radius = 0)
 // that conflicts with the diagonal dog-ear edge. Soft blur only.
 
 const SHADOW_REST  = '0px 1px 3px 0px rgba(59,54,50,0.10), 0px 2px 8px 0px rgba(59,54,50,0.06)'
@@ -70,7 +70,7 @@ function ActionButton({
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface HighlightCardProps {
-  /** The highlighted excerpt. Renders in full — never truncated by the card. Max 280 chars enforced by caller. */
+  /** The highlighted excerpt. Renders in full - never truncated by the card. Max 280 chars enforced by caller. */
   text:        string
   /** Color index 0–3. Auto-assigned by HighlightPanel as `highlights.indexOf(h) % 4`. Never set manually. */
   colorIndex?: HighlightColorIndex
@@ -108,7 +108,7 @@ export function HighlightCard({
       style={{
         position:        'relative',
         backgroundColor: color.bg,
-        // TL TR BR BL — BL is 0 for the dog-ear fold
+        // TL TR BR BL - BL is 0 for the dog-ear fold
         borderRadius:    '3px 3px 3px 0',
         padding:         '12px 12px 44px 12px',
         cursor:          'default',
@@ -117,7 +117,7 @@ export function HighlightCard({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── Quote text ───────────────────────────────────────────────────────── */}
-      {/* Besley at body scale is intentional — the only KDS component using     */}
+      {/* Besley at body scale is intentional - the only KDS component using     */}
       {/* --font-title here. Creates a literary "captured thought" identity       */}
       {/* distinct from every Geist-based UI element in the system.               */}
       <p
@@ -170,7 +170,7 @@ export function HighlightCard({
         )}
       </AnimatePresence>
 
-      {/* ── Dog-ear fold — bottom-left, BL radius is 0 ──────────────────────── */}
+      {/* ── Dog-ear fold - bottom-left, BL radius is 0 ──────────────────────── */}
       <div
         aria-hidden="true"
         style={{

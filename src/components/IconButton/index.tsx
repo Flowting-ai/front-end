@@ -8,7 +8,7 @@ import { PlusSignIcon } from '@strange-huge/icons'
 import { useCorrosion } from '@/lib/useCorrosion'
 import { useSquircle } from '@/lib/useSquircle'
 
-// ── Shadows — all reference semantic CSS variables ────────────────────────────
+// ── Shadows - all reference semantic CSS variables ────────────────────────────
 
 const SHADOW_OUTER                    = 'var(--shadow-button-default-outer)'
 const SHADOW_INNER                    = 'var(--shadow-button-default-inner)'
@@ -32,9 +32,9 @@ export type IconButtonSize = 'md' | 'sm' | 'xs' // md = 36px, sm = 32px, xs = 24
 /**
  * IconButton has no visible label, so an accessible name is mandatory.
  * Pass either:
- *  - `aria-label` (recommended — describe the action, not the icon: `"Close"`,
+ *  - `aria-label` (recommended - describe the action, not the icon: `"Close"`,
  *    not `"X icon"`), OR
- *  - `aria-labelledby` (when an existing element already labels the button —
+ *  - `aria-labelledby` (when an existing element already labels the button -
  *    e.g. an off-screen heading or visible adjacent text).
  *
  * One of the two is required at the type level. Without it, screen readers
@@ -196,7 +196,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     : undefined
 
   // ── Background + squircle clip ───────────────────────────────────────────────
-  // Secondary skips the squircle clip — white bg + box-shadow applied directly.
+  // Secondary skips the squircle clip - white bg + box-shadow applied directly.
   const bgStyle: React.CSSProperties = {
     ...(clipPath && !isSecondary ? { clipPath } : {}),
     ...(variant === 'default'
@@ -229,7 +229,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
     : isSubtle && isHovered
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
-  // ghost-2 never applies a wrapper filter — no outer shadow on hover
+  // ghost-2 never applies a wrapper filter - no outer shadow on hover
 
   return (
     <motion.span
@@ -376,7 +376,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
-      {/* ── Outline resting stroke — inset 1px ring, fades on hover as hover ring takes over ── */}
+      {/* ── Outline resting stroke - inset 1px ring, fades on hover as hover ring takes over ── */}
       {outlineStrokeColor && (
         <div
           aria-hidden
@@ -401,7 +401,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
-      {/* ── Ghost-2 hover background — no ring, no shadows ── */}
+      {/* ── Ghost-2 hover background - no ring, no shadows ── */}
       {isGhost2 && (
         <div
           aria-hidden
@@ -439,7 +439,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         {loading ? <IconButtonSpinner color={spinnerColor[variant]} size={iconSizePx} /> : resolvedIcon}
       </div>
 
-      {/* ── Ghost/Outline hover inner shadow — LAST child, renders above all content ── */}
+      {/* ── Ghost/Outline hover inner shadow - LAST child, renders above all content ── */}
       {isSubtle && (
         <div
           aria-hidden
@@ -451,7 +451,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         />
       )}
 
-      {/* ── Secondary inner shadow — LAST child, resting + hover states ── */}
+      {/* ── Secondary inner shadow - LAST child, resting + hover states ── */}
       {isSecondary && (
         <div
           aria-hidden

@@ -96,7 +96,7 @@ export async function listChats(cursor?: string): Promise<ChatsListResponse> {
 
 export async function createChat(model?: string): Promise<Chat> {
   // Note: /chats/create is multipart/form-data and streams a response.
-  // This function is for sidebar "create" — the actual streaming is handled
+  // This function is for sidebar "create" - the actual streaming is handled
   // by the /api/chat proxy route. Here we just return a placeholder.
   const fd = new FormData();
   fd.append("input", ""); // Required field but empty for pre-creation
@@ -192,7 +192,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
   const userText = raw.input ?? raw.prompt;
   const aiText = raw.output ?? raw.response;
 
-  // Paired format — has both user input and AI output in one row
+  // Paired format - has both user input and AI output in one row
   if (userText || aiText) {
     const messages: Message[] = [];
     if (userText) {
@@ -289,7 +289,7 @@ function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
         title: s.title ?? s.url ?? "",
       }));
   }
-  // web_searches format: [{query, links: string[]}] — links are bare URLs
+  // web_searches format: [{query, links: string[]}] - links are bare URLs
   if (Array.isArray(raw.web_searches) && raw.web_searches.length > 0) {
     const allLinks = raw.web_searches.flatMap((ws) => ws.links ?? []).filter(Boolean);
     if (allLinks.length > 0) {
@@ -300,7 +300,7 @@ function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
           const u = new URL(url);
           domain = u.hostname.replace(/^www\./, "");
           const pathParts = u.pathname.split("/").filter(Boolean);
-          title = pathParts.length > 0 ? `${domain} — ${pathParts[pathParts.length - 1].replace(/-/g, " ")}` : domain;
+          title = pathParts.length > 0 ? `${domain} - ${pathParts[pathParts.length - 1].replace(/-/g, " ")}` : domain;
         } catch { /* ignore */ }
         return { id: String(i), url, title };
       });

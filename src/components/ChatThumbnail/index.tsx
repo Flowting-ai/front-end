@@ -1,15 +1,15 @@
 'use client'
 
 /**
- * ChatThumbnail — 120×120 attachment card rendered above the `ChatInput`
+ * ChatThumbnail - 120×120 attachment card rendered above the `ChatInput`
  * textarea (in the `pinCards` slot). Mirrors Figma `3207:33563` and the
  * spec sheet at `3406:1400`.
  *
  * Four `type` variants:
- *   pin    — 16 px radius, white surface, Caption/11 title, neutral pin-icon badge
- *   folder — 16 px radius, white surface, Body/14 title, neutral folder-icon badge
- *   file   — 18 px radius, white surface, Caption/11 filename (fixed 68 px), file-type Badge
- *   image  — 18 px radius, image cover, Neutral Badge with format + size at bottom
+ *   pin    - 16 px radius, white surface, Caption/11 title, neutral pin-icon badge
+ *   folder - 16 px radius, white surface, Body/14 title, neutral folder-icon badge
+ *   file   - 18 px radius, white surface, Caption/11 filename (fixed 68 px), file-type Badge
+ *   image  - 18 px radius, image cover, Neutral Badge with format + size at bottom
  *
  * Hover state surfaces a × IconButton positioned at top-right (overflows the
  * card); driven by `hover` (controlled) or internal mouse hover / button focus.
@@ -28,31 +28,31 @@ export type ChatThumbnailType = 'pin' | 'file' | 'image' | 'folder'
 
 export interface ChatThumbnailProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
-  /** Variant — Figma `type`. */
+  /** Variant - Figma `type`. */
   type: ChatThumbnailType
 
   /**
    * Top-line text. Required for all types:
-   *  - `pin` / `folder` — title rendered in the card
-   *  - `file` — filename (with extension); the extension drives the badge color
-   *  - `image` — descriptive name (used as default `imageAlt` if none provided)
+   *  - `pin` / `folder` - title rendered in the card
+   *  - `file` - filename (with extension); the extension drives the badge color
+   *  - `image` - descriptive name (used as default `imageAlt` if none provided)
    */
   title: string
 
-  /** File / Image — formatted size string (e.g. `"1.2 MB"`) appended after the format in the badge. */
+  /** File / Image - formatted size string (e.g. `"1.2 MB"`) appended after the format in the badge. */
   fileSize?: string
 
-  /** Image — format label shown before the size in the badge (e.g. `"PNG"`). Defaults to `"IMG"`. */
+  /** Image - format label shown before the size in the badge (e.g. `"PNG"`). Defaults to `"IMG"`. */
   imageFormat?: string
 
-  /** Image — src URL. */
+  /** Image - src URL. */
   imageSrc?: string
 
-  /** Image — alt text. Defaults to `title`. */
+  /** Image - alt text. Defaults to `title`. */
   imageAlt?: string
 
   /**
-   * Forces the hover visual — Figma `hover`. When omitted, the component
+   * Forces the hover visual - Figma `hover`. When omitted, the component
    * derives it from internal mouse hover OR remove-button keyboard focus.
    */
   hover?: boolean
@@ -146,7 +146,7 @@ function IconBadge({
 }
 
 // ── Remove button ─────────────────────────────────────────────────────────────
-// 28×28 (4 px padding + 20 px icon) — borrows the `IconButton variant="secondary"`
+// 28×28 (4 px padding + 20 px icon) - borrows the `IconButton variant="secondary"`
 // shadow stack and white surface. Always in the DOM when `onRemove` is set so
 // keyboard users can always Tab to it; invisible-but-focusable at rest.
 
@@ -170,7 +170,7 @@ function RemoveButton({
       onClick={onRemove}
       tabIndex={0}
       onFocus={(e) => {
-        // Pattern 2 — only show the focus ring when focus arrived via keyboard.
+        // Pattern 2 - only show the focus ring when focus arrived via keyboard.
         if (typeof e.target.matches === 'function' && e.target.matches(':focus-visible')) {
           setIsFocused(true)
           onFocusChange(true)
@@ -239,8 +239,8 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
       <motion.div
         ref={ref}
         layout
-        // Enter — scale up + de-blur (220 ms ease-out cubic)
-        // Exit  — scale down + fade out + blur out (180 ms ease-in cubic)
+        // Enter - scale up + de-blur (220 ms ease-out cubic)
+        // Exit  - scale down + fade out + blur out (180 ms ease-in cubic)
         // The wrapper's `layout` prop makes sibling thumbnails reflow as
         // one is removed, so the exit animation sits cleanly on top of
         // the row's collapse.

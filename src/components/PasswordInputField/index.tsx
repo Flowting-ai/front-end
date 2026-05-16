@@ -21,7 +21,7 @@ export interface PasswordInputFieldProps
   subtitle?: string
   /** Show/hide the subtitle slot. Defaults to true. */
   showSubtitle?: boolean
-  /** Error state — red ring + red label + red subtitle. */
+  /** Error state - red ring + red label + red subtitle. */
   error?: boolean
   /** Controlled value */
   value?: string
@@ -68,7 +68,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
 
     // Controlled: read from prop. Uncontrolled: track via onChange.
     const hasValue = typeof value === 'string' ? value.length > 0 : internalHasValue
-    // Eye button: only visible when there is a value — no toggle on empty input
+    // Eye button: only visible when there is a value - no toggle on empty input
     const showEye  = hasValue && !disabled
 
     // Fade+blur out → switch type → fade+blur in
@@ -180,7 +180,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
             externalLeave?.(e as unknown as React.MouseEvent<HTMLInputElement>)
           }}
         >
-          {/* Input — ref'd for the toggle animation */}
+          {/* Input - ref'd for the toggle animation */}
           <div ref={contentRef} style={{ position: 'relative', flex: 1, padding: '0 2px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <AnimatePresence initial={false}>
               {!hasValue && (
@@ -233,7 +233,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
                     fontFamily:   'var(--font-body)',
                     fontWeight:   'var(--font-weight-regular)',
                     // Larger font-size when hiding password so dots are prominent.
-                    // Only applies when there is a value — never touches placeholder text.
+                    // Only applies when there is a value - never touches placeholder text.
                     fontSize:      (!showPassword && hasValue) ? '16px' : 'var(--font-size-body)',
                     letterSpacing: (!showPassword && hasValue) ? '1px'  : 'normal',
                     lineHeight:   'var(--line-height-body)',

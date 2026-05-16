@@ -12,7 +12,7 @@ export interface RepublishModalProps {
   superLinkActive?: boolean
   superLinkUrl?: string
   onClose: () => void
-  /** Called when user clicks Done — parent should navigate to /personas */
+  /** Called when user clicks Done - parent should navigate to /personas */
   onDone: () => void
 }
 

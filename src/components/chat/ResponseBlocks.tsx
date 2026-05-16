@@ -50,7 +50,7 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   whiteSpace: "pre",
 };
 
-// ── CitationChip — inline {1} reference chip with popover ────────────────────
+// ── CitationChip - inline {1} reference chip with popover ────────────────────
 
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
   const [open, setOpen] = useState(false);
@@ -142,7 +142,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
   );
 }
 
-// ── SourceList — horizontal scroll row of source cards ───────────────────────
+// ── SourceList - horizontal scroll row of source cards ───────────────────────
 
 function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
   const [hovered, setHovered] = useState(false);
@@ -258,7 +258,7 @@ function normalizeBoldTitles(text: string): string {
     .replace(/(\*\*[^*\n]+\*\*)([A-Za-z])/g, '$1\n\n$2');
 }
 
-// Full block text renderer — supports headings, lists, blockquotes, bold, code, citations
+// Full block text renderer - supports headings, lists, blockquotes, bold, code, citations
 export function renderTextBlock(text: string, citations?: WebCitation[], cursor?: React.ReactNode): React.ReactNode {
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
@@ -351,7 +351,7 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
   );
 }
 
-// ── BreathingDot — streaming cursor ──────────────────────────────────────────
+// ── BreathingDot - streaming cursor ──────────────────────────────────────────
 
 function BreathingDot() {
   return (
@@ -363,7 +363,7 @@ function BreathingDot() {
   );
 }
 
-// ── StructuredResponseWrapper — breathing dot until block starts animating ───
+// ── StructuredResponseWrapper - breathing dot until block starts animating ───
 
 function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   firstTokenDelay: number;
@@ -388,7 +388,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
   if (typeof cell === "object") {
     if (cell.type === "check") return (
       <span style={{ fontWeight: 600, fontSize: 14, color: cell.value ? "#80B707" : "#C0B5AD" }}>
-        {cell.value ? "✓" : "—"}
+        {cell.value ? "✓" : "-"}
       </span>
     );
     if (cell.type === "badge") return (
@@ -430,7 +430,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     );
   }
   if (strVal === "✓") return <span style={{ color: "#80B707", fontWeight: 700 }}>✓</span>;
-  if (strVal === "—") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>—</span>;
+  if (strVal === "-") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>-</span>;
   return strVal;
 }
 
@@ -668,7 +668,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
   );
 }
 
-// ── AnimatedBarChart — 6 variants ─────────────────────────────────────────────
+// ── AnimatedBarChart - 6 variants ─────────────────────────────────────────────
 
 const BAR_PALETTE = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#A28847", "#524B47"];
 
@@ -1571,7 +1571,7 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
 }
 
 // ── BlockSequenceRenderer ─────────────────────────────────────────────────────
-// Animates each block in sequence — each block calls onComplete to advance.
+// Animates each block in sequence - each block calls onComplete to advance.
 
 export interface BlockSequenceRendererProps {
   blocks: ResponseBlock[];
@@ -1614,7 +1614,7 @@ export function BlockSequenceRenderer({
         const isFirst = i === 0;
         const wrapDelay = isFirst && !isStatic ? firstTokenDelay : 0;
 
-        // text block — static render (real streaming handled by SSE in chat)
+        // text block - static render (real streaming handled by SSE in chat)
         if (block.kind === "text") {
           return (
             <div key={`b${i}`}>

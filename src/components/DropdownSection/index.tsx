@@ -9,7 +9,7 @@ import { Divider } from '@/components/Divider'
 
 export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Optional section header label — renders a `DropdownMenuItem variant="header"` row
+   * Optional section header label - renders a `DropdownMenuItem variant="header"` row
    * with extra bottom padding above the item list. Omit for an unlabelled section.
    */
   label?: string
@@ -21,7 +21,7 @@ export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElemen
   divider?: boolean
   /** Stretch to full width instead of fixed 217px */
   fluid?: boolean
-  /** `DropdownMenuItem` rows — should use `fluid` prop to fill available width */
+  /** `DropdownMenuItem` rows - should use `fluid` prop to fill available width */
   children?: React.ReactNode
 }
 

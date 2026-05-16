@@ -6,7 +6,7 @@ import type { HighlightColorIndex } from '@/components/HighlightCard'
 import { cn } from '@/lib/utils'
 
 export interface HighlightMarkProps extends Omit<React.HTMLAttributes<HTMLElement>, 'color'> {
-  /** Which highlight color to use — matches the colorIndex on HighlightCard / JumpTimestampGutter. */
+  /** Which highlight color to use - matches the colorIndex on HighlightCard / JumpTimestampGutter. */
   colorIndex: HighlightColorIndex
   children:   React.ReactNode
   className?: string

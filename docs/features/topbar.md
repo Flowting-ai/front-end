@@ -70,14 +70,14 @@ The left label swaps as the chat progresses. Use **Pattern 2** (AnimatePresence 
 
 **Opens:** click on ModelChip when in a clickable phase (never during `routing` / `thinking` / `researching` / `streaming`).
 
-**KDS components:** `Dropdown` + `DropdownSection` + `DropdownMenuItem` (all ready — copy from KDS). Individual model rows use `ModelSelectItem` (ready).
+**KDS components:** `Dropdown` + `DropdownSection` + `DropdownMenuItem` (all ready - copy from KDS). Individual model rows use `ModelSelectItem` (ready).
 
 **Groups:**
 
 ```
 Auto-routing
-  ●  Base   — fast everyday tasks          algorithm: 'base'
-     Pro    — complex multi-step reasoning  algorithm: 'pro'
+  ●  Base   - fast everyday tasks          algorithm: 'base'
+     Pro    - complex multi-step reasoning  algorithm: 'pro'
 
 Direct models  (from GET /llm/models)
      Claude Sonnet 4.5    [Anthropic]    [context]
@@ -96,7 +96,7 @@ Direct models  (from GET /llm/models)
   type AlgorithmSelection = { type: 'algorithm'; value: 'base' | 'pro' }
   type DirectSelection    = { type: 'model'; modelId: string; modelName: string }
   ```
-- Selection takes effect on the **next** `sendMessage` call — does not abort the current stream
+- Selection takes effect on the **next** `sendMessage` call - does not abort the current stream
 - If switched mid-conversation: show a one-time `Badge` chip below the model chip: "Next message uses [model name]"  
   Dismiss it when the next stream starts
 - During streaming: dropdown trigger is `disabled` + `pointer-events: none`
@@ -146,21 +146,21 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
    - Logged-out user: navigate to `/auth/login?returnTo=/chat&saveChat=true`
 
 3. **UserAvatar** is replaced by `UserNameDisplay` showing a random anonymous name  
-   (e.g. "Quiet Hawk", "Brave Finch" — generate once on activation, persist for the session)
+   (e.g. "Quiet Hawk", "Brave Finch" - generate once on activation, persist for the session)
 
 **When disposable OFF:** Ghost icon reverts to outline, banner dismisses, avatar restored.
 
-**State:** `isDisposable` is local React state — not persisted to the API. A disposable chat still sends stream requests normally; it just isn't saved to `GET /chats` history.
+**State:** `isDisposable` is local React state - not persisted to the API. A disposable chat still sends stream requests normally; it just isn't saved to `GET /chats` history.
 
 ---
 
 ## Share Button
 
-**Component:** `ShareButton` (pending KDS — placeholder in `docs/0-pending-kds-components.md`)
+**Component:** `ShareButton` (pending KDS - placeholder in `docs/0-pending-kds-components.md`)
 
 **Visibility:** Hidden until `hasCompletedMessage === true` (at least one message has reached the `complete` phase). Use `visibility: hidden` not `display: none` to avoid layout shift. Fade in with `opacity: 0 → 1, 150ms ease` when it first becomes visible.
 
-**On click — Share Modal:**
+**On click - Share Modal:**
 ```
 ┌──────────────────────────────────────────────┐
 │  Share this chat                          ✕  │
@@ -179,7 +179,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
 - Toggle to Private: `PATCH /chats/{chatId}` → `{ is_public: false }` → link deactivated
 - **Copy button:** `navigator.clipboard.writeText(`https://getsouvenir.com/chat/${chatId}`)`  
   After copy: button label flips to "Copied!" for 1.5s (Pattern 2 text swap)
-- No plan gating — available on all plans
+- No plan gating - available on all plans
 
 > **Note for Shyam:** Confirm that `is_public` field and the `PATCH /chats/{chatId}` endpoint exist in Sahil's API before implementing the Public/Private toggle. If not yet available, implement Copy only (copies the current URL) and add a `// TODO(api): add is_public toggle when Sahil ships it` comment.
 
@@ -187,7 +187,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
 
 ## UsageCreditsButton
 
-**Component:** `UsageCreditsButton` (pending KDS — placeholder in `docs/0-pending-kds-components.md`)
+**Component:** `UsageCreditsButton` (pending KDS - placeholder in `docs/0-pending-kds-components.md`)
 
 **Visual:** Icon button with a circular SVG progress ring. The arc fills clockwise as credits are consumed.
 
@@ -213,7 +213,7 @@ A per-chat incognito mode. The chat is not saved to history and memory is not re
 - Use `formatCredits(remaining)` and `formatCredits(total)` from `plan-config.ts`
 - "Resets" date: from `usage.reset_at` (ISO string from API)
 - "Upgrade plan" link → `/settings/usage-and-billing/change-plan`  
-  Only show this link for Starter and Pro — hide on Power
+  Only show this link for Starter and Pro - hide on Power
 - **In disposable mode:** replace "Resets June 1" with "Session only"
 
 **Existing prop contract** (from `docs/0-pending-kds-components.md`):
@@ -251,7 +251,7 @@ GET /users/me/usage      → usage (credits button)
 // After every stream complete
 GET /users/me/usage      → refresh credits (cost was just incurred)
 
-// Share modal — public/private toggle
+// Share modal - public/private toggle
 PATCH /chats/{chatId}    → { is_public: boolean }
 ```
 

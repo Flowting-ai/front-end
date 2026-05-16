@@ -368,7 +368,7 @@ export default function NotificationsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 24px 12px' }}>
             <SectionLabel>USAGE</SectionLabel>
 
-            {/* Budget alert — single switch row */}
+            {/* Budget alert - single switch row */}
             <NotifRow
               id="budget-alert"
               label="Budget alert"
@@ -376,7 +376,7 @@ export default function NotificationsPage() {
               prefs={prefs} onChange={handleChange} divider
             />
 
-            {/* Budget routing — checkbox group */}
+            {/* Budget routing - checkbox group */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '6px 0 12px' }}>
               <p style={{
                 fontFamily: 'var(--font-body)',

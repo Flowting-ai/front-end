@@ -104,7 +104,7 @@ Body: {
 Response: SSE stream (see SSE Events below)
 ```
 
-Note: use `algorithm` OR `model_id` — never both in the same request.
+Note: use `algorithm` OR `model_id` - never both in the same request.
 
 ### SSE Events
 
@@ -112,18 +112,18 @@ Parse via `src/lib/streaming.ts` (`mergeStreamingText`). Raw event types from th
 
 | Event type | Data | Action |
 |------------|------|--------|
-| `thinking_start` | — | Transition to `thinking` phase, show ReasoningBlock |
+| `thinking_start` | - | Transition to `thinking` phase, show ReasoningBlock |
 | `thinking_delta` | `{ content: string }` | Append to ReasoningBlock |
-| `thinking_end` | — | Seal ReasoningBlock |
+| `thinking_end` | - | Seal ReasoningBlock |
 | `model_chosen` | `{ model_id, model_name }` | Transition to `model-chosen`, update TopBar chip |
-| `research_start` | — | Transition to `researching`, show ResearchPanel |
+| `research_start` | - | Transition to `researching`, show ResearchPanel |
 | `research_source` | `{ title, url, snippet }` | Add one source row to ResearchPanel |
-| `research_end` | — | Collapse ResearchPanel to pill, transition to `streaming` |
-| `text_start` | — | Transition to `streaming`, create new assistant MessageBubble |
+| `research_end` | - | Collapse ResearchPanel to pill, transition to `streaming` |
+| `text_start` | - | Transition to `streaming`, create new assistant MessageBubble |
 | `text_delta` | `{ content: string }` | Append to streaming message |
-| `text_end` | — | Transition to `complete` |
+| `text_end` | - | Transition to `complete` |
 | `error` | `{ code, message }` | Transition to `error`, render inline error card |
-| `done` | — | Stream complete, unlock input |
+| `done` | - | Stream complete, unlock input |
 
 ### Stop a stream
 ```ts
@@ -151,16 +151,16 @@ Body: { title?: string, tags?: string[] }
 
 ---
 
-## Pending Components — Chat Board specific
+## Pending Components - Chat Board specific
 
 All three TopBar additions and MessageBubble/StreamingIndicator are pending. Until they ship:
 
-1. Import from `docs/0-pending-kds-components.md` — copy the placeholder code directly
+1. Import from `docs/0-pending-kds-components.md` - copy the placeholder code directly
 2. The prop interface in that doc IS the final contract. Build your call sites to those props now.
 3. When Utkarsh ships the real component, swap the import path. Zero other changes.
 
 ```tsx
-// Day 6 — how your ChatMessage.tsx should call pending components
+// Day 6 - how your ChatMessage.tsx should call pending components
 import { MessageBubble } from '@/components/MessageBubble'          // placeholder
 import { StreamingIndicator } from '@/components/StreamingIndicator' // placeholder
 
@@ -195,7 +195,7 @@ Appear after streaming ends. On hover over the message:
 - Copy message text
 - Pin message → `POST /pins/message/{id}`
 - Reply to message (sets `reference_message_id` on next send)
-- Compare response (pro/power only — gate with `canAccessFeature(plan, 'modelCompare')`)
+- Compare response (pro/power only - gate with `canAccessFeature(plan, 'modelCompare')`)
 
 ---
 

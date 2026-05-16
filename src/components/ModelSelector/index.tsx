@@ -34,7 +34,7 @@ const CATEGORY_TABS = [
 // ── Context ───────────────────────────────────────────────────────────────────
 // Lets descendants (e.g. ModelSelectItem) react to the active category without
 // the consumer having to thread props. Used to suppress the per-row bookmark
-// IconButton when the Favorites category is active — the whole list IS the
+// IconButton when the Favorites category is active - the whole list IS the
 // favorites set, so the per-row toggle would be redundant.
 
 export const ModelSelectorContext = React.createContext<{ category: string } | null>(null)
@@ -44,7 +44,7 @@ export const ModelSelectorContext = React.createContext<{ category: string } | n
 export interface ModelSelectorProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   /**
-   * Model list rows — typically `<ModelSelectItem>` components.
+   * Model list rows - typically `<ModelSelectItem>` components.
    * Rendered in a scrollable list below the section header.
    */
   children?: React.ReactNode
@@ -177,10 +177,10 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
             </Tabs>
           </div>
 
-          {/* ── Featured model row: Muse + Advanced — Figma 3457:19624 ── */}
+          {/* ── Featured model row: Muse + Advanced - Figma 3457:19624 ── */}
           {/* Two ModelFeaturedCards side-by-side (gap 8px), each flex: 1 0 0.
              Muse defaults to the Selected variant; Advanced to Default. They
-             behave as a radio pair — selecting one deselects the other. */}
+             behave as a radio pair - selecting one deselects the other. */}
           <FeaturedModeRow />
 
 
@@ -210,7 +210,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
             {/* Model list */}
             {children && (
               <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {/* Section header — outside scroll so mask doesn't affect it.
+                {/* Section header - outside scroll so mask doesn't affect it.
                    Figma 1115:1338 → pt-4 pr-38 pb-2 pl-34. Right padding aligns
                    the "Input" caption over the row's right-edge icon column
                    (input-type indicator), not the bookmark slot. */}
@@ -247,7 +247,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
                     </div>
                   </div>
 
-                  {/* ── Top edge — progressive blur (2→6px, behind) + color fade (in front) ── */}
+                  {/* ── Top edge - progressive blur (2→6px, behind) + color fade (in front) ── */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },
@@ -279,7 +279,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
                     transition:    'opacity 150ms ease',
                   }} />
 
-                  {/* ── Bottom edge — progressive blur (2→6px, behind) + color fade (in front) ── */}
+                  {/* ── Bottom edge - progressive blur (2→6px, behind) + color fade (in front) ── */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },

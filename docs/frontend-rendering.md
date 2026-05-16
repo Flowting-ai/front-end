@@ -1,4 +1,4 @@
-# Frontend rendering contract — tables & charts
+# Frontend rendering contract - tables & charts
 
 This doc is the source of truth for how the assistant emits **structured
 content** that the frontend is expected to render specially. Anything not
@@ -7,13 +7,13 @@ covered here is plain Markdown and should be rendered as Markdown.
 The rules below are mirrored in the system prompt
 ([modules/llm/system_instruction.py](../modules/llm/system_instruction.py))
 under the `<formatting>` block. **If the prompt and this doc ever disagree, the
-prompt wins** — update this doc, not the other way around.
+prompt wins** - update this doc, not the other way around.
 
 ---
 
 ## Where these blocks appear in the SSE stream
 
-Tables and charts arrive **inline inside the regular `content` SSE events** —
+Tables and charts arrive **inline inside the regular `content` SSE events** -
 the same stream that carries prose text. There is no separate `table` or
 `chart` SSE event.
 
@@ -65,7 +65,7 @@ should treat a missing one as "no header" / "no body" rather than rejecting.
 - No attributes are used on table tags today. Treat any unknown attribute as
   ignorable rather than failing.
 - No Markdown pipe tables (`| col | col |`) and no ASCII tables. If you ever
-  see one, that's a prompt regression — file a bug.
+  see one, that's a prompt regression - file a bug.
 
 ### Example
 
@@ -102,7 +102,7 @@ Unknown `type` values: render as a fallback (e.g. show the raw XML or a
 
 ### Numeric attribute rules
 
-`value` and `y` arrive as **plain numbers** — no units, no thousand-separators,
+`value` and `y` arrive as **plain numbers** - no units, no thousand-separators,
 no currency symbols. The model is told to put units in the title or label
 instead. Parse with `Number(...)` / `parseFloat(...)`; if the parse fails,
 skip that data point and log it.
@@ -198,7 +198,7 @@ Recommended binning behavior:
 - Default to ~10 equal-width bins, or use Sturges' / Freedman–Diaconis if you
   already have a helper.
 - Skip values that fail to parse as numbers; don't drop the whole chart.
-- If the user can rebin (slider, input), keep the raw values around — they're
+- If the user can rebin (slider, input), keep the raw values around - they're
   the source of truth.
 
 | Child       | Required | Type   | Meaning              |
@@ -219,7 +219,7 @@ These are suggestions; pick what fits your stack.
    ```js
    const doc = new DOMParser().parseFromString(snippet, "application/xml");
    if (doc.querySelector("parsererror")) {
-     // fall back to showing the raw text — don't crash
+     // fall back to showing the raw text - don't crash
    }
    ```
    This handles XML-escaped entities for free.
@@ -233,7 +233,7 @@ These are suggestions; pick what fits your stack.
 
 5. **Security:** XML-escaped content is safe for `textContent` but not for
    `innerHTML`. Set cell/label text via `textContent` (or React's default
-   string interpolation) — never with `dangerouslySetInnerHTML`.
+   string interpolation) - never with `dangerouslySetInnerHTML`.
 
 ---
 
@@ -245,7 +245,7 @@ These are suggestions; pick what fits your stack.
 - Inline base64 image data URIs for charts.
 - A separate `chart` or `table` SSE event type. Both arrive inside `content`.
 
-If any of the above shows up, it's a regression in the system prompt — file a
+If any of the above shows up, it's a regression in the system prompt - file a
 bug rather than building a renderer for it.
 
 ---
@@ -267,14 +267,14 @@ the frontend implementer. Defined in
 | `error`         | Stream error                                         |
 
 The `image` event still exists and is still used for user-uploaded images and
-for generated images that aren't charts — but the assistant no longer emits
+for generated images that aren't charts - but the assistant no longer emits
 charts as PNGs, so a chart should never arrive via `image`.
 
 ---
 
 ## Versioning
 
-This contract is currently **v1** — the first cut after migrating away from
+This contract is currently **v1** - the first cut after migrating away from
 PNG charts. Additive changes (new chart types, new optional attributes) are
 backward compatible. Renaming or repurposing existing tags/attributes
 requires bumping to v2 and updating both the prompt and this doc together.

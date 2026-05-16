@@ -1,9 +1,9 @@
-# Persona Feature — Frontend Implementation Handoff
+# Persona Feature - Frontend Implementation Handoff
 
 **Date:** May 13, 2026
 **Author:** Chai (via Claude Code)
 **Recipients:** Shyam, Kunal
-**Figma file:** `MuHe0S78yuiIXXAndfeznw` — "Persona feature 2"
+**Figma file:** `MuHe0S78yuiIXXAndfeznw` - "Persona feature 2"
 **KDS branch:** `feat/persona-card` (pushed, `PersonaCard` component is complete)
 
 ---
@@ -12,11 +12,11 @@
 
 Personas are configurable AI assistants owned by a user or team. Users create them, give them instructions + knowledge, and deploy them into chat. The feature spans five distinct UI surfaces:
 
-1. **My Personas grid** — the home base, a tile gallery of owned personas
-2. **Creation wizard** — a 3-step modal flow: Template Picker → Basics → Configure (Editor Shell)
-3. **Editor Shell** — a two-panel page with tabs for Instructions, Profile, Knowledge, Connectors, Sharing
-4. **Publish flow** — a confirmation popover → success screen
-5. **Community** — browse and import personas created by others (surfaces in PersonaCard, not a separate page)
+1. **My Personas grid** - the home base, a tile gallery of owned personas
+2. **Creation wizard** - a 3-step modal flow: Template Picker → Basics → Configure (Editor Shell)
+3. **Editor Shell** - a two-panel page with tabs for Instructions, Profile, Knowledge, Connectors, Sharing
+4. **Publish flow** - a confirmation popover → success screen
+5. **Community** - browse and import personas created by others (surfaces in PersonaCard, not a separate page)
 
 The `PersonaCard` KDS component (314 px tile) is **already implemented** and covers all card states. Everything else in this doc needs to be built.
 
@@ -29,9 +29,9 @@ My Personas (grid)
   └── "+ New Persona" button
         └── Template Picker  ──────────────────────────────────────────┐
               └── [select template or "Start blank"]                   │
-                    └── Basics — Step 1: Description                   │  "Basics" step
-                          └── Basics — Step 2: Name + Handle           │  (all same wizard)
-                                └── Basics — Step 3: Tone selection    │
+                    └── Basics - Step 1: Description                   │  "Basics" step
+                          └── Basics - Step 2: Name + Handle           │  (all same wizard)
+                                └── Basics - Step 3: Tone selection    │
                                       └── Editor Shell ───────────────┘
                                             ├── Instructions tab (default)
                                             ├── Profile tab
@@ -61,13 +61,13 @@ My Personas (grid)
 
 When the user has no personas:
 - Centered illustration (decorative)
-- Heading: Besley regular, 24px, `var(--neutral-950)` — copy TBD from PM
+- Heading: Besley regular, 24px, `var(--neutral-950)` - copy TBD from PM
 - Sub-copy: Geist regular, 14px, `var(--neutral-500)`
 - CTA button: primary/dark, "Create your first persona"
 
 ### Populated State
 
-PersonaCard tiles rendered in the grid. The `+` / "New Persona" card is the first item — renders as a draft-style card with dashed border and `+` icon (not a standard PersonaCard; custom tile, ~same dimensions).
+PersonaCard tiles rendered in the grid. The `+` / "New Persona" card is the first item - renders as a draft-style card with dashed border and `+` icon (not a standard PersonaCard; custom tile, ~same dimensions).
 
 ### PersonaCard Usage
 
@@ -123,18 +123,18 @@ Appears on the left of My Personas, the Wizard, and the Editor Shell.
 
 ### Top section (pinned, absolute positioned)
 
-- Logo/home icon button — `20 × 20`, `p-6`, `rounded-8`
-- Navigation icon buttons stacked below (chat, personas, etc.) — `20 × 20` icons, `p-6`, `rounded-10`
+- Logo/home icon button - `20 × 20`, `p-6`, `rounded-8`
+- Navigation icon buttons stacked below (chat, personas, etc.) - `20 × 20` icons, `p-6`, `rounded-10`
   - Active state: `background: rgba(237, 225, 215, 0.6)`, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px rgba(182,172,164,0.4)`, inner highlight
 
 ### Bottom section (pinned, absolute + shadow fade)
 
-- User avatar — `32 × 32`, `rounded-full`, white bg, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.15), 0 0 0 1px rgba(182,172,164,0.4)`
+- User avatar - `32 × 32`, `rounded-full`, white bg, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.15), 0 0 0 1px rgba(182,172,164,0.4)`
 - Fade: `box-shadow: 0 -34px 33.5px 0px #f7f2ed` on the container creates an upward fade
 
 ---
 
-## 3. Creation Wizard — Overlay Shell
+## 3. Creation Wizard - Overlay Shell
 
 The wizard occupies the right panel (everything except the sidebar). It renders as a rounded card within the neutral-50 background:
 
@@ -145,12 +145,12 @@ The wizard occupies the right panel (everything except the sidebar). It renders 
 
 Three Blue `Badge` chips in a horizontal row, centered: **Template → Basics → Configure**
 
-- Active step: filled blue — `background: var(--blue-200)`, text `var(--blue-700)`, same ring as standard Blue badge
+- Active step: filled blue - `background: var(--blue-200)`, text `var(--blue-700)`, same ring as standard Blue badge
 - Inactive/future steps: same blue badge but `opacity: 0.5`
 
 ```tsx
 // Active step chip
-<Badge color="blue" label="Template" />  // active — bg: var(--blue-200)
+<Badge color="blue" label="Template" />  // active - bg: var(--blue-200)
 
 // Future step chips
 <Badge color="blue" label="Basics" style={{ opacity: 0.5 }} />
@@ -159,23 +159,23 @@ Three Blue `Badge` chips in a horizontal row, centered: **Template → Basics �
 
 ### Close Button (top right)
 
-`IconButton` ghost, `p-8`, `rounded-10`, `box-shadow: 0 0 0 1px rgba(59,54,50,0.3)` — `cancel-01` icon
+`IconButton` ghost, `p-8`, `rounded-10`, `box-shadow: 0 0 0 1px rgba(59,54,50,0.3)` - `cancel-01` icon
 
 ### Footer Buttons (bottom of each step)
 
-- **Back / ← Library**: `Button` outline, white bg, left arrow icon — `box-shadow: 0 1.09px 1.09px rgba(59,54,50,0.05), 0 1.46px 3.13px rgba(38,33,30,0.15), 0 0 0 1px var(--neutral-100)`
+- **Back / ← Library**: `Button` outline, white bg, left arrow icon - `box-shadow: 0 1.09px 1.09px rgba(59,54,50,0.05), 0 1.46px 3.13px rgba(38,33,30,0.15), 0 0 0 1px var(--neutral-100)`
 - **Continue →**: `Button` primary/dark, gradient `from var(--neutral-700) to var(--neutral-900)`, white text, right arrow icon
 
 ---
 
-## 4. Wizard — Step 1: Template Picker
+## 4. Wizard - Step 1: Template Picker
 
 **Figma node:** `848-49705`
 
 ### Heading
 
-- Title: "Choose a starting point" — Besley regular, `var(--font-size-heading-24)` (24px), `#1a1916`
-- Subtitle: "Start with a template or build from scratch" — Geist regular, 14px, `#827a74`
+- Title: "Choose a starting point" - Besley regular, `var(--font-size-heading-24)` (24px), `#1a1916`
+- Subtitle: "Start with a template or build from scratch" - Geist regular, 14px, `#827a74`
 
 ### "Start blank" row (above template grid)
 
@@ -190,7 +190,7 @@ padding: 16px 17px
 ```
 
 - Left: name `"Custom"` (Geist 16px, `var(--neutral-900)`) + handle `"Start from scratch."` (Geist Mono 13px, `var(--neutral-500)`)
-- Right: `Button` outline sm — "Start blank"
+- Right: `Button` outline sm - "Start blank"
 
 ### Template Grid
 
@@ -213,39 +213,39 @@ Interaction: clicking a tile → advances to Basics Step 1 with that template pr
 
 ---
 
-## 5. Wizard — Step 2: Basics (3 sub-steps)
+## 5. Wizard - Step 2: Basics (3 sub-steps)
 
 All 3 sub-steps share the same wizard shell. The step indicator shows "Basics" as active.
 
-### Sub-step 2a — Description
+### Sub-step 2a - Description
 
 **Figma node:** `848-49775`
 
-- Heading: "What should this persona do?" — Besley 24px, `#1a1916`
-- Subtitle: "One sentence is perfect — this becomes its purpose and card description." — Geist 14px, `#827a74`
+- Heading: "What should this persona do?" - Besley 24px, `#1a1916`
+- Subtitle: "One sentence is perfect - this becomes its purpose and card description." - Geist 14px, `#827a74`
 - Input: `684px` wide, white bg, `border-radius: 10px`, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)`, `px-10 py-12`
-  - Placeholder: "e.g. Reviews contracts and flags risks in plain English" — Geist 14px, `var(--neutral-600)`
+  - Placeholder: "e.g. Reviews contracts and flags risks in plain English" - Geist 14px, `var(--neutral-600)`
 - Below input (space-between row):
-  - Left: hint "Keep it tight — this shows on the card" — Geist medium 14px, `#827a74`
-  - Right: char counter "0/120" — Geist medium 14px, `#827a74`
+  - Left: hint "Keep it tight - this shows on the card" - Geist medium 14px, `#827a74`
+  - Right: char counter "0/120" - Geist medium 14px, `#827a74`
 
-### Sub-step 2b — Name + Handle
+### Sub-step 2b - Name + Handle
 
 **Figma node:** `848-49804`
 
-- Heading: "What should we call it?" — Besley 24px, `#1a1916`
-- Subtitle: "This is how it appears in your library and in chat." — Geist 14px, `#827a74`
+- Heading: "What should we call it?" - Besley 24px, `#1a1916`
+- Subtitle: "This is how it appears in your library and in chat." - Geist 14px, `#827a74`
 - Input: `438px` wide, same styling as above
   - Placeholder / value: persona name (e.g., "gimmy")
-- Below input: auto-generated handle display — `@{slug}{disambiguator}` (e.g., `@gimmy01`), Geist medium 14px, `#827a74`
+- Below input: auto-generated handle display - `@{slug}{disambiguator}` (e.g., `@gimmy01`), Geist medium 14px, `#827a74`
   - The `@` prefix and disambiguator are rendered in regular weight; the slug portion is bold/medium
 
-### Sub-step 2c — Tone Selection
+### Sub-step 2c - Tone Selection
 
 **Figma node:** `848-49833`
 
-- Heading: `How should {name} sound?` — Besley 24px, `#1a1916` (name interpolated)
-- Subtitle: "This shapes how it writes, responds, and feels in conversation." — Geist 14px, `#827a74`
+- Heading: `How should {name} sound?` - Besley 24px, `#1a1916` (name interpolated)
+- Subtitle: "This shapes how it writes, responds, and feels in conversation." - Geist 14px, `#827a74`
 - 2×2 grid of tone cards, `gap: 19px`, total width `684px`
 
 Each tone card (`332px` wide):
@@ -261,7 +261,7 @@ gap: 9px (between header, divider, example)
 | Tone | Subtitle | Example |
 |------|----------|---------|
 | Direct & confident | Gets to the point. No filler. | "Issue logged. Here's what happens next." |
-| Warm & approachable | Human first, solution second. | "I totally get that — let me sort this out for you." |
+| Warm & approachable | Human first, solution second. | "I totally get that - let me sort this out for you." |
 | Precise & professional | Formal, structured, no ambiguity. | "Your request has been received and is being reviewed." |
 | Evidence-based & clear | Reasoned, grounded, neutral. | "Based on your account history, the most likely cause is..." |
 
@@ -274,7 +274,7 @@ Divider: `1px solid rgba(59,54,50,0.15)`, full width
 Example text block (44px tall, 2-line clamp):
 - Prefix "Ex -" in `#c4af9f`, rest in `#857a72`, Geist regular 14px
 
-Selection state: selected card gets a ring/highlight (design detail to be confirmed — add `box-shadow: 0 0 0 2px var(--blue-500)` or similar).
+Selection state: selected card gets a ring/highlight (design detail to be confirmed - add `box-shadow: 0 0 0 2px var(--blue-500)` or similar).
 
 ---
 
@@ -321,9 +321,9 @@ Tab styling:
 ### Floating Menu (right edge)
 
 3 `IconButton ghost xs` stacked vertically, fixed to the far right of the editor:
-1. **Persona icon** — navigate/identify (always visible)
-2. **Guide icon** — opens Guide panel
-3. **Third icon** — versions/history
+1. **Persona icon** - navigate/identify (always visible)
+2. **Guide icon** - opens Guide panel
+3. **Third icon** - versions/history
 
 ---
 
@@ -362,11 +362,11 @@ These show the filename (Geist 14px, `var(--neutral-700)`) + file type badge + r
 Fixed at bottom of the editor panel. Two sections:
 
 **Left side:**
-- Text formatting toolbar: an `IconButton ghost sm` for formatting options (appears as a single button in the design — may expand)
+- Text formatting toolbar: an `IconButton ghost sm` for formatting options (appears as a single button in the design - may expand)
 - `↪ Chips` row: attached knowledge chips (each chip: `rounded-10`, inner icon button + label text)
 
 **Right side:**
-- "Save version" button (outline): Geist medium 14px — see Save Version Dropdown below
+- "Save version" button (outline): Geist medium 14px - see Save Version Dropdown below
 - "Publish" button (primary/dark): Geist medium 14px, arrow icon
 
 ### Save Version Dropdown
@@ -383,7 +383,7 @@ Clicking the dropdown arrow opens a panel showing:
 - Label: "Versions" (header)
 - List of saved versions (date/time + version label)
 
-This is used for version history — separate from Publish.
+This is used for version history - separate from Publish.
 
 ### Publish Confirmation Popover
 
@@ -399,7 +399,7 @@ box-shadow: standard card shadow
 ```
 
 Content:
-- Persona name (Besley 24px, `var(--neutral-900)`) — shows current persona name
+- Persona name (Besley 24px, `var(--neutral-900)`) - shows current persona name
 - Sharing details / confirmation copy (to be confirmed in Figma)
 - "Publish" button (primary/dark)
 - Cancel/dismiss action
@@ -414,13 +414,13 @@ Content:
 
 Two sub-columns or a single form column in the left panel:
 
-**Left panel — form fields:**
+**Left panel - form fields:**
 - Avatar upload area: `65×65` or larger circle with upload icon overlay on hover
 - Name field: text input, same styling as wizard inputs
 - Handle field: text input with `@` prefix, Geist Mono
 - Description field: textarea, 2-line min
 
-**Right panel — live chat preview (optional/toggle):**
+**Right panel - live chat preview (optional/toggle):**
 - Shown in the `848-53827` variant
 - A chat preview panel slides in on the right showing the persona in conversation
 - Background: similar to main chat UI
@@ -434,8 +434,8 @@ Two sub-columns or a single form column in the left panel:
 ### Empty State
 
 Two variants:
-- **v1**: Standard empty state — illustration + "No knowledge added" heading + "Add files" CTA
-- **v2**: Slightly different empty state — may show a hint or alternate copy
+- **v1**: Standard empty state - illustration + "No knowledge added" heading + "Add files" CTA
+- **v2**: Slightly different empty state - may show a hint or alternate copy
 
 ### Populated State
 
@@ -462,7 +462,7 @@ File upload action: "Add files" button or drag-and-drop zone.
 
 ### Layout
 
-Single-column form within the editor main area. Section header: "Sharing Configuration" — Geist medium, 14px.
+Single-column form within the editor main area. Section header: "Sharing Configuration" - Geist medium, 14px.
 
 ### Visibility Selector
 
@@ -473,18 +473,18 @@ Tab group styling:
 - Active tab: white bg, `box-shadow: 0 1px 1.5px rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)`, with left icon
 - Each tab has a privacy icon (lock icon for Private, team icon for Team)
 
-**Private** — only the owner can use the persona
-**Team** — all team members can access; a "Team plan" chip appears (Blue badge) to indicate this requires a team plan upgrade
+**Private** - only the owner can use the persona
+**Team** - all team members can access; a "Team plan" chip appears (Blue badge) to indicate this requires a team plan upgrade
 
 ### Super Link Section
 
 Appears below the visibility selector. Shows an inline section with:
 
-**Title:** "Super Link" — Geist medium, 16px, `var(--neutral-950)`
-**Description:** "Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost." — Geist regular, 13–14px, `var(--neutral-500)`
+**Title:** "Super Link" - Geist medium, 16px, `var(--neutral-950)`
+**Description:** "Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost." - Geist regular, 13–14px, `var(--neutral-500)`
 
 **Generate state** (`898-43413`):
-- `property1: "generate"` — shows a "Generate" button (primary/dark) to create the link
+- `property1: "generate"` - shows a "Generate" button (primary/dark) to create the link
 - No URL shown yet
 
 **Active state** (`898-43651`):
@@ -508,8 +508,8 @@ Full-panel screen replacing the Editor Shell after successful publish.
 
 Content (centered):
 - Success illustration / persona card preview
-- Heading: persona name displayed prominently — Besley
-- Body copy: `"Legal Advisor" is now live for your team. Members can add it from the Add button in any conversation.` — Geist regular, 16px, `var(--neutral-700)`, max-width `392px`, center-aligned
+- Heading: persona name displayed prominently - Besley
+- Body copy: `"Legal Advisor" is now live for your team. Members can add it from the Add button in any conversation.` - Geist regular, 16px, `var(--neutral-700)`, max-width `392px`, center-aligned
 - CTA: **"Share to community"** button (link-style with arrow icon, or secondary)
 - Secondary action: "Back to My Personas" or similar
 
@@ -565,7 +565,7 @@ Documentation / tips for building this type of persona. Content is contextual to
 
 ---
 
-## 10. PersonaCard — Full Reference
+## 10. PersonaCard - Full Reference
 
 Already implemented in KDS at `src/components/PersonaCard/index.tsx`.
 
@@ -594,7 +594,7 @@ Already implemented in KDS at `src/components/PersonaCard/index.tsx`.
 |---|---|---|
 | Model name | Red | AI model indicator convention |
 | Superlink | Blue | Connection/sharing |
-| Paused | Yellow | Caution — temporarily inactive |
+| Paused | Yellow | Caution - temporarily inactive |
 | Draft | Yellow | Incomplete |
 | Imported | Green | Completed positive action |
 | Private / Team / tags | Neutral | Static informational |
@@ -639,16 +639,16 @@ Absolutely positioned at bottom of card (does **not** change card height). Anima
 
 ### Inline Styles Only
 
-This project uses **inline styles only** — no Tailwind, no CSS modules. Use `style={{ ... }}` with CSS variable tokens.
+This project uses **inline styles only** - no Tailwind, no CSS modules. Use `style={{ ... }}` with CSS variable tokens.
 
 ### Animation Library
 
 Framer Motion v12. Import: `import { motion, AnimatePresence, useIsPresent } from 'framer-motion'`
 
 Spring presets are in `src/lib/springs.ts`:
-- `springs.fast` — stiffness 500, damping 30 (snappy)
-- `springs.moderate` — stiffness 300, damping 28
-- `springs.slow` — stiffness 200, damping 25
+- `springs.fast` - stiffness 500, damping 30 (snappy)
+- `springs.moderate` - stiffness 300, damping 28
+- `springs.slow` - stiffness 200, damping 25
 
 The PersonaCard hover bar uses a **custom ease** (not springs): `{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }`.
 
@@ -664,27 +664,27 @@ The `@strange-huge/icons` package is missing some icons. Current substitutes:
 
 ### Radix UI
 
-- `@radix-ui/react-slot` — used in PersonaCard for `asChild` prop
-- `@radix-ui/react-popover` — recommended for Publish confirmation popover
-- `@radix-ui/react-dropdown-menu` — for the Dropdown component (already in KDS)
+- `@radix-ui/react-slot` - used in PersonaCard for `asChild` prop
+- `@radix-ui/react-popover` - recommended for Publish confirmation popover
+- `@radix-ui/react-dropdown-menu` - for the Dropdown component (already in KDS)
 
 ### Accessibility Notes
 
 - PersonaCard root: no implicit role. Wrap grids in `<ul role="list">` with `<li>` items.
-- Avatar images: `aria-hidden={true}` (decorative — name is in text content).
+- Avatar images: `aria-hidden={true}` (decorative - name is in text content).
 - Action bars: `aria-hidden={!isVisible}` + `pointer-events: none` when collapsed.
 - All icon buttons must have `aria-label`.
 
 ### Open Questions / Ambiguities
 
-1. **Sharing tab — Team plan chip**: Exact positioning relative to the Team tab. Confirm whether it's a tooltip, a badge adjacent to the tab, or an upgrade prompt modal.
-2. **Publish popover copy**: The confirmation popover body copy is not confirmed — needs copy from PM before implementation.
+1. **Sharing tab - Team plan chip**: Exact positioning relative to the Team tab. Confirm whether it's a tooltip, a badge adjacent to the tab, or an upgrade prompt modal.
+2. **Publish popover copy**: The confirmation popover body copy is not confirmed - needs copy from PM before implementation.
 3. **Guide panel content**: Whether guide content is static markdown or fetched from CMS. Who owns the copy?
-4. **Tone selection — selected state**: The ring/highlight style for a selected tone card is not explicit in the designs. Use `box-shadow: 0 0 0 2px var(--blue-500), 0 2px 2.8px rgba(82,75,71,0.12)` as a starting point and confirm.
-5. **Knowledge tab — "Add files"**: Confirm accepted file types, max size, upload endpoint.
-6. **My Personas grid — "+ New Persona" tile**: The new-persona tile design is not in the shared nodes. Request the Figma node from Chai.
+4. **Tone selection - selected state**: The ring/highlight style for a selected tone card is not explicit in the designs. Use `box-shadow: 0 0 0 2px var(--blue-500), 0 2px 2.8px rgba(82,75,71,0.12)` as a starting point and confirm.
+5. **Knowledge tab - "Add files"**: Confirm accepted file types, max size, upload endpoint.
+6. **My Personas grid - "+ New Persona" tile**: The new-persona tile design is not in the shared nodes. Request the Figma node from Chai.
 7. **Connectors tab**: No Figma screen provided for the Connectors tab. Do not implement until screens are available.
-8. **Editor Shell — right panel live chat**: The split-panel layout (instructions left, live chat right) seen in `848-53827` — confirm whether this is always-on or a toggle.
+8. **Editor Shell - right panel live chat**: The split-panel layout (instructions left, live chat right) seen in `848-53827` - confirm whether this is always-on or a toggle.
 
 ---
 
@@ -692,24 +692,24 @@ The `@strange-huge/icons` package is missing some icons. Current substitutes:
 
 | Screen | Node ID | Description |
 |---|---|---|
-| My Personas — populated | `848-49963` | Full grid with PersonaCards |
-| My Personas — empty | `848-49567` | Empty state |
-| My Personas — large | `861-42808` | Large populated grid |
+| My Personas - populated | `848-49963` | Full grid with PersonaCards |
+| My Personas - empty | `848-49567` | Empty state |
+| My Personas - large | `861-42808` | Large populated grid |
 | Template Picker | `848-49705` | Step 1 of wizard |
-| Basics — Description | `848-49775` | Step 2a |
-| Basics — Name/Handle | `848-49804` | Step 2b |
-| Basics — Tone | `848-49833` | Step 2c |
-| Editor — Instructions (basic) | `848-54746` | Instructions tab, minimal |
-| Editor — Instructions (full) | `848-54555` | Instructions tab, full sidebar |
-| Editor — Profile | `848-53623` | Profile tab |
-| Editor — Profile + Chat | `848-53827` | Profile tab with live chat |
-| Editor — Knowledge (empty v1) | `848-54180` | Knowledge tab empty state 1 |
-| Editor — Knowledge (empty v2) | `848-54276` | Knowledge tab empty state 2 |
-| Editor — Knowledge (populated) | `848-54359` | Knowledge tab with files |
-| Editor — Sharing (Private) | `887-43281` | Sharing tab, Private selected |
-| Editor — Sharing (Private + Team plan) | `862-43057` | Sharing tab, Private + team plan chip |
-| Editor — Sharing (Super Link generate) | `898-43413` | Super Link in generate state |
-| Editor — Sharing (Super Link active) | `898-43651` | Super Link active with token meter |
+| Basics - Description | `848-49775` | Step 2a |
+| Basics - Name/Handle | `848-49804` | Step 2b |
+| Basics - Tone | `848-49833` | Step 2c |
+| Editor - Instructions (basic) | `848-54746` | Instructions tab, minimal |
+| Editor - Instructions (full) | `848-54555` | Instructions tab, full sidebar |
+| Editor - Profile | `848-53623` | Profile tab |
+| Editor - Profile + Chat | `848-53827` | Profile tab with live chat |
+| Editor - Knowledge (empty v1) | `848-54180` | Knowledge tab empty state 1 |
+| Editor - Knowledge (empty v2) | `848-54276` | Knowledge tab empty state 2 |
+| Editor - Knowledge (populated) | `848-54359` | Knowledge tab with files |
+| Editor - Sharing (Private) | `887-43281` | Sharing tab, Private selected |
+| Editor - Sharing (Private + Team plan) | `862-43057` | Sharing tab, Private + team plan chip |
+| Editor - Sharing (Super Link generate) | `898-43413` | Super Link in generate state |
+| Editor - Sharing (Super Link active) | `898-43651` | Super Link active with token meter |
 | Publish Success (team) | `904-44092` | Success screen after publishing |
 | Publish Success + Super Link | `904-50591` | Success + Super Link section |
 | Save Version dropdown | `904-50906` | Versions dropdown variant |

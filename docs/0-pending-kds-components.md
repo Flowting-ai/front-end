@@ -2,7 +2,7 @@
 
 **Read this before touching anything in `src/components/`.**
 
-These components don't exist in Kaya Design System yet. Utkarsh is building them — ETAs TBD. Until they ship, you build a placeholder that is shaped exactly like the real component will be. When the real one ships, you swap the import. No other change needed.
+These components don't exist in Kaya Design System yet. Utkarsh is building them - ETAs TBD. Until they ship, you build a placeholder that is shaped exactly like the real component will be. When the real one ships, you swap the import. No other change needed.
 
 ---
 
@@ -29,16 +29,16 @@ These components don't exist in Kaya Design System yet. Utkarsh is building them
 | 10 | `SortMenu` | Sort button interaction | Radio list + direction toggle |
 | 11 | `ContextMenu` | Right-click on Pin | Returns null (children pass through) |
 | 12 | `EmptyState` | Zero results / no pins | Centered div with icon + heading + CTA |
-| 13 | `HighlightBoard` | Text highlight panel | Returns null — design not started |
+| 13 | `HighlightBoard` | Text highlight panel | Returns null - design not started |
 
 ---
 
 ## Rules for every placeholder
 
-**1. TODO comment format — use this verbatim:**
+**1. TODO comment format - use this verbatim:**
 ```tsx
 // TODO(kds): Replace with KDS <ComponentName> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders [brief description of what it shows].
 ```
 
@@ -56,11 +56,11 @@ See the [dark mode section](#dark-mode-rules) at the bottom of this file.
 
 **3. Copy KDS components as-is.** When you copy an existing KDS component into this repo (Button, Sidebar, etc.), do not visually modify it. Add a business-logic wrapper or hook on top instead. This keeps KDS visual updates mergeable.
 
-**4. Prop shapes below are the final contract.** Build your placeholder to accept exactly these props, even if you don't use all of them yet. When Utkarsh ships the real component, you're swapping one import line — not refactoring call sites.
+**4. Prop shapes below are the final contract.** Build your placeholder to accept exactly these props, even if you don't use all of them yet. When Utkarsh ships the real component, you're swapping one import line - not refactoring call sites.
 
 ---
 
-## Component 1 — MessageBubble
+## Component 1 - MessageBubble
 
 **What it is:** The rendered container for a single chat message. Handles both user messages (right-aligned, filled background) and assistant messages (left-aligned, no background). Controls padding, max-width, avatar placement, and selection state.
 
@@ -68,7 +68,7 @@ See the [dark mode section](#dark-mode-rules) at the bottom of this file.
 
 ```tsx
 // TODO(kds): Replace with KDS <MessageBubble> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a left/right-aligned div with children passed through.
 
 export interface MessageBubbleProps {
@@ -100,15 +100,15 @@ export function MessageBubble({ role, isSelected, onSelect, children }: MessageB
 
 ---
 
-## Component 2 — StreamingIndicator
+## Component 2 - StreamingIndicator
 
-**What it is:** The animated "thinking" or "typing" indicator shown while the model is streaming a response. Three dots that pulse in sequence, or a single animated bar — TBD by Utkarsh. It appears inside the assistant MessageBubble before any text arrives.
+**What it is:** The animated "thinking" or "typing" indicator shown while the model is streaming a response. Three dots that pulse in sequence, or a single animated bar - TBD by Utkarsh. It appears inside the assistant MessageBubble before any text arrives.
 
 **What to render now:** Three small dots with a simple CSS opacity animation.
 
 ```tsx
 // TODO(kds): Replace with KDS <StreamingIndicator> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders three animated dots.
 
 export interface StreamingIndicatorProps {
@@ -141,7 +141,7 @@ export function StreamingIndicator({ size = 'md' }: StreamingIndicatorProps) {
 
 ---
 
-## Component 3 — ClarifyingQuestion
+## Component 3 - ClarifyingQuestion
 
 **What it is:** An inline prompt card the assistant surfaces when the user's request is ambiguous. Shows 2–4 option chips the user can tap instead of typing a reply. Appears inside the message stream, not as a blocking modal.
 
@@ -149,7 +149,7 @@ export function StreamingIndicator({ size = 'md' }: StreamingIndicatorProps) {
 
 ```tsx
 // TODO(kds): Replace with KDS <ClarifyingQuestion> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a label + row of tappable option chips.
 
 export interface ClarifyingOption {
@@ -195,16 +195,16 @@ export function ClarifyingQuestion({ question, options, onSelect, disabled }: Cl
 
 ---
 
-## Component 4 — HighlightPopover
+## Component 4 - HighlightPopover
 
 **What it is:** A floating tooltip/popover that appears when the user selects text in an assistant message. Shows actions: copy, cite, add to pin, compare. Anchored to the selection bounding box.
 
-**What to render now:** Return `null` for now. This is purely an enhancement — nothing breaks without it. Add the prop contract so the call site is ready.
+**What to render now:** Return `null` for now. This is purely an enhancement - nothing breaks without it. Add the prop contract so the call site is ready.
 
 ```tsx
 // TODO(kds): Replace with KDS <HighlightPopover> when shipped.
-// Props interface below is the contract — do not change prop names.
-// Placeholder renders nothing — selection UX is purely additive.
+// Props interface below is the contract - do not change prop names.
+// Placeholder renders nothing - selection UX is purely additive.
 
 export interface HighlightPopoverProps {
   anchorRect: DOMRect | null;
@@ -223,16 +223,16 @@ export function HighlightPopover(_props: HighlightPopoverProps) {
 
 ---
 
-## Component 5 — ComparePanel
+## Component 5 - ComparePanel
 
-**What it is:** A side-by-side panel that lets the user run the same prompt against two models simultaneously. It slides in from the right or expands below the current message. This is a `pro`/`power` plan feature — gate it with `canAccessFeature(plan, 'modelCompare')`.
+**What it is:** A side-by-side panel that lets the user run the same prompt against two models simultaneously. It slides in from the right or expands below the current message. This is a `pro`/`power` plan feature - gate it with `canAccessFeature(plan, 'modelCompare')`.
 
 **What to render now:** Return `null`. This is a post-launch feature. Include the prop contract so the trigger wiring is already correct when it ships.
 
 ```tsx
 // TODO(kds): Replace with KDS <ComparePanel> when shipped.
-// Props interface below is the contract — do not change prop names.
-// Placeholder renders nothing — gate with canAccessFeature(plan, 'modelCompare').
+// Props interface below is the contract - do not change prop names.
+// Placeholder renders nothing - gate with canAccessFeature(plan, 'modelCompare').
 
 export interface ComparePanelProps {
   isOpen: boolean;
@@ -251,7 +251,7 @@ export function ComparePanel(_props: ComparePanelProps) {
 
 ---
 
-## Component 6 — ShareButton (TopBar icon)
+## Component 6 - ShareButton (TopBar icon)
 
 **What it is:** An icon button in the top-right corner of the chat board. Clicking it opens a share sheet (copy link, etc.). One of two new icons being added to the top bar. Lives next to the anonymous name display.
 
@@ -259,7 +259,7 @@ export function ComparePanel(_props: ComparePanelProps) {
 
 ```tsx
 // TODO(kds): Replace with KDS <ShareButton> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a HugeIcons share icon button.
 
 import { Share01Icon } from '@hugeicons/core-free-icons';
@@ -297,7 +297,7 @@ export function ShareButton({ onClick, disabled }: ShareButtonProps) {
 
 ---
 
-## Component 7 — UserNameDisplay (TopBar anonymous name)
+## Component 7 - UserNameDisplay (TopBar anonymous name)
 
 **What it is:** Displays the user's name or an anonymous placeholder in the top bar of the chat board. When the user hasn't set a display name, shows a friendly anonymous label ("Anonymous Hawk", "Guest", etc.). Second icon/label in the top-right corner cluster alongside ShareButton.
 
@@ -305,7 +305,7 @@ export function ShareButton({ onClick, disabled }: ShareButtonProps) {
 
 ```tsx
 // TODO(kds): Replace with KDS <UserNameDisplay> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders first_name or "Anonymous" in a small text pill.
 
 import { UserIcon } from '@hugeicons/core-free-icons'; // or User01Icon
@@ -347,9 +347,9 @@ export function UserNameDisplay({ firstName, lastName, onClick }: UserNameDispla
 
 ---
 
-## Component 8 — UsageCreditsButton (TopBar)
+## Component 8 - UsageCreditsButton (TopBar)
 
-**What it is:** A button in the top navigation bar that shows the user's remaining credits for the month. Clicking it opens a popover or navigates to `/settings/billing`. The credit system maps `$1 → 1000 credits`. Use `usageToCredits()` from `plan-config.ts` — do not reimplement the conversion math.
+**What it is:** A button in the top navigation bar that shows the user's remaining credits for the month. Clicking it opens a popover or navigates to `/settings/billing`. The credit system maps `$1 → 1000 credits`. Use `usageToCredits()` from `plan-config.ts` - do not reimplement the conversion math.
 
 **Credit totals by plan:**
 - `starter`: 5,000 credits/month
@@ -360,7 +360,7 @@ export function UserNameDisplay({ firstName, lastName, onClick }: UserNameDispla
 
 ```tsx
 // TODO(kds): Replace with KDS <UsageCreditsButton> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a credits pill using usageToCredits() from plan-config.ts.
 
 import { usageToCredits, formatCredits } from '@/lib/plan-config';
@@ -408,15 +408,15 @@ export function UsageCreditsButton({ plan, usage, onClick }: UsageCreditsButtonP
 
 ---
 
-## Component 9 — FilterMenu (Pinboard filter dropdown)
+## Component 9 - FilterMenu (Pinboard filter dropdown)
 
-**What it is:** A multi-select dropdown triggered by the Filter button in Pinboard and PinboardExpanded. Lets the user select one or more filter values (category type, label color, etc.). The existing `Dropdown` is single-select only — this extends it with checkbox semantics and a selected-count badge on the trigger.
+**What it is:** A multi-select dropdown triggered by the Filter button in Pinboard and PinboardExpanded. Lets the user select one or more filter values (category type, label color, etc.). The existing `Dropdown` is single-select only - this extends it with checkbox semantics and a selected-count badge on the trigger.
 
 **What to render now:** A plain `<div>` floating panel with a list of checkboxes. No animation. Close on outside click.
 
 ```tsx
 // TODO(kds): Replace with KDS <FilterMenu> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a basic checkbox list in a floating div.
 
 export interface FilterMenuOption {
@@ -520,15 +520,15 @@ export function FilterMenu({
 
 ---
 
-## Component 10 — SortMenu (Pinboard sort dropdown)
+## Component 10 - SortMenu (Pinboard sort dropdown)
 
-**What it is:** A single-select sort dropdown triggered by the Sort button in Pinboard and PinboardExpanded. Lets the user pick a sort field (Date, Title, Category) and toggle ascending/descending. Semantically different from FilterMenu — only one sort can be active at a time.
+**What it is:** A single-select sort dropdown triggered by the Sort button in Pinboard and PinboardExpanded. Lets the user pick a sort field (Date, Title, Category) and toggle ascending/descending. Semantically different from FilterMenu - only one sort can be active at a time.
 
 **What to render now:** A plain floating `<div>` with radio buttons and a direction toggle.
 
 ```tsx
 // TODO(kds): Replace with KDS <SortMenu> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a basic radio list with an asc/desc toggle.
 
 export type SortField = 'date_created' | 'date_updated' | 'title' | 'category';
@@ -627,16 +627,16 @@ export function SortMenu({ field, direction, onChange, trigger, open, onOpenChan
 
 ---
 
-## Component 11 — ContextMenu (right-click on Pin)
+## Component 11 - ContextMenu (right-click on Pin)
 
-**What it is:** A floating context menu that appears on right-click (or long-press mobile) on a Pin card. Shows actions: Rename, Move to folder, Copy link, Delete. The `FloatingMenu` KDS component is for hover toolbars — this is a cursor-positioned right-click menu, which is a different pattern.
+**What it is:** A floating context menu that appears on right-click (or long-press mobile) on a Pin card. Shows actions: Rename, Move to folder, Copy link, Delete. The `FloatingMenu` KDS component is for hover toolbars - this is a cursor-positioned right-click menu, which is a different pattern.
 
 **What to render now:** Returns `null` (right-click interaction can be deferred until KDS ships it). Add a `// TODO(kds)` comment at the call site in the Pin wrapper.
 
 ```tsx
 // TODO(kds): Replace with KDS <ContextMenu> when shipped.
-// Props interface below is the contract — do not change prop names.
-// Placeholder returns null — right-click on Pin does nothing for now.
+// Props interface below is the contract - do not change prop names.
+// Placeholder returns null - right-click on Pin does nothing for now.
 
 export interface ContextMenuAction {
   id: string;
@@ -670,7 +670,7 @@ const PIN_CONTEXT_ACTIONS = (pin, handlers) => [
 
 ---
 
-## Component 12 — EmptyState (zero results / no pins)
+## Component 12 - EmptyState (zero results / no pins)
 
 **What it is:** Shown inside the Pinboard when a filter or search returns zero results, or when the user has no pins at all. Displays an icon, a heading, an optional description, and an optional CTA button.
 
@@ -678,7 +678,7 @@ const PIN_CONTEXT_ACTIONS = (pin, handlers) => [
 
 ```tsx
 // TODO(kds): Replace with KDS <EmptyState> when shipped.
-// Props interface below is the contract — do not change prop names.
+// Props interface below is the contract - do not change prop names.
 // Placeholder renders a centered div with icon, heading, description, and optional CTA.
 
 import { Button } from '@/components/Button';
@@ -733,16 +733,16 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
 
 | Condition | title | description | action |
 |-----------|-------|-------------|--------|
-| No pins at all | "No pins yet" | "Pin a message from any chat to save it here." | — |
-| Search returns 0 | "No results for "{query}"" | "Try a different search term." | — |
-| Filter returns 0 | "No pins match these filters" | — | `{ label: "Clear filters", onClick: onClearFilters }` |
-| Folder is empty | "This folder is empty" | "Move pins here from the main view." | — |
+| No pins at all | "No pins yet" | "Pin a message from any chat to save it here." | - |
+| Search returns 0 | "No results for "{query}"" | "Try a different search term." | - |
+| Filter returns 0 | "No pins match these filters" | - | `{ label: "Clear filters", onClick: onClearFilters }` |
+| Folder is empty | "This folder is empty" | "Move pins here from the main view." | - |
 
 ---
 
-## Component 13 — HighlightBoard (text highlight panel)
+## Component 13 - HighlightBoard (text highlight panel)
 
-**What it is:** A compact side panel — similar in shape to the compact Pinboard — that holds saved text highlights from chat messages. A highlight is a user-selected text snippet (not a full message). The `HighlightPopover` (Component 4) is the popover that appears on text selection; HighlightBoard is where saved highlights live.
+**What it is:** A compact side panel - similar in shape to the compact Pinboard - that holds saved text highlights from chat messages. A highlight is a user-selected text snippet (not a full message). The `HighlightPopover` (Component 4) is the popover that appears on text selection; HighlightBoard is where saved highlights live.
 
 **Status:** Design not yet started. The `FloatingMenuItem` for Highlights exists in the FloatingMenu but is `disabled` with a `// TODO(design)` comment until this ships.
 
@@ -750,7 +750,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
 
 ```tsx
 // TODO(kds): Replace with KDS <HighlightBoard> when designed and shipped.
-// Props interface is TBD — design not yet started.
+// Props interface is TBD - design not yet started.
 // Placeholder returns null. FloatingMenuItem for highlights is disabled.
 
 export interface HighlightBoardProps {
@@ -764,11 +764,11 @@ export function HighlightBoard(_props: HighlightBoardProps) {
 }
 ```
 
-**Expected shape (for planning only — not final):**
+**Expected shape (for planning only - not final):**
 - Similar to compact Pinboard (332px wide, fixed right panel)
 - Each highlight card shows: selected text snippet + source message + chat name + timestamp
 - Actions: copy text, delete, pin to Pinboard
-- Separate from Pinboard — a message can have both a pin (full message) and highlights (excerpts)
+- Separate from Pinboard - a message can have both a pin (full message) and highlights (excerpts)
 
 **Do not implement this until Chai ships the design.**
 
@@ -780,7 +780,7 @@ export function HighlightBoard(_props: HighlightBoardProps) {
 
 ### How the token system works
 
-Three-layer system — never skip layers:
+Three-layer system - never skip layers:
 
 ```
 Primitives (raw hex values)     → primitives.css
@@ -792,16 +792,16 @@ Semantics (component tokens)    → semantic.css
 Your component code
 ```
 
-The `class="dark"` on `<html>` is already scaffolded. The `.dark {}` block in `aliases.css` exists but is empty — it gets filled when the dark theme is designed. If you use only token references in your components, dark mode becomes a zero-code-change deploy. If you hardcode hex, every hardcoded value is a regression in dark mode.
+The `class="dark"` on `<html>` is already scaffolded. The `.dark {}` block in `aliases.css` exists but is empty - it gets filled when the dark theme is designed. If you use only token references in your components, dark mode becomes a zero-code-change deploy. If you hardcode hex, every hardcoded value is a regression in dark mode.
 
 ### The rule
 
 ```tsx
-// NEVER — will break in dark mode
+// NEVER - will break in dark mode
 style={{ color: '#26211E', background: '#EDE1D7' }}
 className="text-[#26211E] bg-[#EDE1D7]"
 
-// ALWAYS — survives dark mode automatically
+// ALWAYS - survives dark mode automatically
 style={{ color: 'var(--color-text-primary)', background: 'var(--color-surface-subtle)' }}
 ```
 
@@ -819,7 +819,7 @@ style={{ color: 'var(--color-text-primary)', background: 'var(--color-surface-su
 | Subtle border | `--color-border-subtle` | `rgba(59,54,50,0.10)` |
 | Focus border | `--color-border-focus` | blue accent |
 
-If you need a token that doesn't exist yet, add it to `semantic.css` as a reference to an alias — do not hardcode the primitive.
+If you need a token that doesn't exist yet, add it to `semantic.css` as a reference to an alias - do not hardcode the primitive.
 
 ### Icons in dark mode
 
@@ -835,7 +835,7 @@ Use `currentColor` for icon stroke/fill so they inherit the parent's text color 
 
 - [ ] TODO comment in the exact format above
 - [ ] Props interface matches this doc exactly (no renamed props)
-- [ ] Zero hardcoded hex values — all colors via CSS tokens
+- [ ] Zero hardcoded hex values - all colors via CSS tokens
 - [ ] Icons use `currentColor` or a CSS token reference
 - [ ] Component is exported from `src/components/ui/index.ts`
 - [ ] If the component is plan-gated, it uses `canAccessFeature()` from `plan-config.ts`

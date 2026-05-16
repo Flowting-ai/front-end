@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 
 export interface EnhanceScanningStateProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Override the message rotation cadence in ms. Default 900 — matches the PRD
+   * Override the message rotation cadence in ms. Default 900 - matches the PRD
    * scanning sequence (≈1.8s total = 2 messages × 900ms).
    */
   rotateMs?:     number
@@ -21,7 +21,7 @@ export interface EnhanceScanningStateProps extends React.HTMLAttributes<HTMLDivE
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-// Per PRD §11 — [scanning] state. Indeterminate progress bar + message swap
+// Per PRD §11 - [scanning] state. Indeterminate progress bar + message swap
 // driven by the KDS in-place text-swap pattern (scale + opacity + blur, spring).
 
 const DEFAULT_MESSAGES = ['Analysing your prompt…', 'Looking for gaps…'] as const
@@ -55,7 +55,7 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
         }}
         {...props}
       >
-        {/* Message label — in-place swap via KDS pattern */}
+        {/* Message label - in-place swap via KDS pattern */}
         <div
           style={{
             position:       'relative',
@@ -84,7 +84,7 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
           </AnimatePresence>
         </div>
 
-        {/* Indeterminate progress bar — sweeping pill on a track */}
+        {/* Indeterminate progress bar - sweeping pill on a track */}
         <div
           aria-hidden
           style={{

@@ -51,7 +51,7 @@ export default function ProjectPage() {
 
   function handleSendChat(text: string) {
     if (!text.trim()) return
-    // Navigate to a new project chat — ChatInterface will create the chat and
+    // Navigate to a new project chat - ChatInterface will create the chat and
     // the page's onChatCreated callback links it back to this project.
     router.push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
     setChatInputValue('')
@@ -60,7 +60,7 @@ export default function ProjectPage() {
   return (
     <div style={{ position: 'relative', display: 'flex', width: '100%', height: '100%', overflow: 'hidden' }}>
 
-      {/* Back button — anchored in the TopBar zone, top-left */}
+      {/* Back button - anchored in the TopBar zone, top-left */}
       <button
         onClick={() => router.push('/projects')}
         style={{
@@ -82,7 +82,7 @@ export default function ProjectPage() {
         <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
       </button>
 
-      {/* ── Left column — scrollable main content ─────────────────────── */}
+      {/* ── Left column - scrollable main content ─────────────────────── */}
       <div
         className="kaya-scrollbar"
         style={{
@@ -234,7 +234,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      {/* ── Floating menu — tracks the right panel ───────────────────── */}
+      {/* ── Floating menu - tracks the right panel ───────────────────── */}
       <div
         style={{
           position:   'absolute',
@@ -261,7 +261,7 @@ export default function ProjectPage() {
         </FloatingMenu>
       </div>
 
-      {/* ── Right panel — toggled by the floating menu ────────────────── */}
+      {/* ── Right panel - toggled by the floating menu ────────────────── */}
       <AnimatePresence>
         {panelOpen && (
           <motion.div

@@ -5,13 +5,15 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
-  MoreVerticalIcon,
+  ArrowRightOneIcon,
+  MoreHorizontalIcon,
   QuillWriteOneIcon,
   ArrowUpRightOneIcon,
   UserAiIcon,
   AiIdeaIcon,
   FolderLibraryIcon,
   ArrowDownOneIcon,
+  AtomOneIcon,
   PlusSignIcon,
   CancelOneIcon,
   ExpandIcon,
@@ -24,17 +26,23 @@ import { ChatInput } from '@/components/ChatInput'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/persona/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
+import { useInstructionHistory } from '@/app/(app)/persona/configure/hooks/use-instruction-history'
 import {
   createPersonaRepo,
   createVersion,
   getPersonaRepo,
   getVersion,
   setActiveVersion,
+  createAndStreamPersonaChat,
+  streamPersonaMessage,
+  type PersonaChatStreamCallbacks,
   type PersonaVersionResponse,
   type PersonaRepoResponse,
 } from '@/lib/api/personas'
-import { apiFetchJson } from '@/lib/api/client'
-import { MODELS_ENDPOINT } from '@/lib/config'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import type { AIModel } from '@/types/ai-model'
+import { LlmIcon } from '@strange-huge/icons/llm'
+import { getModelLlmId } from '@/lib/model-icons'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +166,290 @@ function FloatingMenu({
   )
 }
 
+// ── Undo / redo group — matches Figma node 848:54854 footer button group ─────
+
+function UndoRedoGroup({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: {
+  canUndo: boolean
+  canRedo: boolean
+  onUndo:  () => void
+  onRedo:  () => void
+}) {
+  const baseStyle: React.CSSProperties = {
+    display:         'flex',
+    alignItems:      'center',
+    justifyContent:  'center',
+    width:           36,
+    height:          36,
+    padding:         8,
+    border:          'none',
+    backgroundColor: 'transparent',
+    boxShadow:       '0px 0px 0px 1px rgba(59,54,50,0.3)',
+    cursor:          'pointer',
+    color:           'var(--neutral-700)',
+    transition:      'background-color 150ms, opacity 150ms',
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <button
+        type="button"
+        aria-label="Undo"
+        disabled={!canUndo}
+        onClick={onUndo}
+        style={{
+          ...baseStyle,
+          borderTopLeftRadius:    10,
+          borderBottomLeftRadius: 10,
+          opacity:                canUndo ? 1 : 0.4,
+          cursor:                 canUndo ? 'pointer' : 'not-allowed',
+        }}
+      >
+        <ArrowLeftOneIcon size={20} />
+      </button>
+      <button
+        type="button"
+        aria-label="Redo"
+        disabled={!canRedo}
+        onClick={onRedo}
+        style={{
+          ...baseStyle,
+          borderTopRightRadius:    10,
+          borderBottomRightRadius: 10,
+          opacity:                 canRedo ? 1 : 0.4,
+          cursor:                  canRedo ? 'pointer' : 'not-allowed',
+        }}
+      >
+        <ArrowRightOneIcon size={20} />
+      </button>
+    </div>
+  )
+}
+
+// ── Inline anchored model dropdown ───────────────────────────────────────────
+// The chat-style ModelSelector renders a centered modal — wrong for this page,
+// where the dropdown must drop under its trigger and span the trigger's width.
+
+function ModelDropdown({
+  models,
+  selectedModel,
+  open,
+  onOpenChange,
+  onSelect,
+}: {
+  models:        AIModel[]
+  selectedModel: AIModel | null
+  open:          boolean
+  onOpenChange:  (open: boolean) => void
+  onSelect:      (model: AIModel) => void
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  // Close on outside click + Escape
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) onOpenChange(false)
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onOpenChange(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open, onOpenChange])
+
+  const grouped = models.reduce<Record<string, AIModel[]>>((acc, m) => {
+    const k = m.companyName || 'Other'
+    if (!acc[k]) acc[k] = []
+    acc[k].push(m)
+    return acc
+  }, {})
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
+        Model
+      </span>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        style={{
+          display:         'flex',
+          alignItems:      'center',
+          gap:             8,
+          padding:         '8px 12px',
+          border:          '1px solid var(--neutral-200)',
+          borderRadius:    6,
+          backgroundColor: 'transparent',
+          cursor:          'pointer',
+          width:           '100%',
+          textAlign:       'left',
+          transition:      'border-color 150ms',
+        }}
+      >
+        <span style={{ flexShrink: 0, lineHeight: 0 }}>
+          {selectedModel ? (
+            <LlmIcon
+              id={getModelLlmId(selectedModel.companyName, selectedModel.modelName) ?? ''}
+              variant="avatar"
+              size={20}
+            />
+          ) : (
+            <AtomOneIcon size={20} color="var(--neutral-700)" />
+          )}
+        </span>
+        <span
+          style={{
+            flex:         '1 0 0',
+            minWidth:     0,
+            fontFamily:   'var(--font-body)',
+            fontWeight:   500,
+            fontSize:     14,
+            lineHeight:   '22px',
+            color:        'var(--neutral-700)',
+            overflow:     'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace:   'nowrap',
+          }}
+        >
+          {selectedModel?.modelName ?? 'Select model'}
+        </span>
+        <ArrowDownOneIcon
+          size={20}
+          color="var(--neutral-700)"
+          style={{
+            flexShrink: 0,
+            transform:  open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 150ms',
+          }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="listbox"
+            aria-label="Select model"
+            initial={{ opacity: 0, scaleY: 0.85, y: -4 }}
+            animate={{ opacity: 1, scaleY: 1,    y:  0 }}
+            exit={{    opacity: 0, scaleY: 0.9,  y: -4, transition: { duration: 0.1 } }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              position:        'absolute',
+              top:             'calc(100% + 4px)',
+              left:            0,
+              right:           0,
+              zIndex:          50,
+              maxHeight:       320,
+              overflowY:       'auto',
+              backgroundColor: 'var(--neutral-white)',
+              border:          '1px solid var(--neutral-200)',
+              borderRadius:    12,
+              padding:         4,
+              boxShadow:
+                '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15)',
+              transformOrigin: 'top center',
+            }}
+          >
+            {Object.entries(grouped).map(([provider, providerModels]) => (
+              <div key={provider} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <div
+                  style={{
+                    padding:    '8px 8px 4px',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize:   11,
+                    lineHeight: '16px',
+                    color:      'var(--neutral-500)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {provider}
+                </div>
+                {providerModels.map((m) => {
+                  const isSelected = !!selectedModel && (m.modelId ?? m.id) === (selectedModel.modelId ?? selectedModel.id)
+                  return (
+                    <button
+                      key={String(m.modelId ?? m.id)}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => onSelect(m)}
+                      style={{
+                        display:         'flex',
+                        alignItems:      'center',
+                        gap:             8,
+                        width:           '100%',
+                        padding:         '8px',
+                        border:          'none',
+                        borderRadius:    8,
+                        cursor:          'pointer',
+                        backgroundColor: isSelected ? 'var(--neutral-100)' : 'transparent',
+                        textAlign:       'left',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--neutral-50)'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
+                      }}
+                    >
+                      <span style={{ flexShrink: 0, lineHeight: 0 }}>
+                        <LlmIcon id={getModelLlmId(m.companyName, m.modelName) ?? ''} variant="avatar" size={20} />
+                      </span>
+                      <span
+                        style={{
+                          flex:         '1 0 0',
+                          minWidth:     0,
+                          fontFamily:   'var(--font-body)',
+                          fontWeight:   500,
+                          fontSize:     14,
+                          lineHeight:   '22px',
+                          color:        'var(--neutral-700)',
+                          overflow:     'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace:   'nowrap',
+                        }}
+                      >
+                        {m.modelName}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+            {models.length === 0 && (
+              <div
+                style={{
+                  padding:    12,
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   14,
+                  color:      'var(--neutral-500)',
+                }}
+              >
+                No models available
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ── Session-storage key ───────────────────────────────────────────────────────
 
 function publishedKey(repoId: string) {
@@ -170,50 +462,126 @@ function PersonaConfigureInstructionsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // URL params — repoId present when editing existing, absent when creating new
-  const repoIdParam   = searchParams.get('repoId')   ?? ''
+  // URL params - repoId/versionId present when editing existing persona
+  const repoIdParam    = searchParams.get('repoId')    ?? ''
   const versionIdParam = searchParams.get('versionId') ?? ''
-  const nameParam     = searchParams.get('name')     ?? ''
-  const purposeParam  = searchParams.get('purpose')  ?? ''
-  const toneParam     = searchParams.get('tone')     ?? ''
 
   // ── State ───────────────────────────────────────────────────────────────────
 
   const [repoId,    setRepoId]    = useState(repoIdParam)
   const [versionId, setVersionId] = useState(versionIdParam)
-  const [personaName, setPersonaName] = useState(nameParam || 'Persona Name')
-  const [instruction, setInstruction] = useState('')
+  const [personaName, setPersonaName] = useState('Persona Name')
+  const {
+    currentInstruction: instruction,
+    setInstruction,
+    undo: undoInstruction,
+    redo: redoInstruction,
+    canUndo,
+    canRedo,
+    reset: resetInstructionHistory,
+  } = useInstructionHistory('')
   const [temperature, setTemperature] = useState(0.5)
-  const [modelLabel,  setModelLabel]  = useState('Default model')
-  const [modelId,     setModelId]     = useState<string | null>(null)
+  const [allModels,      setAllModels]      = useState<AIModel[]>([])
+  const [selectedModel,  setSelectedModel]  = useState<AIModel | null>(null)
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const [imageUrl,    setImageUrl]    = useState<string | null>(null)
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
   const [testChatOpen,  setTestChatOpen]  = useState(false)
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
+  const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
 
   const hasPublishedRef = useRef(false)
+
+  // ── Test-chat state ─────────────────────────────────────────────────────────
+
+  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
+  const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
+  const [testChatId,    setTestChatId]    = useState<string | null>(null)
+  const [isStreaming,   setIsStreaming]   = useState(false)
+  const abortStreamRef  = useRef<(() => void) | null>(null)
+  const chatScrollRef   = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when new content arrives
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatMessages])
+
+  async function handleTestChatSend(value: string) {
+    if (!value.trim() || !repoId || isStreaming) return
+
+    const userMsgId = `user-${Date.now()}`
+    const asstMsgId = `asst-${Date.now()}`
+
+    setChatMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user',      text: value.trim() },
+      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
+    ])
+    setIsStreaming(true)
+
+    const callbacks: PersonaChatStreamCallbacks = {
+      onChatId: (id) => setTestChatId(id),
+      onChunk:  (delta) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
+      ),
+      onDone: () => {
+        setChatMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)
+        )
+        setIsStreaming(false)
+      },
+      onError: (err) => {
+        setChatMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)
+        )
+        setIsStreaming(false)
+      },
+    }
+
+    try {
+      const abort = testChatId
+        ? await streamPersonaMessage(repoId, testChatId, value.trim(), callbacks)
+        : await createAndStreamPersonaChat(repoId, value.trim(), callbacks)
+      abortStreamRef.current = abort
+    } catch (err) {
+      callbacks.onError?.((err as Error).message ?? 'Failed to send message')
+    }
+  }
 
   // ── Initialise: fetch models, then create or load persona ──────────────────
 
   const initialise = useCallback(async () => {
     setIsInitialising(true)
     try {
-      // Fetch first available model
-      let firstModelId = ''
-      let firstModelLabel = 'Default model'
+      // Read wizard state from sessionStorage (new-persona flow)
+      // These are set by the basics wizard pages and cleared here after use
+      let wizardName = ''
+      let wizardPurpose = ''
+      let wizardTone = ''
+      if (typeof window !== 'undefined' && !repoIdParam) {
+        try {
+          const draft = JSON.parse(sessionStorage.getItem('persona_wizard_draft') ?? '{}')
+          wizardName    = draft.name    ?? ''
+          wizardPurpose = draft.purpose ?? ''
+          wizardTone    = draft.tone    ?? ''
+          sessionStorage.removeItem('persona_wizard_draft')
+        } catch { /* ignore */ }
+      }
+
+      // Fetch all available models with proper normalization
+      let fetchedModels: AIModel[] = []
       try {
-        const models = await apiFetchJson<Array<{ id: string; name: string }>>(MODELS_ENDPOINT)
-        if (models.length > 0) {
-          firstModelId    = models[0].id
-          firstModelLabel = models[0].name
-        }
+        fetchedModels = await fetchModelsWithCache()
       } catch {
         // proceed without model list
       }
+      setAllModels(fetchedModels)
+      const firstModel = fetchedModels[0] ?? null
 
       if (repoIdParam && versionIdParam) {
         // ── Edit existing persona ─────────────────────────────────────────────
@@ -222,47 +590,56 @@ function PersonaConfigureInstructionsContent() {
           getVersion(repoIdParam, versionIdParam),
         ])
         setPersonaName(repo.name)
-        setInstruction(version.prompt ?? '')
+        resetInstructionHistory(version.prompt ?? '')
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(version.image_url)
-        if (version.model_id) {
-          setModelId(version.model_id)
-        } else if (firstModelId) {
-          setModelId(firstModelId)
-          setModelLabel(firstModelLabel)
-        }
+        // Match stored model_id to full model object; fall back to first available
+        const matchedModel = version.model_id
+          ? fetchedModels.find(m => String(m.modelId ?? m.id) === version.model_id) ?? firstModel
+          : firstModel
+        setSelectedModel(matchedModel)
         if (typeof window !== 'undefined') {
           hasPublishedRef.current = sessionStorage.getItem(publishedKey(repoIdParam)) === '1'
         }
       } else if (repoIdParam) {
-        // ── Repo exists but no specific version — load active version ─────────
+        // ── Repo exists but no specific version - load active version ─────────
         const repo = await getPersonaRepo(repoIdParam)
         setPersonaName(repo.name)
         if (repo.active_version) {
-          setInstruction(repo.active_version.prompt ?? '')
+          resetInstructionHistory(repo.active_version.prompt ?? '')
           setTemperature(repo.active_version.temperature ?? 0.5)
           setImageUrl(repo.active_version.image_url)
           setVersionId(repo.active_version.id)
+          const matchedModel = repo.active_version.model_id
+            ? fetchedModels.find(m => String(m.modelId ?? m.id) === repo.active_version!.model_id) ?? firstModel
+            : firstModel
+          setSelectedModel(matchedModel)
+        } else {
+          setSelectedModel(firstModel)
         }
         if (typeof window !== 'undefined') {
           hasPublishedRef.current = sessionStorage.getItem(publishedKey(repoIdParam)) === '1'
         }
       } else {
-        // ── New persona — create repo + initial version ───────────────────────
-        if (!firstModelId) {
+        // ── New persona - create repo + initial version ───────────────────────
+        if (!firstModel) {
           toast.error('No AI models available. Please contact support.')
-          router.back()
+          router.push('/personas')
           return
         }
-        setModelId(firstModelId)
-        setModelLabel(firstModelLabel)
+        setSelectedModel(firstModel)
 
-        const tonePromptSuffix = toneParam ? `\n\nTone: ${toneParam}` : ''
-        const initialPrompt    = purposeParam ? `${purposeParam}${tonePromptSuffix}` : tonePromptSuffix.trim()
+        const effectiveName    = wizardName || 'Untitled Persona'
+        const effectivePurpose = wizardPurpose.trim()
+
+        if (wizardName) setPersonaName(wizardName)
+
+        // Purpose seeds the instruction field; tone is expressed via model settings, not raw text
+        const initialPrompt = effectivePurpose
 
         const repo = await createPersonaRepo({
-          name:    nameParam || 'Untitled Persona',
-          modelId: firstModelId,
+          name:    effectiveName,
+          modelId: String(firstModel.modelId ?? firstModel.id ?? ''),
           prompt:  initialPrompt,
         })
 
@@ -272,13 +649,10 @@ function PersonaConfigureInstructionsContent() {
         setRepoId(newRepoId)
         setVersionId(newVersionId)
         setPersonaName(repo.name)
-        setInstruction(initialPrompt)
+        resetInstructionHistory(initialPrompt)
 
-        // Update URL without re-navigating so subsequent saves know the IDs
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('repoId',    newRepoId)
-        params.set('versionId', newVersionId)
-        window.history.replaceState(null, '', `?${params.toString()}`)
+        // Update URL with IDs only - no user data in the URL
+        window.history.replaceState(null, '', `?repoId=${newRepoId}&versionId=${newVersionId}`)
       }
     } catch (err) {
       console.error('[PersonaConfigure] init error:', err)
@@ -295,6 +669,7 @@ function PersonaConfigureInstructionsContent() {
   // ── Save version ─────────────────────────────────────────────────────────────
 
   async function handleSaveVersion() {
+    const modelId = String(selectedModel?.modelId ?? selectedModel?.id ?? '')
     if (!repoId || !modelId) return
     setIsSaving(true)
     try {
@@ -346,7 +721,7 @@ function PersonaConfigureInstructionsContent() {
 
   const hasContent    = instruction.trim().length > 0
   const canPublish    = hasContent && !!repoId && !!versionId && !isPublishing
-  const canSave       = hasContent && !!repoId && !!modelId && !isSaving
+  const canSave       = hasContent && !!repoId && !!selectedModel && !isSaving
 
   const handleAddConversation    = (userSays: string, personaReplies: string) =>
     setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
@@ -480,29 +855,18 @@ function PersonaConfigureInstructionsContent() {
               <IconButton
                 variant="outline"
                 size="md"
-                icon={<MoreVerticalIcon size={20} />}
+                icon={<MoreHorizontalIcon size={20} />}
                 aria-label="More options"
               />
-              {testChatOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<QuillWriteOneIcon size={20} />}
-                  aria-label="Save version"
-                  onClick={handleSaveVersion}
-                  disabled={!canSave}
-                />
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={!canSave}
-                >
-                  {isSaving ? 'Saving…' : 'Save version'}
-                </Button>
-              )}
+              <IconButton
+                variant="outline"
+                size="md"
+                icon={<QuillWriteOneIcon size={20} />}
+                aria-label={isSaving ? 'Saving version…' : 'Save version'}
+                onClick={handleSaveVersion}
+                disabled={!canSave}
+                loading={isSaving}
+              />
               <Button
                 variant="default"
                 size="sm"
@@ -595,30 +959,28 @@ function PersonaConfigureInstructionsContent() {
                 </div>
               </div>
 
-              {/* ── Model display ─────────────────────────────────────────────── */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
-                  Model
-                </span>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    border: '1px solid var(--neutral-200)',
-                    borderRadius: 6,
-                    backgroundColor: 'transparent',
-                  }}
-                >
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)' }}>
-                    {modelLabel}
-                  </span>
-                  <ArrowDownOneIcon size={20} color="var(--neutral-700)" style={{ marginLeft: 'auto' }} />
-                </div>
-              </div>
+              {/* ── Model selector ────────────────────────────────────────────── */}
+              <ModelDropdown
+                models={allModels}
+                selectedModel={selectedModel}
+                open={modelSelectorOpen}
+                onOpenChange={setModelSelectorOpen}
+                onSelect={(m) => { setSelectedModel(m); setModelSelectorOpen(false) }}
+              />
 
               {/* ── System instruction ────────────────────────────────────────── */}
-              <EnhancePromptField value={instruction} onChange={setInstruction} />
+              <EnhancePromptField
+                value={instruction}
+                onChange={setInstruction}
+                footerLeft={
+                  <UndoRedoGroup
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    onUndo={undoInstruction}
+                    onRedo={redoInstruction}
+                  />
+                }
+              />
 
               {/* ── Temperature slider ────────────────────────────────────────── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -652,62 +1014,109 @@ function PersonaConfigureInstructionsContent() {
 
               {/* ── Example conversations ─────────────────────────────────────── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-                <div
+                <button
+                  type="button"
+                  onClick={() => setExampleConvExpanded(v => !v)}
+                  aria-expanded={exampleConvExpanded}
+                  aria-controls="example-conversations-panel"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: 12,
-                    height: 56,
-                    border: '1px dashed var(--neutral-300)',
-                    borderRadius: 16,
-                    backgroundColor: 'var(--neutral-50)',
-                    boxShadow: '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                    padding: '8px 12px',
+                    height: 64,
+                    width: '100%',
+                    border: '1px solid var(--neutral-200)',
+                    borderRadius: 6,
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a' }}>
-                      Example conversations (optional)
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 0 0', minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        lineHeight: '22px',
+                        color: '#0a0a0a',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Example conversations ( optional )
                     </span>
                     {exampleConversations.length > 0 && (
-                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-700)', backgroundColor: 'var(--neutral-100)', border: '1px solid rgba(106,98,93,0.3)', borderRadius: 6, padding: '1px 6px' }}>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 500,
+                          fontSize: 11,
+                          lineHeight: '16px',
+                          color: 'var(--neutral-700)',
+                          backgroundColor: 'var(--neutral-100)',
+                          border: '1px solid rgba(106,98,93,0.3)',
+                          borderRadius: 6,
+                          padding: '1px 6px',
+                          flexShrink: 0,
+                        }}
+                      >
                         {exampleConversations.length}
                       </span>
                     )}
                   </div>
-                  <IconButton
-                    variant="outline"
-                    size="sm"
-                    icon={<PlusSignIcon size={20} />}
-                    aria-label="Add example conversation"
-                    onClick={() => setExampleConvOpen(true)}
+                  <ArrowDownOneIcon
+                    size={20}
+                    color="var(--neutral-700)"
+                    style={{
+                      flexShrink: 0,
+                      transform: exampleConvExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 150ms',
+                    }}
                   />
-                </div>
+                </button>
 
-                {exampleConversations.map((conv) => (
+                {exampleConvExpanded && (
                   <div
-                    key={conv.id}
-                    style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', position: 'relative' }}
+                    id="example-conversations-panel"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
                   >
-                    <button
-                      onClick={() => handleRemoveConversation(conv.id)}
-                      aria-label="Remove conversation"
-                      style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 3, borderRadius: 6, border: 'none', backgroundColor: 'transparent', cursor: 'pointer' }}
-                    >
-                      <CancelOneIcon size={14} color="var(--neutral-500)" />
-                    </button>
-                    {conv.userSays && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#ee3030' }}>User says</span>
-                        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>{conv.userSays}</p>
+                    {exampleConversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 12, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', position: 'relative' }}
+                      >
+                        <button
+                          onClick={() => handleRemoveConversation(conv.id)}
+                          aria-label="Remove conversation"
+                          style={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 3, borderRadius: 6, border: 'none', backgroundColor: 'transparent', cursor: 'pointer' }}
+                        >
+                          <CancelOneIcon size={14} color="var(--neutral-500)" />
+                        </button>
+                        {conv.userSays && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#ee3030' }}>User says</span>
+                            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>{conv.userSays}</p>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>Persona replies</span>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0, paddingRight: 24 }}>{conv.personaReplies}</p>
+                        </div>
                       </div>
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>Persona replies</span>
-                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0, paddingRight: 24 }}>{conv.personaReplies}</p>
-                    </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<PlusSignIcon size={16} />}
+                      onClick={() => setExampleConvOpen(true)}
+                    >
+                      Add conversation
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
 
               <div style={{ height: 24, flexShrink: 0 }} />
@@ -721,7 +1130,7 @@ function PersonaConfigureInstructionsContent() {
         </div>
       </div>
 
-      {/* ── Modals ────────────────────────────────────────────────────────────── */}
+      {/* ── Modals ─────────────────────────────────────────────────────────────────── */}
       <ExampleConversationModal
         open={exampleConvOpen}
         onClose={() => setExampleConvOpen(false)}
@@ -780,13 +1189,47 @@ function PersonaConfigureInstructionsContent() {
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => setTestChatOpen(false)} />
               </div>
             </div>
-            <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-                Hi! I&apos;m your persona. Test me here while you configure.
-              </p>
+            <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {chatMessages.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                  Hi! I&apos;m your persona. Test me here while you configure.
+                </p>
+              ) : (
+                chatMessages.map(msg => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <div
+                      style={{
+                        maxWidth: '85%',
+                        padding: '8px 12px',
+                        borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                        backgroundColor: msg.role === 'user' ? 'var(--neutral-900)' : 'var(--neutral-100)',
+                        color: msg.role === 'user' ? 'white' : 'var(--neutral-900)',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: 14,
+                        lineHeight: '22px',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {msg.text || (msg.isStreaming ? '…' : '')}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <div style={{ flexShrink: 0 }}>
-              <ChatInput placeholder="Test your persona..." textareaLabel="Test message" modelName="Souvenir" />
+              <ChatInput
+                placeholder="Test your persona..."
+                textareaLabel="Test message"
+                modelName="Souvenir"
+                onSend={handleTestChatSend}
+              />
             </div>
           </motion.div>
         )}

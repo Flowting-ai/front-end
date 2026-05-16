@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Dropdown — pre-composed compound component.
+ * Dropdown - pre-composed compound component.
  *
  * Combines `Popover` (the surface shell) with `DropdownSection` and
  * `DropdownMenuItem` sub-components into a single import, so callers never
@@ -36,14 +36,14 @@ import { Popover, type PopoverProps, type PopoverSize, type PopoverVariant, POPO
 import { DropdownSection, type DropdownSectionProps } from '@/components/DropdownSection'
 import { DropdownMenuItem, type DropdownMenuItemProps } from '@/components/DropdownMenuItem'
 
-// Re-export for convenience — callers importing `Dropdown` get these for free.
+// Re-export for convenience - callers importing `Dropdown` get these for free.
 export type { PopoverSize, PopoverVariant, DropdownSectionProps, DropdownMenuItemProps }
 export { POPOVER_WIDTHS }
 
 // ── Animation presets ─────────────────────────────────────────────────────────
 // Spread onto a <motion.div> wrapping <Dropdown> inside <AnimatePresence>.
 // Both presets use independent scaleX / scaleY so the menu squishes open
-// rather than uniformly scaling — matching the article's signature look.
+// rather than uniformly scaling - matching the article's signature look.
 //
 // Exit is always faster than enter. A slow exit reads as lag.
 
@@ -108,13 +108,13 @@ DropdownRoot.displayName = 'Dropdown'
 
 // ── Placement system (Dropdown.Float) ─────────────────────────────────────────
 // KDS dropdowns may appear in one of six placements relative to the trigger.
-// Spec rules (USER-DEFINED — NEVER CHANGE UNLESS TOLD):
+// Spec rules (USER-DEFINED - NEVER CHANGE UNLESS TOLD):
 //   • Gap between trigger and dropdown is always 8 px.
 //   • bottom-* and top-* placements align to one **side** of the trigger
 //     (start = left edges aligned, end = right edges aligned).
 //   • left-start and right-start align the dropdown's **top** to the
 //     trigger's top.
-//   • Dropdowns sit at z-index 9998 — exactly one layer below the
+//   • Dropdowns sit at z-index 9998 - exactly one layer below the
 //     tooltip layer (9999), per the KDS overlay-z hierarchy.
 // Use `<Dropdown.Float>` (below) to get all of this for free.
 
@@ -198,20 +198,20 @@ export interface DropdownFloatProps {
   /**
    * Position of the dropdown relative to the trigger. Defaults to `bottom-end`.
    *
-   *  - `bottom-start` / `bottom-end` — below the trigger, left- or right-aligned.
-   *  - `top-start`    / `top-end`    — above the trigger, left- or right-aligned.
-   *  - `right-start`                 — to the right of the trigger, top-aligned.
-   *  - `left-start`                  — to the left of the trigger, top-aligned.
+   *  - `bottom-start` / `bottom-end` - below the trigger, left- or right-aligned.
+   *  - `top-start`    / `top-end`    - above the trigger, left- or right-aligned.
+   *  - `right-start`                 - to the right of the trigger, top-aligned.
+   *  - `left-start`                  - to the left of the trigger, top-aligned.
    */
   placement?: DropdownPlacement
   /** Gap between trigger and dropdown. Defaults to 8 px (KDS standard). */
   offset?: number
-  /** Dropdown content — typically a `<Dropdown>` containing one or more `<Dropdown.Section>`s. */
+  /** Dropdown content - typically a `<Dropdown>` containing one or more `<Dropdown.Section>`s. */
   children: React.ReactNode
 }
 
 /**
- * `Dropdown.Float` — controlled floating-menu wrapper. Handles:
+ * `Dropdown.Float` - controlled floating-menu wrapper. Handles:
  *  - Trigger ref + click-to-toggle wiring
  *  - Portal mounting to `document.body` (escapes ancestor `overflow`/`isolation`)
  *  - Placement-based positioning (`top-start`, `bottom-end`, `right-start`, …)
@@ -231,7 +231,7 @@ export function DropdownFloat({
   // rect that's *independent of any transforms applied inside the trigger
   // itself* (e.g. IconButton's `whileTap: { scale: 0.96 }`). Reading the
   // trigger's own getBoundingClientRect during whileTap exit returns the
-  // scaled rect — that was anchoring `top-end` / `bottom-end` ~1 px short of
+  // scaled rect - that was anchoring `top-end` / `bottom-end` ~1 px short of
   // the trigger's true right edge. CSS `transform` on a child doesn't affect
   // its parent's layout box, so the wrapper's rect is always correct.
   const triggerWrapRef = React.useRef<HTMLSpanElement | null>(null)
@@ -244,7 +244,7 @@ export function DropdownFloat({
     if (!t) return
     // Sideways placements + nested submenus: anchor to the parent dropdown
     // panel, NOT the trigger row. The user expects the submenu's bottom (or
-    // top) to line up with the parent PANEL's edge — not with the row that
+    // top) to line up with the parent PANEL's edge - not with the row that
     // happens to be the trigger. Section padding inside the parent means
     // the last row's bottom sits 8 px above the panel's bottom; anchoring
     // to the row would leave the submenu's bottom that 8 px short. For
@@ -274,7 +274,7 @@ export function DropdownFloat({
 
   // Return focus to the trigger's focusable element (button, link, etc.)
   // when the menu closes via keyboard. Skips when the close was caused by a
-  // mouse click — re-focusing on click can pull a focus ring back onto the
+  // mouse click - re-focusing on click can pull a focus ring back onto the
   // trigger that the user didn't ask for.
   const focusTrigger = React.useCallback(() => {
     const focusable =
@@ -302,7 +302,7 @@ export function DropdownFloat({
       return () => cancelAnimationFrame(id)
     }
     if (wasOpenRef.current) {
-      // Closing — return focus to trigger only if focus is currently inside
+      // Closing - return focus to trigger only if focus is currently inside
       // the (now-unmounting) menu. If the user clicked outside, focus has
       // already moved elsewhere; don't yank it back.
       const focusInsideMenu =
@@ -330,7 +330,7 @@ export function DropdownFloat({
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Only the dropdown that owns the focus closes on Escape — otherwise
+        // Only the dropdown that owns the focus closes on Escape - otherwise
         // pressing Escape inside a nested submenu would close the parent too.
         // Walk from `document.activeElement` to its closest panel; if that
         // panel exists and isn't this one, ignore (the topmost dropdown's
@@ -371,7 +371,7 @@ export function DropdownFloat({
         case 'Tab': {
           // Per WAI-ARIA menu pattern, Tab dismisses the menu and lets the
           // browser advance focus to the next page focusable. We close the
-          // menu but DON'T preventDefault — the natural Tab continues from
+          // menu but DON'T preventDefault - the natural Tab continues from
           // the trigger after focus is restored.
           onOpenChange(false)
           break
@@ -415,7 +415,7 @@ export function DropdownFloat({
           {open && (
             // Outer wrapper carries the fixed positioning + (for centred
             // placements only) a `translateX(-50%)`. Keeping the centring
-            // transform off the motion.div is essential — framer-motion's
+            // transform off the motion.div is essential - framer-motion's
             // `scale` transform would otherwise collide with translate, and
             // we'd lose the centre alignment as soon as the menu animates.
             <div
@@ -455,7 +455,7 @@ DropdownFloat.displayName = 'Dropdown.Float'
 //   1. Opens on hover/focus (80 ms intent delay) and closes on leave
 //      (220 ms grace period). Keyboard also opens.
 //   2. Anchors VERTICALLY to the trigger row, HORIZONTALLY to the parent
-//      dropdown panel — the submenu sits 8 px to the right of the parent
+//      dropdown panel - the submenu sits 8 px to the right of the parent
 //      card's edge so the visible gap is consistent.
 //   3. Vertically auto-flips: defaults to top-aligned with the trigger row.
 //      If the submenu would overflow the viewport bottom, the bottom-edge
@@ -495,12 +495,12 @@ const SAFE_TRIANGLE_PAD   = 10     // px extension beyond submenu top/bottom
 
 export interface DropdownSubmenuProps {
   /**
-   * The trigger row — typically a `<Dropdown.Item rightIcon={<ArrowRightOneIcon />}>`.
+   * The trigger row - typically a `<Dropdown.Item rightIcon={<ArrowRightOneIcon />}>`.
    * Receives a wrapping `<span>` ref + hover/focus/keyboard handlers via
    * the wrapper, so the trigger element itself is unmodified.
    */
   trigger: React.ReactElement
-  /** Submenu contents — typically a `<Dropdown size="md">` with one or more sections. */
+  /** Submenu contents - typically a `<Dropdown size="md">` with one or more sections. */
   children: React.ReactNode
   /** Optional: controlled open state. Omit for uncontrolled. */
   open?: boolean
@@ -612,7 +612,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     const panelWidth  = p.offsetWidth
     const panelHeight = p.offsetHeight
 
-    // Horizontal placement — default opens to the right of the parent panel
+    // Horizontal placement - default opens to the right of the parent panel
     // (8 px gap, KDS standard). When that would overflow the viewport's
     // right edge AND the LEFT side has room, flip to open on the left of
     // the parent panel. The transform-origin follows the chosen edge so the
@@ -646,7 +646,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     if (open) recompute()
   }, [open, recompute])
 
-  // Pointer-move tracker — feeds `cursorRef` and manages the frozen vertex.
+  // Pointer-move tracker - feeds `cursorRef` and manages the frozen vertex.
   // Only mouse pointers participate in the safe triangle; touch / pen
   // pointers fall through to the standard close-grace flow.
   React.useEffect(() => {
@@ -682,7 +682,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     }
   }, [open, recompute])
 
-  // rAF loop — runs only while open. Per frame:
+  // rAF loop - runs only while open. Per frame:
   //   • If cursor is inside the submenu rect → clear close, restore
   //     pointer-events on the parent panel.
   //   • Else if a vertex is frozen → check the grace triangle. Inside →
@@ -743,7 +743,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     return () => {
       cancelled = true
       cancelAnimationFrame(rafIdRef.current)
-      // Always restore pointer-events on teardown — never leave the parent
+      // Always restore pointer-events on teardown - never leave the parent
       // panel inert if the submenu unmounts mid-interaction.
       if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
     }
@@ -756,7 +756,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
     scheduleClose(SUBMENU_CLOSE_DELAY)
   }, [scheduleClose])
 
-  // Keyboard wiring on the wrapper span — applies to whatever focusable
+  // Keyboard wiring on the wrapper span - applies to whatever focusable
   // element lives inside the trigger row.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
@@ -797,11 +797,11 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
           // Only open the submenu when focus arrives via a real keyboard
           // gesture (Tab / arrow keys / Enter on the trigger). The parent
           // `Dropdown.Float` programmatically focuses `items[0]` one frame
-          // after open — for a mouse click that focus is NOT `:focus-visible`,
+          // after open - for a mouse click that focus is NOT `:focus-visible`,
           // and we must not auto-open the first submenu just because the
           // dropdown was opened. (Without this gate, clicking a Filter button
           // whose first row is a submenu trigger would immediately cascade
-          // into the first submenu — the original bug surfaced in the
+          // into the first submenu - the original bug surfaced in the
           // Pinboard Filter dropdown.)
           const target = e.target as HTMLElement
           if (typeof target.matches === 'function' && target.matches(':focus-visible')) {

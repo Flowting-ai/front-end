@@ -12,11 +12,11 @@ const PANEL_SHADOW =
   '0 19px 32px 8px rgba(18,12,8,0.15), 0 2px 2.8px 0 rgba(130,122,116,0.10), 0 0 0 1px var(--neutral-100)'
 
 const SIDEBAR_W   = 240
-const CVW_WIDTH   = 644   // Content Vertical Wrapper — 2 × 314 + 8 gap + 8 buffer
+const CVW_WIDTH   = 644   // Content Vertical Wrapper - 2 × 314 + 8 gap + 8 buffer
 const CVW_HEIGHT  = 788
 const ROW_GAP     = 32
 
-// ── Internal — Sidebar section header + row placeholder ──────────────────────
+// ── Internal - Sidebar section header + row placeholder ──────────────────────
 
 function SidebarSection({
   rows,
@@ -36,7 +36,7 @@ function SidebarSection({
         overflow:      'hidden',
       }}
     >
-      {/* Section label — small dim text bar */}
+      {/* Section label - small dim text bar */}
       <div
         className="kaya-skeleton"
         style={{ width: 92, height: 12, borderRadius: 4, marginBottom: 4 }}
@@ -121,7 +121,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
       }}
       {...props}
     >
-      {/* ── Outer pinboard — flex row, items-center, px-8 (mirrors PinboardExpanded root) ── */}
+      {/* ── Outer pinboard - flex row, items-center, px-8 (mirrors PinboardExpanded root) ── */}
       <div
         style={{
           display:      'flex',
@@ -133,7 +133,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
           overflow:     'hidden',
         }}
       >
-        {/* ── Sidebar Container — Figma 2565:32601 ── */}
+        {/* ── Sidebar Container - Figma 2565:32601 ── */}
         <div
           style={{
             display:        'flex',
@@ -145,7 +145,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
             background:     'var(--neutral-50)',
           }}
         >
-          {/* Sidebar Wrapper — Figma 2565:32602 (radius 20, translucent bg, ring shadow) */}
+          {/* Sidebar Wrapper - Figma 2565:32602 (radius 20, translucent bg, ring shadow) */}
           <div
             style={{
               display:      'flex',
@@ -179,7 +179,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
           </div>
         </div>
 
-        {/* ── Content Container — Figma 2565:34101 ── */}
+        {/* ── Content Container - Figma 2565:34101 ── */}
         <div
           style={{
             display:        'flex',
@@ -192,7 +192,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
             zIndex:         1,
           }}
         >
-          {/* Content Wrapper — Figma 2565:34102 (flex-1, p-12, r-20, overflow-clip) */}
+          {/* Content Wrapper - Figma 2565:34102 (flex-1, p-12, r-20, overflow-clip) */}
           <div
             style={{
               display:      'flex',
@@ -204,7 +204,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
               overflow:     'hidden',
             }}
           >
-            {/* Content Vertical Wrapper — Figma 2565:34103 (644 × 788, gap 24) */}
+            {/* Content Vertical Wrapper - Figma 2565:34103 (644 × 788, gap 24) */}
             <div
               style={{
                 display:        'flex',
@@ -216,7 +216,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                 height:         CVW_HEIGHT,
               }}
             >
-              {/* ── Header — Figma 2565:34104 ── */}
+              {/* ── Header - Figma 2565:34104 ── */}
               <div
                 style={{
                   display:    'flex',
@@ -226,7 +226,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                   flexShrink: 0,
                 }}
               >
-                {/* Pins Info — Title + 2 badges */}
+                {/* Pins Info - Title + 2 badges */}
                 <div
                   style={{
                     display:        'flex',
@@ -245,13 +245,13 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                     />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-                    {/* Two Badge skeletons — Neutral, ~24 tall */}
+                    {/* Two Badge skeletons - Neutral, ~24 tall */}
                     <div className="kaya-skeleton" style={{ width: 64, height: 22, borderRadius: 6 }} />
                     <div className="kaya-skeleton" style={{ width: 96, height: 22, borderRadius: 6 }} />
                   </div>
                 </div>
 
-                {/* Actions — Organise (sm Button, ~32 tall) + Close (sm IconButton 32×32) */}
+                {/* Actions - Organise (sm Button, ~32 tall) + Close (sm IconButton 32×32) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <div className="kaya-skeleton" style={{ width: 108, height: 32, borderRadius: 8 }} />
                   <div className="kaya-skeleton" style={{ width: 32,  height: 32, borderRadius: 8 }} />
@@ -269,7 +269,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                   width:          '100%',
                 }}
               >
-                {/* ── Tabs Container — Figma 2565:34112 (gap 32) ── */}
+                {/* ── Tabs Container - Figma 2565:34112 (gap 32) ── */}
                 <div
                   style={{
                     display:    'flex',
@@ -279,7 +279,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                     flexShrink: 0,
                   }}
                 >
-                  {/* Tabs strip — fills left, snaps width via flex */}
+                  {/* Tabs strip - fills left, snaps width via flex */}
                   <div
                     style={{
                       flex:     '1 0 0',
@@ -299,7 +299,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                     ))}
                   </div>
 
-                  {/* Secondary Actions cluster — Search (32) + Export, Filter, Sort (32 each) */}
+                  {/* Secondary Actions cluster - Search (32) + Export, Filter, Sort (32 each) */}
                   <div
                     style={{
                       display:        'flex',
@@ -319,7 +319,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                   </div>
                 </div>
 
-                {/* ── Scrollable Pin Cards Grid — 2-column flex (mirrors real layout) ── */}
+                {/* ── Scrollable Pin Cards Grid - 2-column flex (mirrors real layout) ── */}
                 <div
                   style={{
                     position:   'relative',
@@ -373,7 +373,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                     </div>
                   </div>
 
-                  {/* Top + bottom edge fades — same pattern as the real grid */}
+                  {/* Top + bottom edge fades - same pattern as the real grid */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },

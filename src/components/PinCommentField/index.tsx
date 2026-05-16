@@ -12,7 +12,7 @@ const MIN_HEIGHT = 16
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
-// Drop shadow is 0px 1px 2px — shallower than the chat-input family (0px 2px 2.8px)
+// Drop shadow is 0px 1px 2px - shallower than the chat-input family (0px 2px 2.8px)
 const SHADOW_DEFAULT = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10)'
 const SHADOW_HOVER   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10), 0px 0px 0px 3px var(--neutral-100-60)'
 const SHADOW_FOCUS   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--focus-ring)'
@@ -23,7 +23,7 @@ export interface PinCommentFieldProps
   extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'children'> {
   /** Stretch to fill parent width instead of fixed 292px */
   fluid?: boolean
-  /** Accessible label for the textarea — required when no visible <label> is present */
+  /** Accessible label for the textarea - required when no visible <label> is present */
   'aria-label'?: string
 }
 
@@ -50,7 +50,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
 
-    // Internal value — we own this to enforce the 2-line limit.
+    // Internal value - we own this to enforce the 2-line limit.
     const [value,    setValue]    = useState((defaultValue as string) ?? '')
     // Height is React state so it survives re-renders without being reset by
     // the style prop. Starts at 1 line; useLayoutEffect corrects for defaultValue.
@@ -105,7 +105,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
         setValue(e.target.value)
         externalChange?.(e)
       } else {
-        // Reject — restore previous valid value and shake.
+        // Reject - restore previous valid value and shake.
         ta.value = value
         shakeControls.start({
           x: [0, -3, 3, -2, 2, -1, 1, 0],
@@ -114,7 +114,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       }
     }
 
-    // Block Enter — second line comes from word wrap only.
+    // Block Enter - second line comes from word wrap only.
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter') e.preventDefault()
       externalKeyDown?.(e)

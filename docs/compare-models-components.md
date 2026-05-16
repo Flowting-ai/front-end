@@ -1,4 +1,4 @@
-# Compare Models — Component Spec Sheet
+# Compare Models - Component Spec Sheet
 
 **Product:** Souvenir AI · **Feature:** Compare Models  
 **File:** Kaya Design System · **Page:** Compare Models  
@@ -148,9 +148,9 @@ State=Empty:
 | Property | Type | Default | Applies to |
 |---|---|---|---|
 | `State` | VARIANT | `Filled` | Switches between Filled ↔ Empty |
-| `Model Name` | TEXT | `OpenAI/GPT-5 mini` | Filled — name text node |
-| `Slot Label` | TEXT | `Empty Slot 2` | Empty — placeholder label text |
-| `Visible` | BOOLEAN | `true` | Both — show/hide the slot entirely |
+| `Model Name` | TEXT | `OpenAI/GPT-5 mini` | Filled - name text node |
+| `Slot Label` | TEXT | `Empty Slot 2` | Empty - placeholder label text |
+| `Visible` | BOOLEAN | `true` | Both - show/hide the slot entirely |
 
 ### Exposed Nested Instances
 
@@ -208,7 +208,7 @@ State=Empty:
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `Model Name` | TEXT | `OpenAI/GPT-5 mini` | Header model identifier — bold provider + model name |
+| `Model Name` | TEXT | `OpenAI/GPT-5 mini` | Header model identifier - bold provider + model name |
 | `Response Body` | TEXT | `Model response appears here...` | Full response content area |
 
 ### Exposed Nested Instances
@@ -301,10 +301,10 @@ The active tab has a white elevated background with rounded top corners and brac
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `Selected Tab` | VARIANT | `1` | Controls which tab is active (1, 2, or 3) |
-| `Tab 1 Model Name` | TEXT | `Anthropic/Claude Sonnet 4.6` | Text in the first tab header — bound across all 3 variants |
+| `Tab 1 Model Name` | TEXT | `Anthropic/Claude Sonnet 4.6` | Text in the first tab header - bound across all 3 variants |
 | `Tab 2 Model Name` | TEXT | `Anthropic/Claude Sonnet 4.6` | Text in the second tab header |
 | `Tab 3 Model Name` | TEXT | `Anthropic/Claude Sonnet 4.6` | Text in the third tab header |
-| `Response Body` | TEXT | Long response string | Active content area — bound across all 3 variants |
+| `Response Body` | TEXT | Long response string | Active content area - bound across all 3 variants |
 
 ### Exposed Nested Instances (per variant)
 
@@ -387,8 +387,8 @@ Has Text=true (active):
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `Has Text` | VARIANT | `false` | Switches between placeholder ↔ active state |
-| `Placeholder Text` | TEXT | `How can I help you today?` | Shown when `Has Text=false` — muted grey |
-| `Input Text` | TEXT | `How do I make a landing page that converts?` | Shown when `Has Text=true` — primary text color |
+| `Placeholder Text` | TEXT | `How can I help you today?` | Shown when `Has Text=false` - muted grey |
+| `Input Text` | TEXT | `How do I make a landing page that converts?` | Shown when `Has Text=true` - primary text color |
 
 ### Exposed Nested Instances
 
@@ -460,14 +460,14 @@ Compare modal opens
 
 ### Exposed Badge instances
 
-All stats badges (`Latency`, `Tokens`, `Credits`) use the **Kaya Badge** component. When creating an instance of any output component, override the badge via the "nested instances" section in the right panel — no detach needed.
+All stats badges (`Latency`, `Tokens`, `Credits`) use the **Kaya Badge** component. When creating an instance of any output component, override the badge via the "nested instances" section in the right panel - no detach needed.
 
 Available `Color` variants for badges:
-- `Neutral` — `#EDE1D7` bg / `#524B47` text (default for stats)
-- `Green` — `#F7FEE6` bg / `#456211` text (positive/highlight)
-- `Brown` — `#E6D5CA` bg / `#683D1B` text (tier/plan)
-- `Red` — `#FFBFB6` bg / `#7A201C` text (context/limit)
-- `Blue` — `#CADCF1` bg / `#135487` text (info)
+- `Neutral` - `#EDE1D7` bg / `#524B47` text (default for stats)
+- `Green` - `#F7FEE6` bg / `#456211` text (positive/highlight)
+- `Brown` - `#E6D5CA` bg / `#683D1B` text (tier/plan)
+- `Red` - `#FFBFB6` bg / `#7A201C` text (context/limit)
+- `Blue` - `#CADCF1` bg / `#135487` text (info)
 
 ### Icon swap pattern
 

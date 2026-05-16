@@ -27,16 +27,16 @@ import { Dropdown } from '@/components/Dropdown'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SHADOW_CARD    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
-const DRAG_THRESHOLD = 8   // px to commit collapse when already expanded — small upward drag is enough
+const DRAG_THRESHOLD = 8   // px to commit collapse when already expanded - small upward drag is enough
 const LINE_HEIGHT_PX = 16  // --line-height-caption, one description line
 const MAX_SNAP_LINES = 12  // auto-expand triggers if user drags beyond this many extra lines
 
-// User-added tag colours — every committed tag picks one of these. Neutral is
+// User-added tag colours - every committed tag picks one of these. Neutral is
 // excluded so backend (Neutral) and user-added (coloured) badges are visually
 // distinct at a glance. Override per-instance via the `userTagColors` prop.
 const USER_TAG_COLOR_POOL: BadgeColor[] = ['Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Brown']
 
-// In-place swap (Add-tag chip ↔ ChipInput) — matches the KDS in-place text
+// In-place swap (Add-tag chip ↔ ChipInput) - matches the KDS in-place text
 // swap pattern. Same constants Chip uses, same spring values.
 const SWAP_SPRING  = { type: 'spring' as const, stiffness: 500, damping: 30 }
 const SWAP_INITIAL = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
@@ -46,7 +46,7 @@ const SWAP_INSTANT = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
 
 // ── useMeasure ────────────────────────────────────────────────────────────────
 // Wraps ResizeObserver to track an element's border-box dimensions.
-// Returns [ref, bounds] — attach ref to the INNER element, animate the OUTER.
+// Returns [ref, bounds] - attach ref to the INNER element, animate the OUTER.
 // Uses borderBoxSize (includes padding) not contentRect (excludes padding).
 
 function useMeasure() {
@@ -75,7 +75,7 @@ function useMeasure() {
 // Small Neutral pill with a + icon and "Add tag" label, used as the trigger
 // for the in-Pin add-tag affordance. Visually identical to a Chip Small
 // (Neutral) so it sits naturally alongside the badge row, but it's a single
-// <button> — the whole pill is clickable, not just the leading icon button.
+// <button> - the whole pill is clickable, not just the leading icon button.
 //
 // We don't reuse <Chip size="Small"> here because Chip's left ChipButton is
 // semantically a remove/dismiss action and routes its click via `onRemove`.
@@ -85,7 +85,7 @@ function AddTagChip({ onClick, disabled = false }: { onClick: () => void; disabl
   return (
     <button
       type="button"
-      // NOT setting the native `disabled` attribute — at-cap clicks still
+      // NOT setting the native `disabled` attribute - at-cap clicks still
       // need to fire so the parent (Pin) can drive the shake-rejection
       // animation. The visual treatment + ARIA state communicates "you can't
       // act on this," and the parent decides what `onClick` does (open the
@@ -106,7 +106,7 @@ function AddTagChip({ onClick, disabled = false }: { onClick: () => void; disabl
         // not-allowed cursor. The disabled state was added to `Chip` first
         // (atom-level); AddTagChip applies the same treatment without
         // refactoring to use Chip directly because Chip's left ChipButton is
-        // semantically a remove action — repurposing it for an add trigger
+        // semantically a remove action - repurposing it for an add trigger
         // would muddle the API.
         cursor:          disabled ? 'not-allowed' : 'pointer',
         opacity:         disabled ? 0.7 : 1,
@@ -115,7 +115,7 @@ function AddTagChip({ onClick, disabled = false }: { onClick: () => void; disabl
       }}
     >
       {/* Mirrors a Chip Small ChipButton box (16×16, 1px padding around a
-          14×14 icon). No interactive treatment — the whole chip is the click
+          14×14 icon). No interactive treatment - the whole chip is the click
           target so we don't want a button-in-button hover state. */}
       <span
         aria-hidden
@@ -145,7 +145,7 @@ function AddTagChip({ onClick, disabled = false }: { onClick: () => void; disabl
       >
         Add tag
       </span>
-      {/* Inner depth/highlight shadow — same overlay pattern as Chip Small. */}
+      {/* Inner depth/highlight shadow - same overlay pattern as Chip Small. */}
       <span
         aria-hidden
         style={{
@@ -179,7 +179,7 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   /** When this number changes, the pin collapses if it's currently expanded.
    *  Used by Pinboard's "collapse all" action. Initial value is ignored. */
   collapseSignal?:  number
-  /** Fires when the pin's "open" state changes — true whenever it's showing
+  /** Fires when the pin's "open" state changes - true whenever it's showing
    *  more than the default 2 lines (either fully expanded OR dragged to an
    *  intermediate snap point with `extraLines > 0`). Pinboard uses this to
    *  show/hide the "collapse all" button. */
@@ -207,7 +207,7 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   /**
    * Override the colour pool used when a tag is committed. A random colour is
    * picked from this list per tag. Default: every non-Neutral colour
-   * (`['Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Brown']`) — Neutral is
+   * (`['Blue', 'Red', 'Green', 'Yellow', 'Purple', 'Brown']`) - Neutral is
    * excluded so backend (Neutral) and user-added (coloured) badges are
    * visually distinct.
    */
@@ -215,7 +215,7 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   /**
    * When `true`, render every tag (backend labels + user-added) as a deletable
    * `<Chip size="Small">` with an inline `×` button instead of a read-only
-   * `<Badge>`. Set by `PinboardExpanded` only — the compact `Pinboard` and
+   * `<Badge>`. Set by `PinboardExpanded` only - the compact `Pinboard` and
    * the inline drag-expanded Pin keep tags read-only because edit affordances
    * don't fit the row-density there.
    * @default false
@@ -224,7 +224,7 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   /**
    * Externally-controlled set of original-array indices that have been deleted
    * from `labels`. When provided, Pin filters them at render time and does
-   * NOT mutate any internal state — the consumer owns the deletion record.
+   * NOT mutate any internal state - the consumer owns the deletion record.
    * Pair with `onDeleteTag('label', i)` to keep the set in sync. Used by
    * `Pinboard` to persist deletions across the compact ↔ expanded transition
    * (without lifting, each Pin remount would lose its tracked deletions).
@@ -236,7 +236,7 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
    * `tagsEditable` is true). `source: 'label'` means the tag came from the
    * backend `labels` prop; `'user'` means it came from the user-added pool.
    * `index` is local to that source list. The Pin removes the tag from its
-   * own internal state regardless — the callback is for consumers to mirror
+   * own internal state regardless - the callback is for consumers to mirror
    * the change in their own data layer (e.g. PATCH the pin record).
    */
   onDeleteTag?:     (index: number, source: 'label' | 'user') => void
@@ -266,9 +266,9 @@ export const PIN_TAG_CAP = 5
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_DESCRIPTION =
-  'The key distinction is that replicants possess implanted memories, making their emotional responses genuine even if their origins are artificial. This creates a philosophical paradox where authenticity of experience doesn\'t require authenticity of origin.\n\nEmpathy remains the defining boundary — the Voigt-Kampff test measures involuntary empathic response, suggesting that genuine emotional capacity, not memory or intelligence, separates human from artificial.\n\nRoy Batty\'s final monologue crystallises this tension — a being designed for servitude articulating loss, beauty, and mortality with a depth that confounds any clean distinction between programmed behaviour and genuine consciousness.'
+  'The key distinction is that replicants possess implanted memories, making their emotional responses genuine even if their origins are artificial. This creates a philosophical paradox where authenticity of experience doesn\'t require authenticity of origin.\n\nEmpathy remains the defining boundary - the Voigt-Kampff test measures involuntary empathic response, suggesting that genuine emotional capacity, not memory or intelligence, separates human from artificial.\n\nRoy Batty\'s final monologue crystallises this tension - a being designed for servitude articulating loss, beauty, and mortality with a depth that confounds any clean distinction between programmed behaviour and genuine consciousness.'
 
-// Backend-supplied labels render as Neutral by default — Neutral is the
+// Backend-supplied labels render as Neutral by default - Neutral is the
 // "system / read-only" colour. The user-added affordance commits new tags
 // with non-Neutral colours, making the two visually distinct.
 const DEFAULT_LABELS: PinLabel[] = [
@@ -317,7 +317,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
 
-    // Selectable checkbox — controlled / uncontrolled. Internal state only
+    // Selectable checkbox - controlled / uncontrolled. Internal state only
     // applies in selectable mode; outside it the checkbox is unmounted.
     const isSelectedControlled = selected !== undefined
     const [internalSelected, setInternalSelected] = useState(defaultSelected)
@@ -338,7 +338,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     // Shake controls for the leading add-tag slot (whichever of AddTagChip /
     // ChipInput is currently rendered there). Triggered when the user tries
-    // to add another tag past `PIN_TAG_CAP` — same x-keyframes / duration /
+    // to add another tag past `PIN_TAG_CAP` - same x-keyframes / duration /
     // easing as the PinCommentField 2-line cap and the ChipInput 30-char
     // cap, so "you've hit a limit" reads identically across the system.
     const addTagShakeControls = useAnimation()
@@ -350,7 +350,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }, [addTagShakeControls])
 
     // ── More-options menu (ellipsis IconButton) ──────────────────────────────
-    // Mounted via <Dropdown.Float> with placement="bottom-end" — that helper
+    // Mounted via <Dropdown.Float> with placement="bottom-end" - that helper
     // handles the portal-to-body, click-outside, Escape, scroll/resize
     // re-anchoring, and the 8 px gap automatically. Figma 3139:36280.
     const [menuOpen, setMenuOpen] = useState(false)
@@ -358,7 +358,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       setMenuOpen(false)
       cb?.()
     }
-    // Stable IDs per tag — needed for the layout animation when a new tag
+    // Stable IDs per tag - needed for the layout animation when a new tag
     // pushes the existing ones to the right. With index-based keys, framer
     // would treat each position as "the same element" and animate the wrong
     // values. UUIDs let it match each tag to its own DOM node across reorders.
@@ -367,7 +367,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     // Backend labels deleted by the user. The `labels` prop is consumer-owned
     // and read-only at this surface, so when the user clicks `×` on a backend
-    // label we don't mutate the prop — we just filter the index out at render
+    // label we don't mutate the prop - we just filter the index out at render
     // time. Two modes:
     //  - **Controlled**: `deletedLabelIndices` prop is passed (e.g. by
     //    Pinboard, which lifts the set so it survives the compact ↔ expanded
@@ -388,7 +388,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const atTagCap      = totalTagCount >= PIN_TAG_CAP
 
     const handleDeleteLabel = (originalIndex: number) => {
-      // Only mutate internal state when uncontrolled — otherwise the consumer
+      // Only mutate internal state when uncontrolled - otherwise the consumer
       // (typically Pinboard) owns the deleted-set and the callback is their
       // cue to update it.
       if (!isLabelsControlled) {
@@ -413,7 +413,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     // ── Labels row scroll state ────────────────────────────────────────────────
     // Drives the edge fade overlays (left/right) and the drag-to-scroll grab
-    // cursor. Same model as the Tabs scroll strip — atStart/atEnd flip on
+    // cursor. Same model as the Tabs scroll strip - atStart/atEnd flip on
     // scroll, overflowing flips on content/size change, dragging flips on
     // pointer drag past a 4 px threshold.
     const labelsRowRef = useRef<HTMLDivElement>(null)
@@ -446,7 +446,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       if (!labelsOverflowing) return
       if (e.pointerType === 'touch') return
       if (e.button !== 0) return
-      // Inputs / textareas / selects keep their native text-selection drag —
+      // Inputs / textareas / selects keep their native text-selection drag -
       // we don't want to hijack that into a row-scroll. Buttons (chip `×`
       // ChipButton, AddTag chip) DO arm the drag: pointer-up within 4 px
       // fires the button's click as normal (delete fires); dragging past
@@ -523,7 +523,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
         setInternalUserTags(prev => [{ id, color, text }, ...prev])
       }
       setTagInputValue('')
-      // Reveal the just-added tag — if the user scrolled away from the start
+      // Reveal the just-added tag - if the user scrolled away from the start
       // before adding, scroll back so the new tag is visible. rAF ensures the
       // new DOM node is in place before scrolling.
       requestAnimationFrame(() => {
@@ -547,7 +547,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const handleTagInputBlur = () => {
       // Blur with empty value → swap back to the chip. With a value present,
       // we leave the input visible so a click elsewhere doesn't silently
-      // discard typed text — the user must explicitly Enter or Escape.
+      // discard typed text - the user must explicitly Enter or Escape.
       if (!tagInputValue.trim()) {
         setAddTagMode('chip')
       }
@@ -570,12 +570,12 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // Tracks the last pointer move sample for velocity calculation on release.
     const lastMoveRef = useRef({ y: 0, time: 0 })
 
-    // cardHeightMV — single source of truth for card height.
+    // cardHeightMV - single source of truth for card height.
     // set() during drag (instant, cursor-locked), animate() at rest (spring).
     const cardHeightMV = useMotionValue(0)
 
     // OS-level reduce-motion preference. When true, programmatic height
-    // changes snap instantly. The drag gesture itself stays responsive —
+    // changes snap instantly. The drag gesture itself stays responsive -
     // it's direct manipulation, not an animation.
     const reduceMotion = useReducedMotion() ?? false
 
@@ -615,7 +615,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // Pinboard "collapse all" button and respond to its click.
     const isOpen = isExpanded || extraLines > 0
 
-    // External collapse trigger — Pinboard increments `collapseSignal` to fold
+    // External collapse trigger - Pinboard increments `collapseSignal` to fold
     // every open pin. Initial value is captured and skipped so a freshly
     // mounted Pin doesn't collapse on first render.
     const isOpenRef = useRef(isOpen)
@@ -646,11 +646,11 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     // Max px the card can grow past its natural height on downward drag.
     const MAX_OVERSHOOT = 32
-    // Elastic factor for downward drag — card grows at this fraction of cursor speed.
+    // Elastic factor for downward drag - card grows at this fraction of cursor speed.
     // Gives progressively-feeling resistance; spring on release snaps it back.
     const ELASTIC_FACTOR = 0.2
 
-    // ── Handle drag — unified pointer events for all states ───────────────────
+    // ── Handle drag - unified pointer events for all states ───────────────────
     // The handle sits at position:absolute bottom:4px and follows the card
     // naturally as cardHeightMV changes. No separate y transform needed.
 
@@ -691,13 +691,13 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           cardHeightMV.set(dragInfo.current.startHeight + clampedDelta)
         } else {
           if (rawDelta > 0) {
-            // ── Expanded, dragging down — elastic resistance ──────────────
+            // ── Expanded, dragging down - elastic resistance ──────────────
             // Card grows at ELASTIC_FACTOR of cursor speed, capped at MAX_OVERSHOOT.
-            // Handle moves 1:1 with card (bottom:4px) — no transform mismatch.
+            // Handle moves 1:1 with card (bottom:4px) - no transform mismatch.
             const stretch = Math.min(rawDelta * ELASTIC_FACTOR, MAX_OVERSHOOT)
             cardHeightMV.set(dragInfo.current.startHeight + stretch)
           } else {
-            // ── Expanded, dragging up — linear toward collapse ────────────
+            // ── Expanded, dragging up - linear toward collapse ────────────
             cardHeightMV.set(Math.max(dragInfo.current.startHeight + rawDelta, 60))
           }
         }
@@ -727,7 +727,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           // contentBounds update → animate(cardHeightMV, newH, spring)
         }
       } else {
-        // Velocity in px/ms — negative means moving up.
+        // Velocity in px/ms - negative means moving up.
         // A quick flick (< -0.3 px/ms) collapses even with a short drag distance.
         const dt = performance.now() - lastMoveRef.current.time
         const velocity = dt > 0 ? (e.clientY - lastMoveRef.current.y) / dt : 0
@@ -810,7 +810,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           externalLeave?.(e as unknown as React.MouseEvent<HTMLDivElement>)
         }}
         onClickCapture={(e) => {
-          // In selectable mode, the entire pin is the click target — toggle
+          // In selectable mode, the entire pin is the click target - toggle
           // the checkbox. Clicks on the checkbox itself stopPropagation below
           // so they don't double-fire here.
           if (selectable) {
@@ -821,7 +821,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
         {...(props as object)}
       >
 
-        {/* ── Inner content div — measured by useMeasure ──────────────────────
+        {/* ── Inner content div - measured by useMeasure ──────────────────────
             Contains only in-flow content. Drag handle and action bars are
             SIBLINGS of this div (children of the outer motion.div) so their
             bottom:0 is relative to the outer clip boundary, not this div.
@@ -844,7 +844,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           {/* ── Header row ── */}
           <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-start', width: '100%', flexShrink: 0 }}>
             <div style={{ display: 'flex', flex: '1 0 0', gap: '12px', alignItems: 'flex-start', minWidth: 0 }}>
-              {/* ── Category ↔ Checkbox slot — crossfade via AnimatePresence ──
+              {/* ── Category ↔ Checkbox slot - crossfade via AnimatePresence ──
                    44×44 fixed slot. PinCategory exits as the checkbox + frame
                    enters (Figma 3457:21629 / 3457:22917). KDS standard preset:
                    scale 0.85 → 1, opacity 0 → 1, blur 4px → 0, spring 500/30. */}
@@ -857,7 +857,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                       animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
                       exit={{    scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                      // Outer pin owns the click target in selectable mode —
+                      // Outer pin owns the click target in selectable mode -
                       // suppress propagation so the checkbox's own onClick
                       // doesn't fire AND bubble up to the pin (double-toggle).
                       onClick={(e) => e.stopPropagation()}
@@ -900,7 +900,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   color:              'var(--neutral-900)',
                   // Clamp to a maximum of 2 lines; anything beyond truncates
                   // with an ellipsis. Uses `-webkit-line-clamp` with the
-                  // `-webkit-box` display model — supported in every modern
+                  // `-webkit-box` display model - supported in every modern
                   // engine (Chromium, WebKit, Firefox 68+).
                   display:            '-webkit-box',
                   WebkitLineClamp:    2,
@@ -967,7 +967,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               non-Neutral colour assigned at commit time. The colour split is what
               visually distinguishes "added by the system" from "added by me".
 
-              Layout: single horizontal line — never wraps. Overflow scrolls
+              Layout: single horizontal line - never wraps. Overflow scrolls
               horizontally. Scrollbar is hidden (the row is small pills; a
               chunky native scrollbar would dominate). Same gesture-as-
               affordance reasoning as the Tabs strip. */}
@@ -1007,7 +1007,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               userSelect:          labelsDragging ? 'none' : undefined,
             }}
           >
-            {/* Shake-controlled wrapper around the add-tag slot — drives the
+            {/* Shake-controlled wrapper around the add-tag slot - drives the
                 rejection animation when the user tries to add past
                 PIN_TAG_CAP. Wraps both modes so it shakes the AddTag chip OR
                 the ChipInput, whichever is rendered. */}
@@ -1026,7 +1026,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                       disabled={atTagCap}
                       onClick={() => {
                         if (atTagCap) {
-                          // At cap — shake instead of opening the input.
+                          // At cap - shake instead of opening the input.
                           triggerAddTagShake()
                           return
                         }
@@ -1059,7 +1059,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               </AnimatePresence>
             </motion.div>
 
-            {/* User-added tags come BEFORE backend labels — newest sits right
+            {/* User-added tags come BEFORE backend labels - newest sits right
                 after the AddTagChip and pushes existing ones to the right.
                 `layout` on each motion.span animates the slide; AnimatePresence
                 with the in-place-swap pattern animates each new tag's enter.
@@ -1204,13 +1204,13 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           </div>
 
           {/* ── Description ──
-              showFull (isDragging | isExpanded): unclamped — card clips at dragHeight
+              showFull (isDragging | isExpanded): unclamped - card clips at dragHeight
               at rest with extraLines > 0: cage grows by extraLines × 16px
               at rest collapsed: 2-line cage (32px)                              ── */}
           {(() => {
             const visibleLines  = 2 + extraLines           // base 2 + settled extra
             // +12px when showing extra lines so the last snapped line is never
-            // half-clipped — the line-height token alone lands 12px short visually
+            // half-clipped - the line-height token alone lands 12px short visually
             const cageH         = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0)
             return (
               <div
@@ -1233,7 +1233,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                     lineHeight: 'var(--line-height-caption)',
                     color:      'var(--neutral-500)',
                     // showFull (drag/expanded): unclamped pre-wrap
-                    // intermediate (extraLines > 0): pre-wrap + overflow:hidden — preserves \n paragraph breaks
+                    // intermediate (extraLines > 0): pre-wrap + overflow:hidden - preserves \n paragraph breaks
                     // collapsed (extraLines = 0): -webkit-line-clamp for ellipsis on 2 lines
                     ...(showFull || extraLines > 0
                       ? { whiteSpace: 'pre-wrap' }
@@ -1269,7 +1269,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
             )}
           </AnimatePresence>
 
-          {/* ── Inline action bar — expanded state (stays during drag) ── */}
+          {/* ── Inline action bar - expanded state (stays during drag) ── */}
           <AnimatePresence initial={false}>
             {isExpanded && (
               <motion.div
@@ -1287,7 +1287,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
         </div>
         {/* ── end inner content div ── */}
 
-        {/* ── Drag handle — child of OUTER motion.div ──────────────────────────
+        {/* ── Drag handle - child of OUTER motion.div ──────────────────────────
             Uses Framer's drag="y" for dragElastic + dragMomentum feel.
             handleY motion value drives dragHeight via onChange subscription.   ── */}
         <motion.div
@@ -1302,7 +1302,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           onDoubleClick={(e) => {
             e.stopPropagation()
             if (isExpanded) {
-              // Collapse — same path as collapseSignal / drag-collapse.
+              // Collapse - same path as collapseSignal / drag-collapse.
               collapsingRef.current = true
               setIsExpanded(false)
               setExtraLines(0)
@@ -1336,7 +1336,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           />
         </motion.div>
 
-        {/* ── Absolute action bar — child of OUTER motion.div ──────────────────
+        {/* ── Absolute action bar - child of OUTER motion.div ──────────────────
             AbsoluteActionBar is a dedicated component so useIsPresent can be
             called inside AnimatePresence (the hook must live in a child, not
             the parent where the conditional render happens).                 ── */}
@@ -1384,8 +1384,8 @@ function ExpandedMeta({ chatName }: { chatName: string }) {
 // parent where the conditional render happens.
 //
 // Animation design:
-//   Enter — slides up (y: 8→0) + fades in + unblurs: panel materialises from below
-//   Exit  — shorter slide (y: 0→4), same blur: eye needs less signal for departures
+//   Enter - slides up (y: 8→0) + fades in + unblurs: panel materialises from below
+//   Exit  - shorter slide (y: 0→4), same blur: eye needs less signal for departures
 //   useIsPresent → pointerEvents:none during exit so fast mouse-outs can't
 //                  accidentally trigger Insert during the 180ms fade
 
@@ -1415,7 +1415,7 @@ function AbsoluteActionBar({ onInsert, onComment, instant }: { onInsert?: () => 
         paddingRight:    '12px',
         paddingTop:      '8px',
         zIndex:          1,
-        // Disable clicks while the bar is animating out — prevents accidental
+        // Disable clicks while the bar is animating out - prevents accidental
         // "Insert" triggers during the exit fade (useIsPresent returns false
         // as soon as the exit animation begins).
         pointerEvents:   isPresent ? 'auto' : 'none',

@@ -10,7 +10,7 @@ export const auth0 = new Auth0Client({
     scope,
   },
 
-  // 30 s — generous enough to handle any cold-start latency in the proxy
+  // 30 s - generous enough to handle any cold-start latency in the proxy
   // runtime while still failing fast on genuine connectivity issues.
   httpTimeout: 30000,
 

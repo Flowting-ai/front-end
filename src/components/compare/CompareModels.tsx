@@ -642,7 +642,7 @@ function ModelCard({
         )}
       </div>
 
-      {/* Description — flex:1 pushes badge row to bottom */}
+      {/* Description - flex:1 pushes badge row to bottom */}
       <div style={{
         position:        "relative",
         fontSize:        11,
@@ -660,7 +660,7 @@ function ModelCard({
         {model.description}
       </div>
 
-      {/* Badge row — stays at bottom via marginTop auto */}
+      {/* Badge row - stays at bottom via marginTop auto */}
       <div style={{ position: "relative", display: "flex", alignItems: "center", paddingTop: 8, gap: 6, width: "100%", marginTop: "auto", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
           <Chip label={model.tierLabel}    color={tierColor} />

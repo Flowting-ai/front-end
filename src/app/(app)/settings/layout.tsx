@@ -6,7 +6,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     <div style={{ display: 'flex', width: '100%', height: '100%' }}>
       <SettingsSidebar />
 
-      {/* Content area — neutral-50 bg, padding matches main app layout */}
+      {/* Content area - neutral-50 bg, padding matches main app layout */}
       <div
         style={{
           flex:            '1 0 0',
@@ -17,7 +17,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           padding:         '10px 10px 10px 0',
         }}
       >
-        {/* Inner rounded card — mirrors the main app's center container */}
+        {/* Inner rounded card - mirrors the main app's center container */}
         <div
           style={{
             flex:            '1 0 0',

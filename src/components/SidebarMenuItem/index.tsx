@@ -26,46 +26,46 @@ export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElemen
   variant?: SidebarMenuItemVariant
   /** Primary label text */
   label?: string
-  /** Subtitle / email — account-item only */
+  /** Subtitle / email - account-item only */
   sublabel?: string
   /**
    * Icon for the `default` variant. Must be a `@strange-huge/icons` component
-   * that accepts a `triggered` prop — it will fire when the item is hovered.
+   * that accepts a `triggered` prop - it will fire when the item is hovered.
    * Defaults to `<LogoIcon size={20} />`.
    */
   icon?: React.ReactElement<{ triggered?: boolean }>
-  /** Avatar image URL — account-item only */
+  /** Avatar image URL - account-item only */
   avatarSrc?: string
-  /** Shortcut badge text — default variant only, e.g. '⌘ K' */
+  /** Shortcut badge text - default variant only, e.g. '⌘ K' */
   shortcut?: string
-  /** Click handler for the "..." more button — chat-item only */
+  /** Click handler for the "..." more button - chat-item only */
   onMoreClick?: React.MouseEventHandler<HTMLButtonElement>
   /**
-   * Called when the user triggers a rename via keyboard (double Enter within 400ms) — chat-item only.
+   * Called when the user triggers a rename via keyboard (double Enter within 400ms) - chat-item only.
    * Parent should switch to chat-item-edit variant.
    */
   onRename?: () => void
   /**
-   * Called when the user commits a rename — chat-item-edit only.
+   * Called when the user commits a rename - chat-item-edit only.
    * Receives the new label value. Triggered by Enter or blur.
    */
   onCommit?: (value: string) => void
   /**
-   * Called when the user cancels a rename — chat-item-edit only.
+   * Called when the user cancels a rename - chat-item-edit only.
    * Triggered by Escape. Parent should switch back to chat-item variant.
    */
   onCancel?: () => void
-  /** Click handler for the settings icon button — account-item only */
+  /** Click handler for the settings icon button - account-item only */
   onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
-  /** Click handler for the "Show"/"Hide" toggle button on header hover — header only */
+  /** Click handler for the "Show"/"Hide" toggle button on header hover - header only */
   onShowClick?: React.MouseEventHandler<HTMLButtonElement>
-  /** Controls whether the toggle reads "Hide" (true) or "Show" (false/undefined) — header only */
+  /** Controls whether the toggle reads "Hide" (true) or "Show" (false/undefined) - header only */
   shown?: boolean
-  /** Persistent selected state — default, new-chat, chat-item variants only */
+  /** Persistent selected state - default, new-chat, chat-item variants only */
   selected?: boolean
-  /** Stretch to full width instead of fixed 217px — use inside Sidebar */
+  /** Stretch to full width instead of fixed 217px - use inside Sidebar */
   fluid?: boolean
-  /** Icon-only mode for collapsed sidebar — hides labels, shortcut, and text content */
+  /** Icon-only mode for collapsed sidebar - hides labels, shortcut, and text content */
   collapsed?: boolean
 }
 
@@ -349,7 +349,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
               )}
             </AnimatePresence>
 
-            {/* Inner depth shadow — hover + selected */}
+            {/* Inner depth shadow - hover + selected */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
@@ -360,7 +360,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
         {variant === 'new-chat' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <div style={{ position: 'relative', flexShrink: 0, width: '20px', height: '20px' }}>
-              {/* Floating badge — visible at rest, hidden on hover/selected/collapsed */}
+              {/* Floating badge - visible at rest, hidden on hover/selected/collapsed */}
               {!collapsed && !isActive && (
                 <div
                   aria-hidden
@@ -398,7 +398,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
           </div>
         )}
 
-        {/* Inner depth shadow for new-chat — hover + selected */}
+        {/* Inner depth shadow for new-chat - hover + selected */}
         {variant === 'new-chat' && isActive && (
           <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
         )}
@@ -442,7 +442,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
               </motion.p>
             </div>
 
-            {/* More button — reveals on hover or selected */}
+            {/* More button - reveals on hover or selected */}
             {isActive && (
               <button
                 type="button"
@@ -465,7 +465,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
               </button>
             )}
 
-            {/* Inner depth shadow — hover + selected */}
+            {/* Inner depth shadow - hover + selected */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
@@ -556,7 +556,7 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
                 )}
               </div>
 
-              {/* Name + sublabel — hidden when collapsed */}
+              {/* Name + sublabel - hidden when collapsed */}
               <AnimatePresence mode="popLayout" initial={false}>
                 {!collapsed && (
                   <motion.div
@@ -576,12 +576,12 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
               </AnimatePresence>
             </div>
 
-            {/* Inner depth shadow — hover */}
+            {/* Inner depth shadow - hover */}
             {isActive && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 'inherit', boxShadow: SHADOW_ITEM_INNER }} />
             )}
 
-            {/* Settings button — hidden when collapsed */}
+            {/* Settings button - hidden when collapsed */}
             <AnimatePresence mode="popLayout" initial={false}>
               {!collapsed && (
                 <motion.button

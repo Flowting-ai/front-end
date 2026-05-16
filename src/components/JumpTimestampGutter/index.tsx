@@ -17,7 +17,7 @@ const GUTTER_COLORS = [
 ] as const
 
 // ── Size steps ─────────────────────────────────────────────────────────────────
-// Two steps based on mark count. Both feel like a tight cluster — the gap is
+// Two steps based on mark count. Both feel like a tight cluster - the gap is
 // the only visible space between pills (no invisible hit-area padding inflating it).
 //
 // default (1–6):  6px tall, 6px gap between pills
@@ -36,7 +36,7 @@ function getStep(count: number): Step {
 
 // Scroll + edge fade kicks in at this many marks.
 const SCROLL_AT = 12
-const SCROLL_H  = 200  // px — caps visible gutter height
+const SCROLL_H  = 200  // px - caps visible gutter height
 const FADE_SIZE = 14   // px faded at each edge via CSS mask
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -74,9 +74,9 @@ function Mark({
   const color = GUTTER_COLORS[mark.colorIndex]
 
   return (
-    // motion.button IS the visual pill — background fills the button bounds.
+    // motion.button IS the visual pill - background fills the button bounds.
     // FM animates width + height (both numeric, WAAPI-safe).
-    // backgroundColor uses CSS transition — FM cannot interpolate var(--x)→var(--y).
+    // backgroundColor uses CSS transition - FM cannot interpolate var(--x)→var(--y).
     <motion.button
       type="button"
       className="kds-gutter-mark"
@@ -127,7 +127,7 @@ export function JumpTimestampGutter({
         overflowY:      scrollable ? 'auto'   : 'visible',
         maxHeight:      scrollable ? SCROLL_H : undefined,
         scrollbarWidth: scrollable ? 'none'   : undefined,
-        // CSS mask fades edges — no background color dependency
+        // CSS mask fades edges - no background color dependency
         ...(scrollable ? {
           maskImage:       `linear-gradient(to bottom, transparent 0px, black ${FADE_SIZE}px, black calc(100% - ${FADE_SIZE}px), transparent 100%)`,
           WebkitMaskImage: `linear-gradient(to bottom, transparent 0px, black ${FADE_SIZE}px, black calc(100% - ${FADE_SIZE}px), transparent 100%)`,

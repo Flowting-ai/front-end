@@ -6,10 +6,10 @@ import { cn } from '@/lib/utils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Figma 3118:32829 — chip input minimum width.
+// Figma 3118:32829 - chip input minimum width.
 const MIN_WIDTH = 64
 
-// Hard cap on tag length. Matches the in-Pin "Add tag" affordance — pin tags
+// Hard cap on tag length. Matches the in-Pin "Add tag" affordance - pin tags
 // are short, identifying labels, not freeform notes. Past this, the input
 // rejects the keystroke (restoring the previous value) and triggers the same
 // shake animation `PinCommentField` uses when the 2-line cap is hit.
@@ -27,7 +27,7 @@ export interface ChipInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   /** Visible placeholder shown via the animated overlay. Defaults to "Add tag…". */
   placeholder?: string
-  /** Accessible label — required when no visible <label> is paired with the input. */
+  /** Accessible label - required when no visible <label> is paired with the input. */
   'aria-label'?: string
 }
 
@@ -61,7 +61,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
   ) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
-    // Shake-on-cap animation — same controls API as `PinCommentField`'s
+    // Shake-on-cap animation - same controls API as `PinCommentField`'s
     // 2-line cap, applied here when the user types past `MAX_LENGTH`.
     const shakeControls = useAnimation()
 
@@ -86,7 +86,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = e.target.value
       if (next.length > MAX_LENGTH) {
-        // Reject — restore previous valid value and shake. Same x-keyframes /
+        // Reject - restore previous valid value and shake. Same x-keyframes /
         // duration / easing as PinCommentField so the gesture is consistent
         // across "you've hit a limit" feedback in the system.
         if (inputRef.current) inputRef.current.value = value
@@ -126,7 +126,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
           ...style,
         }}
       >
-        {/* Animated placeholder overlay — sits absolutely above the input row.
+        {/* Animated placeholder overlay - sits absolutely above the input row.
             Uses the same blur+opacity cross-fade as PinCommentField. */}
         <AnimatePresence initial={false}>
           {!value && placeholder && (
@@ -156,7 +156,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
           )}
         </AnimatePresence>
 
-        {/* Hidden mirror — sets the grid column width to the typed value
+        {/* Hidden mirror - sets the grid column width to the typed value
             ONLY. The placeholder is decoration on top and never drives width:
             an empty chip stays clamped to `min-width: 64px` regardless of how
             long the placeholder text is, and grows past 64 px as the user
@@ -182,12 +182,12 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
           ref={setRef}
           type="text"
           // size={1} drops the input's UA-default intrinsic width (~150 px)
-          // so it stops contributing to grid track sizing. The mirror — and
-          // the wrapper's `min-width: 64px` floor — solely drive the chip
+          // so it stops contributing to grid track sizing. The mirror - and
+          // the wrapper's `min-width: 64px` floor - solely drive the chip
           // width. Without this, the empty chip renders ~200 px wide.
           size={1}
           value={value}
-          // Suppress the native placeholder — we render our own animated overlay.
+          // Suppress the native placeholder - we render our own animated overlay.
           placeholder=""
           className="kds-chip-input"
           style={{

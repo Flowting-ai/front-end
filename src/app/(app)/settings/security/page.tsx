@@ -505,7 +505,7 @@ export default function SecurityPage() {
                 <BrownBadge>{sessions.length} sessions</BrownBadge>
               </div>
             }
-            subtitle="Protect your account — review and remove sessions you don't recognise."
+            subtitle="Protect your account - review and remove sessions you don't recognise."
             right={<GhostButton>Log out all devices</GhostButton>}
           />
           {sessions.map((session, i) => (

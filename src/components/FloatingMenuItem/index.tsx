@@ -37,7 +37,7 @@ export interface FloatingMenuItemProps extends React.ButtonHTMLAttributes<HTMLBu
    */
   showLabel?: boolean
   /**
-   * Persistent active state — item remains highlighted even without hover.
+   * Persistent active state - item remains highlighted even without hover.
    * Use when the action this item triggers is currently "on" (e.g. pin is engaged).
    * Visually identical to Hover but driven by prop, not pointer interaction.
    */
@@ -71,7 +71,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
     const labelVisible = showLabel ?? opened
 
     const [isHovered, setIsHovered] = useState(false)
-    // Active visual state: persistent `active` prop OR hovered — never when disabled.
+    // Active visual state: persistent `active` prop OR hovered - never when disabled.
     const isActive = (active || isHovered) && !disabled
 
     // ── Label width measurement ────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
           </div>
         )}
 
-        {/* ── Hidden measurement span — always mounted, never visible ── */}
+        {/* ── Hidden measurement span - always mounted, never visible ── */}
         <span
           ref={measureRef}
           aria-hidden
@@ -225,7 +225,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
           )}
         </AnimatePresence>
 
-        {/* ── Inner shadow overlay — renders above content ── */}
+        {/* ── Inner shadow overlay - renders above content ── */}
         {isActive && (
           <div
             aria-hidden

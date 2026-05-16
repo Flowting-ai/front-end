@@ -101,17 +101,17 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   projects?: SidebarProject[]
   /** Called when the "Show all" projects item is clicked (only rendered when projects.length > 5) */
   onShowAllProjects?: () => void
-  /** Fully custom Projects section content — replaces the entire projects area including header */
+  /** Fully custom Projects section content - replaces the entire projects area including header */
   projectItems?: React.ReactNode
   /**
    * Recent chats rendered in the Recents section. Each item is editable in
    * place (double-click → rename). Defaults to five "Label" placeholders.
    * The "Recents" header and show/hide toggle are always rendered by the
-   * Sidebar — this prop only controls the row data.
+   * Sidebar - this prop only controls the row data.
    */
   recents?: SidebarRecentItem[]
   /**
-   * Fully custom Recents section items — replaces the default chat rows.
+   * Fully custom Recents section items - replaces the default chat rows.
    * **Removes the "Recents" header and show/hide toggle**, so prefer the
    * `recents` data prop unless you need a structurally different section.
    */
@@ -123,7 +123,7 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   defaultCollapsed?: boolean
   /**
-   * Controlled "current chat" id — driven by the app router. When set, the
+   * Controlled "current chat" id - driven by the app router. When set, the
    * Sidebar highlights the matching chat row (in Recents or inside a project)
    * and auto-expands the parent project. The Sidebar itself never sets this
    * value; consumers update it after handling `onSelectChat`.
@@ -141,7 +141,7 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 // ── Section show/hide animation ───────────────────────────────────────────────
 // Same three-layer pattern as SidebarProjectsSection expand/collapse.
 
-// Layer 1 — height clip
+// Layer 1 - height clip
 const sectionHeightVariants = {
   open: {
     height: 'auto' as const,
@@ -153,9 +153,9 @@ const sectionHeightVariants = {
   },
 }
 
-// Layer 2 — stagger orchestrator
+// Layer 2 - stagger orchestrator
 // Open:  delay items until AFTER height animation completes (0.28s) so items never appear while clipped
-// Close: no stagger — all items fade at once (0.12s), height shrinks after delay (0.14s)
+// Close: no stagger - all items fade at once (0.12s), height shrinks after delay (0.14s)
 const sectionStaggerVariants = {
   open: {
     transition: { staggerChildren: 0.04, delayChildren: 0.24 },
@@ -165,7 +165,7 @@ const sectionStaggerVariants = {
   },
 }
 
-// Layer 3 — per-item: fade + drift
+// Layer 3 - per-item: fade + drift
 const sectionItemVariants = {
   open:   { opacity: 1, y: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
   closed: { opacity: 0, y: 5, transition: { duration: 0.12, ease: 'easeIn'  as const } },
@@ -173,7 +173,7 @@ const sectionItemVariants = {
 
 // ── Default content ────────────────────────────────────────────────────────────
 
-// Persists across mounts — false on first sidebar load, true on every return to Chat Board.
+// Persists across mounts - false on first sidebar load, true on every return to Chat Board.
 let projectsAnimatedOnce = false
 
 interface DefaultProjectItemsProps {
@@ -210,7 +210,7 @@ function DefaultProjectItems({ projects, activeFolder, expandedFolders, selected
   return (
     <>
       <SidebarMenuItem fluid variant="header" label="Projects" shown={shown} onShowClick={() => setShown(s => !s)} />
-      {/* Persistent wrapper — never unmounts so items are always interactive.
+      {/* Persistent wrapper - never unmounts so items are always interactive.
           initial={false} ensures items start at their animate state on first render. */}
       <motion.div
         animate={shown ? 'open' : 'closed'}
@@ -296,7 +296,7 @@ interface DefaultRecentItemsProps {
   onSelect: (id: string) => void
   onChatClick: (id: string) => void
   onShowAll?: React.MouseEventHandler<HTMLButtonElement>
-  /** Changes when the active section changes — triggers item stagger re-animation */
+  /** Changes when the active section changes - triggers item stagger re-animation */
   sectionKey: string
   /** Recent chat rows; defaults to five "Label" placeholders. */
   recents: SidebarRecentItem[]
@@ -330,7 +330,7 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
   return (
     <>
       <SidebarMenuItem fluid variant="header" label="Recents" shown={shown} onShowClick={handleToggle} />
-      {/* Layer 1 — height: controls shown/hidden toggle */}
+      {/* Layer 1 - height: controls shown/hidden toggle */}
       <motion.div
         animate={shown ? 'open' : 'closed'}
         initial={false}
@@ -339,7 +339,7 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
         onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
         onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
       >
-        {/* Layer 2+3 — stagger: key={sectionKey} remounts on section switch to replay stagger;
+        {/* Layer 2+3 - stagger: key={sectionKey} remounts on section switch to replay stagger;
             animate responds to shown so items fade+drift on show/hide toggle */}
           <motion.div
             key={sectionKey}
@@ -411,7 +411,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     // body's overflow flips to `hidden`; if we leave scrollTop where it was,
     // the user's existing offset clips the top section (Chat board / Persona /
     // Workflow) out of view. So we stash scrollTop, jump to 0 on collapse, and
-    // restore it on expand. Per-frame restore via rAF — the layout has to
+    // restore it on expand. Per-frame restore via rAF - the layout has to
     // settle (overflow flipping back to `auto`) before scrollTop will stick.
     const bodyScrollRef       = useRef<HTMLDivElement>(null)
     const savedScrollTopRef   = useRef(0)
@@ -450,21 +450,21 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       setSelectedItem(section)
       setActiveFolder(null)
     }
-    // Select any non-section item (chat items, new-project, etc.) — preserves bodySection
+    // Select any non-section item (chat items, new-project, etc.) - preserves bodySection
     const onSelect = (id: string) => { setSelectedItem(id); setActiveFolder(null) }
-    // Chat-row click — controlled flow when consumer provides onSelectChat: fire
+    // Chat-row click - controlled flow when consumer provides onSelectChat: fire
     // the callback and let the consumer drive `activeChatId` back; otherwise
     // fall back to internal selection so standalone use still highlights.
     const handleChatClick = (id: string) => {
       if (onSelectChat) onSelectChat(id)
       else onSelect(id)
     }
-    // Row click — only sets active folder; never affects expansion (icon-only)
+    // Row click - only sets active folder; never affects expansion (icon-only)
     const handleFolderOpen = (id: string) => {
       setActiveFolder(id)
       setSelectedItem(null)
     }
-    // Icon click — toggle expansion only; never touches active folder selection
+    // Icon click - toggle expansion only; never touches active folder selection
     const handleFolderExpand = (id: string, expanded: boolean) => {
       setExpandedFolders(prev => {
         const next = new Set(prev)
@@ -474,7 +474,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     }
 
     // Auto-expand the project that contains `activeChatId` so the user's
-    // current chat is always visible in context. Only adds — never collapses
+    // current chat is always visible in context. Only adds - never collapses
     // other folders (per the Multiple-folders-can-be-expanded rule).
     useEffect(() => {
       if (!activeChatId) return
@@ -492,7 +492,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onCollapse?.()
     }, [onCollapse])
 
-    // ⌘B / Ctrl+B — collapse/expand sidebar (skip when focus is inside a text input)
+    // ⌘B / Ctrl+B - collapse/expand sidebar (skip when focus is inside a text input)
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
         const target = e.target as HTMLElement
@@ -536,7 +536,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           flexDirection:   'column',
           gap:             '4px',
         }}>
-          {/* ── Logo row — single persistent toggle button so variant swap animates ── */}
+          {/* ── Logo row - single persistent toggle button so variant swap animates ── */}
           <div style={{
             display:        'flex',
             alignItems:     'center',
@@ -546,10 +546,10 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingLeft:    isCollapsed ? '8px' : '20px',
             paddingRight:   '8px',
           }}>
-            {/* Wordmark — only in expanded */}
+            {/* Wordmark - only in expanded */}
             {!isCollapsed && <SouvenirWordmark />}
 
-            {/* Single stable toggle button — variant flips, no unmount/remount */}
+            {/* Single stable toggle button - variant flips, no unmount/remount */}
             <IconButton
               variant="ghost"
               size="sm"
@@ -567,7 +567,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             />
           </div>
 
-          {/* ── Nav strip — New chat + Search ── */}
+          {/* ── Nav strip - New chat + Search ── */}
           <div style={{
             display:       'flex',
             flexDirection: 'column',
@@ -663,7 +663,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             />
           </div>
 
-          {/* Projects + Recents — always mounted so shown/scroll state survives collapse/expand.
+          {/* Projects + Recents - always mounted so shown/scroll state survives collapse/expand.
               motion.div animates opacity+blur in/out on collapse/expand; pointerEvents:none when invisible. */}
           <motion.div
             animate={{ opacity: isCollapsed ? 0 : 1, filter: isCollapsed ? 'blur(4px)' : 'blur(0px)' }}
@@ -671,7 +671,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             style={{ display: 'flex', flexDirection: 'column', pointerEvents: isCollapsed ? 'none' : 'auto' }}
           >
-            {/* Projects — only visible in chat-board section */}
+            {/* Projects - only visible in chat-board section */}
             <AnimatePresence initial={false}>
               {bodySection === 'chat-board' && (
                 <div key="projects-section" style={{
@@ -721,7 +721,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
 
         </div>
 
-        {/* ── Top scroll fade — blur (behind) + gradient (on top) ── */}
+        {/* ── Top scroll fade - blur (behind) + gradient (on top) ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },
@@ -755,7 +755,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           transition:    'opacity 150ms ease',
         }} />
 
-        {/* ── Bottom scroll fade — blur (behind) + gradient (on top) ── */}
+        {/* ── Bottom scroll fade - blur (behind) + gradient (on top) ── */}
         {[
           { height: 40, blur: 2 },
           { height: 28, blur: 3 },

@@ -3,7 +3,7 @@
 import type React from "react";
 
 /**
- * useFileUpload — global file upload constraints and helpers.
+ * useFileUpload - global file upload constraints and helpers.
  *
  * Single source of truth for:
  *   - MAX_FILE_SIZE  (30 MB hard limit)
@@ -303,7 +303,7 @@ export function useFileUpload() {
 
       if (skipped > 0) {
         toast.error("File limit reached", {
-          description: `${skipped} file${skipped > 1 ? "s were" : " was"} skipped — max ${maxFiles} attachments per message.`,
+          description: `${skipped} file${skipped > 1 ? "s were" : " was"} skipped - max ${maxFiles} attachments per message.`,
         });
       }
 

@@ -70,7 +70,7 @@ export function FloatingPanel() {
 
   return (
     <>
-      {/* Gutter — right edge of chat, between TopBar and FloatingMenu */}
+      {/* Gutter - right edge of chat, between TopBar and FloatingMenu */}
       <AnimatePresence>
         {gutterMarks.length > 0 && (
           <motion.div
@@ -91,7 +91,7 @@ export function FloatingPanel() {
         )}
       </AnimatePresence>
 
-      {/* Floating toolbar — vertically centered */}
+      {/* Floating toolbar - vertically centered */}
       <div
         style={{
           position:  'absolute',

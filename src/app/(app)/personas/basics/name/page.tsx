@@ -6,6 +6,10 @@ import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
 
+// ── Session-storage key (shared across wizard pages) ─────────────────────────
+
+const WIZARD_KEY = 'persona_wizard_draft'
+
 // ── Derive a URL-safe handle slug from name ───────────────────────────────────
 
 function toHandle(name: string) {
@@ -18,17 +22,29 @@ function NamePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
-  const purpose  = searchParams.get('purpose')  ?? ''
 
-  const [name, setName] = useState('')
+  const [name, setName] = useState(() => {
+    // Prefill from sessionStorage if user navigated back
+    if (typeof window === 'undefined') return ''
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      return draft.name ?? ''
+    } catch { return '' }
+  })
 
-  function buildQuery(extra: Record<string, string>) {
+  function buildQuery() {
     const p = new URLSearchParams()
     if (template) p.set('template', template)
-    if (purpose)  p.set('purpose',  purpose)
-    Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v) })
     const qs = p.toString()
     return qs ? `?${qs}` : ''
+  }
+
+  function handleContinue() {
+    try {
+      const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, name }))
+    } catch { /* ignore */ }
+    router.push(`/personas/basics/tone${buildQuery()}`)
   }
 
   const handle = name.trim() ? `@${toHandle(name)}01` : ''
@@ -101,7 +117,7 @@ function NamePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => router.push(`/personas/basics/purpose${buildQuery({})}`)}
+              onClick={() => router.push(`/personas/basics/purpose${buildQuery()}`)}
             >
               Back
             </Button>
@@ -110,7 +126,7 @@ function NamePageContent() {
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
               disabled={name.trim().length === 0}
-              onClick={() => router.push(`/personas/basics/tone${buildQuery({ name })}`)}
+              onClick={handleContinue}
             >
               Continue
             </Button>

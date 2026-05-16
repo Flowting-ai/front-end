@@ -1,5 +1,5 @@
 /**
- * Secure API client — rate limiting, circuit breaker, retry, streaming.
+ * Secure API client - rate limiting, circuit breaker, retry, streaming.
  *
  * Rate limits:
  *   apiRateLimiter    100 req / 60 s
@@ -121,7 +121,7 @@ export async function secureFetch<T = unknown>(url: string, options: FetchOption
 // ---------------------------------------------------------------------------
 
 /**
- * Throttled API call — prevents excessive calls from rapid user actions.
+ * Throttled API call - prevents excessive calls from rapid user actions.
  * Queues execution through the shared RequestQueue (max 5 concurrent).
  */
 export const throttledApiCall = throttle(async <T>(fn: () => Promise<T>): Promise<T> => {
@@ -129,7 +129,7 @@ export const throttledApiCall = throttle(async <T>(fn: () => Promise<T>): Promis
 }, 1_000);
 
 /**
- * Secure POST — JSON body, credentials included.
+ * Secure POST - JSON body, credentials included.
  */
 export async function securePost<T = unknown>(
   url: string,
@@ -149,7 +149,7 @@ export async function securePost<T = unknown>(
 }
 
 /**
- * Secure GET — credentials included.
+ * Secure GET - credentials included.
  */
 export async function secureGet<T = unknown>(url: string, options: FetchOptions = {}): Promise<T> {
   return secureFetch<T>(url, {
@@ -160,7 +160,7 @@ export async function secureGet<T = unknown>(url: string, options: FetchOptions 
 }
 
 /**
- * Secure file upload — validates type and size (10 MB max) before sending.
+ * Secure file upload - validates type and size (10 MB max) before sending.
  *
  * Allowed types: PNG, JPEG, GIF, PDF, DOC, DOCX, PPT, PPTX, CSV, XLS, XLSX
  */

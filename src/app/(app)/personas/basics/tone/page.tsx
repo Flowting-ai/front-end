@@ -1,10 +1,14 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
+
+// ── Session-storage key ────────────────────────────────────────────────────
+
+const WIZARD_KEY = 'persona_wizard_draft'
 
 // ── Tone options ──────────────────────────────────────────────────────────────
 
@@ -19,7 +23,7 @@ const TONES = [
     id:       'warm',
     label:    'Warm & approachable',
     subtitle: 'Human first, solution second.',
-    example:  '"I totally get that — let me sort this out for you."',
+    example:  '"I totally get that - let me sort this out for you."',
   },
   {
     id:       'precise',
@@ -103,22 +107,34 @@ function TonePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
-  const purpose  = searchParams.get('purpose')  ?? ''
-  const name     = searchParams.get('name')      ?? ''
 
   const [selectedTone, setSelectedTone] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState('{name}')
 
-  function buildQuery(extra: Record<string, string>) {
+  // Read persona name from sessionStorage (stored by the name page)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      if (draft.name) setDisplayName(draft.name)
+    } catch { /* ignore */ }
+  }, [])
+
+  function buildQuery() {
     const p = new URLSearchParams()
     if (template) p.set('template', template)
-    if (purpose)  p.set('purpose',  purpose)
-    if (name)     p.set('name',     name)
-    Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v) })
     const qs = p.toString()
     return qs ? `?${qs}` : ''
   }
 
-  const displayName = name || '{name}'
+  function handleContinue() {
+    if (!selectedTone) return
+    try {
+      const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
+    } catch { /* ignore */ }
+    router.push('/persona/configure/instructions')
+  }
 
   return (
     <WizardShell steps={STEPS_BASICS}>
@@ -163,7 +179,7 @@ function TonePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => router.push(`/personas/basics/name${buildQuery({})}`)}
+              onClick={() => router.push(`/personas/basics/name${buildQuery()}`)}
             >
               Back
             </Button>
@@ -172,7 +188,7 @@ function TonePageContent() {
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
               disabled={!selectedTone}
-              onClick={() => router.push(`/persona/configure/instructions${buildQuery({ tone: selectedTone! })}`)}
+              onClick={handleContinue}
             >
               Continue
             </Button>

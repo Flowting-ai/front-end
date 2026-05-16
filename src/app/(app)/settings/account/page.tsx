@@ -210,7 +210,7 @@ export default function AccountPage() {
                 fluid
                 label="Role"
                 value=""
-                placeholder="—"
+                placeholder="-"
                 disabled
               />
               <InputField

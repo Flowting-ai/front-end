@@ -9,11 +9,11 @@ import { cn } from '@/lib/utils'
 
 export interface InputFieldProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'size'> {
-  /** Label rendered above the input — rendered as <label> for accessibility */
+  /** Label rendered above the input - rendered as <label> for accessibility */
   label?: string
   /**
    * Show/hide the label slot (Figma: `label1`).
-   * Defaults to true — only needed if you want to conditionally hide the label
+   * Defaults to true - only needed if you want to conditionally hide the label
    * without removing the prop entirely.
    */
   showLabel?: boolean
@@ -28,16 +28,16 @@ export interface InputFieldProps
    * Defaults to true.
    */
   showSubtitle?: boolean
-  /** Leading icon slot — recommend 16×16 */
+  /** Leading icon slot - recommend 16×16 */
   leftIcon?: ReactNode
-  /** Trailing icon slot — recommend 16×16 */
+  /** Trailing icon slot - recommend 16×16 */
   rightIcon?: ReactNode
   /**
-   * Error state — red ring + red label + red subtitle.
+   * Error state - red ring + red label + red subtitle.
    * Sets `aria-invalid` on the input automatically via Base UI Field.
    */
   error?: boolean
-  /** Size variant — medium (default) or small. Affects padding, border-radius, and typography. */
+  /** Size variant - medium (default) or small. Affects padding, border-radius, and typography. */
   size?: 'medium' | 'small'
   /** Controlled value */
   value?: string
@@ -88,13 +88,13 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
     // ── Shadow matrix (matches Figma state × state) ───────────────────────────
     let containerShadow: string
     if (error) {
-      // Error — red ring, regardless of focus/hover
+      // Error - red ring, regardless of focus/hover
       containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--red-500)`
     } else if (hasValue && !isFocused) {
-      // Filled — thicker neutral ring at rest
+      // Filled - thicker neutral ring at rest
       containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-100)`
     } else if (isHovered && !isFocused) {
-      // Hover — slightly darker ring
+      // Hover - slightly darker ring
       containerShadow = `${BASE_SHADOW}, 0px 0px 0px 1px var(--neutral-200)`
     } else {
       // Default / focused (focus ring is via outline, not shadow)
@@ -175,7 +175,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
             borderRadius:    isSmall ? '8px' : '10px',
             overflow:        'hidden',
             boxShadow:       containerShadow,
-            // Focus ring: 2px blue outline offset 3px — radius auto-inherits from
+            // Focus ring: 2px blue outline offset 3px - radius auto-inherits from
             // border-radius (10px + 3px offset = 13px, matching Figma exactly)
             outlineStyle:    'solid',
             outlineWidth:    '2px',

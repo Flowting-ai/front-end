@@ -10,9 +10,9 @@ export interface TabItemProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Whether this tab is currently selected */
   selected?: boolean
-  /** Size variant — medium (default) or small */
+  /** Size variant - medium (default) or small */
   size?: 'medium' | 'small'
-  /** Optional icon — rendered at 16×16 to the left of the label */
+  /** Optional icon - rendered at 16×16 to the left of the label */
   icon?: React.ReactNode
   /** Render as child element via Radix Slot */
   asChild?: boolean
@@ -21,7 +21,7 @@ export interface TabItemProps
    * Use when a parent (e.g. TabsList) renders the selected pill itself.
    */
   disableSelectedStyle?: boolean
-  /** Injected by Radix Tabs — 'active' when this tab is selected */
+  /** Injected by Radix Tabs - 'active' when this tab is selected */
   'data-state'?: string
 }
 
@@ -75,7 +75,7 @@ export const TabItem = React.forwardRef<HTMLButtonElement, TabItemProps>(
           gap:            isSmall ? '2px' : '4px',
           padding:        isSmall ? '7px' : '7px 8px',
           borderRadius:   isSmall ? '8px' : '10px',
-          // ── Background / shadow — suppressed when parent handles the pill ──
+          // ── Background / shadow - suppressed when parent handles the pill ──
           backgroundColor: !disableSelectedStyle && isSelected ? 'var(--tab-item-bg-selected)' : 'transparent',
           boxShadow:       !disableSelectedStyle && isSelected ? 'var(--shadow-tab-item-selected)' : 'none',
           // ── Reset button defaults ────────────────────────────────────────────

@@ -1,4 +1,4 @@
-# Chat Preview — Complete SSE & Animation Specification
+# Chat Preview - Complete SSE & Animation Specification
 
 > Source of truth for every scenario, SSE event, phase transition, and animation in `app/chat-preview/page.tsx`.
 > All timings are based on the default control-panel values unless noted.
@@ -12,7 +12,7 @@
 3. [SSE Event Schema](#3-sse-event-schema)
 4. [Phase Flow & Animation Timeline](#4-phase-flow--animation-timeline)
 5. [Shared Component Animations](#5-shared-component-animations)
-6. [Scenarios — Full Detail](#6-scenarios--full-detail)
+6. [Scenarios - Full Detail](#6-scenarios--full-detail)
    - [S1 · Simple Answer](#s1--simple-answer)
    - [S2 · Deep Reasoning](#s2--deep-reasoning)
    - [S3 · Web Research with Citations](#s3--web-research-with-citations)
@@ -71,7 +71,7 @@ The UI is driven by a single `phase` state variable of type:
 
 ```ts
 type Phase =
-  | 'idle'          // Nothing rendered — blank canvas
+  | 'idle'          // Nothing rendered - blank canvas
   | 'user-sent'     // User bubble slides in, AI not yet visible
   | 'souvenir'      // Souvenir logo appears, shimmer label "Souvenir"
   | 'thinking'      // Cycling thinking words + shimmer (routing in progress)
@@ -87,7 +87,7 @@ type Phase =
 | Phase | Entry condition |
 |---|---|
 | `idle` | Initial state, or after `reset()` |
-| `user-sent` | `run()` called — 80ms after start |
+| `user-sent` | `run()` called - 80ms after start |
 | `souvenir` | 320ms after `user-sent` |
 | `thinking` | 480ms after `souvenir` (skipped if `skipRouting: true`) |
 | `choosing` | `thinkDuration` ms after `thinking` |
@@ -140,7 +140,7 @@ data: {
 event: model_selected
 data: {
   id: string       // e.g. "Claude"
-  llmId: string    // e.g. "Claude"  — used for LLM logo
+  llmId: string    // e.g. "Claude"  - used for LLM logo
   name: string     // e.g. "claude sonnet"
 }
 ```
@@ -155,10 +155,10 @@ data: {
 ```
 
 Emitted multiple times during the `researching` phase:
-1. `"Planning…"` — immediate at start of activity run
-2. `ACTIVITY_VERB[nextActivity.type] + "…"` — after each activity starts
-3. `"Synthesising…"` — after all activities complete
-4. `researchTitle` (final) — scenario-specific string shown in collapsed research row
+1. `"Planning…"` - immediate at start of activity run
+2. `ACTIVITY_VERB[nextActivity.type] + "…"` - after each activity starts
+3. `"Synthesising…"` - after all activities complete
+4. `researchTitle` (final) - scenario-specific string shown in collapsed research row
 
 ### 3.4 Reasoning Step
 
@@ -196,7 +196,7 @@ data: {
 event: activity_complete
 data: {
   index: number
-  resultCount?: number    // total results found — shown as "N results" or "N pins"
+  resultCount?: number    // total results found - shown as "N results" or "N pins"
 }
 ```
 
@@ -266,7 +266,7 @@ Each block in a `responseBlocks` sequence is emitted as a separate event.
 
 ```
 event: block
-data: ResponseBlock   // discriminated union — see full type below
+data: ResponseBlock   // discriminated union - see full type below
 ```
 
 **`ResponseBlock` union:**
@@ -287,7 +287,7 @@ type ResponseBlock =
   | { kind: 'search-timeout';   data: SearchTimeoutData }
 ```
 
-Blocks are rendered sequentially — each block must call `onComplete` before the next block begins.
+Blocks are rendered sequentially - each block must call `onComplete` before the next block begins.
 
 ### 3.9 Citations
 
@@ -441,17 +441,17 @@ animation: svLabelShimmer 2.4s ease-in-out infinite;
 
 ---
 
-## 6. Scenarios — Full Detail
+## 6. Scenarios - Full Detail
 
 ---
 
 ### S1 · Simple Answer
 
-**Description:** Direct factual question — no tools, no routing.
+**Description:** Direct factual question - no tools, no routing.
 
 **User query:** `"What is product-market fit?"`
 
-**`skipRouting: true`** — bypasses thinking/choosing/research.
+**`skipRouting: true`** - bypasses thinking/choosing/research.
 
 #### SSE Events Required
 
@@ -471,8 +471,8 @@ animation: svLabelShimmer 2.4s ease-in-out infinite;
 
 ```
 t+80ms    UserBubble spring-in
-t+320ms   SouvenirMark spring-in (no model icon — skipRouting)
-           Label "Souvenir" — no shimmer (not in thinking/choosing phase)
+t+320ms   SouvenirMark spring-in (no model icon - skipRouting)
+           Label "Souvenir" - no shimmer (not in thinking/choosing phase)
 t+800ms   phase → streaming
            BreathingDot holds for 120ms
            Words stream at 28ms/word
@@ -482,18 +482,18 @@ t+complete ActionBar fades in
 
 #### Micro-interactions
 - **No** research panel, no ResearchBlock
-- **No** model icon — SouvenirMark persists through entire response
+- **No** model icon - SouvenirMark persists through entire response
 - ActionBar appears on `complete` when response area is hovered
 
 ---
 
 ### S2 · Deep Reasoning
 
-**Description:** Complex strategy question — Adaptive Thinking only, no web/tools.
+**Description:** Complex strategy question - Adaptive Thinking only, no web/tools.
 
 **User query:** `"Should Souvenir prioritise B2C or B2B first?"`
 
-**`hasActivities: false`** — research panel only contains reasoning steps.
+**`hasActivities: false`** - research panel only contains reasoning steps.
 
 #### Reasoning Steps
 
@@ -564,14 +564,14 @@ Then word-by-word reveal via `WordReveal` at 80ms/word.
 
 - Shows after all reasoning steps are revealed
 - Button: "Thinking" label + animated chevron (spring rotates 90° when open)
-- Expanded: paragraph slides in — height:0→auto, opacity:0→1, 0.24s ease:[0.16,1,0.3,1]
+- Expanded: paragraph slides in - height:0→auto, opacity:0→1, 0.24s ease:[0.16,1,0.3,1]
 - Content supports `**bold**` and `inline code` via `renderInlineMd`
 
 ---
 
 ### S3 · Web Research with Citations
 
-**Description:** Research question — web search + pins + inline citations.
+**Description:** Research question - web search + pins + inline citations.
 
 **User query:** `"What are the latest AI startup GTM strategies in 2026?"`
 
@@ -640,7 +640,7 @@ After response completes, `SourceList` slides in below response:
 
 ### S4 · PDF Analysis
 
-**Description:** PDF attached — multi-group document reading.
+**Description:** PDF attached - multi-group document reading.
 
 **Attachment:** `213-Design-Trend-Report-2026.pdf` (type: `pdf`)
 
@@ -663,26 +663,26 @@ type badge: "PDF", 10px, #B6ACA4
 |---|---|---|
 | 1 | Planned | how to extract and apply a trend report to Souvenir |
 
-#### Activities (9) — Split into 2 Action Groups
+#### Activities (9) - Split into 2 Action Groups
 
 **Group 1 (4 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
-| 1 | `read-file` | opening PDF, checking page count | — |
-| 2 | `run-code` | Extracting full text — measuring document length | ✓ |
-| 3 | `read-pdf` | Table of contents — mapping all section titles | — |
-| 4 | `read-pdf` | Introduction — understanding the report's framing | — |
+| 1 | `read-file` | opening PDF, checking page count | - |
+| 2 | `run-code` | Extracting full text - measuring document length | ✓ |
+| 3 | `read-pdf` | Table of contents - mapping all section titles | - |
+| 4 | `read-pdf` | Introduction - understanding the report's framing | - |
 
 Group 1 summary: `"Document loaded and structured. Reading design trend chapters…"`
 
 **Group 2 (5 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
-| 5 | `read-pdf` | Photography and Visual Language chapter | — |
-| 6 | `read-pdf` | Future Medieval — Neo-Ornamental Design chapter | — |
-| 7 | `read-pdf` | Cyber Goth and Tactile Aesthetics chapter | — |
-| 8 | `read-pdf` | Scrapbook and Scanner aesthetic chapter | — |
-| 9 | `read-pdf` | Direct Flash Photography chapter | — |
+| 5 | `read-pdf` | Photography and Visual Language chapter | - |
+| 6 | `read-pdf` | Future Medieval - Neo-Ornamental Design chapter | - |
+| 7 | `read-pdf` | Cyber Goth and Tactile Aesthetics chapter | - |
+| 8 | `read-pdf` | Scrapbook and Scanner aesthetic chapter | - |
+| 9 | `read-pdf` | Direct Flash Photography chapter | - |
 
 Group 2 summary: `"All chapters read. Mapping findings to Souvenir…"`
 
@@ -720,7 +720,7 @@ Activities inside a group appear one by one as individual `ActivityRow` componen
 **Group collapsing (on `group_complete`):**
 ```
 In-progress ActivityRows → replaced by single summary row
-Summary row: "Ran N actions — {summary}"
+Summary row: "Ran N actions - {summary}"
              ✓ green checkmark | count bold | summary muted
 Chevron: can expand to reveal sub-items
 ```
@@ -735,13 +735,13 @@ Each sub-item: ✓ small green checkmark + ActivityIcon + verb + detail
 
 ### S5 · Image Analysis
 
-**Description:** Image attached — deep vision analysis with reasoning.
+**Description:** Image attached - deep vision analysis with reasoning.
 
 **Attachment:** `souvenir-moodboard-v2.png` (type: `image`)
 
 **User query:** `"Analyse this moodboard and tell me if it matches Souvenir's brand direction"`
 
-#### Attachment rendering (FileChip — image type)
+#### Attachment rendering (FileChip - image type)
 
 ```
 icon: AiImageIcon (12px, #6A625D)
@@ -755,7 +755,7 @@ type badge: "Image"
 | 1 | Considered | what brand alignment actually means for a moodboard |
 | 2 | Planned | a structured framework: palette → composition → typography → synthesis |
 
-#### Activities (5 — no groups)
+#### Activities (5 - no groups)
 
 | # | Type | Detail |
 |---|---|---|
@@ -765,7 +765,7 @@ type badge: "Image"
 | 4 | `scan-image` | assessing typographic choices |
 | 5 | `synthesise` | cross-referencing all dimensions against Souvenir brand values |
 
-No action groups — activities shown flat.
+No action groups - activities shown flat.
 
 #### SSE Events Required
 
@@ -775,11 +775,11 @@ Same pattern as S3 but with 2 reasoning steps and 5 activities (no groups).
 
 ### S6 · Pins + Reasoning
 
-**Description:** Memory search + Adaptive Thinking — pattern-finding in saves.
+**Description:** Memory search + Adaptive Thinking - pattern-finding in saves.
 
-**Attachment:** `Distribution strategy — saved articles` (type: `pin`)
+**Attachment:** `Distribution strategy - saved articles` (type: `pin`)
 
-#### Pin attachment rendering (FileChip — pin type)
+#### Pin attachment rendering (FileChip - pin type)
 
 ```
 background: rgba(104,61,27,0.08)
@@ -789,15 +789,15 @@ label: name, 11px, #683D1B, fontWeight:500
 type badge: "Pin", 10px, #B6ACA4
 ```
 
-**`activitiesFirst: true`** — activities run BEFORE reasoning steps.
+**`activitiesFirst: true`** - activities run BEFORE reasoning steps.
 
-#### Activities (3) — no groups
+#### Activities (3) - no groups
 
 | # | Type | Detail | Results |
 |---|---|---|---|
 | 1 | `read-pins` | scanning your pinboard | 4 results |
 | 2 | `read-pins` | filtering pins related to distribution | 3 results |
-| 3 | `synthesise` | connecting the dots across all distribution saves | — |
+| 3 | `synthesise` | connecting the dots across all distribution saves | - |
 
 Activity 1 has `resultCount: 12` (total, only 4 shown as previews).
 Activity 2 has `resultCount: 8`.
@@ -852,12 +852,12 @@ complete
 
 **No reasoning steps.**
 
-#### Activities (5) — 2 Action Groups
+#### Activities (5) - 2 Action Groups
 
 **Group 1 (2 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
-| 1 | `connector-notion` | Connecting to Notion — verifying workspace access | ✓ |
+| 1 | `connector-notion` | Connecting to Notion - verifying workspace access | ✓ |
 | 2 | `read-file` | Listing pages in your Design workspace (6 results) | ✓ |
 
 Group 1 summary: `"Connected. Found 6 pages in Design workspace."`
@@ -867,9 +867,9 @@ Activity 2 results: Sprint 2 PRD, Design checklist, Sprint 2 report, Kaya DS com
 **Group 2 (3 activities):**
 | # | Type | Detail |
 |---|---|---|
-| 3 | `read-file` | Sprint 2 PRD — reading goals, scope, key dates |
-| 4 | `read-file` | DS V1 component checklist — extracting status per component |
-| 5 | `read-file` | Sprint 2 report — checking what's already been logged |
+| 3 | `read-file` | Sprint 2 PRD - reading goals, scope, key dates |
+| 4 | `read-file` | DS V1 component checklist - extracting status per component |
+| 5 | `read-file` | Sprint 2 report - checking what's already been logged |
 
 Group 2 summary: `"Read all sprint 2 documents. Identifying remaining work…"`
 
@@ -905,7 +905,7 @@ complete
 
 ### S8 · Data: CSV + Code
 
-**Description:** CSV attached — code execution, data analysis.
+**Description:** CSV attached - code execution, data analysis.
 
 **Attachment:** `onboarding-funnel-export.csv` (type: `csv`)
 
@@ -917,20 +917,20 @@ complete
 |---|---|---|
 | 1 | Planned | how to analyse a funnel CSV to find meaningful drop-off patterns |
 
-#### Activities (6) — 2 Action Groups
+#### Activities (6) - 2 Action Groups
 
 **Group 1 (2 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
 | 1 | `read-file` | opening CSV, checking size | ✓ |
-| 2 | `read-csv` | Reading structure — identifying columns and event types | ✓ |
+| 2 | `read-csv` | Reading structure - identifying columns and event types | ✓ |
 
 Group 1 summary: `"File loaded and structured. Running analysis…"`
 
 **Group 2 (4 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
-| 3 | `run-code` | Parsing 2,847 rows — extracting onboarding step columns | ✓ |
+| 3 | `run-code` | Parsing 2,847 rows - extracting onboarding step columns | ✓ |
 | 4 | `run-code` | Calculating step-by-step conversion rates | ✓ |
 | 5 | `run-code` | Identifying sharpest relative drop-off between steps | ✓ |
 | 6 | `calculate` | Computing statistical significance of drop-off deltas | ✓ |
@@ -943,33 +943,33 @@ All 6 activities have `badge: true`.
 
 ### S9 · Mixed: Vision + Pins + Web
 
-**Description:** Image + pins + web search — cross-modal analysis.
+**Description:** Image + pins + web search - cross-modal analysis.
 
 **Attachment:** `onboarding-screen-v3.png` (type: `image`)
 
-**`activitiesFirst: false`** (default) — reasoning first, then activities.
+**`activitiesFirst: false`** (default) - reasoning first, then activities.
 
 #### Reasoning Steps (2)
 
 | # | Verb | Detail |
 |---|---|---|
-| 1 | Considered | what cross-modal analysis means here — three very different sources |
+| 1 | Considered | what cross-modal analysis means here - three very different sources |
 | 2 | Strategized | how to weight the three sources for a useful answer |
 
-#### Activities (4 — no groups)
+#### Activities (4 - no groups)
 
 | # | Type | Detail | Results |
 |---|---|---|---|
-| 1 | `scan-screenshot` | analysing current layout and flow | — |
+| 1 | `scan-screenshot` | analysing current layout and flow | - |
 | 2 | `read-pins` | scanning pins for onboarding, UX | 3 results |
 | 3 | `web-search` | onboarding patterns 2026 progressive disclosure | 3 results + badge |
-| 4 | `synthesise` | mapping current screen gaps against pin taste and web patterns | — |
+| 4 | `synthesise` | mapping current screen gaps against pin taste and web patterns | - |
 
 ---
 
 ### S10 · Output: Table (9 Variants)
 
-**Description:** Structured table output — model comparison with staggered row reveal.
+**Description:** Structured table output - model comparison with staggered row reveal.
 
 **User query:** `"Compare Claude Sonnet 4.5, GPT-4o, and Gemini 2.0 Flash across key capabilities"`
 
@@ -980,7 +980,7 @@ All 6 activities have `badge: true`.
 | 1 | Considered | what makes a fair, useful comparison framework |
 | 2 | Planned | which six dimensions to include and how to source current data |
 
-#### Activities (2 web searches — no groups)
+#### Activities (2 web searches - no groups)
 
 Both have `badge: true`.
 
@@ -997,7 +997,7 @@ Uses `StructuredResponseWrapper` + `AnimatedTable`. The variant is controlled by
 | `financial` | Financial | Right-aligned numbers, bold totals row, `totalsRow:true` |
 | `hoverable` | Hoverable | Row highlight on hover, no vertical dividers |
 | `minimal` | Minimal | No vertical borders, thin horizontal only |
-| `feature-comparison` | Feature matrix | Check cells (✓/—), centered non-first cols, 2fr first col |
+| `feature-comparison` | Feature matrix | Check cells (✓/-), centered non-first cols, 2fr first col |
 | `mixed-content` | Rich cells | `type:'rich'` cells with text + sub + badge |
 
 #### SSE Events
@@ -1016,17 +1016,17 @@ For `StructuredResponseWrapper`: shows `BreathingDot` for `firstTokenDelay` ms, 
 
 ### S11 · Output: Bar Chart (6 Variants)
 
-**Description:** Structured bar chart — analytics with spring-growth bars.
+**Description:** Structured bar chart - analytics with spring-growth bars.
 
 **User query:** `"Pull my analytics and show me average response times per model this week"`
 
-#### Activities (4) — 2 Action Groups
+#### Activities (4) - 2 Action Groups
 
 **Group 1 (2 activities):**
 | # | Type | Detail | Badge |
 |---|---|---|---|
 | 1 | `connector-notion` | Connecting to analytics workspace | ✓ |
-| 2 | `read-csv` | session-analytics-apr17-apr24.csv — 847 sessions | ✓ |
+| 2 | `read-csv` | session-analytics-apr17-apr24.csv - 847 sessions | ✓ |
 
 Group 1 summary: `"Analytics connected and loaded. Running calculations…"`
 
@@ -1053,7 +1053,7 @@ Group 2 summary: `"Calculations complete. Rendering chart…"`
 
 ### S12 · Output: Steps
 
-**Description:** Structured steps — setup guide with progressive reveal.
+**Description:** Structured steps - setup guide with progressive reveal.
 
 **User query:** `"Walk me through setting up the Notion connector in Souvenir step by step"`
 
@@ -1063,12 +1063,12 @@ Group 2 summary: `"Calculations complete. Rendering chart…"`
 |---|---|---|
 | 1 | Considered | the right level of detail for a connector setup guide |
 
-#### Activities (2 — no groups)
+#### Activities (2 - no groups)
 
 | # | Type | Detail | Badge |
 |---|---|---|---|
 | 1 | `connector-notion` | Checking current workspace state | ✓ |
-| 2 | `read-file` | Notion connector docs — OAuth flow and permission requirements | — |
+| 2 | `read-file` | Notion connector docs - OAuth flow and permission requirements | - |
 
 #### Response: 5-Step Guide
 
@@ -1078,7 +1078,7 @@ Steps reveal at 220ms intervals. Number dot spring-pops in, connector line scale
 
 ### S13 · Mixed: Text + Table + Follow-ups
 
-**Description:** Mixed output — intro text → comparison table → follow-up prompts.
+**Description:** Mixed output - intro text → comparison table → follow-up prompts.
 
 **User query:** `"Which AI model should we use for each feature in Souvenir?"`
 
@@ -1126,7 +1126,7 @@ Arrow ↗ in right corner
 
 ### S14 · Mixed: Text + Callout + Tags
 
-**Description:** Risk analysis — text overview, warning callout, risk category tags.
+**Description:** Risk analysis - text overview, warning callout, risk category tags.
 
 **User query:** `"What are the biggest risks to our June 1 launch timeline?"`
 
@@ -1165,7 +1165,7 @@ Block 4: kind:'tags'
 
 ### S15 · Mixed: Code + Text
 
-**Description:** API walkthrough — code block with line-by-line reveal.
+**Description:** API walkthrough - code block with line-by-line reveal.
 
 **User query:** `"Show me how to use the Souvenir API to save a pin programmatically"`
 
@@ -1176,14 +1176,14 @@ Block 4: kind:'tags'
 | # | Type | Detail | Badge |
 |---|---|---|---|
 | 1 | `read-file` | souvenir-api-docs.md | ✓ |
-| 2 | `read-file` | sdk/pins.ts — reading pins.create interface signature | — |
+| 2 | `read-file` | sdk/pins.ts - reading pins.create interface signature | - |
 
 #### Response Blocks (2)
 
 ```
 Block 0: kind:'code'
   language: 'typescript'
-  caption: 'Full Souvenir SDK integration — pins, search, and error handling'
+  caption: 'Full Souvenir SDK integration - pins, search, and error handling'
   code: ~40 lines of TypeScript (client setup, savePin, searchPins, safeSave)
 
 Block 1: kind:'text'
@@ -1215,7 +1215,7 @@ Block 0: kind:'text'
   "You've logged 38 hours…coordination overhead at 18% is worth watching."
 
 Block 1: kind:'pie-chart'
-  title: "Sprint 2 time breakdown — Apr 14–24"
+  title: "Sprint 2 time breakdown - Apr 14–24"
   unit: "hrs"
   centerLabel: "38h"
   segments: [
@@ -1245,7 +1245,7 @@ Block 2: kind:'follow-ups'
 | # | Type | Detail | Badge |
 |---|---|---|---|
 | 1 | `connector-notion` | Connecting to Souvenir analytics | ✓ |
-| 2 | `run-code` | Aggregating daily pin counts — Mar 25 to Apr 24 | ✓ |
+| 2 | `run-code` | Aggregating daily pin counts - Mar 25 to Apr 24 | ✓ |
 
 Group summary: `"Analytics pulled. Rendering 30-day trend…"`
 
@@ -1253,7 +1253,7 @@ Group summary: `"Analytics pulled. Rendering 30-day trend…"`
 
 ```
 Block 0: kind:'line-chart'
-  title: "Daily pins saved — Mar 25 to Apr 24"
+  title: "Daily pins saved - Mar 25 to Apr 24"
   30 data points (Mar 25 = 3 → Apr 24 = 22, trending upward)
   Single line, color: #683D1B (brown)
 
@@ -1266,19 +1266,19 @@ Block 1: kind:'text'
 
 ### E1 · Connector Auth Failure
 
-**Description:** Gmail auth expired mid-response — inline error with reconnect CTA.
+**Description:** Gmail auth expired mid-response - inline error with reconnect CTA.
 
 **User query:** `"What emails did I get from investors this week?"`
 
 **No reasoning steps.**
 
-#### Activities (1 — no results, no badge)
+#### Activities (1 - no results, no badge)
 
 | # | Type | Detail | Results |
 |---|---|---|---|
 | 1 | `web-search` | "investor emails this week" | 0 results |
 
-#### Response Blocks (3) — Error State Pattern
+#### Response Blocks (3) - Error State Pattern
 
 ```
 Block 0: kind:'text'
@@ -1302,13 +1302,13 @@ Block 2: kind:'text'
 
 ### E2 · Web Search Timeout
 
-**Description:** Web search timed out mid-response — inline error with retry CTA.
+**Description:** Web search timed out mid-response - inline error with retry CTA.
 
 **User query:** `"What's the latest on Anthropic's valuation and funding round?"`
 
 **No reasoning steps.**
 
-#### Activities (1 — badge, 0 results)
+#### Activities (1 - badge, 0 results)
 
 | # | Type | Detail | Badge |
 |---|---|---|---|
@@ -1330,7 +1330,7 @@ Block 2: kind:'text'
   "You have a pin from Mar 2026 titled **"Anthropic funding tracker"**…"
 ```
 
-**Retry CTA** calls `onRetry` → `reset(); run()` — re-runs the full scenario from scratch.
+**Retry CTA** calls `onRetry` → `reset(); run()` - re-runs the full scenario from scratch.
 
 ---
 
@@ -1342,7 +1342,7 @@ Block 2: kind:'text'
 
 **Entry pattern:** BreathingDot (via `StructuredResponseWrapper`) → skeleton rows → real rows fill.
 
-**Phase 1 — Skeleton (500ms hold)**
+**Phase 1 - Skeleton (500ms hold)**
 
 ```
 For each row:
@@ -1353,11 +1353,11 @@ For each row:
     delay: (ri + ci) * 0.06s
     height: 12px (basic/badges/financial/hoverable/minimal/feature-comparison)
              9px  (compact)
-            28px  (mixed-content first col — double-line skeleton)
+            28px  (mixed-content first col - double-line skeleton)
     width: varies by algorithm (40–78% for most, narrow for feature-comparison)
 ```
 
-**Phase 2 — Skeleton exit + real rows reveal**
+**Phase 2 - Skeleton exit + real rows reveal**
 
 ```
 After 500ms:
@@ -1487,7 +1487,7 @@ Description: 13px, #827A74
 
 **Entry:** `opacity:0, y:8 → opacity:1, y:0, 0.28s ease:[0.16,1,0.3,1]`
 
-**Line reveal interval:** `min(55, round(1400 / totalLines))` ms — caps at 55ms, scales down for short files.
+**Line reveal interval:** `min(55, round(1400 / totalLines))` ms - caps at 55ms, scales down for short files.
 
 **Each line:**
 ```
@@ -1495,7 +1495,7 @@ motion.div initial:{opacity:0} animate:{opacity:1} transition:{duration:0.08}
 Row: line number (muted, 11px, non-selectable) + highlighted code
 ```
 
-**Syntax highlighting (custom lexer — TypeScript/JS):**
+**Syntax highlighting (custom lexer - TypeScript/JS):**
 | Token type | Color |
 |---|---|
 | Keywords (`import`, `const`, `async`, etc.) | `#7BB8F5` (blue) |
@@ -1518,7 +1518,7 @@ opacity: [0.2, 1, 0.2], 0.7s repeat
 
 **Copy button (KDS corrosion dark material):**
 ```
-Fixed 76px wide — no layout shift on Copy→Copied swap
+Fixed 76px wide - no layout shift on Copy→Copied swap
 Background: linear-gradient(180deg, #524B47 0%, #26211E 100%)
 Hover:       linear-gradient(180deg, #6A625D 0%, #3B3632 100%)
 Box shadow: outer ring (rgba(0,0,0,0.85)) + lift + top highlight inset + bottom depth inset
@@ -1604,7 +1604,7 @@ transform: rotate(startDeg CX CY)
 ```
 
 **Hover state:**
-- Hovered segment: `strokeWidth: 30` (SW+4) — ring thickens, transition 120ms
+- Hovered segment: `strokeWidth: 30` (SW+4) - ring thickens, transition 120ms
 - Center label switches to: percentage + unit value or truncated label name
 - Legend items: non-hovered dim to 0.45 opacity (120ms)
 
@@ -1775,7 +1775,7 @@ exit:    {opacity:0, filter:'blur(5px)', scale:0.82, y:-5}
 spring(stiffness:520, damping:32)
 ```
 
-During `thinking` — CyclingLabel replaces static text:
+During `thinking` - CyclingLabel replaces static text:
 ```
 initial: {opacity:0, filter:'blur(5px)', scale:0.82}
 animate: {opacity:1, filter:'blur(0)', scale:1}
@@ -1799,7 +1799,7 @@ Content: " · " separator + WordReveal (80ms/word)
 **SouvenirMark exit (on model-chosen):**
 ```
 opacity:0, scale:0.25, rotate:-20, y:-5, filter:blur(10px)
-0.18s ease:[0.4,0,1,1] (ease-in — sharp exit)
+0.18s ease:[0.4,0,1,1] (ease-in - sharp exit)
 ```
 
 **Model LlmIcon enter:**
@@ -1924,7 +1924,7 @@ Only shown when both reasoning and activities are present
 
 **Collapsed group row:**
 ```
-✓ green checkmark + "Ran N actions" bold + "— {summary}" muted + Chevron
+✓ green checkmark + "Ran N actions" bold + "- {summary}" muted + Chevron
 Chevron: spring(stiffness:380, damping:28) rotates 180° when open
 ```
 
@@ -2066,7 +2066,7 @@ Appears (opacity:0→1, y:4→0, 0.18s) when response is hovered or any button h
 
 **Thumbs Up button:**
 - Active: background `rgba(128,183,7,0.08)`, icon `#80B707`
-- Non-reversible — once clicked stays active
+- Non-reversible - once clicked stays active
 - Triggers toast:
 
 **Toast (Thanks for the feedback 👍):**

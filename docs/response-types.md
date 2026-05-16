@@ -4,7 +4,7 @@ Every assistant response falls into one of four types. The type determines which
 
 ---
 
-## Type 1 — Simple
+## Type 1 - Simple
 
 The default. No web search, no extended thinking. Fast.
 
@@ -27,7 +27,7 @@ done
 
 ---
 
-## Type 2 — Research
+## Type 2 - Research
 
 Triggered when Souvenir's routing decides a web search is needed, or when the user's request explicitly involves current information.
 
@@ -62,7 +62,7 @@ done
 
 ---
 
-## Type 3 — Thinking + Response
+## Type 3 - Thinking + Response
 
 Triggered by complex prompts that use chain-of-thought models. The model reasons before responding.
 
@@ -97,7 +97,7 @@ done
 
 ---
 
-## Type 4 — Research + Thinking (combined)
+## Type 4 - Research + Thinking (combined)
 
 Both research and chain-of-thought reasoning. Complex queries only.
 
@@ -169,7 +169,7 @@ function reducer(state: ChatState, event: SSEEvent): ChatState {
 
 ---
 
-## ClarifyingQuestion — a special pre-response type
+## ClarifyingQuestion - a special pre-response type
 
 Before any of the 4 types above, the routing layer may decide the prompt is ambiguous and send a clarification request instead of routing to a model.
 
@@ -179,7 +179,7 @@ clarification_needed { question: string, options: { id, label }[] }
 ```
 
 **What the UI does:**
-1. Render a `ClarifyingQuestion` component inside the assistant MessageBubble (pending component — placeholder from `docs/0`)
-2. Input remains unlocked — user can either click an option chip or type a different message
+1. Render a `ClarifyingQuestion` component inside the assistant MessageBubble (pending component - placeholder from `docs/0`)
+2. Input remains unlocked - user can either click an option chip or type a different message
 3. When user selects an option: send a new stream request with `input = option.label`
 4. The clarification bubble stays in the conversation history (read-only, selected option highlighted)

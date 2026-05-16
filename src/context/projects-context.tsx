@@ -254,7 +254,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       p.id === projectId ? { ...p, chatCount: p.chatCount + 1, updatedAt: now } : p,
     ))
     addChatToProject(projectId, chatId).catch(() => {
-      // silent — the chat was created, linking failure is non-fatal
+      // silent - the chat was created, linking failure is non-fatal
     })
   }, [])
 

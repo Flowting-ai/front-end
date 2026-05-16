@@ -264,7 +264,7 @@ function AddMenu({
   )
 }
 
-// ── Model menus — shared with regular chat ─────────────────────────────────────
+// ── Model menus - shared with regular chat ─────────────────────────────────────
 
 const MOST_USED_MODELS = [
   { id: 'claude',   llm: 'Claude'   as const, label: 'Claude Opus 4.5' },

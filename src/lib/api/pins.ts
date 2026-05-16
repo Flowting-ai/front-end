@@ -24,9 +24,9 @@ export interface PinComment {
 
 export interface Pin {
   id: string;
-  /** Display title — normalised from pins_title | title | first line of content */
+  /** Display title - normalised from pins_title | title | first line of content */
   title: string;
-  /** Full body text — normalised from content | text | formattedContent */
+  /** Full body text - normalised from content | text | formattedContent */
   content: string;
   /** Tag names extracted from backend tags array */
   tags: string[];

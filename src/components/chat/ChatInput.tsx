@@ -45,7 +45,7 @@ function AudioWaveDisplay({
   const heightsRef = useRef<number[]>([...BAR_DEFAULT]);
   const rafRef = useRef<number>(0);
 
-  // Direct DOM mutation — no setState, no re-renders.
+  // Direct DOM mutation - no setState, no re-renders.
   // RAF-driven setState inside Framer Motion's composited subtree gets batched/dropped.
   const updatePaths = (heights: number[]) => {
     heights.forEach((h, i) => {
@@ -301,7 +301,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
         source.connect(analyserNode);
         setAnalyser(analyserNode);
       } catch {
-        // Mic permission denied or unavailable — revert all state
+        // Mic permission denied or unavailable - revert all state
         ctx.close();
         audioCtxRef.current = null;
         SpeechRecognition.abortListening();
@@ -332,7 +332,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       if (!isControlled) setInternalValue(newValue);
       onChange?.(newValue);
 
-      // @-mention detection — only when the parent opts in via onMentionChange.
+      // @-mention detection - only when the parent opts in via onMentionChange.
       if (onMentionChange) {
         const lastChar = newValue[newValue.length - 1];
         if (lastChar === "@") {
@@ -351,7 +351,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
               onMentionChange(afterAt);
             }
           } else {
-            // @ was deleted — close the dropdown.
+            // @ was deleted - close the dropdown.
             onMentionChange(null);
           }
         }
@@ -482,12 +482,12 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {isRecording ? "Recording started. Listening." : ""}
         </span>
 
-        {/* ── Attachments slot — chip strip rendered above the textarea ── */}
+        {/* ── Attachments slot - chip strip rendered above the textarea ── */}
         {attachmentsSlot}
 
-        {/* ── Main content — textarea + animated placeholder ── */}
+        {/* ── Main content - textarea + animated placeholder ── */}
         <div style={{ position: "relative" }}>
-          {/* Custom animated placeholder — fades out when user starts typing */}
+          {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
             {!value && (
               <motion.div
@@ -668,7 +668,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                   <AnimatePresence mode="popLayout" initial={false}>
                     {(() => {
                       const isWave = iconKey === "wave";
-                      // Wave state: no filter on enter — any filter creates a GPU compositing
+                      // Wave state: no filter on enter - any filter creates a GPU compositing
                       // layer that kills SVG path updates inside AudioWaveDisplay.
                       return (
                         <motion.span

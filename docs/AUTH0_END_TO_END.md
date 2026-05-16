@@ -1,6 +1,6 @@
-# Auth0 — End-to-End Authentication Spec
+# Auth0 - End-to-End Authentication Spec
 
-This document mirrors the **complete** Auth0 implementation that ships in [`front-end/`](../front-end/) so the same system can be recreated, identically, in [`front-end-new/`](.). The system is built on `@auth0/nextjs-auth0` v4 against Next.js 16 (App Router, React Compiler enabled). Routing in Next.js 16 uses **`src/proxy.ts`** (the renamed `middleware.ts`) — the file name is the only change versus 15.x, the behavior is identical.
+This document mirrors the **complete** Auth0 implementation that ships in [`front-end/`](../front-end/) so the same system can be recreated, identically, in [`front-end-new/`](.). The system is built on `@auth0/nextjs-auth0` v4 against Next.js 16 (App Router, React Compiler enabled). Routing in Next.js 16 uses **`src/proxy.ts`** (the renamed `middleware.ts`) - the file name is the only change versus 15.x, the behavior is identical.
 
 The reference implementation lives at:
 
@@ -38,7 +38,7 @@ The reference implementation lives at:
                        │                                │            │
                        │   /auth/[auth0]/route.ts ──────┘            │
                        │     (login / logout / callback /            │
-                       │      profile / access-token — handled by    │
+                       │      profile / access-token - handled by    │
                        │      Auth0Client.middleware)                │
                        │                                              │
                        │   /auth/access-token/route.ts                │
@@ -76,8 +76,8 @@ The reference implementation lives at:
 
 **Two token surfaces, on purpose:**
 
-1. **Browser (client) tokens** — fetched by `getAccessToken()` from `@auth0/nextjs-auth0/client` and held in a module-scoped variable in [`src/lib/jwt-utils.ts`](../front-end/src/lib/jwt-utils.ts). Used to attach `Authorization: Bearer …` headers to every backend API call.
-2. **Server-side tokens** — fetched by `auth0.getAccessToken({ audience })` inside route handlers and `proxy.ts`. Used by the proxy to call `/users/me` to compute the onboarding gate, and by the override at `/auth/access-token` to return a JSON-wrapped token to the browser.
+1. **Browser (client) tokens** - fetched by `getAccessToken()` from `@auth0/nextjs-auth0/client` and held in a module-scoped variable in [`src/lib/jwt-utils.ts`](../front-end/src/lib/jwt-utils.ts). Used to attach `Authorization: Bearer …` headers to every backend API call.
+2. **Server-side tokens** - fetched by `auth0.getAccessToken({ audience })` inside route handlers and `proxy.ts`. Used by the proxy to call `/users/me` to compute the onboarding gate, and by the override at `/auth/access-token` to return a JSON-wrapped token to the browser.
 
 Both eventually end up passing the **same JWT** issued by the Auth0 tenant for the configured `AUTH0_AUDIENCE`.
 
@@ -94,7 +94,7 @@ All of these are loaded from AWS Secrets Manager into `.env.development.local` b
 | `AUTH0_CLIENT_SECRET` | `Auth0Client` | Used by the SDK during the authorization-code exchange. |
 | `AUTH0_SECRET` | `Auth0Client` | 32-byte hex value used to encrypt the session cookie (`appSession`). Generate with `openssl rand -hex 32`. |
 | `AUTH0_AUDIENCE` | `Auth0Client`, `/auth/access-token`, `proxy.ts`, `jwt-utils.ts` | API identifier, e.g. `https://server-access`. Triggers issuance of an access token (not just an ID token). Re-exported via `next.config.ts` `env:` so `process.env.AUTH0_AUDIENCE` is readable on the client. |
-| `AUTH0_SCOPE` | `Auth0Client` | Optional. Defaults to `"openid profile email offline_access"` — `offline_access` is **mandatory** so the SDK gets a refresh token. |
+| `AUTH0_SCOPE` | `Auth0Client` | Optional. Defaults to `"openid profile email offline_access"` - `offline_access` is **mandatory** so the SDK gets a refresh token. |
 | `APP_BASE_URL` | `Auth0Client.onCallback`, Stripe routes | Public origin of the running app (`http://localhost:3000/` in dev). The SDK uses this for the callback redirect; Stripe uses it to build `success_url` / `cancel_url`. |
 | `SERVER_URL` | `proxy.ts`, `src/lib/config.ts` | Backend base URL. Dev value: `https://devapi.getsouvenir.com/`. Re-exported via `next.config.ts` `env:` so client code can read it. |
 | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_*` | `/api/stripe/*` | Stripe server-only keys; checkout routes require an authenticated Auth0 session before they will create a session. |
@@ -137,7 +137,7 @@ From [`front-end/package.json`](../front-end/package.json#L16):
 
 That single package provides everything: the `Auth0Client` class (server entry), the `getAccessToken()` SPA hook (client entry), and the auto-mounted route handlers.
 
-`front-end-new` should pin to the **same** major version (`^4.x`). The v3 → v4 API is materially different — the `proxy.ts` middleware surface, `Auth0Client` constructor, and the `getAccessToken({ audience })` overloads are all v4-only.
+`front-end-new` should pin to the **same** major version (`^4.x`). The v3 → v4 API is materially different - the `proxy.ts` middleware surface, `Auth0Client` constructor, and the `getAccessToken({ audience })` overloads are all v4-only.
 
 ---
 
@@ -176,7 +176,7 @@ Key points:
 
 - `audience` is omitted from `authorizationParameters` when unset so the SDK falls back to ID-token-only mode (the dev tenant always has it set).
 - `offline_access` is included by default so the SDK receives a refresh token. Without it, `auth0.getAccessToken()` calls eventually fail with `missing_refresh_token` and `proxy.ts` triggers a re-auth (see §6).
-- `onCallback` always sends users to `/` after successful login. The onboarding decision is **never** made here — it is made in the proxy on the next request, against the live backend state. This matters because Stripe webhooks may flip the user’s `subscription_status` to `active` before the `onboarding.completed` flag flips, and we want the user to land on the app immediately in that case.
+- `onCallback` always sends users to `/` after successful login. The onboarding decision is **never** made here - it is made in the proxy on the next request, against the live backend state. This matters because Stripe webhooks may flip the user’s `subscription_status` to `active` before the `onboarding.completed` flag flips, and we want the user to land on the app immediately in that case.
 
 [`front-end-new/src/lib/auth0.ts`](src/lib/auth0.ts) already contains a 1:1 copy of this file. **Do not deviate.**
 
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
 }
 ```
 
-This single handler is what makes the following endpoints work — the SDK matches on the dynamic `[auth0]` segment and dispatches internally:
+This single handler is what makes the following endpoints work - the SDK matches on the dynamic `[auth0]` segment and dispatches internally:
 
 | Endpoint | Method | Behavior |
 | --- | --- | --- |
@@ -207,7 +207,7 @@ This single handler is what makes the following endpoints work — the SDK match
 | `/auth/logout` | GET | Clears the SDK session cookie and redirects to Auth0's `/v2/logout` (`returnTo` derived from `APP_BASE_URL`). |
 | `/auth/callback` | GET | OAuth2 authorization-code exchange; runs `onCallback` from `auth0.ts`. |
 | `/auth/profile` | GET | Returns the OIDC user profile JSON. |
-| `/auth/access-token` | GET | Default SDK behavior: returns `{ accessToken, expiresAt }` for the configured audience — **but we override this** (see 5.2). |
+| `/auth/access-token` | GET | Default SDK behavior: returns `{ accessToken, expiresAt }` for the configured audience - **but we override this** (see 5.2). |
 | `/auth/backchannel-logout` | POST | Auth0 back-channel logout endpoint. |
 
 The matcher in [`proxy.ts`](../front-end/src/proxy.ts#L98-L101) explicitly forwards every `/auth/*` request to `auth0.middleware(request)` so it never gets blocked by the onboarding gate.
@@ -240,7 +240,7 @@ export async function GET() {
 This file shadows the catch-all for `/auth/access-token` because:
 
 1. We want a stable response shape (`{ token }`) instead of the SDK's `{ accessToken, expiresAt }` so the in-memory client cache decoder can stay simple.
-2. We want a typed 401 error envelope (`{ error: { code, message } }`) instead of a string when the user has no refresh token — the client can act on this.
+2. We want a typed 401 error envelope (`{ error: { code, message } }`) instead of a string when the user has no refresh token - the client can act on this.
 3. `dynamic = "force-dynamic"` prevents Next.js from caching the response, which would otherwise cap the lifetime of the token at the build cache.
 
 ### 5.3 The onboarding-only logout: `src/app/api/onboarding/logout/route.ts`
@@ -281,7 +281,7 @@ The full file is in [`front-end/src/proxy.ts`](../front-end/src/proxy.ts). Behav
 
 1. **Always pass `/auth/*` and `/api/*` through to `auth0.middleware(request)`.** The SDK middleware refreshes session cookies and signs them. Onboarding gating must never block these.
 2. **Get the session.** `await auth0.getSession()` reads the encrypted `appSession` cookie. `null` means no session.
-3. **Get the onboarding gate** by calling the backend (`fetchOnboardingState` below) — but only when there is a session.
+3. **Get the onboarding gate** by calling the backend (`fetchOnboardingState` below) - but only when there is a session.
 4. **Re-auth detection.** If `auth0.getAccessToken()` throws with `code === "missing_refresh_token"`, redirect to `/auth/login?returnTo=<pathname>` so the user can re-consent and the SDK can mint a new refresh token.
 5. **Block re-entry into completed onboarding.** If `pathname` starts with `/onboarding/`, the user has finished onboarding (`hasOnboarded`), and they are not on the pricing page, redirect them home (`/`).
 6. **Allow incomplete-onboarding users into `/onboarding/*`.** Pass through the SDK middleware.
@@ -425,10 +425,10 @@ export function getAuthHeaders(
 
 Behavioral contract:
 
-- The token lives only in module scope — never `localStorage`, never `sessionStorage`. Browser tabs are isolated by design.
+- The token lives only in module scope - never `localStorage`, never `sessionStorage`. Browser tabs are isolated by design.
 - `getAccessToken({ audience })` from the SPA SDK is what calls the override endpoint at `/auth/access-token` under the hood. (The SDK reads the response body, sets the SPA cache, returns the token string.)
 - `parseTokenExpiry` does a base64 decode of the JWT body. The 60-second buffer (`EXPIRY_BUFFER_SECONDS`) is wide enough to absorb clock skew without triggering an unnecessary refresh on every request.
-- `getAuthHeaders()` is **synchronous** by design — it is called all over the codebase and adding `await` there would propagate. `ensureFreshToken()` is called once at the entry of `apiFetch` to make sure the cached value is up to date.
+- `getAuthHeaders()` is **synchronous** by design - it is called all over the codebase and adding `await` there would propagate. `ensureFreshToken()` is called once at the entry of `apiFetch` to make sure the cached value is up to date.
 
 ---
 
@@ -436,17 +436,17 @@ Behavioral contract:
 
 The `AuthProvider` wraps the entire tree (mounted in [`src/app/layout.tsx`](../front-end/src/app/layout.tsx#L57-L62)). Responsibilities:
 
-1. **Hydrate** on mount — call `getAuth0AccessToken()` once to populate the in-memory cache.
-2. **Refresh timer** — every 30 s, if `isTokenExpiringSoon()`, fetch a new token. This handles idle tabs whose token would otherwise expire silently.
-3. **Fetch user profile** — once `isHydrated && jwtToken`, call `/users/me` once and map it into an `AuthUser` (which includes plan, billing, credits, etc.). The mapping is in `mapProfileToUser`.
-4. **Logout** — clears in-memory token + `setUser(null)`, then sets `window.location.href = "/auth/logout?returnTo=…"`. The SDK route handles cookie cleanup and IdP redirect.
-5. **`auth:session-expired` listener** — when `apiFetch` decides the session is dead (see §9), it dispatches a custom event; the provider catches it and triggers `logout()`.
+1. **Hydrate** on mount - call `getAuth0AccessToken()` once to populate the in-memory cache.
+2. **Refresh timer** - every 30 s, if `isTokenExpiringSoon()`, fetch a new token. This handles idle tabs whose token would otherwise expire silently.
+3. **Fetch user profile** - once `isHydrated && jwtToken`, call `/users/me` once and map it into an `AuthUser` (which includes plan, billing, credits, etc.). The mapping is in `mapProfileToUser`.
+4. **Logout** - clears in-memory token + `setUser(null)`, then sets `window.location.href = "/auth/logout?returnTo=…"`. The SDK route handles cookie cleanup and IdP redirect.
+5. **`auth:session-expired` listener** - when `apiFetch` decides the session is dead (see §9), it dispatches a custom event; the provider catches it and triggers `logout()`.
 
 ```tsx
 const isAuthenticated = isHydrated && jwtToken !== null;
 ```
 
-This boolean is what the rest of the app uses to gate UI. **No round-trip is required** — having a non-null in-memory token is the source of truth for "logged in" in the browser.
+This boolean is what the rest of the app uses to gate UI. **No round-trip is required** - having a non-null in-memory token is the source of truth for "logged in" in the browser.
 
 The `AuthUser` interface ([`auth-context.tsx:29-67`](../front-end/src/context/auth-context.tsx#L29-L67)) is a superset of the `/users/me` response that pre-computes display fields (`creditsDisplay`, `budgetConsumedPercent`, `nextBillingDate`).
 
@@ -535,7 +535,7 @@ All of these go through `apiFetch` (Bearer token). Defined in [`src/lib/config.t
 | `STRIPE_CHECKOUT_ENDPOINT` | `/stripe/checkout` (same-origin) | `POST` | Calls our Next route which calls Stripe. |
 | `STRIPE_SUBSCRIPTION_ENDPOINT` | `/stripe/subscription` (same-origin) | `PATCH`, `DELETE` | Update / cancel subscription via our Next route. |
 
-All non-auth backend endpoints (chats, models, personas, pins, workflows) follow the same pattern — see `config.ts` for the full list.
+All non-auth backend endpoints (chats, models, personas, pins, workflows) follow the same pattern - see `config.ts` for the full list.
 
 ### Auth0-specific endpoints exposed by **this** Next.js app
 
@@ -586,7 +586,7 @@ The Next scripts run `load-secrets.mjs` first:
 
 The script reads `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_SECRET_NAME` from `.env.local`, fetches the `souvenirai-frontend/development` secret bundle from AWS Secrets Manager, and writes every key to `.env.development.local` with `mode: 0o600`. **Never** commit `.env.local` or `.env.development.local`.
 
-`front-end-new` already has [`scripts/load-secrets.mjs`](scripts/load-secrets.mjs) and the matching scripts in `package.json` — the secret bundle is the same.
+`front-end-new` already has [`scripts/load-secrets.mjs`](scripts/load-secrets.mjs) and the matching scripts in `package.json` - the secret bundle is the same.
 
 ---
 
@@ -596,14 +596,14 @@ Most of the wiring already exists in `front-end-new`. To bring it to feature par
 
 1. **Confirm dependency.** `package.json` must pin `"@auth0/nextjs-auth0": "^4.16.0"`.
 2. **Confirm env vars.** `.env.development.local` is auto-generated; `next.config.ts` must re-export `AUTH0_AUDIENCE` and `SERVER_URL`. CSP `connect-src` must include `https://${AUTH0_DOMAIN}`.
-3. **Auth0 client.** [`src/lib/auth0.ts`](src/lib/auth0.ts) — already mirrors the reference. Keep `onCallback` redirecting to `/`.
-4. **Catch-all route.** [`src/app/auth/[auth0]/route.ts`](src/app/auth/%5Bauth0%5D/route.ts) — must export `GET` and `POST` that call `auth0.middleware(request)`.
-5. **Access-token override.** [`src/app/auth/access-token/route.ts`](src/app/auth/access-token/route.ts) — must return `{ token }` with `dynamic = "force-dynamic"` and 401 on failure.
-6. **Proxy.** [`src/proxy.ts`](src/proxy.ts) — already mirrors the reference. Keep the matcher excluding `_next/static`, `_next/image`, `favicon.ico`, `sitemap.xml`, `robots.txt`. **Do not** rename the file back to `middleware.ts` — Next.js 16 routes from `proxy.ts`.
-7. **Onboarding access utility.** [`src/lib/onboarding-access.ts`](src/lib/onboarding-access.ts) — must implement `userMeRootAllowsMainApp` with both branches (completed flag + active paid subscription).
-8. **JWT utils.** [`src/lib/jwt-utils.ts`](src/lib/jwt-utils.ts) — in-memory cache, expiry decode, `ensureFreshToken`, `getAuthHeaders`.
-9. **Auth provider.** [`src/context/auth-context.tsx`](src/context/auth-context.tsx) — hydration on mount, 30s refresh timer, `auth:session-expired` listener, `logout()` redirects to `/auth/logout`.
-10. **API client.** [`src/lib/api/client.ts`](src/lib/api/client.ts) — `ensureFreshToken` before every call, retry once on 401, dispatch `auth:session-expired`.
+3. **Auth0 client.** [`src/lib/auth0.ts`](src/lib/auth0.ts) - already mirrors the reference. Keep `onCallback` redirecting to `/`.
+4. **Catch-all route.** [`src/app/auth/[auth0]/route.ts`](src/app/auth/%5Bauth0%5D/route.ts) - must export `GET` and `POST` that call `auth0.middleware(request)`.
+5. **Access-token override.** [`src/app/auth/access-token/route.ts`](src/app/auth/access-token/route.ts) - must return `{ token }` with `dynamic = "force-dynamic"` and 401 on failure.
+6. **Proxy.** [`src/proxy.ts`](src/proxy.ts) - already mirrors the reference. Keep the matcher excluding `_next/static`, `_next/image`, `favicon.ico`, `sitemap.xml`, `robots.txt`. **Do not** rename the file back to `middleware.ts` - Next.js 16 routes from `proxy.ts`.
+7. **Onboarding access utility.** [`src/lib/onboarding-access.ts`](src/lib/onboarding-access.ts) - must implement `userMeRootAllowsMainApp` with both branches (completed flag + active paid subscription).
+8. **JWT utils.** [`src/lib/jwt-utils.ts`](src/lib/jwt-utils.ts) - in-memory cache, expiry decode, `ensureFreshToken`, `getAuthHeaders`.
+9. **Auth provider.** [`src/context/auth-context.tsx`](src/context/auth-context.tsx) - hydration on mount, 30s refresh timer, `auth:session-expired` listener, `logout()` redirects to `/auth/logout`.
+10. **API client.** [`src/lib/api/client.ts`](src/lib/api/client.ts) - `ensureFreshToken` before every call, retry once on 401, dispatch `auth:session-expired`.
 11. **Onboarding logout helper.** Add `src/app/api/onboarding/logout/route.ts` if you have onboarding pages that need the two-step logout.
 12. **Stripe routes.** Mirror [`src/app/api/stripe/checkout/route.ts`](../front-end/src/app/api/stripe/checkout/route.ts) and [`src/app/api/stripe/subscription/route.ts`](../front-end/src/app/api/stripe/subscription/route.ts) when the billing flow is ported.
 13. **Layout.** Wrap the tree in `<AuthProvider>` in [`src/app/layout.tsx`](src/app/layout.tsx).

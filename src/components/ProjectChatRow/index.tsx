@@ -47,7 +47,7 @@ export function ProjectChatEmptyRow() {
           whiteSpace:   'nowrap',
         }}
       >
-        Start a chat — your project instructions and files apply automatically.
+        Start a chat - your project instructions and files apply automatically.
       </p>
     </div>
   )
@@ -194,7 +194,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
           </p>
         </div>
 
-        {/* ⋮ menu — hover-revealed */}
+        {/* ⋮ menu - hover-revealed */}
         {!isEditing && (
           <div
             style={{

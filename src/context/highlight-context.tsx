@@ -62,7 +62,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     getHighlights()
       .then(data => setHighlights(data.map(responseToEntry)))
-      .catch(() => {/* silently ignore — user starts with empty list */})
+      .catch(() => {/* silently ignore - user starts with empty list */})
   }, [])
 
   const open   = useCallback(() => setIsOpen(true),        [])
@@ -106,7 +106,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   /**
    * Optimistically removes the highlight, calls the backend. Rolls back and
    * shows a toast if the request fails.
-   * Temp IDs (creation still in-flight) are removed locally only — the server
+   * Temp IDs (creation still in-flight) are removed locally only - the server
    * has never seen them.
    */
   const deleteHighlight = useCallback(async (id: string): Promise<void> => {

@@ -11,7 +11,7 @@ import { ModelSelectorContext } from '@/components/ModelSelector'
 import { cn } from '@/lib/utils'
 
 // ── Shadow constants ───────────────────────────────────────────────────────────
-// Identical shadow system to DropdownMenuItem — shares the same warm-neutral hover language.
+// Identical shadow system to DropdownMenuItem - shares the same warm-neutral hover language.
 
 const SHADOW_ACTIVE =
   '0px 1px 1.5px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-300-40)'
@@ -23,7 +23,7 @@ const SHADOW_INNER =
 
 export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Canonical model id — rendered as an `<LlmIcon size={18} />` inside the
+   * Canonical model id - rendered as an `<LlmIcon size={18} />` inside the
    * 22×22 image slot. This is the **default and preferred** way to supply a
    * model avatar. Look up valid ids in `LLM_AVATAR` / `LLM_COLOR` from
    * `@strange-huge/icons/llm` (e.g. `"Claude"`, `"OpenAI"`, `"Gemini"`,
@@ -32,11 +32,11 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
    * OpenAI uses `variant="color"` automatically; all others use `"avatar"`.
    *
    * If a needed id is missing from the registry, request that it be added to
-   * `@strange-huge/icons` — never inline an SVG or fall back to a placeholder.
+   * `@strange-huge/icons` - never inline an SVG or fall back to a placeholder.
    */
   llm?: string
   /**
-   * Manual override for the image slot — accepts any ReactNode. Use this only
+   * Manual override for the image slot - accepts any ReactNode. Use this only
    * when the row is not a model brand covered by `LLM_AVATAR` (custom local
    * model, user upload, etc.). When `llm` and `image` are both set, `image`
    * wins.
@@ -47,17 +47,17 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
   /**
    * Icon slot indicating model capabilities (e.g. text, vision, code, audio).
    * Pass one or more `@strange-huge/icons` components at `size={16}`.
-   * The container is aria-hidden — the label carries the accessible name.
+   * The container is aria-hidden - the label carries the accessible name.
    */
   icons?: React.ReactNode
   /**
    * Show the right-edge bookmark `IconButton` (24×24, ghost, `BookmarkTwoIcon`
    * at 18px). Per Figma, the bookmark sits as a sibling to `icons` after the
-   * type-indicator strip — present in Default/Hover/Selected. Default `false`.
+   * type-indicator strip - present in Default/Hover/Selected. Default `false`.
    */
   bookmark?: boolean
   /**
-   * Controlled bookmarked state — when set, the parent owns the toggle. The
+   * Controlled bookmarked state - when set, the parent owns the toggle. The
    * solid icon (`BookmarkTwoSolidIcon`) renders when `true`, the outline
    * (`BookmarkTwoIcon`) when `false`.
    */
@@ -66,17 +66,17 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
   defaultBookmarked?: boolean
   /** Fires when the user toggles the bookmark. Receives the next state. */
   onBookmarkedChange?: (next: boolean) => void
-  /** Optional raw click handler — runs after the toggle. `stopPropagation` is applied automatically. */
+  /** Optional raw click handler - runs after the toggle. `stopPropagation` is applied automatically. */
   onBookmarkClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
   /**
    * Tooltip content shown when the row is hovered (the avatar swaps to an
-   * info-circle while hovered — that glyph is the tooltip trigger). When
+   * info-circle while hovered - that glyph is the tooltip trigger). When
    * omitted the swap still happens but no tooltip opens.
    */
   info?: React.ReactNode
   /** Persistent selected / active state */
   selected?: boolean
-  /** Render as a child element (Radix Slot) — lets you compose with Select.Item, etc. */
+  /** Render as a child element (Radix Slot) - lets you compose with Select.Item, etc. */
   asChild?: boolean
 }
 
@@ -123,18 +123,18 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
     const isActive = isHovered || selected
 
     // When mounted inside a ModelSelector showing the Favorites category,
-    // suppress the per-row bookmark — the list itself IS the favorites set.
+    // suppress the per-row bookmark - the list itself IS the favorites set.
     const selectorCtx = React.useContext(ModelSelectorContext)
     const showBookmark = bookmark && selectorCtx?.category !== 'favorites'
 
-    // Bookmark — controlled vs uncontrolled state. Render the solid icon when on.
+    // Bookmark - controlled vs uncontrolled state. Render the solid icon when on.
     const isBookmarkControlled = bookmarked !== undefined
     const [internalBookmarked, setInternalBookmarked] = useState(defaultBookmarked)
     const isBookmarked = isBookmarkControlled ? !!bookmarked : internalBookmarked
 
     // Avatar resolution: explicit `image` override > `llm` id > nothing.
     // Per the component's avatar rule, model rows should pass `llm` so the
-    // canonical `LlmIcon` avatar renders — `image` exists only as an escape
+    // canonical `LlmIcon` avatar renders - `image` exists only as an escape
     // hatch for custom/non-brand rows.
     //
     // The avatar always sits inside an 18×18 wrapper with `border-radius: 5px`
@@ -211,7 +211,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
             >
               {/*
                 Hover swaps avatar → info-circle via popLayout cross-fade.
-                The Tooltip wraps the entire 22×22 slot once and stays mounted —
+                The Tooltip wraps the entire 22×22 slot once and stays mounted -
                 if it conditionally wrapped only the "info" branch, framer's
                 popLayout projection would mis-track positions across the
                 key-swap and the avatar would slide in from the right instead
@@ -295,7 +295,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
           </div>
         )}
 
-        {/* ── Right bookmark slot — outer wrapper stays mounted (reserves the
+        {/* ── Right bookmark slot - outer wrapper stays mounted (reserves the
              24px column on the row) so toggling Favorites doesn't shift layout.
              Only the IconButton inside animates in/out. */}
         {bookmark && (
@@ -379,7 +379,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
           </div>
         )}
 
-        {/* ── Inner depth shadow — active state ── */}
+        {/* ── Inner depth shadow - active state ── */}
         {isActive && (
           <div
             aria-hidden

@@ -28,7 +28,7 @@ import { springs } from "@/lib/springs";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { ActivityItem, ModelSelectedMeta } from "@/hooks/use-chat-state";
 
-// ── CyclingLabel — cycles through words with spring + blur swap ───────────────
+// ── CyclingLabel - cycles through words with spring + blur swap ───────────────
 
 const THINKING_WORDS = ["Thinking…", "Analysing…", "Processing…", "Considering…"];
 
@@ -56,7 +56,7 @@ function CyclingLabel({ words, textStyle }: { words: string[]; textStyle?: React
   );
 }
 
-// ── SouvenirMark — inline SVG logo ────────────────────────────────────────────
+// ── SouvenirMark - inline SVG logo ────────────────────────────────────────────
 
 function SouvenirMark({ size }: { size: number }) {
   return (
@@ -67,7 +67,7 @@ function SouvenirMark({ size }: { size: number }) {
   );
 }
 
-// ── AnimatedLogo — Souvenir mark → model icon swing-in with glow burst ────────
+// ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
 
 function AnimatedLogo({
   modelMeta,
@@ -167,7 +167,7 @@ const COLLAPSE_TRANSITION = {
   opacity: { duration: 0.2, ease: "easeInOut" as const },
 };
 
-// ── ModelNameLabel — plain name text only (logo handled by AnimatedLogo) ──────
+// ── ModelNameLabel - plain name text only (logo handled by AnimatedLogo) ──────
 
 function ModelNameLabel({
   modelMeta,
@@ -270,7 +270,7 @@ function ReasoningStep({
         paddingBottom: isLast ? 0 : 12,
       }}
     >
-      {/* Left column — icon + animated vertical connector */}
+      {/* Left column - icon + animated vertical connector */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22, flexShrink: 0 }}>
         <span
           style={{
@@ -305,7 +305,7 @@ function ReasoningStep({
         </AnimatePresence>
       </div>
 
-      {/* Right column — heading button + expandable body */}
+      {/* Right column - heading button + expandable body */}
       <div style={{ flex: 1, paddingLeft: 9, display: "flex", flexDirection: "column" }}>
         <button
           type="button"
@@ -414,7 +414,7 @@ function ThinkingContent({
   activities?: ActivityItem[];
   isStreaming: boolean;
 }) {
-  // Show structured sections whenever they exist — even during streaming.
+  // Show structured sections whenever they exist - even during streaming.
   // When streaming, the last section gets the shimmer "active" treatment.
   // Fall back to raw thinkingContent only when no sections are available.
   const hasStructured = reasoningSections && reasoningSections.length > 0;
@@ -469,7 +469,7 @@ interface ReasoningBlockProps {
   modelName?: string;
   modelMeta?: ModelSelectedMeta;
   activities?: ActivityItem[];
-  /** Structured reasoning steps from the backend — rendered as collapsible steps when done. */
+  /** Structured reasoning steps from the backend - rendered as collapsible steps when done. */
   reasoningSections?: Array<{ heading: string; body: string }>;
 }
 
@@ -532,7 +532,7 @@ export function ReasoningBlock({
 
       {/* ── Outer header ────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-        {/* Animated logo — Souvenir mark while thinking, model icon after model_selected */}
+        {/* Animated logo - Souvenir mark while thinking, model icon after model_selected */}
         <AnimatedLogo
           modelMeta={modelMeta}
           modelName={modelName}
@@ -585,7 +585,7 @@ export function ReasoningBlock({
         </AnimatePresence>
       </div>
 
-      {/* ── Outer collapse (always mounted — prevents jump on streaming→done) ── */}
+      {/* ── Outer collapse (always mounted - prevents jump on streaming→done) ── */}
       <motion.div
         initial={false}
         animate={{ height: outerVisible ? "auto" : 0, opacity: outerVisible ? 1 : 0 }}
@@ -594,7 +594,7 @@ export function ReasoningBlock({
       >
         <div style={{ marginTop: 8 }}>
 
-          {/* Inner header: "Thinking [chevron]" — shown only after streaming */}
+          {/* Inner header: "Thinking [chevron]" - shown only after streaming */}
           <AnimatePresence initial={false}>
             {!isThinkingInProgress && (
               <motion.div

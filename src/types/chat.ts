@@ -59,7 +59,7 @@ export interface Message {
   reasoning_sections?: Array<{ heading: string; body: string }>;
   citations?: Citation[];
   sources?: Source[];
-  /** Raw web_searches payload from the backend — used to hydrate sources on load. */
+  /** Raw web_searches payload from the backend - used to hydrate sources on load. */
   web_searches?: Array<{ query: string; links: string[] }>;
 }
 

@@ -9,7 +9,7 @@ import { useCorrosion } from '@/lib/useCorrosion'
 import { springs } from '@/lib/springs'
 
 // ── Visual constants ───────────────────────────────────────────────────────────
-// Dark warm surface — neutral-800 (#3B3632) gives strong contrast against
+// Dark warm surface - neutral-800 (#3B3632) gives strong contrast against
 // the browser's text-selection highlight (usually blue/purple).
 
 const BG = 'var(--neutral-800)'
@@ -25,19 +25,19 @@ const SHADOW_INNER = 'inset 0px 1px 0px 0px rgba(255,255,255,0.06)'
 const CARET_H = 6   // height (tip length) in px
 const CARET_W = 6   // half of base width; full base = 12px
 
-// Icon swap constants — same as MessageBubble copy pattern
+// Icon swap constants - same as MessageBubble copy pattern
 const SWAP_INITIAL = { scale: 0.5, opacity: 0, filter: 'blur(4px)' }
 const SWAP_ANIMATE = { scale: 1,   opacity: 1, filter: 'blur(0px)' }
 const SWAP_EXIT    = { scale: 0.5, opacity: 0, filter: 'blur(4px)' }
 const SWAP_SPRING  = { type: 'spring', stiffness: 500, damping: 30 } as const
 
-// Corrosion hover gradient — identical to Button Primary hover
+// Corrosion hover gradient - identical to Button Primary hover
 const HOVER_GLOW_GRADIENT =
   'linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%)'
 
 // ── Internal action button ─────────────────────────────────────────────────────
 // Implements Button ghost sm padding (5px 8px) with the exact same corrosion
-// hover gradient used by Button Primary — HOVER_GLOW_GRADIENT + turbulence
+// hover gradient used by Button Primary - HOVER_GLOW_GRADIENT + turbulence
 // SVG filter + mouse-tracking mask reveal via useCorrosion.
 
 function PopoverAction({
@@ -123,7 +123,7 @@ function PopoverAction({
         </defs>
       </svg>
 
-      {/* ── Corrosion glow — turbulence displacement + circle mask reveal ── */}
+      {/* ── Corrosion glow - turbulence displacement + circle mask reveal ── */}
       <div
         aria-hidden
         style={{ position: 'absolute', inset: 0, zIndex: 0, filter: `url(#${filterId})` }}
@@ -141,7 +141,7 @@ function PopoverAction({
         </div>
       </div>
 
-      {/* ── Border ring on hover — 1px matching button-subtle-border-hover ── */}
+      {/* ── Border ring on hover - 1px matching button-subtle-border-hover ── */}
       {isHovered && (
         <div
           aria-hidden
@@ -156,7 +156,7 @@ function PopoverAction({
         />
       )}
 
-      {/* ── Content — above the glow layer ── */}
+      {/* ── Content - above the glow layer ── */}
       <span style={{ display: 'flex', lineHeight: 0, flexShrink: 0, position: 'relative', zIndex: 1 }}>
         {icon}
       </span>
@@ -311,7 +311,7 @@ export function SelectionPopover({
             />
           )}
 
-          {/* Inner shadow overlay — top highlight on dark container */}
+          {/* Inner shadow overlay - top highlight on dark container */}
           <div
             aria-hidden
             style={{

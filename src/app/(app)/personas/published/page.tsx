@@ -458,7 +458,7 @@ function PersonaPublishedContent() {
                 </Button>
               )}
 
-              {/* Share to community — disabled initially */}
+              {/* Share to community - disabled initially */}
               <Button
                 variant="secondary"
                 size="sm"

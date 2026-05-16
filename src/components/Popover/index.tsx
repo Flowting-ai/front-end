@@ -5,10 +5,10 @@ import { cn } from '@/lib/utils'
 
 // ── Width presets ─────────────────────────────────────────────────────────────
 // All values are 8px-grid-aligned and sourced from cross-industry research:
-//   sm  192px — compact context menus (4-5 short items, no icons)
-//   md  240px — standard dropdown menu (Figma default, KDS baseline)
-//   lg  280px — full menus with icons (Material Design + eBay Playbook standard)
-//   xl  320px — rich content: long labels, sublabels, trailing meta
+//   sm  192px - compact context menus (4-5 short items, no icons)
+//   md  240px - standard dropdown menu (Figma default, KDS baseline)
+//   lg  280px - full menus with icons (Material Design + eBay Playbook standard)
+//   xl  320px - rich content: long labels, sublabels, trailing meta
 
 export const POPOVER_WIDTHS = {
   sm:  192,
@@ -21,8 +21,8 @@ export type PopoverSize = keyof typeof POPOVER_WIDTHS
 
 // ── Variants ──────────────────────────────────────────────────────────────────
 // Two corner-radius presets per Figma 3206:31988:
-//   modal    — 18px (default; used for confirmation/sheet-style surfaces)
-//   dropdown — 12px (used by Dropdown / context menus / select popovers)
+//   modal    - 18px (default; used for confirmation/sheet-style surfaces)
+//   dropdown - 12px (used by Dropdown / context menus / select popovers)
 
 export type PopoverVariant = 'modal' | 'dropdown'
 
@@ -32,14 +32,14 @@ const VARIANT_RADIUS: Record<PopoverVariant, number> = {
 }
 
 // ── Default scroll cap ────────────────────────────────────────────────────────
-// "≈7 items" rule — caps a dropdown that would otherwise grow taller than the
+// "≈7 items" rule - caps a dropdown that would otherwise grow taller than the
 // reasonable comfort zone. 380 px holds 7 sublabel rows (5+22+16+5 = 48 px each
 // + 4 px gaps + 16 px section padding) or up to ~10 plain rows. The viewport
 // floor `calc(100dvh - 32px)` keeps the popover off the screen edge on short
 // laptops and mobile rotations.
 //
 // Consumers can override with the `maxHeight` prop. Pass `false` to opt out
-// (rare — typically for popovers whose content is intrinsically short).
+// (rare - typically for popovers whose content is intrinsically short).
 export const POPOVER_DEFAULT_MAX_HEIGHT = 'min(380px, calc(100dvh - 32px))' as const
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -51,16 +51,16 @@ export interface PopoverProps extends React.HTMLAttributes<HTMLDivElement> {
    *
    * | Size | Width | When to use |
    * |------|-------|-------------|
-   * | `sm` | 192px | Compact context menus — 4–5 short items, no icons |
+   * | `sm` | 192px | Compact context menus - 4–5 short items, no icons |
    * | `md` | 240px | Standard dropdown (KDS / Figma baseline) |
    * | `lg` | 280px | Full menus with icons (Material Design / eBay standard) |
-   * | `xl` | 320px | Rich content — long labels, sublabels, trailing meta |
+   * | `xl` | 320px | Rich content - long labels, sublabels, trailing meta |
    */
   size?: PopoverSize
   /**
-   * Surface variant — controls corner radius (Figma 3206:31988).
-   *  - `modal`    (default) — 18 px radius. For confirmation dialogs / sheets.
-   *  - `dropdown`           — 12 px radius. For dropdowns / context menus /
+   * Surface variant - controls corner radius (Figma 3206:31988).
+   *  - `modal`    (default) - 18 px radius. For confirmation dialogs / sheets.
+   *  - `dropdown`           - 12 px radius. For dropdowns / context menus /
    *                           select popovers. The `<Dropdown>` organism sets
    *                           this automatically; consumers using `<Popover>`
    *                           directly for a menu-like surface should set it
@@ -69,13 +69,13 @@ export interface PopoverProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: PopoverVariant
   /**
    * Maximum height of the popover content. When the content exceeds this,
-   * the surface scrolls internally — content past the cap is reachable via
+   * the surface scrolls internally - content past the cap is reachable via
    * scroll, never by growing the popover. Pass a number (px) or any CSS
    * length (e.g. `'min(420px, calc(100dvh - 24px))'`).
    *
    * Pass `false` to disable the cap and let the popover grow to fit content.
    *
-   * Default — `min(380px, calc(100dvh - 32px))` (~7 sublabel rows, capped to
+   * Default - `min(380px, calc(100dvh - 32px))` (~7 sublabel rows, capped to
    * the viewport on short screens). The cap is applied to dropdown-style
    * surfaces so a 12-item menu shows ~7 rows + a softly-faded peek of the
    * next, with kaya-scrollbar revealing the rest. See `POPOVER_DEFAULT_MAX_HEIGHT`.
@@ -215,7 +215,7 @@ function ScrollArea({ maxHeight, children }: ScrollAreaProps) {
 
 /**
  * Floating surface shell for dropdown menus, command palettes, and context
- * menus. Provides the white rounded card with shadow — no positioning or
+ * menus. Provides the white rounded card with shadow - no positioning or
  * open/close logic. Wire to `@radix-ui/react-popover` or
  * `@radix-ui/react-dropdown-menu` Content for full behaviour.
  */

@@ -7,13 +7,13 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 
-const UNIVERSAL_PROMPT = `Based on everything you know about me — past conversations, saved memories, any standing instructions or preferences I've set — write a single paragraph (no headers, no bullets, no markdown) that briefs another AI assistant on how to work with me effectively. Cover:
+const UNIVERSAL_PROMPT = `Based on everything you know about me - past conversations, saved memories, any standing instructions or preferences I've set - write a single paragraph (no headers, no bullets, no markdown) that briefs another AI assistant on how to work with me effectively. Cover:
 
-1. Who I am — my role, what I work on, current focus
-2. How I prefer to communicate — tone, level of detail, formality
+1. Who I am - my role, what I work on, current focus
+2. How I prefer to communicate - tone, level of detail, formality
 3. Ongoing projects or themes that come up repeatedly
 4. Tools, methods, and preferences I've mentioned
-5. Things I want to avoid — verbose explanations, hedging, specific words or frameworks I dislike
+5. Things I want to avoid - verbose explanations, hedging, specific words or frameworks I dislike
 
 Write it as a briefing for someone who has never met me. Plain prose only. Under 400 words.`;
 
@@ -94,7 +94,7 @@ export default function OnboardingImportPage() {
           }}
         >
           Souvenir remembers across sessions. Use the prompt below in any AI tool you already
-          use — ChatGPT, Claude, or Gemini — then paste the response here.
+          use - ChatGPT, Claude, or Gemini - then paste the response here.
         </p>
       </div>
 
@@ -111,7 +111,7 @@ export default function OnboardingImportPage() {
               letterSpacing: "0.07px",
             }}
           >
-            Universal prompt — works with any AI tool
+            Universal prompt - works with any AI tool
           </span>
         </div>
 
@@ -267,7 +267,7 @@ export default function OnboardingImportPage() {
               color: "#0a0a0a",
             }}
           >
-            Paste the response here—{" "}
+            Paste the response here-{" "}
           </span>
           <span
             style={{

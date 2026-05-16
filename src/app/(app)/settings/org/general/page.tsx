@@ -749,7 +749,7 @@ export default function OrgGeneralPage() {
                 The persona automatically applied to new conversations.
               </p>
             </div>
-            <SelectPill label="None — use model default" />
+            <SelectPill label="None - use model default" />
           </div>
         </Card>
 

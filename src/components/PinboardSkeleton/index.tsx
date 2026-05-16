@@ -8,8 +8,8 @@ import { PinSkeleton } from '@/components/PinSkeleton'
 // Mirror Pinboard/index.tsx exactly so the swap from skeleton → real Pinboard
 // is shift-free. Any drift here should be reflected back in Pinboard.
 const TOP_BAR_H   = 110   // top overlay height (header 58 + filter row 36 + gap 12 + bottom-pad 8)
-const TOP_PAD     = 118   // scroll-area paddingTop  — content starts below filter row
-const BOTTOM_PAD  = 68    // scroll-area paddingBottom — clears the toolbar
+const TOP_PAD     = 118   // scroll-area paddingTop  - content starts below filter row
+const BOTTOM_PAD  = 68    // scroll-area paddingBottom - clears the toolbar
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
         }}
         {...props}
       >
-        {/* ── Top overlay — header + filter bar (mirrors Pinboard's compact top chrome) ── */}
+        {/* ── Top overlay - header + filter bar (mirrors Pinboard's compact top chrome) ── */}
         <div
           aria-hidden
           style={{
@@ -68,7 +68,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
             zIndex:        2,
           }}
         >
-          {/* PinboardHeader skeleton — height 58, paddingTop 22, justify-end, gap 8 */}
+          {/* PinboardHeader skeleton - height 58, paddingTop 22, justify-end, gap 8 */}
           <div
             style={{
               position:       'relative',
@@ -81,7 +81,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
               width:          '100%',
             }}
           >
-            {/* "Pinboard" title — absolute left, doesn't affect flow */}
+            {/* "Pinboard" title - absolute left, doesn't affect flow */}
             <div
               className="kaya-skeleton"
               style={{
@@ -93,13 +93,13 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
                 borderRadius: 4,
               }}
             />
-            {/* Search IconButton — 32×32 r8 */}
+            {/* Search IconButton - 32×32 r8 */}
             <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
-            {/* Close IconButton — 32×32 r8 */}
+            {/* Close IconButton - 32×32 r8 */}
             <div className="kaya-skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
           </div>
 
-          {/* Filter bar — space-between: filter Button (left) + IconButton×2 (right) */}
+          {/* Filter bar - space-between: filter Button (left) + IconButton×2 (right) */}
           <div
             style={{
               display:        'flex',
@@ -119,7 +119,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
           </div>
         </div>
 
-        {/* ── Scrollable pin list (no scroll in skeleton — real component reveals scroll on data) ── */}
+        {/* ── Scrollable pin list (no scroll in skeleton - real component reveals scroll on data) ── */}
         <div
           style={{
             flex:           '1 1 0',
@@ -146,7 +146,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
           </div>
         </div>
 
-        {/* ── Top edge fade — progressive blur + colour gradient (always visible at rest
+        {/* ── Top edge fade - progressive blur + colour gradient (always visible at rest
              since content is loading and may overflow) ── */}
         {[
           { height: 40, blur: 2 },
@@ -225,7 +225,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
           }}
         />
 
-        {/* ── Bottom toolbar — Export (ghost, fluid) + Organize (secondary, fluid) ── */}
+        {/* ── Bottom toolbar - Export (ghost, fluid) + Organize (secondary, fluid) ── */}
         <div
           aria-hidden
           style={{

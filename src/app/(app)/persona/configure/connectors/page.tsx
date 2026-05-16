@@ -69,7 +69,7 @@ function FloatingMenu({
         }}
       />
 
-      {/* Icon 1 — test persona chat */}
+      {/* Icon 1 - test persona chat */}
       <button
         onClick={onToggleTestChat}
         title={testChatOpen ? 'Close test chat' : 'Open test chat'}
@@ -105,7 +105,7 @@ function FloatingMenu({
         <UserAiIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 2 — AI idea */}
+      {/* Icon 2 - AI idea */}
       <button
         style={{
           display: 'flex',
@@ -121,7 +121,7 @@ function FloatingMenu({
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 3 — save versions */}
+      {/* Icon 3 - save versions */}
       <button
         style={{
           display: 'flex',

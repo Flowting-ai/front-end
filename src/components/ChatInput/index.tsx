@@ -30,19 +30,19 @@ import { cn } from '@/lib/utils'
 // `onAdd` / `onModelClick` callbacks instead.
 //
 // Folder icon: `<FolderOneIcon variant="static" animated />`. The icon is
-// otherwise reserved for Sidebar surfaces (see CLAUDE.md "Folder Icon —
+// otherwise reserved for Sidebar surfaces (see CLAUDE.md "Folder Icon -
 // Sidebar Only Rule"); the Pin-folders row inside the Add menu is the
 // declared exception, mandated by the user. Don't generalise.
 
 // Persona submenu thresholds (Figma 3430:39723 + 3436:1591).
 // The compact rows-only variant ships up to and including 10 personas.
 // Past that, the menu adds a sticky search input at the top so the user
-// can filter by name. Both variants share the same row template — 24×24
+// can filter by name. Both variants share the same row template - 24×24
 // avatar (rounded-6) + Body/Medium 14 label.
 const PERSONA_SEARCH_THRESHOLD = 10
 
 export interface ChatInputPersona {
-  /** Stable identifier — used for keyed list rendering and onSelect callbacks. */
+  /** Stable identifier - used for keyed list rendering and onSelect callbacks. */
   id: string
   /** Persona display name. */
   name: string
@@ -50,7 +50,7 @@ export interface ChatInputPersona {
   avatarSrc: string
 }
 
-// Pin folder shape — mirrors `PinboardExpandedFolder` (project ↔ pinboard
+// Pin folder shape - mirrors `PinboardExpandedFolder` (project ↔ pinboard
 // folder sync rule). Consumers should pass the SAME `personalFolders` /
 // `projectFolders` arrays into `ChatInput`, `Pinboard`, and
 // `PinboardExpanded` so all three surfaces stay in sync.
@@ -62,7 +62,7 @@ export interface ChatInputFolder {
 // Placeholder personas used when ChatInput consumers haven't passed a
 // `personas` prop yet. Eight short names so the canonical ChatBoard
 // preview shows the compact (≤10) variant by default. Avatars come from
-// `i.pravatar.cc` — a stable test-image service used elsewhere in KDS
+// `i.pravatar.cc` - a stable test-image service used elsewhere in KDS
 // stories (ModelSelectItem, etc.). Override via the `personas` prop.
 const DEFAULT_PERSONAL_FOLDERS: ChatInputFolder[] = [
   { id: 'personal-1', label: 'Personal 1' },
@@ -76,7 +76,7 @@ const DEFAULT_PROJECT_FOLDERS: ChatInputFolder[] = [
   { id: 'project-b', label: 'Project B' },
 ]
 
-// Personas are AGENT TYPES, not people — the labels describe the agent's
+// Personas are AGENT TYPES, not people - the labels describe the agent's
 // role / voice (Researcher, Editor, Strategist, …). Eight entries so the
 // canonical ChatBoard preview shows the compact (≤10) variant by default.
 // Avatars use `i.pravatar.cc` purely as neutral 96 px stand-ins so the
@@ -113,7 +113,7 @@ const USE_STYLE_OPTIONS = [
 //   • ≤ 10 personas → compact row list (Figma 3430:39723).
 //   • > 10 personas → sticky search input above filtered rows (Figma 3436:1591).
 // The search input is a plain `<input>` styled to match the Figma frame
-// exactly (white bg, 10 px radius, the standard KDS field shadow stack —
+// exactly (white bg, 10 px radius, the standard KDS field shadow stack -
 // `0 1px 1.5px 0 rgba(82,75,71,0.12), 0 0 0 1px var(--neutral-100)`,
 // `padding: 7px 10px`). It lives in the Popover's `header` slot so it
 // sits above the scroll viewport and never scrolls away with the items.
@@ -153,7 +153,7 @@ function PersonaSearchInput({
           color:           'var(--neutral-700)',
         }}
         // Stop key events from bubbling up to the parent dropdown's
-        // ArrowUp/ArrowDown/Home/End handlers — typing here should NOT
+        // ArrowUp/ArrowDown/Home/End handlers - typing here should NOT
         // navigate the menu list. Enter on the input is reserved for a
         // future "submit search" handler; for now it's a no-op.
         onKeyDown={(e) => { e.stopPropagation() }}
@@ -216,8 +216,8 @@ function PersonaSubmenu({
 // ── Pin folders submenu ───────────────────────────────────────────────────────
 // Two sections, mirroring the Pinboard view-filter dropdown and the
 // PinboardExpanded sidebar (project ↔ pinboard folder sync rule):
-//   • "Your folders"    — personal user-created folders
-//   • "Project folders" — derived from Sidebar projects
+//   • "Your folders"    - personal user-created folders
+//   • "Project folders" - derived from Sidebar projects
 // Each row uses `<FolderOneIcon variant="static" animated />`. The folder
 // icon is otherwise sidebar-only; this submenu (alongside the parent
 // "Pin folders" row) is the declared exception per CLAUDE.md.
@@ -310,7 +310,7 @@ function DefaultAddMenu({
             />
           }
         >
-          {/* Use Style submenu — Figma 3424:1892. Twelve sublabel rows ⇒
+          {/* Use Style submenu - Figma 3424:1892. Twelve sublabel rows ⇒
               hits the popover max-height cap (380 px ≈ 7 rows). The remaining
               5 rows are reachable via internal scroll, with the scroll-edge
               fade signaling more content below.
@@ -344,7 +344,7 @@ function DefaultAddMenu({
             />
           }
         >
-          {/* Add persona submenu — Figma 3430:39723 (compact, ≤10 personas)
+          {/* Add persona submenu - Figma 3430:39723 (compact, ≤10 personas)
               and 3436:1591 (search-enabled, >10 personas). PersonaSubmenu
               picks the variant from `personas.length`. */}
           <PersonaSubmenu
@@ -363,7 +363,7 @@ function DefaultAddMenu({
             />
           }
         >
-          {/* Pin folders submenu — same structure as the Pinboard view-filter
+          {/* Pin folders submenu - same structure as the Pinboard view-filter
               dropdown: "Your folders" (personal) + "Project folders" (derived
               from Sidebar projects), separated by a divider. */}
           <PinFoldersSubmenu
@@ -457,7 +457,7 @@ function AudioWaveDisplay({ analyser, color = 'currentColor', size = 20 }: {
   const heightsRef = useRef<number[]>([...BAR_DEFAULT])
   const rafRef     = useRef<number>(0)
 
-  // Direct DOM mutation — no setState, no re-renders.
+  // Direct DOM mutation - no setState, no re-renders.
   // RAF-driven setState inside Framer Motion's composited subtree gets batched/dropped.
   const updatePaths = (heights: number[]) => {
     heights.forEach((h, i) => {
@@ -547,7 +547,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   /** Textarea placeholder text */
   placeholder?: string
   /**
-   * Accessible label for the textarea. Required for screen reader users —
+   * Accessible label for the textarea. Required for screen reader users -
    * the animated placeholder is aria-hidden and not a valid label.
    * @example "Message Souvenir"
    */
@@ -566,7 +566,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   onModelClick?: React.MouseEventHandler<HTMLButtonElement>
   /**
    * Contents of the model-selector dropdown (Figma 3208:32989). Defaults to
-   * the canonical KDS model menu — `Souvenir : Advance` (switch),
+   * the canonical KDS model menu - `Souvenir : Advance` (switch),
    * `Adaptive thinking` (switch), `More models` (submenu with "Most used"
    * + "Recents" sections). Pass a custom `<Dropdown>` to override, or
    * `null` to opt out and use the legacy bare-button + `onModelClick`.
@@ -574,7 +574,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   modelMenu?: React.ReactNode | null
   /**
    * Contents of the leading `+` add-attachment dropdown (Figma 3219:33599).
-   * Defaults to the canonical KDS add menu — `Add files or photos`,
+   * Defaults to the canonical KDS add menu - `Add files or photos`,
    * `Web search` (switch), `Use style` (12-row submenu, Figma 3424:1892),
    * `Add persona`, `Pin folders`. Pass a custom `<Dropdown>` to override,
    * or `null` to opt out and use the legacy bare-button + `onAdd`.
@@ -591,7 +591,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
    */
   personas?: ChatInputPersona[]
   /**
-   * Personal pin folders — user-created folders rendered in the Add menu's
+   * Personal pin folders - user-created folders rendered in the Add menu's
    * "Pin folders" submenu under a "Your folders" section header. Same
    * shape as `PinboardExpandedFolder` so a single source-of-truth array
    * can be passed into `ChatInput`, `Pinboard`, and `PinboardExpanded`
@@ -600,7 +600,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
    */
   personalFolders?: ChatInputFolder[]
   /**
-   * Project pin folders — derived from the user's Sidebar projects.
+   * Project pin folders - derived from the user's Sidebar projects.
    * Rendered in the Add menu's "Pin folders" submenu under a "Project
    * folders" section header. See `specs/patterns/project-pinboard-folder-sync.md`
    * for the canonical mapping. Ignored when `addMenu` is overridden.
@@ -626,13 +626,13 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   onSelectedPersonaChange?: (next: string | null) => void
   /**
    * Chip(s) to display in the left footer slot, between the add button and
-   * the model selector. Accepts any ReactNode — typically one or more `<Chip>`
+   * the model selector. Accepts any ReactNode - typically one or more `<Chip>`
    * components.
    */
   chips?: React.ReactNode
   /**
    * Attachment cards rendered inside the ChatInput above the textarea.
-   * Accepts one or more `<ChatThumbnail>` elements — shown as a horizontal
+   * Accepts one or more `<ChatThumbnail>` elements - shown as a horizontal
    * row of 120×120px cards so the user can see what is attached.
    */
   pinCards?: React.ReactNode
@@ -740,7 +740,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     // (file attachments, custom badges, etc.) appear AFTER the auto-chips.
     // Click on the persona/style chip body opens a `Dropdown.Float` picker
     // anchored to the chip; the × removes the selection (and the
-    // corresponding menu state). The web-search chip has no picker — it's
+    // corresponding menu state). The web-search chip has no picker - it's
     // a status indicator only; × turns it off.
     const activeStyle   = USE_STYLE_OPTIONS.find((s) => s.id === selectedStyleId) ?? null
     const activePersona = personas.find((p) => p.id === selectedPersonaId) ?? null
@@ -868,7 +868,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
 
         setAnalyser(analyserNode)
       } catch {
-        // Mic permission denied or unavailable — revert
+        // Mic permission denied or unavailable - revert
         ctx.close()
         audioCtxRef.current = null
         setIsRecording(false)
@@ -967,11 +967,11 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {isRecording ? 'Recording started. Listening.' : ''}
         </span>
 
-        {/* ── Pin context cards — appear above textarea when pins are inserted ──
-             12 px gap (KDS override of the Figma spec sheet's 24 — chosen for
+        {/* ── Pin context cards - appear above textarea when pins are inserted ──
+             12 px gap (KDS override of the Figma spec sheet's 24 - chosen for
              tighter row density). The `kaya-pin-cards-row` class sets
              descending `z-index` on each child via `:nth-child` so the FIRST
-             thumbnail's × button sits on top of subsequent thumbnails —
+             thumbnail's × button sits on top of subsequent thumbnails -
              without this, later siblings render above earlier ones (DOM-order
              default) and the × overlap looks broken. */}
         {pinCards && (
@@ -988,9 +988,9 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           </div>
         )}
 
-        {/* ── Main content — textarea + animated placeholder ── */}
+        {/* ── Main content - textarea + animated placeholder ── */}
         <div style={{ position: 'relative' }}>
-          {/* Custom animated placeholder — fades out when user starts typing */}
+          {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
             {!value && (
               <motion.div
@@ -1079,7 +1079,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {/* Left: attach button + chips slot */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {addMenu != null ? (
-              // Inline Dropdown — opens above the trigger with its left
+              // Inline Dropdown - opens above the trigger with its left
               // edge aligned to the button's left edge (top-start). Figma
               // 3219:33599.
               <Dropdown.Float
@@ -1108,10 +1108,10 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
             )}
             {(webSearch || activeStyle || activePersona || chips) && (
               <div
-                // Chips slot (Figma 3427:27842 — web-search / persona / style /
+                // Chips slot (Figma 3427:27842 - web-search / persona / style /
                 // consumer chips). Single row, 8 px gap between chips, no wrap
                 // (a long chip row pushes the model selector but never wraps
-                // to a second line — matches the reference composer's overflow
+                // to a second line - matches the reference composer's overflow
                 // behaviour). Auto-chips render BEFORE consumer-provided
                 // chips so file-attachment / custom badges appear after.
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -1125,7 +1125,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {/* Right: model selector + mic/send button */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {modelMenu != null ? (
-              // Inline Dropdown — opens above the trigger (top-start) since
+              // Inline Dropdown - opens above the trigger (top-start) since
               // ChatInput typically lives at the bottom of its scroll
               // container. Figma 3208:32989.
               <Dropdown.Float
@@ -1171,7 +1171,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                         ? (isMicHovered ? 'stop' : 'wave')
                         : value ? 'send' : 'mic'
                       const isWave = iconKey === 'wave'
-                      // Wave state: no filter on enter — any filter creates a GPU compositing
+                      // Wave state: no filter on enter - any filter creates a GPU compositing
                       // layer that kills SVG path updates inside AudioWaveDisplay.
                       return (
                         <motion.span

@@ -454,7 +454,7 @@ function ChatPageInner() {
     />
   ) : null;
 
-  // Chips for the active-chat interface (no pin chips — ChatInterface manages its own)
+  // Chips for the active-chat interface (no pin chips - ChatInterface manages its own)
   const chips = webSearchChip ? [webSearchChip] : undefined;
 
   // Chips for the new-chat input: pin mention chips + web search chip
@@ -550,7 +550,7 @@ function ChatPageInner() {
   };
 
   const handleTitleUpdate = (chatId: string, title: string) => {
-    // Update local state immediately — the backend already set the title via SSE,
+    // Update local state immediately - the backend already set the title via SSE,
     // so there's no need to call the rename API here.
     renameLocal(chatId, title);
   };
@@ -590,7 +590,7 @@ function ChatPageInner() {
         overflow:      "hidden",
       }}
     >
-      {/* Hidden file input — triggered by "Add files or photos" in add menu */}
+      {/* Hidden file input - triggered by "Add files or photos" in add menu */}
       <input
         ref={fileInputRef}
         type="file"
@@ -641,7 +641,7 @@ function ChatPageInner() {
               </div>
             )}
 
-            {/* Centering wrapper — allows vertical centering on tall screens, scrolling on short ones */}
+            {/* Centering wrapper - allows vertical centering on tall screens, scrolling on short ones */}
             <div
               style={{
                 minHeight:      "100%",
@@ -674,7 +674,7 @@ function ChatPageInner() {
                   style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
-                  {/* Pin mention dropdown wrapper — position:relative anchor */}
+                  {/* Pin mention dropdown wrapper - position:relative anchor */}
                   <div ref={newChatInputWrapperRef} style={{ width: "100%", position: "relative" }}>
                     <PinMentionDropdown
                       isOpen={newChatShowPinDropdown}

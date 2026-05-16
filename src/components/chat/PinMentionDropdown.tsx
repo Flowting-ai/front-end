@@ -56,7 +56,7 @@ function mapTags(tags: string[]): PinTag[] {
 
 export interface PinMentionDropdownProps {
   isOpen: boolean;
-  /** Filtered pin list — computed and passed in by the parent. */
+  /** Filtered pin list - computed and passed in by the parent. */
   pins: Pin[];
   /** Current search query (text typed after `@`). */
   query: string;
@@ -112,7 +112,7 @@ export function PinMentionDropdown({
             transformOrigin: "bottom center",
           }}
         >
-          {/* Header — matches KDS design exactly (Figma 3208:33092) */}
+          {/* Header - matches KDS design exactly (Figma 3208:33092) */}
           <div
             style={{
               padding: "8px 16px",
@@ -196,7 +196,7 @@ export function PinMentionDropdown({
               >
                 {query
                   ? `No pins matching "${query}"`
-                  : "No pins yet — create one from a message."}
+                  : "No pins yet - create one from a message."}
               </div>
             ) : (
               pins.map((pin, idx) => {

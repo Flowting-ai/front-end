@@ -34,7 +34,7 @@ const COLOR_CONFIG: Record<BadgeColor, BadgeColorTokens> = (
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** Text label shown inside the badge */
   label?: string
-  /** Color variant — sets background, text, ring, and inner shadow */
+  /** Color variant - sets background, text, ring, and inner shadow */
   color?: BadgeColor
 }
 

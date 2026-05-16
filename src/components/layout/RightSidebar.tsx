@@ -75,7 +75,7 @@ export function RightSidebar() {
     return map
   }, [chats])
 
-  // Suppress unused-variable warnings for filter/sort state — these will be wired
+  // Suppress unused-variable warnings for filter/sort state - these will be wired
   // to dropdown menus once the KDS FilterMenu / SortMenu components ship.
   void setCategoryFilter
   void setSortOrder

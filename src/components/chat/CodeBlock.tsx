@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check, WrapText } from "lucide-react";
 
-// Module-level cache — one load shared across all CodeBlock instances
+// Module-level cache - one load shared across all CodeBlock instances
 let _hljsPromise: Promise<typeof import("@/lib/highlight").default> | null = null;
 
 function loadHljs() {

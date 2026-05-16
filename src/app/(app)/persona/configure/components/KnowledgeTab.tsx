@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Search, Upload, MoreHorizontal, Eye, ArrowDownToLine, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { Plus, Search, Upload, MoreHorizontal, Eye, ArrowDownToLine, SlidersHorizontal, ChevronDown, ArrowUpToLine, ArrowUp } from "lucide-react";
 
 export type KnowledgeFile = {
   id: string;
@@ -18,10 +18,12 @@ type KnowledgeTabProps = {
   files: KnowledgeFile[];
   onFilesChange: (files: KnowledgeFile[]) => void;
   onRawFilesSelected?: (files: File[]) => void;
+  onRemoveFile?: (id: string) => void;
 };
 
 const FILE_LIMIT = 20;
 const SIZE_LIMIT_MB = 800;
+const FILE_SIZE_LIMIT_MB = 30;
 
 const SOURCE_BUTTONS = [
   { label: "Google Drive", key: "drive" },
@@ -72,6 +74,7 @@ function FileRow({ file, onRemove, onPriorityChange }: {
   onPriorityChange: (id: string, p: string) => void;
 }) {
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
+  const [showActionMenu,   setShowActionMenu]   = useState(false);
   const badgeLabel = file.type === "url" ? "URLs" : (file.fileType ?? "PDF");
 
   return (
@@ -85,7 +88,6 @@ function FileRow({ file, onRemove, onPriorityChange }: {
         borderRadius: 12,
         backgroundColor: "white",
         boxShadow: "0px 0px 0px 1px white",
-        overflow: "hidden",
         width: "100%",
         fontFamily: "var(--font-body)",
       }}
@@ -126,7 +128,7 @@ function FileRow({ file, onRemove, onPriorityChange }: {
       </p>
       <div style={{ display: "flex", gap: 17, alignItems: "center", width: 265, flexShrink: 0 }}>
         <FileBadge label={badgeLabel} />
-        {file.size && (
+        {file.size && file.size !== '-' && (
           <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
             {file.size}
           </span>
@@ -170,7 +172,7 @@ function FileRow({ file, onRemove, onPriorityChange }: {
               border: "1px solid #d1c6bd",
               borderRadius: 8,
               boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-              zIndex: 20,
+              zIndex: 1000,
               minWidth: 120,
               overflow: "hidden",
             }}
@@ -217,7 +219,7 @@ function FileRow({ file, onRemove, onPriorityChange }: {
         )}
         <button
           type="button"
-          onClick={() => onRemove(file.id)}
+          onClick={() => setShowActionMenu((p) => !p)}
           style={{
             display: "flex",
             alignItems: "center",
@@ -232,15 +234,86 @@ function FileRow({ file, onRemove, onPriorityChange }: {
         >
           <MoreHorizontal size={20} color="#524b47" />
         </button>
+        {showActionMenu && (
+          <div
+            style={{
+              position: "absolute",
+              top: 36,
+              right: 0,
+              backgroundColor: "white",
+              border: "1px solid #d1c6bd",
+              borderRadius: 8,
+              boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
+              zIndex: 1000,
+              minWidth: 120,
+              overflow: "hidden",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => { onRemove(file.id); setShowActionMenu(false); }}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "8px 12px",
+                fontSize: 14,
+                fontFamily: "var(--font-body)",
+                color: "#c0392b",
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected }: KnowledgeTabProps) {
+function DropOverlay({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: -8,
+        zIndex: 40,
+        pointerEvents: "none",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        borderRadius: 18,
+        border: "2px dashed #0d6eb2",
+        backgroundColor: "rgba(13,110,178,0.08)",
+        backdropFilter: "blur(2px)",
+        fontFamily: "var(--font-body)",
+        color: "#0d6eb2",
+      }}
+    >
+      <ArrowUp size={28} color="#0d6eb2" />
+      <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>Drop files to upload</p>
+      <p style={{ margin: 0, fontSize: 12, color: "#3b3632" }}>
+        PDF, DOCX, TXT, CSV, MD, JSON, XLSX
+      </p>
+    </div>
+  );
+}
+
+export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected, onRemoveFile }: KnowledgeTabProps) {
   const [urlInput, setUrlInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeConnectorFilter, setActiveConnectorFilter] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  // Drag enter/leave fire for every child as the cursor traverses the DOM tree, so
+  // count outstanding "enters" instead of toggling a boolean — otherwise the overlay
+  // flickers off the instant the cursor crosses an inner element.
+  const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEmpty = files.length === 0;
@@ -250,31 +323,77 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
     return acc + (isNaN(mb) ? 0 : mb);
   }, 0);
 
+  const ingestFiles = (raw: File[]) => {
+    if (raw.length === 0) return;
+
+    // Per-file size validation (30 MB limit)
+    const oversized = raw.filter(f => f.size > FILE_SIZE_LIMIT_MB * 1024 * 1024);
+    if (oversized.length > 0) {
+      oversized.forEach(f =>
+        alert(`"${f.name}" exceeds the ${FILE_SIZE_LIMIT_MB} MB per-file limit and was not added.`)
+      );
+    }
+    const valid = raw.filter(f => f.size <= FILE_SIZE_LIMIT_MB * 1024 * 1024);
+    if (valid.length === 0) return;
+
+    if (onRawFilesSelected) {
+      onRawFilesSelected(valid);
+      return;
+    }
+    // Fallback: optimistic local state only
+    const newFiles: KnowledgeFile[] = raw.map(file => {
+      const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      return {
+        id: `${Date.now()}-${file.name}`,
+        name: file.name,
+        type: "file",
+        fileType: ext,
+        size: `${sizeMB} MB`,
+        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        priority: "Priority",
+      };
+    });
+    onFilesChange([...files, ...newFiles]);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (!selected) return;
-    const raw = Array.from(selected);
-    if (onRawFilesSelected) {
-      // Delegate actual upload to the parent page (which has repoId/versionId)
-      onRawFilesSelected(raw);
-    } else {
-      // Fallback: optimistic local state only
-      const newFiles: KnowledgeFile[] = raw.map(file => {
-        const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-        return {
-          id: `${Date.now()}-${file.name}`,
-          name: file.name,
-          type: "file",
-          fileType: ext,
-          size: `${sizeMB} MB`,
-          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-          priority: "Priority",
-        };
-      });
-      onFilesChange([...files, ...newFiles]);
-    }
+    ingestFiles(Array.from(selected));
     e.target.value = "";
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDraggingOver(true);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDraggingOver(false);
+  };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDraggingOver(false);
+    ingestFiles(Array.from(e.dataTransfer.files));
+  };
+
+  const dragHandlers = {
+    onDragEnter: handleDragEnter,
+    onDragOver:  handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop:      handleDrop,
   };
 
   const handleAddUrl = () => {
@@ -288,7 +407,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
         name,
         type: "url",
         fileType: "URLs",
-        size: "—",
+        size: "-",
         date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         priority: "Priority",
       },
@@ -297,6 +416,10 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
   };
 
   const handleRemoveFile = (id: string) => {
+    if (onRemoveFile) {
+      onRemoveFile(id);
+      return;
+    }
     onFilesChange(files.filter((f) => f.id !== id));
   };
 
@@ -317,7 +440,11 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
 
   if (isEmpty) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
+      <div
+        {...dragHandlers}
+        style={{ position: "relative", display: "flex", flexDirection: "column", gap: 24, width: "100%" }}
+      >
+        <DropOverlay visible={isDraggingOver} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <h2
             style={{
@@ -332,7 +459,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
             Add Knowledge to your Persona
           </h2>
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "black", margin: 0 }}>
-            Upload files or add URLs — the persona retrieves relevant content during conversations
+            Upload files or add URLs - the persona retrieves relevant content during conversations
           </p>
         </div>
 
@@ -362,7 +489,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
                 width: "100%",
               }}
             >
-              <ArrowDownToLine size={25} color="#524b47" />
+              <ArrowUp size={25} color="#524b47" />
               <p
                 style={{
                   fontFamily: "var(--font-body)",
@@ -384,7 +511,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
                   margin: 0,
                 }}
               >
-                Upload files or connect sources — the persona retrieves relevant content during conversations.
+                Upload files or connect sources - the persona retrieves relevant content during conversations.
               </p>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", width: "100%" }}>
@@ -517,7 +644,11 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
+    <div
+      {...dragHandlers}
+      style={{ position: "relative", display: "flex", flexDirection: "column", gap: 24, width: "100%" }}
+    >
+      <DropOverlay visible={isDraggingOver} />
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <h2
@@ -700,7 +831,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected 
 
       {urlFiles.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages — URLs</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, fontWeight: 500, color: "#0a0a0a", margin: 0 }}>Web pages - URLs</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {urlFiles.map((f) => (
               <FileRow key={f.id} file={f} onRemove={handleRemoveFile} onPriorityChange={handlePriorityChange} />

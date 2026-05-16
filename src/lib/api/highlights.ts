@@ -3,7 +3,7 @@
 import { apiFetch, apiFetchJson, ApiError } from "./client";
 import { HIGHLIGHTS_ENDPOINT, HIGHLIGHT_DETAIL_ENDPOINT } from "@/lib/config";
 
-// ── Request / Response shapes — match backend schema exactly ──────────────────
+// ── Request / Response shapes - match backend schema exactly ──────────────────
 
 export interface HighlightCreate {
   message_id:    string;

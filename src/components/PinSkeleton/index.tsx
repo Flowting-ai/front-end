@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 const SHADOW_CARD =
   '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
 
-// Width presets per consumer surface — matches Pin's resting widths.
+// Width presets per consumer surface - matches Pin's resting widths.
 //   compact  → Pinboard collapsed panel (314 px)
 //   expanded → PinboardExpanded grid cell (644 px)
 const VARIANT_WIDTH: Record<'compact' | 'expanded', number> = {
@@ -22,8 +22,8 @@ const VARIANT_WIDTH: Record<'compact' | 'expanded', number> = {
 export interface PinSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Surface variant. Picks the resting width to match the real Pin:
-   *  - `compact`  (default) — 314 px, used inside the collapsed Pinboard.
-   *  - `expanded`           — 644 px, used inside PinboardExpanded's grid.
+   *  - `compact`  (default) - 314 px, used inside the collapsed Pinboard.
+   *  - `expanded`           - 644 px, used inside PinboardExpanded's grid.
    * @default 'compact'
    */
   variant?: 'compact' | 'expanded'
@@ -100,7 +100,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
             padding:       '12px 12px 16px 12px',
           }}
         >
-          {/* ── Header row — category tile + title stack + ellipsis slot ── */}
+          {/* ── Header row - category tile + title stack + ellipsis slot ── */}
           <div
             style={{
               display:    'flex',
@@ -119,7 +119,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
                 minWidth:   0,
               }}
             >
-              {/* PinCategory tile placeholder — matches PinCategory's 45×45 / r8 */}
+              {/* PinCategory tile placeholder - matches PinCategory's 45×45 / r8 */}
               <div
                 className="kaya-skeleton"
                 style={{
@@ -130,7 +130,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
                 }}
               />
 
-              {/* Title — two short bars stacked, mirroring Pin's 2-line title cap */}
+              {/* Title - two short bars stacked, mirroring Pin's 2-line title cap */}
               <div
                 style={{
                   flex:          '1 0 0',
@@ -152,7 +152,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
               </div>
             </div>
 
-            {/* IconButton (more options) placeholder — 24×24 / r6 */}
+            {/* IconButton (more options) placeholder - 24×24 / r6 */}
             <div
               className="kaya-skeleton"
               style={{
@@ -189,7 +189,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
             </div>
           )}
 
-          {/* ── Labels row — Add-tag chip + label placeholders ── */}
+          {/* ── Labels row - Add-tag chip + label placeholders ── */}
           {labelCount > 0 && (
             <div
               style={{
@@ -201,7 +201,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
                 overflow:   'hidden',
               }}
             >
-              {/* Add-tag affordance — square 24×24 (no label text) */}
+              {/* Add-tag affordance - square 24×24 (no label text) */}
               <div
                 className="kaya-skeleton"
                 style={{

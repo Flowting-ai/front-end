@@ -11,7 +11,7 @@ export interface EnhanceSummaryBarProps extends React.HTMLAttributes<HTMLDivElem
   wordsAdded:      number
   /**
    * Number of contiguous added-line groups in the diff. Used to phrase
-   * "across N new guidelines" — set to 0 to suppress that clause.
+   * "across N new guidelines" - set to 0 to suppress that clause.
    */
   guidelineGroups: number
 }

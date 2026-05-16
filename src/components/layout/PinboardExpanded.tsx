@@ -140,7 +140,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
-// ── SectionLabel — matches DS PinboardExpanded's SectionLabel ─────────────────
+// ── SectionLabel - matches DS PinboardExpanded's SectionLabel ─────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -225,7 +225,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   }, [chats])
   const enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT
 
-  // ── Loading state — show skeleton until first folder fetch settles ───────
+  // ── Loading state - show skeleton until first folder fetch settles ───────
   const [foldersLoaded, setFoldersLoaded] = useState(false)
 
   // ── Folder state ──────────────────────────────────────────────────────────
@@ -563,14 +563,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
           overflow:     'hidden',
         }}
       >
-        {/* ── Loading skeleton — shown until first folder fetch settles ── */}
+        {/* ── Loading skeleton - shown until first folder fetch settles ── */}
         {!foldersLoaded ? (
           <PinboardExpandedSkeleton
             width={924}
             style={{ width: '100%', height: '100%', maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 32px)', borderRadius: 28, boxShadow: 'none' }}
           />
         ) : (
-        /* ── Outer flex row — matches DS PinboardExpanded outer container ── */
+        /* ── Outer flex row - matches DS PinboardExpanded outer container ── */
         <div
           style={{
             display:      'flex',
@@ -611,7 +611,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                 overflow:    'hidden',
               }}
             >
-              {/* Sidebar inner — scrollable */}
+              {/* Sidebar inner - scrollable */}
               <div
                 className="kaya-scrollbar"
                 style={{
@@ -758,7 +758,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
               zIndex:        1,
             }}
           >
-            {/* Content wrapper — no alignItems so children stretch vertically */}
+            {/* Content wrapper - no alignItems so children stretch vertically */}
             <div
               style={{
                 display:      'flex',
@@ -769,7 +769,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                 overflow:     'hidden',
               }}
             >
-              {/* Content vertical wrapper — stretches to fill wrapper height via default alignItems:stretch */}
+              {/* Content vertical wrapper - stretches to fill wrapper height via default alignItems:stretch */}
               <div
                 style={{
                   display:       'flex',
@@ -883,7 +883,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                       flexShrink: 0,
                     }}
                   >
-                    {/* Tabs strip — width snaps via style.width matching DS behavior */}
+                    {/* Tabs strip - width snaps via style.width matching DS behavior */}
                     <div
                       ref={tabsContainerRef}
                       style={{
@@ -905,7 +905,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                       </Tabs>
                     </div>
 
-                    {/* Secondary actions cluster — right-anchored, gap-4 */}
+                    {/* Secondary actions cluster - right-anchored, gap-4 */}
                     <div
                       style={{
                         display:        'flex',
@@ -915,7 +915,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                         flexShrink:     0,
                       }}
                     >
-                      {/* Search slot — snaps 32px ↔ 276px on toggle */}
+                      {/* Search slot - snaps 32px ↔ 276px on toggle */}
                       <Tooltip content="Search" disabled={searchOpen}>
                         <motion.div
                           layout
@@ -1008,7 +1008,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                         </Tooltip>
                       </motion.div>
 
-                      {/* Collapse all — conditional, hides in organize mode */}
+                      {/* Collapse all - conditional, hides in organize mode */}
                       <AnimatePresence initial={false} mode="popLayout">
                         {hasExpanded && !isOrganizing && (
                           <motion.span
@@ -1212,7 +1212,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
               </div>
             </div>
 
-            {/* ── Organize bulk toolbar — below content wrapper, slides in on organize ── */}
+            {/* ── Organize bulk toolbar - below content wrapper, slides in on organize ── */}
             <AnimatePresence initial={false}>
               {isOrganizing && (
                 <motion.div
@@ -1406,7 +1406,7 @@ function SidebarFolderItem({
         )}
       </AnimatePresence>
 
-      {/* Inner shadow — matches SidebarMenuItem active state */}
+      {/* Inner shadow - matches SidebarMenuItem active state */}
       {(active || hovered) && (
         <div
           aria-hidden

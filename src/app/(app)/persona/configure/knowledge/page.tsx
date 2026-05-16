@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, Suspense, useEffect, useCallback } from 'react'
+import React, { useState, Suspense, useEffect, useCallback, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -52,7 +52,7 @@ function docsToFiles(version: PersonaVersionResponse): KnowledgeFile[] {
       name:     doc.document_filename,
       type:     'file' as const,
       fileType: ext,
-      size:     '—',
+      size:     '-',
       date:     new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       priority: 'Priority' as const,
     }
@@ -160,13 +160,25 @@ function PersonaConfigureKnowledgeContent() {
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
+  // Tracks file sizes (bytes) by filename so the MB counter stays accurate
+  // after an API reload (which strips size info). Uses a ref to avoid stale
+  // closure issues inside async upload functions.
+  const fileSizeMapRef = useRef<Record<string, number>>({})
+
+  function docsToFilesWithSizes(version: PersonaVersionResponse): KnowledgeFile[] {
+    return docsToFiles(version).map(f => {
+      const bytes = fileSizeMapRef.current[f.name]
+      return bytes != null ? { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` } : f
+    })
+  }
+
   // ── Load existing documents from API on mount ──────────────────────────────
 
   useEffect(() => {
     if (!repoId || !versionId) return
     setIsLoading(true)
     getVersion(repoId, versionId)
-      .then(version => setFiles(docsToFiles(version)))
+      .then(version => setFiles(docsToFilesWithSizes(version)))
       .catch(err => {
         console.error('[KnowledgePage] load error:', err)
         toast.error('Failed to load knowledge files')
@@ -186,7 +198,7 @@ function PersonaConfigureKnowledgeContent() {
     const currentIds = new Set(files.map(f => f.id))
     const added = nextFiles.filter(f => !currentIds.has(f.id) && f.type === 'file')
 
-    // Find removed (deleted) files — these are real API files with UUID ids
+    // Find removed (deleted) files - these are real API files with UUID ids
     const nextIds = new Set(nextFiles.map(f => f.id))
     const removed = files.filter(f => !nextIds.has(f.id) && /^[0-9a-f-]{36}$/i.test(f.id))
 
@@ -196,36 +208,113 @@ function PersonaConfigureKnowledgeContent() {
     // Upload new files
     for (const file of added) {
       // KnowledgeTab generates temp ids like "123456789-filename.pdf"
-      // We need the actual File object — but KnowledgeTab doesn't expose it.
-      // We use the input's FileList via a custom event on the DOM.
+      // We need the actual File object - but KnowledgeTab doesn't expose it.
       // Since we can't get File objects here, uploads are handled in handleRawFileInput.
     }
 
-    // Delete removed files
-    for (const file of removed) {
-      try {
-        const updated = await deleteDocument(repoId, versionId, file.id)
-        setFiles(docsToFiles(updated))
-      } catch (err) {
-        console.error('[KnowledgePage] delete error:', err)
-        toast.error(`Failed to remove ${file.name}`)
-      }
-    }
+    // Deletions are handled by the dedicated handleDeleteFile — nothing to do here.
   }, [repoId, versionId, files])
 
   // ── Handle raw File objects from the file input ───────────────────────────
 
   async function uploadFiles(rawFiles: File[]) {
     if (!repoId || !versionId) return
-    for (const raw of rawFiles) {
-      try {
-        const updated = await uploadDocument(repoId, versionId, raw)
-        setFiles(docsToFiles(updated))
-        toast.success(`Uploaded ${raw.name}`)
-      } catch (err) {
-        console.error('[KnowledgePage] upload error:', err)
-        toast.error(`Failed to upload ${raw.name}`)
+
+    // Record file sizes before uploading so the MB counter stays accurate
+    rawFiles.forEach(f => { fileSizeMapRef.current[f.name] = f.size })
+
+    // Show placeholder entries immediately so the UI doesn't appear frozen
+    const placeholders: KnowledgeFile[] = rawFiles.map(raw => ({
+      id:       `uploading-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name:     raw.name,
+      type:     'file' as const,
+      fileType: raw.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+      size:     `${(raw.size / 1024 / 1024).toFixed(1)} MB`,
+      date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      priority: 'Priority' as const,
+    }))
+    setFiles(prev => [...prev, ...placeholders])
+
+    // Upload all files in parallel
+    const results = await Promise.allSettled(
+      rawFiles.map(raw => uploadDocument(repoId, versionId, raw))
+    )
+
+    // Reload from API to get the authoritative file list (avoids race-condition with parallel responses)
+    try {
+      const version = await getVersion(repoId, versionId)
+      // Use setFiles(prev=>) so placeholder sizes survive even when the API
+      // sanitizes filenames and the ref lookup misses.
+      setFiles(prev => {
+        const apiFiles = docsToFiles(version)
+        return apiFiles.map(f => {
+          // 1. Ref lookup by doc ID (most reliable)
+          const bytes = fileSizeMapRef.current[f.id] ?? fileSizeMapRef.current[f.name]
+          if (bytes != null) return { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` }
+          // 2. Fallback: find placeholder with matching name (case-insensitive to
+          //    survive minor API filename normalisation like "GRAD2.pdf" → "grad2.pdf")
+          const fNameLower = f.name.toLowerCase()
+          const ph = prev.find(e =>
+            (e.name === f.name || e.name.toLowerCase() === fNameLower) &&
+            e.size && e.size !== '-'
+          )
+          return ph ? { ...f, size: ph.size! } : f
+        })
+      })
+    } catch {
+      // Fallback: use the last successful upload response
+      const last = [...results].reverse().find(r => r.status === 'fulfilled')
+      if (last?.status === 'fulfilled') setFiles(docsToFilesWithSizes(last.value))
+    }
+
+    // Toast per-file results
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        toast.success(`Uploaded ${rawFiles[i].name}`)
+      } else {
+        console.error('[KnowledgePage] upload error:', result.reason)
+        toast.error(`Failed to upload ${rawFiles[i].name}`)
       }
+    })
+  }
+
+  // ── Delete a single file ──────────────────────────────────────────────────
+
+  async function handleDeleteFile(id: string) {
+    const file = files.find(f => f.id === id)
+    if (!file) return
+
+    // Optimistic removal
+    setFiles(prev => prev.filter(f => f.id !== id))
+
+    // --- deleteDocument can fail (network / auth) → restore and show error
+    try {
+      await deleteDocument(repoId, versionId, id)
+    } catch (err) {
+      console.error('[KnowledgePage] delete error:', err)
+      setFiles(prev => [...prev, file])   // restore
+      toast.error(`Failed to remove \u201c${file.name}\u201d`)
+      return
+    }
+
+    // Delete succeeded
+    toast.success(`Removed \u201c${file.name}\u201d`)
+
+    // Silently reload to sync with server — if this fails, the optimistic
+    // removal already shows the correct UI so we just log and move on.
+    try {
+      const version = await getVersion(repoId, versionId)
+      setFiles(prev => {
+        const apiFiles = docsToFiles(version)
+        return apiFiles.map(f => {
+          const bytes = fileSizeMapRef.current[f.id] ?? fileSizeMapRef.current[f.name]
+          if (bytes != null) return { ...f, size: `${(bytes / 1024 / 1024).toFixed(1)} MB` }
+          const existing = prev.find(e => (e.id === f.id || e.name === f.name) && e.size && e.size !== '-')
+          return existing ? { ...f, size: existing.size! } : f
+        })
+      })
+    } catch (reloadErr) {
+      console.warn('[KnowledgePage] reload after delete failed (ignored):', reloadErr)
     }
   }
 
@@ -334,6 +423,7 @@ function PersonaConfigureKnowledgeContent() {
                 files={files}
                 onFilesChange={handleFilesChange}
                 onRawFilesSelected={uploadFiles}
+                onRemoveFile={handleDeleteFile}
               />
             )}
           </div>

@@ -30,17 +30,17 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    */
   subLabel?: string
   /**
-   * Icon on the left side of the label. **Do not pass `size`** — the
+   * Icon on the left side of the label. **Do not pass `size`** - the
    * component injects the canonical slot size (currently 20 px) via
    * `React.cloneElement`, so any `size` prop on the passed element is
    * overridden. This keeps slot dimensions a single-source-of-truth: when
-   * Figma changes the size, only `DropdownMenuItem` updates — every
+   * Figma changes the size, only `DropdownMenuItem` updates - every
    * consumer just keeps passing the bare `<Icon />`. Omit `icon` to render
    * the label with no left indent. Figma 1056:842.
    */
   icon?: React.ReactElement
   /**
-   * Free-form avatar slot — renders a 24 × 24 rounded-6 element to the left
+   * Free-form avatar slot - renders a 24 × 24 rounded-6 element to the left
    * of the label, used by **persona-style** rows where the avatar is an
    * arbitrary image (or any ReactNode you want to render in that slot).
    * Pass an `<img>` for image avatars; pass any element for custom content.
@@ -48,7 +48,7 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    */
   avatar?: React.ReactNode
   /**
-   * Trailing badge slot — renders a `Badge` (or any ReactNode) inside the
+   * Trailing badge slot - renders a `Badge` (or any ReactNode) inside the
    * row's left-content cluster, positioned **after the label column** and
    * **before** the right icon / Switch. Used to surface counts, status
    * markers, or labels alongside the row's primary text. Figma `1056:839`
@@ -57,12 +57,12 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    * Default + selected + disabled rows typically use a `Neutral` Badge;
    * danger rows still render the badge but you'll usually pick a colour
    * that reads against the soft-red background. Header rows have their
-   * own dedicated `headerBadge` slot — pass the badge there for header
+   * own dedicated `headerBadge` slot - pass the badge there for header
    * variants.
    */
   badge?: React.ReactNode
   /**
-   * Canonical model id — renders the corresponding `<LlmIcon variant="avatar" />`
+   * Canonical model id - renders the corresponding `<LlmIcon variant="avatar" />`
    * from `@strange-huge/icons/llm` between the icon and the label column.
    * Pass any key in the `LLM_AVATAR` map (e.g. `"Claude"`, `"OpenAI"`,
    * `"Gemini"`, `"Zhipu"`). Square, rounded-6 px, sized to match the row's
@@ -72,8 +72,8 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    */
   llm?: string
   /**
-   * Icon on the right side — shown only when provided. Useful for trailing
-   * indicators: checkmarks, chevrons, badges. **Do not pass `size`** — the
+   * Icon on the right side - shown only when provided. Useful for trailing
+   * indicators: checkmarks, chevrons, badges. **Do not pass `size`** - the
    * component injects the canonical slot size (currently 20 px) via
    * `React.cloneElement`. Mutually exclusive with the trailing Switch slot.
    * Figma 1056:940.
@@ -82,7 +82,7 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
   /** Persistent selected visual state (default variant only). */
   selected?: boolean
   /**
-   * Disabled state — opacity 70 %, `cursor: not-allowed`, suppressed
+   * Disabled state - opacity 70 %, `cursor: not-allowed`, suppressed
    * pointer events. Available on the default variant only.
    */
   disabled?: boolean
@@ -110,7 +110,7 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
   /**
    * Show a leading 16×16 Checkbox at the start of the row's User Info cluster
    * (before `icon` / `avatar` / `llm`). Used by multi-select dropdowns
-   * (Figma 3437:2664 — `showCheckbox` variant). Pair with `checkboxChecked` /
+   * (Figma 3437:2664 - `showCheckbox` variant). Pair with `checkboxChecked` /
    * `defaultCheckboxChecked` / `onCheckboxChange` to control it. Click
    * anywhere on the row toggles the checkbox (same intent as `showSwitch`).
    * Default variant only.
@@ -122,17 +122,17 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
   defaultCheckboxChecked?: boolean
   /** Fires when the checkbox toggles. */
   onCheckboxChange?: (checked: boolean) => void
-  /** Render as a child element — allows Radix DropdownMenu.Item composition. */
+  /** Render as a child element - allows Radix DropdownMenu.Item composition. */
   asChild?: boolean
   /**
-   * **Header variant only** — node rendered next to the label inside the
+   * **Header variant only** - node rendered next to the label inside the
    * header's left-content cluster (Figma 3198:31774). Typical use: a small
    * status `<Badge>` (e.g. "New", "Beta", an item count). Hidden on default
    * and danger variants.
    */
   headerBadge?: React.ReactNode
   /**
-   * **Header variant only** — children render in the header's right slot
+   * **Header variant only** - children render in the header's right slot
    * (Figma 3206:32976). The slot is `flex: 1 0 0` so anything here fills
    * the remaining row width: a trailing button, link, IconButton, status
    * indicator, etc. Use it for actions scoped to the section the header
@@ -223,12 +223,12 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
 
     // ── Switch state mirror (when showSwitch) ──────────────────────────────
     // DropdownMenuItem owns the switch state internally so a click anywhere
-    // on the row — not just on the switch itself — toggles it. The Switch
+    // on the row - not just on the switch itself - toggles it. The Switch
     // is always rendered controlled (`checked={effectiveSwitchOn}`), and
     // clicks on the switch propagate-stop at the wrapper so we don't double-
     // toggle (once from Radix, once from the row's onClick).
     // ── Icon size injection ─────────────────────────────────────────────────
-    // DropdownMenuItem dictates the slot's icon size — consumers pass the
+    // DropdownMenuItem dictates the slot's icon size - consumers pass the
     // icon element without a `size` prop and the component clones it with
     // the canonical size injected. This means a Figma-driven size change
     // (16 → 20 in the corner-radius revision) flips in ONE place; we don't
@@ -271,7 +271,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
       if (disabled) return
       handleCheckboxChange(!effectiveCheckboxOn)
     }
-    // Header is a label-only row; danger has only Default + Hover (per Figma —
+    // Header is a label-only row; danger has only Default + Hover (per Figma -
     // no Selected or Disabled). Default supports Hover, Selected, Disabled.
     const isActive = !isHeader && !disabled && (isHovered || (variant === 'default' && selected))
 
@@ -302,11 +302,11 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
           alignItems:      'center',
           justifyContent:  isHeader ? 'flex-start' : 'space-between',
           overflow:        'hidden',
-          // Figma 1056:840 / 1056:874 — radius 6 px (lowered from 10 px in
+          // Figma 1056:840 / 1056:874 - radius 6 px (lowered from 10 px in
           // the same revision that introduced the header right-slot).
           borderRadius:    '6px',
           width:           fluid ? '100%' : '217px',
-          // Figma 1056:874 — header pt-4, pb-6
+          // Figma 1056:874 - header pt-4, pb-6
           paddingLeft:     '6px',
           paddingRight:    '6px',
           paddingTop:      isHeader ? '4px' : '5px',
@@ -331,7 +331,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
           if (!isHeader && !disabled && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // When the row carries a Switch / Checkbox, Enter/Space toggles
-            // it as well as firing the consumer's onClick — same intent as a
+            // it as well as firing the consumer's onClick - same intent as a
             // click.
             if (showSwitch && !isDanger) toggleSwitch()
             if (showCheckbox && !isDanger) toggleCheckbox()
@@ -345,7 +345,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
             : (e: React.MouseEvent<HTMLDivElement>) => {
                 // Click anywhere on the row toggles the Switch / Checkbox.
                 // Clicks on the control itself stop-propagate at the wrapper,
-                // so they don't reach this handler — Radix toggles them
+                // so they don't reach this handler - Radix toggles them
                 // directly via its own onCheckedChange path. No double-toggle.
                 if (showSwitch && !isDanger) toggleSwitch()
                 if (showCheckbox && !isDanger) toggleCheckbox()
@@ -354,10 +354,10 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
         }
         {...props}
       >
-        {/* ── Header variant — left-content (label + optional badge) + right slot ── */}
+        {/* ── Header variant - left-content (label + optional badge) + right slot ── */}
         {isHeader && (
           <>
-            {/* Left content — label + optional headerBadge slot. Figma 3198:31824. */}
+            {/* Left content - label + optional headerBadge slot. Figma 3198:31824. */}
             <div
               style={{
                 display:    'flex',
@@ -370,7 +370,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
               <p style={headerTextStyle}>{label}</p>
               {headerBadge}
             </div>
-            {/* Right slot — flex 1 0 0, fills remaining width. Figma 3206:32976.
+            {/* Right slot - flex 1 0 0, fills remaining width. Figma 3206:32976.
                 Common consumers: trailing IconButton / Button / Link. The slot
                 container is items-center so children align centrally on the
                 row's vertical axis. */}
@@ -395,7 +395,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
         {/* ── Default + Danger variants ── */}
         {!isHeader && (
           <>
-            {/* Accent bar — 2 px left edge indicator (default only) */}
+            {/* Accent bar - 2 px left edge indicator (default only) */}
             <AnimatePresence initial={false}>
               {isActive && accent && !isDanger && (
                 <motion.div
@@ -420,7 +420,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
               )}
             </AnimatePresence>
 
-            {/* User Info — flex 1 0 0, min-w-px so label/subLabel can truncate */}
+            {/* User Info - flex 1 0 0, min-w-px so label/subLabel can truncate */}
             <div
               style={{
                 display:    'flex',
@@ -430,7 +430,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 minWidth:   1,
               }}
             >
-              {/* Leading checkbox slot — Figma 3437:2664 (showCheckbox).
+              {/* Leading checkbox slot - Figma 3437:2664 (showCheckbox).
                   Sits at the start of the User Info cluster, before icon /
                   avatar / llm. 16×16, gap-8 from the next slot. Click on
                   the checkbox itself stops propagation so the row's onClick
@@ -464,7 +464,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 </div>
               )}
 
-              {/* Persona / free-form avatar — Figma 3430:39723. Square,
+              {/* Persona / free-form avatar - Figma 3430:39723. Square,
                   rounded-6 px, 24 px to align vertically with the body-14
                   label's line-height. Pass an `<img>` for an image avatar,
                   or any ReactNode for custom content (e.g. an initials
@@ -488,10 +488,10 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 </div>
               )}
 
-              {/* Model avatar — Figma 3143:37109. Square, rounded-6 px,
+              {/* Model avatar - Figma 3143:37109. Square, rounded-6 px,
                   sized to match the row's content height. LlmIcon variant
                   "avatar" is the canonical source per the KDS Model Avatar
-                  Rule — never substitute an inline SVG. */}
+                  Rule - never substitute an inline SVG. */}
               {llm && !isDanger && (() => {
                 const avatarSize = subLabel ? 38 : 22
                 return (
@@ -511,7 +511,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 )
               })()}
 
-              {/* Label / sublabel column — flex-col so subLabel sits below label */}
+              {/* Label / sublabel column - flex-col so subLabel sits below label */}
               <div
                 style={{
                   display:        'flex',
@@ -525,7 +525,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 {subLabel && <p style={subLabelTextStyle}>{subLabel}</p>}
               </div>
 
-              {/* Badge slot — Figma 1056:839 / 3437:2664. Sits after the
+              {/* Badge slot - Figma 1056:839 / 3437:2664. Sits after the
                   label column inside the User Info cluster (so it lives in
                   the row's left content, NOT the trailing icon slot). The
                   consumer passes a `<Badge />` (or any ReactNode); the slot
@@ -546,7 +546,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
               )}
             </div>
 
-            {/* Trailing slot — Switch OR rightIcon (mutually exclusive). Switch
+            {/* Trailing slot - Switch OR rightIcon (mutually exclusive). Switch
                 is default-variant-only per Figma 3139:36148. */}
             {!isDanger && showSwitch ? (
               <div
@@ -578,7 +578,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
               </div>
             ) : null}
 
-            {/* Inner depth shadow — hover + selected (variant-specific token) */}
+            {/* Inner depth shadow - hover + selected (variant-specific token) */}
             {isActive && (
               <div
                 aria-hidden

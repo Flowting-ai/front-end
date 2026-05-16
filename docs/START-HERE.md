@@ -1,4 +1,4 @@
-# Souvenir V2 — Start Here
+# Souvenir V2 - Start Here
 
 **This is your entry point.** Read this first, every time you start a new day. It tells you what to build, what to read, and how to know you've done it right.
 
@@ -12,19 +12,19 @@
 
 | Day | Focus | Status | Docs |
 |-----|-------|--------|------|
-| 1 | Env setup · folder structure · CI | ✅ Done | — |
-| 2 | Auth0 + Auth context | ✅ Done | — |
-| 3 | API client + infrastructure | ✅ Done | — |
-| 4 | App layout + Sidebar | ✅ Done | — |
-| 5 | Chat infrastructure — SSE streaming hook | ✅ Done | — |
+| 1 | Env setup · folder structure · CI | ✅ Done | - |
+| 2 | Auth0 + Auth context | ✅ Done | - |
+| 3 | API client + infrastructure | ✅ Done | - |
+| 4 | App layout + Sidebar | ✅ Done | - |
+| 5 | Chat infrastructure - SSE streaming hook | ✅ Done | - |
 | 6 | Chat UI components | ✅ Done | [chat-board.md](docs/features/chat-board.md) · [topbar.md](docs/features/topbar.md) · [response-types.md](docs/response-types.md) · [animation-states.md](docs/animation-states.md) |
 | 7 | Pinboard | ✅ Done | [pinboard.md](docs/features/pinboard.md) |
-| 8 | Personas — list + create | ⬜ Pending | Doc pending (design not locked) |
-| 9 | Personas — chat + settings | ⬜ Pending | Doc pending (design not locked) |
+| 8 | Personas - list + create | ⬜ Pending | Doc pending (design not locked) |
+| 9 | Personas - chat + settings | ⬜ Pending | Doc pending (design not locked) |
 | 10 | Brain / Orchestrator | ⬜ Pending | Doc pending |
 | 11 | Settings | ⬜ Pending | Doc pending |
 | 12 | Polish + error states | ⬜ Pending | [error-states.md](docs/error-states.md) |
-| 13 | QA + handoff | ⬜ Pending | — |
+| 13 | QA + handoff | ⬜ Pending | - |
 
 ---
 
@@ -32,13 +32,13 @@
 
 Read these once. They apply to every line you write.
 
-**1. Copy KDS — never import from the KDS package.**
+**1. Copy KDS - never import from the KDS package.**
 When a KDS component exists, copy its source into `src/components/`. Add your logic in a wrapper or hook on top. Never modify the copied file.
 → How: [docs/1-component-copy-guide.md](docs/1-component-copy-guide.md)
 
 **2. Never hardcode a hex value.**
 Every colour must use a CSS token: `var(--color-text-primary)`, `var(--color-surface-subtle)`, etc.
-Dark mode ships after chat — if you hardcode hex, dark mode breaks automatically.
+Dark mode ships after chat - if you hardcode hex, dark mode breaks automatically.
 
 **3. React Compiler is on. Zero `useMemo` / `useCallback`.**
 The compiler handles optimisation. Manual memos fight it.
@@ -46,7 +46,7 @@ The compiler handles optimisation. Manual memos fight it.
 **4. Every HTML render goes through `security.ts`.**
 No `dangerouslySetInnerHTML` without sanitisation. No exceptions.
 
-**5. Plan gates use `plan-config.ts` helpers — never inline.**
+**5. Plan gates use `plan-config.ts` helpers - never inline.**
 ```ts
 // WRONG
 if (plan === 'power') { ... }
@@ -57,36 +57,36 @@ if (canAccessFeature(plan, 'modelCompare')) { ... }
 
 ---
 
-## Reading Guide — What to Read Before Each Day
+## Reading Guide - What to Read Before Each Day
 
 ### Before Day 6 (Chat UI)
-1. [docs/features/chat-board.md](docs/features/chat-board.md) — component tree, state machine, API wiring
-2. [docs/features/topbar.md](docs/features/topbar.md) — model chip, share, usage ring, disposable mode
-3. [docs/response-types.md](docs/response-types.md) — Simple / Research / Thinking / Combined SSE sequences
-4. [docs/animation-states.md](docs/animation-states.md) — 6 Framer Motion patterns + spring configs
-5. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) — Components 1–8, prop contracts + placeholders
+1. [docs/features/chat-board.md](docs/features/chat-board.md) - component tree, state machine, API wiring
+2. [docs/features/topbar.md](docs/features/topbar.md) - model chip, share, usage ring, disposable mode
+3. [docs/response-types.md](docs/response-types.md) - Simple / Research / Thinking / Combined SSE sequences
+4. [docs/animation-states.md](docs/animation-states.md) - 6 Framer Motion patterns + spring configs
+5. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) - Components 1–8, prop contracts + placeholders
 
 ### Before Day 7 (Pinboard)
-1. [docs/features/pinboard.md](docs/features/pinboard.md) — full feature spec
-2. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) — Components 9–13, prop contracts + placeholders
+1. [docs/features/pinboard.md](docs/features/pinboard.md) - full feature spec
+2. [docs/0-pending-kds-components.md](docs/0-pending-kds-components.md) - Components 9–13, prop contracts + placeholders
 
 ### Before Day 12 (Error states + polish)
-1. [docs/error-states.md](docs/error-states.md) — E1–E5 render rules, retry logic
+1. [docs/error-states.md](docs/error-states.md) - E1–E5 render rules, retry logic
 
 ### Cross-cutting (read once, reference as needed)
-- [docs/1-component-copy-guide.md](docs/1-component-copy-guide.md) — every time you copy a KDS component
-- [docs/animation-states.md](docs/animation-states.md) — every time you add a Framer Motion animation
-- [CLAUDE.md](CLAUDE.md) — rules, KDS status, icons spec, key file paths
+- [docs/1-component-copy-guide.md](docs/1-component-copy-guide.md) - every time you copy a KDS component
+- [docs/animation-states.md](docs/animation-states.md) - every time you add a Framer Motion animation
+- [CLAUDE.md](CLAUDE.md) - rules, KDS status, icons spec, key file paths
 
 ---
 
-## Day 6 — Done Checklist
+## Day 6 - Done Checklist
 
 When Day 6 is complete, every box below should be checked. This is also what Chai reviews in QA.
 
 ### Chat Board
 - [x] `ChatInput` renders and `onSend` fires correctly with the current input value
-- [x] `MessageBubble` placeholder accepts `role` prop — user messages right-aligned, assistant left-aligned
+- [x] `MessageBubble` placeholder accepts `role` prop - user messages right-aligned, assistant left-aligned
 - [x] Streaming cursor (pure CSS, no Framer Motion) appears on `text_start`, disappears on `text_end`
 - [x] `StreamingIndicator` placeholder shows three pulsing dots during `routing` / `thinking` phases
 - [x] `ReasoningBlock` expands live during `thinking` phase, auto-collapses when `thinking_end` fires
@@ -109,22 +109,22 @@ When Day 6 is complete, every box below should be checked. This is also what Cha
 - [x] Model chip is clickable in idle / model-chosen / complete phases only
 - [x] Model dropdown lists Auto-routing (Base, Pro) + direct models from `GET /llm/models`
 - [x] Power-only models show lock icon for Starter/Pro users
-- [x] Model selection applies to the next message only — does not abort current stream
-- [x] Ghost icon toggles disposable mode — banner animates in/out below TopBar
+- [x] Model selection applies to the next message only - does not abort current stream
+- [x] Ghost icon toggles disposable mode - banner animates in/out below TopBar
 - [x] `ShareButton` hidden until first complete message, modal opens on click
 - [x] `UsageCreditsButton` placeholder shows credits remaining, popover opens on click
 - [x] `UserNameDisplay` replaces avatar when disposable mode is ON
 
 ### Code quality
 - [x] `lucide-react` removed from `package.json`
-- [x] Zero hardcoded hex values in any new file — grep check: `grep -r "#[0-9a-fA-F]\{3,6\}" src/`
+- [x] Zero hardcoded hex values in any new file - grep check: `grep -r "#[0-9a-fA-F]\{3,6\}" src/`
 - [x] Zero `useMemo` / `useCallback` added
 - [x] All icons via `@hugeicons/react` at `size={16}` `strokeWidth={1.5}` `color="currentColor"`
 - [x] All pending component files have the `// TODO(kds):` comment in the exact format from the docs
 
 ---
 
-## Day 7 — Done Checklist
+## Day 7 - Done Checklist
 
 ### Pinboard
 - [x] `FloatingMenu` appears fixed on the right edge of the chat content area
@@ -133,11 +133,11 @@ When Day 6 is complete, every box below should be checked. This is also what Cha
 - [x] Compact Pinboard slides in from right (x: 40→0 spring) when opened
 - [x] `GET /pins` fetched on mount, pins render in the list
 - [x] Pin skeleton (3 rows) shown during fetch
-- [x] Pin button in message action bar calls `POST /pins/message/{messageId}` — optimistic add
+- [x] Pin button in message action bar calls `POST /pins/message/{messageId}` - optimistic add
 - [x] New pin appears at top of list with Pattern 3 animation (y: 12→0, opacity: 0→1)
 - [x] Pin button shows filled state after pinning (not toggled back to empty)
 - [x] `Pin` renders with category badge, title, 2-line description, labels, chat name
-- [x] `Pin` expands/collapses on drag handle — KDS spring behaviour intact
+- [x] `Pin` expands/collapses on drag handle - KDS spring behaviour intact
 - [x] "Organize" button opens `PinboardExpanded` overlay (924×817px spring morph)
 - [x] `PinboardExpanded` sidebar shows All pins / Unorganized / folders list
 - [x] Category tabs (All · Favorites · Code · Text · Vision · Image · Audio · Search) filter the pin grid
@@ -146,7 +146,7 @@ When Day 6 is complete, every box below should be checked. This is also what Cha
 - [x] `SortMenu` placeholder renders radio list + asc/desc toggle
 - [x] `EmptyState` renders correct message for: no pins / search 0 / filter 0 / empty folder
 - [x] "New folder" creates folder via `POST /pins/folders`, appears in sidebar immediately
-- [x] `ContextMenu` placeholder returns null — right-click on Pin does nothing
+- [x] `ContextMenu` placeholder returns null - right-click on Pin does nothing
 - [x] Organize mode: checkboxes appear on each Pin card
 - [x] Bulk toolbar appears (y: 8→0) when ≥1 pin is selected
 - [x] Delete selected: confirm → `DELETE /pins/{id}` × N, optimistic remove
@@ -188,7 +188,7 @@ Full prop contracts + placeholder code → [docs/0-pending-kds-components.md](do
 | 12 | `EmptyState` | ⬜ Pending | Zero results states |
 | 13 | `HighlightBoard` | ⬜ Design not started | Highlight panel |
 
-**When Utkarsh ships a component:** swap the import in your placeholder file, delete the placeholder code, remove the `// TODO(kds):` comment. One line change — nothing else should need to move.
+**When Utkarsh ships a component:** swap the import in your placeholder file, delete the placeholder code, remove the `// TODO(kds):` comment. One line change - nothing else should need to move.
 
 ---
 
@@ -218,7 +218,7 @@ src/
 │   ├── layout/                      ← AppLayout · LeftSidebar · TopBar · Pinboard
 │   └── [ComponentName]/             ← KDS copies (one folder per component)
 ├── hooks/
-│   ├── use-streaming-chat.ts        ← SSE streaming (done — do not rewrite)
+│   ├── use-streaming-chat.ts        ← SSE streaming (done - do not rewrite)
 │   └── use-chat-state.ts            ← Chat phase state machine
 └── lib/
     ├── config.ts                    ← API endpoints (do not rewrite)
@@ -245,23 +245,23 @@ docs/
 
 ## Questions?
 
-- **Chai** — design decisions, feature scope, anything unclear in the docs
-- **Utkarsh** — KDS component questions, token names, pending component ETAs
-- **Sahil** — API endpoint questions, field names, response shapes
+- **Chai** - design decisions, feature scope, anything unclear in the docs
+- **Utkarsh** - KDS component questions, token names, pending component ETAs
+- **Sahil** - API endpoint questions, field names, response shapes
 
-If something in the docs contradicts the code, **the docs win** — flag it to Chai and she'll resolve it.
+If something in the docs contradicts the code, **the docs win** - flag it to Chai and she'll resolve it.
 
 ---
 
 ## Starting a Session with Claude Code
 
-Open the project in Claude Code. CLAUDE.md auto-loads so Claude already knows the rules and file paths. Then paste in your briefing below — Claude will read the right docs and be fully up to speed before you write a single line.
+Open the project in Claude Code. CLAUDE.md auto-loads so Claude already knows the rules and file paths. Then paste in your briefing below - Claude will read the right docs and be fully up to speed before you write a single line.
 
 **Update the day number and task each morning.** Everything else stays the same.
 
 ---
 
-### Shyam — paste this into Claude Code
+### Shyam - paste this into Claude Code
 
 ```
 I'm Shyam, one of the feature engineers on Souvenir V2.
@@ -269,13 +269,13 @@ I'm Shyam, one of the feature engineers on Souvenir V2.
 Today is Day 8. I'm building Personas (list + create).
 
 Days 1–7 are complete (env, auth, API client, layout, SSE streaming, Chat UI, Pinboard).
-Design for Personas is still being locked — check with Chai before starting on any component.
+Design for Personas is still being locked - check with Chai before starting on any component.
 Docs are not ready yet; this session is for scoping and early scaffolding based on what Chai has.
 
 Key things to know about me:
 - I've built Days 1–7
 - I'm comfortable with React and TypeScript
-- I copy KDS components into src/components/ — never import from the KDS package
+- I copy KDS components into src/components/ - never import from the KDS package
 - I use placeholders for pending KDS components with the exact prop contracts in the docs
 
 Read START-HERE.md (this file) so you know the full project state, then ask me what Chai has shared so far for Personas.
@@ -283,7 +283,7 @@ Read START-HERE.md (this file) so you know the full project state, then ask me w
 
 ---
 
-### Kunal — paste this into Claude Code
+### Kunal - paste this into Claude Code
 
 ```
 I'm Kunal, one of the feature engineers on Souvenir V2.
@@ -292,8 +292,8 @@ Read START-HERE.md first so you know the current build status and what day we're
 Then read the docs listed in the Reading Guide for today's day.
 
 Key things to know about me:
-- I work alongside Shyam — we split features between us
-- I copy KDS components into src/components/ — never import from the KDS package
+- I work alongside Shyam - we split features between us
+- I copy KDS components into src/components/ - never import from the KDS package
 - I use placeholders for the 13 pending KDS components with the exact prop contracts in docs/0-pending-kds-components.md
 - If I'm unsure about a design decision, I check the docs first and ask Chai if it's not covered
 
@@ -302,11 +302,11 @@ Tell me the current build status from START-HERE.md and ask me what I'm working 
 
 ---
 
-### Utkarsh — paste this into Claude Code
+### Utkarsh - paste this into Claude Code
 
 ```
 I'm Utkarsh. I build and maintain the Kaya Design System (KDS) for Souvenir V2.
-I do not build product features — that's Shyam and Kunal.
+I do not build product features - that's Shyam and Kunal.
 My job is to build the KDS components so the engineers can use them.
 
 Show me the full list of pending KDS components from docs/0-pending-kds-components.md.

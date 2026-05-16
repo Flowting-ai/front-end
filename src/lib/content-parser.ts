@@ -110,7 +110,7 @@ export function parseContentSegments(content: string): ContentSegment[] {
     const found = findNextOpenTag(content, cursor, fences)
 
     if (!found) {
-      // No more XML blocks — rest is Markdown
+      // No more XML blocks - rest is Markdown
       segments.push({ type: "markdown", text: content.slice(cursor) })
       break
     }
@@ -124,7 +124,7 @@ export function parseContentSegments(content: string): ContentSegment[] {
     const closeIdx = content.toLowerCase().indexOf(closeTag.toLowerCase(), found.idx)
 
     if (closeIdx === -1) {
-      // Block is still in-flight (streaming) — no closing tag yet
+      // Block is still in-flight (streaming) - no closing tag yet
       segments.push({ type: "pending", tag: found.tag })
       break // nothing more to parse; the rest is the incomplete block
     }

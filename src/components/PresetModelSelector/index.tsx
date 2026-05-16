@@ -40,7 +40,7 @@ const CATEGORY_TABS = [
 export interface PresetModelSelectorProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'children'> {
   /**
-   * Model list rows — typically `<ModelSelectItem>` components.
+   * Model list rows - typically `<ModelSelectItem>` components.
    * Rendered in a scrollable list below the section header.
    */
   children?: React.ReactNode
@@ -128,7 +128,7 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
             </Tabs>
           </div>
 
-          {/* ── Featured model card — Muse ── */}
+          {/* ── Featured model card - Muse ── */}
           {/* Figma 1115:1338 → ContentSection includes the "Pro switch" cluster
              (Advanced label + Switch) at the right of the title row. */}
           <ModelFeaturedCard
@@ -163,7 +163,7 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
             {/* Model list */}
             {children && (
               <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {/* Section header — outside scroll so mask doesn't affect it.
+                {/* Section header - outside scroll so mask doesn't affect it.
                    Figma 1115:1338 → pt-4 pr-38 pb-2 pl-34. Right padding aligns
                    the "Input" caption over the row's right-edge icon column
                    (input-type indicator), not the bookmark slot. */}
@@ -198,7 +198,7 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
                     </div>
                   </div>
 
-                  {/* ── Top edge — progressive blur (2→6px, behind) + color fade (in front) ── */}
+                  {/* ── Top edge - progressive blur (2→6px, behind) + color fade (in front) ── */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },
@@ -230,7 +230,7 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
                     transition:    'opacity 150ms ease',
                   }} />
 
-                  {/* ── Bottom edge — progressive blur (2→6px, behind) + color fade (in front) ── */}
+                  {/* ── Bottom edge - progressive blur (2→6px, behind) + color fade (in front) ── */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },

@@ -206,7 +206,7 @@ export default function OnboardingRolePage() {
           ))}
         </div>
 
-        {/* Other — full width card with input */}
+        {/* Other - full width card with input */}
         <button
           type="button"
           onClick={() => setRole("Other")}
@@ -282,11 +282,11 @@ export default function OnboardingRolePage() {
                 margin: 0,
               }}
             >
-              {`Tell us in one line — we'll route accordingly.`}
+              {`Tell us in one line - we'll route accordingly.`}
             </p>
           </div>
 
-          {/* Input — shown when Other is selected */}
+          {/* Input - shown when Other is selected */}
           {data.role === "Other" && (
             <div
               onClick={(e) => e.stopPropagation()}

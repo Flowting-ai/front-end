@@ -128,7 +128,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* Header row — clickable when has results */}
+      {/* Header row - clickable when has results */}
       <button
         onClick={() => !isWebSearch && hasResults && setManualOpen(!manualOpen)}
         type="button"
@@ -145,7 +145,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           fontFamily: "var(--font-body)",
         }}
       >
-        {/* Status icon — spinner, checkmark, or error */}
+        {/* Status icon - spinner, checkmark, or error */}
         {isActive && <SpinnerIcon />}
         {isDone && <CheckmarkIcon />}
         {isError && <ErrorIcon />}
@@ -174,7 +174,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
               minWidth: 0,
             }}
           >
-            — {detailText}
+            - {detailText}
           </span>
         )}
 
@@ -233,7 +233,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
         )}
       </button>
 
-      {/* Results list — web-search auto-expands, others behind chevron */}
+      {/* Results list - web-search auto-expands, others behind chevron */}
       <AnimatePresence initial={false}>
         {resultsVisible && (
           <motion.div
@@ -297,7 +297,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
   );
 }
 
-// ── Activities section — renders all activities ───────────────────────────────
+// ── Activities section - renders all activities ───────────────────────────────
 
 export function ActivitiesSection({ activities }: { activities: ActivityItem[] }) {
   if (!activities || activities.length === 0) return null;

@@ -90,7 +90,7 @@ async function fetchOnboardingState(): Promise<OnboardingStateResult> {
 export default async function proxy(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
-  // Auth0 handles its own routes — never block /auth/*
+  // Auth0 handles its own routes - never block /auth/*
   if (pathname.startsWith("/auth/")) {
     // /auth/access-token has an explicit route handler override
     // (src/app/auth/access-token/route.ts) that wraps the SDK response with
@@ -126,12 +126,12 @@ export default async function proxy(request: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  // Completed onboarding — block re-entry into onboarding flow
+  // Completed onboarding - block re-entry into onboarding flow
   if (pathname.startsWith("/onboarding/") && hasOnboarded && !isPricingPage) {
     return Response.redirect(new URL("/", request.url));
   }
 
-  // Onboarding pages — pass through Auth0 for authenticated users
+  // Onboarding pages - pass through Auth0 for authenticated users
   if (pathname.startsWith("/onboarding/")) {
     return await auth0.middleware(request);
   }

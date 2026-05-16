@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 export type OptionBadgeVariant = 'number' | 'edit'
 
 export interface OptionBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** 'number' — numbered single-select / rank badge. 'edit' — pencil for open-ended footer row. */
+  /** 'number' - numbered single-select / rank badge. 'edit' - pencil for open-ended footer row. */
   variant?: OptionBadgeVariant
   num?: number
 }

@@ -442,7 +442,7 @@ export default function FilesPage() {
     : planName.toLowerCase().includes('pro') ? '10 GB'
     : '5 GB'
 
-  // Static storage values — TODO: wire to files API
+  // Static storage values - TODO: wire to files API
   const storageUsedGB  = 2.4
   const storageTotalGB = parseInt(storageLimit)
 

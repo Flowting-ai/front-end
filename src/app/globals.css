@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* KDS Design Tokens — import order is mandatory
+/* KDS Design Tokens - import order is mandatory
    src/styles/tokens/ is a junction → design-system/src/styles/tokens/
    Replace with @kaya/design-system package imports before production. */
 @import "../styles/tokens/primitives.css";
@@ -8,7 +8,7 @@
 @import "../styles/tokens/semantic.css";
 @import "../styles/tokens/typography.css";
 
-/* KDS utility class — apply to every scrollable element */
+/* KDS utility class - apply to every scrollable element */
 .kaya-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--neutral-800-30) transparent;
@@ -25,6 +25,12 @@
 }
 .kaya-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--neutral-800-50);
+}
+
+/* EnhancePromptField textarea — Figma placeholder colour #524B47 */
+.kaya-enhance-textarea::placeholder {
+  color: #524B47;
+  opacity: 1;
 }
 
 /* Chat textarea custom scrollbar (on light surface) */
@@ -90,7 +96,7 @@
   to   { background-position: 200% 0; }
 }
 
-/* Label shimmer — matches souvenir-chat-preview svLabelShimmer */
+/* Label shimmer - matches souvenir-chat-preview svLabelShimmer */
 @keyframes svLabelShimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -148,7 +154,7 @@
   animation: kaya-model-pulse 1.5s ease-in-out infinite;
 }
 
-/* Thinking-block markdown — strip first/last paragraph gutters so the
+/* Thinking-block markdown - strip first/last paragraph gutters so the
    indicator bar aligns flush with the visible text bounds */
 .kaya-thinking-md p:first-child { margin-top: 0; }
 .kaya-thinking-md p:last-child  { margin-bottom: 0; }

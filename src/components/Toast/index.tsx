@@ -1,15 +1,15 @@
 'use client'
 
 /**
- * Toast — a thin KDS wrapper around `sonner`.
+ * Toast - a thin KDS wrapper around `sonner`.
  *
  * Re-exports `Toaster` (the host element you mount once near the app root) and
  * the imperative `toast` function (call from anywhere to push a notification).
  *
- * Theming is wired through CSS custom properties in `globals.css` — every
+ * Theming is wired through CSS custom properties in `globals.css` - every
  * sonner variable (`--normal-bg`, `--success-bg`, etc.) maps to a KDS semantic
  * token (`--toast-bg`, `--toast-success-bg`, …) which in turn references a
- * primitive in `aliases.css`. To restyle a state, change the alias — never
+ * primitive in `aliases.css`. To restyle a state, change the alias - never
  * sonner's variable directly.
  *
  * Mount once:
@@ -76,7 +76,7 @@ const DEFAULT_TOAST_OPTIONS: SonnerToasterProps['toastOptions'] = {
  */
 // KDS-faithful icon overrides for sonner's built-in slots.
 //
-// All glyphs come from `@strange-huge/icons` per the KDS icon-usage rule —
+// All glyphs come from `@strange-huge/icons` per the KDS icon-usage rule -
 // inline SVG is never substituted. Sizes match sonner's 16 px icon slot
 // (toasts use the small variant) and the 18 px close-button slot.
 //

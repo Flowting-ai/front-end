@@ -18,7 +18,7 @@ const rehypePlugins = [rehypeKatex];
 
 export type HighlightSpec = { id: string; text: string; colorIndex: 0 | 1 | 2 | 3 }
 
-// Minimal HAST-compatible node shapes — avoids importing @types/hast directly.
+// Minimal HAST-compatible node shapes - avoids importing @types/hast directly.
 type HastNodeAny = {
   type:        string
   value?:      string
@@ -108,8 +108,8 @@ function BaseLink({ href, children }: { href?: string; children?: React.ReactNod
 
 // ── Citation-aware link factory ────────────────────────────────────────────────
 // When webCitations are provided, the `a` renderer intercepts:
-//   1. citation://N  — explicit {N} / [N] markers converted by preprocessCitations()
-//   2. Bare URLs     — auto-linked by remarkGfm that match a known webCitation URL
+//   1. citation://N  - explicit {N} / [N] markers converted by preprocessCitations()
+//   2. Bare URLs     - auto-linked by remarkGfm that match a known webCitation URL
 
 function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
   if (!webCitations?.length) return BaseLink;
@@ -141,7 +141,7 @@ function preprocessCitations(content: string): string {
   return content
     // {N} → [^N](citation://N)
     .replace(/\{(\d+)\}/g, (_, n) => `[[${n}]](citation://${n})`)
-    // [N] not already followed by ( — standalone bracketed number
+    // [N] not already followed by ( - standalone bracketed number
     .replace(/(?<!\])\[(\d+)\](?!\()/g, (_, n) => `[[${n}]](citation://${n})`);
 }
 
@@ -355,7 +355,7 @@ function closeOpenFences(content: string): string {
 // Block math is placed on its own lines so remark-math treats it as a flow
 // (display-mode) equation rather than inline.
 // Code spans / fences are excluded by running this before fence-closing and
-// only on the text layer — false positives (literal \( in prose) are
+// only on the text layer - false positives (literal \( in prose) are
 // extremely rare in LLM output.
 function normalizeMathDelimiters(content: string): string {
   // \[...\] → display math block

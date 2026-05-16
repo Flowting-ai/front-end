@@ -29,7 +29,7 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
   /** Fires whenever the prompt text changes (typing OR an Apply commit). */
   onChange:         (next: string) => void
   /**
-   * Persona surroundings — feeds the P2 question filters (PRD §8). Optional —
+   * Persona surroundings - feeds the P2 question filters (PRD §8). Optional -
    * defaults to a permissive private persona with no knowledge/connectors.
    */
   personaContext?:  PersonaContext
@@ -48,6 +48,12 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
    * Defaults to "System Instruction".
    */
   label?:           React.ReactNode
+  /**
+   * Optional content rendered in the bottom-left of the idle footer, opposite
+   * the Enhance button. Use for undo/redo controls or similar adornments. Not
+   * rendered while the field is in an open Enhance state.
+   */
+  footerLeft?:      React.ReactNode
 }
 
 type EnhanceState = 'idle' | 'scanning' | 'qa' | 'diff' | 'complete'
@@ -73,6 +79,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
       ariaLabel = 'System prompt',
       forceMode,
       label = 'System Instruction',
+      footerLeft,
       className,
       style,
       ...props
@@ -172,7 +179,8 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
 
     const applyChanges = () => {
       onChange(draftRewrite)
-      setTimeout(() => setState('idle'), APPLY_TRANSITION_MS)
+      setState('idle')
+      setDraftRewrite('')
     }
     const discard = () => {
       setDraftRewrite('')
@@ -185,15 +193,15 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
     const headerLabel =
       state === 'complete' ? 'Your prompt looks comprehensive'
     : isAudit              ? 'Reviewing your prompt'
-    : `Enhance — ${mode}`
+    : `Enhance - ${mode}`
 
     const containerStateStyle: React.CSSProperties = isOpen ? {
       backgroundColor: 'var(--color-enhance-surface-open)',
       borderColor:     'var(--color-enhance-border-open)',
       borderWidth:     1.5,
     } : {
-      backgroundColor: 'var(--color-enhance-surface-idle)',
-      borderColor:     'var(--color-enhance-border-idle)',
+      backgroundColor: '#FFFFFF',
+      borderColor:     '#E5E5E5',
       borderWidth:     1,
     }
 
@@ -222,7 +230,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
           ...style,
         }}
       >
-        {/* Field label — Figma "System Instruction" sits above the container */}
+        {/* Field label - Figma "System Instruction" sits above the container */}
         {label && (
           <span
             style={{
@@ -245,46 +253,59 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
             width:           '100%',
             borderRadius:    18,
             borderStyle:     'solid',
-            overflow:        isOpen ? 'hidden' : undefined,
-            height:          isOpen ? 534 : undefined,
+            overflow:        'hidden',
+            height:          534,
             transition:      'background-color 200ms ease, border-color 200ms ease, border-width 200ms ease',
             ...containerStateStyle,
           }}
           {...props}
         >
-        {/* Idle: textarea + Enhance footer button */}
+        {/* Idle: textarea fills, footer pinned in flex flow at bottom — matches Figma node I848:53731;1677:7723 */}
         {!isOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              display:       'flex',
+              flexDirection: 'column',
+              gap:           25,
+              height:        '100%',
+              padding:       12,
+              boxSizing:     'border-box',
+            }}
+          >
             <textarea
               aria-label={ariaLabel}
+              className="kaya-enhance-textarea"
               placeholder={placeholder}
               value={value}
               onChange={e => onChange(e.target.value)}
-              rows={10}
               style={{
-                width:           '100%',
-                minHeight:       240,
-                padding:         '14px 16px 60px',
-                border:          'none',
-                background:      'transparent',
-                resize:          'vertical',
-                outline:         'none',
-                fontFamily:      'var(--font-body)',
-                fontSize:        'var(--font-size-body)',
-                lineHeight:      1.55,
-                color:           'var(--neutral-900)',
-                borderRadius:    18,
+                flex:       '1 1 0',
+                minHeight:  0,
+                width:      '100%',
+                padding:    0,
+                border:     'none',
+                background: 'transparent',
+                resize:     'none',
+                outline:    'none',
+                fontFamily: 'Inter, var(--font-body)',
+                fontWeight: 400,
+                fontSize:   14,
+                lineHeight: 1.29,
+                color:      '#524B47',
               }}
             />
             <div
               style={{
-                position:       'absolute',
-                right:          12,
-                bottom:         12,
+                flexShrink:     0,
                 display:        'flex',
                 alignItems:     'center',
+                justifyContent: 'space-between',
+                gap:            8,
               }}
             >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {footerLeft}
+              </div>
               <Button
                 size="md"
                 variant="default"
@@ -307,12 +328,14 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               style={{
+                position:      'absolute',
+                inset:         0,
                 padding:       '20px 20px 16px',
                 display:       'flex',
                 flexDirection: 'column',
                 gap:           16,
-                height:        '100%',
                 minHeight:     0,
+                borderRadius:  18,
               }}
             >
               {/* Header */}
@@ -354,7 +377,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
                 </button>
               </div>
 
-              {/* Body — switches on state */}
+              {/* Body - switches on state */}
               <div
                 className="kaya-scrollbar"
                 style={{
@@ -486,7 +509,7 @@ function QAStep({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Step label — hidden in AUDIT (PRD §13) */}
+      {/* Step label - hidden in AUDIT (PRD §13) */}
       {!audit && (
         <p style={{
           margin:        0,
@@ -565,7 +588,7 @@ function QAStep({
         </span>
       ))}
 
-      {/* Option rows — KDS OptionRow (same component QuestionCard uses).
+      {/* Option rows - KDS OptionRow (same component QuestionCard uses).
           single-select:  default | selected
           multi-select:   multi   | multi-selected */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -603,7 +626,7 @@ function QAStep({
           )
         })}
 
-        {/* Custom row — bare InputField + Add button */}
+        {/* Custom row - bare InputField + Add button */}
         {question.options.some(o => o.id === 'custom') && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <div style={{ flex: '1 0 0', minWidth: 0 }}>

@@ -1,4 +1,4 @@
-# SouvenirAI — Front-End Revamp Execution Map
+# SouvenirAI - Front-End Revamp Execution Map
 **Target directory:** `front-end-new/`  
 **Source:** `front-end/` (old codebase) + `design-system/` (Kaya Design System)  
 **Window:** 13 working days (10 core + 3 settings)  
@@ -17,19 +17,19 @@
 | Day 5  | Chat Infrastructure (Streaming Core) | ✅ Complete | 2026-05-01 |
 | Day 6  | Chat UI Components | ✅ Complete | 2026-05-01 |
 | Day 7  | Chat UX Features | ✅ Complete | 2026-05-01 |
-| Day 8  | Chat Polish + Personas Foundation | ⬜ Pending | — |
-| Day 9  | Personas Full Feature | ⬜ Pending | — |
-| Day 10 | Security Review & Hardening | ⬜ Pending | — |
-| Day 11 | Settings Shell + Lightweight Pages | ⬜ Pending | — |
-| Day 12 | Settings: Account + AI & Models + Routing + Teams + Security | ⬜ Pending | — |
-| Day 13 | Settings: Usage & Billing + Security Review | ⬜ Pending | — |
+| Day 8  | Chat Polish + Personas Foundation | ⬜ Pending | - |
+| Day 9  | Personas Full Feature | ⬜ Pending | - |
+| Day 10 | Security Review & Hardening | ⬜ Pending | - |
+| Day 11 | Settings Shell + Lightweight Pages | ⬜ Pending | - |
+| Day 12 | Settings: Account + AI & Models + Routing + Teams + Security | ⬜ Pending | - |
+| Day 13 | Settings: Usage & Billing + Security Review | ⬜ Pending | - |
 
 ---
 
 ## 0. Governing Principles
 
 1. **Old code is reference, not copy-paste.** Read the pattern, rewrite against KDS tokens and components.
-2. **KDS is the component layer.** Every UI element that has a KDS equivalent must use it — no raw `<button>` / `<div>` when `Button` / `Sidebar` / `ChatInput` exist.
+2. **KDS is the component layer.** Every UI element that has a KDS equivalent must use it - no raw `<button>` / `<div>` when `Button` / `Sidebar` / `ChatInput` exist.
 3. **React Compiler is on.** Zero manual `useMemo` / `useCallback`. Trust the compiler.
 4. **No dark mode yet.** KDS tokens are light-mode only. Do not build dark mode. Leave the hook point (`class="dark"` on `<html>`) but no logic.
 5. **Security first.** Every API response or user input rendered as HTML goes through `security.ts` before render. No exceptions.
@@ -49,7 +49,7 @@ front-end-new/
 │   └── FrameworkLoading.json  # lottie loader
 │
 ├── scripts/
-│   └── load-secrets.mjs       # exact copy — AWS Secrets Manager fetcher
+│   └── load-secrets.mjs       # exact copy - AWS Secrets Manager fetcher
 │
 ├── src/
 │   ├── app/
@@ -75,7 +75,7 @@ front-end-new/
 │   │   │       ├── page.tsx
 │   │   │       └── confirmation/page.tsx
 │   │   │
-│   │   └── (app)/                         # route group — all authenticated pages
+│   │   └── (app)/                         # route group - all authenticated pages
 │   │       ├── layout.tsx                 # AppLayout (sidebar + topbar)
 │   │       ├── chat/
 │   │       │   └── page.tsx               # main chat (new or most-recent)
@@ -195,7 +195,7 @@ front-end-new/
 │   │
 │   ├── lib/
 │   │   ├── api/
-│   │   │   ├── client.ts                  # apiFetch() — base fetch + auth headers
+│   │   │   ├── client.ts                  # apiFetch() - base fetch + auth headers
 │   │   │   ├── chat.ts                    # chat CRUD + message ops
 │   │   │   ├── messages.ts                # message fetch + delete
 │   │   │   ├── models.ts                  # available models
@@ -261,21 +261,21 @@ front-end-new/
 
 ## 2. Day-by-Day Execution Plan
 
-### Day 1 — Environment Setup ✅ COMPLETE
+### Day 1 - Environment Setup ✅ COMPLETE
 
 > **Status:** All checkpoints passed. `npm run dev` starts without errors. KDS CSS variables confirmed in the built stylesheet.
 >
 > **Checkpoints:**
-> - ✅ 2.1.1 Scaffold — Next.js 16.2.4 + React 19.2.4 + TypeScript 5 + Tailwind v4 scaffolded
-> - ✅ 2.1.2 Dependencies — all packages installed (`@auth0/nextjs-auth0`, `@aws-sdk/client-secrets-manager`, `isomorphic-dompurify`, `katex`, `highlight.js`, `react-markdown`, `remark-*`, `rehype-*`, `framer-motion`, `mixpanel-browser`, `sonner`, `@radix-ui/*`, `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`)
-> - ✅ 2.1.3 Tailwind v4 + KDS Token Integration — `globals.css` imports all four token layers; `kaya-scrollbar` + `kaya-chat-textarea` utilities defined; KDS tokens confirmed in build output (`--neutral-*`, `--blue-*`, `--shadow-*`, semantic aliases, font tokens)
-> - ✅ 2.1.3 Turbopack cross-root fix — `turbopack.root` set to parent `New Design System/` dir in `next.config.ts`; `src/styles/tokens/` junction created → `design-system/src/styles/tokens/`
-> - ✅ 2.1.4 `next.config.ts` — React Compiler enabled, CSP + security headers configured (`X-Frame-Options: DENY`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Content-Security-Policy`)
-> - ✅ 2.1.5 Secrets Pipeline — `scripts/load-secrets.mjs` copied from old repo; `predev` + `prebuild` hooks wired in `package.json`
-> - ✅ 2.1.5 `.env.local.example` — AWS bootstrap + Auth0 env vars documented
-> - ✅ 2.1.6 TypeScript Config — `paths: { "@/*": ["./src/*"] }` confirmed
-> - ✅ Root layout — `metadata` set to SouvenirAI; no dark mode logic; `h-full antialiased` body
-> - ✅ Root page — `redirect("/chat")` via Next.js `redirect()`
+> - ✅ 2.1.1 Scaffold - Next.js 16.2.4 + React 19.2.4 + TypeScript 5 + Tailwind v4 scaffolded
+> - ✅ 2.1.2 Dependencies - all packages installed (`@auth0/nextjs-auth0`, `@aws-sdk/client-secrets-manager`, `isomorphic-dompurify`, `katex`, `highlight.js`, `react-markdown`, `remark-*`, `rehype-*`, `framer-motion`, `mixpanel-browser`, `sonner`, `@radix-ui/*`, `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`)
+> - ✅ 2.1.3 Tailwind v4 + KDS Token Integration - `globals.css` imports all four token layers; `kaya-scrollbar` + `kaya-chat-textarea` utilities defined; KDS tokens confirmed in build output (`--neutral-*`, `--blue-*`, `--shadow-*`, semantic aliases, font tokens)
+> - ✅ 2.1.3 Turbopack cross-root fix - `turbopack.root` set to parent `New Design System/` dir in `next.config.ts`; `src/styles/tokens/` junction created → `design-system/src/styles/tokens/`
+> - ✅ 2.1.4 `next.config.ts` - React Compiler enabled, CSP + security headers configured (`X-Frame-Options: DENY`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Content-Security-Policy`)
+> - ✅ 2.1.5 Secrets Pipeline - `scripts/load-secrets.mjs` copied from old repo; `predev` + `prebuild` hooks wired in `package.json`
+> - ✅ 2.1.5 `.env.local.example` - AWS bootstrap + Auth0 env vars documented
+> - ✅ 2.1.6 TypeScript Config - `paths: { "@/*": ["./src/*"] }` confirmed
+> - ✅ Root layout - `metadata` set to SouvenirAI; no dark mode logic; `h-full antialiased` body
+> - ✅ Root page - `redirect("/chat")` via Next.js `redirect()`
 
 **Goal:** A running Next.js 16 shell with KDS tokens loaded, Tailwind v4 configured, and the secrets pipeline wired.
 
@@ -334,19 +334,19 @@ Then immediately update to Next.js 16 + React 19 if the scaffolder hasn't done s
 
 #### 2.1.3 Tailwind v4 + KDS Token Integration
 
-`postcss.config.mjs` — identical to old repo (just `@tailwindcss/postcss`).
+`postcss.config.mjs` - identical to old repo (just `@tailwindcss/postcss`).
 
 `src/app/globals.css`:
 ```css
 @import "@tailwindcss/postcss";
 
-/* KDS Design Tokens — import order is mandatory */
+/* KDS Design Tokens - import order is mandatory */
 @import "../../design-system/src/styles/tokens/primitives.css";
 @import "../../design-system/src/styles/tokens/aliases.css";
 @import "../../design-system/src/styles/tokens/semantic.css";
 @import "../../design-system/src/styles/tokens/typography.css";
 
-/* KDS utility class — apply to every scrollable element */
+/* KDS utility class - apply to every scrollable element */
 .kaya-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--neutral-800-30) transparent;
@@ -441,25 +441,25 @@ AWS_SECRET_NAME=souvenirai-frontend/development
 
 #### 2.1.6 TypeScript Config
 
-`tsconfig.json` — same as old repo. Key: `"paths": { "@/*": ["./src/*"] }`.
+`tsconfig.json` - same as old repo. Key: `"paths": { "@/*": ["./src/*"] }`.
 
 **Day 1 Deliverable:** ✅ `npm run dev` starts without errors. KDS CSS variables confirmed in the production build output CSS (`--neutral-*`, `--blue-*`, `--red-*`, `--shadow-*`, font + semantic aliases, `.kaya-scrollbar`, `.kaya-chat-textarea`).
 
 ---
 
-### Day 2 — Auth0 + Auth Context ✅ COMPLETE
+### Day 2 - Auth0 + Auth Context ✅ COMPLETE
 
 > **Status:** All checkpoints passed. Auth0 SDK wired, proxy guard active, AuthProvider in root layout.
 >
 > **Checkpoints:**
-> - ✅ 2.2.1 Auth0 SDK — `@auth0/nextjs-auth0@^4.19.0` installed; env vars documented in `.env.local.example`
-> - ✅ 2.2.2 Route Handler — `src/app/auth/[auth0]/route.ts` + `src/app/auth/access-token/route.ts` + `src/lib/auth0.ts`
-> - ✅ 2.2.3 Proxy — `src/proxy.ts` (Next.js 16 uses `proxy.ts` instead of `middleware.ts`) with auth guard + onboarding gate + checkout-cookie passthrough
-> - ✅ 2.2.4 Auth Context — `src/context/auth-context.tsx` with `AuthUser` merging Auth0 session + `GET /users/me` shape; `AuthProvider` wraps root layout; no `useMemo`/`useCallback` (React Compiler)
-> - ✅ 2.2.5 JWT Utils — `src/lib/jwt-utils.ts` with `getAuthHeaders()`, in-memory token cache, 60s expiry buffer, proactive 30s refresh interval
-> - ✅ Supporting libs — `src/lib/config.ts` (110+ endpoints), `src/lib/plan-tier.ts`, `src/lib/plan-config.ts`, `src/lib/utils/format-utils.ts`, `src/lib/onboarding-access.ts`, `src/lib/api/client.ts` (minimal), `src/lib/api/user.ts`
+> - ✅ 2.2.1 Auth0 SDK - `@auth0/nextjs-auth0@^4.19.0` installed; env vars documented in `.env.local.example`
+> - ✅ 2.2.2 Route Handler - `src/app/auth/[auth0]/route.ts` + `src/app/auth/access-token/route.ts` + `src/lib/auth0.ts`
+> - ✅ 2.2.3 Proxy - `src/proxy.ts` (Next.js 16 uses `proxy.ts` instead of `middleware.ts`) with auth guard + onboarding gate + checkout-cookie passthrough
+> - ✅ 2.2.4 Auth Context - `src/context/auth-context.tsx` with `AuthUser` merging Auth0 session + `GET /users/me` shape; `AuthProvider` wraps root layout; no `useMemo`/`useCallback` (React Compiler)
+> - ✅ 2.2.5 JWT Utils - `src/lib/jwt-utils.ts` with `getAuthHeaders()`, in-memory token cache, 60s expiry buffer, proactive 30s refresh interval
+> - ✅ Supporting libs - `src/lib/config.ts` (110+ endpoints), `src/lib/plan-tier.ts`, `src/lib/plan-config.ts`, `src/lib/utils/format-utils.ts`, `src/lib/onboarding-access.ts`, `src/lib/api/client.ts` (minimal), `src/lib/api/user.ts`
 
-**Goal:** Full auth flow — login, callback, session, token refresh, onboarding gate — working end-to-end.
+**Goal:** Full auth flow - login, callback, session, token refresh, onboarding gate - working end-to-end.
 
 #### 2.2.1 Auth0 SDK Setup
 
@@ -477,7 +477,7 @@ AUTH0_CLIENT_SECRET=
 AUTH0_AUDIENCE=
 ```
 
-#### 2.2.2 Route Handler — `src/app/auth/[auth0]/route.ts`
+#### 2.2.2 Route Handler - `src/app/auth/[auth0]/route.ts`
 
 ```ts
 import { handlers } from "@/lib/auth0";
@@ -498,10 +498,10 @@ export const auth0 = new Auth0Client({
 export const { handlers, auth, signIn, signOut } = auth0;
 ```
 
-#### 2.2.3 Proxy — `src/proxy.ts` (Next.js 16 routing file — replaces `middleware.ts`)
+#### 2.2.3 Proxy - `src/proxy.ts` (Next.js 16 routing file - replaces `middleware.ts`)
 
 ```ts
-// src/proxy.ts — Next.js 16 uses proxy.ts instead of middleware.ts
+// src/proxy.ts - Next.js 16 uses proxy.ts instead of middleware.ts
 import { auth0 } from "@/lib/auth0";
 import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
 
@@ -520,7 +520,7 @@ export default async function proxy(request: Request) {
     return Response.redirect(loginUrl);
   }
 
-  // Onboarding gate + checkout-cookie passthrough — see src/proxy.ts for full impl
+  // Onboarding gate + checkout-cookie passthrough - see src/proxy.ts for full impl
   return await auth0.middleware(request);
 }
 
@@ -529,7 +529,7 @@ export const config = {
 };
 ```
 
-#### 2.2.4 Auth Context — `src/context/auth-context.tsx`
+#### 2.2.4 Auth Context - `src/context/auth-context.tsx`
 
 Port from old repo exactly. `AuthUser` merges the Auth0 session (identity fields) with the `GET /users/me` API response (billing + onboarding fields):
 
@@ -579,7 +579,7 @@ interface UsersMeResponse {
   // Onboarding
   onboarding: {
     completed: boolean;
-    user_role: string;    // raw API value — map through ROLE_LABELS before display
+    user_role: string;    // raw API value - map through ROLE_LABELS before display
     ai_tone: string;
     role_fit: string;
   };
@@ -589,21 +589,21 @@ interface UsersMeResponse {
 interface AuthUser extends Auth0SessionUser, UsersMeResponse {}
 ```
 
-> **Note on `plan_type`:** The API returns `null` for users on no paid plan (free tier). The plan union is `"starter" | "pro" | "power" | null` — never `"free"`. All plan-gating helpers in `plan-config.ts` must treat `null` as the free tier.
+> **Note on `plan_type`:** The API returns `null` for users on no paid plan (free tier). The plan union is `"starter" | "pro" | "power" | null` - never `"free"`. All plan-gating helpers in `plan-config.ts` must treat `null` as the free tier.
 
 Context must expose: `user`, `isLoading`, `refreshUser()`, `logout()`.
 
-#### 2.2.5 JWT Utils — `src/lib/jwt-utils.ts`
+#### 2.2.5 JWT Utils - `src/lib/jwt-utils.ts`
 
 Port from old repo. Critical behaviors:
-- `getAuthHeaders()` — returns `Authorization: Bearer <token>`, refreshes if within 60s of expiry
-- `isTokenExpired(token)` — checks `exp` claim
+- `getAuthHeaders()` - returns `Authorization: Bearer <token>`, refreshes if within 60s of expiry
+- `isTokenExpired(token)` - checks `exp` claim
 - Token stored in memory (no localStorage). Refresh via Auth0 `/auth/access-token` route.
 
 **Edge Cases:**
 | Scenario | Handling |
 |---|---|
-| Token expired during active streaming | Stop stream, refresh token, show "Session refreshed — continue?" toast |
+| Token expired during active streaming | Stop stream, refresh token, show "Session refreshed - continue?" toast |
 | Refresh request fails (network) | Retry once after 2s; on second failure redirect to login |
 | Multiple simultaneous requests need refresh | Serialize behind a single in-flight refresh promise |
 | User signs in on another tab | Broadcast logout via `BroadcastChannel("auth")` |
@@ -613,22 +613,22 @@ Port from old repo. Critical behaviors:
 
 ---
 
-### Day 3 — API Client & Infrastructure ✅ COMPLETE
+### Day 3 - API Client & Infrastructure ✅ COMPLETE
 
 > **Checkpoints:**
-> - ✅ 2.3.1 Base Client — `src/lib/api/client.ts` with `apiFetch()`, `apiFetchJson<T>()`, typed `ApiError`, `friendlyApiError()`, 401 refresh + silent retry, `auth:session-expired` event, auto Content-Type, credentials
-> - ✅ 2.3.2 Resilient Wrapper — `src/lib/api-client.ts` + `throttle.ts` with rate limiters (api 100/min, upload 10/min, chat 30/min), circuit breaker (CLOSED/OPEN/HALF_OPEN, threshold 5, window 30s, `retryInMs` for UI countdown), request queue (max 5 concurrent), exponential backoff
-> - ✅ 2.3.3 Config — `src/lib/config.ts` with all endpoint constants (Users, Stripe, Chats, Models, Personas, Pins, Workflows including all chat sub-endpoints)
-> - ✅ 2.3.4 Logger — `src/lib/logger.ts` (debug/info silenced in production; warn/error always fire; sensitive key redaction)
-> - ✅ 2.3.5 Security Module — `src/lib/security.ts` with `sanitizeKaTeX`, `sanitizeHTML`, `sanitizeInlineMarkdown`, `sanitizeURL`, `escapeHTML`, `sanitizeFolderName`, `sanitizeTagName`, `sanitizeSearchInput`, `sanitizeFileName`, `sanitizeObjectKeys`, `clearSensitiveData`, `sanitizeJSON`, `RateLimiter`
-> - ✅ 2.3.6 CSRF Route — `src/app/api/csrf/route.ts` — HMAC-SHA256 signed tokens (nonce + timestamp + signature), `validateCsrfToken()` exported for other route handlers, 24 h TTL, `timingSafeEqual` comparison, `Cache-Control: no-store`
+> - ✅ 2.3.1 Base Client - `src/lib/api/client.ts` with `apiFetch()`, `apiFetchJson<T>()`, typed `ApiError`, `friendlyApiError()`, 401 refresh + silent retry, `auth:session-expired` event, auto Content-Type, credentials
+> - ✅ 2.3.2 Resilient Wrapper - `src/lib/api-client.ts` + `throttle.ts` with rate limiters (api 100/min, upload 10/min, chat 30/min), circuit breaker (CLOSED/OPEN/HALF_OPEN, threshold 5, window 30s, `retryInMs` for UI countdown), request queue (max 5 concurrent), exponential backoff
+> - ✅ 2.3.3 Config - `src/lib/config.ts` with all endpoint constants (Users, Stripe, Chats, Models, Personas, Pins, Workflows including all chat sub-endpoints)
+> - ✅ 2.3.4 Logger - `src/lib/logger.ts` (debug/info silenced in production; warn/error always fire; sensitive key redaction)
+> - ✅ 2.3.5 Security Module - `src/lib/security.ts` with `sanitizeKaTeX`, `sanitizeHTML`, `sanitizeInlineMarkdown`, `sanitizeURL`, `escapeHTML`, `sanitizeFolderName`, `sanitizeTagName`, `sanitizeSearchInput`, `sanitizeFileName`, `sanitizeObjectKeys`, `clearSensitiveData`, `sanitizeJSON`, `RateLimiter`
+> - ✅ 2.3.6 CSRF Route - `src/app/api/csrf/route.ts` - HMAC-SHA256 signed tokens (nonce + timestamp + signature), `validateCsrfToken()` exported for other route handlers, 24 h TTL, `timingSafeEqual` comparison, `Cache-Control: no-store`
 
 **Goal:** Fully operational API layer with rate limiting, circuit breaker, auth header injection, and all endpoint constants.
 
-#### 2.3.1 Base Client — `src/lib/api/client.ts`
+#### 2.3.1 Base Client - `src/lib/api/client.ts`
 
 ```ts
-// apiFetch<T>(url, options) — adds auth headers, handles 401 refresh, returns parsed JSON
+// apiFetch<T>(url, options) - adds auth headers, handles 401 refresh, returns parsed JSON
 // Throws typed ApiError with { status, code, message }
 ```
 
@@ -639,7 +639,7 @@ Key behaviors from old repo:
 - Parses `Content-Type: application/json` and `text/event-stream` differently
 - Strips trailing slashes from `API_BASE_URL`
 
-#### 2.3.2 Resilient Wrapper — `src/lib/api-client.ts`
+#### 2.3.2 Resilient Wrapper - `src/lib/api-client.ts`
 
 Port `throttle.ts`, `security.ts` (RateLimiter), then wire `secureFetch`:
 
@@ -661,32 +661,32 @@ Request Queue:
 **Circuit Breaker Edge Cases:**
 | State | Behavior |
 |---|---|
-| OPEN | Immediately reject with "Service temporarily unavailable" — do NOT show loading spinner |
+| OPEN | Immediately reject with "Service temporarily unavailable" - do NOT show loading spinner |
 | HALF_OPEN probe succeeds | Transition to CLOSED, clear failure count |
 | HALF_OPEN probe fails | Return to OPEN, reset window |
-| User tries to send chat during OPEN | Show inline banner in chat input: "API unreachable — retrying in Xs" with countdown |
+| User tries to send chat during OPEN | Show inline banner in chat input: "API unreachable - retrying in Xs" with countdown |
 
-#### 2.3.3 Config — `src/lib/config.ts`
+#### 2.3.3 Config - `src/lib/config.ts`
 
 Copy all 110+ endpoints verbatim from old repo. Group structure:
 - Users, Chats, LLM Models, Personas, Pins, Documents, Images, Onboarding, Stripe
 
-No changes to endpoint paths — backend contract is frozen.
+No changes to endpoint paths - backend contract is frozen.
 
-#### 2.3.4 Logger — `src/lib/logger.ts`
+#### 2.3.4 Logger - `src/lib/logger.ts`
 
 Port from old repo. In production, `debug` and `info` are no-ops. `warn` and `error` always fire.
 
-#### 2.3.5 Security Module — `src/lib/security.ts`
+#### 2.3.5 Security Module - `src/lib/security.ts`
 
 Port verbatim. Three presets:
-- `sanitizeKaTeX(html)` — allows SVG tags for KaTeX output
-- `sanitizeHTML(html)` — standard allow-list
-- `sanitizeMarkdown(html)` — strict; no `<script>`, `<style>`, `<iframe>`
+- `sanitizeKaTeX(html)` - allows SVG tags for KaTeX output
+- `sanitizeHTML(html)` - standard allow-list
+- `sanitizeMarkdown(html)` - strict; no `<script>`, `<style>`, `<iframe>`
 
 `RateLimiter` class is also in this file (sliding window).
 
-#### 2.3.6 CSRF Route — `src/app/api/csrf/route.ts`
+#### 2.3.6 CSRF Route - `src/app/api/csrf/route.ts`
 
 Issues a signed token per session. All non-GET API mutations from the browser include `X-CSRF-Token` header. Server validates before processing.
 
@@ -694,27 +694,27 @@ Issues a signed token per session. All non-GET API mutations from the browser in
 
 ---
 
-### Day 4 — App Layout & Sidebar ✅ COMPLETE (2026-05-01)
+### Day 4 - App Layout & Sidebar ✅ COMPLETE (2026-05-01)
 
 > **Checkpoints:**
-> - ✅ 2.4.1 AppLayout — `src/components/layout/AppLayout.tsx` (sidebar + main slot + AppDialogs)
-> - ✅ 2.4.2 LeftSidebar — `src/components/layout/LeftSidebar.tsx` (KDS Sidebar, new chat btn, search, history list, bottom nav, collapse persistence)
-> - ✅ 2.4.3 ChatHistoryItem — `src/components/layout/ChatHistoryItem.tsx` (hover menu, optimistic rename, delete, star)
-> - ✅ 2.4.4 TopBar — `src/components/layout/TopBar.tsx` (editable title, model chip, citations toggle, user dropdown)
-> - ✅ `(app)` route group layout wired — `src/app/(app)/layout.tsx`
+> - ✅ 2.4.1 AppLayout - `src/components/layout/AppLayout.tsx` (sidebar + main slot + AppDialogs)
+> - ✅ 2.4.2 LeftSidebar - `src/components/layout/LeftSidebar.tsx` (KDS Sidebar, new chat btn, search, history list, bottom nav, collapse persistence)
+> - ✅ 2.4.3 ChatHistoryItem - `src/components/layout/ChatHistoryItem.tsx` (hover menu, optimistic rename, delete, star)
+> - ✅ 2.4.4 TopBar - `src/components/layout/TopBar.tsx` (editable title, model chip, citations toggle, user dropdown)
+> - ✅ `(app)` route group layout wired - `src/app/(app)/layout.tsx`
 
-**Goal:** The authenticated shell — KDS Sidebar with chat history list, top bar, and responsive collapse.
+**Goal:** The authenticated shell - KDS Sidebar with chat history list, top bar, and responsive collapse.
 
-#### 2.4.1 AppLayout — `src/components/layout/AppLayout.tsx`
+#### 2.4.1 AppLayout - `src/components/layout/AppLayout.tsx`
 
 Composes:
 - `LeftSidebar` (KDS `<Sidebar>` + `<SidebarInset>`)
 - `<main>` slot for page content
-- `AppDialogs` (global dialog manager — DeleteChat, ModelSwitch, etc.)
+- `AppDialogs` (global dialog manager - DeleteChat, ModelSwitch, etc.)
 
 Uses KDS `SidebarContext` for open/collapsed state.
 
-#### 2.4.2 LeftSidebar — `src/components/layout/LeftSidebar.tsx`
+#### 2.4.2 LeftSidebar - `src/components/layout/LeftSidebar.tsx`
 
 Uses KDS `<Sidebar>` → `<SidebarProjectsSection>` → `<SidebarMenuItem>` chain.
 
@@ -727,7 +727,7 @@ Sections (top to bottom):
 
 **Sidebar State Persistence:** Collapse state saved to `localStorage` key `sidebar_collapsed`.
 
-#### 2.4.3 ChatHistoryItem — `src/components/layout/ChatHistoryItem.tsx`
+#### 2.4.3 ChatHistoryItem - `src/components/layout/ChatHistoryItem.tsx`
 
 Wraps KDS `<SidebarMenuItem variant="chat-item">`. On hover shows a `...` menu (rename, delete, star).
 
@@ -741,7 +741,7 @@ Wraps KDS `<SidebarMenuItem variant="chat-item">`. On hover shows a `...` menu (
 | Starred chats | Show star icon badge on item |
 | Empty history | Show "No chats yet" empty state (KDS `Badge` + muted text) |
 
-#### 2.4.4 TopBar — `src/components/layout/TopBar.tsx`
+#### 2.4.4 TopBar - `src/components/layout/TopBar.tsx`
 
 Contains:
 - Chat title (editable on double-click → inline `InputField`)
@@ -753,18 +753,18 @@ Contains:
 
 ---
 
-### Day 5 — Chat Infrastructure (Streaming Core) ✅ COMPLETE (2026-05-01)
+### Day 5 - Chat Infrastructure (Streaming Core) ✅ COMPLETE (2026-05-01)
 
 > **Checkpoints:**
-> - ✅ 2.5.1 Streaming Hook — `src/hooks/use-streaming-chat.ts` (SSE state machine, 50ms batch flush, abort + stop API call, chunk/reasoning/metadata/done/error events)
-> - ✅ 2.5.2 Chat State Hook — `src/hooks/use-chat-state.ts` (UIMessage type, message list, optimistic insert, rollback)
-> - ✅ 2.5.3 Content Parser — `src/lib/parsers/content-parser.ts` (thinking blocks, extractSources, mergeStreamingText in streaming.ts)
-> - ✅ 2.5.4 Chat API Route — `src/app/api/chat/route.ts` (server-side JWT proxy via auth0.getAccessToken, ReadableStream passthrough, X-Chat-Id header forwarding)
-> - ✅ Supporting — `src/lib/streaming.ts` (mergeStreamingText), `src/lib/normalizers/message-transformer.ts` (toUIMessage)
+> - ✅ 2.5.1 Streaming Hook - `src/hooks/use-streaming-chat.ts` (SSE state machine, 50ms batch flush, abort + stop API call, chunk/reasoning/metadata/done/error events)
+> - ✅ 2.5.2 Chat State Hook - `src/hooks/use-chat-state.ts` (UIMessage type, message list, optimistic insert, rollback)
+> - ✅ 2.5.3 Content Parser - `src/lib/parsers/content-parser.ts` (thinking blocks, extractSources, mergeStreamingText in streaming.ts)
+> - ✅ 2.5.4 Chat API Route - `src/app/api/chat/route.ts` (server-side JWT proxy via auth0.getAccessToken, ReadableStream passthrough, X-Chat-Id header forwarding)
+> - ✅ Supporting - `src/lib/streaming.ts` (mergeStreamingText), `src/lib/normalizers/message-transformer.ts` (toUIMessage)
 
 **Goal:** `use-streaming-chat.ts` and `use-chat-state.ts` fully operational. Messages render. Stop generation works.
 
-#### 2.5.1 Streaming Hook — `src/hooks/use-streaming-chat.ts`
+#### 2.5.1 Streaming Hook - `src/hooks/use-streaming-chat.ts`
 
 This is the most critical piece. Port carefully from old repo.
 
@@ -779,7 +779,7 @@ Internal flow:
 1. POST to `/api/chat` (Next route handler) which proxies to `CHAT_STREAM_ENDPOINT`
 2. Parse SSE (`text/event-stream`) line by line
 3. Parse each delta through `content-parser.ts` (thinking blocks, citations, text)
-4. Append parsed delta to `streamingContent` ref — NEVER useState for each token (causes re-render storm)
+4. Append parsed delta to `streamingContent` ref - NEVER useState for each token (causes re-render storm)
 5. Batch-flush to React state every 50ms via `setInterval` (throttled UI update)
 6. On `[DONE]` or `error` event → finalize message, transition to DONE/ERROR
 
@@ -788,10 +788,10 @@ Internal flow:
 - `controller.abort()` on user "stop" click
 - Also call `CHAT_STOP_ENDPOINT` to signal backend
 
-**Edge Cases — Streaming:**
+**Edge Cases - Streaming:**
 | Case | Handling |
 |---|---|
-| Network drops mid-stream | Catch `AbortError` vs network error — show "Connection lost" inline message, offer retry |
+| Network drops mid-stream | Catch `AbortError` vs network error - show "Connection lost" inline message, offer retry |
 | Backend sends malformed JSON in event | Skip that delta, log warning, continue stream |
 | Stream stalls >30s with no delta | Show "Still thinking…" inline indicator; after 60s show timeout error |
 | User navigates away during stream | `useEffect` cleanup → abort + stop API call |
@@ -799,7 +799,7 @@ Internal flow:
 | Multiple tabs open | Each tab has independent stream; no shared state |
 | Race: user sends second message before first finishes | Abort first stream, start second |
 
-#### 2.5.2 Chat State Hook — `src/hooks/use-chat-state.ts`
+#### 2.5.2 Chat State Hook - `src/hooks/use-chat-state.ts`
 
 Manages:
 - `messages: Message[]` array (full history)
@@ -808,14 +808,14 @@ Manages:
 - Message normalization via `message-transformer.ts`
 - Rollback on error
 
-#### 2.5.3 Content Parser — `src/lib/parsers/content-parser.ts`
+#### 2.5.3 Content Parser - `src/lib/parsers/content-parser.ts`
 
 Port from old repo. Handles:
 - `<thinking>…</thinking>` blocks → `ReasoningBlock` data
 - Citation markers `[1]`, `[2]` → link to source panel
 - Plain text deltas
 
-#### 2.5.4 Next API Route — `src/app/api/chat/route.ts`
+#### 2.5.4 Next API Route - `src/app/api/chat/route.ts`
 
 Proxies the stream from backend to browser:
 - Reads JWT from session (server-side only, never exposed to client)
@@ -829,30 +829,30 @@ Proxies the stream from backend to browser:
 
 ---
 
-### Day 6 — Chat UI Components ✅ COMPLETE
+### Day 6 - Chat UI Components ✅ COMPLETE
 
 > **Checkpoints:**
-> - ✅ 2.6.1 ChatMessage — `src/components/chat/ChatMessage.tsx` (user/assistant/system roles, edit, copy, regenerate)
-> - ✅ 2.6.2 Markdown Renderer — remark/rehype pipeline in `src/lib/markdown-utils.tsx` (GFM, math, highlight, sanitize)
-> - ✅ 2.6.3 CodeBlock — `src/components/chat/CodeBlock.tsx` (lazy highlight.js, copy, word-wrap toggle)
-> - ✅ 2.6.4 LaTeXRenderer — `src/components/chat/LaTeXRenderer.tsx` (inline + display, `sanitizeKaTeX`, error fallback)
-> - ✅ 2.6.5 ReasoningBlock — `src/components/chat/ReasoningBlock.tsx` (collapsible, typewriter animation, duration label)
-> - ✅ 2.6.6 CitationsPanel — `src/components/chat/CitationsPanel.tsx` (Framer Motion slide-in, source list, scroll sync)
-> - ✅ 2.6.7 AttachmentManager — `src/components/chat/AttachmentManager.tsx` (drag-drop, file-type/size guards, thumbnail preview)
-> - ✅ 2.6.8 ChatInterface — `src/components/chat/ChatInterface.tsx` (root composition: messages, input, citations, drag overlay)
-> - ✅ 2.6.9 ChatInput — `src/components/chat/ChatInput.tsx` (animated placeholder, auto-grow, toolbar, send/stop toggle)
-> - ✅ 2.6.10 useHighlightJs — `src/hooks/useHighlightJs.ts` (lazy highlight.js loader with containerRef)
-> - ✅ 2.6.11 highlight.ts — `src/lib/highlight.ts` (hljs/core with ~40 languages registered)
-> - ✅ 2.6.12 useFileDrop — `src/hooks/use-file-drop.ts` (document-level drag/drop with counter-based state)
+> - ✅ 2.6.1 ChatMessage - `src/components/chat/ChatMessage.tsx` (user/assistant/system roles, edit, copy, regenerate)
+> - ✅ 2.6.2 Markdown Renderer - remark/rehype pipeline in `src/lib/markdown-utils.tsx` (GFM, math, highlight, sanitize)
+> - ✅ 2.6.3 CodeBlock - `src/components/chat/CodeBlock.tsx` (lazy highlight.js, copy, word-wrap toggle)
+> - ✅ 2.6.4 LaTeXRenderer - `src/components/chat/LaTeXRenderer.tsx` (inline + display, `sanitizeKaTeX`, error fallback)
+> - ✅ 2.6.5 ReasoningBlock - `src/components/chat/ReasoningBlock.tsx` (collapsible, typewriter animation, duration label)
+> - ✅ 2.6.6 CitationsPanel - `src/components/chat/CitationsPanel.tsx` (Framer Motion slide-in, source list, scroll sync)
+> - ✅ 2.6.7 AttachmentManager - `src/components/chat/AttachmentManager.tsx` (drag-drop, file-type/size guards, thumbnail preview)
+> - ✅ 2.6.8 ChatInterface - `src/components/chat/ChatInterface.tsx` (root composition: messages, input, citations, drag overlay)
+> - ✅ 2.6.9 ChatInput - `src/components/chat/ChatInput.tsx` (animated placeholder, auto-grow, toolbar, send/stop toggle)
+> - ✅ 2.6.10 useHighlightJs - `src/hooks/useHighlightJs.ts` (lazy highlight.js loader with containerRef)
+> - ✅ 2.6.11 highlight.ts - `src/lib/highlight.ts` (hljs/core with ~40 languages registered)
+> - ✅ 2.6.12 useFileDrop - `src/hooks/use-file-drop.ts` (document-level drag/drop with counter-based state)
 
-**Goal:** Complete chat message rendering layer — all content types display correctly.
+**Goal:** Complete chat message rendering layer - all content types display correctly.
 
-#### 2.6.1 ChatMessage — `src/components/chat/ChatMessage.tsx`
+#### 2.6.1 ChatMessage - `src/components/chat/ChatMessage.tsx`
 
 Roles: `user` | `assistant` | `system`
 
 User message:
-- Text rendered as plain text (no markdown — user input is literal)
+- Text rendered as plain text (no markdown - user input is literal)
 - Attachment chips if files attached
 - Edit button on hover (replaces text with InputField inline)
 
@@ -878,7 +878,7 @@ Custom renderers:
 - `math` → `<LaTeXRenderer>`
 - `a` → open in new tab + `rel="noopener noreferrer"`
 
-#### 2.6.3 CodeBlock — `src/components/chat/CodeBlock.tsx`
+#### 2.6.3 CodeBlock - `src/components/chat/CodeBlock.tsx`
 
 Uses `highlight.js` (lazy-loaded via `useHighlightJs`). Features:
 - Language label (top-left)
@@ -894,7 +894,7 @@ Uses `highlight.js` (lazy-loaded via `useHighlightJs`). Features:
 | Code contains backticks | Handled by remark, not a render concern |
 | Highlight.js not yet loaded | Show unstyled code, apply highlight once loaded |
 
-#### 2.6.4 LaTeXRenderer — `src/components/chat/LaTeXRenderer.tsx`
+#### 2.6.4 LaTeXRenderer - `src/components/chat/LaTeXRenderer.tsx`
 
 Uses KaTeX. Output passed through `sanitizeKaTeX()`.
 
@@ -905,13 +905,13 @@ Uses KaTeX. Output passed through `sanitizeKaTeX()`.
 | Display-mode ($$…$$) | `displayMode: true` |
 | Inline mode ($…$) | `displayMode: false` |
 
-#### 2.6.5 ReasoningBlock — `src/components/chat/ReasoningBlock.tsx`
+#### 2.6.5 ReasoningBlock - `src/components/chat/ReasoningBlock.tsx`
 
 Collapsible section. Default: collapsed after stream completes; expanded during streaming.
 - Header: "Reasoned for Xs" (duration from stream timing)
 - Content: prose, same markdown pipeline without code highlighting
 
-#### 2.6.6 CitationsPanel — `src/components/chat/CitationsPanel.tsx`
+#### 2.6.6 CitationsPanel - `src/components/chat/CitationsPanel.tsx`
 
 Right panel (slides in via Framer Motion). Contains:
 - Source list (URL, title, favicon)
@@ -926,7 +926,7 @@ Right panel (slides in via Framer Motion). Contains:
 | Source URL fetch fails | Show domain only, no favicon |
 | No citations | Panel button hidden |
 
-#### 2.6.7 AttachmentManager — `src/components/chat/AttachmentManager.tsx`
+#### 2.6.7 AttachmentManager - `src/components/chat/AttachmentManager.tsx`
 
 Drag-and-drop + click-to-upload. Supported types: PDF, DOCX, TXT, PNG, JPG, WEBP.
 
@@ -936,33 +936,33 @@ Drag-and-drop + click-to-upload. Supported types: PDF, DOCX, TXT, PNG, JPG, WEBP
 | File > 25MB | Reject before upload, show toast "File too large (max 25MB)" |
 | Unsupported type | Reject, show list of supported types |
 | Upload fails | Remove chip, show inline error retry |
-| Duplicate file (same name + size) | Show "Already attached" — do not re-upload |
+| Duplicate file (same name + size) | Show "Already attached" - do not re-upload |
 | 10+ attachments | Cap at 10, show "Max 10 files" toast |
 | Image preview | Thumbnail in chip; click → lightbox |
 
-**Day 6 Deliverable:** ✅ Every content type renders correctly — markdown tables, code blocks, LaTeX, collapsible reasoning, citations.
+**Day 6 Deliverable:** ✅ Every content type renders correctly - markdown tables, code blocks, LaTeX, collapsible reasoning, citations.
 
 ---
 
-### Day 7 — Chat UX Features ✅ COMPLETE
+### Day 7 - Chat UX Features ✅ COMPLETE
 
 > **Checkpoints:**
-> - ✅ 2.7.1 ModelSelector — `src/components/chat/ModelSelector.tsx` (modal dialog, search, grouped by provider, model icons + plan badge)
-> - ✅ 2.7.1b ModelSwitchDialog — `src/components/chat/ModelSwitchDialog.tsx` (AlertDialog confirming mid-chat model switch)
-> - ✅ 2.7.2 PinMentionDropdown — `src/components/chat/PinMentionDropdown.tsx` (`@` trigger, keyboard nav, color dots, search highlight)
-> - ✅ 2.7.3 InitialPrompts — `src/components/chat/InitialPrompts.tsx` (personalized greeting + 4 suggestion cards)
-> - ✅ 2.7.4 Chat CRUD — `src/lib/api/chat.ts` (already complete from Day 5)
-> - ✅ 2.7.5 useModelSelection — `src/hooks/use-model-selection.ts` (fetchModelsWithCache, localStorage persistence)
-> - ✅ 2.7.6 usePinOperations — `src/hooks/use-pin-operations.ts` (lazy-load pins, search, refresh)
-> - ✅ 2.7.7 Pins API — `src/lib/api/pins.ts` (Pin/PinFolder types, listPins, getPin, listPinFolders)
-> - ✅ 2.7.8 AI Models — `src/lib/ai-models.ts` (normalizeModels, fetchModelsWithCache with 60s TTL)
-> - ✅ 2.7.9 Model Icons — `src/lib/model-icons.ts` (getModelIcon by company/model/provider)
-> - ✅ 2.7.10 Greetings — `src/lib/greetings.ts` (time-of-day greetings, day overrides, subheading categories)
-> - ✅ 2.7.11 Chat Page — `src/app/(app)/chat/page.tsx` (full composition with model selector, switch dialog, initial prompts)
+> - ✅ 2.7.1 ModelSelector - `src/components/chat/ModelSelector.tsx` (modal dialog, search, grouped by provider, model icons + plan badge)
+> - ✅ 2.7.1b ModelSwitchDialog - `src/components/chat/ModelSwitchDialog.tsx` (AlertDialog confirming mid-chat model switch)
+> - ✅ 2.7.2 PinMentionDropdown - `src/components/chat/PinMentionDropdown.tsx` (`@` trigger, keyboard nav, color dots, search highlight)
+> - ✅ 2.7.3 InitialPrompts - `src/components/chat/InitialPrompts.tsx` (personalized greeting + 4 suggestion cards)
+> - ✅ 2.7.4 Chat CRUD - `src/lib/api/chat.ts` (already complete from Day 5)
+> - ✅ 2.7.5 useModelSelection - `src/hooks/use-model-selection.ts` (fetchModelsWithCache, localStorage persistence)
+> - ✅ 2.7.6 usePinOperations - `src/hooks/use-pin-operations.ts` (lazy-load pins, search, refresh)
+> - ✅ 2.7.7 Pins API - `src/lib/api/pins.ts` (Pin/PinFolder types, listPins, getPin, listPinFolders)
+> - ✅ 2.7.8 AI Models - `src/lib/ai-models.ts` (normalizeModels, fetchModelsWithCache with 60s TTL)
+> - ✅ 2.7.9 Model Icons - `src/lib/model-icons.ts` (getModelIcon by company/model/provider)
+> - ✅ 2.7.10 Greetings - `src/lib/greetings.ts` (time-of-day greetings, day overrides, subheading categories)
+> - ✅ 2.7.11 Chat Page - `src/app/(app)/chat/page.tsx` (full composition with model selector, switch dialog, initial prompts)
 
 **Goal:** Model selection, pin/mention, initial prompts, link preview, clarification, chat management.
 
-#### 2.7.1 ModelSelector — `src/components/chat/ModelSelector.tsx`
+#### 2.7.1 ModelSelector - `src/components/chat/ModelSelector.tsx`
 
 Wraps KDS `<PresetModelSelector>`. Data comes from `MODELS_ENDPOINT`.
 
@@ -976,7 +976,7 @@ Model switching mid-chat triggers `ModelSwitchDialog` (confirmation). After conf
 | Model switch dialog dismissed | Revert selector to previous model |
 | API returns model list error | Use cached model list from last successful fetch |
 
-#### 2.7.2 PinMentionDropdown — `src/components/chat/PinMentionDropdown.tsx`
+#### 2.7.2 PinMentionDropdown - `src/components/chat/PinMentionDropdown.tsx`
 
 Triggered by `@` in the input. Fetches pinned items from `PINS_ENDPOINT`.
 
@@ -990,7 +990,7 @@ KDS `<Dropdown>` / `<DropdownMenuItem>` chain.
 | Pin fetch fails | Hide dropdown silently, log error |
 | Mention inserted, pin deleted later | Show broken mention chip in message (read-only) |
 
-#### 2.7.3 InitialPrompts — `src/components/chat/InitialPrompts.tsx`
+#### 2.7.3 InitialPrompts - `src/components/chat/InitialPrompts.tsx`
 
 Shown only on new/empty chat. Suggested prompts grid (3-4 items). On click → populate chat input.
 
@@ -1002,7 +1002,7 @@ All wired through `src/lib/api/chat.ts`:
 
 | Operation | Endpoint | UX |
 |---|---|---|
-| Create chat | `CHATS_CREATE_ENDPOINT` | Optimistic — add to sidebar immediately |
+| Create chat | `CHATS_CREATE_ENDPOINT` | Optimistic - add to sidebar immediately |
 | Rename chat | `CHATS_RENAME_ENDPOINT` | Inline edit in sidebar; confirm on blur/Enter |
 | Delete chat | `DELETE /chats/:id` | Confirmation dialog; redirect to new chat |
 | Star/unstar | `CHAT_STAR_ENDPOINT` | Toggle in sidebar; starred section at top |
@@ -1013,12 +1013,12 @@ All wired through `src/lib/api/chat.ts`:
 
 ---
 
-### Day 8 — Chat Polish + Personas Foundation ⬜ PENDING
+### Day 8 - Chat Polish + Personas Foundation ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.8.1 ChatInput — `src/components/chat/ChatInput.tsx` (KDS ChatInput wrapper, toolbar, stop button, token counter, IME guard)
-> - ⬜ 2.8.2 use-chat-history — `src/hooks/use-chat-history.ts` (paginated, date-grouped, bump-to-top on stream complete)
-> - ⬜ 2.8.3 Personas Gallery — `src/app/(app)/personas/page.tsx` + `PersonaCard.tsx` (grid, loading skeleton, empty state)
+> - ⬜ 2.8.1 ChatInput - `src/components/chat/ChatInput.tsx` (KDS ChatInput wrapper, toolbar, stop button, token counter, IME guard)
+> - ⬜ 2.8.2 use-chat-history - `src/hooks/use-chat-history.ts` (paginated, date-grouped, bump-to-top on stream complete)
+> - ⬜ 2.8.3 Personas Gallery - `src/app/(app)/personas/page.tsx` + `PersonaCard.tsx` (grid, loading skeleton, empty state)
 
 **Goal:** Finalize chat edge cases. Begin personas.
 
@@ -1040,13 +1040,13 @@ The `ChatInput` KDS component is the primary text entry. Wrap it in `src/compone
 | IME composition (Japanese/Chinese) | Do not submit on Enter during composition |
 | Streaming in progress | Send button becomes Stop; input disabled |
 
-#### 2.8.2 use-chat-history — `src/hooks/use-chat-history.ts`
+#### 2.8.2 use-chat-history - `src/hooks/use-chat-history.ts`
 
 Fetches from `CHATS_ENDPOINT` with pagination. Groups by date (Today, Yesterday, Last 7 days, Older).
 
 Real-time update: when streaming completes, bump chat to top of "Today" group without refetch.
 
-#### 2.8.3 Personas — Gallery Page
+#### 2.8.3 Personas - Gallery Page
 
 `src/app/(app)/personas/page.tsx` + `PersonaCard.tsx`
 
@@ -1073,18 +1073,18 @@ Fetch from `PERSONAS_ENDPOINT`. Loading state → KDS `SidebarMenuSkeleton` grid
 
 ---
 
-### Day 9 — Personas Full Feature ⬜ PENDING
+### Day 9 - Personas Full Feature ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.9.1 Create Persona Step 1 — `src/app/(app)/personas/new/page.tsx` + `PersonaForm.tsx` (name, description, avatar upload, validation)
-> - ⬜ 2.9.2 Configure Persona Step 2 — `src/app/(app)/personas/new/configure/page.tsx` + `PersonaConfigure.tsx` (system prompt, AI enhance, model, temperature, test slide-over)
-> - ⬜ 2.9.3 Persona Chat — `PersonaChatInterface.tsx` + `src/app/(app)/personas/[personaId]/chat/page.tsx`
-> - ⬜ 2.9.4 Pause / Activate Persona — optimistic toggle via `PERSONA_PAUSE_ENDPOINT`
-> - ⬜ 2.9.5 Bulk Actions Bar — `BulkActionBar.tsx` (KDS FloatingMenu, Framer Motion slide-in)
+> - ⬜ 2.9.1 Create Persona Step 1 - `src/app/(app)/personas/new/page.tsx` + `PersonaForm.tsx` (name, description, avatar upload, validation)
+> - ⬜ 2.9.2 Configure Persona Step 2 - `src/app/(app)/personas/new/configure/page.tsx` + `PersonaConfigure.tsx` (system prompt, AI enhance, model, temperature, test slide-over)
+> - ⬜ 2.9.3 Persona Chat - `PersonaChatInterface.tsx` + `src/app/(app)/personas/[personaId]/chat/page.tsx`
+> - ⬜ 2.9.4 Pause / Activate Persona - optimistic toggle via `PERSONA_PAUSE_ENDPOINT`
+> - ⬜ 2.9.5 Bulk Actions Bar - `BulkActionBar.tsx` (KDS FloatingMenu, Framer Motion slide-in)
 
-**Goal:** Create, configure, and chat with personas — all flows complete.
+**Goal:** Create, configure, and chat with personas - all flows complete.
 
-#### 2.9.1 Create Persona — Step 1 (`/personas/new`)
+#### 2.9.1 Create Persona - Step 1 (`/personas/new`)
 
 Fields:
 - Name (required, max 50 chars)
@@ -1102,7 +1102,7 @@ Validation runs on blur, not on keystroke. On submit → `POST /persona` → red
 | User navigates away | Show "Discard changes?" dialog |
 | Avatar > 2MB | Client-side reject with toast |
 
-#### 2.9.2 Configure Persona — Step 2 (`/personas/new/configure`)
+#### 2.9.2 Configure Persona - Step 2 (`/personas/new/configure`)
 
 Fields:
 - System prompt (large textarea, max 4000 chars)
@@ -1125,7 +1125,7 @@ On save → `PATCH /persona/:id` → redirect to persona gallery.
 | Form has unsaved changes on navigate | "Unsaved changes" dialog |
 | Save fails (network) | Keep form state, show retry toast |
 
-#### 2.9.3 Persona Chat — `PersonaChatInterface.tsx`
+#### 2.9.3 Persona Chat - `PersonaChatInterface.tsx`
 
 Same streaming core as main chat (`use-streaming-chat`). Differences:
 - Endpoints: `PERSONA_CHAT_STREAM_ENDPOINT(personaId, chatId)`
@@ -1144,7 +1144,7 @@ Port `PersonaChatFullPage.tsx` from old repo, replacing all shadcn/ui primitives
 
 #### 2.9.4 Pause / Activate Persona
 
-Toggle from gear menu on persona card. Calls `PERSONA_PAUSE_ENDPOINT`. Optimistic UI — update badge immediately, revert on failure.
+Toggle from gear menu on persona card. Calls `PERSONA_PAUSE_ENDPOINT`. Optimistic UI - update badge immediately, revert on failure.
 
 #### 2.9.5 Bulk Actions Bar
 
@@ -1152,20 +1152,20 @@ Appears when 1+ personas checked. Options: Delete (with confirmation), Activate,
 
 Uses KDS `FloatingMenu` at bottom of viewport. Framer Motion slide-in from bottom.
 
-**Day 9 Deliverable:** ⬜ Full persona lifecycle — create, configure, chat, pause, delete — working end-to-end.
+**Day 9 Deliverable:** ⬜ Full persona lifecycle - create, configure, chat, pause, delete - working end-to-end.
 
 ---
 
-### Day 10 — Security Review & Hardening (Mid-Point Audit) ⬜ PENDING
+### Day 10 - Security Review & Hardening (Mid-Point Audit) ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.10.1 Input Sanitization Audit — all `dangerouslySetInnerHTML` sites, API-sourced HTML, link/image src validation
-> - ⬜ 2.10.2 Authentication Guards Audit — middleware, server components, route handlers, JWT expiry, token leakage
-> - ⬜ 2.10.3 CSRF Protection Audit — token issuance, header injection, `SameSite=Strict`
-> - ⬜ 2.10.4 Rate Limiting Audit — all three limiters enforced, circuit breaker UI, logging
-> - ⬜ 2.10.5 CSP and HTTP Headers Audit — all headers present and correct
-> - ⬜ 2.10.6 Dependency Audit — `npm audit --audit-level=moderate` clean (or exceptions documented)
-> - ⬜ 2.10.7 Sensitive Data Audit — no secrets in source, no stack traces to client, proxy route confirmed
+> - ⬜ 2.10.1 Input Sanitization Audit - all `dangerouslySetInnerHTML` sites, API-sourced HTML, link/image src validation
+> - ⬜ 2.10.2 Authentication Guards Audit - middleware, server components, route handlers, JWT expiry, token leakage
+> - ⬜ 2.10.3 CSRF Protection Audit - token issuance, header injection, `SameSite=Strict`
+> - ⬜ 2.10.4 Rate Limiting Audit - all three limiters enforced, circuit breaker UI, logging
+> - ⬜ 2.10.5 CSP and HTTP Headers Audit - all headers present and correct
+> - ⬜ 2.10.6 Dependency Audit - `npm audit --audit-level=moderate` clean (or exceptions documented)
+> - ⬜ 2.10.7 Sensitive Data Audit - no secrets in source, no stack traces to client, proxy route confirmed
 
 **Goal:** Systematic security audit of everything built in Days 1–9 before entering the settings sprint. No feature work on this day. All findings must be resolved before Day 11 begins.
 
@@ -1174,7 +1174,7 @@ Uses KDS `FloatingMenu` at bottom of viewport. Framer Motion slide-in from botto
 **Checklist (every render site in chat + personas):**
 - [ ] `dangerouslySetInnerHTML` only used with DOMPurify output
 - [ ] All API-sourced strings rendered as HTML go through `sanitizeHTML()`, `sanitizeMarkdown()`, or `sanitizeKaTeX()`
-- [ ] User-supplied content (chat messages, persona names/descriptions) is never rendered as HTML — always plain text or through the sanitized markdown pipeline
+- [ ] User-supplied content (chat messages, persona names/descriptions) is never rendered as HTML - always plain text or through the sanitized markdown pipeline
 - [ ] Link `href` values from API validated (must start with `https://` or `/`)
 - [ ] Image `src` values from API validated against allowed domains
 
@@ -1182,7 +1182,7 @@ Uses KDS `FloatingMenu` at bottom of viewport. Framer Motion slide-in from botto
 
 **Checklist:**
 - [ ] Every route under `(app)/` layout is covered by middleware auth check
-- [ ] `auth()` called server-side in every server component that reads user data — never trust client-provided user ID
+- [ ] `auth()` called server-side in every server component that reads user data - never trust client-provided user ID
 - [ ] All `src/app/api/` route handlers call `auth()` and return `401` if no session
 - [ ] JWT `exp` is checked before every `getAuthHeaders()` call
 - [ ] Auth token never logged, never included in error messages sent to client
@@ -1202,7 +1202,7 @@ Uses KDS `FloatingMenu` at bottom of viewport. Framer Motion slide-in from botto
 - [ ] `chatRateLimiter` (30 req/min) enforced before every stream request
 - [ ] `uploadRateLimiter` (10 req/min) enforced before every file upload
 - [ ] `apiRateLimiter` (100 req/min) enforced on all other API calls
-- [ ] Rate limit errors surface as user-facing toasts — not silent failures, not raw 429 responses
+- [ ] Rate limit errors surface as user-facing toasts - not silent failures, not raw 429 responses
 - [ ] Circuit breaker OPEN state shows an inline banner in the chat UI with countdown
 - [ ] Circuit breaker state transitions are logged via `logger`
 
@@ -1233,31 +1233,31 @@ All `moderate` and above must be resolved or have a written justification commit
 - [ ] `console.log` / `console.debug` calls containing user data are behind `NODE_ENV === "development"` guards
 - [ ] Error messages sent to the client contain no stack traces, file paths, or internal details
 - [ ] Auth0 client secret is never imported by any file in `src/` that is not a server-only route handler
-- [ ] Streaming proxy route (`/api/chat`) injects the Auth token server-side — token is never visible in browser Network tab
+- [ ] Streaming proxy route (`/api/chat`) injects the Auth token server-side - token is never visible in browser Network tab
 
 **Day 10 Deliverable:** ⬜ All checklists green. Any exceptions documented. Codebase is clean before settings sprint begins.
 
 ---
 
-### Day 11 — Settings Shell + Lightweight Pages ⬜ PENDING
+### Day 11 - Settings Shell + Lightweight Pages ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.11.1 Settings Layout — `src/app/(app)/settings/layout.tsx` + `SettingsNav.tsx` + `SettingsSection.tsx` (mobile collapse to Select)
-> - ⬜ 2.11.2 Notifications Page — 6-event × 2-channel toggle matrix, `SettingsToggle.tsx`
-> - ⬜ 2.11.3 Memory & Context Page — 4 toggles, clear-all button, context priority list, context window viz
-> - ⬜ 2.11.4 Files & Data Page — storage bar, file-size/type/retention dropdowns, export + clear actions
-> - ⬜ 2.11.5 Help & Legal Page — `FeedbackModals.tsx` (Formspree), legal links, footer
-> - ⬜ 2.11.6 Integrations Page — 7 integration cards, "Coming soon" tooltip on connect
-> - ⬜ 2.11.7 Appearance Page — stub with theme hook point
-> - ⬜ 2.11.8 Automations Page — stub
+> - ⬜ 2.11.1 Settings Layout - `src/app/(app)/settings/layout.tsx` + `SettingsNav.tsx` + `SettingsSection.tsx` (mobile collapse to Select)
+> - ⬜ 2.11.2 Notifications Page - 6-event × 2-channel toggle matrix, `SettingsToggle.tsx`
+> - ⬜ 2.11.3 Memory & Context Page - 4 toggles, clear-all button, context priority list, context window viz
+> - ⬜ 2.11.4 Files & Data Page - storage bar, file-size/type/retention dropdowns, export + clear actions
+> - ⬜ 2.11.5 Help & Legal Page - `FeedbackModals.tsx` (Formspree), legal links, footer
+> - ⬜ 2.11.6 Integrations Page - 7 integration cards, "Coming soon" tooltip on connect
+> - ⬜ 2.11.7 Appearance Page - stub with theme hook point
+> - ⬜ 2.11.8 Automations Page - stub
 
 **Goal:** Settings navigation shell running. All UI-only or low-complexity pages (7 of 14) fully implemented.
 
-#### 2.11.1 Settings Layout — `src/app/(app)/settings/layout.tsx`
+#### 2.11.1 Settings Layout - `src/app/(app)/settings/layout.tsx`
 
 Two-column shell: fixed left nav + scrollable content area.
 
-Left nav built with KDS `<SidebarMenuItem>` links — one per settings section. Active route highlighted via Next.js `usePathname()`. Nav items:
+Left nav built with KDS `<SidebarMenuItem>` links - one per settings section. Active route highlighted via Next.js `usePathname()`. Nav items:
 
 | Label | Route | Icon |
 |---|---|---|
@@ -1277,14 +1277,14 @@ Left nav built with KDS `<SidebarMenuItem>` links — one per settings section. 
 
 On mobile: nav collapses to a `<Select>` dropdown above the content area (KDS `InputField` with dropdown).
 
-**`SettingsSection.tsx`** — shared wrapper every page uses:
+**`SettingsSection.tsx`** - shared wrapper every page uses:
 ```tsx
 // Props: title, description?, children
 // Renders: page heading (typography token), optional muted description, content slot
 // Adds consistent top/bottom padding and max-width constraint
 ```
 
-#### 2.11.2 Notifications Page — `src/app/(app)/settings/notifications/page.tsx`
+#### 2.11.2 Notifications Page - `src/app/(app)/settings/notifications/page.tsx`
 
 **Data shape:**
 ```ts
@@ -1305,11 +1305,11 @@ email: { "automation-failed": true, "budget-alert": true, "team-invite": true }
 
 UI: a table with event rows and two toggle columns (In-app, Email). Each cell is a KDS `Switch`. Rows separated by KDS `Divider`.
 
-No API in v1 — state is local. Structure is built API-ready (future: `PATCH /users/me/notifications`).
+No API in v1 - state is local. Structure is built API-ready (future: `PATCH /users/me/notifications`).
 
-**`SettingsToggle.tsx`** — `label + optional description + KDS Switch` in a flex row. Reused across Notifications, Memory, Files & Data, Security.
+**`SettingsToggle.tsx`** - `label + optional description + KDS Switch` in a flex row. Reused across Notifications, Memory, Files & Data, Security.
 
-#### 2.11.3 Memory & Context Page — `src/app/(app)/settings/memory-and-context/page.tsx`
+#### 2.11.3 Memory & Context Page - `src/app/(app)/settings/memory-and-context/page.tsx`
 
 Sections (all local state, no API in v1):
 
@@ -1319,29 +1319,29 @@ Sections (all local state, no API in v1):
 - Project facts (default on)
 - Exclude sensitive info (default on)
 
-**"Clear all memory" button** — KDS `Button variant="destructive"`. On click: confirmation dialog → success toast. No API in v1 (button scaffolded for `DELETE /users/me/memory`).
+**"Clear all memory" button** - KDS `Button variant="destructive"`. On click: confirmation dialog → success toast. No API in v1 (button scaffolded for `DELETE /users/me/memory`).
 
-**Context assembly priority list** — ordered list of 5 items (Pinned Items → Current Chat → Connected docs → Persona Notes → Workspace Memory). Read-only in v1.
+**Context assembly priority list** - ordered list of 5 items (Pinned Items → Current Chat → Connected docs → Persona Notes → Workspace Memory). Read-only in v1.
 
-**Context window viz** — progress bar (65%, ~130K tokens label). KDS `Badge` for percentage chip.
+**Context window viz** - progress bar (65%, ~130K tokens label). KDS `Badge` for percentage chip.
 
-#### 2.11.4 Files & Data Page — `src/app/(app)/settings/files-and-data/page.tsx`
+#### 2.11.4 Files & Data Page - `src/app/(app)/settings/files-and-data/page.tsx`
 
 All local state (API-ready structure). Sections:
 
-**Storage** — "720 MB / 2 GB" with KDS progress bar. Plan label badge.
+**Storage** - "720 MB / 2 GB" with KDS progress bar. Plan label badge.
 
-**Max file size** — KDS `InputField` with dropdown variant. Options: 10 MB, 30 MB, 50 MB (default).
+**Max file size** - KDS `InputField` with dropdown variant. Options: 10 MB, 30 MB, 50 MB (default).
 
-**Allowed file types** — KDS `InputField` with dropdown. Options: All, Documents only, Spreadsheets, Images, Custom.
+**Allowed file types** - KDS `InputField` with dropdown. Options: All, Documents only, Spreadsheets, Images, Custom.
 
-**File retention** — KDS `InputField` with dropdown. Options: 7, 30, 90, 270, 365 days (default 30).
+**File retention** - KDS `InputField` with dropdown. Options: 7, 30, 90, 270, 365 days (default 30).
 
-**Export all data** — KDS `Button variant="outline"`. Future: triggers `GET /users/me/export`.
+**Export all data** - KDS `Button variant="outline"`. Future: triggers `GET /users/me/export`.
 
-**Clear all files** — KDS `Button variant="destructive"` with confirmation dialog.
+**Clear all files** - KDS `Button variant="destructive"` with confirmation dialog.
 
-#### 2.11.5 Help & Legal Page — `src/app/(app)/settings/help-and-legal/page.tsx`
+#### 2.11.5 Help & Legal Page - `src/app/(app)/settings/help-and-legal/page.tsx`
 
 **Help section (4 rows):**
 - Report a Bug → opens `ReportBugModal`
@@ -1356,7 +1356,7 @@ All local state (API-ready structure). Sections:
 
 **Footer:** `SouvenirAI v1.0.0 · © {year}`
 
-**`FeedbackModals.tsx`** — two Formspree modals:
+**`FeedbackModals.tsx`** - two Formspree modals:
 
 `ReportBugModal`:
 - Formspree endpoint: `xjgjgopw`
@@ -1372,50 +1372,50 @@ All local state (API-ready structure). Sections:
 **Edge Cases:**
 | Case | Handling |
 |---|---|
-| Formspree rate limited | Show "Too many submissions — try again later" |
+| Formspree rate limited | Show "Too many submissions - try again later" |
 | Network error on submit | Keep form open, show error toast, allow retry |
 | Email field invalid | Inline "Enter a valid email" error on blur |
 | Message empty on submit | Inline "Message is required" |
 
-#### 2.11.6 Integrations Page — `src/app/(app)/settings/integrations/page.tsx`
+#### 2.11.6 Integrations Page - `src/app/(app)/settings/integrations/page.tsx`
 
 7 integration cards (Slack, GitHub, Notion, Google Drive, Jira, Linear, Figma). All disconnected by default.
 
 Each card: logo initials in rounded box, name + description, KDS `Button` ("Connect" / "Connected"). Local state toggle in v1; wired to real OAuth in a future sprint.
 
-On "Connect" click: show "Coming soon" `Tooltip` — do not navigate away.
+On "Connect" click: show "Coming soon" `Tooltip` - do not navigate away.
 
-#### 2.11.7 Appearance Page — `src/app/(app)/settings/appearance/page.tsx`
+#### 2.11.7 Appearance Page - `src/app/(app)/settings/appearance/page.tsx`
 
 Stub with scaffolded structure only. One `SettingsSection` titled "Appearance" with "Theme customization coming soon" as a KDS `Badge`. Dark mode hook point left in layout: `class={theme}` on `<html>` (no logic yet).
 
-#### 2.11.8 Automations Page — `src/app/(app)/settings/automations/page.tsx`
+#### 2.11.8 Automations Page - `src/app/(app)/settings/automations/page.tsx`
 
-Stub — `SettingsSection` with "Automations coming soon" badge.
+Stub - `SettingsSection` with "Automations coming soon" badge.
 
 **Day 11 Deliverable:** ⬜ Settings nav works. Notifications, Memory, Files & Data, Help & Legal, Integrations, Appearance, and Automations pages are complete.
 
 ---
 
-### Day 12 — Settings: Account + AI & Models + Routing + Teams + Security ⬜ PENDING
+### Day 12 - Settings: Account + AI & Models + Routing + Teams + Security ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.12.1 Account Page — `ProfileForm.tsx` (dirty tracking, save, role badge), `DeleteAccountDialog.tsx`
-> - ⬜ 2.12.2 AI & Models Page — `ModelRow.tsx` (plan gate, toggle), `ModelSearchBar.tsx`, optimistic toggle + revert
-> - ⬜ 2.12.3 Routing Page — `RoutingPreferenceRow.tsx`, `TaskModelPicker.tsx` (5 per-task dropdowns), budget alert toggle
-> - ⬜ 2.12.4 Security Page — 2FA toggle stub, change-password redirect, active sessions table (v1 placeholder)
-> - ⬜ 2.12.5 Teams & Roles Page — member table with role dropdown, invite modal stub
+> - ⬜ 2.12.1 Account Page - `ProfileForm.tsx` (dirty tracking, save, role badge), `DeleteAccountDialog.tsx`
+> - ⬜ 2.12.2 AI & Models Page - `ModelRow.tsx` (plan gate, toggle), `ModelSearchBar.tsx`, optimistic toggle + revert
+> - ⬜ 2.12.3 Routing Page - `RoutingPreferenceRow.tsx`, `TaskModelPicker.tsx` (5 per-task dropdowns), budget alert toggle
+> - ⬜ 2.12.4 Security Page - 2FA toggle stub, change-password redirect, active sessions table (v1 placeholder)
+> - ⬜ 2.12.5 Teams & Roles Page - member table with role dropdown, invite modal stub
 
 **Goal:** All data-connected settings pages (except billing) fully operational.
 
-#### 2.12.1 Account Page — `src/app/(app)/settings/account/page.tsx`
+#### 2.12.1 Account Page - `src/app/(app)/settings/account/page.tsx`
 
 **Profile form (`ProfileForm.tsx`):**
 
 Fields:
-- Email — read-only `InputField`, pre-filled from `auth.user.email`. No edit (Auth0-managed).
-- First Name — `InputField`, required, max 50 chars
-- Last Name — `InputField`, optional, max 50 chars
+- Email - read-only `InputField`, pre-filled from `auth.user.email`. No edit (Auth0-managed).
+- First Name - `InputField`, required, max 50 chars
+- Last Name - `InputField`, optional, max 50 chars
 
 Dirty tracking: compare trimmed current values against original. Save button disabled when no changes. Loading spinner on save.
 
@@ -1440,22 +1440,22 @@ Displayed as a read-only `Badge` below the name fields.
 - Trigger: "Deactivate account" link (destructive text styling, not a button)
 - Dialog: confirms intent with user email displayed. KDS `Button variant="destructive"` to confirm.
 - On confirm: `DELETE /users/me` → `logout()` with 1s delay → redirect to Auth0 logout
-- If account already deactivated (API returns `account_status: "deactivated"`): show banner "Your account is deactivated — contact support to reactivate" and hide deactivation trigger
+- If account already deactivated (API returns `account_status: "deactivated"`): show banner "Your account is deactivated - contact support to reactivate" and hide deactivation trigger
 
 **Edge Cases:**
 | Case | Handling |
 |---|---|
 | Save with network error | Keep form, show retry toast |
-| First/last name contains only spaces | Trim before compare — treated as empty, revert to original |
+| First/last name contains only spaces | Trim before compare - treated as empty, revert to original |
 | Delete fails (API error) | Close dialog, show error toast, do not logout |
 | `fetchOnboardingState` fails | Skip role badge, do not error the whole page |
 | User has no first/last name yet | Empty fields, save enabled immediately on first input |
 
-#### 2.12.2 AI & Models Page — `src/app/(app)/settings/ai-and-models/page.tsx`
+#### 2.12.2 AI & Models Page - `src/app/(app)/settings/ai-and-models/page.tsx`
 
 **Data fetch:** `fetchAllModels()` → `MODELS_ALL_ENDPOINT`. Returns all models (including blocked ones).
 
-**`ModelRow.tsx`** — one row per model:
+**`ModelRow.tsx`** - one row per model:
 - Model name + provider (from `model_name`, `model_provider`)
 - Context window badge (`model_context_window`)
 - Capability chips: `model_inputs` list (text, image, file, etc.) rendered as KDS `Chip`
@@ -1479,22 +1479,22 @@ Displayed as a read-only `Badge` below the name fields.
 | Models fetch fails | Error state + retry button |
 | Toggle fails (network) | Revert + toast |
 | Search returns no results | "No models match your search" empty state |
-| All models blocked | Warning banner "No models are active — at least one is required" |
+| All models blocked | Warning banner "No models are active - at least one is required" |
 | User plan changes externally | `refreshUser()` on page focus, re-evaluate plan gates |
 
-#### 2.12.3 Routing Page — `src/app/(app)/settings/routing/page.tsx`
+#### 2.12.3 Routing Page - `src/app/(app)/settings/routing/page.tsx`
 
 **Sections:**
 
-**Routing preference (`RoutingPreferenceRow.tsx`)** — KDS `InputField` with dropdown:
+**Routing preference (`RoutingPreferenceRow.tsx`)** - KDS `InputField` with dropdown:
 - Options: "Cost-Optimized", "Balanced" (default), "Quality-First"
 - Local state only in v1
 
-**Souvenir Algorithm** — same dropdown pattern:
+**Souvenir Algorithm** - same dropdown pattern:
 - Options: "Advanced" (default), "Standard"
 - Pro plan badge via KDS `Badge`; non-Pro users see it greyed with upgrade `Tooltip`
 
-**Per-task model assignment (`TaskModelPicker.tsx`)** — 5 rows:
+**Per-task model assignment (`TaskModelPicker.tsx`)** - 5 rows:
 
 | Task | Default |
 |---|---|
@@ -1504,10 +1504,10 @@ Displayed as a read-only `Badge` below the name fields.
 | Quick Q&A | Select model |
 | Data Processing | Select model |
 
-Each row: task label + KDS `InputField` dropdown. Dropdown items built from `fetchModelsWithCache()` result — each item is a `ModelSelectItem`-patterned row (model name + provider). Searchable via `InputGroup` inside dropdown popover.
+Each row: task label + KDS `InputField` dropdown. Dropdown items built from `fetchModelsWithCache()` result - each item is a `ModelSelectItem`-patterned row (model name + provider). Searchable via `InputGroup` inside dropdown popover.
 
 **Token & Budget Controls:**
-- "Budget Alerts" `SettingsToggle` — default on
+- "Budget Alerts" `SettingsToggle` - default on
 - Description: "Notify at 50%, 80%, and 100% of budget usage"
 
 **Edge Cases:**
@@ -1515,16 +1515,16 @@ Each row: task label + KDS `InputField` dropdown. Dropdown items built from `fet
 |---|---|
 | Model list fetch fails | Show "Could not load models" in each picker, retry on focus |
 | Algorithm section on non-Pro | Show greyed section with upgrade badge; selection disabled |
-| 5 pickers all set to same model | Allow — no constraint |
+| 5 pickers all set to same model | Allow - no constraint |
 
-#### 2.12.4 Security Page — `src/app/(app)/settings/security/page.tsx`
+#### 2.12.4 Security Page - `src/app/(app)/settings/security/page.tsx`
 
 **Two-Factor Authentication:**
-- `SettingsToggle` — default off
+- `SettingsToggle` - default off
 - On enable click (future): redirect to Auth0 MFA enrollment. In v1: show "2FA setup coming soon" toast.
 
 **Change Password:**
-- KDS `Button variant="outline"` — "Change password"
+- KDS `Button variant="outline"` - "Change password"
 - On click: redirect to Auth0 password change universal page
 - Shows last-changed label: "Last changed 45 days ago" (placeholder in v1; future: read from Auth0 Management API)
 
@@ -1538,66 +1538,66 @@ Each row: task label + KDS `InputField` dropdown. Dropdown items built from `fet
 **Edge Cases:**
 | Case | Handling |
 |---|---|
-| Revoke own session | Disabled — "Current" row has no revoke button |
+| Revoke own session | Disabled - "Current" row has no revoke button |
 | "Log out all" with only 1 session (current) | Button hidden / disabled |
 
-#### 2.12.5 Teams & Roles Page — `src/app/(app)/settings/teams-and-roles/page.tsx`
+#### 2.12.5 Teams & Roles Page - `src/app/(app)/settings/teams-and-roles/page.tsx`
 
 **Member table:**
 - Columns: Avatar (initials), Name, Email, Role (dropdown), Actions
 - Role dropdown: Owner, Admin, Member (KDS `InputField` variant dropdown)
 - Owner row: role not changeable (read-only badge)
 
-**"Invite Member" button** — KDS `Button`. On click: opens modal with email `InputField` + role selector. In v1: shows "Invitations coming soon" toast.
+**"Invite Member" button** - KDS `Button`. On click: opens modal with email `InputField` + role selector. In v1: shows "Invitations coming soon" toast.
 
 **In v1:** 4 placeholder members. Table structure is API-ready (`GET /teams/members` → normalized to member array).
 
 **Edge Cases:**
 | Case | Handling |
 |---|---|
-| Change own role | Disabled — cannot downgrade self |
+| Change own role | Disabled - cannot downgrade self |
 | Only one Owner | Owner role change disabled |
 
-**Day 12 Deliverable:** ⬜ Account (fully functional), AI & Models (live toggle), Routing (model pickers populated), Security, Teams — all pages complete.
+**Day 12 Deliverable:** ⬜ Account (fully functional), AI & Models (live toggle), Routing (model pickers populated), Security, Teams - all pages complete.
 
 ---
 
-### Day 13 — Settings: Usage & Billing + Security Review ⬜ PENDING
+### Day 13 - Settings: Usage & Billing + Security Review ⬜ PENDING
 
 > **Checkpoints:**
-> - ⬜ 2.13.1 Usage & Billing Page — `PlanCard.tsx`, `StatusBanner.tsx`, `CreditsDisplay.tsx`, `InvoiceTable.tsx`, cancel + change-plan flows
-> - ⬜ 2.13.2 Change Plan Page — `PricingCardsGrid.tsx`, `getPlanChangeButtonState()`, downgrade protection flow, `DowngradeBlockedDialog.tsx`
-> - ⬜ 2.13.3 Change Plan Confirmation Page — Stripe redirect handler, poll `GET /users/me` up to 30s
-> - ⬜ 2.13.4 Billing lib files — `pricing-cards-config.ts`, `plan-config.ts`, `workspace-usage-counts.ts`, `billing.ts` types
-> - ⬜ 2.13.5 Settings-Specific Security Pass — Stripe key server isolation, webhook signature, CSRF on mutations, no sensitive data in Formspree payloads
+> - ⬜ 2.13.1 Usage & Billing Page - `PlanCard.tsx`, `StatusBanner.tsx`, `CreditsDisplay.tsx`, `InvoiceTable.tsx`, cancel + change-plan flows
+> - ⬜ 2.13.2 Change Plan Page - `PricingCardsGrid.tsx`, `getPlanChangeButtonState()`, downgrade protection flow, `DowngradeBlockedDialog.tsx`
+> - ⬜ 2.13.3 Change Plan Confirmation Page - Stripe redirect handler, poll `GET /users/me` up to 30s
+> - ⬜ 2.13.4 Billing lib files - `pricing-cards-config.ts`, `plan-config.ts`, `workspace-usage-counts.ts`, `billing.ts` types
+> - ⬜ 2.13.5 Settings-Specific Security Pass - Stripe key server isolation, webhook signature, CSRF on mutations, no sensitive data in Formspree payloads
 
 **Goal:** Full billing flow with Stripe, downgrade protection, and invoice history. Then final security hardening across the entire codebase.
 
-#### 2.13.1 Usage & Billing Page — `src/app/(app)/settings/usage-and-billing/page.tsx`
+#### 2.13.1 Usage & Billing Page - `src/app/(app)/settings/usage-and-billing/page.tsx`
 
 **Data sources:**
-- `GET /users/me` — `plan_type`, `subscription_status`, `next_billing_date`, `credits`, `total_credits`, `invoices[]`, `cancel_at_period_end`
-- `GET /workspace/usage` — `totalPersonaCount`, `totalPinCount`, `totalWorkflowsCount`
+- `GET /users/me` - `plan_type`, `subscription_status`, `next_billing_date`, `credits`, `total_credits`, `invoices[]`, `cancel_at_period_end`
+- `GET /workspace/usage` - `totalPersonaCount`, `totalPinCount`, `totalWorkflowsCount`
 
-**`PlanCard.tsx`** — dark-background card (uses `--neutral-900` surface token):
+**`PlanCard.tsx`** - dark-background card (uses `--neutral-900` surface token):
 - Current plan label (e.g. "Pro Plan")
 - Subscription status chip: Active / Past Due / Canceled / Incomplete (color-coded KDS `Badge`)
 - Next billing date (formatted)
 - Two actions: "Cancel plan" + "Change plan" / "Get a plan" (if no plan)
 
-**`StatusBanner.tsx`** — contextual banners rendered above the plan card:
+**`StatusBanner.tsx`** - contextual banners rendered above the plan card:
 
 | Status | Banner |
 |---|---|
-| `past_due` | Amber warning — "Your payment failed. Update your payment method." |
-| `unpaid` | Amber warning — "You have an unpaid invoice." |
-| `canceled` | Red — "Your plan has been canceled. Resubscribe to restore access." |
-| `cancel_at_period_end: true` | Yellow — "Your plan will end on {date}. Resubscribe to keep access." |
-| `incomplete` | Blue info — "Payment pending — completing your setup." |
+| `past_due` | Amber warning - "Your payment failed. Update your payment method." |
+| `unpaid` | Amber warning - "You have an unpaid invoice." |
+| `canceled` | Red - "Your plan has been canceled. Resubscribe to restore access." |
+| `cancel_at_period_end: true` | Yellow - "Your plan will end on {date}. Resubscribe to keep access." |
+| `incomplete` | Blue info - "Payment pending - completing your setup." |
 
 **`CreditsDisplay.tsx`:**
 - "Your credits" heading
-- KDS progress bar (blue fill) — `(credits / total_credits) * 100`%
+- KDS progress bar (blue fill) - `(credits / total_credits) * 100`%
 - Label: "{credits} / {total_credits} credits remaining"
 - "Resets on {date}" muted text
 
@@ -1625,20 +1625,20 @@ Each row: task label + KDS `InputField` dropdown. Dropdown items built from `fet
 |---|---|
 | Cancel fails (API error) | Close dialog, show error toast |
 | `invoices` array empty | Show "No invoices yet" empty state |
-| `credits` field missing | Show "— credits" gracefully |
+| `credits` field missing | Show "- credits" gracefully |
 | `past_due` + no payment method | Show "Update payment method" button linking to Stripe Customer Portal |
 | User on free plan | Hide credits section; show "Get a plan" CTA only |
-| Cancel during `incomplete` status | Block — show "Complete your payment first" |
+| Cancel during `incomplete` status | Block - show "Complete your payment first" |
 
-#### 2.13.2 Change Plan Page — `src/app/(app)/settings/usage-and-billing/change-plan/page.tsx`
+#### 2.13.2 Change Plan Page - `src/app/(app)/settings/usage-and-billing/change-plan/page.tsx`
 
 **Background:** `--neutral-50` surface (beige).
 
-**Payment error banner** — shown when URL has `?checkout=failed` or `?checkout=cancelled`:
+**Payment error banner** - shown when URL has `?checkout=failed` or `?checkout=cancelled`:
 - Amber alert with amber left border
 - Message: "Your payment was not completed. Please try again or contact support."
 
-**`PricingCardsGrid.tsx`** — 3 cards (Starter · Pro · Power):
+**`PricingCardsGrid.tsx`** - 3 cards (Starter · Pro · Power):
 
 Per card (from `CARD_CONFIG`):
 - Plan name + subtitle
@@ -1658,14 +1658,14 @@ Per card (from `CARD_CONFIG`):
 1. User clicks downgrade button
 2. `fetchWorkspaceUsageCounts()` → compare against `PLAN_LIMITS[targetPlan]`
 3. `isDowngradeBlockedByUsage(targetPlan, counts)` returns true → show `DowngradeBlockedDialog`
-4. Dialog lists which resources exceed the target plan limit (e.g. "You have 7 personas — Starter allows 3")
+4. Dialog lists which resources exceed the target plan limit (e.g. "You have 7 personas - Starter allows 3")
 5. User must delete excess resources before downgrade is allowed
 
 **`DowngradeBlockedDialog.tsx`:**
 - Title: "You're over the limit for {plan}"
 - Body: bulleted list of exceeded resources with current count vs plan limit
 - CTA buttons: "Manage personas" / "Manage pins" (navigate to relevant pages)
-- No "Proceed anyway" option — hard block
+- No "Proceed anyway" option - hard block
 
 **Purchase / upgrade flow:**
 1. `createCheckoutSession(planId, "monthly", { checkoutFlow: "settings_change_plan" })`
@@ -1678,9 +1678,9 @@ Per card (from `CARD_CONFIG`):
 | Workspace usage fetch fails | Allow purchase to proceed, skip downgrade check, log warning |
 | Checkout session creation fails | Show "Payment unavailable" toast, stay on page |
 | User already has target plan | Button disabled (handled by `getPlanChangeButtonState`) |
-| Power → Starter downgrade | Both persona limit AND pin limit may block — show all blockers |
+| Power → Starter downgrade | Both persona limit AND pin limit may block - show all blockers |
 
-#### 2.13.3 Change Plan Confirmation Page — `src/app/(app)/settings/usage-and-billing/change-plan/confirmation/page.tsx`
+#### 2.13.3 Change Plan Confirmation Page - `src/app/(app)/settings/usage-and-billing/change-plan/confirmation/page.tsx`
 
 Shown after Stripe redirects back on success. Wraps `CheckoutConfirmationContent` with:
 ```ts
@@ -1704,7 +1704,7 @@ On `refreshUser()` returning updated plan: show "You're on {plan}!" confirmation
 
 #### 2.13.4 New lib files for Billing
 
-**`src/lib/pricing-cards-config.ts`** — port verbatim:
+**`src/lib/pricing-cards-config.ts`** - port verbatim:
 ```ts
 export const CARD_CONFIG: PricingCard[] = [
   { id: "starter", title: "Starter", subtitle: "For daily AI power users",
@@ -1718,13 +1718,13 @@ export function getPlanChangeButtonState(...)
 export function planDisplayTitle(plan: string): string
 ```
 
-**`src/lib/plan-config.ts`** — port verbatim. All helpers:
+**`src/lib/plan-config.ts`** - port verbatim. All helpers:
 - `planRank()`, `isPlanUpgrade()`, `isPlanDowngrade()`
 - `hasReachedLimit()`, `getLimit()`, `getPlanCredits()`
 - `canAccessFeature()`, `requiresModelUpgrade()`
 - `isDowngradeBlockedByUsage(targetPlan, counts)`
 
-**`src/lib/workspace-usage-counts.ts`** — `fetchWorkspaceUsageCounts()` → `GET /workspace/usage`.
+**`src/lib/workspace-usage-counts.ts`** - `fetchWorkspaceUsageCounts()` → `GET /workspace/usage`.
 
 **`src/types/billing.ts`:**
 ```ts
@@ -1751,17 +1751,17 @@ export interface WorkspaceUsageCounts {
 Run these checks after the billing pages are complete, in addition to the global audit done on Day 10:
 
 **Billing surface:**
-- [ ] Stripe secret key is only read in `src/app/api/stripe/` route handlers — never in client components
+- [ ] Stripe secret key is only read in `src/app/api/stripe/` route handlers - never in client components
 - [ ] Stripe webhook validates `stripe-signature` header before processing any event
-- [ ] `createCheckoutSession` is a server-side API route — the session URL is returned to the browser, never the secret key
-- [ ] Invoice PDF links are Stripe-hosted (`https://invoice.stripe.com/…`) — validated before rendering as `<a href>`
-- [ ] `plan_type` from `GET /users/me` is parsed through `parsePlanTierFromApi()` before any plan-gating decision — never trusted raw from URL params
+- [ ] `createCheckoutSession` is a server-side API route - the session URL is returned to the browser, never the secret key
+- [ ] Invoice PDF links are Stripe-hosted (`https://invoice.stripe.com/…`) - validated before rendering as `<a href>`
+- [ ] `plan_type` from `GET /users/me` is parsed through `parsePlanTierFromApi()` before any plan-gating decision - never trusted raw from URL params
 
 **Settings mutation surface:**
 - [ ] All `PATCH /users/me` calls include `X-CSRF-Token` header
-- [ ] `DELETE /users/me` (account deactivation) requires active session — server validates before executing
+- [ ] `DELETE /users/me` (account deactivation) requires active session - server validates before executing
 - [ ] Formspree endpoints are public-facing and rate-limited at the Formspree level; no sensitive data (JWT, user ID) is included in the submission payload
-- [ ] Integrations "Connect" buttons in v1 do not initiate OAuth — they show a toast. No redirect to any third-party auth URI is implemented yet.
+- [ ] Integrations "Connect" buttons in v1 do not initiate OAuth - they show a toast. No redirect to any third-party auth URI is implemented yet.
 
 **Day 13 Deliverable:** ⬜ Full billing flow works end-to-end (purchase, cancel, downgrade gate, Stripe redirect, confirmation). Settings-specific security pass complete.
 
@@ -1797,12 +1797,12 @@ interface Message {
   attachments?: Attachment[];
   model?: string;                        // which model generated this
   createdAt: string;                     // ISO timestamp
-  isStreaming?: boolean;                 // ephemeral — only during stream
+  isStreaming?: boolean;                 // ephemeral - only during stream
   error?: string;                        // error message if failed
 }
 ```
 
-### 3.3 Complete Edge Case Register — Chat
+### 3.3 Complete Edge Case Register - Chat
 
 | ID | Category | Scenario | Expected Behavior |
 |---|---|---|---|
@@ -1814,7 +1814,7 @@ interface Message {
 | C-06 | Streaming | User sends second message before first completes | Abort first, start second |
 | C-07 | Auth | Token expires during stream | Stop stream, refresh token, show "Session refreshed" toast, re-enable send |
 | C-08 | Auth | 401 on stream start | Redirect to login |
-| C-09 | Rate Limit | chatRateLimiter triggers | Inline message "Too many requests — try again in Xs" |
+| C-09 | Rate Limit | chatRateLimiter triggers | Inline message "Too many requests - try again in Xs" |
 | C-10 | Rate Limit | Circuit breaker OPEN | Banner "API temporarily unavailable" with countdown |
 | C-11 | Model | Active model unavailable | Warning badge, block send |
 | C-12 | Model | Switch model mid-chat | Confirmation dialog; history preserved |
@@ -1880,7 +1880,7 @@ interface Persona {
 }
 ```
 
-### 4.3 Complete Edge Case Register — Personas
+### 4.3 Complete Edge Case Register - Personas
 
 | ID | Category | Scenario | Expected Behavior |
 |---|---|---|---|
@@ -1908,7 +1908,7 @@ interface Persona {
 
 ### 5.1 Settings State Model
 
-Each settings page owns its own local state — there is no global settings store. Pages share one pattern:
+Each settings page owns its own local state - there is no global settings store. Pages share one pattern:
 
 ```ts
 // Per-page state shape
@@ -2016,7 +2016,7 @@ Model plan ranks:
   standard=0    pro=1    power=2
 ```
 
-### 5.5 Complete Edge Case Register — Settings
+### 5.5 Complete Edge Case Register - Settings
 
 #### Account
 
@@ -2039,7 +2039,7 @@ Model plan ranks:
 | S-MOD-02 | Toggle fails (network) | Revert switch optimistic state; error toast |
 | S-MOD-03 | Plan-gated toggle clicked | Upgrade toast; no API call |
 | S-MOD-04 | Search returns no results | "No models match" empty state |
-| S-MOD-05 | All models blocked | Warning banner "No active models — at least one required" |
+| S-MOD-05 | All models blocked | Warning banner "No active models - at least one required" |
 | S-MOD-06 | User plan updates (context refresh) | Re-evaluate all plan-gate badges without page reload |
 | S-MOD-07 | Model list very large (50+) | Virtual scroll; search still instant |
 
@@ -2064,7 +2064,7 @@ Model plan ranks:
 
 | ID | Scenario | Expected Behavior |
 |---|---|---|
-| S-TEA-01 | Change own role | Disabled — cannot downgrade self |
+| S-TEA-01 | Change own role | Disabled - cannot downgrade self |
 | S-TEA-02 | Only one Owner | Owner role dropdown is read-only |
 | S-TEA-03 | Invite member in v1 | "Invitations coming soon" toast |
 
@@ -2092,7 +2092,7 @@ Model plan ranks:
 |---|---|---|
 | S-BIL-01 | Cancel fails (API error) | Close dialog, error toast |
 | S-BIL-02 | Invoices array empty | "No invoices yet" empty state |
-| S-BIL-03 | `credits` field missing from API | Show "— credits" gracefully |
+| S-BIL-03 | `credits` field missing from API | Show "- credits" gracefully |
 | S-BIL-04 | `past_due` + no payment method | Show "Update payment method" → Stripe Portal |
 | S-BIL-05 | Free plan user | Hide credits section; show "Get a plan" CTA |
 | S-BIL-06 | Cancel during `incomplete` status | Block with "Complete your payment first" message |
@@ -2115,7 +2115,7 @@ Model plan ranks:
 |---|---|---|
 | S-CON-01 | Webhook delay (plan not yet updated) | Poll `GET /users/me` every 3s, up to 30s |
 | S-CON-02 | User navigates back to confirmation | Redirect to `/settings/usage-and-billing` |
-| S-CON-03 | Poll exhausted (30s, no update) | Show "Plan activating — check back shortly" and link to billing |
+| S-CON-03 | Poll exhausted (30s, no update) | Show "Plan activating - check back shortly" and link to billing |
 
 ---
 
@@ -2196,7 +2196,7 @@ The following features exist in the old codebase but are **not built in this 13-
 - Compare Models view
 - Onboarding pricing step (scaffold route, skip Stripe wiring)
 - Pinboard (sidebar section visible, click goes to stub)
-- Settings: Automations and Appearance are scaffolded as stubs — no functional content
+- Settings: Automations and Appearance are scaffolded as stubs - no functional content
 
 **Settings pages that ARE fully built (Days 11–13):** Account · AI & Models · Files & Data · Help & Legal · Integrations · Memory & Context · Notifications · Routing · Security · Teams & Roles · Usage & Billing · Change Plan · Confirmation
 

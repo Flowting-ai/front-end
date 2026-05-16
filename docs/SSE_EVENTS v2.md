@@ -2,8 +2,8 @@
 
 Two kinds of events arrive on the same SSE stream:
 
-- **Named events** — `event: <name>\ndata: {...}\n\n`
-- **Inline events** — `data: {"type":"<name>",...}\n\n` (no `event:` prefix)
+- **Named events** - `event: <name>\ndata: {...}\n\n`
+- **Inline events** - `data: {"type":"<name>",...}\n\n` (no `event:` prefix)
 
 ---
 
@@ -151,7 +151,7 @@ Two kinds of events arrive on the same SSE stream:
 }
 ```
 
-`content` is the raw tool name. `label` is the human verb to render — see the `tool_progress` table above for the full set.
+`content` is the raw tool name. `label` is the human verb to render - see the `tool_progress` table above for the full set.
 
 ### `tool_complete`
 ```json

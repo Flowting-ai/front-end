@@ -28,7 +28,7 @@ export const extractThinkingContent = (
   })
 
   const cleaned = hasThoughts
-    ? stripped.replace(/^\s*(?:[-–—]+\s*)?/, "").trim()
+    ? stripped.replace(/^\s*(?:[-–-]+\s*)?/, "").trim()
     : stripped.trim()
 
   return {
@@ -46,7 +46,7 @@ export interface ContentSource {
 
 /**
  * Extracts HTTP/HTTPS source URLs from raw Markdown assistant content.
- * Pass 1: Markdown links [text](url) — captures title.
+ * Pass 1: Markdown links [text](url) - captures title.
  * Pass 2: Bare URLs not already captured in pass 1.
  */
 export function extractSources(content: string): ContentSource[] {

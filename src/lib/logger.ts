@@ -49,12 +49,12 @@ class Logger {
     }
   }
 
-  /** Always fires — even in production. */
+  /** Always fires - even in production. */
   warn(...args: unknown[]): void {
     console.warn(...this.sanitizeArgs(args));
   }
 
-  /** Always fires — even in production. */
+  /** Always fires - even in production. */
   error(...args: unknown[]): void {
     console.error(...this.sanitizeArgs(args));
   }

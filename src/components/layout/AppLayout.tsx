@@ -34,12 +34,12 @@ export function AppLayout({
   const { isOpen: highlightOpen } = useHighlight()
   const pathname = usePathname()
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
-  // project chat pages — those use the same global FloatingPanel as regular chats.
+  // project chat pages - those use the same global FloatingPanel as regular chats.
   const isProjectPage = pathname.startsWith('/project') && !pathname.includes('/chat/')
   const isPersonaPage = pathname.startsWith('/personas') || pathname.startsWith('/persona')
   const isSettingsPage = pathname.startsWith('/settings')
 
-  // Settings pages manage their own sidebar — bypass global LeftSidebar, TopBar, FloatingPanel.
+  // Settings pages manage their own sidebar - bypass global LeftSidebar, TopBar, FloatingPanel.
   if (isSettingsPage) {
     return (
       <div
@@ -76,7 +76,7 @@ export function AppLayout({
         />
       </Suspense>
 
-      {/* ── Center column — neutral-50 bg, 10px vertical padding ── */}
+      {/* ── Center column - neutral-50 bg, 10px vertical padding ── */}
       <div
         style={{
           flex:            "1 0 0",
@@ -124,14 +124,14 @@ export function AppLayout({
               isolation:       "isolate",
             }}
           >
-            {/* ── TopBar — absolute, overlaps the 1px border on three sides ── */}
+            {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
             <TopBar
               showCitationsToggle={showCitationsToggle}
               citationsOpen={citationsOpen}
               onCitationsToggle={onCitationsToggle}
             />
 
-            {/* ── Main content — fills remaining height ── */}
+            {/* ── Main content - fills remaining height ── */}
             <main
               className="kaya-scrollbar"
               style={{
@@ -148,7 +148,7 @@ export function AppLayout({
               {children}
             </main>
 
-            {/* ── Floating action panel — mid-right of rounded container ── */}
+            {/* ── Floating action panel - mid-right of rounded container ── */}
             {!isProjectPage && (
               <Suspense fallback={null}>
                 <FloatingPanel />

@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 // ── ChipButton ────────────────────────────────────────────────────────────────
 // Atom. The interactive action button used inside Chip (cancel / change / expand).
 //
-// Hover styles live in semantic.css (.kds-chip-button) — CSS :hover is used
+// Hover styles live in semantic.css (.kds-chip-button) - CSS :hover is used
 // because React's synthetic onMouseEnter doesn't fire on elements that mount
 // under an already-hovering cursor (which happens every time Chip transitions
 // to its active state).
@@ -14,7 +14,7 @@ import { motion } from 'framer-motion'
 // Color comes from the parent Chip via CSS custom-property cascade:
 //   --chip-text                 → icon + ring color
 //   --chip-button-inner-shadow  → inset depth/highlight shadow
-// — no per-ChipButton color prop is needed.
+// - no per-ChipButton color prop is needed.
 
 export interface ChipButtonProps {
   icon: React.ReactNode
@@ -26,17 +26,17 @@ export interface ChipButtonProps {
    */
   spinOnHover?: boolean
   /**
-   * `'28px'` — standard (default), 28×28 box: padding 4px, radius 8px, 20×20 icon
-   * `'16px'` — compact for Small chips, 16×16 box: padding 1px, radius 4px, 14×14 icon
+   * `'28px'` - standard (default), 28×28 box: padding 4px, radius 8px, 20×20 icon
+   * `'16px'` - compact for Small chips, 16×16 box: padding 1px, radius 4px, 14×14 icon
    *
    * Variant names reflect the rendered container size (Figma 908:454).
    */
   size?: '28px' | '16px'
   /**
-   * Disabled state — sets the native `disabled` attribute, suppresses pointer
+   * Disabled state - sets the native `disabled` attribute, suppresses pointer
    * events, drops the whileTap scale animation, and switches the cursor to
    * `not-allowed`. Visual dimming (opacity 0.7) lives on the parent `Chip`'s
-   * `disabled` state, not here — the button is always rendered at full
+   * `disabled` state, not here - the button is always rendered at full
    * opacity inside the dimmed chip so its silhouette stays legible.
    */
   disabled?: boolean

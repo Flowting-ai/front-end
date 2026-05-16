@@ -9,7 +9,7 @@ import { toast } from "sonner";
 // ---------------------------------------------------------------------------
 
 type ApiFetchOptions = RequestInit & {
-  /** Skip JSON parsing — returns the raw Response. */
+  /** Skip JSON parsing - returns the raw Response. */
   skipJson?: boolean;
 };
 
@@ -104,7 +104,7 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
 
   const headers = new Headers(options.headers ?? undefined);
 
-  // Auto-set Content-Type for JSON bodies (skip for FormData — browser sets multipart boundary).
+  // Auto-set Content-Type for JSON bodies (skip for FormData - browser sets multipart boundary).
   if (
     options.method &&
     options.method.toUpperCase() !== "GET" &&
@@ -155,7 +155,7 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
       }
     }
 
-    // Token refresh failed — session is truly expired.
+    // Token refresh failed - session is truly expired.
     console.error("[apiFetch] session expired (401)");
     toast.error("Session expired", { description: "Signing you out…" });
     window.dispatchEvent(new Event("auth:session-expired"));
@@ -165,7 +165,7 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
 }
 
 // ---------------------------------------------------------------------------
-// JSON helper — throws typed ApiError on non-2xx
+// JSON helper - throws typed ApiError on non-2xx
 // ---------------------------------------------------------------------------
 
 /**
@@ -204,7 +204,7 @@ export async function apiFetchJson<T>(
         message = body.detail;
       }
     } catch {
-      // non-JSON error body — keep defaults
+      // non-JSON error body - keep defaults
     }
     throw new ApiError(
       response.status,

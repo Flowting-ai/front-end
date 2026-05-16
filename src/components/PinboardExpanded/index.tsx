@@ -16,7 +16,7 @@ import {
   FilterMailIcon,
   ArrowUpDownIcon,
   UnfoldLessIcon,
-  // Same tab roster + icons as ModelSelector — kept identical so the two
+  // Same tab roster + icons as ModelSelector - kept identical so the two
   // components stay visually consistent across the app.
   TextIcon,
   SourceCodeSquareIcon,
@@ -66,7 +66,7 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
   onFilterClick?:   () => void
   onSortClick?:     () => void
   /**
-   * First-paint stagger config — controls how the sidebar, header, tabs/cluster
+   * First-paint stagger config - controls how the sidebar, header, tabs/cluster
    * row, and each pin-row in the grid fade in on mount. Defaults to
    * `PINBOARD_EXPANDED_ENTER_DEFAULT`. Pass `{ enabled: false }` to disable.
    */
@@ -135,7 +135,7 @@ const DEFAULT_PROJECT_FOLDERS: PinboardExpandedFolder[] = [
   { id: 'project-b', label: 'Project B' },
 ]
 
-// Pin filter tabs — Pinboard's own taxonomy (independent of ModelSelector).
+// Pin filter tabs - Pinboard's own taxonomy (independent of ModelSelector).
 const CATEGORY_TABS = [
   { value: 'text',   label: 'Text',   icon: <TextIcon                size={16} /> },
   { value: 'code',   label: 'Code',   icon: <SourceCodeSquareIcon    size={16} /> },
@@ -223,11 +223,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     // its inner pills aren't transform-squeezed during the shrink. The
     // earlier "no layout in this subtree" rule was tied to the
     // compact↔expanded `transform: scale()` morph, which has been
-    // replaced with the portal modal's enter/exit zoom — that zoom
+    // replaced with the portal modal's enter/exit zoom - that zoom
     // settles before any pin interaction can flip `hasExpanded`, so
     // layout projection here is safe again.
 
-    // Tabs strip ref — declared here, the effect that drives auto-scroll is
+    // Tabs strip ref - declared here, the effect that drives auto-scroll is
     // defined below `hasExpanded` so it can depend on both signals.
     const tabsContainerRef = useRef<HTMLDivElement>(null)
     const [collapseSignal, setCollapseSignal] = useState(0)
@@ -268,7 +268,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     // preserved, but because the visible viewport shrinks/grows the active
     // tab can fall out of view.
     //
-    // We DON'T use `Element.scrollIntoView` here — it walks every scrolling
+    // We DON'T use `Element.scrollIntoView` here - it walks every scrolling
     // ancestor up to the document, which means a docs page hosting multiple
     // Pinboard stories visibly scrolled the whole page on mount whenever the
     // active tab landed below the fold. Compute the offset against the strip
@@ -303,11 +303,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
       setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
     }
 
-    // ── Width animation — direct (NOT via transform) ──
+    // ── Width animation - direct (NOT via transform) ──
     //
     // When the search button is clicked the search slot in the cluster
     // expands to **276px** (the same width the compact PinboardHeader's
-    // search wrapper takes — `316 header - 32 close - 8 gap`). The slot is
+    // search wrapper takes - `316 header - 32 close - 8 gap`). The slot is
     // right-anchored within the cluster, so it grows LEFTWARD; Export,
     // Filter and Sort stay put. The Tabs strip wrapper shrinks by the same
     // amount, animated via `motion.div animate.width` so its descendants
@@ -326,7 +326,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     const searchSlotWidth    = searchOpen ? SEARCH_OPEN_WIDTH : ICON_BUTTON_W
 
     // Recompute atTop / atBottom whenever the scroll container OR its content
-    // changes size — same fix as compact Pinboard. Prevents the bottom edge
+    // changes size - same fix as compact Pinboard. Prevents the bottom edge
     // fade from being absent on first paint when content lays out late
     // (staggered enter, async font/icon load).
     useEffect(() => {
@@ -368,7 +368,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
         ref={ref}
         className={cn(className)}
         style={{
-          // Outer pinboard — matches Figma node 2603:15826 exactly:
+          // Outer pinboard - matches Figma node 2603:15826 exactly:
           //   bg neutral-50, flex row, items-center, overflow-clip,
           //   px-8, rounded-28 (set on parent motion.div), shadow set on parent.
           display:        'flex',
@@ -384,7 +384,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
         }}
         {...props}
       >
-        {/* ── Sidebar Container — Figma 2565:32601 ──
+        {/* ── Sidebar Container - Figma 2565:32601 ──
             Wrapped in <EnterChunk index={0}> so it staggers in as the first
             chunk on first paint. ── */}
         <EnterChunk
@@ -400,7 +400,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
             background:     'var(--neutral-50)',
           }}
         >
-          {/* Sidebar Wrapper — Figma 2565:32602 */}
+          {/* Sidebar Wrapper - Figma 2565:32602 */}
           <div
             style={{
               display:        'flex',
@@ -413,7 +413,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
               overflow:       'hidden',
             }}
           >
-            {/* Sidebar inner — Figma 2565:35085 */}
+            {/* Sidebar inner - Figma 2565:35085 */}
             <div
               className="kaya-scrollbar"
               style={{
@@ -477,7 +477,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
           </div>
         </EnterChunk>
 
-        {/* ── Content Container — Figma 2565:34101 ──
+        {/* ── Content Container - Figma 2565:34101 ──
             shrink-0 (hug), h-817, items-start, pt-[8px], z-[1].
             Width is determined by inner Content Wrapper which hugs the
             Pin Grid (2 × 314 + 8 gap = 636 + p-12 = 660). */}
@@ -493,7 +493,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
             zIndex:         1,
           }}
         >
-          {/* Content Wrapper — Figma 2565:34102. flex-[1_0_0] (fills column
+          {/* Content Wrapper - Figma 2565:34102. flex-[1_0_0] (fills column
               vertically), items-start, min-h-px, overflow-clip, p-12,
               rounded-20. Width hugs to Content Vertical Wrapper. */}
           <div
@@ -507,7 +507,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
               overflow:       'hidden',
             }}
           >
-            {/* Content Vertical Wrapper — Figma 2565:34103. shrink-0,
+            {/* Content Vertical Wrapper - Figma 2565:34103. shrink-0,
                 items-start, h-788, gap-24. Width = Pin Grid 636 + 4 ring
                 buffer + 4 scrollbar buffer = 644 so the Pin's 1px outer
                 ring isn't clipped on top/left/right AND the 3px
@@ -523,8 +523,8 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                 height:         788,
               }}
             >
-              {/* ── Header — Figma 2565:34104 ──
-                  EnterChunk index={1} — staggers in after the sidebar. ── */}
+              {/* ── Header - Figma 2565:34104 ──
+                  EnterChunk index={1} - staggers in after the sidebar. ── */}
               <EnterChunk
                 cfg={enterAnimation}
                 index={1}
@@ -536,7 +536,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   flexShrink: 0,
                 }}
               >
-                {/* Pins Info — Figma 2565:34105 */}
+                {/* Pins Info - Figma 2565:34105 */}
                 <div
                   style={{
                     display:        'flex',
@@ -548,7 +548,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     minWidth:       1,
                   }}
                 >
-                  {/* Title — Figma 2579:35173. pl-[4px], font Besley regular 24/32 */}
+                  {/* Title - Figma 2579:35173. pl-[4px], font Besley regular 24/32 */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4, width: '100%' }}>
                     <p
                       style={{
@@ -568,15 +568,15 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       {title}
                     </p>
                   </div>
-                  {/* Pin count + update info — Figma 2579:35146 */}
+                  {/* Pin count + update info - Figma 2579:35146 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                     <Badge color="Neutral" label={`${pinCount} pins`} />
                     <Badge color="Neutral" label={updatedLabel} />
                   </div>
                 </div>
 
-                {/* Actions — Figma 2565:34109. gap-[12px] between Organise and Close.
-                    Organise button fades out when isOrganizing — the Done button
+                {/* Actions - Figma 2565:34109. gap-[12px] between Organise and Close.
+                    Organise button fades out when isOrganizing - the Done button
                     inside the action row replaces it functionally. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <AnimatePresence initial={false} mode="popLayout">
@@ -612,7 +612,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                 </div>
               </EnterChunk>
 
-              {/* ── Pin Cards Container — Figma 2579:35310 ── */}
+              {/* ── Pin Cards Container - Figma 2579:35310 ── */}
               <div
                 style={{
                   display:        'flex',
@@ -623,11 +623,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   width:          '100%',
                 }}
               >
-                {/* Tabs Container — Figma 2565:34112. gap-[100px] (constant,
+                {/* Tabs Container - Figma 2565:34112. gap-[100px] (constant,
                     so the wrapper width stays the same whether search is
-                    open or not — matches compact PinboardHeader's search
+                    open or not - matches compact PinboardHeader's search
                     width).
-                    EnterChunk index={2} — staggers in after the header. */}
+                    EnterChunk index={2} - staggers in after the header. */}
                 <EnterChunk
                   cfg={enterAnimation}
                   index={2}
@@ -640,7 +640,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     position:       'relative',
                   }}
                 >
-                  {/* Tabs / secondary-actions row — fades out when isOrganizing.
+                  {/* Tabs / secondary-actions row - fades out when isOrganizing.
                       Wrapped so the Organize action row (Move/Export/Delete +
                       Done) can crossfade into the same slot. KDS standard
                       preset: scale 0.95 + opacity + blur, spring 500/30. */}
@@ -660,8 +660,8 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       flexShrink: 0,
                     }}
                   >
-                  {/* Tabs / Search input — Figma 2565:34113.
-                      Width snaps via `style.width`; no projection — Tabs sits
+                  {/* Tabs / Search input - Figma 2565:34113.
+                      Width snaps via `style.width`; no projection - Tabs sits
                       at row-start and its position is invariant on every
                       toggle (`searchOpen`, `hasExpanded`). The visual softness
                       of the search-open transition is carried entirely by the
@@ -673,7 +673,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       // Hug the Tabs content. Cap at `tabsAreaWidth` so the
                       // strip can scroll if it ever overflows the available
                       // row space, but at rest the wrapper sits at content
-                      // width — no empty trailing area.
+                      // width - no empty trailing area.
                       flex:       '0 0 auto',
                       minWidth:   1,
                       maxWidth:   tabsAreaWidth,
@@ -693,7 +693,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     </Tabs>
                   </div>
 
-                  {/* Secondary Actions — Figma 2565:34115. gap-[4px], 4 ghost
+                  {/* Secondary Actions - Figma 2565:34115. gap-[4px], 4 ghost
                       icon buttons at sm (32x32) with 20px icons.
 
                       Order: Search → Export → [collapse-all conditional] →
@@ -701,7 +701,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
 
                       Layout pattern: the cluster uses `justify-content:
                       flex-end` so it's right-anchored. Each wrapper is a
-                      `motion.span/div layout` — when collapse-all enters
+                      `motion.span/div layout` - when collapse-all enters
                       or exits (`hasExpanded` toggles), Framer's projection
                       system slides the siblings to their new flex-flow
                       positions via a spring (stiffness 500, damping 32).
@@ -710,7 +710,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       width change on `searchOpen` toggle SNAPS via
                       `style.width` (not projected as a transform), matching
                       compact `PinboardHeader`'s flex-driven snap. Tabs to
-                      the left snaps too — see plain `<div>` above. */}
+                      the left snaps too - see plain `<div>` above. */}
                   <div
                     style={{
                       display:        'flex',
@@ -721,13 +721,13 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       marginLeft:     'auto',
                     }}
                   >
-                    {/* Search slot — snaps from 32 px (button) to 276 px
+                    {/* Search slot - snaps from 32 px (button) to 276 px
                         (input) on `searchOpen` toggle (matches compact
                         PinboardHeader's flex-driven snap). The button↔input
                         cross-fade inside is what carries the visual
                         transition. Cluster reflow on collapse-all
                         (`hasExpanded` toggle) still slides via `layout`
-                        projection at spring(500, 32) — gated by
+                        projection at spring(500, 32) - gated by
                         `layoutDependency={hasExpanded}` so the search-width
                         change is invisible to the projection system and
                         does NOT animate as a transform. */}
@@ -846,7 +846,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     </AnimatePresence>
                     <motion.span layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
                       {filterMenu != null ? (
-                        // Filter dropdown — same content as the compact
+                        // Filter dropdown - same content as the compact
                         // variant (Pinboard threads the menu down via the
                         // `filterMenu` prop). `bottom-end` so the panel
                         // opens below and right-aligns with the trigger.
@@ -914,7 +914,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   </motion.div>
                   )}
 
-                  {/* Organize action row — fades in when isOrganizing.
+                  {/* Organize action row - fades in when isOrganizing.
                       Figma 3457:24212. Move to folder + Export + Delete on
                       the left, Done on the right. */}
                   {isOrganizing && (
@@ -950,7 +950,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                         >
                           {/* Same structure as ChatInput's Pin folders submenu
                               and Pinboard's view-filter Project folders section
-                              — single source of truth via personalFolders /
+                              - single source of truth via personalFolders /
                               projectFolders props. Folder icon is the
                               declared sidebar exception per CLAUDE.md. */}
                           <Dropdown size="md">
@@ -1016,12 +1016,12 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     one place across the compact ↔ expanded morph.
 
                     Two animations stack here:
-                    • First-paint cascade — `EnterChunk index={2.5}` slots
+                    • First-paint cascade - `EnterChunk index={2.5}` slots
                       the bar between the Tabs row (index 2) and the first
                       pin pair (index 3) so it fades in (opacity + y + blur)
                       as part of the expanded variant's stagger when the
                       panel mounts with filters already active.
-                    • Toggle on / off — the inner `AnimatePresence` runs
+                    • Toggle on / off - the inner `AnimatePresence` runs
                       a height collapse + opacity fade when filters are
                       added or removed during a session. `initial={false}`
                       keeps the toggle from double-firing on first paint
@@ -1043,7 +1043,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   </AnimatePresence>
                 </EnterChunk>
 
-                {/* ── Scrollable Pin Cards Grid — Figma 2565:34119 ──
+                {/* ── Scrollable Pin Cards Grid - Figma 2565:34119 ──
                     Figma applies no overflow on the grid itself. The KDS
                     Scrollbar Styling Rule + Scroll Edge Fade pattern requires
                     a thin scrollbar and a top/bottom blur+colour fade on
@@ -1076,7 +1076,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       overscrollBehaviorY: 'contain',
                       // 2px padding on every side for the Pin's 1px outer
                       // ring. The 3px webkit scrollbar overlays the right
-                      // edge — no gutter is reserved, so layout dimensions
+                      // edge - no gutter is reserved, so layout dimensions
                       // stay exactly as specified in Figma.
                       padding:             '2px 2px 2px 2px',
                       outline:             'none',
@@ -1086,12 +1086,12 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                         a short pin next to a tall one leaves dead space below
                         it until the tallest pin's row finishes. We instead
                         split pins by index parity into two flex-column lists
-                        rendered side by side — each column packs vertically
+                        rendered side by side - each column packs vertically
                         and independently. Reading order stays row-major
                         (pin 0 → left, pin 1 → right, pin 2 → left, …) so the
                         list still scans the way users expect. */}
                     {pins.length === 0 && hasActiveFilters ? (
-                      // Empty result — filters returned no pins. Mirrors the
+                      // Empty result - filters returned no pins. Mirrors the
                       // compact-variant empty state. Centered in the grid
                       // viewport so the message reads regardless of grid
                       // height.
@@ -1172,7 +1172,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     </div>
                   </div>
 
-                  {/* Top edge fade — progressive blur + colour gradient,
+                  {/* Top edge fade - progressive blur + colour gradient,
                       shown only when not at top. */}
                   {[
                     { height: 40, blur: 2 },
@@ -1216,7 +1216,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     }}
                   />
 
-                  {/* Bottom edge fade — same pattern, anchored to bottom. */}
+                  {/* Bottom edge fade - same pattern, anchored to bottom. */}
                   {[
                     { height: 40, blur: 2 },
                     { height: 28, blur: 3 },

@@ -32,7 +32,7 @@ import { NextResponse } from "next/server";
 // Config
 // ---------------------------------------------------------------------------
 
-/** Shared signing secret — falls back to AUTH0_SECRET (already required). */
+/** Shared signing secret - falls back to AUTH0_SECRET (already required). */
 const CSRF_SECRET = process.env.CSRF_SECRET ?? process.env.AUTH0_SECRET ?? "";
 
 /** Maximum token age in milliseconds. */

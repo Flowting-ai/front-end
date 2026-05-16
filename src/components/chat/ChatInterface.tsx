@@ -178,7 +178,7 @@ export function ChatInterface({
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
 
   // Wrap onChatCreated to mark the new ID as optimistic BEFORE the parent
-  // updates the URL/chatId prop — prevents useChatState from wiping messages.
+  // updates the URL/chatId prop - prevents useChatState from wiping messages.
   const handleChatCreated = (newChatId: string) => {
     markChatAsOptimistic(newChatId);
     onChatCreated?.(newChatId);
@@ -255,7 +255,7 @@ export function ChatInterface({
     const wasLoading = prevIsLoadingRef.current;
     prevIsLoadingRef.current = isLoadingMessages;
     if (wasLoading && !isLoadingMessages && messages.length > 0) {
-      // Use instant scroll — smooth scroll can leave the user mid-thread.
+      // Use instant scroll - smooth scroll can leave the user mid-thread.
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
     }
   }, [isLoadingMessages, messages.length]);
@@ -374,7 +374,7 @@ export function ChatInterface({
     [filteredPins, highlightedPinIndex, handlePinSelect],
   );
 
-  // Send message — uses local attachments (which include add-menu files after absorption)
+  // Send message - uses local attachments (which include add-menu files after absorption)
   const handleSend = async (text: string) => {
     const allFiles = attachments.map((a) => a.file);
     if (!text.trim() && allFiles.length === 0) return;

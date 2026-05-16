@@ -246,7 +246,7 @@ export default function ProjectsPage() {
                 chatCount={project.chatCount}
                 onClick={() => router.push(`/project/${project.id}`)}
                 onEdit={() => setEditTarget(project)}
-                onArchive={() => {/* archive flow — backlog */}}
+                onArchive={() => {/* archive flow - backlog */}}
                 onDelete={() => deleteProject(project.id)}
               />
             ))}

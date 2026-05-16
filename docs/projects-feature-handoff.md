@@ -1,20 +1,20 @@
-# Projects Feature — Engineering Handoff
+# Projects Feature - Engineering Handoff
 **Prepared for:** Kunal, Shyam  
 **Prepared by:** Chai  
 **Date:** 2026-05-11  
 **Figma file:** [Kaya Design System](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System)  
-**Fork workflow:** See `KDS May 19th fork.md` — all product code goes in `apps/souvenir/`
+**Fork workflow:** See `KDS May 19th fork.md` - all product code goes in `apps/souvenir/`
 
-### Figma — direct screen links
+### Figma - direct screen links
 | Screen | Link |
 |---|---|
-| 01 · Projects — landing | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3556-15929) |
-| 01b · Projects — search (no results) | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-20610) |
-| 02 · Projects — create new | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3570-37590) |
-| 03 · Project — empty | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-24418) |
-| 04 · Project — edit modal | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-25096) |
-| 05 · Project — filled | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-25592) |
-| 06 · Project — pinboard open | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3556-18017) |
+| 01 · Projects - landing | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3556-15929) |
+| 01b · Projects - search (no results) | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-20610) |
+| 02 · Projects - create new | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3570-37590) |
+| 03 · Project - empty | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-24418) |
+| 04 · Project - edit modal | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-25096) |
+| 05 · Project - filled | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3588-25592) |
+| 06 · Project - pinboard open | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3556-18017) |
 | 07 · Chat inside project | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3586-19292) |
 | [Component] ProjectCard states | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3473-23314) |
 | [Component] ChatRow states | [Open](https://www.figma.com/design/VhtVr4Hhje26XKwc0E5uNP/Kaya-Design-System?node-id=3496-7347) |
@@ -26,9 +26,9 @@
 Projects is a workspace layer that sits above individual chats. A user creates a named project, attaches instructions (system prompt context) and files (shared knowledge), then starts chats inside that project. Every chat in the project inherits the instructions and file context automatically.
 
 The right panel in a project view is persistent and toggles between three modes:
-- **Instructions** — the project's system context
-- **Files** — shared files for all chats in this project
-- **Pinboard** — all pins saved from any chat in this project (uses the existing KDS `Pinboard` component)
+- **Instructions** - the project's system context
+- **Files** - shared files for all chats in this project
+- **Pinboard** - all pins saved from any chat in this project (uses the existing KDS `Pinboard` component)
 
 ---
 
@@ -63,17 +63,17 @@ git checkout -b feat/projects
 
 ## Screens & Flow
 
-### 01 · Projects — Landing
+### 01 · Projects - Landing
 **Figma:** `node-id=3556-15929`
 
 The main projects page a user lands on from the sidebar.
 
 **Layout:**
-- Left sidebar (existing KDS `Sidebar` component — already has projects section)
+- Left sidebar (existing KDS `Sidebar` component - already has projects section)
 - Main area: heading "Projects" + `{n} Projects` count badge + Sort button + `+ New Project` button
 - Search bar below heading
-- "Start from a template" section — 3 template cards: **Product Design Sprint**, **Research Repository**, **Engineering Planning** (template flow is backlog — see §Backlog)
-- Grid of `ProjectCard` components — 2 columns
+- "Start from a template" section - 3 template cards: **Product Design Sprint**, **Research Repository**, **Engineering Planning** (template flow is backlog - see §Backlog)
+- Grid of `ProjectCard` components - 2 columns
 
 **Interactions:**
 - `+ New Project` → navigate to Create Project page (02)
@@ -94,17 +94,17 @@ The main projects page a user lands on from the sidebar.
 | Search no-results | `No projects matching "{query}"` |
 
 **KDS components used:**
-- `Button` (variant `default`) — `+ New Project`
-- `Badge` — project tag chips (Private, Research)
-- `Chip` — template cards
-- `Dropdown` + `DropdownMenuItem` — Sort dropdown
+- `Button` (variant `default`) - `+ New Project`
+- `Badge` - project tag chips (Private, Research)
+- `Chip` - template cards
+- `Dropdown` + `DropdownMenuItem` - Sort dropdown
 
 ---
 
-### 02 · Projects — Create New
+### 02 · Projects - Create New
 **Figma:** `node-id=3570-37590`
 
-Full-page form that replaces the main content area (no modal — the user loses the grid context intentionally; this is a deliberate commitment action).
+Full-page form that replaces the main content area (no modal - the user loses the grid context intentionally; this is a deliberate commitment action).
 
 **Layout:**
 - Heading: `What's this project about?`
@@ -132,19 +132,19 @@ Full-page form that replaces the main content area (no modal — the user loses 
 | CTA | `Create project` |
 
 **KDS components used:**
-- `InputField` — field 1
-- `InputGroup` (or native `textarea`) — field 2
-- `Button variant="default"` — Create project
-- `Button variant="outline"` — Cancel
+- `InputField` - field 1
+- `InputGroup` (or native `textarea`) - field 2
+- `Button variant="default"` - Create project
+- `Button variant="outline"` - Cancel
 
 ---
 
-### 03 · Project — Empty
+### 03 · Project - Empty
 **Figma:** `node-id=3588-24418`
 
 The state a user sees immediately after creating a project, before any chats exist.
 
-**Layout — three zones:**
+**Layout - three zones:**
 
 ```
 ┌────────────────────────────────────────────────┬─────────────────┐
@@ -164,18 +164,18 @@ The state a user sees immediately after creating a project, before any chats exi
 
 **Left zone:**
 - Back arrow → returns to Projects landing
-- Project title (large) + one-liner description (subtitle text — from Create form field 2)
+- Project title (large) + one-liner description (subtitle text - from Create form field 2)
 - `⋮` icon button → dropdown: Edit, Archive, Delete
 - `Share` button (ghost + icon)
-- `ChatInput` component (existing KDS) — full width
+- `ChatInput` component (existing KDS) - full width
 - Empty state card below input (dashed border): *"Start a chat to keep conversations organized and re-use project knowledge."*
-- Two floating `IconButton`s on the right edge of the left zone — gear (opens/focuses Instructions panel) and pin (opens Pinboard panel). These toggle the right panel mode.
+- Two floating `IconButton`s on the right edge of the left zone - gear (opens/focuses Instructions panel) and pin (opens Pinboard panel). These toggle the right panel mode.
 
-**Right panel — Instructions tab (default when empty):**
+**Right panel - Instructions tab (default when empty):**
 - Section header `Instructions` + `+` IconButton
 - Empty state copy: *"Add instructions to steer this project towards the right direction..."*
 
-**Right panel — Files tab:**
+**Right panel - Files tab:**
 - Section header `Files` + `+` IconButton  
 - Empty state: upload icon + `Upload Files` label + *"Add files as shared knowledge for every chat in this project."*
 - Dashed-border upload drop zone
@@ -192,15 +192,15 @@ The state a user sees immediately after creating a project, before any chats exi
 | ⋮ menu: Delete | `Delete` |
 
 **KDS components used:**
-- `ChatInput` — message input with model selector
-- `IconButton` — `⋮`, `+` (Instructions), `+` (Files), gear, pin
-- `Button` — Share
-- `Dropdown` + `DropdownMenuItem` — ⋮ menu
-- `Tooltip` — on the gear and pin floating buttons (label: `Instructions`, `Pinboard`)
+- `ChatInput` - message input with model selector
+- `IconButton` - `⋮`, `+` (Instructions), `+` (Files), gear, pin
+- `Button` - Share
+- `Dropdown` + `DropdownMenuItem` - ⋮ menu
+- `Tooltip` - on the gear and pin floating buttons (label: `Instructions`, `Pinboard`)
 
 ---
 
-### 04 · Project — Edit Modal
+### 04 · Project - Edit Modal
 **Figma:** `node-id=3588-25096`
 
 Triggered from the `⋮` menu → Edit. Overlays the current project view.
@@ -208,8 +208,8 @@ Triggered from the `⋮` menu → Edit. Overlays the current project view.
 **Layout:**
 - Modal title: `Edit`
 - `×` close button (top right)
-- `Name*` field — pre-filled with current project name
-- `Description*` textarea — pre-filled with current description
+- `Name*` field - pre-filled with current project name
+- `Description*` textarea - pre-filled with current description
 - Footer: `Cancel` + `Save changes`
 
 **Copy:**
@@ -226,13 +226,13 @@ Triggered from the `⋮` menu → Edit. Overlays the current project view.
 
 **KDS components used:**
 - `Popover` (as modal shell) or KDS modal pattern
-- `InputField` — Name
-- `Button variant="default"` — Save changes
-- `Button variant="ghost"` — Cancel
+- `InputField` - Name
+- `Button variant="default"` - Save changes
+- `Button variant="ghost"` - Cancel
 
 ---
 
-### 05 · Project — Filled
+### 05 · Project - Filled
 **Figma:** `node-id=3588-25592`
 
 The project view once chats and files exist.
@@ -240,13 +240,13 @@ The project view once chats and files exist.
 **Left zone:**
 - Same header as empty state (back arrow, title, ⋮, Share)
 - Project subtitle = user's one-liner description from Create form
-- `ChatInput` — always visible at top for starting a new chat
+- `ChatInput` - always visible at top for starting a new chat
 - List of `ProjectChatRow` components below (see component spec below)
-- Two floating `IconButton`s (gear + pin) — same as empty state
+- Two floating `IconButton`s (gear + pin) - same as empty state
 
-**Right panel — Files tab:**
+**Right panel - Files tab:**
 - `Files  10 Files / 4 Urls` header with `+` button
-- Capacity bar: `50 MB of 100 MB used` — slim `<progress>` element (blue fill)
+- Capacity bar: `50 MB of 100 MB used` - slim `<progress>` element (blue fill)
 - List of file rows (see `ProjectFilesPanel` component spec)
 
 **Right panel toggle:**
@@ -256,11 +256,11 @@ The gear floating button focuses Instructions; the pin floating button opens Pin
 - `ChatInput`
 - `IconButton`
 - `Tooltip`
-- `Pinboard` (when pin button is active — see 06)
+- `Pinboard` (when pin button is active - see 06)
 
 ---
 
-### 06 · Project — Pinboard Open
+### 06 · Project - Pinboard Open
 **Figma:** `node-id=3556-18017`
 
 When the user clicks the pin floating button, or clicks a `{n} pins` badge on a `ProjectChatRow`, the right panel switches to the KDS `Pinboard` component.
@@ -269,7 +269,7 @@ When the user clicks the pin floating button, or clicks a `{n} pins` badge on a 
 
 **Wiring:**
 ```tsx
-// When clicking "3 pins" badge on a chat row — pre-filter to that chat
+// When clicking "3 pins" badge on a chat row - pre-filter to that chat
 <Pinboard
   pins={projectPins}
   view={selectedChatId ? `chat-${selectedChatId}` : 'all'}
@@ -284,11 +284,11 @@ When the user clicks the pin floating button, or clicks a `{n} pins` badge on a 
 />
 ```
 
-The `Weekly planning ×` chip the user sees as the active filter is the Pinboard's built-in view-filter dropdown in its selected state — this is already handled by `PinboardProps.view`.
+The `Weekly planning ×` chip the user sees as the active filter is the Pinboard's built-in view-filter dropdown in its selected state - this is already handled by `PinboardProps.view`.
 
 **KDS components used:**
-- `Pinboard` (existing — `src/components/Pinboard/`)
-- `Pin` (rendered inside Pinboard — `src/components/Pin/`)
+- `Pinboard` (existing - `src/components/Pinboard/`)
+- `Pin` (rendered inside Pinboard - `src/components/Pin/`)
 
 ---
 
@@ -309,9 +309,9 @@ When the user clicks a `ProjectChatRow`, the chat opens. The layout changes:
 - Chat thread (uses existing `MessageBubble` component)
 - `ChatInput` at the bottom (existing KDS component)
 - Three floating action buttons on right edge of chat area (vertically stacked):
-  - Pin icon — pin a selection (triggers `SelectionPopover`)
-  - Eye/Lens icon — focus mode (product decision needed)
-  - Share icon — share this chat
+  - Pin icon - pin a selection (triggers `SelectionPopover`)
+  - Eye/Lens icon - focus mode (product decision needed)
+  - Share icon - share this chat
 
 **Right panel:**
 - Pinboard opens by default when inside a project chat (shows `All pins` view)
@@ -325,11 +325,11 @@ When the user clicks a `ProjectChatRow`, the chat opens. The layout changes:
 | Footer disclaimer | `Claude is AI and can make mistakes. Please double-check responses.` |
 
 **KDS components used:**
-- `MessageBubble` — chat messages
-- `ChatInput` — input area
-- `SelectionPopover` — pin/highlight on text selection
-- `Pinboard` — right panel
-- `IconButton` + `Tooltip` — floating action buttons
+- `MessageBubble` - chat messages
+- `ChatInput` - input area
+- `SelectionPopover` - pin/highlight on text selection
+- `Pinboard` - right panel
+- `IconButton` + `Tooltip` - floating action buttons
 
 ---
 
@@ -365,15 +365,15 @@ interface ProjectCardProps {
 ```
 
 **States (Figma node-id=3473-23314):**
-- **Default** — no ⋮ button visible
-- **Hover** — ⋮ button appears, subtle background tint
-- **Active/Focused** — blue border ring (used when card is the last active project)
+- **Default** - no ⋮ button visible
+- **Hover** - ⋮ button appears, subtle background tint
+- **Active/Focused** - blue border ring (used when card is the last active project)
 - Card is a `<button>` or `role="button"` div with `tabIndex={0}`
 
 **KDS components used internally:**
-- `Badge` — tag chips
-- `IconButton` — ⋮ button (hidden by default, visible on hover via CSS `group-hover`)
-- `Dropdown` + `DropdownMenuItem` — ⋮ menu content (Edit / Archive / Delete)
+- `Badge` - tag chips
+- `IconButton` - ⋮ button (hidden by default, visible on hover via CSS `group-hover`)
+- `Dropdown` + `DropdownMenuItem` - ⋮ menu content (Edit / Archive / Delete)
 
 ---
 
@@ -403,17 +403,17 @@ interface ProjectChatRowProps {
 ```
 
 **States (Figma node-id=3496-7347):**
-- **Default** — white background, no ⋮
-- **Hover** — warm tint background, ⋮ button appears
-- **Active** — blue border ring + tint (current open chat)
-- **No pins** — pin badge shows "No pins" in greyed-out style, not clickable
-- **{n} pins** — pin badge is clickable, fires `onPinsClick`
-- **Empty state row** (at bottom of list, not a real row) — dashed border: *"Start a chat to keep conversations organized and re-use project knowledge."*
+- **Default** - white background, no ⋮
+- **Hover** - warm tint background, ⋮ button appears
+- **Active** - blue border ring + tint (current open chat)
+- **No pins** - pin badge shows "No pins" in greyed-out style, not clickable
+- **{n} pins** - pin badge is clickable, fires `onPinsClick`
+- **Empty state row** (at bottom of list, not a real row) - dashed border: *"Start a chat to keep conversations organized and re-use project knowledge."*
 
 **KDS components used internally:**
-- `IconButton` — ⋮ (hover-revealed)
-- `Chip` or `Badge` — pins count badge
-- `Dropdown` + `DropdownMenuItem` — ⋮ menu
+- `IconButton` - ⋮ (hover-revealed)
+- `Chip` or `Badge` - pins count badge
+- `Dropdown` + `DropdownMenuItem` - ⋮ menu
 
 ---
 
@@ -435,14 +435,14 @@ interface ProjectInstructionsPanelProps {
 ```
 
 **States:**
-- **Empty** — no text, shows placeholder: *"Add instructions to steer this project towards the right direction..."*, `+` button in header
-- **Filled** — shows text truncated with pencil edit icon in header corner
-- **Editing** — textarea expands, char count shown (`{n} / 2000`), Save + Cancel buttons appear
+- **Empty** - no text, shows placeholder: *"Add instructions to steer this project towards the right direction..."*, `+` button in header
+- **Filled** - shows text truncated with pencil edit icon in header corner
+- **Editing** - textarea expands, char count shown (`{n} / 2000`), Save + Cancel buttons appear
 
 **KDS components used internally:**
-- `IconButton` — pencil edit, `+`
-- `Button variant="default"` size sm — Save
-- `Button variant="ghost"` size sm — Cancel
+- `IconButton` - pencil edit, `+`
+- `Button variant="default"` size sm - Save
+- `Button variant="ghost"` size sm - Cancel
 
 ---
 
@@ -475,13 +475,13 @@ interface ProjectFilesPanelProps {
 ```
 
 **States:**
-- **Empty** — upload icon + *"Upload Files"* + *"Add files as shared knowledge for every chat in this project."* + dashed-border drop zone
-- **Filled** — header shows `{n} Files / {m} Urls`, capacity bar below header, list of file rows
-- **Capacity bar** — `<progress>` element, blue fill, `{usedMB} MB of {totalMB} MB used` label
+- **Empty** - upload icon + *"Upload Files"* + *"Add files as shared knowledge for every chat in this project."* + dashed-border drop zone
+- **Filled** - header shows `{n} Files / {m} Urls`, capacity bar below header, list of file rows
+- **Capacity bar** - `<progress>` element, blue fill, `{usedMB} MB of {totalMB} MB used` label
 
 **KDS components used internally:**
-- `Badge` — file type badge (PDF red, FIG blue, MD dark, etc. — reuse `ChatThumbnail` badge color logic if extractable)
-- `IconButton` — remove file (`×`)
+- `Badge` - file type badge (PDF red, FIG blue, MD dark, etc. - reuse `ChatThumbnail` badge color logic if extractable)
+- `IconButton` - remove file (`×`)
 
 ---
 
@@ -611,10 +611,10 @@ The panel header tabs (Instructions / Files) allow switching between those two w
 
 The existing `Sidebar` component (and `SidebarProjectsSection`) needs to support two states:
 
-1. **Projects listed** — shows flat list of project items under "Projects" section header
-2. **Project expanded** — when inside a project chat, the project item expands to show its sub-chats as indent-children
+1. **Projects listed** - shows flat list of project items under "Projects" section header
+2. **Project expanded** - when inside a project chat, the project item expands to show its sub-chats as indent-children
 
-Check the existing `SidebarProjectsSection` component — it may already support this. If not, file an issue with Uttkarsh:
+Check the existing `SidebarProjectsSection` component - it may already support this. If not, file an issue with Uttkarsh:
 
 > **Component request: Sidebar project sub-chat expansion**  
 > When the user is inside a project chat, the project item in the sidebar should expand to show its chats as indented children. Current `SidebarProjectsSection` only shows flat project names.  
@@ -657,12 +657,12 @@ Every string, placeholder, and label in the feature:
 - Cancel: `Cancel`
 - CTA: `Save changes`
 
-### Project View — Header ⋮ Menu
+### Project View - Header ⋮ Menu
 - `Edit`
 - `Archive`
 - `Delete`
 
-### Project View — Empty Chat State
+### Project View - Empty Chat State
 - `Start a chat to keep conversations organized and re-use project knowledge.`
 
 ### Instructions Panel
@@ -686,7 +686,7 @@ Every string, placeholder, and label in the feature:
 
 ## What the Pinboard Already Handles (Don't Rebuild)
 
-The following are all built into the existing `Pinboard` component — do not recreate them:
+The following are all built into the existing `Pinboard` component - do not recreate them:
 
 - Filter dropdown (All pins / Recent / This chat / by folder)
 - Sort dropdown
@@ -702,10 +702,10 @@ The following are all built into the existing `Pinboard` component — do not re
 
 ## Backlog (Not for May 19)
 
-- **Template selection flow** — clicking a template on the landing pre-fills the Create form. Needs a defined set of template objects with name + instructions + suggested tags.
-- **File upload progress** — spinner / progress bar in FilesPanel while a file is uploading.
-- **Project sharing** — the Share button opens a share sheet. Not designed yet.
-- **Project color variants** — the 4 KDS card colors (sand/lavender/sky/sage) are planned for ProjectCard to aid visual identification. Not in current Figma screens.
+- **Template selection flow** - clicking a template on the landing pre-fills the Create form. Needs a defined set of template objects with name + instructions + suggested tags.
+- **File upload progress** - spinner / progress bar in FilesPanel while a file is uploading.
+- **Project sharing** - the Share button opens a share sheet. Not designed yet.
+- **Project color variants** - the 4 KDS card colors (sand/lavender/sky/sage) are planned for ProjectCard to aid visual identification. Not in current Figma screens.
 
 ---
 
@@ -713,13 +713,13 @@ The following are all built into the existing `Pinboard` component — do not re
 
 | Frame | node-id | Description |
 |---|---|---|
-| 01 · Projects — landing | `3556-15929` | Populated grid + template section |
-| 01b · Projects — search | `3588-20610` | No-results search state |
-| 02 · Projects — create new | `3570-37590` | Create project form |
-| 03 · Project — empty | `3588-24418` | Empty chats, empty instructions, empty files |
-| 04 · Project — edit modal | `3588-25096` | Edit overlay (name + description) |
-| 05 · Project — filled | `3588-25592` | Chat list + file list + capacity bar |
-| 06 · Project — pinboard open | `3556-18017` | Pinboard panel with chat filter active |
+| 01 · Projects - landing | `3556-15929` | Populated grid + template section |
+| 01b · Projects - search | `3588-20610` | No-results search state |
+| 02 · Projects - create new | `3570-37590` | Create project form |
+| 03 · Project - empty | `3588-24418` | Empty chats, empty instructions, empty files |
+| 04 · Project - edit modal | `3588-25096` | Edit overlay (name + description) |
+| 05 · Project - filled | `3588-25592` | Chat list + file list + capacity bar |
+| 06 · Project - pinboard open | `3556-18017` | Pinboard panel with chat filter active |
 | 07 · Chat inside project | `3586-19292` | Open chat + project breadcrumb + pinboard |
 | [Component] ProjectCard states | `3473-23314` | Default / hover / active / focused |
 | [Component] ChatRow states | `3496-7347` | Default / hover / active / no-pins / {n}-pins |

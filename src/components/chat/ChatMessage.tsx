@@ -44,7 +44,7 @@ function StandaloneActivitiesBlock({
 
   return (
     <div style={{ margin: "4px 0 8px" }}>
-      {/* Header row — model name + summary + chevron */}
+      {/* Header row - model name + summary + chevron */}
       <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
         <span
           style={{
@@ -127,7 +127,7 @@ function StandaloneActivitiesBlock({
   );
 }
 
-// ── StreamingTextContent — renders live content as inline text with BreathingDot ──
+// ── StreamingTextContent - renders live content as inline text with BreathingDot ──
 // Used only while isLoading=true so paragraphs don't "snap in" as markdown blocks.
 // Structured blocks (<table>, <chart>) are rendered as real components even
 // during streaming; only the markdown prose uses the inline inline renderTextBlock path.
@@ -310,7 +310,7 @@ export function ChatMessage({
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "85%" }}>
-          {/* File attachment chips — appear above the message bubble */}
+          {/* File attachment chips - appear above the message bubble */}
           {message.attachments && message.attachments.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
               {message.attachments.map((att) => {
@@ -421,7 +421,7 @@ export function ChatMessage({
           />
         )}
 
-        {/* Loading state — shows shimmer label */}
+        {/* Loading state - shows shimmer label */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
           <div style={{ margin: "4px 0 8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
@@ -452,7 +452,7 @@ export function ChatMessage({
           />
         )}
 
-        {/* Message content — assistant only (user handled above) */}
+        {/* Message content - assistant only (user handled above) */}
         {/* When responseBlocks are present, use BlockSequenceRenderer */}
         {message.responseBlocks && message.responseBlocks.length > 0 ? (
           <motion.div
@@ -488,7 +488,7 @@ export function ChatMessage({
           </motion.div>
         ) : null}
 
-        {/* Citation sources — shown below response when citations are present */}
+        {/* Citation sources - shown below response when citations are present */}
         {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (
           <SourceList citations={message.webCitations} />
         )}
@@ -652,7 +652,7 @@ export function ChatMessage({
                       flexShrink: 0,
                     }}
                   >
-                    {/* View — opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
+                    {/* View - opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
                     <a
                       href={file.url}
                       target="_blank"
@@ -691,7 +691,7 @@ export function ChatMessage({
                       </svg>
                     </a>
 
-                    {/* Download — proxied through /api/download so browser always saves */}
+                    {/* Download - proxied through /api/download so browser always saves */}
                     <a
                       href={downloadHref}
                       download={file.filename}
@@ -751,7 +751,7 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Action buttons (on hover) — assistant only */}
+        {/* Action buttons (on hover) - assistant only */}
         <AnimatePresence>
           {isHovered && !message.isLoading && (
           <motion.div

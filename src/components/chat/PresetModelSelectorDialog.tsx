@@ -58,8 +58,8 @@ const CAPTION_STYLE: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-// ── Input-type icon map — mirrors KDS docs/llm-input-types.md taxonomy ────────
-// Text and Code are universal — never shown (would add noise, not signal).
+// ── Input-type icon map - mirrors KDS docs/llm-input-types.md taxonomy ────────
+// Text and Code are universal - never shown (would add noise, not signal).
 
 type InputType = "image" | "audio" | "video" | "doc" | "web"
 
@@ -289,7 +289,7 @@ function PresetModelSelectorContent({
                 flexDirection: "column",
               }}
             >
-              {/* Section header — outside scroll so gradient doesn't affect it */}
+              {/* Section header - outside scroll so gradient doesn't affect it */}
               <div
                 style={{
                   display: "flex",

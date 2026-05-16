@@ -29,7 +29,7 @@ export interface SliderProps
 }
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
-// Adapted from fluidfunctionalism/slider.json — re-skinned with KDS warm
+// Adapted from fluidfunctionalism/slider.json - re-skinned with KDS warm
 // neutrals + focus-ring. Track is neutral-100, fill is neutral-700, thumb is
 // white with a 1.5px neutral-700 ring + the Secondary Button puck shadow.
 
@@ -145,7 +145,7 @@ export const Slider = React.forwardRef<
           />
         </SliderPrimitive.Track>
 
-        {/* Step pips — purely decorative, sit on top of the track */}
+        {/* Step pips - purely decorative, sit on top of the track */}
         {variant === 'pips' && (
           <div
             aria-hidden

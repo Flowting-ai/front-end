@@ -308,7 +308,7 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
           <Switch checked={superLinkEnabled} onCheckedChange={handleSuperLinkToggle} />
         </div>
 
-        {/* URL bar — visible when super link is enabled */}
+        {/* URL bar - visible when super link is enabled */}
         {superLinkEnabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -384,7 +384,7 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
               </div>
             </div>
 
-            {/* Token usage — visible after link is generated */}
+            {/* Token usage - visible after link is generated */}
             {linkGenerated && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, Suspense } from 'react'
+import React, { useState, Suspense, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -21,6 +21,7 @@ import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
 import ProfileTab from '@/app/(app)/persona/configure/components/ProfileTab'
 import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
+import { getPersonaRepo } from '@/lib/api/personas'
 
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
@@ -65,7 +66,7 @@ function FloatingMenu({
           pointerEvents: 'none',
         }}
       />
-      {/* Icon 1 — test persona chat */}
+      {/* Icon 1 - test persona chat */}
       <button
         onClick={onToggleTestChat}
         title={testChatOpen ? 'Close test chat' : 'Open test chat'}
@@ -101,7 +102,7 @@ function FloatingMenu({
         <UserAiIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 2 — AI idea */}
+      {/* Icon 2 - AI idea */}
       <button
         style={{
           display: 'flex',
@@ -117,7 +118,7 @@ function FloatingMenu({
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Icon 3 — save versions */}
+      {/* Icon 3 - save versions */}
       <button
         style={{
           display: 'flex',
@@ -141,17 +142,87 @@ function PersonaConfigureProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nameParam = searchParams.get('name') ?? ''
+  const repoId    = searchParams.get('repoId') ?? ''
+
+  // Session-storage key scoped to this persona (or 'new' while creating)
+  const PROFILE_KEY = `persona_profile_${repoId || 'new'}`
+
+  // Helper: read saved draft (runs synchronously — client only)
+  function loadDraft() {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(sessionStorage.getItem(PROFILE_KEY) ?? 'null') as Record<string, unknown> | null }
+    catch { return null }
+  }
 
   const [testChatOpen, setTestChatOpen] = useState(false)
 
-  // ProfileTab state
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [personaName, setPersonaName] = useState(nameParam || 'Persona Name')
-  const [personaHandle, setPersonaHandle] = useState('')
-  const [personaDescription, setPersonaDescription] = useState('')
-  const [personaTags, setPersonaTags] = useState<string[]>(['Internal', 'Legal'])
-  const [isMultilingual, setIsMultilingual] = useState(false)
-  const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(new Set([DEFAULT_LANGUAGE]))
+  // ProfileTab state — initialise from sessionStorage on first render
+  const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
+  const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Persona Name' })
+  const [personaHandle,      setPersonaHandle]      = useState<string>(() => { const d = loadDraft(); return (d?.personaHandle as string) ?? '' })
+  const [personaDescription, setPersonaDescription] = useState<string>(() => { const d = loadDraft(); return (d?.personaDescription as string) ?? '' })
+  const [personaTags,        setPersonaTags]        = useState<string[]>(() => { const d = loadDraft(); return (d?.personaTags as string[]) ?? ['Internal', 'Legal'] })
+  const [isMultilingual,     setIsMultilingual]     = useState<boolean>(() => { const d = loadDraft(); return (d?.isMultilingual as boolean) ?? false })
+  const [selectedLanguages,  setSelectedLanguages]  = useState<Set<string>>(() => {
+    const d = loadDraft()
+    const arr = d?.selectedLanguages as string[] | undefined
+    return arr ? new Set(arr) : new Set([DEFAULT_LANGUAGE])
+  })
+
+  // Gate auto-save so we never persist placeholder defaults before the API has
+  // had a chance to load the real persona data.
+  // • No repoId (still in wizard): initialize as true — save whatever the user types.
+  // • Has repoId (editing existing): start false, flip to true after API resolves.
+  const [isInitialized, setIsInitialized] = useState(!repoId)
+
+  // ── Load real persona data from API on first visit (no meaningful draft yet) ─────
+  useEffect(() => {
+    if (!repoId) { setIsInitialized(true); return }
+
+    // If the user already has meaningful profile data saved, skip the API call
+    const draft = loadDraft()
+    const hasMeaningfulDraft = !!draft && (
+      !!(draft.personaHandle as string | undefined) ||
+      !!(draft.personaDescription as string | undefined) ||
+      !!(draft.avatarUrl as string | null | undefined) ||
+      ((draft.personaName as string | undefined) ?? 'Persona Name') !== 'Persona Name'
+    )
+    if (hasMeaningfulDraft) { setIsInitialized(true); return }
+
+    getPersonaRepo(repoId)
+      .then(repo => {
+        const v = repo.active_version
+        // Overwrite defaults with real API data
+        setPersonaName(repo.name || 'Persona Name')
+        if (v?.handler)   setPersonaHandle(`@${v.handler}`)
+        if (v?.image_url) setAvatarUrl(v.image_url)
+        // Use the prompt as description only if it’s short enough — on a brand-new
+        // persona the prompt is just the one-sentence wizard purpose.
+        if (v?.prompt && v.prompt.trim().length <= 120) {
+          setPersonaDescription(v.prompt.trim())
+        }
+      })
+      .catch(err => console.error('[ProfilePage] API load error:', err))
+      .finally(() => setIsInitialized(true))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repoId])
+
+  // Auto-save to sessionStorage whenever any profile field changes
+  // (gated on isInitialized so we don’t overwrite real data with defaults)
+  useEffect(() => {
+    if (!isInitialized) return   // don't persist placeholder defaults
+    try {
+      sessionStorage.setItem(PROFILE_KEY, JSON.stringify({
+        avatarUrl,
+        personaName,
+        personaHandle,
+        personaDescription,
+        personaTags,
+        isMultilingual,
+        selectedLanguages: [...selectedLanguages],
+      }))
+    } catch { /* storage quota exceeded — ignore */ }
+  }, [PROFILE_KEY, isInitialized, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
