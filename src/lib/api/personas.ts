@@ -293,7 +293,7 @@ export async function renamePersonaChat(
 ): Promise<void> {
   await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(repoId), {
     method: "PATCH",
-    body: JSON.stringify({ chat_id: chatId, title }),
+    body: JSON.stringify({ chat_id: chatId, chat_title: title }),
   });
 }
 

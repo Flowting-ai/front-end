@@ -108,7 +108,7 @@ function AnimatedLogo({
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {llmId
-              ? <span style={iconWrap}><LlmIcon id={llmId} variant="avatar" size={16} /></span>
+              ? <span style={iconWrap}><LlmIcon id={llmId} variant="color" size={16} /></span>
               : <SouvenirMark size={16} />}
           </motion.div>
         )}

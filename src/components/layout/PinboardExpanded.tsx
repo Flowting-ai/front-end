@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import {
@@ -34,7 +35,8 @@ import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { exportSinglePin } from '@/lib/export-pins'
 import type { BadgeColor } from '@/components/Badge'
-import { listPinFolders, createPinFolder, movePinToFolder } from '@/lib/api/pins'
+import { listPinFolders, createPinFolder, movePinToFolder, validateFolderName } from '@/lib/api/pins'
+import { toast } from 'sonner'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
 import { PinboardExpandedSkeleton } from '@/components/PinboardExpandedSkeleton'
 
@@ -89,6 +91,9 @@ const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Purple', 'Yellow', 'Red', 'N
 const ICON_BUTTON_W  = 32
 const ROW_GAP        = 32
 const SEARCH_OPEN_W  = 276
+
+const EMPTY_TAGS: { color: BadgeColor; text: string }[] = []
+const EMPTY_SET  = new Set<number>()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -212,7 +217,7 @@ function EmptyState({ title, description, action }: {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
-  const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder } = usePinboard()
+  const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder, removeFolder, renameFolder } = usePinboard()
   const { chats } = useChatHistoryContext()
   const searchParams  = useSearchParams()
   const activeChatId  = searchParams.get('id')
@@ -229,11 +234,10 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   // ── Folder state ──────────────────────────────────────────────────────────
   const [folders,           setFolders]           = useState<PinFolder[]>([])
   const [activeFolderId,    setActiveFolderId]    = useState<FolderFilter>('all')
-  const [isCreatingFolder,  setIsCreatingFolder]  = useState(false)
-  const [newFolderName,     setNewFolderName]     = useState('')
-  const [editingFolderId,   setEditingFolderId]   = useState<string | null>(null)
-  const [editingFolderName, setEditingFolderName] = useState('')
-  const newFolderInputRef = useRef<HTMLInputElement>(null)
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
+  const [modalFolderName,       setModalFolderName]       = useState('')
+  const [editingFolderId,       setEditingFolderId]       = useState<string | null>(null)
+  const [editingFolderName,     setEditingFolderName]     = useState('')
 
   // ── View state ────────────────────────────────────────────────────────────
   const [activeTab,    setActiveTab]    = useState('all')
@@ -302,7 +306,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const handleCollapseAll = () => setCollapseSignal((s) => s + 1)
 
   const handlePinExpandedChange = useCallback(
-    (id: string) => (expanded: boolean) => {
+    (id: string, expanded: boolean) => {
       setExpandedIds((prev) => {
         const has = prev.has(id)
         if (expanded === has) return prev
@@ -325,18 +329,16 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       .catch(() => { setFoldersLoaded(true) })
   }, [])
 
-  useEffect(() => {
-    if (isCreatingFolder) newFolderInputRef.current?.focus()
-  }, [isCreatingFolder])
-
   // ── Folder operations ─────────────────────────────────────────────────────
 
   const handleCreateFolder = async () => {
-    const name = newFolderName.trim()
-    if (!name) { setIsCreatingFolder(false); setNewFolderName(''); return }
+    const name = modalFolderName.trim()
+    setShowCreateFolderModal(false)
+    setModalFolderName('')
+    if (!name) return
+    const error = validateFolderName(name, folders.map(f => f.name))
+    if (error) { toast.error(error); return }
     const optimisticId = `folder-${Date.now()}`
-    setIsCreatingFolder(false)
-    setNewFolderName('')
     setFolders(prev => [...prev, { id: optimisticId, name, type: 'personal' as const }])
     try {
       const created = await createPinFolder(name)
@@ -345,6 +347,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       addFolder({ id: created.id, label: created.name })
     } catch {
       setFolders(prev => prev.filter(f => f.id !== optimisticId))
+      toast.error('Failed to create folder.')
     }
   }
 
@@ -352,12 +355,17 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     const name = editingFolderName.trim()
     setEditingFolderId(null)
     if (!name) return
+    const otherNames = folders.filter(f => f.id !== folderId).map(f => f.name)
+    const error = validateFolderName(name, otherNames)
+    if (error) { toast.error(error); return }
     setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name } : f))
+    renameFolder(folderId, name)
   }
 
   const handleDeleteFolder = (folderId: string) => {
     setFolders(prev => prev.filter(f => f.id !== folderId))
     if (activeFolderId === folderId) setActiveFolderId('all')
+    removeFolder(folderId)
   }
 
   // ── Pin tag operations ────────────────────────────────────────────────────
@@ -439,7 +447,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
 
   // ── Filtering & sorting ───────────────────────────────────────────────────
 
-  const filteredPins = (() => {
+  const filteredPins = useMemo(() => {
     let result: PinItem[] = pins
 
     // View/folder filtering
@@ -462,16 +470,14 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       )
     }
 
-    result = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
       let cmp = 0
       if      (sortConfig.field === 'date_created') cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       else if (sortConfig.field === 'title')        cmp = a.title.localeCompare(b.title)
       else if (sortConfig.field === 'category')     cmp = a.category.localeCompare(b.category)
       return sortConfig.direction === 'asc' ? cmp : -cmp
     })
-
-    return result
-  })()
+  }, [pins, activeFolderId, activeChatId, activeTab, searchQuery, sortConfig])
 
   const visiblePins = filteredPins.map(p =>
     pinItemToKDS(
@@ -517,12 +523,13 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (isOrganizing) handleExitOrganize()
-      else              onClose()
+      if (showCreateFolderModal) { setShowCreateFolderModal(false); setModalFolderName('') }
+      else if (isOrganizing) handleExitOrganize()
+      else                   onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isOrganizing, onClose])
+  }, [showCreateFolderModal, isOrganizing, onClose])
 
   const personalFolders = folders.filter(f => !f.type || f.type === 'personal')
   const projectFolders  = folders.filter(f => f.type === 'project')
@@ -551,6 +558,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <>
     <div
       role="dialog"
       aria-modal="true"
@@ -679,32 +687,13 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                 {/* Your folders */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
                   <SectionLabel>Your folders</SectionLabel>
-                  {isCreatingFolder ? (
-                    <div style={{ padding: '0 2px' }}>
-                      <InputField
-                        ref={newFolderInputRef}
-                        value={newFolderName}
-                        onChange={setNewFolderName}
-                        onBlur={handleCreateFolder}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter')  handleCreateFolder()
-                          if (e.key === 'Escape') { setIsCreatingFolder(false); setNewFolderName('') }
-                        }}
-                        placeholder="Folder name"
-                        fluid
-                        size="small"
-                        aria-label="New folder name"
-                      />
-                    </div>
-                  ) : (
-                    <SidebarMenuItem
-                      variant="default"
-                      fluid
-                      label="New folder"
-                      icon={<FolderAddIcon size={20} />}
-                      onClick={() => setIsCreatingFolder(true)}
-                    />
-                  )}
+                  <SidebarMenuItem
+                    variant="default"
+                    fluid
+                    label="New folder"
+                    icon={<FolderAddIcon size={20} />}
+                    onClick={() => { setModalFolderName(''); setShowCreateFolderModal(true) }}
+                  />
                   {personalFolders.map(folder =>
                     editingFolderId === folder.id ? (
                       <div key={folder.id} style={{ padding: '0 2px' }}>
@@ -1133,15 +1122,15 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                               <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex} style={{ minWidth: 0 }}>
                                 <PinGridCell
                                   pin={p}
-                                  userTags={userTagsById[id] ?? []}
-                                  deletedLabelIndices={deletedLabelsById[id] ?? new Set()}
-                                  onAddTag={(text, color) => handlePinAddTag(id, text, color)}
-                                  onDeleteTag={(index, source) => handlePinDeleteTag(id, index, source)}
+                                  userTags={userTagsById[id] ?? EMPTY_TAGS}
+                                  deletedLabelIndices={deletedLabelsById[id] ?? EMPTY_SET}
+                                  onAddTag={handlePinAddTag}
+                                  onDeleteTag={handlePinDeleteTag}
                                   isOrganizing={isOrganizing}
                                   isSelected={selectedPinIds.has(id)}
                                   collapseSignal={collapseSignal}
-                                  onToggle={() => togglePin(id)}
-                                  onExpandedChange={handlePinExpandedChange(id)}
+                                  onToggle={togglePin}
+                                  onExpandedChange={handlePinExpandedChange}
                                 />
                               </EnterChunk>
                             )
@@ -1413,6 +1402,101 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
         )}
       </motion.div>
     </div>
+
+    {/* ── Create folder modal ─────────────────────────────────────────────── */}
+    {createPortal(
+      <AnimatePresence>
+        {showCreateFolderModal && (
+          <motion.div
+            key="create-folder-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => { setShowCreateFolderModal(false); setModalFolderName('') }}
+            style={{
+              position:        'fixed',
+              inset:           0,
+              zIndex:          9999,
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              backgroundColor: 'rgba(26,23,20,0.4)',
+              backdropFilter:  'blur(2px)',
+            }}
+          >
+            <motion.div
+              key="create-folder-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background:    'var(--neutral-white)',
+                borderRadius:  '20px',
+                boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+                width:         '360px',
+                maxWidth:      'calc(100vw - 32px)',
+                display:       'flex',
+                flexDirection: 'column',
+                overflow:      'hidden',
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px' }}>
+                <p style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 18, lineHeight: '26px', color: 'var(--neutral-900)' }}>
+                  New folder
+                </p>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close"
+                  onClick={() => { setShowCreateFolderModal(false); setModalFolderName('') }}
+                />
+              </div>
+              {/* Body */}
+              <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <InputField
+                  label="Folder name"
+                  showLabel
+                  placeholder="e.g. Research notes"
+                  value={modalFolderName}
+                  onChange={setModalFolderName}
+                  fluid
+                  autoFocus
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === 'Enter')  handleCreateFolder()
+                    if (e.key === 'Escape') { setShowCreateFolderModal(false); setModalFolderName('') }
+                  }}
+                  aria-label="Folder name"
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setShowCreateFolderModal(false); setModalFolderName('') }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={!modalFolderName.trim()}
+                    onClick={handleCreateFolder}
+                  >
+                    Create folder
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   )
 }
 
@@ -1507,13 +1591,13 @@ function SidebarFolderItem({
           >
             {confirmDelete ? (
               <>
-                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}>
                   Cancel
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { onDelete(); setConfirmDelete(false) }}
+                  onClick={(e) => { e.stopPropagation(); onDelete(); setConfirmDelete(false) }}
                 >
                   Delete
                 </Button>
@@ -1550,8 +1634,10 @@ function SidebarFolderItem({
 
 // ── PinGridCell ───────────────────────────────────────────────────────────────
 // Wraps a DS Pin with the organize-mode checkbox overlay.
+// Memoized so that scroll-induced parent re-renders (atTop/atBottom state)
+// don't cascade into every pin card.
 
-function PinGridCell({
+const PinGridCell = React.memo(function PinGridCell({
   pin,
   userTags,
   deletedLabelIndices,
@@ -1566,15 +1652,20 @@ function PinGridCell({
   pin:                 PinboardPin
   userTags:            { color: BadgeColor; text: string }[]
   deletedLabelIndices: Set<number>
-  onAddTag:            (text: string, color: BadgeColor) => void
-  onDeleteTag:         (index: number, source: 'label' | 'user') => void
+  onAddTag:            (pinId: string, text: string, color: BadgeColor) => void
+  onDeleteTag:         (pinId: string, index: number, source: 'label' | 'user') => void
   isOrganizing:        boolean
   isSelected:          boolean
   collapseSignal:      number
-  onToggle:            () => void
-  onExpandedChange?:   (expanded: boolean) => void
+  onToggle:            (pinId: string) => void
+  onExpandedChange?:   (pinId: string, expanded: boolean) => void
 }) {
   const { id, ...pinProps } = pin
+
+  const handleAddTag    = useCallback((text: string, color: BadgeColor) => onAddTag(id, text, color), [id, onAddTag])
+  const handleDeleteTag = useCallback((index: number, source: 'label' | 'user') => onDeleteTag(id, index, source), [id, onDeleteTag])
+  const handleToggle    = useCallback(() => onToggle(id), [id, onToggle])
+  const handleExpChange = useCallback((expanded: boolean) => onExpandedChange?.(id, expanded), [id, onExpandedChange])
 
   return (
     <div
@@ -1590,12 +1681,12 @@ function PinGridCell({
       <Pin
         fluid
         collapseSignal={collapseSignal}
-        onExpandedChange={onExpandedChange}
+        onExpandedChange={handleExpChange}
         tagsEditable
         userTags={userTags}
         deletedLabelIndices={deletedLabelIndices}
-        onAddTag={onAddTag}
-        onDeleteTag={onDeleteTag}
+        onAddTag={handleAddTag}
+        onDeleteTag={handleDeleteTag}
         style={{ pointerEvents: isOrganizing ? 'none' : 'auto' }}
         {...pinProps}
       />
@@ -1608,7 +1699,7 @@ function PinGridCell({
             animate={{ opacity: 1 }}
             exit={{   opacity: 0 }}
             transition={{ duration: 0.15 }}
-            onClick={onToggle}
+            onClick={handleToggle}
             style={{
               position:        'absolute',
               inset:           0,
@@ -1644,6 +1735,6 @@ function PinGridCell({
       </AnimatePresence>
     </div>
   )
-}
+})
 
 export default PinboardExpanded

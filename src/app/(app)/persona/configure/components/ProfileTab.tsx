@@ -520,6 +520,7 @@ export default function ProfileTab({
           {isMultilingual && isLangDropdownOpen && (
             <div
               ref={langDropdownRef}
+              className="kaya-scrollbar"
               style={{
                 border: "1px solid #d1c6bd",
                 borderRadius: 8,

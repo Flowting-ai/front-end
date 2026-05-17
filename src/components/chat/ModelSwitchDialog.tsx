@@ -124,7 +124,7 @@ export function ModelSwitchDialog({
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
                   <LlmIcon
                     id={getModelLlmId(fromModel.companyName, fromModel.modelName) ?? ""}
-                    variant="avatar"
+                    variant="color"
                     size={20}
                   />
                 </span>
@@ -148,7 +148,7 @@ export function ModelSwitchDialog({
                 <span style={{ lineHeight: 0, flexShrink: 0 }}>
                   <LlmIcon
                     id={getModelLlmId(toModel.companyName, toModel.modelName) ?? ""}
-                    variant="avatar"
+                    variant="color"
                     size={20}
                   />
                 </span>

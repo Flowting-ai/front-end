@@ -52,7 +52,7 @@ export function WizardShell({ steps, children }: WizardShellProps) {
   const router = useRouter()
 
   return (
-    <div style={{
+    <div className="kaya-scrollbar" style={{
       background: 'rgba(255,255,255,0.2)',
       border: '1px solid var(--neutral-200)',
       borderRadius: 22,

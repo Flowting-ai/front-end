@@ -161,7 +161,9 @@ export function AppLayout({
       </div>
 
       {/* ── Right sidebar (Pinboard) ── */}
-      <RightSidebar />
+      <Suspense fallback={null}>
+        <RightSidebar />
+      </Suspense>
 
       {/* ── Highlight sidebar ── */}
       <HighlightSidebar />

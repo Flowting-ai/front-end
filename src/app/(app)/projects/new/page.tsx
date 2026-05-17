@@ -29,6 +29,7 @@ export default function NewProjectPage() {
 
   return (
     <div
+      className="kaya-scrollbar"
       style={{
         display:       'flex',
         flexDirection: 'column',

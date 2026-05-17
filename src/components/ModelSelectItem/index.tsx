@@ -29,7 +29,7 @@ export interface ModelSelectItemProps extends React.HTMLAttributes<HTMLDivElemen
    * `@strange-huge/icons/llm` (e.g. `"Claude"`, `"OpenAI"`, `"Gemini"`,
    * `"Meta"`, `"Mistral"`, `"Perplexity"`, `"Grok"`, `"DeepSeek"`).
    *
-   * OpenAI uses `variant="color"` automatically; all others use `"avatar"`.
+   * All providers use `variant="color"`.
    *
    * If a needed id is missing from the registry, request that it be added to
    * `@strange-huge/icons` - never inline an SVG or fall back to a placeholder.
@@ -141,7 +141,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
     // and `overflow: hidden` (matching the original Figma design) so square
     // fills (e.g. Anthropic's solid-orange Claude tile) round their corners.
     const resolvedAvatar =
-      image ?? (llm ? <LlmIcon id={llm} variant={llm === 'OpenAI' ? 'color' : 'avatar'} size={18} /> : null)
+      image ?? (llm ? <LlmIcon id={llm} variant="color" size={18} /> : null)
     const resolvedImage = resolvedAvatar ? (
       <span
         style={{

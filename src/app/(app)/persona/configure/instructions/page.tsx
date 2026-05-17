@@ -303,7 +303,7 @@ function ModelDropdown({
           {selectedModel ? (
             <LlmIcon
               id={getModelLlmId(selectedModel.companyName, selectedModel.modelName) ?? ''}
-              variant="avatar"
+              variant="color"
               size={20}
             />
           ) : (
@@ -346,6 +346,7 @@ function ModelDropdown({
             animate={{ opacity: 1, scaleY: 1,    y:  0 }}
             exit={{    opacity: 0, scaleY: 0.9,  y: -4, transition: { duration: 0.1 } }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="kaya-scrollbar"
             style={{
               position:        'absolute',
               top:             'calc(100% + 4px)',
@@ -408,7 +409,7 @@ function ModelDropdown({
                       }}
                     >
                       <span style={{ flexShrink: 0, lineHeight: 0 }}>
-                        <LlmIcon id={getModelLlmId(m.companyName, m.modelName) ?? ''} variant="avatar" size={20} />
+                        <LlmIcon id={getModelLlmId(m.companyName, m.modelName) ?? ''} variant="color" size={20} />
                       </span>
                       <span
                         style={{

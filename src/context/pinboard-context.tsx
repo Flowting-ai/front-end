@@ -65,6 +65,8 @@ interface PinboardContextValue {
   updatePinFolder: (id: string, folderId: string | null, folderName?: string) => void;
   updatePinTags: (id: string, tags: string[]) => void;
   addFolder: (folder: PinFolderView) => void;
+  removeFolder: (folderId: string) => void;
+  renameFolder: (folderId: string, name: string) => void;
 }
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
@@ -248,6 +250,29 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const removeFolder = useCallback((folderId: string) => {
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    // Unassign any pins that lived in this folder so they appear as unorganized
+    setPins((prev) =>
+      prev.map((p) =>
+        p.folderId === folderId
+          ? { ...p, folderId: undefined, folderName: undefined }
+          : p,
+      ),
+    );
+  }, []);
+
+  const renameFolder = useCallback((folderId: string, name: string) => {
+    setFolders((prev) =>
+      prev.map((f) => (f.id === folderId ? { ...f, label: name } : f)),
+    );
+    setPins((prev) =>
+      prev.map((p) =>
+        p.folderId === folderId ? { ...p, folderName: name } : p,
+      ),
+    );
+  }, []);
+
   const updatePinCategory = useCallback((id: string, category: PinCategory) => {
     setPins((prev) => prev.map((p) => (p.id === id ? { ...p, category } : p)));
   }, []);
@@ -282,7 +307,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
         pins, folders, isLoading, isOpen,
         open, close, toggle,
         addPin, clonePin, removePin, removePinByMessage, isPinned,
-        updatePinCategory, updatePinFolder, updatePinTags, addFolder,
+        updatePinCategory, updatePinFolder, updatePinTags,
+        addFolder, removeFolder, renameFolder,
       }}
     >
       {children}

@@ -47,6 +47,7 @@ export function SettingsSidebar() {
 
   return (
     <div
+      className="kaya-scrollbar"
       style={{
         position:        'relative',
         display:         'flex',

@@ -174,6 +174,7 @@ export function PinMentionDropdown({
             ref={listRef}
             role="listbox"
             aria-label="Pins"
+            className="kaya-scrollbar"
             style={{
               flex: 1,
               overflowY: "auto",

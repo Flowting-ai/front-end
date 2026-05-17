@@ -465,7 +465,7 @@ function ToolPermissionsModal({
       />
 
       {/* Modal */}
-      <div style={{
+      <div className="kaya-scrollbar" style={{
         position:        'fixed',
         top:             '50%',
         left:            '50%',

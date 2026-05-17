@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   DashboardSquareOneIcon,
@@ -10,31 +10,19 @@ import {
   FolderLibraryIcon,
   DeleteTwoIcon,
   CancelOneIcon,
-  CancelCircleIcon,
-  SearchOneIcon,
   DownloadThreeIcon,
+  MoreVerticalIcon,
   FilterMailIcon,
   ArrowUpDownIcon,
-  UnfoldLessIcon,
-  // Same tab roster + icons as ModelSelector - kept identical so the two
-  // components stay visually consistent across the app.
-  TextIcon,
-  SourceCodeSquareIcon,
-  AiVisionRecognitionIcon,
-  ImageTwoIcon,
-  AudioWaveOneIcon,
-  GlobalSearchIcon,
+  PenOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
-import { Pin, type PinProps, type PinLabel } from '@/components/Pin'
-import type { BadgeColor } from '@/components/Badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
+import { Pin, type PinProps } from '@/components/Pin'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
-import { InputField } from '@/components/InputField'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT, type PinboardEnterAnimation } from '@/components/Pinboard/enterAnimation'
 import { cn } from '@/lib/utils'
 
@@ -57,14 +45,46 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
   personalFolders?: PinboardExpandedFolder[]
   projectFolders?:  PinboardExpandedFolder[]
   activeSidebarId?: string
-  activeTab?:       string
   onClose?:         () => void
   onOrganize?:      () => void
-  onCollapseAll?:   () => void
-  onSearchClick?:   () => void
-  onExportClick?:   () => void
-  onFilterClick?:   () => void
-  onSortClick?:     () => void
+  /**
+   * Called when the user clicks a sidebar item (All pins, This chat, or a
+   * folder row). Receives the item's id so the parent can update the active
+   * view and re-filter `pins` accordingly.
+   */
+  onSidebarItemClick?: (id: string) => void
+  /**
+   * Called when the user clicks the "New folder" sidebar item. The parent is
+   * responsible for prompting the user for a name and creating the folder.
+   */
+  onNewFolderClick?: () => void
+  /**
+   * Called when the user confirms a "Move to folder" action in organize mode.
+   * Receives the selected pin ids, target folder id, and folder label so the
+   * parent can persist the move and show a toast.
+   */
+  onMoveToFolder?: (pinIds: string[], folderId: string, folderLabel: string) => void
+  /**
+   * Called when the user clicks Delete in organize mode with pins selected.
+   * The parent is responsible for removing the pins and showing a toast.
+   */
+  onDeleteSelected?: (pinIds: string[]) => void
+  /** Called when the user clicks the Export button in the search row. */
+  onExport?:         () => void
+  /**
+   * Called when the user clicks Export in organize mode with pins selected.
+   */
+  onExportSelected?: (pinIds: string[]) => void
+  /**
+   * Called when the user clicks Rename on a folder's context menu.
+   * The parent is responsible for prompting for the new name and persisting.
+   */
+  onFolderRename?: (folderId: string, currentLabel: string) => void
+  /**
+   * Called when the user clicks Delete on a folder's context menu.
+   * The parent is responsible for removing the folder and showing a toast.
+   */
+  onFolderDelete?: (folderId: string) => void
   /**
    * First-paint stagger config - controls how the sidebar, header, tabs/cluster
    * row, and each pin-row in the grid fade in on mount. Defaults to
@@ -72,25 +92,26 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
    */
   enterAnimation?:  PinboardEnterAnimation
   /**
-   * Per-pin user-added tags, keyed by pin id. Lifted from Pinboard so the
-   * tags survive the compact ↔ expanded transition. Pin instances inside
-   * this view are rendered with `userTags={userTagsById[id] ?? []}` and
-   * `onAddTag` routed back through `onPinAddTag`.
+   * Called when the user types in the expanded search bar. The parent
+   * is responsible for filtering `pins` and passing the result back.
    */
-  userTagsById?:    Record<string, PinLabel[]>
+  onSearch?: (q: string) => void
   /**
-   * Per-pin set of original-array indices deleted from `labels`. Same lifting
-   * rationale as `userTagsById`. Threaded into Pin's `deletedLabelIndices`
-   * controlled prop.
+   * Contents of the Filter dropdown (Figma 3442:23357). Pass the same
+   * computed `filterMenu` node used in the compact Pinboard so the two
+   * views share filter state. Pass `null` to hide the filter button.
    */
-  deletedLabelsById?: Record<string, Set<number>>
-  /** Forwards to Pin's `onAddTag`. Receives the pin id as the first arg. */
-  onPinAddTag?:     (pinId: string, text: string, color: BadgeColor) => void
-  /** Forwards to Pin's `onDeleteTag`. Receives the pin id as the first arg. */
-  onPinDeleteTag?:  (pinId: string, index: number, source: 'label' | 'user') => void
+  filterMenu?: React.ReactNode | null
+  /** When `true`, renders the Filter button disabled instead of opening the dropdown. */
+  filterDisabled?: boolean
+  /**
+   * Contents of the Sort dropdown (Figma 3442:23366). Same sharing
+   * rationale as `filterMenu`. Pass `null` to hide the sort button.
+   */
+  sortMenu?: React.ReactNode | null
   /**
    * Pre-rendered active-filter chip bar (Figma 2603:16332). When present,
-   * mounts between the Tabs strip and the pin grid. State lives in the
+   * mounts between the header and the pin grid. State lives in the
    * parent `Pinboard` so toggles in compact persist into expanded and back.
    * Pass `null` / omit to suppress the bar.
    */
@@ -101,20 +122,6 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
    * replaced with "No pin match" centred copy instead of an empty grid.
    */
   hasActiveFilters?: boolean
-  /**
-   * Pre-rendered Filter dropdown contents. Pinboard owns the dropdown's
-   * data + selection state and threads the menu node here so the same
-   * `Tags / Category / Content type` submenus mount in the expanded
-   * variant. Pass `null` to opt out and revert to the bare-button +
-   * `onFilterClick` callback.
-   */
-  filterMenu?:      React.ReactNode | null
-  /**
-   * Pre-rendered Sort dropdown contents. Same threading rationale as
-   * `filterMenu`. Pass `null` to revert to the bare-button + `onSortClick`
-   * callback.
-   */
-  sortMenu?:        React.ReactNode | null
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -133,16 +140,6 @@ const DEFAULT_PROJECT_FOLDERS: PinboardExpandedFolder[] = [
   { id: 'project-a', label: 'Project A' },
   { id: 'project-c', label: 'Project C' },
   { id: 'project-b', label: 'Project B' },
-]
-
-// Pin filter tabs - Pinboard's own taxonomy (independent of ModelSelector).
-const CATEGORY_TABS = [
-  { value: 'text',   label: 'Text',   icon: <TextIcon                size={16} /> },
-  { value: 'code',   label: 'Code',   icon: <SourceCodeSquareIcon    size={16} /> },
-  { value: 'vision', label: 'Vision', icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: 'image',  label: 'Image',  icon: <ImageTwoIcon            size={16} /> },
-  { value: 'audio',  label: 'Audio',  icon: <AudioWaveOneIcon        size={16} /> },
-  { value: 'search', label: 'Search', icon: <GlobalSearchIcon        size={16} /> },
 ]
 
 // ── Sidebar section header ────────────────────────────────────────────────────
@@ -183,27 +180,27 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
       pins             = DEFAULT_PINS,
       title            = 'All pins',
       pinCount         = 32,
-      updatedLabel     = 'Updated 1 hour ago',
+      updatedLabel     = '',
       personalFolders  = DEFAULT_PERSONAL_FOLDERS,
       projectFolders   = DEFAULT_PROJECT_FOLDERS,
       activeSidebarId  = 'all-pins',
-      activeTab        = 'text',
       onClose,
       onOrganize,
-      onCollapseAll,
-      onSearchClick,
-      onExportClick,
-      onFilterClick,
       filterBar,
       hasActiveFilters = false,
+      onSidebarItemClick,
+      onNewFolderClick,
+      onMoveToFolder,
+      onDeleteSelected,
+      onExport,
+      onExportSelected,
+      onFolderRename,
+      onFolderDelete,
+      onSearch,
       filterMenu,
+      filterDisabled = false,
       sortMenu,
-      onSortClick,
       enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT,
-      userTagsById,
-      deletedLabelsById,
-      onPinAddTag,
-      onPinDeleteTag,
       style,
       className,
       ...props
@@ -213,31 +210,24 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     const scrollRef = useRef<HTMLDivElement>(null)
     const [atTop, setAtTop]       = useState(true)
     const [atBottom, setAtBottom] = useState(false)
-    const [searchOpen, setSearchOpen] = useState(false)
-    const [searchValue, setSearchValue] = useState('')
+    const [moveToFolderOpen,  setMoveToFolderOpen]  = useState(false)
+    const [openFolderMenuId,  setOpenFolderMenuId]  = useState<string | null>(null)
+    const [hoveredFolderId,   setHoveredFolderId]   = useState<string | null>(null)
+    const [expandedSearch,    setExpandedSearch]    = useState('')
+    const [filterMenuOpen,    setFilterMenuOpen]    = useState(false)
+    const [sortMenuOpen,      setSortMenuOpen]      = useState(false)
 
-    // NOTE: cluster siblings (search slot, Export, Filter, Sort) carry
-    // `layout` so they slide via Framer's projection system when
-    // collapse-all enters/exits or when the search slot opens/closes.
-    // The Tabs strip wrapper animates `width` directly (not `layout`) so
-    // its inner pills aren't transform-squeezed during the shrink. The
-    // earlier "no layout in this subtree" rule was tied to the
-    // compact↔expanded `transform: scale()` morph, which has been
-    // replaced with the portal modal's enter/exit zoom - that zoom
-    // settles before any pin interaction can flip `hasExpanded`, so
-    // layout projection here is safe again.
-
-    // Tabs strip ref - declared here, the effect that drives auto-scroll is
-    // defined below `hasExpanded` so it can depend on both signals.
-    const tabsContainerRef = useRef<HTMLDivElement>(null)
-    const [collapseSignal, setCollapseSignal] = useState(0)
-    const [expandedIds, setExpandedIds]       = useState<Set<string>>(() => new Set())
-    // Open state for the Filter / Sort dropdowns. Mirrors the compact
-    // `Pinboard`'s wiring so the same `Tags / Category / Content type`
-    // submenus and Sort options surface in this variant.
-    const [filterMenuOpen, setFilterMenuOpen] = useState(false)
-    const [sortMenuOpen,   setSortMenuOpen]   = useState(false)
-    const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
+    const folderListRef = useRef<HTMLDivElement>(null)
+    const [showFolderBlur, setShowFolderBlur] = useState(false)
+    useEffect(() => {
+      const el = folderListRef.current
+      if (!el) return
+      const update = () => setShowFolderBlur(el.scrollHeight - el.clientHeight > 4)
+      update()
+      const ro = new ResizeObserver(update)
+      ro.observe(el)
+      return () => ro.disconnect()
+    }, [personalFolders])
 
     // ── Organize mode (Figma 3457:24212) ───────────────────────────────────
     // Click "Organise" → enter Organize mode: tabs + secondary actions row
@@ -260,70 +250,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
         return out
       })
     }
-    const hasExpanded = expandedIds.size > 0
-
-    // Scroll the active tab into view whenever the Tabs wrapper width changes
-    // (i.e. when search opens/closes, or when the cluster grows because
-    // collapse-all entered). Without this the scrollLeft is technically
-    // preserved, but because the visible viewport shrinks/grows the active
-    // tab can fall out of view.
-    //
-    // We DON'T use `Element.scrollIntoView` here - it walks every scrolling
-    // ancestor up to the document, which means a docs page hosting multiple
-    // Pinboard stories visibly scrolled the whole page on mount whenever the
-    // active tab landed below the fold. Compute the offset against the strip
-    // and scroll the strip directly so the side-effect is fully contained.
-    useEffect(() => {
-      const root = tabsContainerRef.current
-      if (!root) return
-      // The actual horizontally-scrolling element is the TabsList (rendered
-      // inside the Tabs root). We find it via the closest scrollable ancestor
-      // of the active tab within `root`.
-      const active = root.querySelector<HTMLElement>('[data-state="active"]')
-      if (!active) return
-      let strip: HTMLElement | null = active.parentElement
-      while (strip && strip !== root && strip.scrollWidth <= strip.clientWidth) {
-        strip = strip.parentElement
-      }
-      if (!strip || strip === root.parentElement) strip = root
-      const stripRect = strip.getBoundingClientRect()
-      const tabRect   = active.getBoundingClientRect()
-      const overflowLeft  = stripRect.left  - tabRect.left
-      const overflowRight = tabRect.right   - stripRect.right
-      if (overflowLeft <= 0 && overflowRight <= 0) return
-      const target = overflowLeft > 0
-        ? strip.scrollLeft - overflowLeft
-        : strip.scrollLeft + overflowRight
-      strip.scrollTo({ left: target, behavior: 'smooth' })
-    }, [searchOpen, hasExpanded])
-
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
       const el = e.currentTarget
       setAtTop(el.scrollTop < 8)
       setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8)
     }
-
-    // ── Width animation - direct (NOT via transform) ──
-    //
-    // When the search button is clicked the search slot in the cluster
-    // expands to **276px** (the same width the compact PinboardHeader's
-    // search wrapper takes - `316 header - 32 close - 8 gap`). The slot is
-    // right-anchored within the cluster, so it grows LEFTWARD; Export,
-    // Filter and Sort stay put. The Tabs strip wrapper shrinks by the same
-    // amount, animated via `motion.div animate.width` so its descendants
-    // aren't scaled.
-    const CVW_WIDTH          = 644
-    const ICON_BUTTON_W      = 32
-    const ICON_BUTTON_GAP    = 4
-    const ROW_GAP            = 32
-    const SEARCH_OPEN_WIDTH  = 276
-    const buttonCount        = hasExpanded ? 5 : 4
-    const baseClusterWidth   = buttonCount * ICON_BUTTON_W + (buttonCount - 1) * ICON_BUTTON_GAP
-    const clusterWidth       = searchOpen
-      ? baseClusterWidth + (SEARCH_OPEN_WIDTH - ICON_BUTTON_W)
-      : baseClusterWidth
-    const tabsAreaWidth      = CVW_WIDTH - ROW_GAP - clusterWidth
-    const searchSlotWidth    = searchOpen ? SEARCH_OPEN_WIDTH : ICON_BUTTON_W
 
     // Recompute atTop / atBottom whenever the scroll container OR its content
     // changes size - same fix as compact Pinboard. Prevents the bottom edge
@@ -344,24 +275,10 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
       return () => ro.disconnect()
     }, [pins.length])
 
-    const handleCollapseAll = () => {
-      setCollapseSignal((s) => s + 1)
-      onCollapseAll?.()
-    }
-
-    const handlePinExpandedChange = useCallback(
-      (id: string) => (expanded: boolean) => {
-        setExpandedIds((prev) => {
-          const has = prev.has(id)
-          if (expanded === has) return prev
-          const next = new Set(prev)
-          if (expanded) next.add(id)
-          else next.delete(id)
-          return next
-        })
-      },
-      [],
-    )
+    const viewTitle =
+      activeSidebarId === 'all-pins' || activeSidebarId === 'all' ? 'All pins' :
+      activeSidebarId === 'this-chat' ? 'This chat pins' :
+      [...personalFolders, ...projectFolders].find(f => f.id === activeSidebarId)?.label ?? title
 
     return (
       <div
@@ -415,64 +332,218 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
           >
             {/* Sidebar inner - Figma 2565:35085 */}
             <div
-              className="kaya-scrollbar"
               style={{
-                display:             'flex',
-                flexDirection:       'column',
-                gap:                 4,
-                height:              '100%',
-                width:               240,
-                padding:             '8px 0',
-                overflowX:           'hidden',
-                overflowY:           'auto',
-                overscrollBehaviorY: 'contain',
-                flexShrink:          0,
+                display:       'flex',
+                flexDirection: 'column',
+                gap:           4,
+                height:        '100%',
+                width:         240,
+                padding:       '8px 0',
+                overflowX:     'hidden',
+                overflowY:     'hidden',
+                flexShrink:    0,
               }}
             >
               {/* Pinboard section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', flexShrink: 0 }}>
                 <SectionLabel>Pinboard</SectionLabel>
                 <SidebarMenuItem
                   label="All pins"
+                  fluid
                   icon={<DashboardSquareOneIcon size={20} />}
-                  data-active={activeSidebarId === 'all-pins'}
+                  selected={activeSidebarId === 'all-pins' || activeSidebarId === 'all'}
+                  onClick={() => onSidebarItemClick?.('all-pins')}
                 />
                 <SidebarMenuItem
                   label="This chat pins"
+                  fluid
                   icon={<ShapesOneIcon size={20} />}
-                  data-active={activeSidebarId === 'this-chat'}
+                  selected={activeSidebarId === 'this-chat'}
+                  onClick={() => onSidebarItemClick?.('this-chat')}
                 />
               </div>
 
               {/* Your folders */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
-                <SectionLabel>Your folders</SectionLabel>
-                <SidebarMenuItem
-                  label="New folder"
-                  icon={<FolderAddIcon size={20} />}
-                />
-                {personalFolders.map((f) => (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: '1 0 0', minHeight: 0, width: '100%' }}>
+                <div style={{ flexShrink: 0, padding: '8px 8px 4px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <SectionLabel>Your folders</SectionLabel>
                   <SidebarMenuItem
-                    key={f.id}
-                    label={f.label}
-                    icon={<FolderOneIcon size={20} variant="static" animated />}
-                    data-active={activeSidebarId === f.id}
+                    label="New folder"
+                    fluid
+                    icon={<FolderAddIcon size={20} />}
+                    onClick={onNewFolderClick}
                   />
+                </div>
+                <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    ref={folderListRef}
+                    className="kaya-scrollbar"
+                    style={{
+                      flex:                '1 0 0',
+                      minHeight:           0,
+                      overflowY:           'auto',
+                      overflowX:           'hidden',
+                      overscrollBehaviorY: 'contain',
+                      display:             'flex',
+                      flexDirection:       'column',
+                      gap:                 4,
+                      padding:             '0 8px 8px',
+                    }}
+                    onScroll={(e) => {
+                      const el = e.currentTarget
+                      setShowFolderBlur(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
+                    }}
+                  >
+                {personalFolders.map((f) => (
+                  <div
+                    key={f.id}
+                    style={{ position: 'relative', width: '100%' }}
+                    onMouseEnter={() => setHoveredFolderId(f.id)}
+                    onMouseLeave={() => setHoveredFolderId(null)}
+                  >
+                    <SidebarMenuItem
+                      label={f.label.length > 20 ? f.label.slice(0, 20) + '…' : f.label}
+                      fluid
+                      icon={<FolderOneIcon size={20} variant="static" animated />}
+                      selected={activeSidebarId === f.id}
+                      onClick={() => onSidebarItemClick?.(f.id)}
+                    />
+                    <div
+                      style={{
+                        position:      'absolute',
+                        right:         4,
+                        top:           '50%',
+                        transform:     'translateY(-50%)',
+                        zIndex:        1,
+                        opacity:       hoveredFolderId === f.id || openFolderMenuId === f.id ? 1 : 0,
+                        pointerEvents: hoveredFolderId === f.id || openFolderMenuId === f.id ? 'auto' : 'none',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Dropdown.Float
+                        open={openFolderMenuId === f.id}
+                        onOpenChange={(open) => setOpenFolderMenuId(open ? f.id : null)}
+                        placement="bottom-end"
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            icon={<MoreVerticalIcon size={16} animated />}
+                            aria-label={`Options for ${f.label}`}
+                          />
+                        }
+                      >
+                        <Dropdown>
+                          <Dropdown.Section fluid>
+                            <Dropdown.Item
+                              label="Rename"
+                              icon={<PenOneIcon size={16} animated />}
+                              onClick={() => {
+                                setOpenFolderMenuId(null)
+                                onFolderRename?.(f.id, f.label)
+                              }}
+                              fluid
+                            />
+                            <Dropdown.Item
+                              label="Delete"
+                              icon={<DeleteTwoIcon size={16} animated />}
+                              onClick={() => {
+                                setOpenFolderMenuId(null)
+                                onFolderDelete?.(f.id)
+                              }}
+                              fluid
+                            />
+                          </Dropdown.Section>
+                        </Dropdown>
+                      </Dropdown.Float>
+                    </div>
+                  </div>
                 ))}
+                  </div>
+                  {showFolderBlur && (
+                    <div style={{
+                      position:      'absolute',
+                      bottom:        0,
+                      left:          0,
+                      right:         0,
+                      height:        40,
+                      background:    'linear-gradient(to bottom, transparent, var(--color-surface-glass))',
+                      pointerEvents: 'none',
+                      zIndex:        1,
+                    }} />
+                  )}
+                </div>
               </div>
 
               {/* Project folders */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', overflow: 'hidden' }}>
+              {projectFolders.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: 8, width: '100%', flexShrink: 0 }}>
                 <SectionLabel>Project folders</SectionLabel>
                 {projectFolders.map((f) => (
-                  <SidebarMenuItem
+                  <div
                     key={f.id}
-                    label={f.label}
-                    icon={<FolderOneIcon size={20} variant="static" animated />}
-                    data-active={activeSidebarId === f.id}
-                  />
+                    style={{ position: 'relative', width: '100%' }}
+                    onMouseEnter={() => setHoveredFolderId(f.id)}
+                    onMouseLeave={() => setHoveredFolderId(null)}
+                  >
+                    <SidebarMenuItem
+                      label={f.label}
+                      fluid
+                      icon={<FolderOneIcon size={20} variant="static" animated />}
+                      selected={activeSidebarId === f.id}
+                      onClick={() => onSidebarItemClick?.(f.id)}
+                    />
+                    <div
+                      style={{
+                        position:      'absolute',
+                        right:         4,
+                        top:           '50%',
+                        transform:     'translateY(-50%)',
+                        zIndex:        1,
+                        opacity:       hoveredFolderId === f.id || openFolderMenuId === f.id ? 1 : 0,
+                        pointerEvents: hoveredFolderId === f.id || openFolderMenuId === f.id ? 'auto' : 'none',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Dropdown.Float
+                        open={openFolderMenuId === f.id}
+                        onOpenChange={(open) => setOpenFolderMenuId(open ? f.id : null)}
+                        placement="bottom-end"
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            icon={<MoreVerticalIcon size={16} animated />}
+                            aria-label={`Options for ${f.label}`}
+                          />
+                        }
+                      >
+                        <Dropdown>
+                          <Dropdown.Section fluid>
+                            <Dropdown.Item
+                              label="Rename"
+                              onClick={() => {
+                                setOpenFolderMenuId(null)
+                                onFolderRename?.(f.id, f.label)
+                              }}
+                              fluid
+                            />
+                            <Dropdown.Item
+                              label="Delete"
+                              onClick={() => {
+                                setOpenFolderMenuId(null)
+                                onFolderDelete?.(f.id)
+                              }}
+                              fluid
+                            />
+                          </Dropdown.Section>
+                        </Dropdown>
+                      </Dropdown.Float>
+                    </div>
+                  </div>
                 ))}
               </div>
+              )}
             </div>
           </div>
         </EnterChunk>
@@ -549,29 +620,38 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   }}
                 >
                   {/* Title - Figma 2579:35173. pl-[4px], font Besley regular 24/32 */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4, width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: 4, width: '100%', overflow: 'hidden' }}>
                     <p
                       style={{
-                        flex:         '1 0 0',
-                        minWidth:     1,
-                        margin:       0,
-                        fontFamily:   'var(--font-title)',
-                        fontWeight:   400,
-                        fontSize:     24,
-                        lineHeight:   '32px',
-                        color:        'var(--neutral-900)',
-                        whiteSpace:   'nowrap',
-                        overflow:     'hidden',
-                        textOverflow: 'ellipsis',
+                        flex:       '1 0 0',
+                        minWidth:   1,
+                        margin:     0,
+                        fontFamily: 'var(--font-title)',
+                        fontWeight: 400,
+                        fontSize:   24,
+                        lineHeight: '32px',
+                        color:      'var(--neutral-900)',
+                        overflow:   'hidden',
                       }}
                     >
-                      {title}
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={activeSidebarId}
+                          initial={{ opacity: 0, filter: 'blur(4px)' }}
+                          animate={{ opacity: 1, filter: 'blur(0px)' }}
+                          exit={{    opacity: 0, filter: 'blur(4px)' }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
+                          {viewTitle}
+                        </motion.span>
+                      </AnimatePresence>
                     </p>
                   </div>
                   {/* Pin count + update info - Figma 2579:35146 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                     <Badge color="Neutral" label={`${pinCount} pins`} />
-                    <Badge color="Neutral" label={updatedLabel} />
+                    {updatedLabel && <Badge color="Neutral" label={updatedLabel} />}
                   </div>
                 </div>
 
@@ -623,296 +703,129 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   width:          '100%',
                 }}
               >
-                {/* Tabs Container - Figma 2565:34112. gap-[100px] (constant,
-                    so the wrapper width stays the same whether search is
-                    open or not - matches compact PinboardHeader's search
-                    width).
-                    EnterChunk index={2} - staggers in after the header. */}
+                {/* ── Search + Filter + Sort row (EnterChunk index 1.5) ──
+                    Sits where the tab bar previously lived, above the
+                    organize-mode action row. Search calls `onSearch` so the
+                    parent can re-filter `pins`; filter/sort menus are the
+                    same nodes used in compact Pinboard (shared state). ── */}
+                <EnterChunk
+                  cfg={enterAnimation}
+                  index={1.5}
+                  style={{
+                    display:    'flex',
+                    alignItems: 'center',
+                    gap:        8,
+                    width:      '100%',
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* Search input */}
+                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                    <input
+                      type="text"
+                      value={expandedSearch}
+                      onChange={(e) => {
+                        setExpandedSearch(e.target.value)
+                        onSearch?.(e.target.value)
+                      }}
+                      placeholder="Search pins..."
+                      spellCheck={false}
+                      autoComplete="off"
+                      style={{
+                        display:      'block',
+                        width:        '100%',
+                        padding:      '7px 10px',
+                        borderRadius: 10,
+                        border:       'none',
+                        outline:      'none',
+                        background:   'var(--neutral-white)',
+                        boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                        fontFamily:   'var(--font-body)',
+                        fontWeight:   'var(--font-weight-regular)',
+                        fontSize:     'var(--font-size-body)',
+                        lineHeight:   'var(--line-height-body)',
+                        color:        'var(--neutral-700)',
+                        boxSizing:    'border-box',
+                      }}
+                    />
+                  </div>
+                  {/* Filter dropdown */}
+                  {filterDisabled ? (
+                    <Tooltip content="Filter">
+                      <IconButton
+                        variant="secondary"
+                        size="sm"
+                        icon={<FilterMailIcon size={20} />}
+                        aria-label="Filter pins"
+                        disabled
+                      />
+                    </Tooltip>
+                  ) : filterMenu != null ? (
+                    <Dropdown.Float
+                      open={filterMenuOpen}
+                      onOpenChange={setFilterMenuOpen}
+                      placement="bottom-end"
+                      trigger={
+                        <Tooltip content="Filter">
+                          <IconButton
+                            variant="secondary"
+                            size="sm"
+                            icon={<FilterMailIcon size={20} />}
+                            aria-label="Filter pins"
+                          />
+                        </Tooltip>
+                      }
+                    >
+                      {filterMenu}
+                    </Dropdown.Float>
+                  ) : null}
+                  {/* Sort dropdown */}
+                  {sortMenu != null && (
+                    <Dropdown.Float
+                      open={sortMenuOpen}
+                      onOpenChange={setSortMenuOpen}
+                      placement="bottom-end"
+                      trigger={
+                        <Tooltip content="Sort">
+                          <IconButton
+                            variant="secondary"
+                            size="sm"
+                            icon={<ArrowUpDownIcon size={20} />}
+                            aria-label="Sort pins"
+                          />
+                        </Tooltip>
+                      }
+                    >
+                      {sortMenu}
+                    </Dropdown.Float>
+                  )}
+                  {/* Export */}
+                  {onExport && (
+                    <Tooltip content="Export">
+                      <IconButton
+                        variant="secondary"
+                        size="sm"
+                        icon={<DownloadThreeIcon size={20} />}
+                        aria-label="Export pins"
+                        onClick={onExport}
+                      />
+                    </Tooltip>
+                  )}
+                </EnterChunk>
+
+                {/* Organize action row — mounts only during organize mode. */}
                 <EnterChunk
                   cfg={enterAnimation}
                   index={2}
                   style={{
-                    display:        'flex',
-                    alignItems:     'center',
-                    gap:            ROW_GAP,
-                    width:          '100%',
-                    flexShrink:     0,
-                    position:       'relative',
+                    display:    'flex',
+                    alignItems: 'center',
+                    width:      '100%',
+                    flexShrink: 0,
+                    position:   'relative',
                   }}
                 >
-                  {/* Tabs / secondary-actions row - fades out when isOrganizing.
-                      Wrapped so the Organize action row (Move/Export/Delete +
-                      Done) can crossfade into the same slot. KDS standard
-                      preset: scale 0.95 + opacity + blur, spring 500/30. */}
                   <AnimatePresence initial={false} mode="popLayout">
-                  {!isOrganizing && (
-                  <motion.div
-                    key="tabs-row"
-                    initial={{ opacity: 0, scale: 0.97, filter: 'blur(4px)' }}
-                    animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)' }}
-                    exit={{    opacity: 0, scale: 0.97, filter: 'blur(4px)' }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    style={{
-                      display:    'flex',
-                      alignItems: 'center',
-                      gap:        ROW_GAP,
-                      width:      '100%',
-                      flexShrink: 0,
-                    }}
-                  >
-                  {/* Tabs / Search input - Figma 2565:34113.
-                      Width snaps via `style.width`; no projection - Tabs sits
-                      at row-start and its position is invariant on every
-                      toggle (`searchOpen`, `hasExpanded`). The visual softness
-                      of the search-open transition is carried entirely by the
-                      button↔input cross-fade inside the search slot, matching
-                      compact `PinboardHeader`. */}
-                  <div
-                    ref={tabsContainerRef}
-                    style={{
-                      // Hug the Tabs content. Cap at `tabsAreaWidth` so the
-                      // strip can scroll if it ever overflows the available
-                      // row space, but at rest the wrapper sits at content
-                      // width - no empty trailing area.
-                      flex:       '0 0 auto',
-                      minWidth:   1,
-                      maxWidth:   tabsAreaWidth,
-                      padding:    '1px 0 1px 1px',
-                      overflow:   'hidden',
-                      width:      'fit-content',
-                    }}
-                  >
-                    <Tabs defaultValue={activeTab}>
-                      <TabsList size="small" scrollable>
-                        {CATEGORY_TABS.map((t) => (
-                          <TabsTrigger key={t.value} value={t.value} icon={t.icon}>
-                            {t.label}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </Tabs>
-                  </div>
-
-                  {/* Secondary Actions - Figma 2565:34115. gap-[4px], 4 ghost
-                      icon buttons at sm (32x32) with 20px icons.
-
-                      Order: Search → Export → [collapse-all conditional] →
-                      Filter → Sort.
-
-                      Layout pattern: the cluster uses `justify-content:
-                      flex-end` so it's right-anchored. Each wrapper is a
-                      `motion.span/div layout` - when collapse-all enters
-                      or exits (`hasExpanded` toggles), Framer's projection
-                      system slides the siblings to their new flex-flow
-                      positions via a spring (stiffness 500, damping 32).
-                      The Search-slot wrapper additionally carries
-                      `layoutDependency={hasExpanded}` so the 32→276 px
-                      width change on `searchOpen` toggle SNAPS via
-                      `style.width` (not projected as a transform), matching
-                      compact `PinboardHeader`'s flex-driven snap. Tabs to
-                      the left snaps too - see plain `<div>` above. */}
-                  <div
-                    style={{
-                      display:        'flex',
-                      alignItems:     'center',
-                      justifyContent: 'flex-end',
-                      gap:            4,
-                      flexShrink:     0,
-                      marginLeft:     'auto',
-                    }}
-                  >
-                    {/* Search slot - snaps from 32 px (button) to 276 px
-                        (input) on `searchOpen` toggle (matches compact
-                        PinboardHeader's flex-driven snap). The button↔input
-                        cross-fade inside is what carries the visual
-                        transition. Cluster reflow on collapse-all
-                        (`hasExpanded` toggle) still slides via `layout`
-                        projection at spring(500, 32) - gated by
-                        `layoutDependency={hasExpanded}` so the search-width
-                        change is invisible to the projection system and
-                        does NOT animate as a transform. */}
-                    <Tooltip content="Search" disabled={searchOpen}>
-                      <motion.div
-                        layout
-                        layoutDependency={hasExpanded}
-                        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                        style={{
-                          display:     'flex',
-                          alignItems:  'center',
-                          flexShrink:  0,
-                          minWidth:    0,
-                          width:       searchSlotWidth,
-                        }}
-                      >
-                        <AnimatePresence initial={false} mode="popLayout">
-                          {!searchOpen ? (
-                            <motion.span
-                              key="search-btn"
-                              layout
-                              initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
-                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
-                              exit={{    opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
-                              style={{ display: 'inline-flex', flexShrink: 0 }}
-                            >
-                              <IconButton
-                                variant="ghost"
-                                size="sm"
-                                icon={<SearchOneIcon size={20} />}
-                                aria-label="Open search"
-                                onClick={() => {
-                                  setSearchOpen(true)
-                                  onSearchClick?.()
-                                }}
-                              />
-                            </motion.span>
-                          ) : (
-                            <motion.div
-                              key="search-input"
-                              initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
-                              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
-                              exit={{    opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
-                              style={{ flex: '1 0 0', minWidth: 0 }}
-                            >
-                              <InputField
-                                fluid
-                                size="small"
-                                showLabel={false}
-                                showSubtitle={false}
-                                label="Search pins"
-                                leftIcon={<SearchOneIcon size={16} />}
-                                rightIcon={
-                                  <span
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-label="Close search"
-                                    onClick={() => {
-                                      setSearchOpen(false)
-                                      setSearchValue('')
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' || e.key === ' ') {
-                                        setSearchOpen(false)
-                                        setSearchValue('')
-                                      }
-                                    }}
-                                    style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
-                                  >
-                                    <CancelCircleIcon size={16} />
-                                  </span>
-                                }
-                                placeholder="Search for your pin..."
-                                value={searchValue}
-                                onChange={setSearchValue}
-                                autoFocus
-                                aria-label="Search pins"
-                              />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    </Tooltip>
-                    <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
-                      <Tooltip content="Export">
-                        <IconButton
-                          variant="ghost"
-                          size="sm"
-                          icon={<DownloadThreeIcon size={20} />}
-                          aria-label="Export pins"
-                          onClick={onExportClick}
-                        />
-                      </Tooltip>
-                    </motion.div>
-                    <AnimatePresence initial={false} mode="popLayout">
-                      {hasExpanded && (
-                        <motion.span
-                          key="collapse-all"
-                          initial={{ opacity: 0, scale: 0.6 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{    opacity: 0, scale: 0.6 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                          style={{ display: 'inline-flex' }}
-                        >
-                          <Tooltip content="Collapse all Pins">
-                            <IconButton
-                              variant="ghost"
-                              size="sm"
-                              icon={<UnfoldLessIcon size={20} />}
-                              aria-label="Collapse open pins"
-                              onClick={handleCollapseAll}
-                            />
-                          </Tooltip>
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    <motion.span layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
-                      {filterMenu != null ? (
-                        // Filter dropdown - same content as the compact
-                        // variant (Pinboard threads the menu down via the
-                        // `filterMenu` prop). `bottom-end` so the panel
-                        // opens below and right-aligns with the trigger.
-                        <Dropdown.Float
-                          open={filterMenuOpen}
-                          onOpenChange={setFilterMenuOpen}
-                          placement="bottom-end"
-                          trigger={
-                            <Tooltip content="Filter">
-                              <IconButton
-                                variant="ghost"
-                                size="sm"
-                                icon={<FilterMailIcon size={20} />}
-                                aria-label="Filter pins"
-                              />
-                            </Tooltip>
-                          }
-                        >
-                          {filterMenu}
-                        </Dropdown.Float>
-                      ) : (
-                        <Tooltip content="Filter">
-                          <IconButton
-                            variant="ghost"
-                            size="sm"
-                            icon={<FilterMailIcon size={20} />}
-                            aria-label="Filter pins"
-                            onClick={onFilterClick}
-                          />
-                        </Tooltip>
-                      )}
-                    </motion.span>
-                    <motion.span layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
-                      {sortMenu != null ? (
-                        <Dropdown.Float
-                          open={sortMenuOpen}
-                          onOpenChange={setSortMenuOpen}
-                          placement="bottom-end"
-                          trigger={
-                            <Tooltip content="Sort">
-                              <IconButton
-                                variant="ghost"
-                                size="sm"
-                                icon={<ArrowUpDownIcon size={20} />}
-                                aria-label="Sort pins"
-                              />
-                            </Tooltip>
-                          }
-                        >
-                          {sortMenu}
-                        </Dropdown.Float>
-                      ) : (
-                        <Tooltip content="Sort">
-                          <IconButton
-                            variant="ghost"
-                            size="sm"
-                            icon={<ArrowUpDownIcon size={20} />}
-                            aria-label="Sort pins"
-                            onClick={onSortClick}
-                          />
-                        </Tooltip>
-                      )}
-                    </motion.span>
-                  </div>
-                  </motion.div>
-                  )}
 
                   {/* Organize action row - fades in when isOrganizing.
                       Figma 3457:24212. Move to folder + Export + Delete on
@@ -961,7 +874,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                     key={f.id}
                                     label={f.label}
                                     icon={<FolderOneIcon variant="static" animated />}
-                                    onClick={() => setMoveToFolderOpen(false)}
+                                    onClick={() => {
+                                      onMoveToFolder?.([...selectedPinIds], f.id, f.label)
+                                      setMoveToFolderOpen(false)
+                                      setSelectedPinIds(new Set())
+                                    }}
                                     fluid
                                   />
                                 ))}
@@ -974,7 +891,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                     key={f.id}
                                     label={f.label}
                                     icon={<FolderOneIcon variant="static" animated />}
-                                    onClick={() => setMoveToFolderOpen(false)}
+                                    onClick={() => {
+                                      onMoveToFolder?.([...selectedPinIds], f.id, f.label)
+                                      setMoveToFolderOpen(false)
+                                      setSelectedPinIds(new Set())
+                                    }}
                                     fluid
                                   />
                                 ))}
@@ -987,6 +908,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                           size="sm"
                           leftIcon={<DownloadThreeIcon size={16} />}
                           disabled={selectedPinIds.size === 0}
+                          onClick={() => onExportSelected?.([...selectedPinIds])}
                         >
                           Export
                         </Button>
@@ -995,6 +917,10 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                           size="sm"
                           leftIcon={<DeleteTwoIcon size={16} />}
                           disabled={selectedPinIds.size === 0}
+                          onClick={() => {
+                            onDeleteSelected?.([...selectedPinIds])
+                            handleOrganizeDone()
+                          }}
                         >
                           Delete
                         </Button>
@@ -1144,24 +1070,9 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                             return (
                               <EnterChunk key={id} cfg={enterAnimation} index={chunkIndex}>
                                 <Pin
-                                  collapseSignal={collapseSignal}
-                                  onExpandedChange={handlePinExpandedChange(id)}
-                                  tagsEditable
-                                  userTags={userTagsById?.[id] ?? []}
-                                  deletedLabelIndices={deletedLabelsById?.[id]}
                                   selectable={isOrganizing}
                                   selected={selectedPinIds.has(id)}
                                   onSelectedChange={(next) => togglePinSelected(id, next)}
-                                  onAddTag={
-                                    onPinAddTag
-                                      ? (text, color) => onPinAddTag(id, text, color)
-                                      : undefined
-                                  }
-                                  onDeleteTag={
-                                    onPinDeleteTag
-                                      ? (index, source) => onPinDeleteTag(id, index, source)
-                                      : undefined
-                                  }
                                   {...pinRest}
                                 />
                               </EnterChunk>

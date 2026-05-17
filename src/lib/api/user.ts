@@ -3,6 +3,7 @@
 import {
   STRIPE_CHECKOUT_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
+  STRIPE_TOPUP_ENDPOINT,
   USER_CREATE_ENDPOINT,
   USER_ENDPOINT,
   USER_ONBOARDING_ENDPOINT,
@@ -204,6 +205,10 @@ export interface CheckoutSessionResponse {
   session_id: string;
 }
 
+export interface TopUpSessionResponse {
+  checkout_url: string;
+}
+
 export interface UpdateSubscriptionResponse {
   status: string;
   new_plan: UserPlanType;
@@ -307,6 +312,21 @@ export async function updateSubscriptionPlan(
   }
 
   return data as UpdateSubscriptionResult;
+}
+
+export async function createTopUpSession(amount_usd: number): Promise<TopUpSessionResponse> {
+  const response = await apiFetch(STRIPE_TOPUP_ENDPOINT, {
+    method: "POST",
+    body: JSON.stringify({ amount_usd }),
+  });
+
+  const data = (await response.json()) as TopUpSessionResponse | { error?: string };
+
+  if (!response.ok || !("checkout_url" in data)) {
+    throw new Error(("error" in data && data.error) || "Failed to create top-up session.");
+  }
+
+  return data as TopUpSessionResponse;
 }
 
 export async function cancelSubscription(): Promise<{ status: string }> {

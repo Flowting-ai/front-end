@@ -1,13 +1,21 @@
 "use client"
 
-import React, { useCallback, useMemo, useRef, useState } from "react"
-import { motion } from "framer-motion"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { usePathname, useSearchParams } from "next/navigation"
+import { createPortal } from "react-dom"
+import { motion, AnimatePresence } from "framer-motion"
+import { CancelOneIcon } from "@strange-huge/icons"
 import { usePinboard, type PinItem, type PinCategory, type PinComment } from "@/context/pinboard-context"
 import { useChatHistoryContext } from "@/context/chat-history-context"
 import { Pinboard, type PinboardPin } from "@/components/Pinboard"
 import { PinboardSkeleton } from "@/components/PinboardSkeleton"
 import type { PinboardExpandedFolder } from "@/components/PinboardExpanded"
 import { exportSinglePin, exportPins } from "@/lib/export-pins"
+import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
+import { Button } from "@/components/Button"
+import { IconButton } from "@/components/IconButton"
+import { InputField } from "@/components/InputField"
+import { toast } from "sonner"
 import type { BadgeColor } from "@/components/Badge"
 
 // ── Category → badge color ────────────────────────────────────────────────────
@@ -23,6 +31,17 @@ const CATEGORY_COLOR: Record<PinCategory, BadgeColor> = {
 }
 
 const TAG_COLORS: BadgeColor[] = ["Blue", "Green", "Purple", "Yellow", "Red", "Neutral", "Brown"]
+
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60) return "Updated just now"
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`
+  const days = Math.floor(hours / 24)
+  return `Updated ${days} day${days === 1 ? "" : "s"} ago`
+}
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -66,13 +85,170 @@ function toPinboardPin(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RightSidebar() {
-  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin } = usePinboard()
+  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder } = usePinboard()
   const { chats } = useChatHistoryContext()
+
+  // Derive active chat ID from URL — same dual-pattern logic as FloatingPanel.
+  // Regular chat: /chat?id={chatId}  |  Project chat: /project/[id]/chat/[chatId]
+  const pathname     = usePathname()
+  const searchParams = useSearchParams()
+  const currentChatId = (() => {
+    const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
+    if (m) return m[1]
+    return searchParams.get("id") ?? undefined
+  })()
 
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
   const [searchQuery,    setSearchQuery]    = useState("")
-  const [sortOrder,      setSortOrder]      = useState<"newest" | "oldest">("newest")
+  const [sortOrder,      setSortOrder]      = useState<string>("newest")
+  const [selectedViewId,   setSelectedViewId]   = useState<string>("all")
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+
+  // ── Last-activity tracking for dynamic updatedLabel ───────────────────────
+  const [lastActivityAt, setLastActivityAt] = useState<Date | null>(null)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!lastActivityAt) return
+    const id = setInterval(() => setTick((t) => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [lastActivityAt])
+
+  const updatedLabel = lastActivityAt ? formatTimeAgo(lastActivityAt) : ""
+
+  // ── Create folder modal ────────────────────────────────────────────────────
+  const [showFolderModal, setShowFolderModal] = useState(false)
+  const [folderModalName, setFolderModalName] = useState("")
+
+  const handleCreateFolder = async () => {
+    const name = folderModalName.trim()
+    setShowFolderModal(false)
+    setFolderModalName("")
+    if (!name) return
+    const existingNames = contextFolders.map((f) => f.label)
+    const error = validateFolderName(name, existingNames)
+    if (error) { toast.error(error); return }
+    try {
+      const created = await createPinFolder(name)
+      addFolder({ id: created.id, label: created.name })
+      toast(`Folder "${created.name}" created`)
+      setLastActivityAt(new Date())
+    } catch {
+      toast.error("Failed to create folder.")
+    }
+  }
+
+  // ── Organize-mode handlers ────────────────────────────────────────────────
+  const handleMoveToFolder = useCallback(
+    async (pinIds: string[], folderId: string, folderLabel: string) => {
+      // Snapshot current folder state for rollback on failure
+      const snapshot = new Map(
+        pinIds.map((id) => {
+          const pin = pins.find((p) => p.id === id)
+          return [id, { folderId: pin?.folderId ?? null, folderName: pin?.folderName }] as const
+        }),
+      )
+      // Optimistic update
+      for (const id of pinIds) updatePinFolder(id, folderId, folderLabel)
+      try {
+        await Promise.all(pinIds.map((id) => movePinToFolder(id, folderId)))
+        const count = pinIds.length
+        toast(count === 1 ? `Moved to ${folderLabel}` : `Moved ${count} pins to ${folderLabel}`)
+        setLastActivityAt(new Date())
+      } catch {
+        // Rollback on failure
+        for (const id of pinIds) {
+          const prev = snapshot.get(id)
+          if (prev) updatePinFolder(id, prev.folderId, prev.folderName)
+        }
+        toast.error("Failed to move pins to folder.")
+      }
+    },
+    [pins, updatePinFolder],
+  )
+
+  const handleDeleteSelected = useCallback(
+    (pinIds: string[]) => {
+      for (const id of pinIds) removePin(id)
+      const count = pinIds.length
+      toast(count === 1 ? "Pin deleted" : `Deleted ${count} pins`)
+      setLastActivityAt(new Date())
+    },
+    [removePin],
+  )
+
+  const handleExportSelected = useCallback(
+    (pinIds: string[]) => {
+      const toExport = filteredRawRef.current.filter((p) => pinIds.includes(p.id))
+      exportPins(toExport, chatNameByIdRef.current)
+    },
+    [],
+  )
+
+  // ── Folder delete (two-step: request → confirm modal → API) ─────────────
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [deleteFolderTarget,     setDeleteFolderTarget]     = useState<{ id: string; label: string } | null>(null)
+
+  const handleFolderDelete = useCallback(
+    (folderId: string) => {
+      const folder = contextFolders.find((f) => f.id === folderId)
+      setDeleteFolderTarget(folder
+        ? { id: folder.id, label: folder.label }
+        : { id: folderId, label: "Folder" })
+      setShowDeleteConfirmModal(true)
+    },
+    [contextFolders],
+  )
+
+  const handleConfirmDelete = async () => {
+    if (!deleteFolderTarget) return
+    const { id, label } = deleteFolderTarget
+    setShowDeleteConfirmModal(false)
+    setDeleteFolderTarget(null)
+    try {
+      await deletePinFolder(id)
+      removeFolder(id)
+      toast(`"${label}" deleted`)
+      setLastActivityAt(new Date())
+    } catch {
+      toast.error("Failed to delete folder.")
+    }
+  }
+
+  // ── Folder rename modal ───────────────────────────────────────────────────
+  const [showRenameModal,      setShowRenameModal]      = useState(false)
+  const [renameFolderTarget,   setRenameFolderTarget]   = useState<{ id: string; label: string } | null>(null)
+  const [renameModalName,      setRenameModalName]      = useState("")
+
+  const handleFolderRename = useCallback(
+    (folderId: string, currentLabel: string) => {
+      setRenameFolderTarget({ id: folderId, label: currentLabel })
+      setRenameModalName(currentLabel)
+      setShowRenameModal(true)
+    },
+    [],
+  )
+
+  const handleConfirmRename = async () => {
+    const name = renameModalName.trim()
+    setShowRenameModal(false)
+    setRenameFolderTarget(null)
+    setRenameModalName("")
+    if (!name || !renameFolderTarget) return
+    const existingNames = contextFolders
+      .filter((f) => f.id !== renameFolderTarget.id)
+      .map((f) => f.label)
+    const error = validateFolderName(name, existingNames)
+    if (error) { toast.error(error); return }
+    try {
+      await renamePinFolder(renameFolderTarget.id, name)
+      renameFolder(renameFolderTarget.id, name)
+      toast(`Folder renamed to "${name}"`)
+      setLastActivityAt(new Date())
+    } catch {
+      toast.error("Failed to rename folder.")
+    }
+  }
 
   // Convert context folders to PinboardExpandedFolder shape
   const folders = useMemo(
@@ -80,10 +256,7 @@ export function RightSidebar() {
     [contextFolders],
   )
 
-  // Suppress unused-variable warnings for filter/sort state until dropdowns ship
   void setCategoryFilter
-  void setSortOrder
-  void sortOrder
 
   const chatNameById = useMemo((): Map<string, string> => {
     const map = new Map<string, string>()
@@ -92,6 +265,7 @@ export function RightSidebar() {
   }, [chats])
 
   const handleViewChange = useCallback((viewId: string) => {
+    setSelectedViewId(viewId)
     const isFolder = contextFolders.some((f) => f.id === viewId)
     setSelectedFolderId(isFolder ? viewId : null)
   }, [contextFolders])
@@ -131,7 +305,18 @@ export function RightSidebar() {
   // ── Single filtered+mapped memo (replaces two separate memos) ───────────
   const filteredPins = useMemo((): PinboardPin[] => {
     let result = pins
-    if (selectedFolderId)       result = result.filter((p) => p.folderId === selectedFolderId)
+
+    // View filter: "this-chat" shows only pins from the currently open chat.
+    // Folder views filter by folder assignment. All other views (all, recent)
+    // show the full list and let the sort/search narrow it further.
+    if (selectedViewId === "this-chat") {
+      result = currentChatId
+        ? result.filter((p) => p.chatId === currentChatId)
+        : []
+    } else if (selectedFolderId) {
+      result = result.filter((p) => p.folderId === selectedFolderId)
+    }
+
     if (categoryFilter !== "All") result = result.filter((p) => p.category === categoryFilter)
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -139,7 +324,20 @@ export function RightSidebar() {
         (p) => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q),
       )
     }
-    if (sortOrder === "oldest") result = [...result].reverse()
+    if (sortOrder === "oldest") {
+      result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    } else if (sortOrder === "most-used") {
+      result = [...result].sort((a, b) =>
+        (b.comments?.length ?? 0) - (a.comments?.length ?? 0) ||
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+    } else if (sortOrder === "alphabetical") {
+      result = [...result].sort((a, b) => a.title.localeCompare(b.title))
+    } else if (sortOrder === "reverse-alphabetical") {
+      result = [...result].sort((a, b) => b.title.localeCompare(a.title))
+    } else {
+      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
 
     // Keep raw ref current for bulk export + per-pin export handlers.
     // Side-effectful inside useMemo is safe here because filteredRawRef is
@@ -156,9 +354,10 @@ export function RightSidebar() {
       const h = getHandlers(p.id)
       return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate)
     })
-  }, [pins, selectedFolderId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
+  }, [pins, selectedViewId, selectedFolderId, currentChatId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
 
   return (
+    <>
     <motion.div
       animate={isOpen ? { width: 332, opacity: 1 } : { width: 0, opacity: 0 }}
       initial={{ width: 0, opacity: 0 }}
@@ -187,11 +386,262 @@ export function RightSidebar() {
             personalFolders={folders}
             onSearch={setSearchQuery}
             onClose={close}
+            filterDisabled
+            defaultSelectedSortId="newest"
+            onSelectedSortIdChange={v => setSortOrder(v ?? 'newest')}
             onExport={() => exportPins(filteredRawRef.current, chatNameByIdRef.current)}
             onViewChange={handleViewChange}
+            onNewFolderClick={() => { setFolderModalName(""); setShowFolderModal(true) }}
+            onMoveToFolder={handleMoveToFolder}
+            onDeleteSelected={handleDeleteSelected}
+            onExportSelected={handleExportSelected}
+            updatedLabel={updatedLabel}
+            onFolderRename={handleFolderRename}
+            onFolderDelete={handleFolderDelete}
           />
         )}
       </div>
     </motion.div>
+
+    {/* ── Delete folder confirmation modal ─────────────────────────────────── */}
+    {typeof document !== "undefined" && createPortal(
+      <AnimatePresence>
+        {showDeleteConfirmModal && (
+          <motion.div
+            key="delete-folder-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => { setShowDeleteConfirmModal(false); setDeleteFolderTarget(null) }}
+            style={{
+              position:        "fixed",
+              inset:           0,
+              zIndex:          9999,
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              backgroundColor: "rgba(26,23,20,0.4)",
+              backdropFilter:  "blur(2px)",
+            }}
+          >
+            <motion.div
+              key="delete-folder-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 32, mass: 0.8 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background:    "var(--neutral-white)",
+                borderRadius:  "20px",
+                boxShadow:     "0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)",
+                width:         "360px",
+                maxWidth:      "calc(100vw - 32px)",
+                display:       "flex",
+                flexDirection: "column",
+                overflow:      "hidden",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 16px" }}>
+                <p style={{ margin: 0, fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 18, lineHeight: "26px", color: "var(--neutral-900)" }}>
+                  Delete folder
+                </p>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close"
+                  onClick={() => { setShowDeleteConfirmModal(false); setDeleteFolderTarget(null) }}
+                />
+              </div>
+              <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ margin: 0, fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14, lineHeight: "20px", color: "var(--neutral-600)" }}>
+                  {deleteFolderTarget
+                    ? `"${deleteFolderTarget.label}" will be deleted, but your pins will still be available in All Pins.`
+                    : "This folder will be deleted, but your pins will still be available in All Pins."}
+                </p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowDeleteConfirmModal(false); setDeleteFolderTarget(null) }}>
+                    Cancel
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={handleConfirmDelete}>
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
+
+    {/* ── Rename folder modal ──────────────────────────────────────────────── */}
+    {typeof document !== "undefined" && createPortal(
+      <AnimatePresence>
+        {showRenameModal && (
+          <motion.div
+            key="rename-folder-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}
+            style={{
+              position:        "fixed",
+              inset:           0,
+              zIndex:          9999,
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              backgroundColor: "rgba(26,23,20,0.4)",
+              backdropFilter:  "blur(2px)",
+            }}
+          >
+            <motion.div
+              key="rename-folder-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 32, mass: 0.8 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background:    "var(--neutral-white)",
+                borderRadius:  "20px",
+                boxShadow:     "0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)",
+                width:         "360px",
+                maxWidth:      "calc(100vw - 32px)",
+                display:       "flex",
+                flexDirection: "column",
+                overflow:      "hidden",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 16px" }}>
+                <p style={{ margin: 0, fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 18, lineHeight: "26px", color: "var(--neutral-900)" }}>
+                  Rename folder
+                </p>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close"
+                  onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}
+                />
+              </div>
+              <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <InputField
+                  label="Folder name"
+                  showLabel
+                  placeholder="e.g. Research notes"
+                  value={renameModalName}
+                  onChange={setRenameModalName}
+                  fluid
+                  autoFocus
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === "Enter")  handleConfirmRename()
+                    if (e.key === "Escape") { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }
+                  }}
+                  aria-label="Folder name"
+                />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}>
+                    Cancel
+                  </Button>
+                  <Button variant="default" size="sm" disabled={!renameModalName.trim()} onClick={handleConfirmRename}>
+                    Rename
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
+
+    {/* ── Create folder modal ───────────────────────────────────────────────── */}
+    {typeof document !== "undefined" && createPortal(
+      <AnimatePresence>
+        {showFolderModal && (
+          <motion.div
+            key="create-folder-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => { setShowFolderModal(false); setFolderModalName("") }}
+            style={{
+              position:        "fixed",
+              inset:           0,
+              zIndex:          9999,
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              backgroundColor: "rgba(26,23,20,0.4)",
+              backdropFilter:  "blur(2px)",
+            }}
+          >
+            <motion.div
+              key="create-folder-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1,    y: 0 }}
+              exit={{    opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 32, mass: 0.8 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background:    "var(--neutral-white)",
+                borderRadius:  "20px",
+                boxShadow:     "0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)",
+                width:         "360px",
+                maxWidth:      "calc(100vw - 32px)",
+                display:       "flex",
+                flexDirection: "column",
+                overflow:      "hidden",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 16px" }}>
+                <p style={{ margin: 0, fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 18, lineHeight: "26px", color: "var(--neutral-900)" }}>
+                  New folder
+                </p>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<CancelOneIcon size={20} />}
+                  aria-label="Close"
+                  onClick={() => { setShowFolderModal(false); setFolderModalName("") }}
+                />
+              </div>
+              <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <InputField
+                  label="Folder name"
+                  showLabel
+                  placeholder="e.g. Research notes"
+                  value={folderModalName}
+                  onChange={setFolderModalName}
+                  fluid
+                  autoFocus
+                  onKeyDown={(e: React.KeyboardEvent) => {
+                    if (e.key === "Enter")  handleCreateFolder()
+                    if (e.key === "Escape") { setShowFolderModal(false); setFolderModalName("") }
+                  }}
+                  aria-label="Folder name"
+                />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowFolderModal(false); setFolderModalName("") }}>
+                    Cancel
+                  </Button>
+                  <Button variant="default" size="sm" disabled={!folderModalName.trim()} onClick={handleCreateFolder}>
+                    Create folder
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   )
 }

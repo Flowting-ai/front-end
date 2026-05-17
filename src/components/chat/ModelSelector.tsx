@@ -224,7 +224,7 @@ export function ModelSelector({
                         <span style={{ flexShrink: 0, lineHeight: 0 }}>
                           <LlmIcon
                             id={getModelLlmId(model.companyName, model.modelName) ?? ""}
-                            variant="avatar"
+                            variant="color"
                             size={24}
                           />
                         </span>

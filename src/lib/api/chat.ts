@@ -33,6 +33,7 @@ interface BackendChat {
   created_at?: string;
   model?: string;
   last_message_at?: string;
+  project_id?: string | null;
 }
 
 /** Normalize a backend chat object into the canonical Chat type. */
@@ -46,6 +47,7 @@ function normalizeChat(raw: BackendChat): Chat {
     model: raw.model,
     message_count: raw.message_count ?? 0,
     last_message_at: raw.last_message_at,
+    project_id: raw.project_id ?? null,
   };
 }
 

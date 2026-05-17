@@ -158,6 +158,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
 
             {/* File grid */}
             <div
+              className="kaya-scrollbar"
               style={{
                 display:               'grid',
                 gridTemplateColumns:   '1fr',

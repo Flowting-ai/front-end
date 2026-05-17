@@ -7,6 +7,7 @@ import {
   CREATE_PIN_ENDPOINT,
   PIN_FOLDERS_ENDPOINT,
   PIN_FOLDERS_CREATE_ENDPOINT,
+  PIN_FOLDER_DETAIL_ENDPOINT,
   PIN_MOVE_ENDPOINT,
   PIN_COMMENT_ENDPOINT,
   PIN_COMMENT_CRUD_ENDPOINT,
@@ -173,15 +174,68 @@ export async function deletePin(pinId: string): Promise<void> {
 }
 
 export async function createPinFolder(folder_name: string): Promise<PinFolder> {
-  return apiFetchJson<PinFolder>(PIN_FOLDERS_CREATE_ENDPOINT, {
+  const raw = await apiFetchJson<Record<string, unknown>>(PIN_FOLDERS_CREATE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify({ folder_name }),
   });
+  return {
+    id: String(raw.id ?? ""),
+    name:
+      (typeof raw.name        === "string" ? raw.name        : null) ??
+      (typeof raw.folder_name === "string" ? raw.folder_name : null) ??
+      (typeof raw.label       === "string" ? raw.label       : null) ??
+      folder_name,
+    pin_count: typeof raw.pin_count   === "number" ? raw.pin_count   :
+               typeof raw.pins_count  === "number" ? raw.pins_count  : 0,
+  };
+}
+
+/**
+ * Validate a folder name against the API rules and the caller's existing
+ * folder name list. Returns an error string on failure, null on success.
+ * Rules: non-empty after trim, max 255 chars (API limit), no duplicate
+ * (case-insensitive) within the provided list.
+ */
+export function validateFolderName(
+  name: string,
+  existingNames: string[],
+): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return "Folder name cannot be empty.";
+  if (trimmed.length > 255) return "Folder name cannot exceed 255 characters.";
+  const lower = trimmed.toLowerCase();
+  if (existingNames.some((n) => n.trim().toLowerCase() === lower))
+    return "A folder with this name already exists.";
+  return null;
+}
+
+export async function renamePinFolder(folderId: string, folder_name: string): Promise<PinFolder> {
+  const raw = await apiFetchJson<Record<string, unknown>>(PIN_FOLDER_DETAIL_ENDPOINT(folderId), {
+    method: "PATCH",
+    body: JSON.stringify({ folder_name }),
+  });
+  return {
+    id: String(raw.id ?? folderId),
+    name:
+      (typeof raw.name        === "string" ? raw.name        : null) ??
+      (typeof raw.folder_name === "string" ? raw.folder_name : null) ??
+      (typeof raw.label       === "string" ? raw.label       : null) ??
+      folder_name,
+    pin_count: typeof raw.pin_count  === "number" ? raw.pin_count  :
+               typeof raw.pins_count === "number" ? raw.pins_count : 0,
+  };
+}
+
+export async function deletePinFolder(folderId: string): Promise<void> {
+  const res = await apiFetch(PIN_FOLDER_DETAIL_ENDPOINT(folderId), { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    throw new ApiError(res.status, "api_error", "Failed to delete folder");
+  }
 }
 
 export async function movePinToFolder(
   pinId: string,
-  folderId: string | null,
+  folderId: string,
 ): Promise<Pin> {
   const raw = await apiFetchJson<RawPin>(PIN_MOVE_ENDPOINT(pinId), {
     method: "PATCH",

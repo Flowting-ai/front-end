@@ -7,6 +7,7 @@ export interface Chat {
   model?: string;
   message_count?: number;
   last_message_at?: string;
+  project_id?: string | null;
 }
 
 export interface Attachment {

@@ -637,6 +637,7 @@ export const PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
                   <div
                     style={{ position: 'relative', flexShrink: 0 }}
                     onMouseDown={e => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
                   >
                     <IconButton
                       variant="ghost"

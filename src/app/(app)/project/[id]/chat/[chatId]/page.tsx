@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import React, { Suspense, useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -308,7 +308,7 @@ function DefaultModelMenu() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function ProjectChatPage() {
+function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -581,6 +581,7 @@ export default function ProjectChatPage() {
           <motion.div
             key="new-chat"
             exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
+            className="kaya-scrollbar"
             style={{ position: 'absolute', inset: 0, overflowY: 'auto' }}
           >
             {/* Drag-and-drop overlay */}
@@ -752,5 +753,13 @@ export default function ProjectChatPage() {
         onCancel={() => setPendingModelSwitch(null)}
       />
     </div>
+  )
+}
+
+export default function ProjectChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProjectChatPageInner />
+    </Suspense>
   )
 }

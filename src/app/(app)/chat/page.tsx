@@ -676,6 +676,7 @@ function ChatPageInner() {
           <motion.div
             key="new-chat"
             exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
+            className="kaya-scrollbar"
             style={{
               position:  "absolute",
               inset:     0,

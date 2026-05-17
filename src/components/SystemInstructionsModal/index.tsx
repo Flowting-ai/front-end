@@ -167,6 +167,7 @@ export function SystemInstructionsModal({
 
             {/* ── Body ── */}
             <div
+              className="kaya-scrollbar"
               style={{
                 display:       'flex',
                 flexDirection: 'column',

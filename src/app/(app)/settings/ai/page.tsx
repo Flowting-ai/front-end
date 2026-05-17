@@ -210,7 +210,7 @@ function ModelCard({
             flexShrink:      0,
             overflow:        'hidden',
           }}>
-            <LlmIcon id={model.llmIconId} size={24} />
+            <LlmIcon id={model.llmIconId} variant="color" size={24} />
           </div>
 
           {/* Name + provider */}

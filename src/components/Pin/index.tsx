@@ -1053,7 +1053,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 rejection animation when the user tries to add past
                 PIN_TAG_CAP. Wraps both modes so it shakes the AddTag chip OR
                 the ChipInput, whichever is rendered. */}
-            <motion.div animate={addTagShakeControls} style={{ display: 'inline-flex' }}>
+            {tagsEditable && <motion.div animate={addTagShakeControls} style={{ display: 'inline-flex' }}>
               <AnimatePresence mode="popLayout" initial={false}>
                 {addTagMode === 'chip' ? (
                   <motion.span
@@ -1099,7 +1099,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   </motion.span>
                 )}
               </AnimatePresence>
-            </motion.div>
+            </motion.div>}
 
             {/* User-added tags come BEFORE backend labels - newest sits right
                 after the AddTagChip and pushes existing ones to the right.
@@ -1405,7 +1405,7 @@ function ExpandedMeta({ chatName, modelName, createdAt }: { chatName: string; mo
         {chatName}
       </p>
       <div style={{ width: 24, height: 24, borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <LlmIcon id={iconId} variant="avatar" size={24} />
+        <LlmIcon id={iconId} variant="color" size={24} />
       </div>
     </div>
   )

@@ -62,13 +62,13 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    */
   badge?: React.ReactNode
   /**
-   * Canonical model id - renders the corresponding `<LlmIcon variant="avatar" />`
+   * Canonical model id - renders the corresponding `<LlmIcon variant="color" />`
    * from `@strange-huge/icons/llm` between the icon and the label column.
-   * Pass any key in the `LLM_AVATAR` map (e.g. `"Claude"`, `"OpenAI"`,
+   * Pass any key in the `LLM_COLOR` map (e.g. `"Claude"`, `"OpenAI"`,
    * `"Gemini"`, `"Zhipu"`). Square, rounded-6 px, sized to match the row's
    * content height (38 px when `subLabel` is set, 22 px otherwise).
    * Figma 3143:37109. Stops and asks the user if a model id is missing
-   * from `LLM_AVATAR` rather than substituting an inline asset.
+   * from `LLM_COLOR` rather than substituting an inline asset.
    */
   llm?: string
   /**
@@ -506,7 +506,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                       lineHeight:   0,
                     }}
                   >
-                    <LlmIcon id={llm} variant="avatar" size={avatarSize} />
+                    <LlmIcon id={llm} variant="color" size={avatarSize} />
                   </div>
                 )
               })()}

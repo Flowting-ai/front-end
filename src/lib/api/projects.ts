@@ -13,7 +13,7 @@ import {
 interface BackendDocument {
   id:                string
   document_filename: string
-  document_s3_key:   string
+  file_link:         string
   created_at:        string
 }
 
@@ -49,7 +49,7 @@ interface BackendProjectChatSummary {
 export interface ApiProjectDocument {
   id:        string
   filename:  string
-  s3Key:     string
+  fileLink:  string
   createdAt: string
 }
 
@@ -83,7 +83,7 @@ export interface ApiProjectChat {
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function normalizeDocument(d: BackendDocument): ApiProjectDocument {
-  return { id: d.id, filename: d.document_filename, s3Key: d.document_s3_key, createdAt: d.created_at }
+  return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at }
 }
 
 function normalizeProjectSummary(p: BackendProjectSummary): ApiProjectSummary {
