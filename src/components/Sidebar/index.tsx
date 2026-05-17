@@ -812,6 +812,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             sublabel={userEmail}
             avatarSrc={avatarSrc}
             onSettingsClick={onSettingsClick}
+            onClick={(e) => onSettingsClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>)}
           />
         </div>
 

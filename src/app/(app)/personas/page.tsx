@@ -20,7 +20,7 @@ import { PersonaCard } from '@/components/PersonaCard'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TabId = 'my-personas' | 'shared' | 'super-links' | 'community'
-type SortKey = 'activity' | 'recent' | 'alphabetical'
+type SortKey = 'activity' | 'az' | 'za'
 
 // ── Mock recommended personas (community templates) ───────────────────────────
 
@@ -289,15 +289,15 @@ export default function PersonasPage() {
       const q = search.toLowerCase()
       list = list.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
     }
-    if (sort === 'alphabetical') list.sort((a, b) => a.name.localeCompare(b.name))
-    else if (sort === 'recent')  list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    if (sort === 'az') list.sort((a, b) => a.name.localeCompare(b.name))
+    else if (sort === 'za') list.sort((a, b) => b.name.localeCompare(a.name))
     return list
   }, [personas, search, sort, filterStatus, filterTags])
 
   const sortLabels: Record<SortKey, string> = {
-    activity:     'Activity',
-    recent:       'Recent',
-    alphabetical: 'Alphabetical',
+    activity: 'Activity',
+    az:       'A to Z',
+    za:       'Z to A',
   }
 
   async function handleDelete(id: string) {
@@ -322,15 +322,27 @@ export default function PersonasPage() {
 
   return (
     <>
-      <div style={{
-        background: 'rgba(255,255,255,0.2)',
-        border: '1px solid var(--neutral-200)',
-        borderRadius: 22,
-        flex: '1 0 0',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '36px 12px 24px',
-      }}>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.2)',
+          border: '1px solid var(--neutral-200)',
+          borderRadius: 22,
+          flex: '1 1 0',
+          minHeight: 0,
+          overflow: 'hidden',
+        }}
+      >
+      <div
+        className="kaya-scrollbar"
+        style={{
+          height: '100%',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '36px 12px 24px',
+          boxSizing: 'border-box',
+        }}
+      >
         <div style={{
           width: '100%',
           maxWidth: 967,
@@ -445,7 +457,7 @@ export default function PersonasPage() {
                   >
                     <Dropdown>
                       <Dropdown.Section>
-                        {(['activity', 'recent', 'alphabetical'] as SortKey[]).map(k => (
+                        {(['activity', 'az', 'za'] as SortKey[]).map(k => (
                           <Dropdown.Item
                             key={k}
                             label={sortLabels[k]}
@@ -464,8 +476,8 @@ export default function PersonasPage() {
                     onOpenChange={setFilterOpen}
                     placement="bottom-end"
                     trigger={
-                      <Button variant="secondary">
-                        {filterTags.length > 0 ? `Filter (${filterTags.length})` : 'Filter'}
+                      <Button variant="secondary" disabled>
+                        Filter
                       </Button>
                     }
                   >
@@ -576,13 +588,13 @@ export default function PersonasPage() {
                   {filtered.map(persona => (
                     <PersonaCard
                       key={persona.id}
+                      variant={persona.status === 'draft' ? 'draft' : 'default'}
                       name={persona.name}
                       handle={persona.handle.replace(/^@/, '')}
                       description={persona.description}
                       avatarUrl={persona.imageUrl ?? undefined}
                       paused={persona.isPaused}
                       visibility="private"
-                      onClick={() => router.push(`/personas/${persona.id}/chat`)}
                       onEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
                       onUseInChat={() => router.push(`/personas/${persona.id}/chat`)}
                       onResume={() => handlePauseToggle(persona.id)}
@@ -596,30 +608,10 @@ export default function PersonasPage() {
             </div>
           )}
 
-          {/* ── Recommended for you ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-regular)',
-              fontSize: 14,
-              lineHeight: '22px',
-              color: 'var(--neutral-400)',
-              margin: 0,
-            }}>
-              Recommended for you
-            </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 16,
-            }}>
-              {RECOMMENDED.map(p => (
-                <RecommendedCard key={p.id} persona={p} />
-              ))}
-            </div>
-          </div>
+          {/* ── Recommended for you ── (hidden) */}
 
         </div>
+      </div>
       </div>
 
       {/* ── Delete confirmation ── */}

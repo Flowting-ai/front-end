@@ -4,6 +4,7 @@ import React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
+  ArrowRightOneIcon,
   UserAiIcon,
   AbacusIcon,
   NeuralNetworkIcon,
@@ -39,7 +40,7 @@ const ORG_ITEMS = [
 export function SettingsSidebar() {
   const router  = useRouter()
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
@@ -62,7 +63,7 @@ export function SettingsSidebar() {
         paddingTop:      24,
         paddingLeft:     16,
         paddingRight:    16,
-        paddingBottom:   68,
+        paddingBottom:   116,
       }}
     >
       {/* ── Title row ── */}
@@ -164,7 +165,17 @@ export function SettingsSidebar() {
         paddingBottom:   12,
         boxShadow:       '0px -34px 33.5px 0px var(--neutral-50)',
         overflow:        'hidden',
+        display:         'flex',
+        flexDirection:   'column',
+        gap:             4,
       }}>
+        <SidebarMenuItem
+          fluid
+          variant="default"
+          icon={<ArrowRightOneIcon size={20} />}
+          label="Log out"
+          onClick={() => void logout()}
+        />
         <SidebarMenuItem
           fluid
           variant="account-item"

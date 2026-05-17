@@ -84,7 +84,7 @@ function PersonaAvatar({
   size?:      number
   radius?:    number
 }) {
-  const src = avatarUrl ?? getFallbackAvatar(name)
+  const src = avatarUrl ?? '/icons/persona-default.svg'
 
   return (
     <div
@@ -360,7 +360,6 @@ function ActionBar({
       {type === 'hover' && (
         <>
           <IconButton variant="ghost" size="sm" aria-label="Edit persona" icon={<PenOneIcon />} onClick={onEdit} />
-          <IconButton variant="ghost" size="sm" aria-label="Copy link"    icon={<ShareOneIcon />} onClick={onLink} />
           <div style={{ flex: 1 }} />
           <Button variant="secondary" size="sm" onClick={onUseInChat}>Use in chat</Button>
         </>
@@ -524,7 +523,7 @@ export const PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
           border:          isDraft
             ? `1px dashed ${isHovered ? 'var(--neutral-400)' : 'var(--neutral-300)'}`
             : undefined,
-          cursor:          'pointer',
+          cursor:          'default',
           boxSizing:       'border-box' as const,
           ...style,
         }}

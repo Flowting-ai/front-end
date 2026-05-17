@@ -153,7 +153,7 @@ type ChatMode = "write" | "research" | "think" | "build";
 
 const ACTION_BUTTONS: Array<{ mode: ChatMode; label: string; icon: React.ReactNode; disabled?: boolean }> = [
   { mode: "write",    label: "Write",    icon: <QuillWriteOneIcon      size={16} animated /> },
-  { mode: "research", label: "Research", icon: <NeuralNetworkIcon      size={16} animated />, disabled: true },
+  { mode: "research", label: "Research", icon: <NeuralNetworkIcon      size={16} animated /> },
   { mode: "think",    label: "Think",    icon: <AiVisionRecognitionIcon size={16} animated /> },
   { mode: "build",    label: "Build",    icon: <AiWebBrowsingIcon      size={16} animated /> },
 ];
