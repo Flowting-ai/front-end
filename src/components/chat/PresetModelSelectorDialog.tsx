@@ -125,13 +125,13 @@ const FEATURED_DESCRIPTION =
   "Knows the work before you ask. Each task finds its way to the right mind, without you lifting a setting."
 
 interface FeaturedModeRowProps {
-  initialMode: FeaturedMode
+  /** null means neither card is selected (a specific model is active) */
+  mode: FeaturedMode | null
   onMuseSelect: () => void
   onAdvancedSelect: () => void
 }
 
-function FeaturedModeRow({ initialMode, onMuseSelect, onAdvancedSelect }: FeaturedModeRowProps) {
-  const [mode, setMode] = useState<FeaturedMode>(initialMode)
+function FeaturedModeRow({ mode, onMuseSelect, onAdvancedSelect }: FeaturedModeRowProps) {
   return (
     <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", width: "100%", flexShrink: 0 }}>
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
@@ -140,7 +140,7 @@ function FeaturedModeRow({ initialMode, onMuseSelect, onAdvancedSelect }: Featur
           description={FEATURED_DESCRIPTION}
           learnMoreHref="#"
           selected={mode === "muse"}
-          onSelectedChange={(next) => { if (next) { setMode("muse"); onMuseSelect() } }}
+          onSelectedChange={(next) => { if (next) onMuseSelect() }}
         />
       </div>
       <div style={{ flex: "1 0 0", minWidth: 0 }}>
@@ -149,7 +149,7 @@ function FeaturedModeRow({ initialMode, onMuseSelect, onAdvancedSelect }: Featur
           description={FEATURED_DESCRIPTION}
           learnMoreHref="#"
           selected={mode === "advanced"}
-          onSelectedChange={(next) => { if (next) { setMode("advanced"); onAdvancedSelect() } }}
+          onSelectedChange={(next) => { if (next) onAdvancedSelect() }}
         />
       </div>
     </div>
@@ -162,6 +162,7 @@ interface PresetModelSelectorContentProps {
   models: AIModel[];
   selectedModel: AIModel | null;
   onSelect: (model: AIModel) => void;
+  museActive: boolean;
   museAdvanced: boolean;
   onMuseSelect: () => void;
   onAdvancedSelect: () => void;
@@ -171,6 +172,7 @@ function PresetModelSelectorContent({
   models,
   selectedModel,
   onSelect,
+  museActive,
   museAdvanced,
   onMuseSelect,
   onAdvancedSelect,
@@ -187,7 +189,7 @@ function PresetModelSelectorContent({
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 8);
   };
 
-  // Filter models by search + tier
+  // Filter models by search + tier + category
   const filtered = models.filter((m) => {
     if (search) {
       const q = search.toLowerCase();
@@ -199,6 +201,36 @@ function PresetModelSelectorContent({
     }
     if (tier === "free" && m.modelType !== "free") return false;
     if (tier === "pro" && m.modelType !== "paid") return false;
+
+    if (category !== "all" && category !== "favorites") {
+      const inputs  = m.inputModalities  ?? [];
+      const outputs = m.outputModalities ?? [];
+      switch (category) {
+        case "vision":
+          if (!inputs.some((v) => v === "image" || v === "vision")) return false;
+          break;
+        case "image":
+          if (!outputs.some((v) => v === "image")) return false;
+          break;
+        case "audio":
+          if (
+            !inputs.some((v) => v === "audio") &&
+            !outputs.some((v) => v === "audio")
+          ) return false;
+          break;
+        case "search":
+          if (!inputs.some((v) => v === "web" || v === "search")) return false;
+          break;
+        case "code":
+          if (!outputs.some((v) => v === "code")) return false;
+          break;
+        case "text":
+          // Text-only: no image output (not image-gen), no audio, no video
+          if (outputs.some((v) => v === "image" || v === "audio" || v === "video")) return false;
+          break;
+      }
+    }
+
     return true;
   });
 
@@ -250,7 +282,7 @@ function PresetModelSelectorContent({
 
         {/* ── Featured: Muse + Advanced radio pair ── */}
         <FeaturedModeRow
-          initialMode={museAdvanced ? "advanced" : "muse"}
+          mode={museActive ? (museAdvanced ? "advanced" : "muse") : null}
           onMuseSelect={onMuseSelect}
           onAdvancedSelect={onAdvancedSelect}
         />
@@ -332,6 +364,7 @@ function PresetModelSelectorContent({
                   >
                     {filtered.map((model) => {
                       const isSelected =
+                        !museActive &&
                         selectedModel?.id === model.id &&
                         selectedModel?.modelId === model.modelId;
                       return (
@@ -573,6 +606,7 @@ export function PresetModelSelectorDialog() {
             models={models}
             selectedModel={selectedModel}
             onSelect={selectModel}
+            museActive={museActive}
             museAdvanced={museAdvanced}
             onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
             onAdvancedSelect={() => { setMuseAdvanced(true); close() }}

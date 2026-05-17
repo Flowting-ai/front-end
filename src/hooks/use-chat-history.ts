@@ -20,9 +20,13 @@ export interface UseChatHistoryResult {
   create: (model?: string) => Promise<Chat | null>;
   rename: (chatId: string, title: string) => Promise<void>;
   renameLocal: (chatId: string, title: string) => void;
+  /** Move a chat to the top of the list without resetting its title. */
+  moveToTop: (chatId: string) => void;
   remove: (chatId: string) => Promise<void>;
   star: (chatId: string) => Promise<void>;
   addOptimistic: (chat: Chat) => void;
+  /** Fetch the backend title for a specific chat and update local state if it has changed. */
+  refreshChatTitle: (chatId: string) => Promise<void>;
 }
 
 export function useChatHistory(): UseChatHistoryResult {
@@ -40,7 +44,12 @@ export function useChatHistory(): UseChatHistoryResult {
       const cursor = reset ? undefined : cursorRef.current;
       const res = await listChats(cursor);
       const incoming = res.chats ?? [];
-      setChats((prev) => (reset ? incoming : [...prev, ...incoming]));
+      setChats((prev) => {
+        if (reset) return incoming;
+        // Deduplicate: skip entries that are already present in `prev`
+        const prevIds = new Set(prev.map((c) => c.id));
+        return [...prev, ...incoming.filter((c) => !prevIds.has(c.id))];
+      });
       cursorRef.current = res.next_cursor ?? undefined;
       setHasMore(res.has_more ?? false);
     } catch {
@@ -113,10 +122,42 @@ export function useChatHistory(): UseChatHistoryResult {
     setChats((prev) => [chat, ...prev.filter((c) => c.id !== chat.id)]);
   };
 
+  /**
+   * Fetch the first page of chats from the backend and, if the title of the
+   * given chat has been updated (i.e. is no longer the placeholder "New chat"),
+   * update it locally.  Intentionally bypasses the loadingRef lock so it can
+   * run concurrently with an ongoing sidebar load.
+   */
+  const refreshChatTitle = async (chatId: string): Promise<void> => {
+    try {
+      const res = await listChats(undefined);
+      const found = (res.chats ?? []).find((c) => c.id === chatId);
+      if (
+        found?.title &&
+        found.title !== "New chat" &&
+        found.title !== "Untitled"
+      ) {
+        setChats((prev) =>
+          prev.map((c) => (c.id === chatId ? { ...c, title: found.title } : c)),
+        );
+      }
+    } catch {
+      // non-fatal — sidebar will show correct title on next full refresh
+    }
+  };
+
   const renameLocal = (chatId: string, title: string) => {
     setChats((prev) =>
       prev.map((c) => (c.id === chatId ? { ...c, title } : c)),
     );
+  };
+
+  const moveToTop = (chatId: string) => {
+    setChats((prev) => {
+      const existing = prev.find((c) => c.id === chatId);
+      if (!existing) return prev;
+      return [existing, ...prev.filter((c) => c.id !== chatId)];
+    });
   };
 
   return {
@@ -128,8 +169,10 @@ export function useChatHistory(): UseChatHistoryResult {
     create: handleCreate,
     rename: handleRename,
     renameLocal,
+    moveToTop,
     remove: handleDelete,
     star: handleStar,
     addOptimistic,
+    refreshChatTitle,
   };
 }

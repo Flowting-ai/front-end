@@ -13,6 +13,7 @@ import { ModelSwitchDialog } from "@/components/chat/ModelSwitchDialog";
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
+import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { usePinOperations } from "@/hooks/use-pin-operations";
@@ -554,7 +555,16 @@ function ChatPageInner() {
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
-  const { rename: renameChat, renameLocal, addOptimistic } = useChatHistoryContext();
+  const { rename: renameChat, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
+  const { loadForChat: loadHighlightsForChat } = useHighlight();
+
+  // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
+  const newlyCreatedChatIdRef = useRef<string | null>(null);
+
+  // Load highlights whenever the active chat changes
+  useEffect(() => {
+    if (activeChatId) loadHighlightsForChat(activeChatId);
+  }, [activeChatId, loadHighlightsForChat]);
 
   // Sync URL param into local state (e.g. sidebar navigation)
   useEffect(() => {
@@ -591,6 +601,7 @@ function ChatPageInner() {
   };
 
   const handleChatCreated = (chatId: string) => {
+    newlyCreatedChatIdRef.current = chatId;
     setActiveChatId(chatId);
     setHasMessages(true);
     router.replace(`/chat?id=${chatId}`, { scroll: false });
@@ -610,13 +621,18 @@ function ChatPageInner() {
   };
 
   const handleChatMoveToTop = (chatId: string) => {
-    addOptimistic({
-      id: chatId,
-      title: "New chat",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      starred: false,
-    });
+    // Reorder the existing chat to the top — preserves its title.
+    // (addOptimistic would reset the title to "New chat", overwriting the SSE-set title)
+    moveToTop(chatId);
+    // For a brand-new chat the backend generates the title asynchronously after the
+    // stream ends.  Fetch it at 2.5 s and again at 5 s as a backstop in case the
+    // first attempt races with the backend title-generation job.
+    if (newlyCreatedChatIdRef.current === chatId) {
+      const capturedId = chatId;
+      newlyCreatedChatIdRef.current = null;
+      setTimeout(() => refreshChatTitle(capturedId), 2500);
+      setTimeout(() => refreshChatTitle(capturedId), 5000);
+    }
   };
 
   // Capture typed message from new-chat landing → transition to ChatInterface

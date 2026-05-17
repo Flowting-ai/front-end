@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
@@ -318,7 +318,7 @@ export function ChatMessage({
               {message.attachments.map((att) => {
                 const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "FILE";
                 const isImage = att.file_type.startsWith("image/");
-                return (
+                const chip = (
                   <div
                     key={att.id}
                     style={{
@@ -364,17 +364,45 @@ export function ChatMessage({
                     >
                       {att.file_name}
                     </span>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-body)",
-                        fontSize:   "10px",
-                        color:      "var(--neutral-400)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {ext}
-                    </span>
+                    {att.uploading ? (
+                      <span
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "10px",
+                          color:      "var(--neutral-400)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {att.uploadProgress !== undefined && att.uploadProgress < 100
+                          ? `${att.uploadProgress}%`
+                          : "Uploading…"}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "10px",
+                          color:      "var(--neutral-400)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ext}
+                      </span>
+                    )}
                   </div>
+                );
+                return att.url && !att.uploading ? (
+                  <a
+                    key={att.id}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", flexShrink: 0 }}
+                  >
+                    {chip}
+                  </a>
+                ) : (
+                  <React.Fragment key={att.id}>{chip}</React.Fragment>
                 );
               })}
             </div>

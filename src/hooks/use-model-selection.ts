@@ -16,14 +16,21 @@ interface UseModelSelectionResult {
   refreshModels: () => Promise<void>;
 }
 
+// Prefer the semantic string modelId over the numeric database id for stable storage
+function stableKey(model: Pick<AIModel, "modelId" | "id">): string | null {
+  if (model.modelId != null && String(model.modelId) !== "undefined") return String(model.modelId);
+  if (model.id != null && String(model.id) !== "undefined") return String(model.id);
+  return null;
+}
+
 // Helper to get initial model from localStorage
 function getInitialModelFromStorage(): Partial<AIModel> | null {
   if (typeof window === "undefined") return null;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
-    
-    // Store minimal info to show correct icon immediately
+
+    // Minimal cached info for instant icon/name display before the fetch completes
     const cachedModel = localStorage.getItem(`${STORAGE_KEY}_cache`);
     if (cachedModel) {
       return JSON.parse(cachedModel);
@@ -56,43 +63,64 @@ export function useModelSelection(): UseModelSelectionResult {
       if (fetched.length > 0) {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-          const found = fetched.find(
+          // 1st: match by modelId (semantic string, most stable)
+          // 2nd: match by id (numeric DB key, may change)
+          let found = fetched.find(
             (m) =>
-              String(m.id) === stored || String(m.modelId) === stored,
+              (m.modelId != null && String(m.modelId) === stored) ||
+              (m.id != null && String(m.id) === stored),
           );
+
+          // 3rd: match by modelName + companyName from cache (guards against API id changes)
+          if (!found) {
+            const cachedRaw = localStorage.getItem(`${STORAGE_KEY}_cache`);
+            if (cachedRaw) {
+              try {
+                const cached = JSON.parse(cachedRaw) as Partial<AIModel>;
+                if (cached.modelName && cached.companyName) {
+                  found = fetched.find(
+                    (m) =>
+                      m.modelName === cached.modelName &&
+                      m.companyName === cached.companyName,
+                  );
+                }
+              } catch {}
+            }
+          }
+
           if (found) {
             setSelectedModel(found);
-            // Update cache with full model data
-            const cacheData = {
-              id: found.id,
-              modelId: found.modelId,
-              modelName: found.modelName,
-              companyName: found.companyName,
-            };
-            localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
-          } else {
-            // Stored model not found, fallback to first
-            setSelectedModel(fetched[0]);
-            localStorage.setItem(STORAGE_KEY, String(fetched[0].id));
-            const cacheData = {
+            // Re-key storage to the current stable modelId so future lookups succeed
+            const newKey = stableKey(found);
+            if (newKey && newKey !== stored) {
+              localStorage.setItem(STORAGE_KEY, newKey);
+            }
+            localStorage.setItem(
+              `${STORAGE_KEY}_cache`,
+              JSON.stringify({
+                id: found.id,
+                modelId: found.modelId,
+                modelName: found.modelName,
+                companyName: found.companyName,
+              }),
+            );
+          }
+          // If no match found at all: keep the current selectedModel (cached partial)
+          // rather than clobbering it with an arbitrary fetched[0].
+        } else if (!selectedModel) {
+          // No stored selection and no cached model at all — default to first model
+          setSelectedModel(fetched[0]);
+          const key = stableKey(fetched[0]);
+          if (key) localStorage.setItem(STORAGE_KEY, key);
+          localStorage.setItem(
+            `${STORAGE_KEY}_cache`,
+            JSON.stringify({
               id: fetched[0].id,
               modelId: fetched[0].modelId,
               modelName: fetched[0].modelName,
               companyName: fetched[0].companyName,
-            };
-            localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
-          }
-        } else if (!selectedModel) {
-          // No stored selection and no cached model, use first
-          setSelectedModel(fetched[0]);
-          localStorage.setItem(STORAGE_KEY, String(fetched[0].id));
-          const cacheData = {
-            id: fetched[0].id,
-            modelId: fetched[0].modelId,
-            modelName: fetched[0].modelName,
-            companyName: fetched[0].companyName,
-          };
-          localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
+            }),
+          );
         }
       }
     } catch (err) {
@@ -109,16 +137,20 @@ export function useModelSelection(): UseModelSelectionResult {
 
   const selectModel = (model: AIModel) => {
     setSelectedModel(model);
-    if (model.id) {
-      localStorage.setItem(STORAGE_KEY, String(model.id));
-      // Cache minimal model info for instant icon display on reload
-      const cacheData = {
-        id: model.id,
-        modelId: model.modelId,
-        modelName: model.modelName,
-        companyName: model.companyName,
-      };
-      localStorage.setItem(`${STORAGE_KEY}_cache`, JSON.stringify(cacheData));
+    // Use the semantic modelId as the primary key (more stable than numeric id)
+    const key = stableKey(model);
+    if (key) {
+      localStorage.setItem(STORAGE_KEY, key);
+      // Cache minimal model info for instant icon/name display on next load
+      localStorage.setItem(
+        `${STORAGE_KEY}_cache`,
+        JSON.stringify({
+          id: model.id,
+          modelId: model.modelId,
+          modelName: model.modelName,
+          companyName: model.companyName,
+        }),
+      );
     }
   };
 

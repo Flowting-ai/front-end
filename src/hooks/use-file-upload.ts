@@ -161,8 +161,8 @@ function makeAttachment(file: File): PendingAttachment {
     id:            `attach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     file,
     preview:       file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-    uploading:     true,
-    uploadProgress: 0,
+    uploading:     false,
+    uploadProgress: 100,
   };
 }
 

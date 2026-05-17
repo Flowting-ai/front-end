@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { PdfIcon } from "@hugeicons/core-free-icons";
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
@@ -41,7 +43,10 @@ function getFileIcon(file: File): React.ReactNode {
   if (ext === "zip" || mime === "application/zip" || mime === "application/x-zip-compressed") {
     return <FolderThreeIcon size={14} color="var(--neutral-500)" />;
   }
-  // Fallback: PDF, Word, Excel, PPT, EPUB, etc.
+  if (ext === "pdf" || mime === "application/pdf") {
+    return <HugeiconsIcon icon={PdfIcon} size={14} color="var(--neutral-500)" />;
+  }
+  // Fallback: Word, Excel, PPT, EPUB, etc.
   return <FolderOneIcon size={14} color="var(--neutral-500)" />;
 }
 

@@ -195,6 +195,18 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
   // Paired format - has both user input and AI output in one row
   if (userText || aiText) {
     const messages: Message[] = [];
+    const sources = parseSources(raw);
+    const allFileAtts = normalizeFileAttachments(raw);
+
+    // Route by origin: uploaded files belong to the user turn;
+    // generated + unknown-origin files belong to the assistant turn.
+    const uploadedAtts = allFileAtts.filter(
+      (a) => a.origin === "uploaded" || a.origin === "user",
+    );
+    const assistantAtts = allFileAtts.filter(
+      (a) => a.origin !== "uploaded" && a.origin !== "user",
+    );
+
     if (userText) {
       messages.push({
         id: `${baseId}-prompt`,
@@ -202,11 +214,13 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         content: userText,
         created_at: createdAt,
         chat_id: chatId,
+        file_attachments: uploadedAtts.length > 0 ? uploadedAtts : undefined,
       });
     }
     if (aiText) {
-      const sources = parseSources(raw);
-      const fileAttachments = normalizeFileAttachments(raw);
+      const imageLinks = Array.isArray(raw.image_links)
+        ? (raw.image_links.filter((u): u is string => typeof u === "string" && u.length > 0))
+        : undefined;
       messages.push({
         // Use baseId (the real backend ID) for the assistant message so that
         // features like pinning send the correct ID to POST /pins/message/{id}.
@@ -222,7 +236,8 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         model_name: raw.model_name ?? undefined,
         sources: sources.length > 0 ? sources : undefined,
         web_searches: raw.web_searches ?? undefined,
-        file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
+        file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
+        image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
       });
     }
     return messages;
@@ -233,7 +248,10 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
   const role: Message["role"] = (senderRaw === "ai" || senderRaw === "assistant") ? "assistant" : "user";
   const content = raw.content ?? raw.message ?? "";
   const sources = parseSources(raw);
-  const fileAttachments = role === "assistant" ? normalizeFileAttachments(raw) : [];
+  const fileAttachments = normalizeFileAttachments(raw);
+  const imageLinks = Array.isArray(raw.image_links)
+    ? (raw.image_links.filter((u): u is string => typeof u === "string" && u.length > 0))
+    : undefined;
 
   return [{
     id: baseId,
@@ -247,6 +265,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     sources: sources.length > 0 ? sources : undefined,
     web_searches: raw.web_searches ?? undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
+    image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
   }];
 }
 

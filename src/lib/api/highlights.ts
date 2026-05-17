@@ -27,11 +27,12 @@ export interface HighlightResponse {
 // ── API functions ─────────────────────────────────────────────────────────────
 
 /**
- * Fetch all highlights for the current user (GET /highlights).
- * Returns them in the order the backend provides (newest first).
+ * Fetch all highlights for a specific chat (GET /highlights?chat_id=...).
+ * The backend requires chat_id as a query parameter.
  */
-export async function getHighlights(): Promise<HighlightResponse[]> {
-  return apiFetchJson<HighlightResponse[]>(HIGHLIGHTS_ENDPOINT, {
+export async function getHighlights(chatId: string): Promise<HighlightResponse[]> {
+  const url = `${HIGHLIGHTS_ENDPOINT}?chat_id=${encodeURIComponent(chatId)}`;
+  return apiFetchJson<HighlightResponse[]>(url, {
     method: "GET",
   });
 }

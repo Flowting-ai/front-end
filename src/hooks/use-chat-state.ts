@@ -326,10 +326,12 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
       chat_id: chatId ?? "",
       attachments: files && files.length > 0
         ? files.map((f, i) => ({
-            id:        `opt-att-${i}-${Date.now()}`,
-            file_name: f.name,
-            file_type: f.type || "application/octet-stream",
-            file_size: f.size,
+            id:              `opt-att-${i}-${Date.now()}`,
+            file_name:       f.name,
+            file_type:       f.type || "application/octet-stream",
+            file_size:       f.size,
+            uploading:       true,
+            uploadProgress:  0,
           }))
         : undefined,
     }

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
+import katex from "katex";
+import { sanitizeKaTeX } from "@/lib/security";
 import {
   InformationCircleIcon,
   Alert01Icon,
@@ -213,20 +215,93 @@ export function SourceList({ citations }: { citations: WebCitation[] }) {
   );
 }
 
+// ── KaTeX helpers ─────────────────────────────────────────────────────────────
+
+/** Render a KaTeX inline span, falling back to the raw source on error. */
+function renderKatexInline(math: string, key: number | string): React.ReactNode {
+  try {
+    const html = katex.renderToString(math, { throwOnError: false, displayMode: false });
+    return <span key={key} dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />;
+  } catch {
+    return <span key={key}>${math}$</span>;
+  }
+}
+
+/**
+ * Render a KaTeX display-mode block.
+ * Returns null for incomplete/invalid LaTeX so nothing is shown until the
+ * closing delimiter arrives (avoids garbled partial output during streaming).
+ */
+function renderKatexBlock(
+  math: string,
+  key: number | string,
+  tail: React.ReactNode,
+): React.ReactNode | null {
+  if (!math.trim()) return null;
+  try {
+    const html = katex.renderToString(math, { throwOnError: false, displayMode: true });
+    return (
+      <div
+        key={key}
+        style={{ margin: "10px 0", overflowX: "auto", textAlign: "center" }}
+      >
+        <span dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />
+        {tail}
+      </div>
+    );
+  } catch {
+    return null;
+  }
+}
+
 // ── Inline markdown renderer ──────────────────────────────────────────────────
 
 function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactNode[] {
-  return line.split(/(\*\*[^*]+\*\*|`[^`]+`|\{\d+\}|\[[^\]]+\]\(https?:\/\/[^)]+\))/).map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={i} style={{ fontWeight: 600, color: "#26211E" }}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("`") && part.endsWith("`"))
-      return <code key={i} style={INLINE_CODE_STYLE}>{part.slice(1, -1)}</code>;
-    const cm = part.match(/^\{(\d+)\}$/);
-    if (cm) return <CitationChip key={i} n={parseInt(cm[1])} citation={citations?.[parseInt(cm[1]) - 1]} />;
-    const lm = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
-    if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>;
-    return <span key={i}>{part}</span>;
-  });
+  // Match (in priority order): \(...\) inline math, $...$ inline math,
+  // **bold**, `code`, {N} citation chip, [label](url) link.
+  const regex = /\\\([\s\S]+?\\\)|\$[^$\n]+?\$|(\*\*[^*]+\*\*)|(`[^`\n]+`)|(\{\d+\})|(\[[^\]]+\]\(https?:\/\/[^)]+\))/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let count = 0;
+
+  while ((match = regex.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(<span key={count++}>{line.slice(lastIndex, match.index)}</span>);
+    }
+
+    const raw = match[0];
+    if (raw.startsWith("\\(")) {
+      // \(...\) inline math
+      nodes.push(renderKatexInline(raw.slice(2, -2), count++));
+    } else if (raw.startsWith("$")) {
+      // $...$ inline math
+      nodes.push(renderKatexInline(raw.slice(1, -1), count++));
+    } else if (match[1] !== undefined) {
+      // **bold**
+      nodes.push(<strong key={count++} style={{ fontWeight: 600, color: "#26211E" }}>{match[1].slice(2, -2)}</strong>);
+    } else if (match[2] !== undefined) {
+      // `code`
+      nodes.push(<code key={count++} style={INLINE_CODE_STYLE}>{match[2].slice(1, -1)}</code>);
+    } else if (match[3] !== undefined) {
+      // {N} citation chip
+      const n = parseInt(match[3].slice(1, -1), 10);
+      nodes.push(<CitationChip key={count++} n={n} citation={citations?.[n - 1]} />);
+    } else if (match[4] !== undefined) {
+      // [label](url)
+      const lm = match[4].match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+      if (lm)
+        nodes.push(<a key={count++} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>);
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < line.length) {
+    nodes.push(<span key={count++}>{line.slice(lastIndex)}</span>);
+  }
+
+  return nodes.length ? nodes : [<span key={0}>{line}</span>];
 }
 
 // Inline markdown for non-citation content (reasoning steps, callout bodies)
@@ -267,6 +342,31 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
       {blocks.map((block, bi) => {
         const isLast = bi === blocks.length - 1;
         const tail = isLast ? cursor : null;
+        const trimmedBlock = block.trim();
+
+        // ── Display math block: \[...\] ──────────────────────────────────────
+        if (trimmedBlock.startsWith("\\[")) {
+          const closeIdx = trimmedBlock.indexOf("\\]", 2);
+          if (closeIdx !== -1) {
+            const math = trimmedBlock.slice(2, closeIdx).trim();
+            return renderKatexBlock(math, bi, tail);
+          }
+          // Unclosed \[ during streaming — render nothing until it closes
+          return null;
+        }
+
+        // ── Display math block: $$...$$ ──────────────────────────────────────
+        if (trimmedBlock.startsWith("$$")) {
+          const rest = trimmedBlock.slice(2);
+          const closeIdx = rest.indexOf("$$");
+          if (closeIdx !== -1) {
+            const math = rest.slice(0, closeIdx).trim();
+            return renderKatexBlock(math, bi, tail);
+          }
+          // Unclosed $$ during streaming — render nothing until it closes
+          return null;
+        }
+
         const lines = block.split("\n").filter((l, li, arr) => l.trim() !== "" || li < arr.length - 1);
         const first = lines[0] ?? "";
 

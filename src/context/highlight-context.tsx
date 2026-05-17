@@ -24,6 +24,8 @@ interface HighlightContextValue {
   open:            () => void
   close:           () => void
   toggle:          () => void
+  /** Load / reload highlights for the given chat from the backend. */
+  loadForChat:     (chatId: string) => void
   addHighlight:    (entry: Omit<HighlightEntry, 'id' | 'colorIndex'>) => Promise<string>
   deleteHighlight: (id: string) => Promise<void>
   copyHighlight:   (id: string) => void
@@ -58,11 +60,12 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const highlightsRef = useRef<HighlightEntry[]>([])
   useEffect(() => { highlightsRef.current = highlights }, [highlights])
 
-  // ── Load persisted highlights on mount ────────────────────────────────────
-  useEffect(() => {
-    getHighlights()
+  // ── Load persisted highlights for a specific chat ───────────────────────
+  // The backend requires chat_id as a query param — do NOT call without one.
+  const loadForChat = useCallback((chatId: string) => {
+    getHighlights(chatId)
       .then(data => setHighlights(data.map(responseToEntry)))
-      .catch(() => {/* silently ignore - user starts with empty list */})
+      .catch(() => {/* silently ignore */})
   }, [])
 
   const open   = useCallback(() => setIsOpen(true),        [])
@@ -137,7 +140,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <HighlightContext.Provider
-      value={{ highlights, isOpen, open, close, toggle, addHighlight, deleteHighlight, copyHighlight }}
+      value={{ highlights, isOpen, open, close, toggle, loadForChat, addHighlight, deleteHighlight, copyHighlight }}
     >
       {children}
     </HighlightContext.Provider>

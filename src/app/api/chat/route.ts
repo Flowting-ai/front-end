@@ -3,6 +3,9 @@ import { auth0 } from "@/lib/auth0"
 import { logger } from "@/lib/logger"
 
 export const dynamic = "force-dynamic"
+// Allow up to 5 minutes for Claude extended-thinking + agentic multi-round responses.
+// Without this Vercel serverless cuts the request at 10 s (Hobby) / 60 s (Pro).
+export const maxDuration = 300
 
 const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
 
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
   const chatId             = (formData.get("chatId") as string | null) || null
   const input              = (formData.get("input") as string | null) ?? ""
   const modelId            = formData.get("modelId") as string | null
+  const algorithm          = formData.get("algorithm") as string | null
   const pinIds             = formData.get("pinIds") as string | null
   const referenceMessageId = formData.get("referenceMessageId") as string | null
   const webSearch          = formData.get("webSearch") === "true"
@@ -62,6 +66,7 @@ export async function POST(request: NextRequest) {
   const fd = new FormData()
   fd.append("input", input)
   if (modelId) fd.append("model_id", modelId)
+  if (algorithm) fd.append("algorithm", algorithm)
   if (pinIds)  fd.append("pin_ids", pinIds)
   if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
   if (webSearch) fd.append("web_search", "true")
@@ -105,25 +110,54 @@ export async function POST(request: NextRequest) {
     responseHeaders["X-Chat-Id"] = backendChatId
   }
 
-  // Pipe through a TransformStream to force chunk-by-chunk flushing
-  // (prevents Next.js/Node from buffering the entire SSE stream)
-  const { readable, writable } = new TransformStream()
-  const writer = writable.getWriter()
-  const reader = backendResponse.body.getReader()
+  const encoder = new TextEncoder()
+  const backendReader = backendResponse.body.getReader()
 
-  ;(async () => {
-    try {
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        await writer.write(value)
+  // Track the keepalive timer outside the ReadableStream so cancel() can clear it
+  let keepAliveId: ReturnType<typeof setInterval> | null = null
+
+  // Reset (or start) the keepalive timer.  Sends an SSE comment every 15 s while
+  // the backend is silent so that load-balancers / intermediate proxies do NOT
+  // close what they perceive as an idle connection (common cause of Claude streams
+  // being cut off during its extended-thinking phase).
+  const resetKeepAlive = (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    if (keepAliveId !== null) clearInterval(keepAliveId)
+    keepAliveId = setInterval(() => {
+      try { controller.enqueue(encoder.encode(": ka\n\n")) } catch { /* stream already closed */ }
+    }, 15_000)
+  }
+
+  // Use a ReadableStream with explicit start/cancel so the backend connection is
+  // properly released when the client disconnects, and the keepalive timer is
+  // always cleared on teardown.
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      resetKeepAlive(controller)
+      try {
+        while (true) {
+          const { value, done } = await backendReader.read()
+          if (done) {
+            try { controller.close() } catch { /* already closed */ }
+            break
+          }
+          controller.enqueue(value)
+          // Each received chunk resets the keepalive timer so it only fires
+          // during genuine idle gaps (e.g. Claude thinking silently).
+          resetKeepAlive(controller)
+        }
+      } catch {
+        // Backend stream error or client disconnect – close cleanly
+        try { controller.close() } catch { /* already closed */ }
+      } finally {
+        if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
       }
-    } catch {
-      // Stream closed by client (abort) - ignore
-    } finally {
-      writer.close().catch(() => {})
-    }
-  })()
+    },
+    cancel() {
+      // Client disconnected – stop reading from the backend immediately
+      if (keepAliveId !== null) { clearInterval(keepAliveId); keepAliveId = null }
+      backendReader.cancel().catch(() => {})
+    },
+  })
 
-  return new Response(readable, { headers: responseHeaders })
+  return new Response(stream, { headers: responseHeaders })
 }

@@ -28,11 +28,12 @@ function filenameFromUrl(url: string): string {
  * Normalise the `file_attachments` array from a backend message into
  * separate `generatedFiles` and `attachments` lists for the UIMessage.
  */
-function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles"> {
+function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" | "attachments"> {
   const rawAtts = raw.file_attachments;
   if (!Array.isArray(rawAtts) || rawAtts.length === 0) return {};
 
   const generatedFiles: GeneratedFile[] = [];
+  const uploadedAttachments: import("@/types/chat").Attachment[] = [];
 
   for (const att of rawAtts) {
     const url = (att.file_link ?? att.url ?? att.link ?? "").trim();
@@ -45,15 +46,23 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles">
       ? name.trim()
       : filenameFromUrl(url);
 
-    // "generated" origin → render as a downloadable file in the assistant bubble
     if (origin === "generated") {
       generatedFiles.push({ url, filename, mimeType });
+    } else if (origin === "uploaded" || origin === "user") {
+      // Populate the user message bubble with the actual backend URL after a page refresh.
+      uploadedAttachments.push({
+        id: `att-${filename}-${url.slice(-8)}`,
+        file_name: filename,
+        file_type: mimeType ?? "application/octet-stream",
+        file_size: 0,
+        url,
+      });
     }
-    // "uploaded" origin is the user's own file already shown in the user bubble's attachments
   }
 
   return {
     ...(generatedFiles.length > 0 ? { generatedFiles } : {}),
+    ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
   };
 }
 
@@ -99,8 +108,32 @@ export function toUIMessage(raw: Message): UIMessage {
     }];
   }
 
-  // ── file_attachments → generatedFiles ────────────────────────────────────
+  // ── file_attachments → generatedFiles + uploaded attachment URLs ─────────
   const fileData = extractFileAttachments(raw);
+
+  // Merge uploaded attachment URLs (from file_attachments) into any existing
+  // attachments from raw.attachments, so a page refresh shows file chips with links.
+  const existingAtts = raw.attachments ?? [];
+  const uploadedFromFileAtts = fileData.attachments ?? [];
+  let mergedAttachments: typeof existingAtts | undefined;
+  if (uploadedFromFileAtts.length > 0) {
+    if (existingAtts.length > 0) {
+      // Patch URLs into matching existing entries (match by file_name)
+      mergedAttachments = existingAtts.map((a) => {
+        const match = uploadedFromFileAtts.find((u) => u.file_name === a.file_name);
+        return match && !a.url ? { ...a, url: match.url } : a;
+      });
+    } else {
+      mergedAttachments = uploadedFromFileAtts;
+    }
+  }
+
+  // ── image_links → images ─────────────────────────────────────────────────
+  // Restore generated images from the persisted image_links field so they
+  // display correctly after a page refresh (no new stream needed).
+  const restoredImages = raw.image_links && raw.image_links.length > 0
+    ? raw.image_links.map((url) => ({ url }))
+    : undefined;
 
   return {
     ...raw,
@@ -110,7 +143,9 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(modelMeta ? { modelMeta } : {}),
     ...(webCitations ? { webCitations } : {}),
     ...(activities ? { activities } : {}),
-    ...fileData,
+    ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
+    ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),
+    ...(restoredImages ? { images: restoredImages } : {}),
   }
 }
 

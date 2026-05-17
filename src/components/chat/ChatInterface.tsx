@@ -12,13 +12,14 @@ import {
   type PendingAttachment,
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
-import { useFileUpload, startUploadSimulation } from "@/hooks/use-file-upload";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { useChatState } from "@/hooks/use-chat-state";
 import { usePinOperations } from "@/hooks/use-pin-operations";
 import {
   useStreamingChat,
   type StreamState,
 } from "@/hooks/use-streaming-chat";
+import { useModelSelectorContext } from "@/context/model-selector-context";
 import type { Pin } from "@/lib/api/pins";
 import type { Source } from "@/types/chat";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -158,9 +159,12 @@ export function ChatInterface({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputWrapperRef = useRef<HTMLDivElement>(null);
   // Tracks which attachment IDs already have an active simulation interval
-  const simulationCleanups = useRef<Map<string, () => void>>(new Map());
+  // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+
+  // Muse framework state — consumed from context to compute algorithm for API calls
+  const { museActive, museAdvanced } = useModelSelectorContext();
 
   // Pin data for the @-mention dropdown.
   const { pins } = usePinOperations();
@@ -209,49 +213,44 @@ export function ChatInterface({
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
 
-  // Start upload-progress simulation for any newly added uploading attachment.
-  // Runs whenever the attachment list changes (new IDs appear).
-  useEffect(() => {
-    const currentIds = new Set(attachments.map((a) => a.id));
-    // Cancel simulations for removed attachments
-    for (const [id, cancel] of simulationCleanups.current.entries()) {
-      if (!currentIds.has(id)) {
-        cancel();
-        simulationCleanups.current.delete(id);
-      }
-    }
-    // Start simulation for new uploading attachments
-    for (const att of attachments) {
-      if (att.uploading && !simulationCleanups.current.has(att.id)) {
-        const cancel = startUploadSimulation(att.id, att.file.size, setAttachments);
-        simulationCleanups.current.set(att.id, cancel);
-      }
-    }
-  }, [attachments]);
-
-  // Cancel all simulations on unmount
-  useEffect(() => {
-    return () => {
-      for (const cancel of simulationCleanups.current.values()) cancel();
-    };
-  }, []);
-
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
+  // When sendInitialPrompt consumes addMenuFiles directly, skip the absorb effect
+  // so the same files don't get stuck in the input strip and cause duplicate toasts.
+  const skipAbsorbRef = useRef(false);
 
   // Store the send function in a ref so it's always current (closes over latest props)
   sendInitialPrompt.current = (prompt: string) => {
     const content = prompt.trim();
     if (content && !chatId) {
-      addOptimisticUserMessage(content);
+      const files = addMenuFiles && addMenuFiles.length > 0 ? [...addMenuFiles] : [];
+      // If there are files, signal the absorb effect to skip processing them
+      // (we're consuming them directly here to show in the user bubble).
+      if (files.length > 0) skipAbsorbRef.current = true;
+      const userMsgId = addOptimisticUserMessage(content, files.length > 0 ? files : undefined);
       const loadingId = addLoadingAssistantMessage();
-      const files = [...(addMenuFiles ?? [])];
+      setAttachments([]);
       onClearAddMenuFiles?.();
-      fetchAiResponse(content, null, loadingId, selectedModelId, {
+      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
+      fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
+        algorithm: algorithm ?? undefined,
+        userMessageId: userMsgId,
+        onUploadProgress: files.length > 0 ? (pct) => {
+          setMessages((prev) => prev.map((msg) =>
+            msg.id !== userMsgId ? msg : {
+              ...msg,
+              attachments: msg.attachments?.map((att) => ({
+                ...att,
+                uploadProgress: pct,
+                uploading: pct < 100,
+              })),
+            }
+          ));
+        } : undefined,
       });
     }
   };
@@ -306,6 +305,12 @@ export function ChatInterface({
   // Absorb add-menu files into local attachments so AttachmentManager shows them
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
+    // If sendInitialPrompt already consumed these files directly, skip absorption
+    // so they don't get stuck in the input strip and cause duplicate toasts later.
+    if (skipAbsorbRef.current) {
+      skipAbsorbRef.current = false;
+      return;
+    }
     setAttachments((prev) => processFiles(addMenuFiles, prev));
     onClearAddMenuFiles?.();
   }, [addMenuFiles]);
@@ -394,11 +399,9 @@ export function ChatInterface({
   const handleSend = async (text: string) => {
     const allFiles = attachments.map((a) => a.file);
     if (!text.trim() && allFiles.length === 0) return;
-    // Block send while files are still simulating upload
-    if (attachments.some((a) => a.uploading)) return;
 
     const content = text.trim();
-    addOptimisticUserMessage(content, allFiles.length > 0 ? allFiles : undefined);
+    const userMsgId = addOptimisticUserMessage(content, allFiles.length > 0 ? allFiles : undefined);
     const loadingId = addLoadingAssistantMessage();
     setInputValue("");
     setAttachments([]);
@@ -406,10 +409,25 @@ export function ChatInterface({
     onClearAddMenuFiles?.();
 
     try {
-      await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, {
+      const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
+      await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: allFiles.length > 0 ? allFiles : undefined,
+        algorithm: algorithm ?? undefined,
+        userMessageId: userMsgId,
+        onUploadProgress: allFiles.length > 0 ? (pct) => {
+          setMessages((prev) => prev.map((msg) =>
+            msg.id !== userMsgId ? msg : {
+              ...msg,
+              attachments: msg.attachments?.map((att) => ({
+                ...att,
+                uploadProgress: pct,
+                uploading: pct < 100,
+              })),
+            }
+          ));
+        } : undefined,
       });
     } catch {
       rollbackLast(2);
@@ -434,11 +452,13 @@ export function ChatInterface({
     });
 
     const loadingId = addLoadingAssistantMessage();
+    const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
     fetchAiResponse(
       lastUserMsg.content,
       chatId ?? null,
       loadingId,
-      selectedModelId,
+      algorithm ? null : selectedModelId,
+      algorithm ? { algorithm } : undefined,
     );
   };
 

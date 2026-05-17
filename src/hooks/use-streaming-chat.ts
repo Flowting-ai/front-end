@@ -38,7 +38,7 @@ export function useStreamingChat({
   onChatMoveToTop,
   setStreamState,
 }: UseStreamingChatParams) {
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
 
   // Pending message field updates - flushed to React every FLUSH_INTERVAL_MS
@@ -48,6 +48,8 @@ export function useStreamingChat({
 
   // The temp ID of the loading placeholder being updated during a stream
   const loadingMessageIdRef = useRef<string | null>(null)
+  // Tracks the optimistic user message ID so message_saved can update its attachment URLs
+  const userMessageIdRef = useRef<string | null>(null)
   // Resolved chat ID (may start as null/temp and update once backend confirms)
   const resolvedChatIdRef = useRef<string | null>(null)
 
@@ -101,7 +103,7 @@ export function useStreamingChat({
 
   const handleStopGeneration = () => {
     stopRequestedRef.current = true
-    abortControllerRef.current?.abort()
+    xhrRef.current?.abort()
     stopFlushInterval()
     flushPending()
     setStreamState?.("aborted")
@@ -145,12 +147,12 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; onUploadProgress?: (pct: number) => void },
   ): Promise<void> => {
     stopRequestedRef.current = false
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+    xhrRef.current = null
     loadingMessageIdRef.current = loadingMessageId
+    userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
 
     setStreamState?.("waiting")
@@ -169,6 +171,8 @@ export function useStreamingChat({
     }
     let streamFinished = false
     let shouldStopReading = false
+    let titleWasSet = false    // guards: prevent `done` from overwriting a title already set by the `title` SSE event
+    let receivedImages = false  // true when at least one image event was received this stream
     // Maps toolName → activityId so tool_progress events can find the activity
     // created by the preceding tool_executing event.
     const toolCallIdByName = new Map<string, string>()
@@ -180,42 +184,18 @@ export function useStreamingChat({
       fd.append("input", input)
       if (chatId) fd.append("chatId", chatId)
       if (modelId !== null && modelId !== undefined) fd.append("modelId", String(modelId))
+      if (options?.algorithm) fd.append("algorithm", options.algorithm)
       if (options?.webSearch) fd.append("webSearch", "true")
       if (options?.enableReasoning) fd.append("enable_thinking", "true")
       options?.files?.forEach((f) => fd.append("files", f))
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        body: fd,
-        signal: controller.signal,
-      })
-
-      if (!response.ok || !response.body) {
-        const text = await response.text().catch(() => "")
-        throw new Error(
-          friendlyApiError(text || `Request failed with status ${response.status}`, response.status),
-        )
-      }
-
-      // Adopt a real chat ID from the response header (new chats only)
-      const headerChatId =
-        response.headers.get("X-Chat-Id") ?? response.headers.get("x-chat-id")
-      if (headerChatId && (!chatId || chatId.startsWith("temp-"))) {
-        resolvedChatIdRef.current = headerChatId
-        onChatCreated?.(headerChatId)
-      }
-
-      setStreamState?.("streaming")
-      startFlushInterval()
-
-      // ── SSE read loop ─────────────────────────────────────────────────────
-
-      const decoder = new TextDecoder()
-      const reader = response.body.getReader()
       let buffer = ""
 
-      const processChunk = (chunk: Uint8Array) => {
-        buffer += decoder.decode(chunk, { stream: true })
+      // ── SSE processor ─────────────────────────────────────────────────────
+      // Called with each new text slice arriving from the XHR response stream.
+
+      const processSSEText = (text: string) => {
+        buffer += text
 
         // SSE events separated by \n\n; some backends use \n before "event:"
         const rawChunks = buffer.split("\n\n")
@@ -365,6 +345,7 @@ export function useStreamingChat({
             if (evtChatId) adoptChatId(evtChatId)
             const title = asString(parsed.title ?? parsed.chat_title)
             if (title && resolvedChatIdRef.current) {
+              titleWasSet = true
               onTitleUpdate?.(resolvedChatIdRef.current, title)
             }
             continue
@@ -526,6 +507,52 @@ export function useStreamingChat({
                       : msg
                   }),
                 )
+              }
+
+              // ── file_attachments → user message attachment URLs ─────────────
+              // origin === "uploaded" → backend has saved the file; update the
+              // optimistic user message's attachments with the real file_link URL
+              // so the chip in the user bubble becomes a proper link.
+              const userMsgId = userMessageIdRef.current
+              if (userMsgId) {
+                const uploadedAtts = rawAtts
+                  .filter((a) => a.origin === "uploaded" || a.origin === "user")
+                  .flatMap((a) => {
+                    const url = (
+                      typeof a.file_link === "string" ? a.file_link :
+                      typeof a.url       === "string" ? a.url :
+                      typeof a.link      === "string" ? a.link : ""
+                    ).trim()
+                    if (!url) return []
+                    const rawName = typeof a.file_name === "string" ? a.file_name
+                      : typeof a.name === "string" ? a.name : undefined
+                    const filename = rawName?.trim() || url.split("/").pop() || "file"
+                    const mimeType = typeof a.mime_type === "string" ? a.mime_type : "application/octet-stream"
+                    return [{ filename, url, mimeType }]
+                  })
+
+                if (uploadedAtts.length > 0) {
+                  setMessages((prev) =>
+                    prev.map((msg) => {
+                      if (msg.id !== userMsgId) return msg
+                      const existing = msg.attachments ?? []
+                      const updated = existing.map((att) => {
+                        const match = uploadedAtts.find((u) => u.filename === att.file_name)
+                        return match ? { ...att, url: match.url } : att
+                      })
+                      // If the optimistic message had no attachments yet (initial-prompt path),
+                      // create them fresh from the backend data.
+                      const merged = existing.length > 0 ? updated : uploadedAtts.map((u, i) => ({
+                        id: `srv-att-${i}-${Date.now()}`,
+                        file_name: u.filename,
+                        file_type: u.mimeType,
+                        file_size: 0,
+                        url: u.url,
+                      }))
+                      return { ...msg, attachments: merged }
+                    }),
+                  )
+                }
               }
             }
 
@@ -753,6 +780,7 @@ export function useStreamingChat({
             if (msgId) {
               if (Array.isArray(parsed.images)) {
                 const newImages = (parsed.images as string[]).map((url) => ({ url }))
+                receivedImages = true
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === msgId
@@ -762,6 +790,7 @@ export function useStreamingChat({
                 )
               } else if (parsed.url) {
                 const img = { url: asString(parsed.url) ?? "", s3Key: asString(parsed.s3_key) }
+                receivedImages = true
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === msgId
@@ -845,7 +874,7 @@ export function useStreamingChat({
             if (doneChatId) adoptChatId(doneChatId)
 
             const doneTitle = asString(parsed.title ?? parsed.chat_title)
-            if (doneTitle && resolvedChatIdRef.current) {
+            if (doneTitle && !titleWasSet && resolvedChatIdRef.current) {
               onTitleUpdate?.(resolvedChatIdRef.current, doneTitle)
             }
 
@@ -899,10 +928,51 @@ export function useStreamingChat({
               )
             }
 
+            // Update user message attachments with real backend URLs for uploaded files
+            const doneUserMsgId = userMessageIdRef.current
+            if (doneUserMsgId) {
+              const uploadedFromDone = doneFileAttachments
+                .filter((a) => a.origin === "uploaded" || a.origin === "user")
+                .flatMap((a) => {
+                  const url = (
+                    typeof a.file_link === "string" ? a.file_link :
+                    typeof a.url       === "string" ? a.url :
+                    typeof a.link      === "string" ? a.link : ""
+                  ).trim()
+                  if (!url) return []
+                  const rawName = typeof a.file_name === "string" ? a.file_name
+                    : typeof a.name === "string" ? a.name : undefined
+                  const filename = rawName?.trim() || url.split("/").pop() || "file"
+                  const mimeType = typeof a.mime_type === "string" ? a.mime_type : "application/octet-stream"
+                  return [{ filename, url, mimeType }]
+                })
+
+              if (uploadedFromDone.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== doneUserMsgId) return msg
+                    const existing = msg.attachments ?? []
+                    const updated = existing.map((att) => {
+                      const match = uploadedFromDone.find((u) => u.filename === att.file_name)
+                      return match ? { ...att, url: match.url } : att
+                    })
+                    const merged = existing.length > 0 ? updated : uploadedFromDone.map((u, i) => ({
+                      id: `srv-att-${i}-${Date.now()}`,
+                      file_name: u.filename,
+                      file_type: u.mimeType,
+                      file_size: 0,
+                      url: u.url,
+                    }))
+                    return { ...msg, attachments: merged }
+                  }),
+                )
+              }
+            }
+
             queueUpdate(
               {
                 content:
-                  visibleText || (finalReasoning ? "" : "API didn't respond"),
+                  visibleText || (finalReasoning || receivedImages ? "" : "API didn't respond"),
                 thinking: finalReasoning || undefined,
                 isThinkingInProgress: false,
                 isLoading: false,
@@ -958,21 +1028,101 @@ export function useStreamingChat({
         }
       }
 
-      // ── Main read loop ────────────────────────────────────────────────────
+      // ── XHR transport with real upload progress ───────────────────────────
 
-      while (true) {
-        const { value, done } = await reader.read()
-        if (value) processChunk(value)
-        if (done || shouldStopReading) break
-      }
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhrRef.current = xhr
 
-      // Flush any partial event left in the buffer
-      if (buffer.trim()) {
-        buffer += "\n\n"
-        processChunk(new Uint8Array(0))
-      }
+        xhr.open("POST", "/api/chat")
 
-      reader.cancel().catch(() => {})
+        // Report real browser→proxy upload progress per file byte count
+        if (options?.files?.length && options.onUploadProgress) {
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable && e.total > 0) {
+              // Cap at 99 so the caller can set 100 only on confirmed completion
+              options.onUploadProgress!(Math.min(99, Math.round((e.loaded / e.total) * 100)))
+            }
+          })
+        }
+
+        // Upload finished → signal 100%, enter SSE streaming phase
+        xhr.upload.addEventListener("loadend", () => {
+          options?.onUploadProgress?.(100)
+          setStreamState?.("streaming")
+          startFlushInterval()
+        })
+
+        let headersHandled = false
+        let processedLength = 0
+
+        // onprogress fires for every incoming chunk of streaming data and is
+        // more reliable than relying on onreadystatechange LOADING events alone.
+        xhr.onprogress = () => {
+          if (shouldStopReading) return
+          // Safety-net: start flush interval if upload.loadend didn't fire yet
+          // (e.g. when there are no files to upload).
+          if (!flushTimerRef.current) startFlushInterval()
+          const text = xhr.responseText
+          if (text.length > processedLength) {
+            processSSEText(text.slice(processedLength))
+            processedLength = text.length
+          }
+        }
+
+        xhr.onreadystatechange = () => {
+          // Handle response headers once
+          if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !headersHandled) {
+            headersHandled = true
+            if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
+              reject(new Error(
+                friendlyApiError(xhr.responseText || `Request failed with status ${xhr.status}`, xhr.status),
+              ))
+              return
+            }
+            const headerChatId =
+              xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
+            if (headerChatId && (!chatId || chatId.startsWith("temp-"))) {
+              resolvedChatIdRef.current = headerChatId
+              onChatCreated?.(headerChatId)
+            }
+          }
+
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            xhrRef.current = null
+            // Process any data that onprogress may not have seen in the final chunk
+            if (!shouldStopReading) {
+              const text = xhr.responseText
+              if (text.length > processedLength) {
+                processSSEText(text.slice(processedLength))
+                processedLength = text.length
+              }
+            }
+            // Flush any incomplete SSE event still in the buffer
+            if (buffer.trim()) processSSEText("\n\n")
+            if (xhr.status === 0 && !stopRequestedRef.current) {
+              reject(new Error(friendlyApiError("", 503)))
+            } else {
+              resolve()
+            }
+          }
+        }
+
+        // Distinguish a user-initiated abort (handleStopGeneration → xhr.abort())
+        // from a network error so we resolve cleanly instead of rejecting.
+        xhr.onabort = () => {
+          xhrRef.current = null
+          resolve()
+        }
+
+        xhr.onerror = () => {
+          xhrRef.current = null
+          reject(new Error(friendlyApiError("", 503)))
+        }
+
+        xhr.send(fd)
+      })
+
       stopFlushInterval()
       flushPending()
 
