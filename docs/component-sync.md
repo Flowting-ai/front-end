@@ -1,20 +1,20 @@
-# Component Sync: may-day → front-end-new
+# Component Sync: may-day → front-end
 
-**Last synced:** 2026-05-16  
+**Last synced:** 2026-05-18  
 **Source:** `may-day/src/components/`  
-**Target:** `front-end-new/src/components/`
+**Target:** `front-end/src/components/`
 
 ---
 
 ## How to use this document
 
 Before each sync run, check the **Component Status** table below.  
-Only components marked **CHANGED** or **NEW (may-day)** need action — skip everything else.
+Only components marked **🆕 New in may-day** need action — skip everything else.
 
 ### Steps
 1. `ls may-day/src/components` — look for new directories not in the **Known** list below.
-2. For each new directory: copy it wholesale to `front-end-new/src/components/`.
-3. For changed components: copy `index.tsx` (and any extra files) from may-day.
+2. For each new directory: copy it wholesale to `front-end/src/components/`.
+3. **Do NOT overwrite** components marked 🔷 or ⭐ — front-end has been further developed.
 4. Run `npm run build` or type-check to confirm no regressions.
 5. Update **Last synced** date and the status table after each sync.
 
@@ -22,114 +22,116 @@ Only components marked **CHANGED** or **NEW (may-day)** need action — skip eve
 
 ## Component Status
 
-> Legend: ✅ Identical · 🔄 Updated · 🆕 New in may-day · ⭐ front-end-new only (do not overwrite)
+> Legend: ✅ Identical · 🆕 New in may-day · 🔷 front-end ahead (do not overwrite) · ⭐ front-end only (do not overwrite)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Avatar | 🆕 New in may-day | New atom/molecule — user avatar with fallback initials |
-| Badge | ✅ Identical | — |
+| Avatar | ✅ Identical | — |
+| Badge | 🔷 front-end ahead | 2-line diff — front-end modified |
 | BreathingDot | ✅ Identical | — |
-| Button | ✅ Identical | — |
-| ChartCard | 🆕 New in may-day | New molecule — chart card wrapper with header/footer slots |
-| ChatInput | 🔄 Updated | `FolderAddIcon`/`UserIcon`/`LlmIcon variant="color"`; `FolderOneIcon` loses `variant="static"`; `Omit` type fix |
-| ChatThumbnail | 🔄 Updated | `FolderOneIcon` loses `variant="static"` |
-| Checkbox | ✅ Identical | — |
-| Chip | ✅ Identical | — |
-| ChipButton | ✅ Identical | — |
-| ChipInput | ✅ Identical | — |
-| DateRangePill | 🆕 New in may-day | New atom — date range pill display |
-| DeltaPill | 🆕 New in may-day | New atom — delta/change indicator pill |
-| DiffLine | ✅ Identical | Synced; no changes in may-day |
+| Button | 🔷 front-end ahead | 28-line diff — front-end modified |
+| ChartCard | ✅ Identical | — |
+| ChatInput | 🔷 front-end ahead | Synced from may-day; front-end further extended (68-line diff) |
+| ChatRow | ✅ Identical | Synced 2026-05-18 — chat row with pin chip and selection mode |
+| ChatSelectionBar | ✅ Identical | Synced 2026-05-18 — bulk-selection action bar for chats |
+| ChatThumbnail | 🔷 front-end ahead | Synced from may-day; front-end further extended (36-line diff) |
+| Checkbox | 🔷 front-end ahead | 10-line diff — front-end modified |
+| Chip | 🔷 front-end ahead | 52-line diff — front-end modified |
+| ChipButton | 🔷 front-end ahead | 12-line diff — front-end modified |
+| ChipInput | 🔷 front-end ahead | 20-line diff — front-end modified |
+| DateRangePill | ✅ Identical | — |
+| DeltaPill | ✅ Identical | — |
+| DiffLine | ✅ Identical | — |
 | Divider | ✅ Identical | — |
-| DocumentCard | ⭐ front-end-new only | Keep; not in may-day |
-| Dropdown | ✅ Identical | — |
-| DropdownMenuItem | 🔄 Updated | `LlmIcon variant` `"avatar"` → `"color"` |
-| DropdownSection | ✅ Identical | — |
-| EditProjectModal | ⭐ front-end-new only | Keep; not in may-day |
-| EnhanceDotProgress | ✅ Identical | Synced; no changes in may-day |
-| EnhancePromptField | ✅ Identical | Synced; no changes in may-day |
-| EnhanceScanningState | ✅ Identical | Synced; no changes in may-day |
-| EnhanceSummaryBar | ✅ Identical | Synced; no changes in may-day |
-| Eyebrow | 🆕 New in may-day | New atom — section eyebrow/label |
-| FloatingMenu | ✅ Identical | — |
-| FloatingMenuItem | ✅ Identical | — |
-| HighlightCard | ✅ Identical | — |
-| HighlightMark | 🔄 Updated | Adds `data-highlight-id` prop forwarded to `<mark>` element |
-| HighlightPanel | ✅ Identical | — |
-| IconButton | 🔄 Updated | Discriminated union enforcing `aria-label` OR `aria-labelledby` (TS a11y) |
-| InputField | 🔄 Updated | `Omit` extended to also exclude `'size'` from `InputHTMLAttributes` |
+| DocumentCard | ⭐ front-end only | Keep; not in may-day |
+| Dropdown | 🔷 front-end ahead | 56-line diff — front-end modified |
+| DropdownMenuItem | 🔷 front-end ahead | Synced from may-day; front-end further extended (72-line diff) |
+| DropdownSection | 🔷 front-end ahead | 4-line diff — front-end modified |
+| EditProjectModal | ⭐ front-end only | Keep; not in may-day |
+| EnhanceDotProgress | ✅ Identical | — |
+| EnhancePromptField | 🔷 front-end ahead | 85-line diff — front-end modified |
+| EnhanceScanningState | 🔷 front-end ahead | 8-line diff — front-end modified |
+| EnhanceSummaryBar | 🔷 front-end ahead | 2-line diff — front-end modified |
+| Eyebrow | ✅ Identical | — |
+| FloatingMenu | 🔷 front-end ahead | 10-line diff — front-end modified |
+| FloatingMenuItem | 🔷 front-end ahead | 8-line diff — front-end modified |
+| GlobalSearchModal | ✅ Identical | Synced 2026-05-18 — global search modal with keyboard navigation and filter tabs |
+| HighlightCard | 🔷 front-end ahead | 12-line diff — front-end modified |
+| HighlightMark | 🔷 front-end ahead | Synced from may-day; front-end further extended (7-line diff) |
+| HighlightPanel | 🔷 front-end ahead | 44-line diff — front-end modified |
+| IconButton | 🔷 front-end ahead | Synced from may-day; front-end further extended (18-line diff) |
+| InputField | 🔷 front-end ahead | Synced from may-day; front-end further extended (22-line diff) |
 | InputGroup | ✅ Identical | — |
-| JumpTimestampGutter | ✅ Identical | — |
-| LinksSidePanel | 🆕 New in may-day | New molecule — side panel for links/resources |
-| MessageBubble | ✅ Identical | — |
-| ModelFeaturedCard | ✅ Identical | — |
-| ModelSelectItem | 🔄 Updated | `LlmIcon variant` `"avatar"` → `"color"` |
-| ModelSelector | 🔄 Updated | `AtomTwoIcon` → `AtomOneIcon`; `TIER_TABS` gains "All"; default tier `'free'` → `'all'` |
-| OptionBadge | ✅ Identical | — |
-| OptionRow | ✅ Identical | — |
-| PasswordInputField | ✅ Identical | — |
-| PersonaCard | 🆕 New in may-day | New molecule — persona card with avatar, bio, stats, and link sections |
-| Pin | 🔄 Updated | Major: `modelName`/`createdAt`/`pinId` props; comment CRUD API integration; `PinMarkdownRenderer` + `PinCommentItem` sub-components; `formatRelativeTime` helper; dynamic `ExpandedMeta`; revised height animation |
+| JumpTimestampGutter | 🔷 front-end ahead | 10-line diff — front-end modified |
+| LinksSidePanel | ✅ Identical | — |
+| MessageBubble | 🔷 front-end ahead | 24-line diff — front-end modified |
+| ModelFeaturedCard | 🔷 front-end ahead | 14-line diff — front-end modified |
+| ModelSelectItem | 🔷 front-end ahead | Synced from may-day; front-end further extended (40-line diff) |
+| ModelSelector | 🔷 front-end ahead | Synced from may-day; front-end further extended (14-line diff) |
+| MoveToProjectModal | ✅ Identical | Synced 2026-05-18 — modal to move selected chats to a project |
+| OptionBadge | 🔷 front-end ahead | 2-line diff — front-end modified |
+| OptionRow | 🔷 front-end ahead | 30-line diff — front-end modified |
+| PasswordInputField | 🔷 front-end ahead | 8-line diff — front-end modified |
+| PersonaCard | 🔷 front-end ahead | Synced from may-day; front-end further extended (6-line diff) |
+| Pin | 🔷 front-end ahead | Synced from may-day; front-end significantly extended (455-line diff) |
 | PinCategory | ✅ Identical | — |
-| PinCommentField | ✅ Identical | — |
-| PinInsert | ✅ Identical | — |
-| PinSkeleton | ✅ Identical | — |
-| Pinboard | 🔄 Updated | New organize-mode props (`onCreateFolder`, `onMoveToFolder`, `onDeletePins`); viewport-safe expanded positioning; `FolderOneIcon` loses `variant="static"` |
-| PinboardExpanded | 🔄 Updated | New organize-mode props fully wired; inline new-folder creation flow; `CancelCircleIcon` replaces `DeleteTwoIcon`; `FolderOneIcon` loses `variant="static"` |
-| PinboardExpandedSkeleton | ✅ Identical | — |
-| PinboardHeader | ✅ Identical | — |
-| PinboardSkeleton | ✅ Identical | — |
-| Popover | ✅ Identical | — |
-| PresetModelSelector | ⭐ front-end-new only | Keep; not in may-day |
-| ProjectCard | ⭐ front-end-new only | Keep; not in may-day |
-| ProjectChatRow | ⭐ front-end-new only | Keep; not in may-day |
-| ProjectFilesPanel | ⭐ front-end-new only | Keep; not in may-day |
-| ProjectInstructionsPanel | ⭐ front-end-new only | Keep; not in may-day |
-| QuestionCard | ✅ Identical | — |
-| SelectionPopover | 🔄 Updated | Toolbar `onMouseDown={e => e.preventDefault()}` to preserve text selection |
-| SessionRow | 🆕 New in may-day | New molecule — session list row |
-| ShareModal | 🆕 New in may-day | New molecule — share modal for superlinks |
-| Sidebar | 🔄 Updated | `activeChatId`/`onSelectChat` controlled selection; scroll-position memory; `onChatClick` flow; auto-expand parent folder |
+| PinCommentField | 🔷 front-end ahead | 10-line diff — front-end modified |
+| PinInsert | 🔷 front-end ahead | 32-line diff — front-end modified |
+| PinSkeleton | 🔷 front-end ahead | 18-line diff — front-end modified |
+| Pinboard | 🔷 front-end ahead | Synced from may-day; front-end significantly extended (473-line diff) |
+| PinboardExpanded | 🔷 front-end ahead | Synced from may-day; front-end significantly extended (957-line diff) |
+| PinboardExpandedSkeleton | 🔷 front-end ahead | 36-line diff — front-end modified |
+| PinboardHeader | 🔷 front-end ahead | 6-line diff — front-end modified |
+| PinboardSkeleton | 🔷 front-end ahead | 22-line diff — front-end modified |
+| Popover | 🔷 front-end ahead | 32-line diff — front-end modified |
+| PresetModelSelector | ⭐ front-end only | Keep; not in may-day |
+| ProjectCard | ⭐ front-end only | Keep; not in may-day |
+| ProjectChatRow | ⭐ front-end only | Keep; not in may-day |
+| ProjectFilesPanel | ⭐ front-end only | Keep; not in may-day |
+| ProjectInstructionsModal | ⭐ front-end only | Keep; not in may-day |
+| QuestionCard | 🔷 front-end ahead | 24-line diff — front-end modified |
+| SelectionPopover | 🔷 front-end ahead | Synced from may-day; front-end further extended (16-line diff) |
+| SessionRow | ✅ Identical | — |
+| ShareModal | ✅ Identical | — |
+| Sidebar | 🔷 front-end ahead | Synced from may-day; front-end significantly extended (102-line diff) |
 | SidebarInset | ✅ Identical | — |
-| SidebarMenuItem | 🔄 Updated | `useEffect` syncs `editValue` to `label` on edit entry; cursor placed at end; keydown guard for edit mode; `data-state` prop added |
-| SidebarMenuSkeleton | ✅ Identical | — |
-| SidebarProjectsSection | ✅ Identical | — |
-| Slider | 🔄 Updated | Added `variant` (`'default' \| 'pips' \| 'scrubber'`) and `showValue` prop |
-| Sparkline | 🆕 New in may-day | New molecule — sparkline mini-chart |
-| Spinner | ✅ Identical | — |
-| StatCard | 🆕 New in may-day | New molecule — stat/metric display card |
-| StreamingIndicator | ✅ Identical | — |
-| SuperLink | 🆕 New in may-day | New molecule — superlink core component |
-| SuperLinkDrawer | 🆕 New in may-day | New organism — superlink detail drawer |
-| SuperLinkRow | 🆕 New in may-day | New molecule — superlink row list item |
-| SuperLinksEmpty | 🆕 New in may-day | New molecule — superlinks empty state |
-| Switch | ✅ Identical | — |
-| SystemInstructionsModal | ⭐ front-end-new only | Keep; not in may-day |
-| TabItem | 🔄 Updated | `data-state` prop added (Radix Tabs injects it) |
-| Tabs | 🔄 Updated | Type assertion on `.focus()` call (functionally identical) |
-| Toast | ✅ Identical | — |
-| TokenBudgetBar | 🆕 New in may-day | New atom — token budget usage bar |
-| Tooltip | ✅ Identical | — |
-| UsageBarChart | 🆕 New in may-day | New molecule — usage bar chart |
-| VersionCard | 🆕 New in may-day | New molecule — version/release card |
-| VisibilityRow | 🆕 New in may-day | New molecule — visibility toggle row |
-| chat/ | ⭐ front-end-new only | Keep; not in may-day |
-| compare/ | ⭐ front-end-new only | Keep; not in may-day |
-| layout/ | ⭐ front-end-new only | Keep; not in may-day |
-| onboarding/ | ⭐ front-end-new only | Keep; not in may-day |
-| shared/ | ⭐ front-end-new only | Keep; not in may-day |
-| ui/ | ⭐ front-end-new only (extended) | `button.tsx` identical; `index.ts` barrel is front-end-new only |
+| SidebarMenuItem | 🔷 front-end ahead | Synced from may-day; front-end further extended (45-line diff) |
+| SidebarMenuSkeleton | 🔷 front-end ahead | 4-line diff — front-end modified |
+| SidebarProjectsSection | 🔷 front-end ahead | 34-line diff — front-end modified |
+| Slider | 🔷 front-end ahead | Synced from may-day; front-end further extended (16-line diff) |
+| Sparkline | ✅ Identical | — |
+| Spinner | 🔷 front-end ahead | 18-line diff — front-end modified |
+| StatCard | ✅ Identical | — |
+| StreamingIndicator | 🔷 front-end ahead | 18-line diff — front-end modified |
+| SuperLink | ✅ Identical | — |
+| SuperLinkDrawer | ✅ Identical | — |
+| SuperLinkRow | ✅ Identical | — |
+| SuperLinksEmpty | ✅ Identical | — |
+| Switch | 🔷 front-end ahead | 10-line diff — front-end modified |
+| SystemInstructionsModal | ⭐ front-end only | Keep; not in may-day |
+| TabItem | 🔷 front-end ahead | Synced from may-day; front-end further extended (8-line diff) |
+| Tabs | 🔷 front-end ahead | Synced from may-day; front-end further extended (22-line diff) |
+| Toast | 🔷 front-end ahead | 8-line diff — front-end modified |
+| TokenBudgetBar | ✅ Identical | — |
+| Tooltip | 🔷 front-end ahead | 8-line diff — front-end modified |
+| UsageBarChart | ✅ Identical | — |
+| VersionCard | ✅ Identical | — |
+| VisibilityRow | ✅ Identical | — |
+| chat/ | ⭐ front-end only | Keep; not in may-day |
+| compare/ | ⭐ front-end only | Keep; not in may-day |
+| layout/ | ⭐ front-end only | Keep; not in may-day |
+| onboarding/ | ⭐ front-end only | Keep; not in may-day |
+| shared/ | ⭐ front-end only | Keep; not in may-day |
+| ui/ | ⭐ front-end only (extended) | `button.tsx` identical; `index.ts` barrel is front-end only |
 
 ---
 
 ## Templates
 
-> may-day has a `src/templates/` directory. front-end-new has no templates directory yet.
-
 | Template | Status | Notes |
 |----------|--------|-------|
-| SuperLinks | 🆕 New in may-day | New page template — superlinks management view; copy `may-day/src/templates/SuperLinks/` to `front-end-new/src/templates/SuperLinks/` |
-| ChatBoard | ⭐ may-day only | Existing may-day template; no equivalent in front-end-new — skip unless needed |
+| SuperLinks | ✅ Identical | Synced; present in both `may-day` and `front-end` |
+| ChatBoard | ⭐ may-day only | No equivalent in front-end — skip unless needed |
 
 ---
 
@@ -146,5 +148,6 @@ Only components marked **CHANGED** or **NEW (may-day)** need action — skip eve
 
 | Date | Source | What changed |
 |------|--------|-------------|
-| 2026-05-16 | may-day | Added 19 new components (Avatar, ChartCard, DateRangePill, DeltaPill, Eyebrow, LinksSidePanel, PersonaCard, SessionRow, ShareModal, Sparkline, StatCard, SuperLink, SuperLinkDrawer, SuperLinkRow, SuperLinksEmpty, TokenBudgetBar, UsageBarChart, VersionCard, VisibilityRow). Updated Slider (variant + showValue). Added SuperLinks template. Resolved prior 🆕 entries (DiffLine, Enhance*) now confirmed synced. Registered DocumentCard, SystemInstructionsModal, onboarding/ as front-end-new only. |
-| 2026-05-13 | may-day | Initial sync. Added 6 new components (DiffLine, EnhanceDotProgress, EnhancePromptField, EnhanceScanningState, EnhanceSummaryBar, Slider). Updated 16 components (see 🔄 rows above). |
+| 2026-05-18 | may-day | Scanned full codebase. All 4 new may-day components (ChatRow, ChatSelectionBar, GlobalSearchModal, MoveToProjectModal) already present in front-end and identical. All previously 🆕/🔄 entries now confirmed synced. Updated legend to include 🔷 (front-end ahead). 53 components marked 🔷 — front-end has been further developed beyond may-day baseline; do not overwrite. 30 components confirmed ✅ Identical. |
+| 2026-05-16 | may-day | Added 19 new components (Avatar, ChartCard, DateRangePill, DeltaPill, Eyebrow, LinksSidePanel, PersonaCard, SessionRow, ShareModal, Sparkline, StatCard, SuperLink, SuperLinkDrawer, SuperLinkRow, SuperLinksEmpty, TokenBudgetBar, UsageBarChart, VersionCard, VisibilityRow). Updated Slider (variant + showValue). Added SuperLinks template. Registered DocumentCard, SystemInstructionsModal, onboarding/ as front-end only. |
+| 2026-05-13 | may-day | Initial sync. Added 6 new components (DiffLine, EnhanceDotProgress, EnhancePromptField, EnhanceScanningState, EnhanceSummaryBar, Slider). Updated 16 components. |

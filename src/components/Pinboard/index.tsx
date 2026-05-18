@@ -49,14 +49,12 @@ export interface PinboardView {
 }
 
 /**
- * Default view set: All pins, Recent pins, This chat pins. The "Recent pins"
- * view shows the user's most recently created or interacted-with pins. Append
+ * Default view set: All pins, Current chat pins. Append
  * user folders to this list when constructing the consumer's `views` prop.
  */
 export const DEFAULT_PINBOARD_VIEWS: PinboardView[] = [
-  { id: 'all',         label: 'All pins' },
-  { id: 'recent',      label: 'Recent pins' },
-  { id: 'this-chat',   label: 'This chat pins' },
+  { id: 'all',          label: 'All pins'          },
+  { id: 'current-chat', label: 'Current chat' },
 ]
 
 /**
@@ -347,7 +345,7 @@ function DefaultSortMenu({
   onSelect:   (id: string) => void
 }) {
   return (
-    <Dropdown>
+    <Dropdown size="md">
       <Dropdown.Section fluid>
         {options.map((o) => (
           <Dropdown.Item
@@ -726,7 +724,7 @@ export interface PinboardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   pins?: PinboardPin[]
   /**
    * Available views for the filter dropdown (Figma 3139:36399). Defaults to
-   * `DEFAULT_PINBOARD_VIEWS` (All pins / Recent pins / This chat pins). Spread user folders
+   * `DEFAULT_PINBOARD_VIEWS` (All pins / Current chat pins). Spread user folders
    * onto this list to add them under the defaults.
    */
   views?: PinboardView[]
@@ -1332,33 +1330,48 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                     />
                   ))}
                 </Dropdown.Section>
-                {personalFolders && personalFolders.length > 0 && (
-                  <Dropdown.Section label="Your folders" divider fluid>
-                    {personalFolders.map(f => (
-                      <Dropdown.Item
-                        key={f.id}
-                        label={f.label}
-                        icon={<FolderOneIcon variant="static" animated />}
-                        selected={f.id === currentViewId}
-                        onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
-                )}
-                {projectFolders && projectFolders.length > 0 && (
-                  <Dropdown.Section label="Project folders" divider fluid>
-                    {projectFolders.map(f => (
-                      <Dropdown.Item
-                        key={f.id}
-                        label={f.label}
-                        icon={<FolderOneIcon variant="static" animated />}
-                        selected={f.id === currentViewId}
-                        onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
-                        fluid
-                      />
-                    ))}
-                  </Dropdown.Section>
+                {/* Folders block - isolated KDS scrollbar so long folder
+                    lists don't overflow the dropdown. Max-height caps at
+                    ~6 items (32 px each + 4 px gap). */}
+                {((personalFolders && personalFolders.length > 0) || (projectFolders && projectFolders.length > 0)) && (
+                  <div
+                    className="kaya-scrollbar"
+                    style={{
+                      maxHeight:           192,
+                      overflowY:           'auto',
+                      overflowX:           'hidden',
+                      overscrollBehaviorY: 'contain',
+                    }}
+                  >
+                    {personalFolders && personalFolders.length > 0 && (
+                      <Dropdown.Section label="Your folders" divider fluid>
+                        {personalFolders.map(f => (
+                          <Dropdown.Item
+                            key={f.id}
+                            label={f.label}
+                            icon={<FolderOneIcon variant="static" animated />}
+                            selected={f.id === currentViewId}
+                            onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    )}
+                    {projectFolders && projectFolders.length > 0 && (
+                      <Dropdown.Section label="Project folders" divider fluid>
+                        {projectFolders.map(f => (
+                          <Dropdown.Item
+                            key={f.id}
+                            label={f.label}
+                            icon={<FolderOneIcon variant="static" animated />}
+                            selected={f.id === currentViewId}
+                            onClick={() => handleViewSelect(f.id, { id: f.id, label: f.label })}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    )}
+                  </div>
                 )}
               </Dropdown>
             </Dropdown.Float>
@@ -1752,6 +1765,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
           >
             <PinboardExpanded
               pins={pins}
+              pinCount={pins.length}
               onClose={handleExpandedClose}
               onOrganize={onOrganize}
               personalFolders={personalFolders}

@@ -104,7 +104,14 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
 function RecentsList({ activeChatId, onSelectChat, chatHistory }: SectionProps) {
   const { chats, isLoading, hasMore, loadMore, rename, remove, star } = chatHistory;
 
-  if (isLoading && chats.length === 0) {
+  // Suppress hydration mismatch: the server always renders with isLoading=false,
+  // so defer the loading skeleton until after mount so the first client render
+  // matches the server output.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const loading = mounted && isLoading;
+
+  if (loading && chats.length === 0) {
     return (
       <div
         style={{
@@ -638,6 +645,7 @@ export function LeftSidebar({
       onSearch={() => {
         /* wired in Day 7 - search dialog */
       }}
+      onChatsClick={() => router.push("/chats")}
       onProjectsClick={() => router.push("/projects")}
       onPersonasClick={() => router.push("/personas")}
       onSettingsClick={() => router.push("/settings")}

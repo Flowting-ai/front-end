@@ -6,6 +6,7 @@ export interface Chat {
   starred: boolean;
   model?: string;
   message_count?: number;
+  pins_count?: number;
   last_message_at?: string;
   project_id?: string | null;
 }

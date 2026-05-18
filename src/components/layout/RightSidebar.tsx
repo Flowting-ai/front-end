@@ -306,10 +306,10 @@ export function RightSidebar() {
   const filteredPins = useMemo((): PinboardPin[] => {
     let result = pins
 
-    // View filter: "this-chat" shows only pins from the currently open chat.
+    // View filter: "current-chat" shows only pins from the currently open chat.
     // Folder views filter by folder assignment. All other views (all, recent)
     // show the full list and let the sort/search narrow it further.
-    if (selectedViewId === "this-chat") {
+    if (selectedViewId === "current-chat") {
       result = currentChatId
         ? result.filter((p) => p.chatId === currentChatId)
         : []

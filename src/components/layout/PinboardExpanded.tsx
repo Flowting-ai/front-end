@@ -48,7 +48,7 @@ export interface PinFolder {
   type?: 'personal' | 'project'
 }
 
-type FolderFilter  = 'all' | 'unorganized' | 'this-chat' | string
+type FolderFilter  = 'all' | 'unorganized' | 'current-chat' | string
 type SortField     = 'date_created' | 'title' | 'category'
 type SortDirection = 'asc' | 'desc'
 
@@ -451,7 +451,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     let result: PinItem[] = pins
 
     // View/folder filtering
-    if (activeFolderId === 'this-chat') {
+    if (activeFolderId === 'current-chat') {
       result = activeChatId ? result.filter(p => p.chatId === activeChatId) : []
     } else if (activeFolderId === 'unorganized') {
       result = result.filter(p => !p.folderId)
@@ -492,9 +492,9 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   const emptyState = (() => {
     if (searchQuery.trim() && filteredPins.length === 0)
       return { title: `No results for "${searchQuery}"` }
-    if (activeFolderId === 'this-chat' && filteredPins.length === 0)
+    if (activeFolderId === 'current-chat' && filteredPins.length === 0)
       return { title: 'No pins yet', description: 'Pin any message in this chat to save it here.' }
-    if (activeFolderId !== 'all' && activeFolderId !== 'this-chat' && filteredPins.length === 0)
+    if (activeFolderId !== 'all' && activeFolderId !== 'current-chat' && filteredPins.length === 0)
       return { title: 'No pins yet', description: 'Move pins to this folder to see them here.' }
     if (pins.length === 0)
       return { title: 'No pins yet', description: 'Pin any chat message to save it here.' }
@@ -552,7 +552,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   })()
 
   const activeTitle = activeFolderId === 'all'         ? 'All pins'
-                    : activeFolderId === 'this-chat'    ? 'This chat'
+                    : activeFolderId === 'current-chat' ? 'Current chat'
                     : activeFolderId === 'unorganized'  ? 'Unorganized pins'
                     : folders.find(f => f.id === activeFolderId)?.name ?? 'Pins'
 
@@ -678,8 +678,8 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                       fluid
                       label="This chat"
                       icon={<MessagePreviewOneIcon size={20} />}
-                      selected={activeFolderId === 'this-chat'}
-                      onClick={() => setActiveFolderId('this-chat')}
+                      selected={activeFolderId === 'current-chat'}
+                      onClick={() => setActiveFolderId('current-chat')}
                     />
                   )}
                 </div>

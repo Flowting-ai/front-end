@@ -46,6 +46,7 @@ function normalizeChat(raw: BackendChat): Chat {
     starred: raw.starred ?? raw.is_starred ?? raw.isStarred ?? false,
     model: raw.model,
     message_count: raw.message_count ?? 0,
+    pins_count: raw.pins_count ?? raw.pin_count ?? 0,
     last_message_at: raw.last_message_at,
     project_id: raw.project_id ?? null,
   };

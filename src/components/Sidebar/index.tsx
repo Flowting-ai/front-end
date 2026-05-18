@@ -87,6 +87,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onSearch?: () => void
   /** Called when the sidebar collapse/toggle button is clicked */
   onCollapse?: () => void
+  /** Called when the Chat board nav item is clicked */
+  onChatsClick?: () => void
   /** Called when the Projects nav item is clicked */
   onProjectsClick?: () => void
   /** Called when the Persona nav item is clicked */
@@ -386,6 +388,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onNewChat,
       onSearch,
       onCollapse,
+      onChatsClick,
       onProjectsClick,
       onPersonasClick,
       projects       = DEFAULT_PROJECTS,
@@ -625,16 +628,14 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             paddingBottom: '8px',
             flexShrink:    0,
           }}>
-            <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<BubbleChatIcon size={20} />}
-                label="Chat board"
-                selected={selectedItem === 'chat-board'}
-                onClick={() => onSelectSection('chat-board')}
-              />
-            </div>
+            <SidebarMenuItem
+              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+              variant="default"
+              icon={<BubbleChatIcon size={20} />}
+              label="Chat board"
+              selected={selectedItem === 'chat-board'}
+              onClick={() => { onSelectSection('chat-board'); onChatsClick?.() }}
+            />
             <SidebarMenuItem
               {...(isCollapsed ? { collapsed: true } : { fluid: true })}
               variant="default"

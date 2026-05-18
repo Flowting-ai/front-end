@@ -23,11 +23,15 @@ import { PinCommentField } from '@/components/PinCommentField'
 import { ChipInput } from '@/components/ChipInput'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
+import { PinMarkdownRenderer } from '@/lib/pin-markdown'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const SHADOW_CARD    = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
-const DRAG_THRESHOLD = 8   // px to commit collapse when already expanded - small upward drag is enough
+const SHADOW_CARD       = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
+const DRAG_THRESHOLD    = 8   // px to commit collapse when already expanded - small upward drag is enough
+// Maximum px height of the description area when the pin is fully expanded.
+// Content taller than this gets a "Show less" / "Show more" toggle.
+const MAX_CONTENT_HEIGHT = 280
 const LINE_HEIGHT_PX = 16  // --line-height-caption, one description line
 const MAX_SNAP_LINES = 12  // auto-expand triggers if user drags beyond this many extra lines
 
@@ -357,6 +361,11 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     const [isHovered,  setIsHovered]  = useState(false)
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
+    // When the expanded content exceeds MAX_CONTENT_HEIGHT, a Show-more
+    // toggle appears. `contentOverflows` is set once the content is measured.
+    const [contentOverflows, setContentOverflows] = useState(false)
+    const [showFullContent, setShowFullContent]   = useState(false)
+    const descriptionRef = useRef<HTMLDivElement>(null)
 
     // Selectable checkbox - controlled / uncontrolled. Internal state only
     // applies in selectable mode; outside it the checkbox is unmounted.
@@ -596,7 +605,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
     const [contentRef, contentBounds] = useMeasure()
 
-    const commentFieldRef    = useRef<HTMLTextAreaElement>(null)
+    const commentFieldRef    = useRef<HTMLInputElement>(null)
     const focusCommentRef    = useRef(false)
     const cardRef            = useRef<HTMLDivElement>(null)
     const dragInfo           = useRef({ startY: 0, startHeight: 0 })
@@ -628,6 +637,14 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       if (typeof forwardedRef === 'function') forwardedRef(el)
       else if (forwardedRef) forwardedRef.current = el
     }, [forwardedRef])
+
+    // Measure the description content height to know whether to show the
+    // "Show more" toggle. Runs whenever the description or expanded state changes.
+    useEffect(() => {
+      const el = descriptionRef.current
+      if (!el) return
+      setContentOverflows(el.scrollHeight > MAX_CONTENT_HEIGHT + 4)
+    }, [description, isExpanded])
 
     // contentBounds → cardHeightMV
     // First measurement after mount: snap instantly (no enter spring) so a
@@ -802,10 +819,12 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       const ta = commentFieldRef.current
       if (!ta) return
       ta.focus()
-      // Bring the comment field into view in whatever ancestor is scrolling
-      // (Pinboard's scroll container, or the page). `block: 'nearest'` only
-      // scrolls if the element is actually clipped.
-      ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      // Scroll the comment field into view. We scroll the card itself with
+      // block:'end' so the bottom of the card (where the comment field sits)
+      // is brought into the nearest scrollable ancestor's viewport. This works
+      // even when the card is still animating its height, because the
+      // surrounding scroll container repositions to the card's current bottom.
+      cardRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
     }
 
     const handleCommentClick = () => {
@@ -818,11 +837,16 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }
 
     // Focus + scroll the comment textarea after the expand animation completes.
+    // We wait ~420 ms so the spring height animation has fully settled before
+    // scrollIntoView measures the card's final position.
     useEffect(() => {
       if (isExpanded && focusCommentRef.current) {
         focusCommentRef.current = false
-        const id = requestAnimationFrame(focusAndScrollCommentField)
-        return () => cancelAnimationFrame(id)
+        // Focus immediately so the user sees the cursor appear
+        requestAnimationFrame(() => commentFieldRef.current?.focus())
+        // Scroll after animation settles
+        const id = setTimeout(focusAndScrollCommentField, 420)
+        return () => clearTimeout(id)
       }
     }, [isExpanded])
 
@@ -1230,51 +1254,103 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           </div>
 
           {/* ── Description ──
-              showFull (isDragging | isExpanded): unclamped - card clips at dragHeight
+              showFull (isDragging | isExpanded): markdown renderer with optional
+                height cap (MAX_CONTENT_HEIGHT) + show-more toggle
               at rest with extraLines > 0: cage grows by extraLines × 16px
-              at rest collapsed: 2-line cage (32px)                              ── */}
+              at rest collapsed: 2-line cage (32px) with plain-text ellipsis clamp  ── */}
           {(() => {
-            const visibleLines  = 2 + extraLines           // base 2 + settled extra
-            // +12px when showing extra lines so the last snapped line is never
-            // half-clipped - the line-height token alone lands 12px short visually
-            const cageH         = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0)
+            const visibleLines = 2 + extraLines
+            const cageH        = visibleLines * LINE_HEIGHT_PX + (extraLines > 0 ? 12 : 0)
+
+            if (showFull) {
+              // Fully expanded: render markdown with a max-height cap.
+              // The cap prevents enormous content (code blocks, tables) from
+              // making the pin impossibly tall. A show-more toggle reveals the
+              // rest when the user explicitly asks.
+              const cappedH = contentOverflows && !showFullContent ? MAX_CONTENT_HEIGHT : undefined
+              return (
+                <div style={{ width: '100%', flexShrink: 0, flexGrow: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div
+                    style={{
+                      maxHeight:  cappedH,
+                      overflow:   cappedH ? 'hidden' : 'visible',
+                      position:   'relative',
+                      width:      '100%',
+                    }}
+                  >
+                    <div
+                      ref={descriptionRef}
+                      // Use a ResizeObserver effect (below) to detect overflow
+                    >
+                      <PinMarkdownRenderer content={description} />
+                    </div>
+                    {/* Bottom fade when capped */}
+                    {cappedH && (
+                      <div
+                        aria-hidden
+                        style={{
+                          position:   'absolute',
+                          bottom:     0,
+                          left:       0,
+                          right:      0,
+                          height:     32,
+                          background: 'linear-gradient(to bottom, transparent 0%, var(--neutral-white) 100%)',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                    )}
+                  </div>
+                  {/* Show more / Show less toggle */}
+                  {contentOverflows && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullContent(v => !v)}
+                      style={{
+                        all:        'unset',
+                        cursor:     'pointer',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 'var(--font-weight-medium)',
+                        fontSize:   'var(--font-size-caption)',
+                        lineHeight: 'var(--line-height-caption)',
+                        color:      'var(--neutral-400)',
+                        alignSelf:  'flex-start',
+                      }}
+                    >
+                      {showFullContent ? 'Show less' : 'Show more'}
+                    </button>
+                  )}
+                </div>
+              )
+            }
+
+            // Collapsed / intermediate: cage with markdown renderer + bottom fade
             return (
               <div
                 style={{
-                  height:    showFull ? 'auto' : `${cageH}px`,
-                  minHeight: showFull ? undefined : `${cageH}px`,
-                  maxHeight: showFull ? undefined : `${cageH}px`,
-                  overflow:  showFull ? 'visible' : 'hidden',
+                  position:  'relative',
+                  height:    `${cageH}px`,
+                  minHeight: `${cageH}px`,
+                  maxHeight: `${cageH}px`,
+                  overflow:  'hidden',
                   width:     '100%',
                   flexShrink: 0,
                   flexGrow:   0,
                 }}
               >
-                <p
+                <PinMarkdownRenderer content={description} />
+                {/* Bottom fade to signal truncation instead of hard clip */}
+                <div
+                  aria-hidden
                   style={{
-                    margin:     0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 'var(--font-weight-regular)',
-                    fontSize:   'var(--font-size-caption)',
-                    lineHeight: 'var(--line-height-caption)',
-                    color:      'var(--neutral-500)',
-                    // showFull (drag/expanded): unclamped pre-wrap
-                    // intermediate (extraLines > 0): pre-wrap + overflow:hidden - preserves \n paragraph breaks
-                    // collapsed (extraLines = 0): -webkit-line-clamp for ellipsis on 2 lines
-                    ...(showFull || extraLines > 0
-                      ? { whiteSpace: 'pre-wrap' }
-                      : {
-                          display:         '-webkit-box',
-                          WebkitBoxOrient: 'vertical',
-                          WebkitLineClamp: 2,
-                          overflow:        'hidden',
-                          textOverflow:    'ellipsis',
-                        }
-                    ),
+                    position:      'absolute',
+                    bottom:        0,
+                    left:          0,
+                    right:         0,
+                    height:        20,
+                    background:    'linear-gradient(to bottom, transparent 0%, var(--neutral-white) 100%)',
+                    pointerEvents: 'none',
                   }}
-                >
-                  {description}
-                </p>
+                />
               </div>
             )
           })()}
@@ -1290,12 +1366,16 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 style={{ width: '100%', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}
               >
                 <ExpandedMeta chatName={chatName} modelName={modelName} createdAt={createdAt} />
-                {comments && comments.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
-                    {comments.map((c) => <PinCommentItem key={c.id} comment={c} />)}
-                  </div>
-                )}
-                <PinCommentField ref={commentFieldRef} fluid aria-label="Add a comment" />
+                {/* Single comment slot - ChipInput pre-filled with the first
+                    existing comment so the user edits in-place. At most one
+                    comment is shown/stored per pin. */}
+                <ChipInput
+                  ref={commentFieldRef}
+                  placeholder="Add a comment…"
+                  aria-label="Add a comment"
+                  defaultValue={comments?.[0]?.content ?? ''}
+                  style={{ width: '100%' }}
+                />
               </motion.div>
             )}
           </AnimatePresence>

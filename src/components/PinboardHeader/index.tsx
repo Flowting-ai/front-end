@@ -139,7 +139,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
                       <CancelCircleIcon size={16} />
                     </span>
                   }
-                  placeholder="Search for your pin..."
+                  placeholder="Search by chat name…"
                   value={searchValue}
                   onChange={handleSearchChange}
                   fluid

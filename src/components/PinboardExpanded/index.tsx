@@ -10,12 +10,15 @@ import {
   FolderLibraryIcon,
   DeleteTwoIcon,
   CancelOneIcon,
+  CancelCircleIcon,
+  SearchOneIcon,
   DownloadThreeIcon,
   MoreVerticalIcon,
   FilterMailIcon,
   ArrowUpDownIcon,
   PenOneIcon,
 } from '@strange-huge/icons'
+import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
@@ -214,6 +217,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     const [openFolderMenuId,  setOpenFolderMenuId]  = useState<string | null>(null)
     const [hoveredFolderId,   setHoveredFolderId]   = useState<string | null>(null)
     const [expandedSearch,    setExpandedSearch]    = useState('')
+    const [searchOpen,        setSearchOpen]        = useState(false)
     const [filterMenuOpen,    setFilterMenuOpen]    = useState(false)
     const [sortMenuOpen,      setSortMenuOpen]      = useState(false)
 
@@ -277,7 +281,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
 
     const viewTitle =
       activeSidebarId === 'all-pins' || activeSidebarId === 'all' ? 'All pins' :
-      activeSidebarId === 'this-chat' ? 'This chat pins' :
+      activeSidebarId === 'current-chat' ? 'Current chat' :
       [...personalFolders, ...projectFolders].find(f => f.id === activeSidebarId)?.label ?? title
 
     return (
@@ -355,11 +359,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   onClick={() => onSidebarItemClick?.('all-pins')}
                 />
                 <SidebarMenuItem
-                  label="This chat pins"
+                  label="Current chat"
                   fluid
                   icon={<ShapesOneIcon size={20} />}
-                  selected={activeSidebarId === 'this-chat'}
-                  onClick={() => onSidebarItemClick?.('this-chat')}
+                  selected={activeSidebarId === 'current-chat'}
+                  onClick={() => onSidebarItemClick?.('current-chat')}
                 />
               </div>
 
@@ -707,109 +711,177 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     Sits where the tab bar previously lived, above the
                     organize-mode action row. Search calls `onSearch` so the
                     parent can re-filter `pins`; filter/sort menus are the
-                    same nodes used in compact Pinboard (shared state). ── */}
+                    same nodes used in compact Pinboard (shared state).
+                    Order (KDS): Search → Export → Filter → Sort. ── */}
                 <EnterChunk
                   cfg={enterAnimation}
                   index={1.5}
                   style={{
-                    display:    'flex',
-                    alignItems: 'center',
-                    gap:        8,
-                    width:      '100%',
-                    flexShrink: 0,
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'flex-end',
+                    gap:            4,
+                    width:          '100%',
+                    flexShrink:     0,
                   }}
                 >
-                  {/* Search input */}
-                  <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                    <input
-                      type="text"
-                      value={expandedSearch}
-                      onChange={(e) => {
-                        setExpandedSearch(e.target.value)
-                        onSearch?.(e.target.value)
-                      }}
-                      placeholder="Search pins..."
-                      spellCheck={false}
-                      autoComplete="off"
+                  {/* Search slot - snaps from 32px (icon button) to
+                      full-flex (InputField) on toggle, matching the
+                      compact PinboardHeader pattern from KDS. */}
+                  <Tooltip content="Search" disabled={searchOpen}>
+                    <motion.div
+                      layout
+                      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                       style={{
-                        display:      'block',
-                        width:        '100%',
-                        padding:      '7px 10px',
-                        borderRadius: 10,
-                        border:       'none',
-                        outline:      'none',
-                        background:   'var(--neutral-white)',
-                        boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                        fontFamily:   'var(--font-body)',
-                        fontWeight:   'var(--font-weight-regular)',
-                        fontSize:     'var(--font-size-body)',
-                        lineHeight:   'var(--line-height-body)',
-                        color:        'var(--neutral-700)',
-                        boxSizing:    'border-box',
+                        display:    'flex',
+                        alignItems: 'center',
+                        flexShrink: searchOpen ? 1 : 0,
+                        flex:       searchOpen ? '1 0 0' : undefined,
+                        minWidth:   0,
+                        width:      searchOpen ? undefined : 32,
                       }}
-                    />
-                  </div>
-                  {/* Filter dropdown */}
-                  {filterDisabled ? (
-                    <Tooltip content="Filter">
-                      <IconButton
-                        variant="secondary"
-                        size="sm"
-                        icon={<FilterMailIcon size={20} />}
-                        aria-label="Filter pins"
-                        disabled
-                      />
-                    </Tooltip>
-                  ) : filterMenu != null ? (
-                    <Dropdown.Float
-                      open={filterMenuOpen}
-                      onOpenChange={setFilterMenuOpen}
-                      placement="bottom-end"
-                      trigger={
-                        <Tooltip content="Filter">
-                          <IconButton
-                            variant="secondary"
-                            size="sm"
-                            icon={<FilterMailIcon size={20} />}
-                            aria-label="Filter pins"
-                          />
-                        </Tooltip>
-                      }
                     >
-                      {filterMenu}
-                    </Dropdown.Float>
-                  ) : null}
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {!searchOpen ? (
+                          <motion.span
+                            key="search-btn"
+                            layout
+                            initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                            exit={{    opacity: 0, scale: 0.25, filter: 'blur(4px)', transition: { type: 'spring', duration: 0.2, bounce: 0 } }}
+                            style={{ display: 'inline-flex', flexShrink: 0 }}
+                          >
+                            <IconButton
+                              variant="secondary"
+                              size="sm"
+                              icon={<SearchOneIcon size={20} />}
+                              aria-label="Open search"
+                              onClick={() => setSearchOpen(true)}
+                            />
+                          </motion.span>
+                        ) : (
+                          <motion.div
+                            key="search-input"
+                            initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
+                            exit={{    opacity: 0, scale: 0.95, filter: 'blur(4px)', transition: { duration: 0.15, ease: 'easeIn' } }}
+                            style={{ flex: '1 0 0', minWidth: 0 }}
+                          >
+                            <InputField
+                              fluid
+                              size="small"
+                              showLabel={false}
+                              showSubtitle={false}
+                              label="Search pins"
+                              leftIcon={<SearchOneIcon size={16} />}
+                              rightIcon={
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label="Close search"
+                                  className="kds-icon-in-field"
+                                  onClick={() => {
+                                    setSearchOpen(false)
+                                    setExpandedSearch('')
+                                    onSearch?.('')
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setSearchOpen(false)
+                                      setExpandedSearch('')
+                                      onSearch?.('')
+                                    }
+                                  }}
+                                  style={{ display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
+                                >
+                                  <CancelCircleIcon size={16} />
+                                </span>
+                              }
+                              placeholder="Search by chat name…"
+                              value={expandedSearch}
+                              onChange={(v) => {
+                                setExpandedSearch(v)
+                                onSearch?.(v)
+                              }}
+                              // eslint-disable-next-line jsx-a11y/no-autofocus
+                              autoFocus
+                              aria-label="Search pins"
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  </Tooltip>
+
+                  {/* Export - second slot per KDS order */}
+                  {onExport && (
+                    <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                      <Tooltip content="Export">
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          icon={<DownloadThreeIcon size={20} />}
+                          aria-label="Export pins"
+                          onClick={onExport}
+                        />
+                      </Tooltip>
+                    </motion.div>
+                  )}
+
+                  {/* Filter dropdown */}
+                  <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                    {filterDisabled ? (
+                      <Tooltip content="Filter">
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          icon={<FilterMailIcon size={20} />}
+                          aria-label="Filter pins"
+                          disabled
+                        />
+                      </Tooltip>
+                    ) : filterMenu != null ? (
+                      <Dropdown.Float
+                        open={filterMenuOpen}
+                        onOpenChange={setFilterMenuOpen}
+                        placement="bottom-end"
+                        trigger={
+                          <Tooltip content="Filter">
+                            <IconButton
+                              variant="secondary"
+                              size="sm"
+                              icon={<FilterMailIcon size={20} />}
+                              aria-label="Filter pins"
+                            />
+                          </Tooltip>
+                        }
+                      >
+                        {filterMenu}
+                      </Dropdown.Float>
+                    ) : null}
+                  </motion.div>
+
                   {/* Sort dropdown */}
                   {sortMenu != null && (
-                    <Dropdown.Float
-                      open={sortMenuOpen}
-                      onOpenChange={setSortMenuOpen}
-                      placement="bottom-end"
-                      trigger={
-                        <Tooltip content="Sort">
-                          <IconButton
-                            variant="secondary"
-                            size="sm"
-                            icon={<ArrowUpDownIcon size={20} />}
-                            aria-label="Sort pins"
-                          />
-                        </Tooltip>
-                      }
-                    >
-                      {sortMenu}
-                    </Dropdown.Float>
-                  )}
-                  {/* Export */}
-                  {onExport && (
-                    <Tooltip content="Export">
-                      <IconButton
-                        variant="secondary"
-                        size="sm"
-                        icon={<DownloadThreeIcon size={20} />}
-                        aria-label="Export pins"
-                        onClick={onExport}
-                      />
-                    </Tooltip>
+                    <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                      <Dropdown.Float
+                        open={sortMenuOpen}
+                        onOpenChange={setSortMenuOpen}
+                        placement="bottom-end"
+                        trigger={
+                          <Tooltip content="Sort">
+                            <IconButton
+                              variant="secondary"
+                              size="sm"
+                              icon={<ArrowUpDownIcon size={20} />}
+                              aria-label="Sort pins"
+                            />
+                          </Tooltip>
+                        }
+                      >
+                        {sortMenu}
+                      </Dropdown.Float>
+                    </motion.div>
                   )}
                 </EnterChunk>
 

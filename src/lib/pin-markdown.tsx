@@ -2,11 +2,21 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 
-const remarkPlugins = [remarkGfm];
-const rehypePlugins = [rehypeRaw];
+const remarkPlugins = [remarkGfm, remarkMath];
+const rehypePlugins = [rehypeKatex, rehypeRaw];
+
+// Normalize \(...\) and \[...\] delimiters so remark-math can parse them.
+// LLMs commonly emit these standard LaTeX delimiters instead of $...$.
+function normalizeMathDelimiters(content: string): string {
+  let out = content.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
+  out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math}$`);
+  return out;
+}
 
 const pinComponents: Components = {
   code({ className, children, ...props }) {
@@ -343,6 +353,7 @@ const pinComponents: Components = {
 };
 
 export function PinMarkdownRenderer({ content }: { content: string }) {
+  const processed = normalizeMathDelimiters(content);
   return (
     <div
       style={{
@@ -358,7 +369,7 @@ export function PinMarkdownRenderer({ content }: { content: string }) {
         rehypePlugins={rehypePlugins}
         components={pinComponents}
       >
-        {content}
+        {processed}
       </ReactMarkdown>
     </div>
   );
