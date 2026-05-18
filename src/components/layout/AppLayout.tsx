@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
@@ -30,12 +30,21 @@ export function AppLayout({
   onSelectChat,
   onNewChat,
 }: AppLayoutProps) {
-  const { isOpen: pinboardOpen } = usePinboard()
-  const { isOpen: highlightOpen } = useHighlight()
+  const { isOpen: pinboardOpen, close: closePinboard } = usePinboard()
+  const { isOpen: highlightOpen, close: closeHighlight } = useHighlight()
   const pathname = usePathname()
+  const isAnyProjectPage = pathname.startsWith('/project')
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
-  const isProjectPage    = pathname.startsWith('/project') && !pathname.includes('/chat/')
+  const isProjectPage    = isAnyProjectPage && !pathname.includes('/chat/')
+
+  // Force-close both panels on any project page — they are not available there.
+  useEffect(() => {
+    if (isAnyProjectPage) {
+      closePinboard()
+      closeHighlight()
+    }
+  }, [isAnyProjectPage, closePinboard, closeHighlight])
   const isPersonaPage    = pathname.startsWith('/personas') || pathname.startsWith('/persona')
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/personas\/[^/]+\/chat/.test(pathname)
@@ -166,7 +175,9 @@ export function AppLayout({
       </Suspense>
 
       {/* ── Highlight sidebar ── */}
-      <HighlightSidebar />
+      <Suspense fallback={null}>
+        <HighlightSidebar />
+      </Suspense>
 
       {/* ── Global dialogs ── */}
       <AppDialogs />

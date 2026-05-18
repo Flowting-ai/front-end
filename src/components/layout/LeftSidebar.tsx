@@ -580,10 +580,11 @@ export function LeftSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats } = useProjects();
   const isPersonaPage = pathname?.startsWith("/personas") || pathname?.startsWith("/persona");
+  const isProjectPage = pathname?.startsWith("/project") ?? false;
   const collapsedRef = useRef<boolean>(readCollapsed());
 
   // Exclude project chats from the Recents/Starred lists - they are already
@@ -649,11 +650,14 @@ export function LeftSidebar({
       onProjectsClick={() => router.push("/projects")}
       onPersonasClick={() => router.push("/personas")}
       onSettingsClick={() => router.push("/settings")}
+      onHelpClick={() => router.push("/settings/help")}
+      onLogoutClick={() => { void logout() }}
+      isAuthenticated={isAuthenticated}
       projectItems={<ProjectsSection />}
       recentItems={
         isPersonaPage ? (
           <PersonasSection />
-        ) : (
+        ) : isProjectPage ? null : (
           // Both sections share sectionProps; StarredSection self-hides when empty.
           // gap:'8px' on the wrapper adds space between Starred and Recents only
           // when both are present - gap does not apply to null children.

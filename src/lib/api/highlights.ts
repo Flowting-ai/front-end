@@ -38,6 +38,13 @@ export async function getHighlights(chatId: string): Promise<HighlightResponse[]
 }
 
 /**
+ * Fetch all highlights across all chats (GET /highlights, no chat_id filter).
+ */
+export async function getAllHighlights(): Promise<HighlightResponse[]> {
+  return apiFetchJson<HighlightResponse[]>(HIGHLIGHTS_ENDPOINT, { method: "GET" });
+}
+
+/**
  * Persist a new highlight to the backend (PATCH /highlights).
  * Returns the server-assigned HighlightResponse on success.
  */

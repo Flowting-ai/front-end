@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { forwardRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CopyOneIcon, MessagePreviewOneIcon, CancelCircleIcon } from '@strange-huge/icons'
+import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
@@ -28,18 +29,15 @@ const SHADOW_HOVER = '0px 6px 16px 0px rgba(59,54,50,0.14), 0px 2px 6px 0px rgba
 
 // ── Internal action button ─────────────────────────────────────────────────────
 
-function ActionButton({
-  icon,
-  label,
-  onClick,
-}: {
+const ActionButton = forwardRef<HTMLButtonElement, {
   icon:    React.ReactNode
   label:   string
   onClick: () => void
-}) {
+}>(function ActionButton({ icon, label, onClick }, ref) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
+      ref={ref}
       type="button"
       className="kds-highlight-action"
       aria-label={label}
@@ -65,7 +63,7 @@ function ActionButton({
       {icon}
     </button>
   )
-}
+})
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -122,12 +120,16 @@ export function HighlightCard({
       {/* distinct from every Geist-based UI element in the system.               */}
       <p
         style={{
-          margin:     0,
-          fontFamily: 'var(--font-title)',
-          fontWeight: 'var(--font-weight-regular)',
-          fontSize:   'var(--font-size-body-lg)',
-          lineHeight: 1.55,
-          color:      'var(--neutral-900)',
+          margin:           0,
+          fontFamily:       'var(--font-title)',
+          fontWeight:       'var(--font-weight-regular)',
+          fontSize:         'var(--font-size-body-lg)',
+          lineHeight:       1.55,
+          color:            'var(--neutral-900)',
+          overflow:         'hidden',
+          display:          '-webkit-box',
+          WebkitLineClamp:  5,
+          WebkitBoxOrient:  'vertical' as const,
         }}
       >
         {text}
@@ -162,9 +164,9 @@ export function HighlightCard({
                 backgroundColor: color.bg,
               }}
             >
-              {onCopy   && <ActionButton icon={<CopyOneIcon            size={16} />} label="Copy highlight"   onClick={onCopy}   />}
-              {onJump   && <ActionButton icon={<MessagePreviewOneIcon  size={16} />} label="Jump to source"   onClick={onJump}   />}
-              {onDelete && <ActionButton icon={<CancelCircleIcon       size={16} />} label="Delete highlight" onClick={onDelete} />}
+              {onCopy   && <Tooltip content="Copy"           side="top"><ActionButton icon={<CopyOneIcon           size={16} />} label="Copy highlight"   onClick={onCopy}   /></Tooltip>}
+              {onJump   && <Tooltip content="Open in chat"   side="top"><ActionButton icon={<MessagePreviewOneIcon size={16} />} label="Open in chat"     onClick={onJump}   /></Tooltip>}
+              {onDelete && <Tooltip content="Delete"         side="top"><ActionButton icon={<CancelCircleIcon      size={16} />} label="Delete highlight" onClick={onDelete} /></Tooltip>}
             </div>
           </motion.div>
         )}

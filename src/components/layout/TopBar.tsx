@@ -31,6 +31,7 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
   const isProjectChatPage  = !!projectChatMatch;
   // Suppress temp/share on all project pages except project chat (which shows context label instead)
   const isProjectDetailPage = pathname.startsWith('/project') && !isProjectChatPage;
+  const isChatsPage         = pathname === '/chats';
 
   const modelLlmId = museActive
     ? null
@@ -157,7 +158,7 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
       ) : (
         <>
           {/* ── Left: model selector (hidden on project pages) ── */}
-          {!isProjectDetailPage && modelSelectorButton}
+          {!isProjectDetailPage && !isChatsPage && modelSelectorButton}
 
         </>
       )}

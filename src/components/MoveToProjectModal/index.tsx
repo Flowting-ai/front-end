@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { InformationCircleIcon, FolderOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
@@ -200,6 +201,9 @@ export function MoveToProjectModal({
   className,
 }: MoveToProjectModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mounted,    setMounted]    = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const handleConfirm = () => {
     if (!selectedId) return
@@ -215,11 +219,13 @@ export function MoveToProjectModal({
   const chatLabel = chatCount === 1 ? '1 chat' : `${chatCount} chats`
   const noun      = chatCount === 1 ? 'this chat' : 'these chats'
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — rendered in root stacking context via portal */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
@@ -232,11 +238,23 @@ export function MoveToProjectModal({
               inset:           0,
               backgroundColor: 'rgba(0,0,0,0.28)',
               backdropFilter:  'blur(2px)',
-              zIndex:          999,
+              zIndex:          9998,
             }}
           />
 
-          {/* Card */}
+          {/* Centering wrapper — flexbox avoids transform conflict with framer-motion */}
+          <div
+            style={{
+              position:       'fixed',
+              inset:          0,
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              zIndex:         9999,
+              pointerEvents:  'none',
+            }}
+          >
+          {/* Card — framer-motion owns transform; wrapper handles centering */}
           <motion.div
             key="modal"
             role="dialog"
@@ -248,11 +266,7 @@ export function MoveToProjectModal({
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className={cn(className)}
             style={{
-              position:        'fixed',
-              top:             '50%',
-              left:            '50%',
-              transform:       'translate(-50%, -50%)',
-              zIndex:          1000,
+              pointerEvents:   'auto',
               width:           480,
               maxWidth:        'calc(100vw - 32px)',
               borderRadius:    16,
@@ -382,9 +396,11 @@ export function MoveToProjectModal({
             </div>
 
           </motion.div>
+          </div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 

@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { Slot } from '@radix-ui/react-slot'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PinIcon, MoreHorizontalIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
@@ -14,9 +15,9 @@ const SHADOW_ROW_RING    = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1
 const SHADOW_ROW_FOCUSED = '0px 2px 2.8px 0px var(--blue-600), 0px 0px 0px 1px var(--blue-600)'
 
 // Chip: rest = ghost ring, elevated (row hovered/focused) = filled with inner highlight
-const SHADOW_CHIP_REST    = '0px 0px 0px 1px rgba(59,54,50,0.3)'
+const SHADOW_CHIP_REST     = '0px 0px 0px 1px rgba(59,54,50,0.3)'
 const SHADOW_CHIP_ELEVATED = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-const SHADOW_CHIP_INNER   = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
+const SHADOW_CHIP_INNER    = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,8 +41,14 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   selectionMode?: boolean
   selected?: boolean
   onSelect?: (checked: boolean) => void
-  /** Stub — parent handles opening the context menu */
-  onMenuClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** Whether this chat is starred. */
+  starred?: boolean
+  /** Called with the new title when user commits an inline rename. */
+  onRename?: (title: string) => void
+  /** Called when user toggles star from the context menu. */
+  onStar?: () => void
+  /** Called when user selects Delete from the context menu. */
+  onDelete?: () => void
   /** Empty-state: dashed blue border + glow, descriptive text, no controls. */
   isEmpty?: boolean
   disabled?: boolean
@@ -49,13 +56,10 @@ export interface ChatRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
 }
 
 // ── PinCountChip ─────────────────────────────────────────────────────────────
-// Icon rule: show PinIcon only when pinCount > 0.
-// Style rule: chip style is driven by the ROW's hover/focus state, not its own.
 
 interface PinCountChipProps {
   pinCount: number
   pinBoardOpen: boolean
-  /** True when parent row is hovered or keyboard-focused — chip elevates to match */
   rowElevated: boolean
   title: string
   onClick?: () => void
@@ -97,16 +101,13 @@ function PinCountChip({ pinCount, pinBoardOpen, rowElevated, title, onClick }: P
         whiteSpace:      'nowrap',
         outline:         focused ? '2px solid var(--blue-400)' : 'none',
         outlineOffset:   2,
-        // De-emphasise when pinboard is open with 0 pins
         opacity:         pinBoardOpen && !hasPins ? 0.7 : 1,
         transition:      'background-color 120ms, box-shadow 120ms, opacity 120ms',
       }}
     >
-      {/* PinIcon only when there are pins — regardless of pinBoardOpen state */}
       {hasPins && <PinIcon size={16} color="var(--neutral-500)" />}
       {label}
 
-      {/* Inset highlight — appears when elevated (row hovered/focused) */}
       {elevated && (
         <div
           aria-hidden
@@ -123,20 +124,60 @@ function PinCountChip({ pinCount, pinBoardOpen, rowElevated, title, onClick }: P
   )
 }
 
-// ── ThreeDotButton ────────────────────────────────────────────────────────────
+// ── MenuItem ─────────────────────────────────────────────────────────────────
 
-interface ThreeDotButtonProps {
-  visible: boolean
-  title: string
-  onClick?: React.MouseEventHandler<HTMLButtonElement>
+interface MenuItemProps {
+  label: string
+  destructive?: boolean
+  onSelect: () => void
 }
 
-function ThreeDotButton({ visible, title, onClick }: ThreeDotButtonProps) {
+function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <DropdownMenu.Item
+      onSelect={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        padding:         '7px 10px',
+        borderRadius:    8,
+        cursor:          'pointer',
+        background:      hovered ? 'var(--neutral-100)' : 'transparent',
+        color:           destructive ? 'var(--red-500)' : 'var(--neutral-700)',
+        fontFamily:      'var(--font-body)',
+        fontSize:        'var(--font-size-body)',
+        fontWeight:      500,
+        lineHeight:      'var(--line-height-body)',
+        outline:         'none',
+        userSelect:      'none',
+        transition:      'background-color 100ms',
+      }}
+    >
+      {label}
+    </DropdownMenu.Item>
+  )
+}
+
+// ── ThreeDotButton ────────────────────────────────────────────────────────────
+
+interface ThreeDotButtonOwnProps {
+  visible: boolean
+  title: string
+}
+
+const ThreeDotButton = React.forwardRef<
+  HTMLButtonElement,
+  ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'>
+>(function ThreeDotButton({ visible, title, onClick, ...rest }, ref) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
 
   return (
     <button
+      ref={ref}
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick?.(e) }}
       onMouseEnter={() => setHovered(true)}
@@ -161,11 +202,12 @@ function ThreeDotButton({ visible, title, onClick }: ThreeDotButtonProps) {
         pointerEvents:   visible ? 'auto' : 'none',
         transition:      'opacity 120ms, background-color 120ms',
       }}
+      {...rest}
     >
       <MoreHorizontalIcon size={20} color="var(--neutral-600)" />
     </button>
   )
-}
+})
 
 // ── ChatRow ───────────────────────────────────────────────────────────────────
 
@@ -180,7 +222,10 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
       selectionMode = false,
       selected      = false,
       onSelect,
-      onMenuClick,
+      starred       = false,
+      onRename,
+      onStar,
+      onDelete,
       isEmpty       = false,
       disabled      = false,
       asChild       = false,
@@ -194,8 +239,23 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
   ) {
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
-    const [rowHovered, setRowHovered] = useState(false)
-    const [rowFocused, setRowFocused] = useState(false)
+    const [rowHovered,  setRowHovered]  = useState(false)
+    const [rowFocused,  setRowFocused]  = useState(false)
+    const [menuOpen,    setMenuOpen]    = useState(false)
+    const [isRenaming,  setIsRenaming]  = useState(false)
+    const [renameValue, setRenameValue] = useState('')
+    const renameInputRef    = useRef<HTMLInputElement>(null)
+    const pendingRenameRef = useRef(false)
+
+    const resolvedTitle = title || 'Untitled chat'
+
+    const submitRename = useCallback(() => {
+      const trimmed = renameValue.trim()
+      if (trimmed && trimmed !== resolvedTitle) {
+        onRename?.(trimmed)
+      }
+      setIsRenaming(false)
+    }, [renameValue, resolvedTitle, onRename])
 
     const handleFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) setRowFocused(true)
@@ -222,10 +282,9 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
     const isHovered     = rowHovered && isInteractive && !selectionMode
     const isFocused     = rowFocused && isInteractive && !selectionMode
     const rowElevated   = isHovered || isFocused
-    const showMenu      = (rowElevated || pinBoardOpen) && !selectionMode && !isEmpty
+    // Keep three-dot visible while menu is open (even if mouse moves away)
+    const showMenu      = (rowElevated || pinBoardOpen || menuOpen) && !selectionMode && !isEmpty
 
-    // Figma bg by state:
-    // Default → transparent | Hover/Focused → neutral-100 | Pin-selected → white
     const bg = isEmpty || (!rowElevated && !pinBoardOpen)
       ? 'transparent'
       : pinBoardOpen && !rowElevated
@@ -240,8 +299,6 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
           ? SHADOW_ROW_RING
           : SHADOW_ROW_BASE
 
-    const resolvedTitle = title || 'Untitled chat'
-
     return (
       <Comp
         ref={ref}
@@ -254,12 +311,21 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
         onMouseLeave={() => setRowHovered(false)}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        onClick={selectionMode ? () => onSelect?.(!selected) : onClick}
+        onClick={
+          selectionMode
+            ? () => onSelect?.(!selected)
+            : (e: React.MouseEvent<HTMLDivElement>) => {
+                if (isRenaming || pendingRenameRef.current) {
+                  pendingRenameRef.current = false
+                  return
+                }
+                onClick?.(e)
+              }
+        }
         onKeyDown={handleKeyDown}
         style={{
           display:         'flex',
           alignItems:      'center',
-          // Figma: px-16 py-12 for normal; h-62 px-6 for selection
           padding:         selectionMode ? '0 16px 0 6px' : '12px 16px',
           height:          selectionMode ? 62 : undefined,
           borderRadius:    12,
@@ -275,7 +341,7 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
           outlineOffset:   -1,
           opacity:         disabled ? 0.5 : 1,
           pointerEvents:   disabled ? 'none' : undefined,
-          cursor:          isEmpty ? 'default' : 'pointer',
+          cursor:          isEmpty ? 'default' : isRenaming ? 'text' : 'pointer',
           userSelect:      'none',
           transition:      'background-color 120ms, box-shadow 150ms',
           ...style,
@@ -284,8 +350,6 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
       >
 
         {/* ── Checkbox (selection mode only) ─────────────────────────────── */}
-        {/* No width animation — avoids clipping the checkbox ring shadow.     */}
-        {/* Animate opacity + x only; layout shifts naturally on mode toggle.  */}
         <AnimatePresence initial={false}>
           {selectionMode && (
             <motion.div
@@ -338,23 +402,54 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
                 minWidth:      0,
               }}
             >
-              <p
-                style={{
-                  fontFamily:   'var(--font-body)',
-                  fontSize:     'var(--font-size-body-lg)',
-                  fontWeight:   400,
-                  lineHeight:   'var(--line-height-body-lg)',
-                  color:        '#1a1714',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                  margin:       0,
-                }}
-              >
-                {resolvedTitle}
-              </p>
+              {isRenaming ? (
+                <input
+                  ref={renameInputRef}
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={submitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter')  { e.preventDefault(); submitRename() }
+                    if (e.key === 'Escape') { e.preventDefault(); setIsRenaming(false) }
+                    e.stopPropagation()
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    flex:            '1 1 0',
+                    fontFamily:      'var(--font-body)',
+                    fontSize:        'var(--font-size-body-lg)',
+                    fontWeight:      400,
+                    lineHeight:      'var(--line-height-body-lg)',
+                    color:           '#1a1714',
+                    border:          'none',
+                    borderBottom:    '1.5px solid var(--blue-400)',
+                    outline:         'none',
+                    backgroundColor: 'transparent',
+                    padding:         0,
+                    minWidth:        0,
+                    width:           '100%',
+                  }}
+                />
+              ) : (
+                <p
+                  style={{
+                    fontFamily:   'var(--font-body)',
+                    fontSize:     'var(--font-size-body-lg)',
+                    fontWeight:   400,
+                    lineHeight:   'var(--line-height-body-lg)',
+                    color:        '#1a1714',
+                    overflow:     'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace:   'nowrap',
+                    margin:       0,
+                  }}
+                >
+                  {resolvedTitle}
+                </p>
+              )}
 
-              {timestamp && (
+              {timestamp && !isRenaming && (
                 <p
                   style={{
                     fontFamily:   'var(--font-body)',
@@ -383,11 +478,47 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
               }}
             >
               {!selectionMode && (
-                <ThreeDotButton
-                  visible={showMenu}
-                  title={resolvedTitle}
-                  onClick={onMenuClick}
-                />
+                <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                  <DropdownMenu.Trigger asChild>
+                    <ThreeDotButton visible={showMenu} title={resolvedTitle} />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      side="bottom"
+                      align="end"
+                      sideOffset={4}
+                      style={{
+                        background:    'var(--neutral-white)',
+                        borderRadius:  12,
+                        boxShadow:     '0px 4px 16px 0px rgba(26,23,20,0.16), 0px 0px 0px 1px rgba(59,54,50,0.10)',
+                        padding:       4,
+                        minWidth:      160,
+                        zIndex:        9999,
+                      }}
+                    >
+                      <MenuItem
+                        label="Rename"
+                        onSelect={() => { pendingRenameRef.current = true; setRenameValue(title); setIsRenaming(true) }}
+                      />
+                      <MenuItem
+                        label={starred ? 'Unstar' : 'Star'}
+                        onSelect={() => onStar?.()}
+                      />
+                      <DropdownMenu.Separator
+                        style={{
+                          height:          1,
+                          backgroundColor: 'var(--neutral-200)',
+                          margin:          '4px 0',
+                        }}
+                      />
+                      <MenuItem
+                        label="Delete"
+                        destructive
+                        onSelect={() => onDelete?.()}
+                      />
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
               )}
               <PinCountChip
                 pinCount={pinCount}

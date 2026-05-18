@@ -35,9 +35,9 @@ function formatTimestamp(iso: string | undefined | null): string {
 
 export default function ChatsPage() {
   const router                         = useRouter()
-  const { chats, isLoading, create, remove } = useChatHistoryContext()
-  const { projects }                   = useProjects()
-  const { pins }                        = usePinboard()
+  const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
+  const { projects }                              = useProjects()
+  const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
   const pinCountMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -90,10 +90,9 @@ export default function ChatsPage() {
 
   // ── Actions ───────────────────────────────────────────────────────────────────
 
-  const handleNewChat = useCallback(async () => {
-    const chat = await create()
-    if (chat) router.push(`/chat?id=${chat.id}`)
-  }, [create, router])
+  const handleNewChat = useCallback(() => {
+    router.push('/chat')
+  }, [router])
 
   const handleOpenChat = useCallback((chatId: string) => {
     router.push(`/chat?id=${chatId}`)
@@ -116,11 +115,16 @@ export default function ChatsPage() {
   const handleMoveToProject = useCallback(async (projectId: string) => {
     if (selectedIds.size === 0) return
     setIsMoving(true)
+    const ids = [...selectedIds]
     try {
-      await Promise.all([...selectedIds].map((id) => addChatToProject(projectId, id)))
+      await Promise.all(ids.map((id) => addChatToProject(projectId, id)))
+      // Remove moved chats from the local list — they now live inside the project.
+      // We use removeLocal (not remove) to avoid calling the backend delete API,
+      // which would destroy the chat data that the project now references.
+      removeLocal(...ids)
       const project = projects.find((p) => p.id === projectId)
       toast.success(
-        `Moved ${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''} to "${project?.name ?? 'project'}"`,
+        `Moved ${ids.length} chat${ids.length > 1 ? 's' : ''} to "${project?.name ?? 'project'}"`,
       )
       setMoveModalOpen(false)
       exitSelection()
@@ -129,7 +133,7 @@ export default function ChatsPage() {
     } finally {
       setIsMoving(false)
     }
-  }, [selectedIds, projects, exitSelection])
+  }, [selectedIds, projects, removeLocal, exitSelection])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -228,7 +232,7 @@ export default function ChatsPage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: 'hidden', marginBottom: 8 }}
+              style={{ overflow: 'hidden', marginBottom: 16, marginTop: 4, padding: '4px' }}
             >
               <InputField
                 fluid
@@ -261,7 +265,7 @@ export default function ChatsPage() {
 
         {/* ── Chat list ────────────────────────────────────────────────────── */}
         {!isLoading || chats.length > 0 ? (
-          <div role="list" aria-label="Chats" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div role="list" aria-label="Chats" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 
             {/* No results */}
             {filteredChats.length === 0 && searchQuery && (
@@ -284,20 +288,22 @@ export default function ChatsPage() {
                   title={chat.title}
                   timestamp={formatTimestamp(chat.last_message_at ?? chat.updated_at)}
                   pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
+                  pinBoardOpen={isOpen && chatFilter === chat.id}
+                  onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                  starred={chat.starred}
                   selectionMode={selectionMode}
                   selected={selectedIds.has(chat.id)}
                   onSelect={() => toggleSelect(chat.id)}
                   onClick={() => handleOpenChat(chat.id)}
-                  onMenuClick={(e) => {
-                    e.stopPropagation()
-                    // Context menu handled by sidebar / future dropdown
-                  }}
+                  onRename={(newTitle) => rename(chat.id, newTitle)}
+                  onStar={() => star(chat.id)}
+                  onDelete={() => remove(chat.id)}
                 />
               </div>
             ))}
 
-            {/* Empty slot — always shown at bottom when not in selection mode */}
-            {!selectionMode && !searchQuery && (
+            {/* Empty slot — only when no chats exist and not searching/selecting */}
+            {!selectionMode && !searchQuery && chats.length === 0 && (
               <div role="listitem" style={{ padding: '1px 0' }}>
                 <ChatRow isEmpty />
               </div>

@@ -237,8 +237,6 @@ function AddMenu({ webSearchEnabled, onWebSearchChange, onAddFilesClick }: AddMe
 // ── Model-menu (Figma 3208:32989) ─────────────────────────────────────────────
 
 function ChatModelMenu({ onClose }: { onClose?: () => void }) {
-  const [moreOpen, setMoreOpen] = React.useState(false);
-
   const {
     models,
     museAdvanced,
@@ -250,18 +248,6 @@ function ChatModelMenu({ onClose }: { onClose?: () => void }) {
     enableReasoning,
     setEnableReasoning,
   } = useModelSelectorContext();
-
-  // Compute directly from localStorage on every render so the list is always
-  // current regardless of whether moreOpen toggled or the Float stayed mounted.
-  const topUsed = moreOpen && models.length > 0 ? getTopUsedModels(models, 5) : [];
-  const recents = moreOpen && models.length > 0 ? getRecentModels(models, 5) : [];
-
-  const handleMoreModelSelect = (model: AIModel) => {
-    recordModelUsage(model);
-    setMoreOpen(false);
-    selectModel(model);
-    onClose?.();
-  };
 
   return (
     <Dropdown size="md">
@@ -290,50 +276,7 @@ function ChatModelMenu({ onClose }: { onClose?: () => void }) {
           onSwitchChange={setEnableReasoning}
           fluid
         />
-        <Dropdown.Submenu
-          open={moreOpen}
-          onOpenChange={setMoreOpen}
-          trigger={
-            <Dropdown.Item
-              label="More models"
-              rightIcon={<ArrowRightOneIcon />}
-              fluid
-            />
-          }
-        >
-          <Dropdown size="md">
-            <Dropdown.Section label="Most used" fluid>
-              {topUsed.length > 0 ? (
-                topUsed.map((m) => (
-                  <Dropdown.Item
-                    key={`${m.id}-${m.modelId}`}
-                    label={m.modelName}
-                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
-                    fluid
-                    onClick={() => handleMoreModelSelect(m)}
-                  />
-                ))
-              ) : (
-                <Dropdown.Item label="No model history yet" fluid disabled />
-              )}
-            </Dropdown.Section>
-            <Dropdown.Section label="Recents" divider fluid>
-              {recents.length > 0 ? (
-                recents.map((m) => (
-                  <Dropdown.Item
-                    key={`${m.id}-${m.modelId}`}
-                    label={m.modelName}
-                    llm={getModelLlmId(m.companyName, m.modelName) ?? undefined}
-                    fluid
-                    onClick={() => handleMoreModelSelect(m)}
-                  />
-                ))
-              ) : (
-                <Dropdown.Item label="No recent models" fluid disabled />
-              )}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Submenu>
+        {/* More models hidden */}
       </Dropdown.Section>
     </Dropdown>
   );

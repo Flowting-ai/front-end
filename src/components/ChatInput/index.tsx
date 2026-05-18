@@ -410,24 +410,7 @@ function DefaultModelMenu() {
           defaultSwitchChecked={false}
           fluid
         />
-        <Dropdown.Submenu
-          trigger={
-            <Dropdown.Item label="More models" rightIcon={<ArrowRightOneIcon />} fluid />
-          }
-        >
-          <Dropdown size="md">
-            <Dropdown.Section label="Most used" fluid>
-              {DEFAULT_MOST_USED_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
-              ))}
-            </Dropdown.Section>
-            <Dropdown.Section label="Recents" divider fluid>
-              {DEFAULT_RECENT_MODELS.map((m) => (
-                <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />
-              ))}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Submenu>
+        {/* More models hidden */}
       </Dropdown.Section>
     </Dropdown>
   )

@@ -23,6 +23,8 @@ export interface UseChatHistoryResult {
   /** Move a chat to the top of the list without resetting its title. */
   moveToTop: (chatId: string) => void;
   remove: (chatId: string) => Promise<void>;
+  /** Remove one or more chats from the local list without calling the backend delete API. */
+  removeLocal: (...chatIds: string[]) => void;
   star: (chatId: string) => Promise<void>;
   addOptimistic: (chat: Chat) => void;
   /** Fetch the backend title for a specific chat and update local state if it has changed. */
@@ -152,6 +154,11 @@ export function useChatHistory(): UseChatHistoryResult {
     );
   };
 
+  const removeLocal = (...chatIds: string[]) => {
+    const idSet = new Set(chatIds)
+    setChats((prev) => prev.filter((c) => !idSet.has(c.id)))
+  };
+
   const moveToTop = (chatId: string) => {
     setChats((prev) => {
       const existing = prev.find((c) => c.id === chatId);
@@ -171,6 +178,7 @@ export function useChatHistory(): UseChatHistoryResult {
     renameLocal,
     moveToTop,
     remove: handleDelete,
+    removeLocal,
     star: handleStar,
     addOptimistic,
     refreshChatTitle,

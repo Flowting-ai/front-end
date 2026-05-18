@@ -28,6 +28,8 @@ export function FloatingPanel() {
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
   const currentChatId = useCurrentChatId()
+  const pathname = usePathname()
+  const isProjectPage = pathname.startsWith('/project')
 
   const handleTogglePinboard = () => {
     if (!pinboardOpen) closeHighlight()
@@ -58,15 +60,15 @@ export function FloatingPanel() {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // Only show marks for the current chat. Highlights whose chatId is not yet
-  // known (loaded from backend before chat_id is returned) are shown as a safe
-  // fallback until the backend provides chat_id in the response.
-  const gutterMarks: GutterMark[] = highlights
-    .filter(h => !currentChatId || !h.chatId || h.chatId === currentChatId)
-    .map(h => ({
-      id:         h.id,
-      colorIndex: h.colorIndex,
-    }))
+  // Only show marks for the current chat. With no chat open (new-chat page),
+  // return nothing so stale marks from a previous chat never bleed through.
+  // Highlights whose chatId is not yet known are shown as a safe fallback
+  // until the backend provides chat_id in the response.
+  const gutterMarks: GutterMark[] = currentChatId
+    ? highlights
+        .filter(h => !h.chatId || h.chatId === currentChatId)
+        .map(h => ({ id: h.id, colorIndex: h.colorIndex }))
+    : []
 
   return (
     <>
@@ -102,24 +104,28 @@ export function FloatingPanel() {
         }}
       >
         <FloatingMenu aria-label="Chat tools">
-          <FloatingMenuItem
-            icon={<PinIcon size={20} />}
-            label="Pin board"
-            active={pinboardOpen}
-            onClick={handleTogglePinboard}
-          />
+          {!isProjectPage && (
+            <FloatingMenuItem
+              icon={<PinIcon size={20} />}
+              label="Pin board"
+              active={pinboardOpen}
+              onClick={handleTogglePinboard}
+            />
+          )}
           <FloatingMenuItem
             icon={<AtomOneIcon size={20} />}
             label="Compare LLMs"
             active={compareOpen}
             onClick={toggleCompare}
           />
-          <FloatingMenuItem
-            icon={<QuillWriteOneIcon size={20} />}
-            label="Highlights"
-            active={highlightOpen}
-            onClick={handleToggleHighlight}
-          />
+          {!isProjectPage && (
+            <FloatingMenuItem
+              icon={<QuillWriteOneIcon size={20} />}
+              label="Highlights"
+              active={highlightOpen}
+              onClick={handleToggleHighlight}
+            />
+          )}
         </FloatingMenu>
       </div>
     </>

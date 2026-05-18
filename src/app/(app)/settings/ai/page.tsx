@@ -1,92 +1,72 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { SearchOneIcon } from '@strange-huge/icons'
 import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { useAuth } from '@/context/auth-context'
+import { fetchAllModels, toggleBlockModel, type LLMModel } from '@/lib/api/models'
+import { bustModelsCache } from '@/lib/ai-models'
+import { toast } from 'sonner'
 
-// ── Model data ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-type BadgeColor = 'blue' | 'neutral' | 'red' | 'green' | 'brown'
-
-interface ModelDef {
-  id:          string
-  name:        string
-  provider:    string
-  llmIconId:   string
-  description: string
-  tierLabel:   string
-  tierColor:   'blue' | 'neutral'
-  contextLabel:string
-  featureLabel:string
-  enabledByDefault: boolean
+function toLlmIconId(provider: string): string {
+  const p = provider.toLowerCase()
+  if (p.includes('anthropic') || p.includes('claude')) return 'Claude'
+  if (p.includes('openai') || p.includes('gpt'))       return 'OpenAI'
+  if (p.includes('gemini'))                             return 'Gemini'
+  if (p.includes('google'))                             return 'Google'
+  if (p.includes('meta') || p.includes('llama'))        return 'Meta'
+  if (p.includes('mistral'))                            return 'Mistral'
+  if (p.includes('groq'))                               return 'Groq'
+  if (p.includes('deepseek'))                           return 'DeepSeek'
+  if (p.includes('xai'))                                return 'XAI'
+  if (p.includes('grok'))                               return 'Grok'
+  if (p.includes('cohere'))                             return 'Cohere'
+  if (p.includes('perplexity'))                         return 'Perplexity'
+  if (p.includes('aws') || p.includes('bedrock'))       return 'Bedrock'
+  return 'OpenAI'
 }
 
-const MODELS: ModelDef[] = [
-  // OpenAI
-  {
-    id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', llmIconId: 'OpenAI',
-    description: 'GPT-4o is OpenAI\'s most capable multimodal model, combining text and vision with best-in-class reasoning, instruction-following, and a 128k context window.',
-    tierLabel: 'Starter', tierColor: 'neutral', contextLabel: '128k ctx', featureLabel: 'Best reasoning model',
-    enabledByDefault: true,
-  },
-  {
-    id: 'gpt-4o-mini', name: 'GPT-4o mini', provider: 'OpenAI', llmIconId: 'OpenAI',
-    description: 'GPT-4o Mini is a compact version of GPT-4o, designed for lightweight reasoning tasks. It offers the same instruction-following quality at lower cost and latency.',
-    tierLabel: 'Starter', tierColor: 'neutral', contextLabel: '128k ctx', featureLabel: 'Fast & affordable',
-    enabledByDefault: true,
-  },
-  {
-    id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI', llmIconId: 'OpenAI',
-    description: 'GPT-4 Turbo is an optimized version of GPT-4 with an extended 128k context window, improved instruction following, and updated knowledge.',
-    tierLabel: 'Pro', tierColor: 'blue', contextLabel: '128k ctx', featureLabel: 'Extended context',
-    enabledByDefault: true,
-  },
-  // Anthropic
-  {
-    id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', provider: 'Anthropic', llmIconId: 'Claude',
-    description: 'Sonnet 4.6 is Anthropic\'s most capable Sonnet-class model yet, with frontier performance across coding, agents, and professional work. It excels at iterative development and complex codebase navigation.',
-    tierLabel: 'Pro', tierColor: 'blue', contextLabel: '200k ctx', featureLabel: 'Best for coding',
-    enabledByDefault: true,
-  },
-  {
-    id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', provider: 'Anthropic', llmIconId: 'Claude',
-    description: 'Claude Haiku 4.5 is the fastest and most compact model in the Claude 4 family, ideal for high-throughput tasks that need near-instant responses.',
-    tierLabel: 'Starter', tierColor: 'neutral', contextLabel: '200k ctx', featureLabel: 'Fastest response',
-    enabledByDefault: false,
-  },
-  {
-    id: 'claude-opus-4', name: 'Claude Opus 4', provider: 'Anthropic', llmIconId: 'Claude',
-    description: 'Claude Opus 4 is Anthropic\'s most powerful model, designed for tasks that require deep analysis, nuanced judgement, and extended multi-turn research.',
-    tierLabel: 'Pro', tierColor: 'blue', contextLabel: '200k ctx', featureLabel: 'Deepest reasoning',
-    enabledByDefault: false,
-  },
-  // Google
-  {
-    id: 'gemini-2-5-pro', name: 'Gemini 2.5 Pro', provider: 'Google', llmIconId: 'Gemini',
-    description: 'Gemini 2.5 Pro is Google\'s state-of-the-art model designed for advanced reasoning, coding, mathematics, and scientific tasks. It employs "thinking" capabilities to reason through complex problems.',
-    tierLabel: 'Starter', tierColor: 'neutral', contextLabel: '1M ctx', featureLabel: 'Largest context',
-    enabledByDefault: true,
-  },
-  {
-    id: 'gemini-2-5-flash', name: 'Gemini 2.5 Flash', provider: 'Google', llmIconId: 'Gemini',
-    description: 'Gemini 2.5 Flash is the lightweight sibling of 2.5 Pro, optimised for speed and efficiency while retaining the same multimodal and reasoning foundations.',
-    tierLabel: 'Starter', tierColor: 'neutral', contextLabel: '1M ctx', featureLabel: 'Fast & efficient',
-    enabledByDefault: true,
-  },
-  {
-    id: 'gemini-1-5-pro', name: 'Gemini 1.5 Pro', provider: 'Google', llmIconId: 'Gemini',
-    description: 'Gemini 1.5 Pro introduced Google\'s breakthrough million-token context window. It handles long documents, videos, and code repositories in a single prompt.',
-    tierLabel: 'Pro', tierColor: 'blue', contextLabel: '1M ctx', featureLabel: 'Million token ctx',
-    enabledByDefault: true,
-  },
-]
+type PlanTier = 'standard' | 'pro' | 'power'
+type BadgeColor = 'blue' | 'neutral' | 'red' | 'green' | 'brown' | 'purple'
 
-const PROVIDERS = ['OpenAI', 'Anthropic', 'Google'] as const
+const PLAN_LABEL: Record<string, string> = {
+  standard: 'Standard',
+  pro:      'Pro',
+  power:    'Power',
+}
 
-// ── Badge helpers ─────────────────────────────────────────────────────────────
+const PLAN_COLOR: Record<string, BadgeColor> = {
+  standard: 'neutral',
+  pro:      'blue',
+  power:    'brown',
+}
+
+function formatContext(n: number | null | undefined): string | null {
+  if (!n || n <= 0) return null
+  if (n >= 1_000_000) return `${n / 1_000_000}M ctx`
+  if (n >= 1_000)     return `${Math.round(n / 1_000)}k ctx`
+  return `${n} ctx`
+}
+
+function featureLabel(model: LLMModel): string | null {
+  const inputs  = model.model_inputs  ?? []
+  const outputs = model.model_outputs ?? []
+  const name    = model.model_name.toLowerCase()
+  if (outputs.some(o => o.toLowerCase().includes('image'))) return 'Image gen'
+  if (inputs.some(i  => i.toLowerCase().includes('image') || i.toLowerCase().includes('vision'))) return 'Vision'
+  if (name.includes('code'))    return 'Code'
+  if (name.includes('embed'))   return 'Embeddings'
+  if (name.includes('whisper') || name.includes('audio')) return 'Audio'
+  const ctx = model.model_context_window ?? 0
+  if (ctx >= 1_000_000) return '1M+ context'
+  return null
+}
+
+// ── Badge ─────────────────────────────────────────────────────────────────────
 
 const BADGE_STYLES: Record<BadgeColor, {
   bg: string; outerShadow: string; innerShadow: string; color: string
@@ -121,6 +101,12 @@ const BADGE_STYLES: Record<BadgeColor, {
     innerShadow: 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)',
     color:       'var(--brown-700)',
   },
+  purple: {
+    bg:          'var(--purple-100, #f3f0ff)',
+    outerShadow: '0px 1px 1.5px 0px rgba(10,2,24,0.2), 0px 0px 0px 1px rgba(109,40,217,0.5)',
+    innerShadow: 'inset 0px 1px 0px 0px rgba(237,233,254,0.7), inset 0px -1px 0px 0px rgba(109,40,217,0.1)',
+    color:       'var(--purple-700, #6d28d9)',
+  },
 }
 
 function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
@@ -128,15 +114,15 @@ function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
   return (
     <span
       style={{
-        position:        'relative',
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '2px',
-        borderRadius:    6,
-        boxShadow:       s.outerShadow,
-        overflow:        'hidden',
-        flexShrink:      0,
+        position:       'relative',
+        display:        'inline-flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        padding:        '2px',
+        borderRadius:   6,
+        boxShadow:      s.outerShadow,
+        overflow:       'hidden',
+        flexShrink:     0,
       }}
     >
       <span aria-hidden style={{
@@ -155,7 +141,7 @@ function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
       }} />
       <span style={{
         position:   'relative',
-        padding:    '0 2px',
+        padding:    '0 4px',
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
         fontSize:   11,
@@ -169,36 +155,91 @@ function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
   )
 }
 
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div style={{
+      flex:            '1 0 0',
+      minWidth:        220,
+      maxWidth:        340,
+      display:         'flex',
+      flexDirection:   'column',
+      gap:             10,
+      padding:         '12px 12px 16px',
+      borderRadius:    16,
+      backgroundColor: 'var(--neutral-white)',
+      boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+    }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ height: 16, width: '60%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          <div style={{ height: 12, width: '40%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        </div>
+        <div style={{ width: 40, height: 24, borderRadius: 12, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', width: '80%' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
+        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      </div>
+    </div>
+  )
+}
+
+function SkeletonSection({ cardCount = 3 }: { cardCount?: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+      <div style={{ height: 22, width: 100, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        {Array.from({ length: cardCount }).map((_, i) => <SkeletonCard key={i} />)}
+      </div>
+    </div>
+  )
+}
+
 // ── Model card ────────────────────────────────────────────────────────────────
 
-function ModelCard({
-  model,
-  enabled,
-  onToggle,
-}: {
-  model: ModelDef
-  enabled: boolean
-  onToggle: (id: string, next: boolean) => void
-}) {
+interface ModelCardProps {
+  model:     LLMModel
+  toggling:  boolean
+  onToggle:  (model: LLMModel) => void
+}
+
+function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
+  const tierKey  = (model.model_plan_type ?? 'standard').toLowerCase() as PlanTier
+  const tierLbl  = PLAN_LABEL[tierKey] ?? model.model_plan_type ?? 'Standard'
+  const tierClr  = (PLAN_COLOR[tierKey] ?? 'neutral') as BadgeColor
+  const ctxLbl   = formatContext(model.model_context_window)
+  const featLbl  = featureLabel(model)
+  const iconId   = toLlmIconId(model.model_provider)
+
   return (
     <div
       style={{
         flex:            '1 0 0',
-        minWidth:        0,
+        minWidth:        220,
+        maxWidth:        340,
         display:         'flex',
         flexDirection:   'column',
         gap:             8,
         padding:         '12px 12px 16px',
         borderRadius:    16,
         backgroundColor: 'var(--neutral-white)',
-        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        overflow:        'hidden',
+        boxShadow:       model.blocked
+          ? '0px 2px 2.8px 0px rgba(82,75,71,0.06), 0px 0px 0px 1px var(--neutral-100)'
+          : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+        opacity:         model.blocked ? 0.7 : 1,
+        transition:      'opacity 200ms, box-shadow 200ms',
       }}
     >
-      {/* Header row */}
+      {/* Header */}
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flex: '1 0 0', minWidth: 0, gap: 12, alignItems: 'flex-start' }}>
-          {/* Icon wrapper */}
           <div style={{
             width:           44,
             height:          44,
@@ -210,10 +251,8 @@ function ModelCard({
             flexShrink:      0,
             overflow:        'hidden',
           }}>
-            <LlmIcon id={model.llmIconId} variant="color" size={24} />
+            <LlmIcon id={iconId} variant="color" size={24} />
           </div>
-
-          {/* Name + provider */}
           <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignSelf: 'stretch' }}>
             <p style={{
               fontFamily:   'var(--font-body)',
@@ -226,55 +265,53 @@ function ModelCard({
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              {model.name}
+              {model.model_name}
             </p>
             <p style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   600,
               fontSize:     11,
               lineHeight:   '16px',
-              color:        'var(--neutral-700)',
+              color:        'var(--neutral-500)',
               margin:       0,
               overflow:     'hidden',
               textOverflow: 'ellipsis',
               whiteSpace:   'nowrap',
             }}>
-              {model.provider}
+              {model.model_provider}
             </p>
           </div>
         </div>
-
-        {/* Toggle */}
         <Switch
-          checked={enabled}
-          onCheckedChange={next => onToggle(model.id, next)}
+          checked={!model.blocked}
+          onCheckedChange={() => onToggle(model)}
+          disabled={toggling}
         />
       </div>
 
       {/* Description */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontWeight: 400,
-        fontSize:   11,
-        lineHeight: '16px',
-        color:      'var(--neutral-500)',
-        margin:     0,
-        maxHeight:  48,
-        overflow:   'hidden',
-        display:    '-webkit-box',
-        WebkitLineClamp: 3,
-        WebkitBoxOrient: 'vertical',
-      }}>
-        {model.description}
-      </p>
+      {model.model_description && (
+        <p style={{
+          fontFamily:       'var(--font-body)',
+          fontWeight:       400,
+          fontSize:         11,
+          lineHeight:       '16px',
+          color:            'var(--neutral-500)',
+          margin:           0,
+          overflow:         'hidden',
+          display:          '-webkit-box',
+          WebkitLineClamp:  3,
+          WebkitBoxOrient:  'vertical',
+        }}>
+          {model.model_description}
+        </p>
+      )}
 
-      {/* Labels row */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: 6, alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <MiniChip label={model.tierLabel} color={model.tierColor} />
-          <MiniChip label={model.contextLabel} color="red" />
-        </div>
-        <MiniChip label={model.featureLabel} color="green" />
+      {/* Labels */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', paddingTop: 8 }}>
+        <MiniChip label={tierLbl} color={tierClr} />
+        {ctxLbl && <MiniChip label={ctxLbl} color="red" />}
+        {featLbl && <MiniChip label={featLbl} color="green" />}
       </div>
     </div>
   )
@@ -284,30 +321,30 @@ function ModelCard({
 
 function ProviderSection({
   provider,
-  models,
-  enabledIds,
+  displayModels,
+  allProviderModels,
+  togglingId,
   onToggle,
   divider,
 }: {
-  provider: string
-  models: ModelDef[]
-  enabledIds: Set<string>
-  onToggle: (id: string, next: boolean) => void
-  divider?: boolean
+  provider:          string
+  displayModels:     LLMModel[]
+  allProviderModels: LLMModel[]
+  togglingId:        string | null
+  onToggle:          (model: LLMModel) => void
+  divider?:          boolean
 }) {
-  const enabledCount = models.filter(m => enabledIds.has(m.id)).length
+  const enabledCount = allProviderModels.filter(m => !m.blocked).length
+  const totalCount   = allProviderModels.length
 
   return (
-    <div
-      style={{
-        display:      'flex',
-        flexDirection:'column',
-        gap:          24,
-        padding:      '12px 24px 24px',
-        borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
-      }}
-    >
-      {/* Provider label + count badge */}
+    <div style={{
+      display:       'flex',
+      flexDirection: 'column',
+      gap:           24,
+      padding:       '12px 24px 24px',
+      borderBottom:  divider ? '1px solid var(--neutral-100)' : undefined,
+    }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -320,16 +357,15 @@ function ProviderSection({
         }}>
           {provider}
         </p>
-        <MiniChip label={`${enabledCount}/${models.length} enabled`} color="brown" />
+        <MiniChip label={`${enabledCount}/${totalCount} enabled`} color="brown" />
       </div>
 
-      {/* Model card grid */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-        {models.map(model => (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'stretch' }}>
+        {displayModels.map(model => (
           <ModelCard
-            key={model.id}
+            key={model.model_id}
             model={model}
-            enabled={enabledIds.has(model.id)}
+            toggling={togglingId === model.model_id}
             onToggle={onToggle}
           />
         ))}
@@ -341,39 +377,85 @@ function ProviderSection({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AiModelsPage() {
-  const { user } = useAuth()
-  const planName = user?.planName ?? 'Starter'
+  const { user }   = useAuth()
+  const planName   = user?.planName ?? 'Starter'
 
-  const [search,  setSearch]  = useState('')
-  const [tab,     setTab]     = useState('all')
-  const [enabled, setEnabled] = useState<Set<string>>(
-    () => new Set(MODELS.filter(m => m.enabledByDefault).map(m => m.id))
-  )
+  const [models,     setModels]     = useState<LLMModel[]>([])
+  const [isLoading,  setIsLoading]  = useState(true)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [search,     setSearch]     = useState('')
+  const [tab,        setTab]        = useState('all')
 
-  const handleToggle = (id: string, next: boolean) => {
-    setEnabled(prev => {
-      const next2 = new Set(prev)
-      next2[next ? 'add' : 'delete'](id)
-      return next2
-    })
-  }
+  // Fetch on mount
+  useEffect(() => {
+    let alive = true
+    setIsLoading(true)
+    fetchAllModels()
+      .then(data => { if (alive) setModels(data) })
+      .catch(() => { if (alive) setModels([]) })
+      .finally(() => { if (alive) setIsLoading(false) })
+    return () => { alive = false }
+  }, [])
 
+  // Toggle handler — optimistic update + rollback on failure
+  const handleToggle = useCallback(async (model: LLMModel) => {
+    if (togglingId) return
+    setTogglingId(model.model_id)
+    const nextBlocked = !model.blocked
+    // Optimistic
+    setModels(prev => prev.map(m =>
+      m.model_id === model.model_id ? { ...m, blocked: nextBlocked } : m,
+    ))
+    try {
+      const result = await toggleBlockModel(model.model_id)
+      // Reconcile with backend response
+      setModels(prev => prev.map(m =>
+        m.model_id === model.model_id ? { ...m, blocked: result.blocked } : m,
+      ))
+      // Bust the shared model cache so selectors elsewhere pick up the change immediately
+      bustModelsCache()
+    } catch {
+      // Rollback
+      setModels(prev => prev.map(m =>
+        m.model_id === model.model_id ? { ...m, blocked: model.blocked } : m,
+      ))
+      toast.error(`Failed to update ${model.model_name}`)
+    } finally {
+      setTogglingId(null)
+    }
+  }, [togglingId])
+
+  // All unique providers (preserving order from API)
+  const allProviders = useMemo(() => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const m of models) {
+      if (!seen.has(m.model_provider)) {
+        seen.add(m.model_provider)
+        out.push(m.model_provider)
+      }
+    }
+    return out
+  }, [models])
+
+  // Filtered models (tab + search)
   const filteredModels = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return MODELS.filter(m => {
-      if (tab === 'enabled'  && !enabled.has(m.id)) return false
-      if (tab === 'disabled' &&  enabled.has(m.id)) return false
-      if (q && !m.name.toLowerCase().includes(q) && !m.provider.toLowerCase().includes(q)) return false
+    return models.filter(m => {
+      if (tab === 'enabled'  &&  m.blocked) return false
+      if (tab === 'disabled' && !m.blocked) return false
+      if (q && !m.model_name.toLowerCase().includes(q) && !m.model_provider.toLowerCase().includes(q)) return false
       return true
     })
-  }, [search, tab, enabled])
+  }, [models, search, tab])
 
+  // Providers that have at least one visible model after filtering
   const visibleProviders = useMemo(
-    () => PROVIDERS.filter(p => filteredModels.some(m => m.provider === p)),
-    [filteredModels],
+    () => allProviders.filter(p => filteredModels.some(m => m.model_provider === p)),
+    [allProviders, filteredModels],
   )
 
-  const totalEnabled = enabled.size
+  const totalEnabled = models.filter(m => !m.blocked).length
 
   return (
     <div
@@ -391,7 +473,7 @@ export default function AiModelsPage() {
     >
       <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* ── Page header ── */}
+        {/* ── Header ── */}
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
           <h1 style={{
             fontFamily:   'var(--font-title)',
@@ -418,20 +500,17 @@ export default function AiModelsPage() {
           </p>
         </div>
 
-        {/* ── Search + filter card ── */}
-        <div
-          style={{
-            border:          '1px solid var(--neutral-200)',
-            borderRadius:    16,
-            boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:        'hidden',
-            padding:         '12px 24px',
-            display:         'flex',
-            alignItems:      'center',
-            gap:             24,
-          }}
-        >
-          {/* Search input */}
+        {/* ── Search + filter ── */}
+        <div style={{
+          border:        '1px solid var(--neutral-200)',
+          borderRadius:  16,
+          boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+          overflow:      'hidden',
+          padding:       '12px 24px',
+          display:       'flex',
+          alignItems:    'center',
+          gap:           24,
+        }}>
           <div style={{
             flex:            '1 0 0',
             minWidth:        0,
@@ -448,7 +527,7 @@ export default function AiModelsPage() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search models by name or provider..."
+              placeholder="Search models by name or provider…"
               style={{
                 flex:            '1 0 0',
                 minWidth:        0,
@@ -464,8 +543,6 @@ export default function AiModelsPage() {
               }}
             />
           </div>
-
-          {/* Tab filter */}
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList size="small">
               <TabsTrigger value="all">All</TabsTrigger>
@@ -476,26 +553,22 @@ export default function AiModelsPage() {
         </div>
 
         {/* ── Models card ── */}
-        <div
-          style={{
-            border:        '1px solid var(--neutral-200)',
-            borderRadius:  16,
-            boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:      'hidden',
-            paddingTop:    12,
-            paddingBottom: 12,
-          }}
-        >
+        <div style={{
+          border:        '1px solid var(--neutral-200)',
+          borderRadius:  16,
+          boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+          overflow:      'hidden',
+          paddingTop:    12,
+          paddingBottom: 12,
+        }}>
           {/* Card header */}
-          <div
-            style={{
-              display:      'flex',
-              alignItems:   'center',
-              gap:          4,
-              padding:      '12px 24px 24px',
-              borderBottom: '1px solid var(--neutral-100)',
-            }}
-          >
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          4,
+            padding:      '12px 24px 24px',
+            borderBottom: '1px solid var(--neutral-100)',
+          }}>
             <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', gap: 12, alignItems: 'center' }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
@@ -506,45 +579,34 @@ export default function AiModelsPage() {
                 margin:     0,
                 whiteSpace: 'nowrap',
               }}>
-                {MODELS.length}+ Models available
+                {isLoading ? 'Loading models…' : `${models.length} models available`}
               </p>
-              <MiniChip label={`${planName} · ${totalEnabled} enabled`} color="blue" />
+              {!isLoading && (
+                <MiniChip label={`${planName} · ${totalEnabled} enabled`} color="blue" />
+              )}
             </div>
-
-            {/* Filter icon button */}
-            <button
-              aria-label="Filter models"
-              style={{
-                display:         'flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                width:           32,
-                height:          32,
-                borderRadius:    8,
-                border:          'none',
-                backgroundColor: 'transparent',
-                cursor:          'pointer',
-                flexShrink:      0,
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3 5h14M6 10h8M9 15h2" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
           </div>
 
-          {/* Provider sections */}
-          {visibleProviders.length === 0 ? (
+          {/* Content */}
+          {isLoading ? (
+            <>
+              <SkeletonSection cardCount={3} />
+              <SkeletonSection cardCount={3} />
+              <SkeletonSection cardCount={2} />
+            </>
+          ) : visibleProviders.length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 400,
                 fontSize:   14,
                 lineHeight: '22px',
-                color:      'var(--neutral-500)',
+                color:      'var(--neutral-400)',
                 margin:     0,
               }}>
-                No models match your search.
+                {models.length === 0
+                  ? 'No models found. Please check your connection and try again.'
+                  : 'No models match your search.'}
               </p>
             </div>
           ) : (
@@ -552,8 +614,9 @@ export default function AiModelsPage() {
               <ProviderSection
                 key={provider}
                 provider={provider}
-                models={filteredModels.filter(m => m.provider === provider)}
-                enabledIds={enabled}
+                displayModels={filteredModels.filter(m => m.model_provider === provider)}
+                allProviderModels={models.filter(m => m.model_provider === provider)}
+                togglingId={togglingId}
                 onToggle={handleToggle}
                 divider={i < visibleProviders.length - 1}
               />
@@ -562,16 +625,14 @@ export default function AiModelsPage() {
         </div>
 
         {/* ── Info card ── */}
-        <div
-          style={{
-            border:          '1px solid var(--neutral-200)',
-            borderRadius:    16,
-            boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-            overflow:        'hidden',
-            padding:         '12px 24px',
-            backgroundColor: 'var(--neutral-50)',
-          }}
-        >
+        <div style={{
+          border:          '1px solid var(--neutral-200)',
+          borderRadius:    16,
+          boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
+          overflow:        'hidden',
+          padding:         '12px 24px',
+          backgroundColor: 'var(--neutral-50)',
+        }}>
           <p style={{
             fontFamily:   'var(--font-body)',
             fontWeight:   500,
@@ -579,22 +640,16 @@ export default function AiModelsPage() {
             lineHeight:   '22px',
             color:        'var(--neutral-900)',
             margin:       '0 0 2px',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
           }}>
             Disabled models are excluded from auto-routing and per-task assignment
           </p>
           <p style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   400,
-            fontSize:     14,
-            lineHeight:   '22px',
-            color:        'var(--neutral-500)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 400,
+            fontSize:   14,
+            lineHeight: '22px',
+            color:      'var(--neutral-500)',
+            margin:     0,
           }}>
             If a model assigned to a task category is disabled, Souvenir will fall back to the nearest equivalent within your routing preference.
           </p>

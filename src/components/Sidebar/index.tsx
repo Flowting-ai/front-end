@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { cn } from '@/lib/utils'
 import {
   SearchOneIcon,
@@ -13,6 +14,9 @@ import {
   SidebarLeftIcon,
   MoreHorizontalIcon,
   BubbleChatIcon,
+  SettingsOneIcon,
+  InformationCircleIcon,
+  ArrowRightTwoIcon,
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
@@ -79,8 +83,14 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   userEmail?: string
   /** Account avatar image URL */
   avatarSrc?: string
-  /** Called when the settings icon on the account item is clicked */
-  onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** Called when "Settings" is selected from the account dropdown menu */
+  onSettingsClick?: () => void
+  /** Called when "Help" is selected from the account dropdown menu */
+  onHelpClick?: () => void
+  /** Called when "Sign Out" is selected from the account dropdown menu */
+  onLogoutClick?: () => void
+  /** Whether the user is authenticated — controls "Sign Out" vs "Sign In" label */
+  isAuthenticated?: boolean
   /** Called when New chat is clicked */
   onNewChat?: () => void
   /** Called when Search is clicked */
@@ -376,6 +386,21 @@ function DefaultRecentItems({ selectedItem, activeChatId, onSelect: _onSelect, o
   )
 }
 
+// ── Account dropdown menu styles ──────────────────────────────────────────────
+
+const accountMenuItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '8px',
+  padding: '7px 10px', borderRadius: '8px', cursor: 'pointer',
+  fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
+  fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)',
+  color: 'var(--neutral-700)', outline: 'none', userSelect: 'none',
+}
+
+const accountMenuItemDestructiveStyle: React.CSSProperties = {
+  ...accountMenuItemStyle,
+  color: 'var(--red-500)',
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
@@ -385,6 +410,9 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       userEmail      = 'Label',
       avatarSrc,
       onSettingsClick,
+      onHelpClick,
+      onLogoutClick,
+      isAuthenticated = false,
       onNewChat,
       onSearch,
       onCollapse,
@@ -409,6 +437,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
     const [collapseHovered,  setCollapseHovered]  = useState(false)
     const [atScrollTop,      setAtScrollTop]      = useState(true)
     const [atScrollBottom,   setAtScrollBottom]   = useState(false)
+    const [accountMenuOpen,  setAccountMenuOpen]  = useState(false)
 
     // Scroll-position memory across collapse ↔ expand. When collapsing, the
     // body's overflow flips to `hidden`; if we leave scrollTop where it was,
@@ -715,7 +744,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               flexShrink:    0,
             }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {recentItems ?? <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} />}
+                {recentItems !== undefined ? recentItems : <DefaultRecentItems selectedItem={selectedItem} activeChatId={activeChatId} onSelect={onSelect} onChatClick={handleChatClick} onShowAll={onShowAllRecents} sectionKey={bodySection} recents={recents} />}
               </div>
             </div>
           </motion.div>
@@ -790,7 +819,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
           transition:    'opacity 150ms ease',
         }} />
 
-        {/* ── Absolute bottom: account item ── */}
+        {/* ── Absolute bottom: account item + dropup menu ── */}
         <div style={{
           position:        'absolute',
           bottom:          0,
@@ -812,9 +841,76 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
             label={userName}
             sublabel={userEmail}
             avatarSrc={avatarSrc}
-            onSettingsClick={onSettingsClick}
-            onClick={(e) => onSettingsClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>)}
+            onSettingsClick={(e) => { e.stopPropagation(); setAccountMenuOpen(true) }}
+            onClick={() => setAccountMenuOpen(true)}
           />
+
+          {/* Hidden Radix trigger — serves as position anchor for the dropup */}
+          <DropdownMenu.Root open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
+            <DropdownMenu.Trigger
+              style={{
+                position:      'absolute',
+                top:           0,
+                left:          '50%',
+                width:         1,
+                height:        1,
+                opacity:       0,
+                pointerEvents: 'none',
+                border:        'none',
+                background:    'none',
+                padding:       0,
+              }}
+            />
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                side="top"
+                align="center"
+                sideOffset={4}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+                style={{
+                  backgroundColor: 'var(--neutral-white)',
+                  borderRadius:    '12px',
+                  padding:         '4px',
+                  boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+                  zIndex:          200,
+                  minWidth:        '222px',
+                  outline:         'none',
+                }}
+              >
+                <DropdownMenu.Item
+                  style={accountMenuItemStyle}
+                  onSelect={() => onSettingsClick?.()}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                >
+                  <SettingsOneIcon size={16} />
+                  Settings
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Item
+                  style={accountMenuItemStyle}
+                  onSelect={() => onHelpClick?.()}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                >
+                  <InformationCircleIcon size={16} />
+                  Help
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
+
+                <DropdownMenu.Item
+                  style={accountMenuItemDestructiveStyle}
+                  onSelect={() => onLogoutClick?.()}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+                >
+                  <ArrowRightTwoIcon size={16} />
+                  {isAuthenticated ? 'Sign Out' : 'Sign In'}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
 
       </div>

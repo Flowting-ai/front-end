@@ -6,7 +6,7 @@ import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
 import { Sparkles, ExternalLink, Mail, X } from "lucide-react";
 import { LlmIcon } from "@strange-huge/icons/llm";
-import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
+import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button } from "@/components/Button";
 import { IconButton } from "@/components/IconButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
@@ -20,6 +20,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
+import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -64,6 +65,80 @@ const TRAY_BG_SHADOW     = "inset 0px -1px 0px 0px rgba(255,255,255,0.9),inset 0
 const SLOT_SHADOW        = "0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
 const BTN_SHADOW         = "0px 0px 0px 1px #3B3632,0px 1.091px 1.091px 0px rgba(59,54,50,0.1),0px 1.455px 3.127px 0px rgba(59,54,50,0.4)";
 const BTN_INSET          = "inset 0px 1.455px 0.364px 0px #6A625D,inset 0px -2.182px 0.364px 0px #3B3632,inset 0px -2.545px 6.9px -2.182px #827A74";
+
+// ── Audio waveform ─────────────────────────────────────────────────────────────
+
+const BAR_X       = [3, 6, 9, 12, 15, 18, 21];
+const BAR_DEFAULT = [2, 10, 18, 12, 6, 10, 2];
+const CENTER_Y    = 12;
+const LERP        = 0.35;
+
+function AudioWaveDisplay({ analyser, color = "currentColor", size = 20 }: {
+  analyser: AnalyserNode | null;
+  color?: string;
+  size?: number;
+}) {
+  const pathRefs   = useRef<(SVGPathElement | null)[]>([]);
+  const heightsRef = useRef<number[]>([...BAR_DEFAULT]);
+  const rafRef     = useRef<number>(0);
+
+  const updatePaths = (heights: number[]) => {
+    heights.forEach((h, i) => {
+      const el = pathRefs.current[i];
+      if (el) el.setAttribute("d", `M${BAR_X[i]} ${(CENTER_Y - h / 2).toFixed(2)}V${(CENTER_Y + h / 2).toFixed(2)}`);
+    });
+  };
+
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (!analyser) {
+      const decay = () => {
+        const next = heightsRef.current.map((h, i) => h + (BAR_DEFAULT[i] - h) * LERP);
+        heightsRef.current = next;
+        updatePaths(next);
+        if (!next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
+          rafRef.current = requestAnimationFrame(decay);
+      };
+      rafRef.current = requestAnimationFrame(decay);
+      return () => cancelAnimationFrame(rafRef.current);
+    }
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray    = new Uint8Array(bufferLength);
+    const voiceBins    = Math.floor(bufferLength * 0.4);
+    const binPerBar    = Math.floor(voiceBins / BAR_X.length);
+    const tick = () => {
+      analyser.getByteFrequencyData(dataArray);
+      const targets = BAR_X.map((_, i) => {
+        const start = 1 + i * binPerBar;
+        const end   = start + binPerBar;
+        let sum = 0;
+        for (let j = start; j < end; j++) sum += dataArray[j] ?? 0;
+        return 2 + (sum / binPerBar / 255) * 18;
+      });
+      const next = heightsRef.current.map((h, i) => h + (targets[i] - h) * LERP);
+      heightsRef.current = next;
+      updatePaths(next);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [analyser]);
+
+  const p = { stroke: color, strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {BAR_X.map((x, i) => {
+        const h = BAR_DEFAULT[i];
+        return (
+          <path key={x} ref={el => { pathRefs.current[i] = el; }}
+            d={`M${x} ${(CENTER_Y - h / 2).toFixed(2)}V${(CENTER_Y + h / 2).toFixed(2)}`}
+            {...p}
+          />
+        );
+      })}
+    </svg>
+  );
+}
 
 // ── Chip ───────────────────────────────────────────────────────────────────────
 
@@ -495,7 +570,7 @@ const parseContentSegments = (value: string): ContentSegment[] => {
 };
 
 const FormattedResponse = ({ content, modelId }: { content: string; modelId: string }) => (
-  <div className="w-full space-y-1">
+  <div className="w-full space-y-1" style={{ fontFamily: "var(--font-body)" }}>
     {parseContentSegments(content).map((seg, idx) =>
       seg.type === "code"
         ? <CodeBlock key={`${modelId}-code-${idx}`} code={seg.value} language={seg.language} />
@@ -666,7 +741,6 @@ function ModelCard({
           <Chip label={model.tierLabel}    color={tierColor} />
           <Chip label={model.contextLabel} color="red" noCapitalize />
         </div>
-        {model.featureLabel && <Chip label={model.featureLabel} color="green" />}
       </div>
     </div>
   );
@@ -706,6 +780,31 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptInputRef     = useRef<HTMLTextAreaElement>(null);
   const gridScrollRef      = useRef<HTMLDivElement>(null);
+  const audioCtxRef           = useRef<AudioContext | null>(null);
+  const streamRef             = useRef<MediaStream | null>(null);
+  const preRecordingTextRef   = useRef<string>("");
+  const [isRecording,  setIsRecording]  = useState(false);
+  const [analyser,     setAnalyser]     = useState<AnalyserNode | null>(null);
+  const [isMicHovered, setIsMicHovered] = useState(false);
+
+  const { transcript, resetTranscript, browserSupportsSpeechRecognition } =
+    useSpeechRecognition();
+
+  // Live transcript → prompt textarea during recording
+  useEffect(() => {
+    if (!isRecording) return;
+    const base     = preRecordingTextRef.current;
+    const combined = base && transcript ? `${base} ${transcript}` : transcript || base;
+    setPrompt(combined);
+  }, [transcript, isRecording]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      audioCtxRef.current?.close();
+      SpeechRecognition.abortListening();
+    };
+  }, []);
 
   const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -797,6 +896,50 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
 
   const handleRemove = (id: string) => {
     setSelectedModels((prev) => prev.filter((mid) => mid !== id));
+  };
+
+  const startRecording = async () => {
+    if (!browserSupportsSpeechRecognition) return;
+    preRecordingTextRef.current = prompt;
+    resetTranscript();
+    setIsRecording(true);
+    SpeechRecognition.startListening({ continuous: true, interimResults: true });
+
+    const ctx = new AudioContext();
+    audioCtxRef.current = ctx;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      if (ctx.state === "suspended") await ctx.resume();
+      const source       = ctx.createMediaStreamSource(stream);
+      const analyserNode = ctx.createAnalyser();
+      analyserNode.fftSize               = 256;
+      analyserNode.smoothingTimeConstant = 0.75;
+      source.connect(analyserNode);
+      setAnalyser(analyserNode);
+    } catch {
+      ctx.close();
+      audioCtxRef.current = null;
+      SpeechRecognition.abortListening();
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    SpeechRecognition.stopListening();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    audioCtxRef.current?.close();
+    streamRef.current   = null;
+    audioCtxRef.current = null;
+    setAnalyser(null);
+    setIsRecording(false);
+  };
+
+  const handlePromptButtonClick = () => {
+    if (isTesting) { abortControllerRef.current?.abort(); return; }
+    if (isRecording) { stopRecording(); return; }
+    if (prompt.trim()) handleTestModels();
+    else startRecording();
   };
 
   const handleSelectModel = (modelId: string) => {
@@ -1159,16 +1302,6 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
                           {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
                         </div>
-                        {/* Save Pin */}
-                        <Button
-                          variant="secondary"
-                          size="md"
-                          disabled={!modelResponse || isModelStreaming || !testMessageIds[responseKey]}
-                          onClick={() => handleSavePin(responseKey, expandedModel.displayName)}
-                          leftIcon={<PinIcon animated size={16} />}
-                        >
-                          {testMessageIds[responseKey] && isPinned(testMessageIds[responseKey]) ? "Pinned" : "Save Pin"}
-                        </Button>
                         {/* Use this model */}
                         <Button
                           variant="default"
@@ -1250,21 +1383,12 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         )}
                       </div>
-                      {/* Bottom bar: credits + save pin */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          {credits !== undefined && <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />}
+                      {/* Bottom bar: credits */}
+                      {credits !== undefined && (
+                        <div style={{ display: "flex", alignItems: "center", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>
+                          <Chip label={`${credits.toFixed(2)} Credits`} color="neutral" noCapitalize />
                         </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={!modelResponse || isModelStreaming || !testMessageIds[responseKey]}
-                          onClick={() => handleSavePin(responseKey, model.displayName)}
-                          leftIcon={<PinIcon animated size={14} />}
-                        >
-                          {testMessageIds[responseKey] && isPinned(testMessageIds[responseKey]) ? "Pinned" : "Save Pin"}
-                        </Button>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1280,20 +1404,57 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onFocus={() => setPromptInputCollapsed(false)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleTestModels(); } }}
-                placeholder="How can I help you today?"
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!isTesting) handleTestModels(); } }}
+                placeholder={isRecording ? "Listening..." : "How can I help you today?"}
                 disabled={isTesting}
                 rows={1}
                 style={{ flex: 1, fontSize: 16, fontWeight: 400, lineHeight: "22px", color: prompt ? "#26211E" : "#6A625D", fontFamily: "var(--font-body)", background: "none", border: "none", outline: "none", resize: "none", minHeight: 22, opacity: isTesting ? 0.6 : 1 }}
               />
-              <IconButton
-                variant="default"
-                size="md"
-                onClick={handleTestModels}
-                disabled={!prompt.trim() || isTesting}
-                aria-label="Send"
-                icon={<ArrowUpTwoIcon animated size={20} />}
-              />
+              <span
+                onMouseEnter={() => setIsMicHovered(true)}
+                onMouseLeave={() => setIsMicHovered(false)}
+                style={{ display: "inline-flex", flexShrink: 0 }}
+              >
+                <IconButton
+                  variant="default"
+                  size="md"
+                  aria-label={isTesting ? "Stop generation" : isRecording ? "Stop recording" : prompt.trim() ? "Send" : "Start recording"}
+                  onClick={handlePromptButtonClick}
+                  icon={
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      {(() => {
+                        const iconKey = isTesting
+                          ? "stop-gen"
+                          : isRecording
+                            ? (isMicHovered ? "stop-rec" : "wave")
+                            : prompt.trim() ? "send" : "mic";
+                        const isWave = iconKey === "wave";
+                        return (
+                          <motion.span
+                            key={iconKey}
+                            initial={isWave ? { scale: 0.5, opacity: 0 } : { scale: 0.5, opacity: 0, filter: "blur(4px)" }}
+                            animate={isWave ? { scale: 1,   opacity: 1 } : { scale: 1,   opacity: 1, filter: "blur(0px)" }}
+                            exit={{ scale: 0.5, opacity: 0, filter: "blur(4px)" }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            {isTesting
+                              ? <StopCircleIcon size={20} />
+                              : isRecording
+                                ? isMicHovered
+                                  ? <StopCircleIcon size={20} />
+                                  : <AudioWaveDisplay analyser={analyser} size={20} />
+                                : prompt.trim()
+                                  ? <ArrowUpTwoIcon size={20} animated triggered={isMicHovered} />
+                                  : <MicTwoIcon size={20} />
+                            }
+                          </motion.span>
+                        );
+                      })()}
+                    </AnimatePresence>
+                  }
+                />
+              </span>
             </div>
           </div>
 

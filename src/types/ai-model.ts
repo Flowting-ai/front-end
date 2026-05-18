@@ -16,4 +16,6 @@ export interface AIModel {
   deploymentName?: string;
   inputModalities?: string[];
   outputModalities?: string[];
+  /** Whether the user has blocked/disabled this model. Blocked models are hidden from the chat selector. */
+  blocked?: boolean;
 }

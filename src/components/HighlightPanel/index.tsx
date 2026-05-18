@@ -2,17 +2,22 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon } from '@strange-huge/icons'
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
+import { Dropdown } from '@/components/Dropdown'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
+import { type FilterMode } from '@/context/highlight-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface HighlightEntry {
   /** Unique identifier. Passed back through onJump, onCopy, onDelete. */
   id:         string
+  /** Stable render key — set at creation and never changed, even when the temp ID is swapped for the server UUID. Used as the React key to prevent remount animations. */
+  renderKey?: string
   /** The full quote text. Displayed without truncation inside a HighlightCard. */
   text:       string
   /** Color assigned at creation time (0–3). Persisted so colors are stable across deletes/reorders. */
@@ -30,6 +35,10 @@ export interface HighlightPanelProps {
   onDelete?:  (id: string) => void
   /** Called when the close button is clicked. Omit to hide the close button. */
   onClose?:   () => void
+  /** Active filter mode. Pass with onFilterChange to show the filter dropdown. */
+  filterMode?:      FilterMode
+  /** Called when the user picks a different filter option. */
+  onFilterChange?:  (mode: FilterMode) => void
   /** Extra classes applied to the panel root element. */
   className?: string
 }
@@ -42,11 +51,16 @@ export function HighlightPanel({
   onCopy,
   onDelete,
   onClose,
+  filterMode = 'this-chat',
+  onFilterChange,
   className,
 }: HighlightPanelProps) {
   const [searchOpen,  setSearchOpen]  = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ── Filter dropdown state ─────────────────────────────────────────────────
+  const [filterDropOpen, setFilterDropOpen] = useState(false)
 
   // ── Scroll-edge fade state ────────────────────────────────────────────────
   // Vertical fade (top + bottom) on the scrollable card list.
@@ -179,6 +193,7 @@ export function HighlightPanel({
 
         {/* Header action buttons */}
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+          {/* Close search button — shown first when search is open */}
           <AnimatePresence initial={false}>
             {searchOpen && (
               <motion.div
@@ -188,32 +203,75 @@ export function HighlightPanel({
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={springs.fast}
               >
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<CancelOneIcon size={20} />}
-                  aria-label="Close search"
-                  onClick={closeSearch}
-                />
+                <Tooltip content="Clear search" side="bottom">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon={<CancelOneIcon size={20} />}
+                    aria-label="Close search"
+                    onClick={closeSearch}
+                  />
+                </Tooltip>
               </motion.div>
             )}
           </AnimatePresence>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            icon={<SearchOneIcon size={20} />}
-            aria-label="Search highlights"
-            aria-pressed={searchOpen}
-            onClick={searchOpen ? undefined : openSearch}
-          />
+
+          {/* Filter dropdown — uses design-system Dropdown.Float */}
+          {onFilterChange && (
+            <Dropdown.Float
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<FilterMailIcon size={20} animated />}
+                  aria-label="Filter highlights"
+                />
+              }
+              open={filterDropOpen}
+              onOpenChange={setFilterDropOpen}
+              placement="bottom-end"
+            >
+              <Dropdown size="sm">
+                <Dropdown.Section fluid>
+                  {(['this-chat', 'all'] as FilterMode[]).map(mode => (
+                    <Dropdown.Item
+                      key={mode}
+                      label={mode === 'this-chat' ? 'This chat' : 'All highlights'}
+                      fluid
+                      selected={filterMode === mode}
+                      disabled={mode === 'all'}
+                      rightIcon={filterMode === mode ? <TickTwoIcon /> : undefined}
+                      onClick={() => { onFilterChange(mode); setFilterDropOpen(false) }}
+                    />
+                  ))}
+                </Dropdown.Section>
+              </Dropdown>
+            </Dropdown.Float>
+          )}
+
+          {/* Search button — hidden when search is already open */}
+          {!searchOpen && (
+            <Tooltip content="Search" side="bottom">
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<SearchOneIcon size={20} />}
+                aria-label="Search highlights"
+                onClick={openSearch}
+              />
+            </Tooltip>
+          )}
+
           {onClose && (
-            <IconButton
-              variant="ghost"
-              size="sm"
-              icon={<CancelOneIcon size={20} />}
-              aria-label="Close highlight panel"
-              onClick={onClose}
-            />
+            <Tooltip content="Close" side="bottom">
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<CancelOneIcon size={20} />}
+                aria-label="Close highlight panel"
+                onClick={onClose}
+              />
+            </Tooltip>
           )}
         </div>
       </div>
@@ -266,7 +324,7 @@ export function HighlightPanel({
         <AnimatePresence initial={false}>
           {filtered.map(h => (
             <motion.div
-              key={h.id}
+              key={h.renderKey ?? h.id}
               initial={{ opacity: 0, scaleY: 0.85, y: -8 }}
               animate={{ opacity: 1, scaleY: 1,    y:  0 }}
               exit={{    opacity: 0, scaleY: 0.85, y: -8 }}
@@ -314,7 +372,11 @@ export function HighlightPanel({
                   color:      'var(--neutral-500)',
                 }}
               >
-                {searchValue ? 'No highlights match your search' : 'Nothing highlighted yet'}
+                {searchValue
+                  ? 'No highlights match your search'
+                  : filterMode === 'this-chat'
+                    ? 'Nothing highlighted in this chat yet'
+                    : 'Nothing highlighted yet'}
               </p>
             </motion.div>
           )}

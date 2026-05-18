@@ -10,18 +10,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   SearchOneIcon,
   AtomTwoIcon,
-  BookmarkTwoIcon,
   TextIcon,
   SourceCodeSquareIcon,
   AiVisionRecognitionIcon,
   ImageTwoIcon,
-  MicTwoIcon,
-  PlayListIcon,
-  FileTwoIcon,
   AudioWaveOneIcon,
   GlobalSearchIcon,
 } from "@strange-huge/icons";
-import { Tooltip } from "@/components/Tooltip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { getModelLlmId } from "@/lib/model-icons";
 import type { AIModel } from "@/types/ai-model";
@@ -39,14 +34,13 @@ const TIER_TABS = [
 ] as const;
 
 const CATEGORY_TABS = [
-  { value: "all",        label: "All",        icon: <AtomTwoIcon          size={16} /> },
-  { value: "favorites",  label: "Favorites",  icon: <BookmarkTwoIcon      size={16} /> },
-  { value: "text",       label: "Text",       icon: <TextIcon             size={16} /> },
-  { value: "code",       label: "Code",       icon: <SourceCodeSquareIcon size={16} /> },
-  { value: "vision",     label: "Vision",     icon: <AiVisionRecognitionIcon size={16} /> },
-  { value: "image",      label: "Image",      icon: <ImageTwoIcon         size={16} /> },
-  { value: "audio",      label: "Audio",      icon: <AudioWaveOneIcon     size={16} /> },
-  { value: "search",     label: "Web Search", icon: <GlobalSearchIcon     size={16} /> },
+  { value: "all",    label: "All",        icon: <AtomTwoIcon             size={16} /> },
+  { value: "text",   label: "Text",       icon: <TextIcon                size={16} /> },
+  { value: "code",   label: "Code",       icon: <SourceCodeSquareIcon    size={16} /> },
+  { value: "vision", label: "Vision",     icon: <AiVisionRecognitionIcon size={16} /> },
+  { value: "image",  label: "Image",      icon: <ImageTwoIcon            size={16} /> },
+  { value: "audio",  label: "Audio",      icon: <AudioWaveOneIcon        size={16} /> },
+  { value: "search", label: "Web Search", icon: <GlobalSearchIcon        size={16} /> },
 ] as const;
 
 const CAPTION_STYLE: React.CSSProperties = {
@@ -57,63 +51,6 @@ const CAPTION_STYLE: React.CSSProperties = {
   color: "var(--neutral-500)",
   whiteSpace: "nowrap",
 };
-
-// ── Input-type icon map - mirrors KDS docs/llm-input-types.md taxonomy ────────
-// Text and Code are universal - never shown (would add noise, not signal).
-
-type InputType = "image" | "audio" | "video" | "doc" | "web"
-
-const INPUT_ICON: Record<InputType, React.ReactNode> = {
-  image: <ImageTwoIcon  size={16} />,
-  audio: <MicTwoIcon    size={16} />,
-  video: <PlayListIcon  size={16} />,
-  doc:   <FileTwoIcon   size={16} />,
-  web:   <SearchOneIcon size={16} />,
-}
-
-const INPUT_LABEL: Record<InputType, string> = {
-  image: "Image",
-  audio: "Audio",
-  video: "Video",
-  doc:   "Document",
-  web:   "Web search",
-}
-
-// Derive which InputTypes a model supports from its modality arrays.
-function getInputTypes(model: AIModel): InputType[] {
-  const inputs  = model.inputModalities  ?? [];
-  const outputs = model.outputModalities ?? [];
-  const types: InputType[] = [];
-
-  if (inputs.includes("image") || inputs.includes("vision"))
-    types.push("image");
-  if (inputs.includes("audio") || outputs.includes("audio"))
-    types.push("audio");
-  if (inputs.includes("video") || outputs.includes("video"))
-    types.push("video");
-  if (inputs.includes("doc") || inputs.includes("document") || inputs.includes("pdf"))
-    types.push("doc");
-  if (inputs.includes("web") || inputs.includes("search"))
-    types.push("web");
-
-  return types;
-}
-
-function getCapabilityIcons(model: AIModel): React.ReactNode {
-  const types = getInputTypes(model);
-  if (types.length === 0) return null;
-  return (
-    <>
-      {types.map((t) => (
-        <Tooltip key={t} content={INPUT_LABEL[t]}>
-          <span style={{ display: "inline-flex", lineHeight: 0 }}>
-            {INPUT_ICON[t]}
-          </span>
-        </Tooltip>
-      ))}
-    </>
-  );
-}
 
 // ── Featured mode row (Muse / Advanced) ──────────────────────────────────────
 // Two ModelFeaturedCards side-by-side, behaving as a radio pair.
@@ -202,7 +139,7 @@ function PresetModelSelectorContent({
     if (tier === "free" && m.modelType !== "free") return false;
     if (tier === "pro" && m.modelType !== "paid") return false;
 
-    if (category !== "all" && category !== "favorites") {
+    if (category !== "all") {
       const inputs  = m.inputModalities  ?? [];
       const outputs = m.outputModalities ?? [];
       switch (category) {
@@ -334,7 +271,6 @@ function PresetModelSelectorContent({
                 <span style={{ ...CAPTION_STYLE, flex: "1 0 0" }}>
                   Top Models
                 </span>
-                <span style={{ ...CAPTION_STYLE, flexShrink: 0 }}>Input</span>
               </div>
 
               {/* Scroll area + gradient overlays */}
@@ -375,8 +311,6 @@ function PresetModelSelectorContent({
                           aria-pressed={isSelected}
                           llm={getModelLlmId(model.companyName, model.modelName) ?? undefined}
                           label={model.modelName}
-                          icons={getCapabilityIcons(model)}
-                          bookmark
                           selected={isSelected}
                           onClick={() => onSelect(model)}
                           onKeyDown={(e) => {

@@ -283,24 +283,12 @@ const RECENT_MODELS = [
 ]
 
 function DefaultModelMenu() {
-  const [moreOpen, setMoreOpen] = React.useState(false)
   return (
     <Dropdown size="md">
       <Dropdown.Section fluid>
         <Dropdown.Item label="Souvenir : Advance" subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
         <Dropdown.Item label="Adaptive thinking"  subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
-        <Dropdown.Float open={moreOpen} onOpenChange={setMoreOpen} placement="right-end" trigger={
-          <Dropdown.Item label="More models" rightIcon={<ArrowRightOneIcon />} fluid />
-        }>
-          <Dropdown size="md">
-            <Dropdown.Section label="Most used" fluid>
-              {MOST_USED_MODELS.map(m => <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />)}
-            </Dropdown.Section>
-            <Dropdown.Section label="Recents" divider fluid>
-              {RECENT_MODELS.map(m => <Dropdown.Item key={m.id} label={m.label} llm={m.llm} fluid />)}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
+        {/* More models hidden */}
       </Dropdown.Section>
     </Dropdown>
   )

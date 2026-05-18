@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, MoreVerticalIcon, PinIcon, ShareOneIcon, SettingsOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
@@ -25,7 +25,7 @@ export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const router  = useRouter()
   const { getProject, getChats, updateProject, deleteProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats } = useProjects()
-  const { toggle: togglePinboard, isOpen: pinboardOpen, pins } = usePinboard()
+  const { pins, toggle: togglePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
 
   const project = getProject(params.id)
@@ -251,12 +251,6 @@ export default function ProjectPage() {
             label="Instructions & Files"
             active={panelOpen}
             onClick={() => setPanelOpen(v => !v)}
-          />
-          <FloatingMenuItem
-            icon={<PinIcon size={20} />}
-            label="Pin board"
-            active={pinboardOpen}
-            onClick={togglePinboard}
           />
         </FloatingMenu>
       </div>

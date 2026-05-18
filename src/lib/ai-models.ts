@@ -14,6 +14,7 @@ type BackendModel = {
   model_output_size?: number;
   model_inputs?: string[];
   model_outputs?: string[];
+  blocked?: boolean;
   id?: number | string;
   modelId?: number | string;
   companyName?: string;
@@ -58,6 +59,7 @@ const toNumber = (value: unknown, fallback = 0): number => {
 const normalizeModel = (model: BackendModel): AIModel => ({
   id: model.id ?? model.modelId ?? model.model_id,
   modelId: model.modelId ?? model.model_id ?? model.id,
+  blocked: model.blocked,
   companyName:
     model.model_provider ??
     model.companyName ??
@@ -103,6 +105,12 @@ let _modelsFetchPromise: Promise<AIModel[]> | null = null;
 const MODELS_CACHE_TTL = 60_000;
 let _modelsCacheTime = 0;
 
+/** Force the next fetchModelsWithCache call to bypass the TTL and re-fetch. */
+export function bustModelsCache(): void {
+  _modelsCache = null;
+  _modelsCacheTime = 0;
+}
+
 export async function fetchModelsWithCache(
   opts?: { force?: boolean },
 ): Promise<AIModel[]> {
@@ -128,7 +136,8 @@ export async function fetchModelsWithCache(
       });
       if (!response.ok) return _modelsCache ?? [];
       const data = await response.json();
-      const models = normalizeModels(data);
+      // Filter out models the user has disabled — they should not appear in the chat selector.
+      const models = normalizeModels(data).filter((m) => !m.blocked);
       _modelsCache = models;
       _modelsCacheTime = Date.now();
       return models;

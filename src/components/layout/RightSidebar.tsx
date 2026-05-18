@@ -85,7 +85,7 @@ function toPinboardPin(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RightSidebar() {
-  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder } = usePinboard()
+  const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder, chatFilter, clearChatFilter } = usePinboard()
   const { chats } = useChatHistoryContext()
 
   // Derive active chat ID from URL — same dual-pattern logic as FloatingPanel.
@@ -101,8 +101,13 @@ export function RightSidebar() {
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
   const [searchQuery,    setSearchQuery]    = useState("")
   const [sortOrder,      setSortOrder]      = useState<string>("newest")
-  const [selectedViewId,   setSelectedViewId]   = useState<string>("all")
+  const [selectedViewId,   setSelectedViewId]   = useState<string>(() => chatFilter ? "current-chat" : "all")
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+
+  // When a chat-specific filter is applied (e.g. from the chats board), switch to "current-chat" view.
+  useEffect(() => {
+    if (chatFilter) setSelectedViewId("current-chat")
+  }, [chatFilter])
 
   // ── Last-activity tracking for dynamic updatedLabel ───────────────────────
   const [lastActivityAt, setLastActivityAt] = useState<Date | null>(null)
@@ -266,9 +271,17 @@ export function RightSidebar() {
 
   const handleViewChange = useCallback((viewId: string) => {
     setSelectedViewId(viewId)
+    if (chatFilter) clearChatFilter()
     const isFolder = contextFolders.some((f) => f.id === viewId)
     setSelectedFolderId(isFolder ? viewId : null)
-  }, [contextFolders])
+  }, [contextFolders, chatFilter, clearChatFilter])
+
+  // When opened via openForChat(), chatFilter overrides the URL-derived chat ID
+  // so the "current-chat" view correctly shows that chat's pins even on /chats.
+  const effectiveChatId = useMemo(
+    () => chatFilter ?? currentChatId,
+    [chatFilter, currentChatId],
+  )
 
   // ── Stable per-pin handlers ──────────────────────────────────────────────
   // Closures are created once per pin ID and cached in a ref so they don't
@@ -310,8 +323,8 @@ export function RightSidebar() {
     // Folder views filter by folder assignment. All other views (all, recent)
     // show the full list and let the sort/search narrow it further.
     if (selectedViewId === "current-chat") {
-      result = currentChatId
-        ? result.filter((p) => p.chatId === currentChatId)
+      result = effectiveChatId
+        ? result.filter((p) => p.chatId === effectiveChatId)
         : []
     } else if (selectedFolderId) {
       result = result.filter((p) => p.folderId === selectedFolderId)
@@ -354,7 +367,7 @@ export function RightSidebar() {
       const h = getHandlers(p.id)
       return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate)
     })
-  }, [pins, selectedViewId, selectedFolderId, currentChatId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
+  }, [pins, selectedViewId, selectedFolderId, effectiveChatId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
 
   return (
     <>

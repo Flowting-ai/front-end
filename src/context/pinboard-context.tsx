@@ -53,9 +53,14 @@ interface PinboardContextValue {
   folders: PinFolderView[];
   isLoading: boolean;
   isOpen: boolean;
+  /** chatId currently being displayed (set by openForChat, cleared on open/close) */
+  chatFilter: string | null;
   open: () => void;
   close: () => void;
   toggle: () => void;
+  /** Open pinboard and pre-filter to show only pins from the given chat */
+  openForChat: (chatId: string) => void;
+  clearChatFilter: () => void;
   addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
   clonePin: (original: PinItem) => Promise<void>;
   removePin: (id: string) => void;
@@ -74,14 +79,17 @@ const PinboardContext = createContext<PinboardContextValue | null>(null);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
-  const [pins,      setPins]      = useState<PinItem[]>([]);
-  const [folders,   setFolders]   = useState<PinFolderView[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOpen,    setIsOpen]    = useState(false);
+  const [pins,       setPins]       = useState<PinItem[]>([]);
+  const [folders,    setFolders]    = useState<PinFolderView[]>([]);
+  const [isLoading,  setIsLoading]  = useState(true);
+  const [isOpen,     setIsOpen]     = useState(false);
+  const [chatFilter, setChatFilter] = useState<string | null>(null);
 
-  const open   = useCallback(() => setIsOpen(true), []);
-  const close  = useCallback(() => setIsOpen(false), []);
-  const toggle = useCallback(() => setIsOpen((v) => !v), []);
+  const open            = useCallback(() => { setChatFilter(null); setIsOpen(true) }, []);
+  const close           = useCallback(() => { setChatFilter(null); setIsOpen(false) }, []);
+  const toggle          = useCallback(() => setIsOpen((v) => !v), []);
+  const openForChat     = useCallback((chatId: string) => { setChatFilter(chatId); setIsOpen(true) }, []);
+  const clearChatFilter = useCallback(() => setChatFilter(null), []);
 
   // ── Load pins + folders in parallel on mount ────────────────────────────
   useEffect(() => {
@@ -304,8 +312,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   return (
     <PinboardContext.Provider
       value={{
-        pins, folders, isLoading, isOpen,
-        open, close, toggle,
+        pins, folders, isLoading, isOpen, chatFilter,
+        open, close, toggle, openForChat, clearChatFilter,
         addPin, clonePin, removePin, removePinByMessage, isPinned,
         updatePinCategory, updatePinFolder, updatePinTags,
         addFolder, removeFolder, renameFolder,
