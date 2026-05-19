@@ -6,6 +6,7 @@ import { ReasoningBlock } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
+import { ConnectPromptCard, PermissionPromptCard } from "./ConnectorPrompts";
 import { ContentRenderer } from "@/lib/content-renderer";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
@@ -521,6 +522,24 @@ export function ChatMessage({
         {/* Citation sources - shown below response when citations are present */}
         {message.webCitations && message.webCitations.length > 0 && !message.isLoading && (
           <SourceList citations={message.webCitations} />
+        )}
+
+        {/* Connector connect prompts — inline CTA when a tool needs linking */}
+        {message.connectorConnectPrompts && message.connectorConnectPrompts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {message.connectorConnectPrompts.map((prompt) => (
+              <ConnectPromptCard key={prompt.request_id} prompt={prompt} />
+            ))}
+          </div>
+        )}
+
+        {/* Connector permission prompts — inline Allow/Block/Allow once buttons */}
+        {message.connectorPermissionPrompts && message.connectorPermissionPrompts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {message.connectorPermissionPrompts.map((prompt) => (
+              <PermissionPromptCard key={prompt.request_id} prompt={prompt} />
+            ))}
+          </div>
         )}
 
         {/* Generated images */}

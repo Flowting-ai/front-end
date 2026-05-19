@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useRef, useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -16,6 +16,7 @@ import { ChatHistoryItem } from "./ChatHistoryItem";
 import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { ProjectChat } from "@/context/projects-context";
+import { GlobalSearchModal, type SearchResult } from "@/components/GlobalSearchModal";
 
 // ── Collapse state persistence ────────────────────────────────────────────────
 
@@ -582,7 +583,12 @@ export function LeftSidebar({
   const searchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
-  const { chats: projectChats } = useProjects();
+  const { chats: projectChats, projects } = useProjects();
+
+  // ── Global search state ───────────────────────────────────────────────────
+  const [searchOpen,  setSearchOpen]  = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const isPersonaPage = pathname?.startsWith("/personas") || pathname?.startsWith("/persona");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
   const collapsedRef = useRef<boolean>(readCollapsed());
@@ -597,6 +603,67 @@ export function LeftSidebar({
     () => ({ ...chatHistory, chats: chatHistory.chats.filter(c => !projectChatIdSet.has(c.id)) }),
     [chatHistory, projectChatIdSet],
   );
+
+  // Cmd/Ctrl+K opens the search modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ── Search data ───────────────────────────────────────────────────────────
+
+  // Last 5 non-project chats as "recents" shown when query is empty
+  const searchRecents = useMemo<SearchResult[]>(() => {
+    return chatHistory.chats
+      .filter(c => !projectChatIdSet.has(c.id))
+      .slice(0, 5)
+      .map(c => ({
+        id:    c.id,
+        type:  'chat' as const,
+        title: c.title || 'Untitled chat',
+      }));
+  }, [chatHistory.chats, projectChatIdSet]);
+
+  // Filter chats + projects by query
+  const searchResults = useMemo<SearchResult[]>(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+
+    const chatResults: SearchResult[] = chatHistory.chats
+      .filter(c => (c.title || '').toLowerCase().includes(q))
+      .slice(0, 20)
+      .map(c => ({
+        id:    c.id,
+        type:  'chat' as const,
+        title: c.title || 'Untitled chat',
+      }));
+
+    const projectResults: SearchResult[] = projects
+      .filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(p => ({
+        id:       p.id,
+        type:     'project' as const,
+        title:    p.name,
+        subtitle: p.description || undefined,
+      }));
+
+    return [...chatResults, ...projectResults];
+  }, [searchQuery, chatHistory.chats, projects]);
+
+  const handleSearchSelect = useCallback((result: SearchResult) => {
+    if (result.type === 'chat') {
+      router.push(`/chat?id=${result.id}`);
+    } else if (result.type === 'project') {
+      router.push(`/project/${result.id}`);
+    }
+  }, [router]);
 
   const resolvedActiveChatId = activeChatId ?? searchParams.get("id") ?? undefined;
 
@@ -635,6 +702,7 @@ export function LeftSidebar({
   };
 
   return (
+    <>
     <Sidebar
       key={isPersonaPage ? "persona" : "default"}
       userName={displayName || "Account"}
@@ -643,9 +711,7 @@ export function LeftSidebar({
       defaultCollapsed={isPersonaPage ? true : collapsedRef.current}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
-      onSearch={() => {
-        /* wired in Day 7 - search dialog */
-      }}
+      onSearch={() => setSearchOpen(true)}
       onChatsClick={() => router.push("/chats")}
       onProjectsClick={() => router.push("/projects")}
       onPersonasClick={() => router.push("/personas")}
@@ -668,5 +734,14 @@ export function LeftSidebar({
         )
       }
     />
+    <GlobalSearchModal
+      open={searchOpen}
+      onClose={() => setSearchOpen(false)}
+      onSelect={handleSearchSelect}
+      onQuery={setSearchQuery}
+      results={searchResults}
+      recents={searchRecents}
+    />
+    </>
   );
 }

@@ -112,6 +112,11 @@ export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/project
 export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
   withBase(`/projects/${projectId}/chats/${chatId}`)
 
+// ── Connectors ────────────────────────────────────────────────────────────────
+export const CONNECTORS_ENDPOINT            = withBase('/connectors')
+export const CONNECTOR_DETAIL_ENDPOINT      = (slug: string) => withBase(`/connectors/${slug}`)
+export const CONNECTOR_LINK_ENDPOINT        = (slug: string) => withBase(`/connectors/${slug}/link`)
+
 // ── Workflows ─────────────────────────────────────────────────────────────────
 export const WORKFLOWS_ENDPOINT = withBase("/workflow");
 export const WORKFLOW_DETAIL_ENDPOINT = (workflowId: string) =>

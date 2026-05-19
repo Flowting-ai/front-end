@@ -8,6 +8,32 @@ import type { Message } from "@/types/chat"
 
 // ── UIMessage ─────────────────────────────────────────────────────────────────
 
+// ── Connector SSE prompt payloads ─────────────────────────────────────────────
+
+/** Emitted when the LLM tries to use a connector that is not yet linked. */
+export interface ConnectorConnectPrompt {
+  /** Unique request ID from the backend (for deduplication). */
+  request_id:    string
+  connector_slug: string
+  display_name:  string
+  auth_mode:     'oauth2' | 'api_key'
+  tool_name:     string
+  /** Optional icon URL for the connector. */
+  icon_url?:     string
+}
+
+/** Emitted when the LLM tries to call a connector tool whose policy is "ask". */
+export interface ConnectorPermissionPrompt {
+  /** Unique request ID from the backend (for deduplication). */
+  request_id:     string
+  connector_slug: string
+  display_name:   string
+  tool_name:      string
+  suggested_args?: Record<string, unknown>
+  /** Optional icon URL for the connector. */
+  icon_url?:      string
+}
+
 /** Extends the API Message with transient streaming-only UI state. */
 export interface UIMessage extends Message {
   /** True while the assistant is generating a response for this message. */
@@ -30,6 +56,10 @@ export interface UIMessage extends Message {
   responseBlocks?: ResponseBlock[]
   /** Web citation sources for inline {1} {2} chips in response text. */
   webCitations?: WebCitation[]
+  /** Connector "connect" prompts emitted mid-stream when a tool needs linking. */
+  connectorConnectPrompts?: ConnectorConnectPrompt[]
+  /** Connector "permission" prompts emitted mid-stream when a tool policy is "ask". */
+  connectorPermissionPrompts?: ConnectorPermissionPrompt[]
 }
 
 /** Model selection metadata from the backend. */

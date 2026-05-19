@@ -743,6 +743,59 @@ export function useStreamingChat({
             continue
           }
 
+          if (eventName === "tool_connect_prompt") {
+            // Backend requests the user to link a connector before the tool can run.
+            // Schema: { connector_slug, display_name, auth_mode, tool_name, request_id, icon_url? }
+            const prompt: import("@/hooks/use-chat-state").ConnectorConnectPrompt = {
+              request_id:     asString(parsed.request_id) ?? `ccp-${Date.now()}`,
+              connector_slug: asString(parsed.connector_slug) ?? "",
+              display_name:   asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
+              auth_mode:      (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
+              tool_name:      asString(parsed.tool_name) ?? "",
+              icon_url:       asString(parsed.icon_url),
+            }
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  const existing = msg.connectorConnectPrompts ?? []
+                  // Deduplicate by request_id
+                  if (existing.some((p) => p.request_id === prompt.request_id)) return msg
+                  return { ...msg, connectorConnectPrompts: [...existing, prompt] }
+                }),
+              )
+            }
+            continue
+          }
+
+          if (eventName === "tool_permission_prompt") {
+            // Backend requests permission to run a connector tool (policy is "ask").
+            // Schema: { connector_slug, display_name, tool_name, request_id, suggested_args?, icon_url? }
+            const prompt: import("@/hooks/use-chat-state").ConnectorPermissionPrompt = {
+              request_id:     asString(parsed.request_id) ?? `cpp-${Date.now()}`,
+              connector_slug: asString(parsed.connector_slug) ?? "",
+              display_name:   asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
+              tool_name:      asString(parsed.tool_name) ?? "",
+              suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
+                ? (parsed.suggested_args as Record<string, unknown>)
+                : undefined,
+              icon_url:       asString(parsed.icon_url),
+            }
+            const msgId = loadingMessageIdRef.current
+            if (msgId) {
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== msgId) return msg
+                  const existing = msg.connectorPermissionPrompts ?? []
+                  if (existing.some((p) => p.request_id === prompt.request_id)) return msg
+                  return { ...msg, connectorPermissionPrompts: [...existing, prompt] }
+                }),
+              )
+            }
+            continue
+          }
+
           if (eventName === "tool_complete" || parsed.type === "tool_complete") {
             // Tool finished - schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
             const toolCall = parsed.tool_call as Record<string, unknown> | undefined
