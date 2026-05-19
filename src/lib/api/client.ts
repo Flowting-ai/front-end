@@ -18,6 +18,9 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    /** The original backend message before friendlyApiError mapping. Useful
+     *  for surfacing verbatim 5xx detail (e.g. Composio upstream errors). */
+    public readonly rawMessage?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -210,6 +213,7 @@ export async function apiFetchJson<T>(
       response.status,
       code,
       friendlyApiError(message, response.status),
+      message,  // raw backend message preserved for callers that want verbatim
     );
   }
 

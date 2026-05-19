@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { existsSync } from "fs";
 
 const isDev = process.env.NODE_ENV === "development";
+
+// Only expand Turbopack's root to the monorepo parent when the sibling
+// design-system/ package is actually checked out. Without that package on
+// disk, the override breaks resolution of in-project CSS @imports
+// (tailwindcss, ../styles/tokens/*.css resolve against the parent dir).
+const monorepoRoot = path.resolve(__dirname, "..");
+const hasDesignSystemSibling = existsSync(path.join(monorepoRoot, "design-system"));
 
 // Build dynamic connect-src from env vars so the CSP tracks the actual tenant
 // and backend origin rather than hardcoded wildcards.
@@ -29,11 +37,15 @@ if (isDev) {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  turbopack: {
-    // Expand the root to the monorepo root so Turbopack can resolve CSS
-    // @imports that reach into the sibling design-system/ package.
-    root: path.resolve(__dirname, ".."),
-  },
+  ...(hasDesignSystemSibling
+    ? {
+        turbopack: {
+          // Expand the root to the monorepo root so Turbopack can resolve CSS
+          // @imports that reach into the sibling design-system/ package.
+          root: monorepoRoot,
+        },
+      }
+    : {}),
 
   // Re-export server-only env vars to the client bundle.
   // AUTH0_AUDIENCE is read by jwt-utils.ts (getAccessToken call).

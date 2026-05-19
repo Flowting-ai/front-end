@@ -32,9 +32,11 @@ export interface ConnectorListResponse {
 }
 
 export interface LinkResponse {
-  redirect_url:          string
-  connected_account_id:  string
-  status:                string
+  // Nullable per the OpenAPI spec — backend may omit when an OAuth handler
+  // can't produce a URL (misconfigured provider, missing client creds, etc.).
+  redirect_url:          string | null
+  connected_account_id:  string | null
+  status:                string | null
 }
 
 export interface UpdateConnectorRequest {
@@ -75,8 +77,12 @@ export async function unlinkConnector(slug: string): Promise<void> {
 }
 
 /**
- * Poll GET /connectors/{slug} until status === 'active', 'failed', or
- * 'revoked', or until timeoutMs elapses. Resolves with the final entry.
+ * Poll GET /connectors/{slug} until `linked: true`, or until timeoutMs elapses.
+ *
+ * Per the FE contract, `linked` is the source of truth for connection state —
+ * Composio is queried fresh on every list call, so it flips true the moment
+ * OAuth completes. We deliberately don't read `status` (going away in the
+ * backend per the connectors flow doc).
  */
 export async function pollConnectorUntilActive(
   slug: string,
@@ -85,11 +91,8 @@ export async function pollConnectorUntilActive(
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const entry = await getConnector(slug)
-    if (entry.status === 'active') return entry
-    if (entry.status === 'failed' || entry.status === 'revoked') {
-      throw new Error(`Connector ${slug} ended in status: ${entry.status}`)
-    }
+    if (entry.linked) return entry
     await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
   }
-  throw new Error(`Connector ${slug} did not become active within ${timeoutMs}ms`)
+  throw new Error(`Connector ${slug} did not become linked within ${timeoutMs}ms`)
 }

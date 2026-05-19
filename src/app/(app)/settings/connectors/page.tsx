@@ -13,6 +13,7 @@ import {
   pollConnectorUntilActive,
 } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import { ApiError } from '@/lib/api/client'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -58,6 +59,21 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
 
 // ── Connector icon / avatar ───────────────────────────────────────────────────
 
+// Slugs we have a local brand SVG for at /public/icons/connectors/{slug}.svg.
+// Sourced from Simple Icons (CC0 / public domain). Anything not in this set
+// falls back to the hashed letter tile.
+const KNOWN_LOGOS = new Set<string>([
+  'gmail',
+  'googlecalendar',
+  'googledrive',
+  'googledocs',
+  'googlesheets',
+  'clickup',
+  'zoom',
+  'shopify',
+  'notion',
+])
+
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
   if (entry.icon_url) {
     return (
@@ -70,6 +86,18 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
       />
     )
   }
+  if (KNOWN_LOGOS.has(entry.slug)) {
+    return (
+      <img
+        src={`/icons/connectors/${entry.slug}.svg`}
+        alt={entry.display_name}
+        width={size}
+        height={size}
+        style={{ objectFit: 'contain', flexShrink: 0 }}
+      />
+    )
+  }
+  // Unknown connector — letter tile fallback (e.g. fireflies, shipengine).
   const letter = entry.display_name.charAt(0).toUpperCase()
   const hue    = [...entry.slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
   return (
@@ -279,7 +307,13 @@ function ToolPermissionsModal({
   const [unlinking,  setUnlinking]  = useState(false)
   const [expanded,   setExpanded]   = useState(false)
   const abortedRef = useRef(false)
-  useEffect(() => () => { abortedRef.current = true }, [])
+  // Reset on every effect setup so React StrictMode's mount→cleanup→mount
+  // cycle doesn't leave abortedRef stuck at true (which would silently bail
+  // every async handler — manifesting as "click Connect, nothing happens").
+  useEffect(() => {
+    abortedRef.current = false
+    return () => { abortedRef.current = true }
+  }, [])
 
   const handlePolicyChange = useCallback(async (toolSlug: string, uiPolicy: UIPolicy) => {
     const apiPolicy = UI_TO_API[uiPolicy]
@@ -541,47 +575,50 @@ function useConnectFlow(
   const [errorMsg,     setErrorMsg]     = useState('')
   const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({})
   const abortedRef = useRef(false)
-  useEffect(() => () => { abortedRef.current = true }, [])
+  // Reset on every effect setup so React StrictMode's mount→cleanup→mount
+  // cycle doesn't leave abortedRef stuck at true (which would silently bail
+  // every async handler — manifesting as "click Connect, nothing happens").
+  useEffect(() => {
+    abortedRef.current = false
+    return () => { abortedRef.current = true }
+  }, [])
 
   const startOAuth = useCallback(() => {
-    // Open WITHOUT noopener/noreferrer so we can set popup.location.href after
-    // getting the redirect URL from the server. noopener causes popup to be
-    // non-navigable (or null in Firefox), leaving the tab stuck at about:blank.
-    const popup = window.open('', '_blank', 'width=900,height=700')
     setState('opening')
     setErrorMsg('')
 
     initiateLink(entry.slug)
       .then((link) => {
-        if (abortedRef.current) { popup?.close(); return }
-        const url = (entry.status === 'pending' && entry.redirect_url)
-          ? entry.redirect_url
-          : link.redirect_url
-        if (popup && !popup.closed) {
-          popup.location.href = url
-        } else {
-          // Popup was blocked — fall back to a new tab
-          window.open(url, '_blank')
+        if (abortedRef.current) return
+        const url = link.redirect_url
+        if (!url) {
+          throw new Error(
+            `${entry.display_name} did not return an OAuth URL. ` +
+            `The connector provider may be misconfigured on the backend.`,
+          )
         }
-        setState('polling')
-        return pollConnectorUntilActive(entry.slug)
-      })
-      .then((updated) => {
-        if (!updated || abortedRef.current) return
-        popup?.close()
-        setState('idle')
-        toast.success(`${entry.display_name} connected`)
-        onConnected(updated)
+        // Same-tab navigation — every browser handles this reliably. Composio
+        // completes OAuth and redirects back; on return, the settings page's
+        // initial listConnectors() call will see linked: true. No popup, no
+        // polling, no about:blank.
+        window.location.href = url
       })
       .catch((err: unknown) => {
         if (abortedRef.current) return
-        popup?.close()
         setState('error')
-        const msg = err instanceof Error ? err.message : 'Connection failed'
+        let msg = err instanceof Error ? err.message : 'Connection failed'
+        // For 5xx, prefer the verbatim backend detail (e.g. "Multiple connected
+        // accounts found...") instead of the laundered generic message.
+        if (err instanceof ApiError && err.status >= 500) {
+          msg = err.rawMessage
+            ? `${entry.display_name} (${err.status}): ${err.rawMessage}`
+            : `${entry.display_name}: backend returned ${err.status}. ` +
+              `The connector provider may not be configured (check backend logs).`
+        }
         setErrorMsg(msg)
-        toast.error(`Failed to connect ${entry.display_name}`)
+        toast.error(msg)
       })
-  }, [entry, onConnected])
+  }, [entry])
 
   const submitApiKey = useCallback(() => {
     setState('submitting')
@@ -719,7 +756,10 @@ function ConnectorCard({
     onUpdate(updated)
   })
 
-  const isActive   = entry.status === 'active'
+  // Per the connectors flow doc the backend no longer ships `status`;
+  // `linked` is the source of truth for "connected". We keep status-based
+  // hints (pending/broken) for legacy responses but they may always be false.
+  const isActive   = entry.linked
   const isPending  = entry.status === 'pending'
   const isBroken   = entry.status === 'failed' || entry.status === 'revoked'
   const isPolling  = state === 'polling'
@@ -974,8 +1014,8 @@ export default function ConnectorsPage() {
     setConnectors(prev => prev.map(c => c.slug === updated.slug ? updated : c))
     // Sync modal if it's open for this connector
     setModalEntry(prev => prev?.slug === updated.slug ? updated : prev)
-    // If disconnected (status null), close modal
-    if (!updated.linked && updated.status === null) {
+    // If disconnected, close modal
+    if (!updated.linked) {
       setModalEntry(null)
     }
   }, [])
@@ -997,8 +1037,8 @@ export default function ConnectorsPage() {
     return connectors
   })()
 
-  const connected  = filtered.filter(c => c.status === 'active')
-  const available  = filtered.filter(c => c.status !== 'active')
+  const connected  = filtered.filter(c => c.linked)
+  const available  = filtered.filter(c => !c.linked)
 
   return (
     <>
@@ -1262,7 +1302,7 @@ export default function ConnectorsPage() {
       </div>
 
       {/* Tool permissions modal */}
-      {modalEntry && modalEntry.status === 'active' && (
+      {modalEntry && modalEntry.linked && (
         <ToolPermissionsModal
           entry={modalEntry}
           onClose={() => setModalEntry(null)}
