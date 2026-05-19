@@ -130,26 +130,28 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   }, [])
 
   const handleOAuth = useCallback(() => {
-    // ── Open the popup SYNCHRONOUSLY (inside the click handler, before any await)
-    // so the browser doesn't block it as a non-user-gesture popup.
-    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer,width=900,height=700')
+    // Open WITHOUT noopener/noreferrer so we can navigate popup.location after
+    // getting the redirect URL. noopener leaves the popup stuck at about:blank
+    // (Firefox returns null; some Chrome configs block location assignment).
+    const popup = window.open('', '_blank', 'width=900,height=700')
     setState('connecting')
     setErrorMsg('')
 
     initiateLink(prompt.connector_slug)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
-        if (popup) {
+        if (popup && !popup.closed) {
           popup.location.href = link.redirect_url
         } else {
-          // Popup was blocked — fall back to direct navigation in a new tab
-          window.open(link.redirect_url, '_blank', 'noopener,noreferrer')
+          // Popup was blocked — fall back to a new tab
+          window.open(link.redirect_url, '_blank')
         }
         setState('polling')
         return pollConnectorUntilActive(prompt.connector_slug)
       })
       .then((entry) => {
         if (!entry || abortedRef.current) return
+        popup?.close()
         setState('connected')
         toast.success(`${prompt.display_name} connected`)
         onConnected?.()

@@ -715,6 +715,7 @@ export function LeftSidebar({
       onChatsClick={() => router.push("/chats")}
       onProjectsClick={() => router.push("/projects")}
       onPersonasClick={() => router.push("/personas")}
+      onBrainClick={() => router.push("/brain")}
       onSettingsClick={() => router.push("/settings")}
       onHelpClick={() => router.push("/settings/help")}
       onLogoutClick={() => { void logout() }}

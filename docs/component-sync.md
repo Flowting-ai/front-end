@@ -1,6 +1,6 @@
 # Component Sync: may-day → front-end
 
-**Last synced:** 2026-05-18  
+**Last synced:** 2026-05-19  
 **Source:** `may-day/src/components/`  
 **Target:** `front-end/src/components/`
 
@@ -130,8 +130,9 @@ Only components marked **🆕 New in may-day** need action — skip everything e
 
 | Template | Status | Notes |
 |----------|--------|-------|
+| Brain | ✅ Identical | Synced 2026-05-19 — new template; 31 files (BrainHome, BrainTimeline, ActivityBlock, ArtifactCard, PlanCard, ScheduleCard, and more) |
+| ChatBoard | ✅ Identical | Synced 2026-05-19 — was may-day only; now copied to front-end-new |
 | SuperLinks | ✅ Identical | Synced; present in both `may-day` and `front-end` |
-| ChatBoard | ⭐ may-day only | No equivalent in front-end — skip unless needed |
 
 ---
 
@@ -148,6 +149,7 @@ Only components marked **🆕 New in may-day** need action — skip everything e
 
 | Date | Source | What changed |
 |------|--------|-------------|
+| 2026-05-19 | may-day | Scanned for new additions. Copied 2 new templates: Brain (31 files — BrainHome, BrainTimeline, ActivityBlock, ArtifactCard, ScheduleCard, ContextRail, and 25 more) and ChatBoard (previously skipped, now synced). All component directories already present in front-end-new. |
 | 2026-05-18 | may-day | Scanned full codebase. All 4 new may-day components (ChatRow, ChatSelectionBar, GlobalSearchModal, MoveToProjectModal) already present in front-end and identical. All previously 🆕/🔄 entries now confirmed synced. Updated legend to include 🔷 (front-end ahead). 53 components marked 🔷 — front-end has been further developed beyond may-day baseline; do not overwrite. 30 components confirmed ✅ Identical. |
 | 2026-05-16 | may-day | Added 19 new components (Avatar, ChartCard, DateRangePill, DeltaPill, Eyebrow, LinksSidePanel, PersonaCard, SessionRow, ShareModal, Sparkline, StatCard, SuperLink, SuperLinkDrawer, SuperLinkRow, SuperLinksEmpty, TokenBudgetBar, UsageBarChart, VersionCard, VisibilityRow). Updated Slider (variant + showValue). Added SuperLinks template. Registered DocumentCard, SystemInstructionsModal, onboarding/ as front-end only. |
 | 2026-05-13 | may-day | Initial sync. Added 6 new components (DiffLine, EnhanceDotProgress, EnhancePromptField, EnhanceScanningState, EnhanceSummaryBar, Slider). Updated 16 components. |

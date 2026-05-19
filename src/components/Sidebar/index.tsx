@@ -103,6 +103,8 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onProjectsClick?: () => void
   /** Called when the Persona nav item is clicked */
   onPersonasClick?: () => void
+  /** Called when the Brain nav item is clicked */
+  onBrainClick?: () => void
   /** Called when "Show" is clicked on the Recents section header */
   onShowAllRecents?: React.MouseEventHandler<HTMLButtonElement>
   /**
@@ -419,6 +421,7 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       onChatsClick,
       onProjectsClick,
       onPersonasClick,
+      onBrainClick,
       projects       = DEFAULT_PROJECTS,
       onShowAllProjects,
       projectItems,
@@ -673,16 +676,14 @@ export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
               selected={selectedItem === 'persona'}
               onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
             />
-            <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-              <SidebarMenuItem
-                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-                variant="default"
-                icon={<NeuralNetworkIcon size={20} animated />}
-                label="Brain"
-                selected={selectedItem === 'workflow'}
-                onClick={() => onSelectSection('workflow')}
-              />
-            </div>
+            <SidebarMenuItem
+              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+              variant="default"
+              icon={<NeuralNetworkIcon size={20} animated />}
+              label="Brain"
+              selected={selectedItem === 'workflow'}
+              onClick={() => { onSelectSection('workflow'); onBrainClick?.() }}
+            />
             <SidebarMenuItem
               {...(isCollapsed ? { collapsed: true } : { fluid: true })}
               variant="default"

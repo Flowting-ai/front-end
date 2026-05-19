@@ -38,6 +38,7 @@
   /* ── Surface ──────────────────────────────────────────────────────────────── */
   --color-surface-default: var(--neutral-white);  /* #ffffff - cards, inputs, panels */
   --color-surface-badge:   var(--neutral-100);    /* #ede1d7 - badge backgrounds */
+  --color-surface-glass:   rgba(255, 255, 255, 0.20);  /* translucent fill — Brain / ChatBoard inner container */
 
   /* ── Scrollbar ────────────────────────────────────────────────────────────── */
   --color-scrollbar-thumb: var(--neutral-500-60);  /* rgba(130,122,116,0.60) - translucent warm thumb */

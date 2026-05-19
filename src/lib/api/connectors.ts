@@ -15,15 +15,16 @@ export interface ConnectorTool {
 }
 
 export interface ConnectorCatalogEntry {
-  slug:          string
-  display_name:  string
-  auth_mode:     'oauth2' | 'api_key'
-  description:   string
-  tools:         ConnectorTool[]
+  slug:           string
+  display_name:   string
+  auth_mode:      'oauth2' | 'api_key'
+  description:    string
+  tools:          ConnectorTool[]
   api_key_fields: string[]
-  linked:        boolean
-  status:        'pending' | 'active' | 'failed' | 'revoked' | null
-  redirect_url:  string | null
+  linked:         boolean
+  status:         'pending' | 'active' | 'failed' | 'revoked' | null
+  redirect_url:   string | null
+  icon_url?:      string
 }
 
 export interface ConnectorListResponse {

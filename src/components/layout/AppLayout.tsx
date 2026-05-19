@@ -49,9 +49,11 @@ export function AppLayout({
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/personas\/[^/]+\/chat/.test(pathname)
   const isSettingsPage = pathname.startsWith('/settings')
+  // Brain pages use BrainShell which supplies its own full-screen layout (sidebar + center + context rail).
+  const isBrainPage = pathname.startsWith('/brain')
 
-  // Settings pages manage their own sidebar - bypass global LeftSidebar, TopBar, FloatingPanel.
-  if (isSettingsPage) {
+  // Settings and Brain pages manage their own layout — bypass global chrome.
+  if (isSettingsPage || isBrainPage) {
     return (
       <div
         style={{
