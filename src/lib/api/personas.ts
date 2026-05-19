@@ -181,6 +181,8 @@ export async function createVersion(params: {
   prompt?: string;
   temperature?: number | null;
   image?: File | null;
+  /** Existing image URL to carry forward when no new image file is provided. */
+  imageUrl?: string | null;
 }): Promise<PersonaVersionResponse> {
   const form = new FormData();
   form.append("name", params.name);
@@ -188,6 +190,7 @@ export async function createVersion(params: {
   if (params.prompt) form.append("prompt", params.prompt);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
+  else if (params.imageUrl) form.append("image_url", params.imageUrl);
   return apiFetchJson<PersonaVersionResponse>(PERSONA_VERSIONS_ENDPOINT(params.repoId), {
     method: "POST",
     body: form,

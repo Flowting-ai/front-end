@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { FolderOneIcon } from '@strange-huge/icons'
+import { FolderOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 
 // ── Shadow token ───────────────────────────────────────────────────────────────
 
@@ -227,16 +227,8 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0, flex: 1 }}>
-            {/* ── Icon - click toggles expand/collapse ── */}
-            <div
-              role="button"
-              tabIndex={isEditing ? -1 : 0}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? 'Collapse folder' : 'Expand folder'}
-              onClick={(e) => { if (isEditing) return; e.stopPropagation(); toggle() }}
-              onKeyDown={(e) => { if (isEditing) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
-              style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0, cursor: isEditing ? 'text' : 'pointer' }}
-            >
+            {/* ── Folder icon - visual only ── */}
+            <div style={{ color: 'var(--sidebar-menu-item-text)', flexShrink: 0, lineHeight: 0 }}>
               {icon
                 ? React.cloneElement(icon, { triggered: isHovered })
                 : <FolderOneIcon size={20} variant={(isExpanded || active) ? 'open' : 'closed'} triggered={isHovered} />}
@@ -324,6 +316,33 @@ export const SidebarProjectsSection = React.forwardRef<HTMLDivElement, SidebarPr
               </div>
             )}
           </div>
+
+          {/* ── Expand / collapse arrow ── */}
+          {!isEditing && (
+            <motion.div
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              onClick={(e) => { e.stopPropagation(); toggle() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle() } }}
+              animate={{ rotate: isExpanded ? 0 : -90 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              style={{
+                flexShrink:     0,
+                lineHeight:     0,
+                cursor:         'pointer',
+                color:          'var(--sidebar-menu-item-text)',
+                opacity:        isActive ? 0.7 : 0,
+                transition:     'opacity 150ms',
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ArrowDownOneIcon size={16} animated />
+            </motion.div>
+          )}
 
           {/* Inner depth shadow - active + hover (not shown when editing) */}
           {isActive && !isEditing && (

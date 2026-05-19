@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ReasoningBlock } from "./ReasoningBlock";
+import { ReasoningBlock, ModelLogo } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
@@ -11,7 +11,7 @@ import { ContentRenderer } from "@/lib/content-renderer";
 import { usePinboard } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { SelectionPopover } from "@/components/SelectionPopover";
-import type { UIMessage, ActivityItem, WebCitation } from "@/hooks/use-chat-state";
+import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
 import { IconButton } from "@/components/IconButton";
 import { Tooltip } from "@/components/Tooltip";
 import { MessageBubble } from "@/components/MessageBubble";
@@ -28,13 +28,20 @@ import {
 
 function StandaloneActivitiesBlock({
   modelName,
+  modelMeta,
   activities,
 }: {
   modelName?: string;
+  modelMeta?: ModelSelectedMeta;
   activities: ActivityItem[];
 }) {
   const [isOpen, setIsOpen] = useState(true);
-  const modelFull = (modelName || "souvenir").toLowerCase();
+  const displayName = (() => {
+    const raw = modelMeta?.modelName ?? modelName
+    if (!raw) return null
+    const l = raw.toLowerCase()
+    return (l === 'souvenir' || l.startsWith('souvenir') || l === 'muse') ? null : raw
+  })()
 
   // Derive summary for collapsed state
   const doneCount = activities.filter((a) => a.status === "done").length;
@@ -45,19 +52,22 @@ function StandaloneActivitiesBlock({
 
   return (
     <div style={{ margin: "4px 0 8px" }}>
-      {/* Header row - model name + summary + chevron */}
+      {/* Header row - logo + model name + summary + chevron */}
       <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
-        <span
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            fontWeight: 500,
-            color: "var(--neutral-600, #524B47)",
-            flexShrink: 0,
-          }}
-        >
-          {modelFull}
-        </span>
+        <ModelLogo modelMeta={modelMeta} modelName={modelName} size={16} />
+        {displayName && (
+          <span
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              fontWeight: 500,
+              color: "var(--neutral-600, #524B47)",
+              flexShrink: 0,
+            }}
+          >
+            {displayName}
+          </span>
+        )}
         <span
           style={{
             fontSize: 14,
@@ -197,6 +207,16 @@ export function ChatMessage({
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
   const pinned = isAssistant ? isPinned(message.id) : false;
+
+  // Resolve the actual model display name — never expose "souvenir" as a model label.
+  // "souvenir" is a routing algorithm, not a model; show the real selected model name instead.
+  const modelDisplayName = (() => {
+    const raw = message.modelMeta?.modelName ?? message.modelName ?? message.model_name ?? message.model
+    if (!raw) return null
+    const l = raw.toLowerCase()
+    if (l === 'souvenir' || l.startsWith('souvenir') || l === 'muse') return null
+    return raw
+  })()
 
   // ── Text selection → SelectionPopover (assistant messages only) ──────────
   useEffect(() => {
@@ -431,16 +451,19 @@ export function ChatMessage({
               marginBottom: "4px",
             }}
           >
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "14px",
-                fontWeight: 500,
-                color: "var(--neutral-600, #524B47)",
-              }}
-            >
-              {(message.modelName || message.model_name || message.model || "souvenir").toLowerCase()}
-            </span>
+            <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
+            {modelDisplayName && (
+              <span
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  color: "var(--neutral-600, #524B47)",
+                }}
+              >
+                {modelDisplayName}
+              </span>
+            )}
           </div>
         )}
 
@@ -448,6 +471,7 @@ export function ChatMessage({
         {!hasThinking && message.activities && message.activities.length > 0 && (
           <StandaloneActivitiesBlock
             modelName={message.modelName || message.model_name || message.model}
+            modelMeta={message.modelMeta}
             activities={message.activities}
           />
         )}
@@ -456,6 +480,7 @@ export function ChatMessage({
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
           <div style={{ margin: "4px 0 8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20 }}>
+              <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
               <span
                 className="kaya-label-shimmer"
                 style={{
@@ -464,7 +489,7 @@ export function ChatMessage({
                   lineHeight: "18px",
                 }}
               >
-                Thinking…
+                {modelDisplayName ?? "Souvenir"}
               </span>
             </div>
           </div>

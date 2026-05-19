@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
 import { ChatInput }                                       from '@/components/chat/ChatInput'
+import { ModelMenu }                                        from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment }       from '@/components/chat/AttachmentManager'
 import { InitialPrompts }                                  from '@/components/chat/InitialPrompts'
 import { ModelSwitchDialog }                               from '@/components/chat/ModelSwitchDialog'
@@ -16,6 +17,7 @@ import { useProjects }                                     from '@/context/proje
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinOperations }                                from '@/hooks/use-pin-operations'
+import { listPinFolders }                                  from '@/lib/api/pins'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
 import { Button }                                          from '@/components/Button'
@@ -34,8 +36,8 @@ import {
   StickyNoteTwoIcon,
   AuctionIcon,
 } from '@strange-huge/icons'
-import type { AIModel } from '@/types/ai-model'
-import type { Pin }     from '@/lib/api/pins'
+import type { AIModel }      from '@/types/ai-model'
+import type { Pin, PinFolder } from '@/lib/api/pins'
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -171,16 +173,6 @@ const USE_STYLE_OPTIONS = [
   { id: 'empathetic',   label: 'Empathetic',   subLabel: 'Warm, supportive, emotionally aware' },
 ] as const
 
-const USE_TONE_OPTIONS = [
-  { id: 'formal',        label: 'Formal',        subLabel: 'Polished and professional' },
-  { id: 'friendly',      label: 'Friendly',      subLabel: 'Warm and approachable' },
-  { id: 'assertive',     label: 'Assertive',     subLabel: 'Confident and direct' },
-  { id: 'persuasive',    label: 'Persuasive',    subLabel: 'Compelling and convincing' },
-  { id: 'empathetic',    label: 'Empathetic',    subLabel: 'Understanding and supportive' },
-  { id: 'neutral',       label: 'Neutral',       subLabel: 'Balanced and objective' },
-  { id: 'humorous',      label: 'Humorous',      subLabel: 'Light-hearted and fun' },
-  { id: 'inspirational', label: 'Inspirational', subLabel: 'Motivating and uplifting' },
-] as const
 
 // ── Add-menu ──────────────────────────────────────────────────────────────────
 
@@ -190,26 +182,39 @@ function AddMenu({
   onAddFilesClick,
   selectedStyleId,
   onStyleChange,
-  selectedToneId,
-  onToneChange,
+  selectedFolders,
+  onFolderToggle,
 }: {
   webSearchEnabled: boolean
   onWebSearchChange: (enabled: boolean) => void
   onAddFilesClick: () => void
   selectedStyleId: string | null
   onStyleChange: (id: string | null) => void
-  selectedToneId: string | null
-  onToneChange: (id: string | null) => void
+  selectedFolders: PinFolder[]
+  onFolderToggle: (folder: PinFolder) => void
 }) {
-  const [styleMenuOpen, setStyleMenuOpen] = useState(false)
-  const [toneMenuOpen,  setToneMenuOpen]  = useState(false)
+  const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
+  const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
+  const [pinFolders,         setPinFolders]         = useState<PinFolder[]>([])
+  const [loadingFolders,     setLoadingFolders]     = useState(false)
+
+  // Fetch fresh from the API each time the submenu opens
+  useEffect(() => {
+    if (!pinFoldersMenuOpen) return
+    setLoadingFolders(true)
+    listPinFolders()
+      .then(setPinFolders)
+      .catch(() => setPinFolders([]))
+      .finally(() => setLoadingFolders(false))
+  }, [pinFoldersMenuOpen])
+
   return (
     <Dropdown style={{ width: 200 }}>
       <Dropdown.Section fluid>
         <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
         <Dropdown.Item label="Web search"           icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
         {/* Use Dropdown.Float (click-triggered, stopsPropagation on trigger) so
-            clicks on "Use style" don't bubble to the ChatInput's close-on-click
+            clicks on submenus don't bubble to the ChatInput's close-on-click
             wrapper and close the outer dropdown before options can be shown. */}
         <Dropdown.Float
           open={styleMenuOpen}
@@ -226,69 +231,43 @@ function AddMenu({
                   key={opt.id}
                   label={opt.label}
                   subLabel={opt.subLabel}
-                  selected={selectedStyleId === opt.id}
-                  onClick={() => { onStyleChange(opt.id); setStyleMenuOpen(false) }}
+                  selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                  onClick={() => { onStyleChange(opt.id === 'none' ? null : opt.id); setStyleMenuOpen(false) }}
                   fluid
                 />
               ))}
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
+<Dropdown.Item label="Add persona" icon={<UserIcon />} fluid rightIcon={<ArrowRightOneIcon />} disabled />
         <Dropdown.Float
-          open={toneMenuOpen}
-          onOpenChange={setToneMenuOpen}
+          open={pinFoldersMenuOpen}
+          onOpenChange={setPinFoldersMenuOpen}
           placement="right-start"
           trigger={
-            <Dropdown.Item label="Use tone" icon={<QuillWriteOneIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+            <Dropdown.Item label="Pin folders" icon={<FolderOneIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
           }
         >
-          <Dropdown size="md">
-            <Dropdown.Section fluid>
-              {USE_TONE_OPTIONS.map((opt) => (
-                <Dropdown.Item
-                  key={opt.id}
-                  label={opt.label}
-                  subLabel={opt.subLabel}
-                  selected={selectedToneId === opt.id}
-                  onClick={() => { onToneChange(selectedToneId === opt.id ? null : opt.id); setToneMenuOpen(false) }}
-                  fluid
-                />
-              ))}
+          <Dropdown size="md" style={{ minWidth: 180 }} maxHeight="min(200px, calc(100dvh - 120px))">
+            <Dropdown.Section label="Your folders" fluid>
+              {loadingFolders
+                ? <Dropdown.Item label="Loading…" fluid disabled />
+                : pinFolders.length > 0
+                  ? pinFolders.map((f) => (
+                      <Dropdown.Item
+                        key={f.id}
+                        label={f.name}
+                        icon={<FolderOneIcon variant="static" animated />}
+                        fluid
+                        selected={selectedFolders.some(sf => sf.id === f.id)}
+                        onClick={() => onFolderToggle(f)}
+                      />
+                    ))
+                  : <Dropdown.Item label="No folders yet" fluid disabled />
+              }
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
-        <Dropdown.Item label="Add persona"          icon={<UserIcon />}          fluid rightIcon={<ArrowRightOneIcon />} />
-        <Dropdown.Item label="Pin folders"          icon={<FolderOneIcon />}     fluid rightIcon={<ArrowRightOneIcon />} />
-      </Dropdown.Section>
-    </Dropdown>
-  )
-}
-
-// ── Model menus - shared with regular chat ─────────────────────────────────────
-
-const MOST_USED_MODELS = [
-  { id: 'claude',   llm: 'Claude'   as const, label: 'Claude Opus 4.5' },
-  { id: 'gpt5',     llm: 'OpenAI'   as const, label: 'GPT-5' },
-  { id: 'gemini',   llm: 'Gemini'   as const, label: 'Gemini 2.5 Pro' },
-  { id: 'deepseek', llm: 'DeepSeek' as const, label: 'DeepSeek V3' },
-  { id: 'grok',     llm: 'Grok'     as const, label: 'Grok 4' },
-]
-
-const RECENT_MODELS = [
-  { id: 'sonnet',    llm: 'Claude'  as const, label: 'Claude Sonnet 4.5' },
-  { id: 'haiku',     llm: 'Claude'  as const, label: 'Claude Haiku 4.5' },
-  { id: 'gpt5-mini', llm: 'OpenAI'  as const, label: 'GPT-5 Mini' },
-  { id: 'mistral',   llm: 'Mistral' as const, label: 'Mistral Large' },
-  { id: 'qwen',      llm: 'Qwen'    as const, label: 'Qwen 3 Max' },
-]
-
-function DefaultModelMenu() {
-  return (
-    <Dropdown size="md">
-      <Dropdown.Section fluid>
-        <Dropdown.Item label="Souvenir : Advance" subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
-        <Dropdown.Item label="Adaptive thinking"  subLabel="Most capable for ambitious work" showSwitch defaultSwitchChecked={false} fluid />
-        {/* More models hidden */}
       </Dropdown.Section>
     </Dropdown>
   )
@@ -333,11 +312,11 @@ function ProjectChatPageInner() {
   const [webSearchEnabled,   setWebSearchEnabled]   = useState(false)
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([])
   const [addMenuFiles,       setAddMenuFiles]       = useState<File[]>([])
+  const [initialFiles,       setInitialFiles]       = useState<File[]>([])
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null)
   const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
-  const [selectedToneId,     setSelectedToneId]     = useState<string | null>(null)
   const [styleChipOpen,      setStyleChipOpen]      = useState(false)
-  const [toneChipOpen,       setToneChipOpen]       = useState(false)
+  const [selectedFolders,    setSelectedFolders]    = useState<PinFolder[]>([])
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
   const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
@@ -406,7 +385,7 @@ function ProjectChatPageInner() {
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      if (!hasMessages) setNewChatAttachments(prev => processFiles(e.target.files!, prev))
+      if (isNewChat && !hasMessages) setNewChatAttachments(prev => processFiles(e.target.files!, prev))
       else              setAddMenuFiles(Array.from(e.target.files!))
       e.target.value = ''
     }
@@ -429,7 +408,6 @@ function ProjectChatPageInner() {
   // ── Chips ─────────────────────────────────────────────────────────────────
 
   const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
-  const activeTone  = USE_TONE_OPTIONS.find(t => t.id === selectedToneId)   ?? null
 
   const newChatChips: React.ReactNode = (
     <>
@@ -454,8 +432,8 @@ function ProjectChatPageInner() {
                   key={opt.id}
                   label={opt.label}
                   subLabel={opt.subLabel}
-                  selected={selectedStyleId === opt.id}
-                  onClick={() => { setSelectedStyleId(opt.id); setStyleChipOpen(false) }}
+                  selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                  onClick={() => { setSelectedStyleId(opt.id === 'none' ? null : opt.id); setStyleChipOpen(false) }}
                   fluid
                 />
               ))}
@@ -463,36 +441,14 @@ function ProjectChatPageInner() {
           </Dropdown>
         </Dropdown.Float>
       )}
-      {activeTone && (
-        <Dropdown.Float
-          open={toneChipOpen}
-          onOpenChange={setToneChipOpen}
-          placement="top-start"
-          trigger={
-            <Chip
-              label={activeTone.label}
-              icon={<QuillWriteOneIcon size={20} color="var(--chip-text)" />}
-              onRemove={() => setSelectedToneId(null)}
-              onExpand={() => setToneChipOpen(v => !v)}
-            />
-          }
-        >
-          <Dropdown size="md">
-            <Dropdown.Section fluid>
-              {USE_TONE_OPTIONS.map(opt => (
-                <Dropdown.Item
-                  key={opt.id}
-                  label={opt.label}
-                  subLabel={opt.subLabel}
-                  selected={selectedToneId === opt.id}
-                  onClick={() => { setSelectedToneId(opt.id); setToneChipOpen(false) }}
-                  fluid
-                />
-              ))}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
-      )}
+      {selectedFolders.map(folder => (
+        <Chip
+          key={folder.id}
+          label={folder.name}
+          icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+          onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+        />
+      ))}
       {mentionedPins.map(mp => (
         <MentionChip key={mp.id} label={mp.label} onRemove={() => setMentionedPins(prev => prev.filter(m => m.id !== mp.id))} />
       ))}
@@ -509,8 +465,10 @@ function ProjectChatPageInner() {
       onAddFilesClick={() => fileInputRef.current?.click()}
       selectedStyleId={selectedStyleId}
       onStyleChange={setSelectedStyleId}
-      selectedToneId={selectedToneId}
-      onToneChange={setSelectedToneId}
+      selectedFolders={selectedFolders}
+      onFolderToggle={(folder) => setSelectedFolders(prev =>
+        prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
+      )}
     />
   )
 
@@ -518,7 +476,7 @@ function ProjectChatPageInner() {
 
   const handleSend = (value: string) => {
     if (!value.trim()) return
-    setAddMenuFiles(newChatAttachments.map(a => a.file))
+    setInitialFiles(newChatAttachments.map(a => a.file))
     setNewChatAttachments([])
     setMentionedPins([])
     setInitialPrompt(value.trim())
@@ -639,7 +597,7 @@ function ProjectChatPageInner() {
                       modelName={modelButtonLabel}
                       onModelClick={handleModelClick}
                       addMenu={addMenu}
-                      modelMenu={<DefaultModelMenu />}
+                      modelMenu={<ModelMenu />}
                       chips={newChatChips}
                       attachmentsSlot={
                         <AttachmentManager
@@ -722,12 +680,15 @@ function ProjectChatPageInner() {
               selectedModelId={selectedModel?.id}
               onModelClick={handleModelClick}
               addMenu={addMenu}
-              modelMenu={<DefaultModelMenu />}
+              modelMenu={<ModelMenu />}
               initialPrompt={initialPrompt}
+              initialFiles={initialFiles}
+              onClearInitialFiles={() => setInitialFiles([])}
               webSearchEnabled={webSearchEnabled}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={() => setAddMenuFiles([])}
               chips={newChatChips}
+              selectedFolders={selectedFolders}
             />
           </motion.div>
         )}

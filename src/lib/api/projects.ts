@@ -1,6 +1,6 @@
 "use client"
 
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
@@ -105,7 +105,7 @@ function normalizeProject(p: BackendProjectResponse): ApiProject {
     systemInstruction: p.system_instruction,
     createdAt:         p.created_at,
     updatedAt:         p.updated_at,
-    documents:         p.documents.map(normalizeDocument),
+    documents:         (p.documents ?? []).map(normalizeDocument),
   }
 }
 
@@ -184,4 +184,20 @@ export async function addChatToProject(projectId: string, chatId: string): Promi
 
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
+}
+
+export async function removeProjectDocumentApi(projectId: string, documentId: string): Promise<void> {
+  const form = new FormData()
+  form.append('remove_document_ids', documentId)
+  const response = await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'PATCH', body: form })
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`
+    try {
+      const body = (await response.clone().json()) as { detail?: string | Array<{ msg: string }> }
+      if (typeof body.detail === 'string') message = body.detail
+      else if (Array.isArray(body.detail) && body.detail.length > 0) message = body.detail[0].msg
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(response.status, 'api_error', friendlyApiError(message, response.status), message)
+  }
+  // Don't parse response body — PATCH for removal may return 204 or omit `documents`.
 }

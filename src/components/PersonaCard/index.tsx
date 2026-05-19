@@ -71,7 +71,7 @@ function getFallbackAvatar(seed: string): string {
 }
 
 // ── PersonaAvatar ─────────────────────────────────────────────────────────────
-// 65 × 65 rounded avatar — uses provided URL, or auto-assigns a marble fallback.
+// 65 × 65 rounded avatar — shows saved image URL, falls back to initials.
 
 function PersonaAvatar({
   avatarUrl,
@@ -84,24 +84,58 @@ function PersonaAvatar({
   size?:      number
   radius?:    number
 }) {
-  const src = avatarUrl ?? '/icons/persona-default.svg'
+  const [imgError, setImgError] = useState(false)
+  const showImage = avatarUrl && !imgError
+
+  if (showImage) {
+    return (
+      <div
+        aria-hidden
+        style={{
+          width:        size,
+          height:       size,
+          borderRadius: radius,
+          overflow:     'hidden',
+          flexShrink:   0,
+        }}
+      >
+        <img
+          src={avatarUrl}
+          alt={name}
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
+    )
+  }
+
+  const initials = (name ?? '')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w[0] ?? '')
+    .join('')
+    .toUpperCase() || '?'
 
   return (
     <div
       aria-hidden
       style={{
-        width:        size,
-        height:       size,
-        borderRadius: radius,
-        overflow:     'hidden',
-        flexShrink:   0,
+        width:           size,
+        height:          size,
+        borderRadius:    radius,
+        flexShrink:      0,
+        background:      'var(--neutral-100)',
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        fontFamily:      'var(--font-body)',
+        fontWeight:      'var(--font-weight-medium)',
+        fontSize:        Math.round(size * 0.3),
+        color:           'var(--neutral-500)',
+        userSelect:      'none',
       }}
     >
-      <img
-        src={src}
-        alt=""
-        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-      />
+      {initials}
     </div>
   )
 }

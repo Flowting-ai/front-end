@@ -28,8 +28,6 @@ export function FloatingPanel() {
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
   const currentChatId = useCurrentChatId()
-  const pathname = usePathname()
-  const isProjectPage = pathname.startsWith('/project')
 
   const handleTogglePinboard = () => {
     if (!pinboardOpen) closeHighlight()
@@ -104,28 +102,24 @@ export function FloatingPanel() {
         }}
       >
         <FloatingMenu aria-label="Chat tools">
-          {!isProjectPage && (
-            <FloatingMenuItem
-              icon={<PinIcon size={20} />}
-              label="Pin board"
-              active={pinboardOpen}
-              onClick={handleTogglePinboard}
-            />
-          )}
+          <FloatingMenuItem
+            icon={<PinIcon size={20} />}
+            label="Pinboard"
+            active={pinboardOpen}
+            onClick={handleTogglePinboard}
+          />
           <FloatingMenuItem
             icon={<AtomOneIcon size={20} />}
-            label="Compare LLMs"
+            label="Compare Models"
             active={compareOpen}
             onClick={toggleCompare}
           />
-          {!isProjectPage && (
-            <FloatingMenuItem
-              icon={<QuillWriteOneIcon size={20} />}
-              label="Highlights"
-              active={highlightOpen}
-              onClick={handleToggleHighlight}
-            />
-          )}
+          <FloatingMenuItem
+            icon={<QuillWriteOneIcon size={20} />}
+            label="Highlights"
+            active={highlightOpen}
+            onClick={handleToggleHighlight}
+          />
         </FloatingMenu>
       </div>
     </>

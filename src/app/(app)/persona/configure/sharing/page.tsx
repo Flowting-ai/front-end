@@ -26,7 +26,7 @@ import SharingTab from '@/app/(app)/persona/configure/components/SharingTab'
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Instructions', 'Profile', 'Knowledge', 'Connectors'])
+const MUTED_TABS = new Set<Tab>(['Sharing'])
 
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Instructions: '/persona/configure/instructions',

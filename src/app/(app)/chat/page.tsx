@@ -20,13 +20,12 @@ import { usePinOperations } from "@/hooks/use-pin-operations";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/Button";
+import { ChatAddMenu, USE_STYLE_OPTIONS } from "@/components/chat/AddMenu";
+import { ModelMenu } from "@/components/chat/ModelMenu";
 import {
-  ArrowRightOneIcon,
-  FolderAddIcon,
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  UserIcon,
   QuillWriteOneIcon,
   NeuralNetworkIcon,
   AiVisionRecognitionIcon,
@@ -36,7 +35,7 @@ import {
   AuctionIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
-import type { Pin } from "@/lib/api/pins";
+import type { Pin, PinFolder } from "@/lib/api/pins";
 import { getTopUsedModels, getRecentModels, recordModelUsage } from "@/lib/model-usage";
 import { getModelLlmId } from "@/lib/model-icons";
 
@@ -185,103 +184,6 @@ const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: stri
   },
 ];
 
-// ── Add-menu (Figma 3219:33599) ───────────────────────────────────────────────
-
-interface AddMenuProps {
-  webSearchEnabled: boolean;
-  onWebSearchChange: (enabled: boolean) => void;
-  onAddFilesClick: () => void;
-}
-
-function AddMenu({ webSearchEnabled, onWebSearchChange, onAddFilesClick }: AddMenuProps) {
-  return (
-    <Dropdown style={{ width: 200 }}>
-      <Dropdown.Section fluid>
-        <Dropdown.Item
-          label="Add files or photos"
-          icon={<FolderAddIcon />}
-          fluid
-          onClick={onAddFilesClick}
-        />
-        <Dropdown.Item
-          label="Web search"
-          icon={<GlobalSearchIcon />}
-          showSwitch
-          switchChecked={webSearchEnabled}
-          onSwitchChange={onWebSearchChange}
-          fluid
-        />
-        <Dropdown.Item
-          label="Use style"
-          icon={<QuillWriteTwoIcon />}
-          rightIcon={<ArrowRightOneIcon />}
-          fluid
-        />
-        <Dropdown.Item
-          label="Add persona"
-          icon={<UserIcon />}
-          rightIcon={<ArrowRightOneIcon />}
-          fluid
-        />
-        <Dropdown.Item
-          label="Pin folders"
-          icon={<FolderOneIcon />}
-          rightIcon={<ArrowRightOneIcon />}
-          fluid
-        />
-      </Dropdown.Section>
-    </Dropdown>
-  );
-}
-
-// ── Model-menu (Figma 3208:32989) ─────────────────────────────────────────────
-
-function ChatModelMenu({ onClose }: { onClose?: () => void }) {
-  const {
-    models,
-    museAdvanced,
-    activateMuse,
-    deactivateMuse,
-    setMuseAdvanced,
-    museActive,
-    selectModel,
-    enableReasoning,
-    setEnableReasoning,
-  } = useModelSelectorContext();
-
-  return (
-    <Dropdown size="md">
-      <Dropdown.Section fluid>
-        <Dropdown.Item
-          label="Souvenir Muse: Advanced"
-          subLabel="Most capable for ambitious work"
-          showSwitch
-          switchChecked={museActive && museAdvanced}
-          onSwitchChange={(checked) => {
-            if (checked) {
-              setMuseAdvanced(true);
-            } else if (museActive) {
-              deactivateMuse();
-            } else {
-              activateMuse();
-            }
-          }}
-          fluid
-        />
-        <Dropdown.Item
-          label="Adaptive thinking"
-          subLabel="Enable extended reasoning"
-          showSwitch
-          switchChecked={enableReasoning}
-          onSwitchChange={setEnableReasoning}
-          fluid
-        />
-        {/* More models hidden */}
-      </Dropdown.Section>
-    </Dropdown>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -307,6 +209,9 @@ function ChatPageInner() {
 
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
+  const [styleChipOpen,    setStyleChipOpen]    = useState(false);
+  const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([]);
   const [addMenuFiles, setAddMenuFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -439,7 +344,40 @@ function ChatPageInner() {
 
   const clearAddMenuFiles = () => setAddMenuFiles([]);
 
-  // ── Chips (web search + mentioned pins) ──────────────────────────────────
+  // ── Chips (style + folders + web search + mentioned pins) ───────────────────
+
+  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
+
+  const styleChip = activeStyle && (
+    <Dropdown.Float
+      open={styleChipOpen}
+      onOpenChange={setStyleChipOpen}
+      placement="top-start"
+      trigger={
+        <Chip
+          label={activeStyle.label}
+          icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+          onRemove={() => setSelectedStyleId(null)}
+          onExpand={() => setStyleChipOpen(v => !v)}
+        />
+      }
+    >
+      <Dropdown size="md">
+        <Dropdown.Section fluid>
+          {USE_STYLE_OPTIONS.map(opt => (
+            <Dropdown.Item
+              key={opt.id}
+              label={opt.label}
+              subLabel={opt.subLabel}
+              selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+              onClick={() => { setSelectedStyleId(opt.id === 'none' ? null : opt.id); setStyleChipOpen(false) }}
+              fluid
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
 
   const webSearchChip = webSearchEnabled ? (
     <Chip
@@ -451,33 +389,45 @@ function ChatPageInner() {
     />
   ) : null;
 
-  // Chips for the active-chat interface (no pin chips - ChatInterface manages its own)
-  const chips = webSearchChip ? [webSearchChip] : undefined;
+  const folderChips = selectedFolders.map(folder => (
+    <Chip
+      key={folder.id}
+      label={folder.name}
+      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+      onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+    />
+  ));
 
-  // Chips for the new-chat input: pin mention chips + web search chip
-  const newChatChips: React.ReactNode =
-    newChatMentionedPins.length > 0 ? (
-      <>
-        {newChatMentionedPins.map((mp) => (
-          <MentionChip
-            key={mp.id}
-            label={mp.label}
-            onRemove={() => handleNewChatRemoveMention(mp.id)}
-          />
-        ))}
-        {webSearchChip}
-      </>
-    ) : (
-      webSearchChip
-    );
+  // Chips for ChatInterface (style + folders + web search)
+  const chips: React.ReactNode = (styleChip || folderChips.length > 0 || webSearchChip) ? (
+    <>{styleChip}{folderChips}{webSearchChip}</>
+  ) : undefined;
+
+  // Chips for the new-chat input (adds pin mention chips on top)
+  const newChatChips: React.ReactNode = (
+    <>
+      {styleChip}
+      {folderChips}
+      {newChatMentionedPins.map((mp) => (
+        <MentionChip key={mp.id} label={mp.label} onRemove={() => handleNewChatRemoveMention(mp.id)} />
+      ))}
+      {webSearchChip}
+    </>
+  );
 
   // ── Add menu ──────────────────────────────────────────────────────────────
 
   const addMenu = (
-    <AddMenu
+    <ChatAddMenu
       webSearchEnabled={webSearchEnabled}
       onWebSearchChange={setWebSearchEnabled}
       onAddFilesClick={handleAddFilesClick}
+      selectedStyleId={selectedStyleId}
+      onStyleChange={setSelectedStyleId}
+      selectedFolders={selectedFolders}
+      onFolderToggle={(folder) => setSelectedFolders(prev =>
+        prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
+      )}
     />
   );
 
@@ -705,7 +655,7 @@ function ChatPageInner() {
                       modelName={modelButtonLabel}
                       onModelClick={handleModelClick}
                       addMenu={addMenu}
-                      modelMenu={<ChatModelMenu />}
+                      modelMenu={<ModelMenu />}
                       chips={newChatChips}
                       attachmentsSlot={
                         <AttachmentManager
@@ -807,13 +757,14 @@ function ChatPageInner() {
               selectedModelId={selectedModel?.id}
               onModelClick={handleModelClick}
               addMenu={addMenu}
-              modelMenu={<ChatModelMenu />}
+              modelMenu={<ModelMenu />}
               initialPrompt={initialPrompt}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}
+              selectedFolders={selectedFolders}
             />
           </motion.div>
         )}

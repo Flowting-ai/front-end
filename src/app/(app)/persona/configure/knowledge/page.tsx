@@ -33,7 +33,7 @@ import {
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Instructions', 'Profile', 'Sharing'])
+const MUTED_TABS = new Set<Tab>(['Sharing'])
 
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Instructions: '/persona/configure/instructions',

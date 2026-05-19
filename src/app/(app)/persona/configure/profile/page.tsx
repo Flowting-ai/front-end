@@ -18,15 +18,25 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { toast } from 'sonner'
 import { ChatInput } from '@/components/ChatInput'
 import ProfileTab from '@/app/(app)/persona/configure/components/ProfileTab'
 import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
-import { getPersonaRepo } from '@/lib/api/personas'
+import { getPersonaRepo, updateVersion, setActiveVersion } from '@/lib/api/personas'
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [header, data] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg'
+  const bytes = atob(data)
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new File([arr], filename, { type: mime })
+}
 
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Knowledge', 'Sharing'])
+const MUTED_TABS = new Set<Tab>(['Sharing'])
 
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Instructions: '/persona/configure/instructions',
@@ -141,8 +151,9 @@ function FloatingMenu({
 function PersonaConfigureProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const nameParam = searchParams.get('name') ?? ''
-  const repoId    = searchParams.get('repoId') ?? ''
+  const nameParam  = searchParams.get('name')      ?? ''
+  const repoId     = searchParams.get('repoId')    ?? ''
+  const versionId  = searchParams.get('versionId') ?? ''
 
   // Session-storage key scoped to this persona (or 'new' while creating)
   const PROFILE_KEY = `persona_profile_${repoId || 'new'}`
@@ -154,13 +165,26 @@ function PersonaConfigureProfileContent() {
     catch { return null }
   }
 
-  const [testChatOpen, setTestChatOpen] = useState(false)
+  const [testChatOpen,  setTestChatOpen]  = useState(false)
+  const [isSaving,     setIsSaving]     = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
 
   // ProfileTab state — initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
   const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Persona Name' })
   const [personaHandle,      setPersonaHandle]      = useState<string>(() => { const d = loadDraft(); return (d?.personaHandle as string) ?? '' })
-  const [personaDescription, setPersonaDescription] = useState<string>(() => { const d = loadDraft(); return (d?.personaDescription as string) ?? '' })
+  const [personaDescription, setPersonaDescription] = useState<string>(() => {
+    const d = loadDraft()
+    if (d?.personaDescription as string | undefined) return d!.personaDescription as string
+    // Seed from wizard purpose saved by instructions page after creating the persona
+    if (repoId && typeof window !== 'undefined') {
+      try {
+        const seed = sessionStorage.getItem(`persona_wizard_purpose_${repoId}`)
+        if (seed) return seed
+      } catch { /* ignore */ }
+    }
+    return ''
+  })
   const [personaTags,        setPersonaTags]        = useState<string[]>(() => { const d = loadDraft(); return (d?.personaTags as string[]) ?? ['Internal', 'Legal'] })
   const [isMultilingual,     setIsMultilingual]     = useState<boolean>(() => { const d = loadDraft(); return (d?.isMultilingual as boolean) ?? false })
   const [selectedLanguages,  setSelectedLanguages]  = useState<Set<string>>(() => {
@@ -178,6 +202,9 @@ function PersonaConfigureProfileContent() {
   // ── Load real persona data from API on first visit (no meaningful draft yet) ─────
   useEffect(() => {
     if (!repoId) { setIsInitialized(true); return }
+
+    // Wizard purpose has been consumed into state — clean up the one-shot key
+    try { sessionStorage.removeItem(`persona_wizard_purpose_${repoId}`) } catch { /* ignore */ }
 
     // If the user already has meaningful profile data saved, skip the API call
     const draft = loadDraft()
@@ -224,6 +251,45 @@ function PersonaConfigureProfileContent() {
     } catch { /* storage quota exceeded — ignore */ }
   }, [PROFILE_KEY, isInitialized, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
 
+  async function handleSaveVersion() {
+    if (!repoId || !versionId) return
+    setIsSaving(true)
+    try {
+      let imageFile: File | undefined
+      if (avatarUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+      }
+      await updateVersion({ repoId, versionId, name: personaName, prompt: personaDescription, ...(imageFile ? { image: imageFile } : {}) })
+      toast.success('Profile saved')
+    } catch (err) {
+      console.error('[ProfilePage] save error:', err)
+      toast.error('Failed to save profile')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handlePublish() {
+    if (!repoId || !versionId) return
+    setIsPublishing(true)
+    try {
+      let imageFile: File | undefined
+      if (avatarUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
+      }
+      if (imageFile || personaName || personaDescription) {
+        await updateVersion({ repoId, versionId, name: personaName, prompt: personaDescription, ...(imageFile ? { image: imageFile } : {}) })
+      }
+      await setActiveVersion(repoId, versionId)
+      router.push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+    } catch (err) {
+      console.error('[ProfilePage] publish error:', err)
+      toast.error('Failed to publish')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) {
@@ -269,6 +335,7 @@ function PersonaConfigureProfileContent() {
               alignItems: 'center',
               justifyContent: 'space-between',
               height: 36,
+              position: 'relative',
             }}
           >
             {/* Back arrow */}
@@ -282,8 +349,8 @@ function PersonaConfigureProfileContent() {
               />
             </div>
 
-            {/* Tabs */}
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'flex-start', flexShrink: 0 }}>
+            {/* Tabs — absolutely centered so left/right items don't affect positioning */}
+            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
                 style={{
@@ -360,23 +427,30 @@ function PersonaConfigureProfileContent() {
                   variant="outline"
                   size="md"
                   icon={<QuillWriteOneIcon size={20} />}
-                  aria-label="Save version"
+                  aria-label={isSaving ? 'Saving…' : 'Save version'}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                  loading={isSaving}
                 />
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
                 >
-                  Save version
+                  {isSaving ? 'Saving…' : 'Save version'}
                 </Button>
               )}
               <Button
                 variant="default"
                 size="sm"
                 rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={handlePublish}
+                disabled={!repoId || !versionId || isPublishing}
               >
-                Publish
+                {isPublishing ? 'Publishing…' : 'Publish'}
               </Button>
             </div>
           </div>

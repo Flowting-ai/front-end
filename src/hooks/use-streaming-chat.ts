@@ -147,7 +147,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; onUploadProgress?: (pct: number) => void },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -187,6 +187,7 @@ export function useStreamingChat({
       if (options?.algorithm) fd.append("algorithm", options.algorithm)
       if (options?.webSearch) fd.append("webSearch", "true")
       if (options?.enableReasoning) fd.append("enable_thinking", "true")
+      if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
       options?.files?.forEach((f) => fd.append("files", f))
 
       let buffer = ""

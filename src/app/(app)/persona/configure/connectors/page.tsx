@@ -19,14 +19,14 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
-import ConnectorsTab, { Connector } from '@/app/(app)/persona/configure/components/ConnectorsTab'
+import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Instructions', 'Profile', 'Knowledge', 'Sharing'])
+const MUTED_TABS = new Set<Tab>(['Sharing'])
 
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Instructions: '/persona/configure/instructions',
@@ -149,12 +149,6 @@ function PersonaConfigureConnectorsContent() {
   const personaName = searchParams.get('name') ?? ''
 
   const [testChatOpen, setTestChatOpen] = useState(false)
-  const [connectors, setConnectors] = useState<Connector[]>(() => [
-    { id: 'ws-figma-1', name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'workspace', workspaceName: 'Workspace name' },
-    { id: 'ws-figma-2', name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'workspace', workspaceName: 'Workspace name' },
-    { id: 'pe-figma',   name: 'Figma', description: 'Create and update contacts and deals', logo: 'figma', scope: 'personal',  authorized: true,  enabled: true },
-    { id: 'pe-slack',   name: 'Slack', description: 'Create and update contacts and deals', logo: 'slack', scope: 'personal',  authorized: false },
-  ])
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
@@ -329,7 +323,7 @@ function PersonaConfigureConnectorsContent() {
               paddingBottom: 32,
             }}
           >
-            <ConnectorsTab connectors={connectors} onChange={setConnectors} />
+            <ConnectorsTab />
           </div>
         </div>
 

@@ -6,11 +6,13 @@ import type { BadgeColor } from '@/components/Badge'
 import type { PinProps, PinLabel } from '@/components/Pin'
 import {
   fetchProjects,
+  fetchProject,
   fetchProjectChats,
   createProjectApi,
   updateProjectApi,
   deleteProjectApi,
   addChatToProject,
+  removeProjectDocumentApi,
 } from '@/lib/api/projects'
 import type { ApiProject, ApiProjectSummary, ApiProjectChat } from '@/lib/api/projects'
 
@@ -67,15 +69,25 @@ export interface Project {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function docToProjectFile(doc: ApiProject['documents'][number]): ProjectFile {
+function formatBytes(bytes: number): string {
+  if (bytes <= 0)          return ''
+  if (bytes < 1024)        return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function docToProjectFile(
+  doc: ApiProject['documents'][number],
+  sizeBytes = 0,
+): ProjectFile {
   return {
     id:         doc.id,
     name:       doc.filename,
     type:       doc.filename.split('.').pop()?.toUpperCase() ?? 'FILE',
-    sizeBytes:  0,
-    sizeLabel:  '',
+    sizeBytes,
+    sizeLabel:  formatBytes(sizeBytes),
     uploadedAt: doc.createdAt,
-    url:        '',
+    url:        doc.fileLink ?? '',
   }
 }
 
@@ -93,10 +105,21 @@ function summaryToProject(s: ApiProjectSummary): Project {
   }
 }
 
-function apiToProject(api: ApiProject, existing?: Project): Project {
+function apiToProject(
+  api: ApiProject,
+  existing?: Project,
+  uploadedSizes?: Map<string, number>,
+): Project {
+  const knownSizes = new Map<string, number>([
+    ...(existing?.files.map((f): [string, number] => [f.name, f.sizeBytes]) ?? []),
+    ...(uploadedSizes ? [...uploadedSizes] : []),
+  ])
   const files = api.documents.map(doc => {
+    const sizeBytes = knownSizes.get(doc.filename) ?? 0
+    // Reuse existing record (preserves any extra local state) but refresh size/url.
     const match = existing?.files.find(f => f.id === doc.id)
-    return match ?? docToProjectFile(doc)
+    if (match) return { ...match, sizeBytes, sizeLabel: formatBytes(sizeBytes), url: doc.fileLink ?? match.url }
+    return docToProjectFile(doc, sizeBytes)
   })
   return {
     id:           api.id,
@@ -132,6 +155,7 @@ interface ProjectsContextValue {
   createProject:    (name: string, description: string) => Promise<Project>
   updateProject:    (id: string, patch: Partial<Pick<Project, 'name' | 'description' | 'instructions' | 'tags'>>) => Promise<void>
   deleteProject:    (id: string) => Promise<void>
+  loadProject:      (id: string) => Promise<void>
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
   removeFile:       (projectId: string, fileId: string) => Promise<void>
   addChat:          (projectId: string, chatId: string, title: string) => void
@@ -187,7 +211,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     if (Object.keys(apiPatch).length > 0) {
       try {
         const updated = await updateProjectApi(id, apiPatch)
-        setProjects(prev => prev.map(p => p.id === id ? apiToProject(updated, p) : p))
+        setProjects(prev => prev.map(p => p.id === id ? apiToProject(updated, p, undefined) : p))
       } catch (err) {
         if (snapshot) setProjects(prev => prev.map(p => p.id === id ? snapshot : p))
         toast.error('Failed to update project', { description: err instanceof Error ? err.message : undefined })
@@ -212,13 +236,31 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [projects])
 
+  const loadProject = useCallback(async (id: string) => {
+    try {
+      const api = await fetchProject(id)
+      setProjects(prev => {
+        const existing = prev.find(p => p.id === id)
+        const full = apiToProject(api, existing)
+        return existing ? prev.map(p => p.id === id ? full : p) : [full, ...prev]
+      })
+    } catch (err) {
+      toast.error('Failed to load project', { description: err instanceof Error ? err.message : undefined })
+    }
+  }, [])
+
   // ── File management ───────────────────────────────────────────────────────────
 
   const uploadFiles = useCallback(async (projectId: string, files: File[]) => {
     if (!files.length) return
+    // Capture sizes before the upload so we can restore them from the API
+    // response (the backend does not return file sizes).
+    const uploadedSizes = new Map<string, number>(files.map(f => [f.name, f.size]))
     try {
       const updated = await updateProjectApi(projectId, { files })
-      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(updated, p) : p))
+      setProjects(prev => prev.map(p =>
+        p.id === projectId ? apiToProject(updated, p, uploadedSizes) : p,
+      ))
     } catch (err) {
       toast.error('Failed to upload files', { description: err instanceof Error ? err.message : undefined })
       throw err
@@ -234,12 +276,13 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     ))
 
     try {
-      const updated = await updateProjectApi(projectId, { removeDocumentIds: [fileId] })
-      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(updated, p) : p))
+      await removeProjectDocumentApi(projectId, fileId)
+      // Refetch authoritative state — PATCH response may be 204 or omit documents.
+      const refreshed = await fetchProject(projectId)
+      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(refreshed, p) : p))
     } catch (err) {
       if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
       toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })
-      throw err
     }
   }, [projects])
 
@@ -298,6 +341,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     createProject,
     updateProject,
     deleteProject,
+    loadProject,
     uploadFiles,
     removeFile,
     addChat,
@@ -308,7 +352,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     getChats,
   }), [
     projects, chats, loading, error,
-    createProject, updateProject, deleteProject,
+    createProject, updateProject, deleteProject, loadProject,
     uploadFiles, removeFile, addChat, removeChat, renameChat,
     loadProjectChats, getProject, getChats,
   ])

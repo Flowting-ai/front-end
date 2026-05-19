@@ -49,7 +49,7 @@ import { getModelLlmId } from '@/lib/model-icons'
 const TABS = ['Instructions', 'Profile', 'Knowledge', 'Connectors', 'Sharing'] as const
 type Tab = (typeof TABS)[number]
 
-const MUTED_TABS = new Set<Tab>(['Knowledge', 'Sharing'])
+const MUTED_TABS = new Set<Tab>(['Sharing'])
 
 const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Profile:    '/persona/configure/profile',
@@ -451,10 +451,36 @@ function ModelDropdown({
   )
 }
 
-// ── Session-storage key ───────────────────────────────────────────────────────
+// ── Session-storage keys ─────────────────────────────────────────────────────
 
 function publishedKey(repoId: string) {
   return `persona_published_${repoId}`
+}
+
+// Reads the avatar data-URL saved by the Profile tab.
+// Falls back to the 'new' key in case the user uploaded before the repo was created.
+function readProfileAvatar(repoId: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw =
+      sessionStorage.getItem(`persona_profile_${repoId}`) ??
+      sessionStorage.getItem('persona_profile_new')
+    const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
+    const url = draft?.avatarUrl
+    return typeof url === 'string' ? url : null
+  } catch {
+    return null
+  }
+}
+
+// Converts a base64 data-URL to a File so it can be sent as multipart form data.
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [header, data] = dataUrl.split(',')
+  const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg'
+  const bytes = atob(data)
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new File([arr], filename, { type: mime })
 }
 
 // ── Main page content ─────────────────────────────────────────────────────────
@@ -659,6 +685,11 @@ function PersonaConfigureInstructionsContent() {
 
         // Update URL with IDs only - no user data in the URL
         window.history.replaceState(null, '', `?repoId=${newRepoId}&versionId=${newVersionId}`)
+
+        // Preserve wizard purpose for the Profile tab to use as description
+        if (wizardPurpose) {
+          sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose)
+        }
       }
     } catch (err) {
       console.error('[PersonaConfigure] init error:', err)
@@ -679,14 +710,28 @@ function PersonaConfigureInstructionsContent() {
     if (!repoId || !modelId) return
     setIsSaving(true)
     try {
+      // Include the avatar: prefer a newly uploaded data-URL from the Profile tab;
+      // fall back to the existing image URL so it is not lost when creating a new version.
+      let imageFile: File | null = null
+      let preserveImageUrl: string | null = null
+      const avatarDataUrl = readProfileAvatar(repoId)
+      if (avatarDataUrl?.startsWith('data:')) {
+        imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
+      } else if (imageUrl) {
+        preserveImageUrl = imageUrl
+      }
+
       const version = await createVersion({
         repoId,
         name:        personaName,
         modelId,
         prompt:      instruction,
         temperature,
+        image:       imageFile,
+        imageUrl:    preserveImageUrl,
       })
       setVersionId(version.id)
+      if (version.image_url) setImageUrl(version.image_url)
       const params = new URLSearchParams(searchParams.toString())
       params.set('versionId', version.id)
       window.history.replaceState(null, '', `?${params.toString()}`)
@@ -729,8 +774,15 @@ function PersonaConfigureInstructionsContent() {
   const canPublish    = hasContent && !!repoId && !!versionId && !isPublishing
   const canSave       = hasContent && !!repoId && !!selectedModel && !isSaving
 
-  const handleAddConversation    = (userSays: string, personaReplies: string) =>
+  const handleAddConversation = (userSays: string, personaReplies: string) => {
     setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
+    const lines = ['<example>']
+    if (userSays.trim()) lines.push(`User: ${userSays.trim()}`)
+    lines.push(`Assistant: ${personaReplies.trim()}`)
+    lines.push('</example>')
+    const block = lines.join('\n')
+    setInstruction(instruction ? `${instruction}\n\n${block}` : block)
+  }
   const handleRemoveConversation = (id: string) =>
     setExampleConversations(prev => prev.filter(c => c.id !== id))
 
@@ -779,7 +831,7 @@ function PersonaConfigureInstructionsContent() {
       >
         {/* ── Top navigation bar ─────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36, position: 'relative' }}>
             {/* Back arrow */}
             <div style={{ flexShrink: 0 }}>
               <IconButton
@@ -791,8 +843,8 @@ function PersonaConfigureInstructionsContent() {
               />
             </div>
 
-            {/* Tabs */}
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'flex-start', flexShrink: 0 }}>
+            {/* Tabs — absolutely centered so left/right items don't affect positioning */}
+            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
                 style={{

@@ -22,8 +22,6 @@ export interface ConnectorCatalogEntry {
   tools:          ConnectorTool[]
   api_key_fields: string[]
   linked:         boolean
-  status:         'pending' | 'active' | 'failed' | 'revoked' | null
-  redirect_url:   string | null
   icon_url?:      string
 }
 
@@ -32,11 +30,10 @@ export interface ConnectorListResponse {
 }
 
 export interface LinkResponse {
+  connector_slug: string
   // Nullable per the OpenAPI spec — backend may omit when an OAuth handler
   // can't produce a URL (misconfigured provider, missing client creds, etc.).
-  redirect_url:          string | null
-  connected_account_id:  string | null
-  status:                string | null
+  redirect_url:   string | null
 }
 
 export interface UpdateConnectorRequest {
@@ -79,10 +76,9 @@ export async function unlinkConnector(slug: string): Promise<void> {
 /**
  * Poll GET /connectors/{slug} until `linked: true`, or until timeoutMs elapses.
  *
- * Per the FE contract, `linked` is the source of truth for connection state —
- * Composio is queried fresh on every list call, so it flips true the moment
- * OAuth completes. We deliberately don't read `status` (going away in the
- * backend per the connectors flow doc).
+ * Per the API contract, `linked` is the source of truth for connection state —
+ * Composio is queried fresh on every GET /connectors call, so it flips true
+ * the moment OAuth completes.
  */
 export async function pollConnectorUntilActive(
   slug: string,

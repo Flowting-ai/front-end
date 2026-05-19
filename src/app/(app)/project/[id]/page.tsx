@@ -1,19 +1,25 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeftOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { Chip } from '@/components/Chip'
 import { useProjects } from '@/context/projects-context'
 import { usePinboard } from '@/context/pinboard-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
+import { useModelSelectorContext } from '@/context/model-selector-context'
+import { useFileUpload } from '@/hooks/use-file-upload'
 import { ProjectChatRow, ProjectChatEmptyRow } from '@/components/ProjectChatRow'
 import { ProjectInstructionsPanel } from '@/components/ProjectInstructionsPanel'
 import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
-import { ChatInput } from '@/components/ChatInput'
+import { ChatInput } from '@/components/chat/ChatInput'
+import { ChatAddMenu, USE_STYLE_OPTIONS } from '@/components/chat/AddMenu'
+import type { PinFolder } from '@/lib/api/pins'
+import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -24,20 +30,32 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const router  = useRouter()
-  const { getProject, getChats, updateProject, deleteProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats } = useProjects()
-  const { pins, toggle: togglePinboard } = usePinboard()
+  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats } = useProjects()
+  const { pins, isOpen: pinboardOpen, toggle: togglePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
+  const { open: openModelSelector } = useModelSelectorContext()
+  const modelButtonLabel = useModelButtonLabel()
 
   const project = getProject(params.id)
   const chats   = getChats(params.id)
 
-  useEffect(() => { loadProjectChats(params.id) }, [params.id, loadProjectChats])
+  useEffect(() => {
+    void loadProject(params.id)
+    void loadProjectChats(params.id)
+  }, [params.id, loadProject, loadProjectChats])
 
   const [menuOpen,         setMenuOpen]         = useState(false)
   const [editOpen,         setEditOpen]         = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [chatInputValue,   setChatInputValue]   = useState('')
   const [panelOpen,        setPanelOpen]        = useState(true)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
+  const [styleChipOpen,    setStyleChipOpen]    = useState(false)
+  const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([])
+  const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { FILE_ACCEPT } = useFileUpload()
 
   if (!project) {
     return (
@@ -48,6 +66,10 @@ export default function ProjectPage() {
   }
 
   const projectId = project.id
+
+  function handleModelClick(e: React.MouseEvent<HTMLButtonElement>) {
+    openModelSelector(e.currentTarget)
+  }
 
   function handleSendChat(text: string) {
     if (!text.trim()) return
@@ -201,11 +223,86 @@ export default function ProjectPage() {
 
           {/* Chat input */}
           <div style={{ width: '100%', maxWidth: '679px' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={FILE_ACCEPT}
+              onChange={(e) => { e.target.value = '' }}
+              style={{ display: 'none' }}
+              aria-hidden
+            />
             <ChatInput
               placeholder="Ask anything, or use your voice..."
               value={chatInputValue}
               onChange={setChatInputValue}
               onSend={handleSendChat}
+              modelName={modelButtonLabel}
+              onModelClick={handleModelClick}
+              modelMenu={<ModelMenu />}
+              addMenu={
+                <ChatAddMenu
+                  webSearchEnabled={webSearchEnabled}
+                  onWebSearchChange={setWebSearchEnabled}
+                  onAddFilesClick={() => fileInputRef.current?.click()}
+                  selectedStyleId={selectedStyleId}
+                  onStyleChange={setSelectedStyleId}
+                  selectedFolders={selectedFolders}
+                  onFolderToggle={(folder) => setSelectedFolders(prev =>
+                    prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
+                  )}
+                />
+              }
+              chips={
+                <>
+                  {(USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)) && (
+                    <Dropdown.Float
+                      open={styleChipOpen}
+                      onOpenChange={setStyleChipOpen}
+                      placement="top-start"
+                      trigger={
+                        <Chip
+                          label={USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)!.label}
+                          icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+                          onRemove={() => setSelectedStyleId(null)}
+                          onExpand={() => setStyleChipOpen(v => !v)}
+                        />
+                      }
+                    >
+                      <Dropdown size="md">
+                        <Dropdown.Section fluid>
+                          {USE_STYLE_OPTIONS.map(opt => (
+                            <Dropdown.Item
+                              key={opt.id}
+                              label={opt.label}
+                              subLabel={opt.subLabel}
+                              selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                              onClick={() => { setSelectedStyleId(opt.id === 'none' ? null : opt.id); setStyleChipOpen(false) }}
+                              fluid
+                            />
+                          ))}
+                        </Dropdown.Section>
+                      </Dropdown>
+                    </Dropdown.Float>
+                  )}
+                  {selectedFolders.map(folder => (
+                    <Chip
+                      key={folder.id}
+                      label={folder.name}
+                      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+                      onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+                    />
+                  ))}
+                  {webSearchEnabled && (
+                    <Chip
+                      size="Medium"
+                      icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
+                      label="Web search"
+                      onRemove={() => setWebSearchEnabled(false)}
+                    />
+                  )}
+                </>
+              }
             />
           </div>
 
@@ -252,6 +349,12 @@ export default function ProjectPage() {
             active={panelOpen}
             onClick={() => setPanelOpen(v => !v)}
           />
+          <FloatingMenuItem
+            icon={<PinIcon size={20} />}
+            label="Pinboard"
+            active={pinboardOpen}
+            onClick={togglePinboard}
+          />
         </FloatingMenu>
       </div>
 
@@ -282,9 +385,18 @@ export default function ProjectPage() {
                 />
                 <ProjectFilesPanel
                   files={project.files}
+                  pendingFiles={pendingFiles}
                   usedBytes={project.files.reduce((s, f) => s + f.sizeBytes, 0)}
                   totalBytes={100 * 1024 * 1024}
-                  onUpload={(fileList) => uploadFiles(projectId, Array.from(fileList))}
+                  onUpload={async (fileList) => {
+                    const files = Array.from(fileList)
+                    setPendingFiles(files)
+                    try {
+                      await uploadFiles(projectId, files)
+                    } finally {
+                      setPendingFiles([])
+                    }
+                  }}
                   onRemove={(fileId) => removeFile(projectId, fileId)}
                 />
               </div>

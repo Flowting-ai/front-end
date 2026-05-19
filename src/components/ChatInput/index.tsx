@@ -13,7 +13,6 @@ import {
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  UserAddOneIcon,
 } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -231,7 +230,7 @@ function PinFoldersSubmenu({
 }) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
   return (
-    <Dropdown size="md">
+    <Dropdown size="md" maxHeight="min(200px, calc(100dvh - 120px))">
       {personalFolders.length > 0 && (
         <Dropdown.Section label="Your folders" fluid>
           {personalFolders.map((f) => (
@@ -326,32 +325,13 @@ function DefaultAddMenu({
                   key={opt.id}
                   label={opt.label}
                   subLabel={opt.subLabel}
-                  selected={selectedStyleId === opt.id}
-                  onClick={() => onSelectedStyleChange(opt.id)}
+                  selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                  onClick={() => onSelectedStyleChange(opt.id === 'none' ? null : opt.id)}
                   fluid
                 />
               ))}
             </Dropdown.Section>
           </Dropdown>
-        </Dropdown.Submenu>
-        <Dropdown.Submenu
-          trigger={
-            <Dropdown.Item
-              label="Add persona"
-              icon={<UserAddOneIcon />}
-              rightIcon={<ArrowRightOneIcon />}
-              fluid
-            />
-          }
-        >
-          {/* Add persona submenu - Figma 3430:39723 (compact, ≤10 personas)
-              and 3436:1591 (search-enabled, >10 personas). PersonaSubmenu
-              picks the variant from `personas.length`. */}
-          <PersonaSubmenu
-            personas={personas}
-            selectedId={selectedPersonaId}
-            onSelect={onSelectedPersonaChange}
-          />
         </Dropdown.Submenu>
         <Dropdown.Submenu
           trigger={
@@ -759,8 +739,8 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                     key={opt.id}
                     label={opt.label}
                     subLabel={opt.subLabel}
-                    selected={selectedStyleId === opt.id}
-                    onClick={() => { setSelectedStyle(opt.id); setStyleChipOpen(false) }}
+                    selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                    onClick={() => { setSelectedStyle(opt.id === 'none' ? null : opt.id); setStyleChipOpen(false) }}
                     fluid
                   />
                 ))}

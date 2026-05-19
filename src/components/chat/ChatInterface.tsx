@@ -20,7 +20,8 @@ import {
   type StreamState,
 } from "@/hooks/use-streaming-chat";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import type { Pin } from "@/lib/api/pins";
+import { listPinsByFolders } from "@/lib/api/pins";
+import type { Pin, PinFolder } from "@/lib/api/pins";
 import type { Source } from "@/types/chat";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Upload } from "lucide-react";
@@ -106,8 +107,14 @@ interface ChatInterfaceProps {
   addMenuFiles?: File[];
   /** Called after send to let the parent clear its add-menu file list. */
   onClearAddMenuFiles?: () => void;
+  /** Files attached in the new-chat input before the first send (initial prompt only). */
+  initialFiles?: File[];
+  /** Called after the initial prompt is sent to clear the initial file list. */
+  onClearInitialFiles?: () => void;
   /** Chip elements rendered in the ChatInput footer (web search, file chips…). */
   chips?: React.ReactNode;
+  /** Pin folders selected in the add menu — their pins are sent as context on every send. */
+  selectedFolders?: PinFolder[];
 }
 
 export function ChatInterface({
@@ -125,7 +132,10 @@ export function ChatInterface({
   enableReasoning,
   addMenuFiles,
   onClearAddMenuFiles,
+  initialFiles,
+  onClearInitialFiles,
   chips,
+  selectedFolders,
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -216,29 +226,29 @@ export function ChatInterface({
   // Auto-send initial prompt on mount (for new chats triggered from landing page)
   const initialPromptSentRef = useRef(false);
   const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
-  // When sendInitialPrompt consumes addMenuFiles directly, skip the absorb effect
-  // so the same files don't get stuck in the input strip and cause duplicate toasts.
-  const skipAbsorbRef = useRef(false);
 
   // Store the send function in a ref so it's always current (closes over latest props)
-  sendInitialPrompt.current = (prompt: string) => {
+  sendInitialPrompt.current = async (prompt: string) => {
     const content = prompt.trim();
     if (content && !chatId) {
-      const files = addMenuFiles && addMenuFiles.length > 0 ? [...addMenuFiles] : [];
-      // If there are files, signal the absorb effect to skip processing them
-      // (we're consuming them directly here to show in the user bubble).
-      if (files.length > 0) skipAbsorbRef.current = true;
+      // Use initialFiles (passed separately from addMenuFiles) so the absorb
+      // effect never sees these files and doesn't show them in the input strip.
+      const files = initialFiles && initialFiles.length > 0 ? [...initialFiles] : [];
       const userMsgId = addOptimisticUserMessage(content, files.length > 0 ? files : undefined);
       const loadingId = addLoadingAssistantMessage();
       setAttachments([]);
-      onClearAddMenuFiles?.();
+      onClearInitialFiles?.();
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
+      const folderPinIds = selectedFolders && selectedFolders.length > 0
+        ? (await listPinsByFolders(selectedFolders.map((f) => f.id)).catch(() => [])).map((p) => p.id)
+        : undefined;
       fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
+        pinIds: folderPinIds,
         onUploadProgress: files.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -302,17 +312,14 @@ export function ChatInterface({
     disabled: isStreaming,
   });
 
-  // Absorb add-menu files into local attachments so AttachmentManager shows them
+  // Absorb add-menu files into local attachments so AttachmentManager shows them.
+  // onClearAddMenuFiles is intentionally NOT called here — it's called in handleSend
+  // so the files stay in addMenuFiles until the user actually sends. This also fixes
+  // a StrictMode issue where calling clear here would wipe addMenuFiles before the
+  // component remounts, preventing the second effect run from absorbing anything.
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
-    // If sendInitialPrompt already consumed these files directly, skip absorption
-    // so they don't get stuck in the input strip and cause duplicate toasts later.
-    if (skipAbsorbRef.current) {
-      skipAbsorbRef.current = false;
-      return;
-    }
     setAttachments((prev) => processFiles(addMenuFiles, prev));
-    onClearAddMenuFiles?.();
   }, [addMenuFiles]);
 
   // ── Pin-mention handlers ────────────────────────────────────────────────────
@@ -408,6 +415,10 @@ export function ChatInterface({
     setMentionedPins([]);
     onClearAddMenuFiles?.();
 
+    const folderPinIds = selectedFolders && selectedFolders.length > 0
+      ? (await listPinsByFolders(selectedFolders.map((f) => f.id)).catch(() => [])).map((p) => p.id)
+      : undefined;
+
     try {
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       await fetchAiResponse(content, chatId ?? null, loadingId, algorithm ? null : selectedModelId, {
@@ -416,6 +427,7 @@ export function ChatInterface({
         files: allFiles.length > 0 ? allFiles : undefined,
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
+        pinIds: folderPinIds,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {

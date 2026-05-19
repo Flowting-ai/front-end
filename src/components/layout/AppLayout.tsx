@@ -37,14 +37,16 @@ export function AppLayout({
   // Suppress FloatingPanel on project listing / detail pages, but NOT on
   // project chat pages - those use the same global FloatingPanel as regular chats.
   const isProjectPage    = isAnyProjectPage && !pathname.includes('/chat/')
+  // Only the projects listing page has no panel support at all.
+  const isProjectsListPage = pathname === '/projects'
 
-  // Force-close both panels on any project page — they are not available there.
+  // Force-close both panels only on the projects listing page.
   useEffect(() => {
-    if (isAnyProjectPage) {
+    if (isProjectsListPage) {
       closePinboard()
       closeHighlight()
     }
-  }, [isAnyProjectPage, closePinboard, closeHighlight])
+  }, [isProjectsListPage, closePinboard, closeHighlight])
   const isPersonaPage    = pathname.startsWith('/personas') || pathname.startsWith('/persona')
   // Persona chat pages manage their own scroll — disable the outer scrollable wrapper
   const isPersonaChatPage = /^\/personas\/[^/]+\/chat/.test(pathname)

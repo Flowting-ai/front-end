@@ -516,16 +516,15 @@ export function GlobalSearchModal({
             role="dialog"
             aria-modal="true"
             aria-label="Search Souvenir"
-            initial={{ opacity: 0, scale: 0.97, y: -6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: -6 }}
+            initial={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className={cn(className)}
             style={{
               position:        'fixed',
               top:             132,
               left:            '50%',
-              transform:       'translateX(-50%)',
               zIndex:          1000,
               width:           560,
               maxWidth:        'calc(100vw - 32px)',

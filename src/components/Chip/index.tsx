@@ -373,12 +373,12 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
 
         {/* ── Label ── label padding is constant `0 2px` so the text never
             shifts horizontally between rest/hover. ── */}
-        <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0 }}>
+        <div style={{ paddingLeft: '2px', paddingRight: '2px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
           <span style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 'var(--font-weight-medium)',
             fontSize:   'var(--font-size-body)',
-            lineHeight: 'var(--line-height-body)',
+            lineHeight: 1,
             color:      'var(--chip-text)',
             whiteSpace: 'nowrap',
           }}>

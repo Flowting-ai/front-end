@@ -121,69 +121,6 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
   )
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: ConnectorCatalogEntry['status'] }) {
-  if (status === 'active') {
-    return (
-      <span style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        padding:         '1px 6px',
-        borderRadius:    6,
-        backgroundColor: 'var(--green-50)',
-        boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        11,
-        lineHeight:      '16px',
-        color:           'var(--green-800)',
-      }}>
-        Active
-      </span>
-    )
-  }
-  if (status === 'pending') {
-    return (
-      <span style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        gap:             4,
-        padding:         '1px 6px',
-        borderRadius:    6,
-        backgroundColor: 'var(--yellow-50, #FFFBEB)',
-        boxShadow:       '0px 0px 0px 1px rgba(234,179,8,0.3)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        11,
-        lineHeight:      '16px',
-        color:           'var(--yellow-700, #A16207)',
-      }}>
-        Pending
-      </span>
-    )
-  }
-  if (status === 'failed' || status === 'revoked') {
-    return (
-      <span style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        padding:         '1px 6px',
-        borderRadius:    6,
-        backgroundColor: 'var(--red-50, #FEF2F2)',
-        boxShadow:       '0px 0px 0px 1px rgba(239,68,68,0.3)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        11,
-        lineHeight:      '16px',
-        color:           'var(--red-700, #B91C1C)',
-      }}>
-        {status === 'failed' ? 'Failed' : 'Revoked'}
-      </span>
-    )
-  }
-  return null
-}
 
 // ── Policy helpers ────────────────────────────────────────────────────────────
 
@@ -345,7 +282,7 @@ function ToolPermissionsModal({
       if (abortedRef.current) return
       toast.success(`${entry.display_name} disconnected`)
       // signal parent to refresh and close
-      onUpdate({ ...entry, linked: false, status: null, tools: [] })
+      onUpdate({ ...entry, linked: false, tools: [] })
       onClose()
     } catch (err) {
       if (abortedRef.current) return
@@ -401,7 +338,21 @@ function ToolPermissionsModal({
             }}>
               {entry.display_name}
             </h2>
-            <StatusBadge status={entry.status} />
+            <span style={{
+              display:         'inline-flex',
+              alignItems:      'center',
+              padding:         '1px 6px',
+              borderRadius:    6,
+              backgroundColor: 'var(--green-50)',
+              boxShadow:       '0px 0px 0px 1px rgba(128,183,7,0.4)',
+              fontFamily:      'var(--font-body)',
+              fontWeight:      500,
+              fontSize:        11,
+              lineHeight:      '16px',
+              color:           'var(--green-800)',
+            }}>
+              Connected
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -584,27 +535,43 @@ function useConnectFlow(
   }, [])
 
   const startOAuth = useCallback(() => {
+    // Open without noopener so we can navigate popup.location after getting
+    // the redirect URL. noopener leaves the popup stuck at about:blank in some
+    // browsers (Firefox returns null; some Chrome configs block location assign).
+    const popup = window.open('', '_blank', 'width=900,height=700')
     setState('opening')
     setErrorMsg('')
 
     initiateLink(entry.slug)
       .then((link) => {
-        if (abortedRef.current) return
+        if (abortedRef.current) { popup?.close(); return }
         const url = link.redirect_url
         if (!url) {
+          popup?.close()
           throw new Error(
             `${entry.display_name} did not return an OAuth URL. ` +
             `The connector provider may be misconfigured on the backend.`,
           )
         }
-        // Same-tab navigation — every browser handles this reliably. Composio
-        // completes OAuth and redirects back; on return, the settings page's
-        // initial listConnectors() call will see linked: true. No popup, no
-        // polling, no about:blank.
-        window.location.href = url
+        if (popup && !popup.closed) {
+          popup.location.href = url
+        } else {
+          // Popup was blocked — fall back to a new tab
+          window.open(url, '_blank')
+        }
+        setState('polling')
+        return pollConnectorUntilActive(entry.slug)
+      })
+      .then((activeEntry) => {
+        if (!activeEntry || abortedRef.current) return
+        popup?.close()
+        setState('idle')
+        toast.success(`${entry.display_name} connected`)
+        onConnected(activeEntry)
       })
       .catch((err: unknown) => {
         if (abortedRef.current) return
+        popup?.close()
         setState('error')
         let msg = err instanceof Error ? err.message : 'Connection failed'
         // For 5xx, prefer the verbatim backend detail (e.g. "Multiple connected
@@ -618,7 +585,7 @@ function useConnectFlow(
         setErrorMsg(msg)
         toast.error(msg)
       })
-  }, [entry])
+  }, [entry, onConnected])
 
   const submitApiKey = useCallback(() => {
     setState('submitting')
@@ -756,14 +723,9 @@ function ConnectorCard({
     onUpdate(updated)
   })
 
-  // Per the connectors flow doc the backend no longer ships `status`;
-  // `linked` is the source of truth for "connected". We keep status-based
-  // hints (pending/broken) for legacy responses but they may always be false.
-  const isActive   = entry.linked
-  const isPending  = entry.status === 'pending'
-  const isBroken   = entry.status === 'failed' || entry.status === 'revoked'
-  const isPolling  = state === 'polling'
-  const isOpening  = state === 'opening'
+  const isActive     = entry.linked
+  const isPolling    = state === 'polling'
+  const isOpening    = state === 'opening'
   const isSubmitting = state === 'submitting'
 
   const handleConnectClick = () => {
@@ -791,22 +753,19 @@ function ConnectorCard({
             <ConnectorAvatar entry={entry} size={32} />
           </div>
           <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <p style={{
-                fontFamily:   'var(--font-body)',
-                fontWeight:   500,
-                fontSize:     14,
-                lineHeight:   '22px',
-                color:        'var(--neutral-900)',
-                margin:       0,
-                overflow:     'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace:   'nowrap',
-              }}>
-                {entry.display_name}
-              </p>
-              <StatusBadge status={entry.status} />
-            </div>
+            <p style={{
+              fontFamily:   'var(--font-body)',
+              fontWeight:   500,
+              fontSize:     14,
+              lineHeight:   '22px',
+              color:        'var(--neutral-900)',
+              margin:       0,
+              overflow:     'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace:   'nowrap',
+            }}>
+              {entry.display_name}
+            </p>
             <p style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   400,
@@ -936,10 +895,6 @@ function ConnectorCard({
                 <><SpinnerIcon size={12} /> Connecting…</>
               ) : isOpening ? (
                 'Opening…'
-              ) : isPending ? (
-                'Resume'
-              ) : isBroken ? (
-                'Reconnect'
               ) : (
                 'Connect'
               )}

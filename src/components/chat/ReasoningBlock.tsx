@@ -67,6 +67,26 @@ function SouvenirMark({ size }: { size: number }) {
   );
 }
 
+// ── ModelLogo - static logo for non-reasoning headers ─────────────────────────
+
+export function ModelLogo({
+  modelMeta,
+  modelName,
+  size = 16,
+}: {
+  modelMeta?: ModelSelectedMeta;
+  modelName?: string;
+  size?: number;
+}) {
+  const llmId = getModelLlmId(modelMeta?.company, modelMeta?.modelName || modelName);
+  const iconWrap: React.CSSProperties = {
+    width: size, height: size, borderRadius: 4, overflow: "hidden",
+    flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
+  };
+  if (llmId) return <span style={iconWrap}><LlmIcon id={llmId} variant="color" size={size} /></span>;
+  return <SouvenirMark size={size} />;
+}
+
 // ── AnimatedLogo - Souvenir mark → model icon swing-in with glow burst ────────
 
 function AnimatedLogo({
@@ -179,7 +199,9 @@ function ModelNameLabel({
   const complexity = modelMeta?.complexity;
   const isMuse = complexity === "basic" || complexity === "advanced";
   if (isMuse) return <span>Souvenir Muse ({complexity === "advanced" ? "Advanced" : "Basic"})</span>;
-  return <span>{modelMeta?.modelName || modelName || "souvenir"}</span>;
+  const name = modelMeta?.modelName || modelName
+  if (!name) return null
+  return <span>{name}</span>;
 }
 
 // ── Structured reasoning sections (from backend reasoning_sections[]) ────────
@@ -513,6 +535,7 @@ export function ReasoningBlock({
 
   const hasActivities = Boolean(activities?.length);
   const hasContent = Boolean(thinkingContent) || hasActivities;
+  const hasModel = !!(modelMeta?.modelName || modelName);
 
   const outerVisible = isThinkingInProgress || outerOpen;
   const innerVisible = isThinkingInProgress || innerOpen;
@@ -541,16 +564,28 @@ export function ReasoningBlock({
         />
 
         <AnimatePresence mode="wait" initial={false}>
-          {isThinkingInProgress ? (
+          {isThinkingInProgress && !hasModel ? (
             <motion.div
-              key="streaming"
+              key="souvenir"
               initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
               animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
               transition={{ type: "spring", stiffness: 520, damping: 32 }}
               style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 500, lineHeight: "18px" }}
             >
-              <CyclingLabel words={THINKING_WORDS} textStyle={shimmerStyle} />
+              <span style={shimmerStyle}>Souvenir</span>
+            </motion.div>
+          ) : isThinkingInProgress && hasModel ? (
+            <motion.div
+              key={`thinking-${modelMeta?.modelName || modelName}`}
+              initial={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
+              animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+              exit={{ opacity: 0, filter: "blur(5px)", scale: 0.82 }}
+              transition={{ type: "spring", stiffness: 520, damping: 32 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, lineHeight: "18px", color: "var(--neutral-600, #524B47)" }}
+            >
+              <ModelNameLabel modelMeta={modelMeta} modelName={modelName} />
+              <span style={{ color: "var(--neutral-400, #9A9089)", fontWeight: 400 }}>· Thinking…</span>
             </motion.div>
           ) : (
             <motion.span

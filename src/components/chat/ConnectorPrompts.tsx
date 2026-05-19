@@ -140,6 +140,10 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     initiateLink(prompt.connector_slug)
       .then((link) => {
         if (abortedRef.current) { popup?.close(); return }
+        if (!link.redirect_url) {
+          popup?.close()
+          throw new Error('No redirect URL returned by server')
+        }
         if (popup && !popup.closed) {
           popup.location.href = link.redirect_url
         } else {

@@ -86,18 +86,17 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
   return (
     <div
       style={{
-        position:        "absolute",
-        top:             -1,
-        left:            -1,
-        right:           -1,
-        display:         "flex",
-        alignItems:      "center",
-        justifyContent:  "space-between",
-        paddingTop:      "12px",
-        paddingLeft:     "12px",
-        paddingRight:    "12px",
-        backgroundColor: "rgba(255, 255, 255, 0.1)",
-        zIndex:          1,
+        position:       "absolute",
+        top:            -1,
+        left:           -1,
+        right:          -1,
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "space-between",
+        paddingTop:     "12px",
+        paddingLeft:    "12px",
+        paddingRight:   "12px",
+        zIndex:         1,
       }}
     >
       {isProjectChatPage && projectChatMatch ? (
@@ -105,19 +104,30 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
           {/* ── Left: model selector, then project + chat name ── */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 0" }}>
             <div style={{ flexShrink: 0 }}>{modelSelectorButton}</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "6px", minWidth: 0, overflow: "hidden" }}>
+            <span
+              style={{
+                display:         "inline-flex",
+                alignItems:      "center",
+                gap:             "5px",
+                padding:         "5px 8px",
+                borderRadius:    "8px",
+                backgroundColor: "var(--neutral-white, #fff)",
+                boxShadow:       "inset 0 0 0 1px var(--button-outline-border)",
+                pointerEvents:   "none",
+                minWidth:        0,
+                overflow:        "hidden",
+                flexShrink:      1,
+              }}
+            >
               <span
                 style={{
                   fontFamily:   "var(--font-body)",
                   fontWeight:   "var(--font-weight-semibold)",
-                  fontSize:     "13px",
-                  lineHeight:   "20px",
+                  fontSize:     "var(--font-size-body)",
+                  lineHeight:   "var(--line-height-body)",
                   color:        "var(--neutral-900)",
                   whiteSpace:   "nowrap",
-                  overflow:     "hidden",
-                  textOverflow: "ellipsis",
-                  flexShrink:   1,
-                  minWidth:     0,
+                  flexShrink:   0,
                 }}
               >
                 {getProject(projectChatMatch[1])?.name ?? ""}
@@ -126,10 +136,9 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
                 style={{
                   fontFamily: "var(--font-body)",
                   fontWeight: "var(--font-weight-medium)",
-                  fontSize:   "13px",
-                  lineHeight: "20px",
-                  color:      "var(--neutral-500)",
-                  whiteSpace: "nowrap",
+                  fontSize:   "var(--font-size-body)",
+                  lineHeight: "var(--line-height-body)",
+                  color:      "var(--neutral-400)",
                   flexShrink: 0,
                 }}
               >
@@ -139,19 +148,19 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
                 style={{
                   fontFamily:   "var(--font-body)",
                   fontWeight:   "var(--font-weight-medium)",
-                  fontSize:     "13px",
-                  lineHeight:   "20px",
-                  color:        "var(--neutral-500)",
+                  fontSize:     "var(--font-size-body)",
+                  lineHeight:   "var(--line-height-body)",
+                  color:        "var(--button-outline-text)",
                   whiteSpace:   "nowrap",
                   overflow:     "hidden",
                   textOverflow: "ellipsis",
-                  flexShrink:   2,
+                  flexShrink:   1,
                   minWidth:     0,
                 }}
               >
                 {getChats(projectChatMatch[1]).find(c => c.id === projectChatMatch[2])?.title ?? ""}
               </span>
-            </div>
+            </span>
           </div>
 
         </>

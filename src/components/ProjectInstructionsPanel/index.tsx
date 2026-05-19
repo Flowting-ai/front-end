@@ -8,14 +8,11 @@ import { Button } from '@/components/Button'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface ProjectInstructionsPanelProps {
-  value:          string
-  onSave:         (text: string) => void
-  maxLength?:     number
-  /**
-   * When provided, the edit button opens a modal instead of inline editing.
-   * Pass a function that opens the SystemInstructionsModal.
-   */
-  onOpenEditor?:  () => void
+  value:         string
+  /** May return a Promise – the panel tracks loading state if so. */
+  onSave:        (text: string) => void | Promise<void>
+  maxLength?:    number
+  onOpenEditor?: () => void
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -24,6 +21,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
   function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor }, ref) {
     const [editing, setEditing] = useState(false)
     const [draft,   setDraft]   = useState(value)
+    const [saving,  setSaving]  = useState(false)
     const isEmpty = !value.trim()
 
     function handleEdit() {
@@ -35,9 +33,16 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
       setEditing(true)
     }
 
-    function handleSave() {
-      onSave(draft.trim())
-      setEditing(false)
+    async function handleSave() {
+      setSaving(true)
+      try {
+        await onSave(draft.trim())
+        setEditing(false)
+      } catch {
+        // errors already toasted by the context
+      } finally {
+        setSaving(false)
+      }
     }
 
     function handleCancel() {
@@ -65,12 +70,12 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <p
             style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-regular)',
-              fontSize:    '16px',
-              lineHeight:  'var(--line-height-body)',
-              color:       '#000',
-              margin:      0,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-regular)',
+              fontSize:   '16px',
+              lineHeight: 'var(--line-height-body)',
+              color:      '#000',
+              margin:     0,
             }}
           >
             Instructions
@@ -94,50 +99,67 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
               onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
               maxLength={maxLength}
               placeholder="Add instructions to steer this project towards the right direction..."
+              disabled={saving}
               style={{
-                fontFamily:  'var(--font-body)',
-                fontWeight:  'var(--font-weight-regular)',
-                fontSize:    '14px',
-                lineHeight:  '22px',
-                color:       '#1a1714',
-                background:  'transparent',
-                border:      'none',
-                outline:     'none',
-                resize:      'none',
-                width:       '100%',
-                minHeight:   '120px',
-                padding:     0,
-                boxSizing:   'border-box',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   '14px',
+                lineHeight: '22px',
+                color:      '#1a1714',
+                background: 'transparent',
+                border:     'none',
+                outline:    'none',
+                resize:     'none',
+                width:      '100%',
+                minHeight:  '120px',
+                padding:    0,
+                boxSizing:  'border-box',
+                opacity:    saving ? 0.5 : 1,
+                transition: 'opacity 150ms',
               }}
               autoFocus
             />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span
                 style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-regular)',
-                  fontSize:    '11px',
-                  lineHeight:  '16px',
-                  color:       '#a39b95',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  fontSize:   '11px',
+                  lineHeight: '16px',
+                  color:      '#a39b95',
                 }}
               >
                 {draft.length} / {maxLength}
               </span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <Button variant="ghost" size="sm" onClick={handleCancel}>Cancel</Button>
-                <Button variant="default" size="sm" onClick={handleSave}>Save</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => { void handleSave() }}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
               </div>
             </div>
           </div>
         ) : isEmpty ? (
           <p
             style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-regular)',
-              fontSize:    '11px',
-              lineHeight:  '16px',
-              color:       '#857a72',
-              margin:      0,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-regular)',
+              fontSize:   '11px',
+              lineHeight: '16px',
+              color:      '#857a72',
+              margin:     0,
             }}
           >
             Add instructions to steer this project towards the right direction...
@@ -145,14 +167,14 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
         ) : (
           <p
             style={{
-              fontFamily:  'var(--font-body)',
-              fontWeight:  'var(--font-weight-regular)',
-              fontSize:    '14px',
-              lineHeight:  '22px',
-              color:       '#1a1714',
-              margin:      0,
-              whiteSpace:  'pre-wrap',
-              wordBreak:   'break-word',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 'var(--font-weight-regular)',
+              fontSize:   '14px',
+              lineHeight: '22px',
+              color:      '#1a1714',
+              margin:     0,
+              whiteSpace: 'pre-wrap',
+              wordBreak:  'break-word',
             }}
           >
             {value}
