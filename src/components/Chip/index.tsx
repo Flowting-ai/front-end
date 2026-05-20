@@ -1,8 +1,20 @@
 'use client'
 
-import React, { useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import React, { useEffect, useState } from 'react'
 import { LogoIcon, CancelOneIcon, ExchangeOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
+
+function useReducedMotion() {
+  const [reduce, setReduce] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const handler = (e: MediaQueryListEvent) => setReduce(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return reduce
+}
 import { cn } from '@/lib/utils'
 import { ChipButton } from '@/components/ChipButton'
 
@@ -10,13 +22,6 @@ import { ChipButton } from '@/components/ChipButton'
 // New canonical path is `@/components/ChipButton`.
 export { ChipButton } from '@/components/ChipButton'
 export type { ChipButtonProps } from '@/components/ChipButton'
-
-// ── Animation constants (KDS in-place swap pattern) ────────────────────────────
-const SPRING       = { type: 'spring', stiffness: 500, damping: 30 } as const
-const SWAP_INITIAL = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
-const SWAP_ANIMATE = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
-const SWAP_EXIT    = { scale: 0.75, opacity: 0, filter: 'blur(4px)' }
-const SWAP_INSTANT = { scale: 1,    opacity: 1, filter: 'blur(0px)' }
 
 // ── Color system ───────────────────────────────────────────────────────────────
 
@@ -159,9 +164,6 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
     const handleChange = disabled ? undefined : onChange
     const handleExpand = disabled ? undefined : onExpand
     const reduceMotion = useReducedMotion()
-
-    const initial = reduceMotion ? SWAP_INSTANT : SWAP_INITIAL
-    const exit    = reduceMotion ? SWAP_INSTANT : SWAP_EXIT
 
     // ── Small chip ─────────────────────────────────────────────────────────────
     if (size === 'Small') {
@@ -321,8 +323,10 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
               • Active ChipButton (28×28) → flush
             Visual continuity through the swap comes from the in-place
             scale+opacity+blur pattern, not a layout tween. */}
+        {/* Fixed 28×28 container; both states always in DOM — CSS transitions handle the swap */}
         <span
           style={{
+            position:       'relative',
             display:        'inline-flex',
             alignItems:     'center',
             justifyContent: 'center',
@@ -332,43 +336,54 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
             borderRadius:   8,
           }}
         >
-          <AnimatePresence mode="popLayout" initial={false}>
-            {effectiveActive ? (
-              <motion.span
-                key="remove"
-                initial={initial}
-                animate={SWAP_ANIMATE}
-                exit={exit}
-                transition={SPRING}
-                style={{ display: 'flex' }}
-              >
-                <ChipButton
-                  icon={<CancelOneIcon size={20} color="var(--chip-text)" />}
-                  aria-label="Remove"
-                  // Stop bubbling so a chip wrapped in a `Dropdown.Float`
-                  // (e.g. the auto-chips ChatInput renders for active state)
-                  // doesn't toggle the picker open when the user is just
-                  // dismissing the chip via ×.
-                  onClick={(e) => { e.stopPropagation(); handleRemove?.(e) }}
-                  disabled={disabled}
-                />
-              </motion.span>
-            ) : (
-              <motion.span
-                key="left-icon"
-                initial={initial}
-                animate={SWAP_ANIMATE}
-                exit={exit}
-                transition={SPRING}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                {personaImage
-                  ? <img src={personaImage} alt="" style={{ width: 24, height: 24, borderRadius: '6px', display: 'block' }} />
-                  : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
-                }
-              </motion.span>
-            )}
-          </AnimatePresence>
+          {/* Rest state: persona image or icon */}
+          <span
+            aria-hidden={effectiveActive}
+            style={{
+              position:       'absolute',
+              inset:          0,
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              opacity:         effectiveActive ? 0 : 1,
+              transform:       effectiveActive ? 'scale(0.75)' : 'scale(1)',
+              filter:          !reduceMotion && effectiveActive ? 'blur(4px)' : 'none',
+              transition:      reduceMotion
+                ? 'opacity 120ms'
+                : 'opacity 120ms, transform 120ms cubic-bezier(0.16,1,0.3,1), filter 120ms',
+              pointerEvents:   effectiveActive ? 'none' : undefined,
+            }}
+          >
+            {personaImage
+              ? <img src={personaImage} alt="" style={{ width: 24, height: 24, borderRadius: '6px', display: 'block' }} />
+              : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
+            }
+          </span>
+
+          {/* Active state: remove button */}
+          <span
+            style={{
+              position:       'absolute',
+              inset:          0,
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'center',
+              opacity:         effectiveActive ? 1 : 0,
+              transform:       effectiveActive ? 'scale(1)' : 'scale(0.75)',
+              filter:          !reduceMotion && !effectiveActive ? 'blur(4px)' : 'none',
+              transition:      reduceMotion
+                ? 'opacity 120ms'
+                : 'opacity 120ms, transform 120ms cubic-bezier(0.16,1,0.3,1), filter 120ms',
+              pointerEvents:   !effectiveActive ? 'none' : undefined,
+            }}
+          >
+            <ChipButton
+              icon={<CancelOneIcon size={20} color="var(--chip-text)" />}
+              aria-label="Remove"
+              onClick={(e) => { e.stopPropagation(); handleRemove?.(e) }}
+              disabled={disabled}
+            />
+          </span>
         </span>
 
         {/* ── Label ── label padding is constant `0 2px` so the text never

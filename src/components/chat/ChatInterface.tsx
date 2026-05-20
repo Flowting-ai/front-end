@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { X } from "lucide-react";
 import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -164,7 +164,7 @@ export function ChatInterface({
   const [highlightedPinIndex, setHighlightedPinIndex] = useState(0);
   const [mentionedPins, setMentionedPins] = useState<MentionedPin[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputWrapperRef = useRef<HTMLDivElement>(null);
@@ -203,6 +203,13 @@ export function ChatInterface({
   } = useChatState(chatId);
 
   const messages = rawMessages ?? [];
+
+  const msgVirtualizer = useVirtualizer({
+    count:            messages.length,
+    getScrollElement: () => messagesContainerRef.current,
+    estimateSize:     () => 200,
+    overscan:         3,
+  });
 
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
 
@@ -568,44 +575,60 @@ export function ChatInterface({
             </div>
           )}
 
-          {/* Messages */}
-          <AnimatePresence initial={false}>
-            {messages.map((message, idx) => (
-              <ChatMessageMemo
-                key={message.id}
-                message={message}
-                isLast={idx === messages.length - 1}
-                isNewMessage={idx === messages.length - 1 && isStreaming}
-                chatId={chatId}
-                showReasoning={enableReasoning}
-                onRegenerate={
-                  idx === messages.length - 1 &&
-                  message.role === "assistant" &&
-                  !isStreaming
-                    ? handleRegenerate
-                    : undefined
-                }
-                onEdit={
-                  message.role === "user" && !isStreaming
-                    ? (_, newContent) => {
-                        setMessages((prev) =>
-                          prev.map((m) =>
-                            m.id === message.id
-                              ? { ...m, content: newContent }
-                              : m,
-                          ),
-                        );
-                      }
-                    : undefined
-                }
-                onCitationsClick={
-                  message.sources && message.sources.length > 0
-                    ? () => handleCitationsClick(message.sources!)
-                    : undefined
-                }
-              />
-            ))}
-          </AnimatePresence>
+          {/* Messages — virtualised: only renders visible rows */}
+          <div style={{ position: 'relative', height: msgVirtualizer.getTotalSize() }}>
+            {msgVirtualizer.getVirtualItems().map((vRow) => {
+              const message = messages[vRow.index];
+              const idx     = vRow.index;
+              return (
+                <div
+                  key={message.id}
+                  data-index={vRow.index}
+                  ref={msgVirtualizer.measureElement}
+                  style={{
+                    position:  'absolute',
+                    top:       0,
+                    left:      0,
+                    width:     '100%',
+                    transform: `translateY(${vRow.start}px)`,
+                  }}
+                >
+                  <ChatMessageMemo
+                    message={message}
+                    isLast={idx === messages.length - 1}
+                    isNewMessage={idx === messages.length - 1 && isStreaming}
+                    chatId={chatId}
+                    showReasoning={enableReasoning}
+                    onRegenerate={
+                      idx === messages.length - 1 &&
+                      message.role === "assistant" &&
+                      !isStreaming
+                        ? handleRegenerate
+                        : undefined
+                    }
+                    onEdit={
+                      message.role === "user" && !isStreaming
+                        ? (_, newContent) => {
+                            setMessages((prev) =>
+                              prev.map((m) =>
+                                m.id === message.id
+                                  ? { ...m, content: newContent }
+                                  : m,
+                              ),
+                            );
+                          }
+                        : undefined
+                    }
+                    onCitationsClick={
+                      message.sources && message.sources.length > 0
+                        ? () => handleCitationsClick(message.sources!)
+                        : undefined
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
 
           <div ref={messagesEndRef} />
         </div>

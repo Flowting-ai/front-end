@@ -2,9 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
-import { animate, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
 
 // ── Size context - set by TabsList, consumed by TabsTrigger ───────────────────
@@ -40,6 +38,8 @@ export interface TabsContentProps
 export const Tabs = TabsPrimitive.Root
 Tabs.displayName = 'Tabs'
 
+const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms cubic-bezier(0.16,1,0.3,1)'
+
 // ── List (pill container) ─────────────────────────────────────────────────────
 //
 // Default mode - inline-flex, sizes to content. Pill layers (bg + shadow)
@@ -67,18 +67,17 @@ export const TabsList = React.forwardRef<
 
   const rowRef    = useRef<HTMLDivElement>(null)
   const shadowRef = useRef<HTMLDivElement>(null)
+  const pillRef1  = useRef<HTMLDivElement>(null)
+  const pillRef2  = useRef<HTMLDivElement>(null)
   const [pill, setPill] = useState<{ x: number; width: number } | null>(null)
   const [overflowing, setOverflowing] = useState(false)
   const [dragging, setDragging]       = useState(false)
   const dragState = useRef<{ startX: number; startScroll: number; moved: boolean; pointerId: number; target: Element | null } | null>(null)
 
-  // Track current shadow position for spring start values.
-  const shadowXCur = useRef(0)
-  const shadowWCur = useRef(0)
-  // Cancels for in-flight spring animations.
-  const shadowAnimX = useRef<{ stop(): void } | null>(null)
-  const shadowAnimW = useRef<{ stop(): void } | null>(null)
-  const isFirstPill = useRef(true)
+  const shadowXCur    = useRef(0)
+  const shadowWCur    = useRef(0)
+  const isFirstPill   = useRef(true)
+  const isFirstInline = useRef(true)
 
   // ── Measurement ────────────────────────────────────────────────────────────
 
@@ -102,47 +101,50 @@ export const TabsList = React.forwardRef<
 
   // ── Scrollable: sync shadow DOM directly ────────────────────────────────────
 
-  const applyShadow = useCallback((x: number, w: number) => {
+  const applyShadow = useCallback((x: number, w: number, instant = false) => {
     const el = shadowRef.current
     if (!el) return
-    el.style.transform = `translateX(${x}px)`
-    el.style.width     = `${w}px`
-    shadowXCur.current = x
-    shadowWCur.current = w
+    el.style.transition = instant ? 'none' : PILL_TRANSITION
+    el.style.transform  = `translateX(${x}px)`
+    el.style.width      = `${w}px`
+    shadowXCur.current  = x
+    shadowWCur.current  = w
   }, [])
 
+  // Animate scrollable shadow pill via CSS transitions (direct DOM — no React renders)
   useLayoutEffect(() => {
     if (!scrollable || !pill) return
     const sl      = rowRef.current?.scrollLeft ?? 0
     const targetX = pill.x - sl
 
     if (isFirstPill.current) {
-      applyShadow(targetX, pill.width)
+      applyShadow(targetX, pill.width, true)
       isFirstPill.current = false
       return
     }
 
-    shadowAnimX.current?.stop()
-    shadowAnimW.current?.stop()
-
-    const fromX = shadowXCur.current
-    const fromW = shadowWCur.current
-
-    shadowAnimX.current = animate(fromX, targetX, {
-      ...springs.fast,
-      onUpdate: (v) => {
-        shadowXCur.current = v
-        if (shadowRef.current) shadowRef.current.style.transform = `translateX(${v}px)`
-      },
-    })
-    shadowAnimW.current = animate(fromW, pill.width, {
-      ...springs.fast,
-      onUpdate: (v) => {
-        shadowWCur.current = v
-        if (shadowRef.current) shadowRef.current.style.width = `${v}px`
-      },
-    })
+    applyShadow(targetX, pill.width)
   }, [pill, scrollable, applyShadow])
+
+  // Animate inline (non-scrollable) pill via CSS transitions (direct DOM mutations)
+  useLayoutEffect(() => {
+    if (scrollable || !pill) return
+    const isFirst = isFirstInline.current
+    for (const el of [pillRef1.current, pillRef2.current]) {
+      if (!el) continue
+      if (isFirst) el.style.transition = 'none'
+      el.style.transform = `translateX(${pill.x}px)`
+      el.style.width     = `${pill.width}px`
+    }
+    if (isFirst) {
+      isFirstInline.current = false
+      requestAnimationFrame(() => {
+        for (const el of [pillRef1.current, pillRef2.current]) {
+          if (el) el.style.transition = PILL_TRANSITION
+        }
+      })
+    }
+  }, [pill, scrollable])
 
   // ── Scrollable: detect overflow so the grab cursor only shows when draggable ──
 
@@ -227,11 +229,9 @@ export const TabsList = React.forwardRef<
   const handleScroll = useCallback(() => {
     const row = rowRef.current
     if (!row || !pill) return
-    shadowAnimX.current?.stop()
     const x = pill.x - row.scrollLeft
-    shadowXCur.current = x
-    if (shadowRef.current) shadowRef.current.style.transform = `translateX(${x}px)`
-  }, [pill])
+    applyShadow(x, shadowWCur.current, true)
+  }, [pill, applyShadow])
 
   // ── Pill base style (shared by all pill layers, size-aware) ────────────────
 
@@ -313,25 +313,21 @@ export const TabsList = React.forwardRef<
         >
           {pill && (
             <>
-              {/* White bg - in scrollable mode has no outer shadow (hoisted above) */}
-              <motion.div
+              {/* White bg - position set via useLayoutEffect DOM mutation */}
+              <div
+                ref={pillRef1}
                 aria-hidden
                 style={{
                   ...pillBase,
                   backgroundColor: 'var(--tab-item-bg-selected)',
                   ...(!scrollable && { boxShadow: 'var(--shadow-tab-item-selected)' }),
                 }}
-                animate={{ x: pill.x, width: pill.width }}
-                initial={false}
-                transition={springs.fast}
               />
               {/* Inner bottom shadow - above the white bg */}
-              <motion.div
+              <div
+                ref={pillRef2}
                 aria-hidden
                 style={{ ...pillBase, boxShadow: 'var(--shadow-tab-item-selected-inner)' }}
-                animate={{ x: pill.x, width: pill.width }}
-                initial={false}
-                transition={springs.fast}
               />
             </>
           )}

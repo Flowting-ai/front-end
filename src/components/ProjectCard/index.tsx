@@ -2,30 +2,33 @@
 
 import React, { useState } from 'react'
 import { MoreVerticalIcon } from '@strange-huge/icons'
-import { Badge, type BadgeColor } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
+import { ProjectCardBody, type ProjectCardBodyProps } from './ProjectCardBody'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export interface ProjectCardProps {
-  title:       string
-  description?: string
-  tags?:       Array<{ label: string; color?: BadgeColor }>
-  updatedAt:   string
-  chatCount:   number
-  active?:     boolean
-  onEdit?:     () => void
-  onArchive?:  () => void
-  onDelete?:   () => void
-  onClick?:    () => void
+export interface ProjectCardProps extends ProjectCardBodyProps {
+  title:      string
+  active?:    boolean
+  onEdit?:    () => void
+  onArchive?: () => void
+  onDelete?:  () => void
+  onClick?:   () => void
+  /**
+   * Pre-rendered server component for the static body (tags, description, footer).
+   * When the consumer is a server component, pass `<ProjectCardBody {...bodyProps} />`
+   * here to pre-render the static subtree server-side. Omit to have the client
+   * render the body directly (default behaviour — identical output).
+   */
+  body?: React.ReactNode
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
   function ProjectCard(
-    { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick },
+    { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body },
     ref,
   ) {
     const [hovered,  setHovered]  = useState(false)
@@ -72,7 +75,7 @@ const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
           width:           '100%',
         }}
       >
-        {/* Title row */}
+        {/* Title row (client-rendered: contains the interactive ⋮ menu) */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <p
             style={{
@@ -128,67 +131,15 @@ const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
           </div>
         </div>
 
-        {/* Tags - single non-wrapping row; padding prevents shadow clip */}
-        {tags && tags.length > 0 && (
-          <div
-            style={{
-              display:    'flex',
-              gap:        '4px',
-              flexWrap:   'nowrap',
-              overflow:   'hidden',
-              flexShrink: 0,
-              marginTop:  '3px',
-              padding:    '2px 1px',
-            }}
-          >
-            {tags.map((tag, i) => (
-              <Badge key={i} label={tag.label} color={tag.color ?? 'Blue'} />
-            ))}
-          </div>
+        {/* Static body — use pre-rendered server component when provided, otherwise render inline */}
+        {body ?? (
+          <ProjectCardBody
+            description={description}
+            tags={tags}
+            updatedAt={updatedAt}
+            chatCount={chatCount}
+          />
         )}
-
-        {/* Description - fills remaining space, 4-line clamp */}
-        <p
-          style={{
-            flex:            '1 1 0',
-            minHeight:       0,
-            fontFamily:      'var(--font-body)',
-            fontWeight:      'var(--font-weight-regular)',
-            fontSize:        '11px',
-            lineHeight:      '16px',
-            color:           '#857a72',
-            overflow:        'hidden',
-            display:         '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            margin:          0,
-            marginTop:       '6px',
-          }}
-        >
-          {description ?? ''}
-        </p>
-
-        {/* Footer */}
-        <div
-          style={{
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'space-between',
-            flexShrink:     0,
-            marginTop:      '6px',
-            fontFamily:     'var(--font-body)',
-            fontWeight:     'var(--font-weight-regular)',
-            fontSize:       '11px',
-            lineHeight:     '16px',
-          }}
-        >
-          <span style={{ color: '#857a72', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {updatedAt}
-          </span>
-          <span style={{ color: '#6a625d', flexShrink: 0, marginLeft: '8px' }}>
-            {chatCount} {chatCount === 1 ? 'chat' : 'chats'}
-          </span>
-        </div>
       </div>
     )
   },

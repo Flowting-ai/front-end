@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useRef, useState, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon } from '@strange-huge/icons'
@@ -61,6 +62,14 @@ export default function ChatsPage() {
     const q = searchQuery.toLowerCase()
     return chats.filter((c) => c.title.toLowerCase().includes(q))
   }, [chats, searchQuery])
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const rowVirtualizer = useVirtualizer({
+    count:           filteredChats.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize:    () => 70,
+    overscan:        5,
+  })
 
   const allSelected = selectedIds.size === chats.length && chats.length > 0
 
@@ -139,6 +148,7 @@ export default function ChatsPage() {
 
   return (
     <div
+      ref={scrollRef}
       className="kaya-scrollbar"
       style={{
         display:       'flex',
@@ -265,7 +275,7 @@ export default function ChatsPage() {
 
         {/* ── Chat list ────────────────────────────────────────────────────── */}
         {!isLoading || chats.length > 0 ? (
-          <div role="list" aria-label="Chats" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div role="list" aria-label="Chats">
 
             {/* No results */}
             {filteredChats.length === 0 && searchQuery && (
@@ -282,30 +292,51 @@ export default function ChatsPage() {
               </p>
             )}
 
-            {filteredChats.map((chat) => (
-              <div role="listitem" key={chat.id} style={{ padding: '1px 0' }}>
-                <ChatRow
-                  title={chat.title}
-                  timestamp={formatTimestamp(chat.last_message_at ?? chat.updated_at)}
-                  pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
-                  pinBoardOpen={isOpen && chatFilter === chat.id}
-                  onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
-                  starred={chat.starred}
-                  selectionMode={selectionMode}
-                  selected={selectedIds.has(chat.id)}
-                  onSelect={() => toggleSelect(chat.id)}
-                  onClick={() => handleOpenChat(chat.id)}
-                  onRename={(newTitle) => rename(chat.id, newTitle)}
-                  onStar={() => star(chat.id)}
-                  onDelete={() => remove(chat.id)}
-                />
-              </div>
-            ))}
-
             {/* Empty slot — only when no chats exist and not searching/selecting */}
             {!selectionMode && !searchQuery && chats.length === 0 && (
               <div role="listitem" style={{ padding: '1px 0' }}>
                 <ChatRow isEmpty />
+              </div>
+            )}
+
+            {/* Virtualized rows */}
+            {filteredChats.length > 0 && (
+              <div style={{ position: 'relative', height: rowVirtualizer.getTotalSize() }}>
+                {rowVirtualizer.getVirtualItems().map((vRow) => {
+                  const chat = filteredChats[vRow.index]
+                  return (
+                    <div
+                      key={chat.id}
+                      role="listitem"
+                      data-index={vRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        position:  'absolute',
+                        top:       0,
+                        left:      0,
+                        width:     '100%',
+                        transform: `translateY(${vRow.start}px)`,
+                        padding:   '1px 0 6px',
+                      }}
+                    >
+                      <ChatRow
+                        title={chat.title}
+                        timestamp={formatTimestamp(chat.last_message_at ?? chat.updated_at)}
+                        pinCount={pinCountMap[chat.id] ?? chat.pins_count ?? 0}
+                        pinBoardOpen={isOpen && chatFilter === chat.id}
+                        onPinClick={pinCountMap[chat.id] ? () => openForChat(chat.id) : undefined}
+                        starred={chat.starred}
+                        selectionMode={selectionMode}
+                        selected={selectedIds.has(chat.id)}
+                        onSelect={() => toggleSelect(chat.id)}
+                        onClick={() => handleOpenChat(chat.id)}
+                        onRename={(newTitle) => rename(chat.id, newTitle)}
+                        onStar={() => star(chat.id)}
+                        onDelete={() => remove(chat.id)}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             )}
 

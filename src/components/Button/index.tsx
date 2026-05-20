@@ -2,7 +2,6 @@
 
 import React, { useRef, useId, useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCorrosion } from '@/lib/useCorrosion'
 import { useSquircle } from '@/lib/useSquircle'
@@ -64,26 +63,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 function ButtonSpinner({ color }: { color: string }) {
   return (
-    <motion.svg
+    <svg
       width={24}
       height={24}
       viewBox="0 0 16 16"
       fill="none"
       aria-hidden
-      style={{ color, flexShrink: 0 }}
-      animate={{ rotate: 360 }}
-      transition={{
-        duration: 1,
-        ease: [0.25, 0.1, 0.25, 1],
-        repeat: Infinity,
-        repeatType: 'loop',
-      }}
+      style={{ color, flexShrink: 0, animation: 'kaya-spin 1s cubic-bezier(0.25,0.1,0.25,1) infinite' }}
     >
-      {/* Track */}
       <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.25" />
-      {/* Arc head */}
       <path d="M 8 2.5 A 5.5 5.5 0 0 1 13.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </motion.svg>
+    </svg>
   )
 }
 
@@ -126,6 +116,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
 
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [isPressed, setIsPressed] = useState(false)
 
   // ── Squircle corner smoothing ────────────────────────────────────────────────
   const cornerRadius = isMd ? 10 : 8
@@ -236,10 +227,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       : undefined
 
   return (
-    <motion.span
+    <span
       tabIndex={-1}
-      whileTap={isDisabled ? undefined : { scale: 0.98 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
+      onPointerDown={() => setIsPressed(true)}
+      onPointerUp={() => setIsPressed(false)}
+      onPointerLeave={() => setIsPressed(false)}
       style={{
         position: 'relative',
         display: fluid ? 'flex' : 'inline-flex',
@@ -252,7 +244,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
         outlineWidth: '2px',
         outlineOffset: '3px',
         outlineColor: isFocused ? 'var(--focus-ring)' : 'transparent',
-        transition: 'filter 200ms, outline-color 150ms',
+        transform: isPressed && !isDisabled ? 'scale(0.98)' : undefined,
+        transition: 'filter 200ms, outline-color 150ms, transform 100ms ease-out',
         cursor: isDisabled ? 'not-allowed' : 'pointer',
       }}
     >
@@ -539,7 +532,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       )}
 
     </Comp>
-    </motion.span>
+    </span>
   )
 })
 

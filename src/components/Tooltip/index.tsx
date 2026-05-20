@@ -1,37 +1,29 @@
 'use client'
 
-import React, { useEffect, useState, type ReactNode } from 'react'
+import React, { useEffect, useRef, useState, type ReactNode } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { springs } from '@/lib/springs'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 
 export interface TooltipProps {
-  /** Tooltip label - plain text or any ReactNode */
   content: ReactNode
-  /** The element that triggers the tooltip on hover/focus */
   children: React.ReactElement
-  /** Which side of the trigger the tooltip appears on */
   side?: TooltipSide
-  /** Gap between trigger and tooltip bubble in px */
   sideOffset?: number
-  /** Hover delay in ms before opening */
   delayDuration?: number
   /**
    * When true the tooltip never opens and any open instance closes gracefully.
    * The Provider/Root/Trigger wrapper stays in the tree so the trigger element
-   * is never remounted (preserves hover/focus state on the child).
+   * is never remounted.
    */
   disabled?: boolean
   className?: string
 }
 
 // ── Animation helpers ─────────────────────────────────────────────────────────
-// Slide 4px toward the trigger on entry, back to 0 on exit.
 
 function getSlideOffset(side: TooltipSide): { x: number; y: number } {
   switch (side) {
@@ -55,28 +47,36 @@ export function Tooltip({
 }: TooltipProps) {
   const [open,    setOpen]    = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [entered, setEntered] = useState(false)
+  const rafRef = useRef<number>(0)
 
-  // Close gracefully when disabled - exit animation will play naturally.
   useEffect(() => {
     if (disabled) setOpen(false)
   }, [disabled])
 
-  // Mount on open; unmount only after the exit animation finishes via
-  // `onAnimationComplete`. Keeping the portal unmounted while idle prevents
-  // it from sitting in the viewport (positioned by Radix) and intercepting
-  // pointer events on the trigger.
-  useEffect(() => {
-    if (open) setMounted(true)
-  }, [open])
+  const effectiveOpen = disabled ? false : open
 
-  const handleExitComplete = () => {
-    if (!open) setMounted(false)
-  }
+  useEffect(() => {
+    if (effectiveOpen) {
+      setMounted(true)
+      // Double-RAF so the browser has painted the initial (hidden) state before
+      // we flip entered=true, giving CSS transition something to animate from.
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = requestAnimationFrame(() => setEntered(true))
+      })
+    } else {
+      cancelAnimationFrame(rafRef.current)
+      setEntered(false)
+      // unmount happens in onTransitionEnd once opacity transition settles
+    }
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [effectiveOpen])
 
   const slideOffset = getSlideOffset(side)
 
-  // Suppress opening while disabled; keep the wrapper always in the tree.
-  const effectiveOpen = disabled ? false : open
+  const translateX = entered ? 0 : slideOffset.x
+  const translateY = entered ? 0 : slideOffset.y
 
   return (
     <TooltipPrimitive.Provider delayDuration={delayDuration}>
@@ -94,10 +94,10 @@ export function Tooltip({
               className="z-[9999]"
               style={{ outline: 'none', pointerEvents: 'none' }}
             >
-              <motion.div
+              <div
                 className={cn(className)}
+                onTransitionEnd={() => { if (!effectiveOpen) setMounted(false) }}
                 style={{
-                  // ── Visual - matches Figma node 960:1464 exactly ────────────
                   position:        'relative',
                   display:         'inline-flex',
                   alignItems:      'center',
@@ -105,22 +105,14 @@ export function Tooltip({
                   overflow:        'hidden',
                   borderRadius:    '6px',
                   padding:         '4px 6px',
-                  // Gradient bg: neutral-700 → neutral-900 (same as Default button)
                   backgroundImage: 'linear-gradient(180deg, var(--tooltip-bg-from) 0%, var(--tooltip-bg-to) 100%)',
-                  // Outer shadow + 0.5px black border ring
                   boxShadow:       'var(--shadow-tooltip)',
                   pointerEvents:   'none',
+                  opacity:          entered ? 1 : 0,
+                  transform:        `translate(${translateX}px, ${translateY}px)`,
+                  transition:       'opacity 150ms, transform 150ms cubic-bezier(0.16,1,0.3,1)',
                 }}
-                initial={{ opacity: 0, x: slideOffset.x, y: slideOffset.y }}
-                animate={{
-                  opacity: effectiveOpen ? 1 : 0,
-                  x:       effectiveOpen ? 0 : slideOffset.x,
-                  y:       effectiveOpen ? 0 : slideOffset.y,
-                }}
-                transition={effectiveOpen ? springs.fast : { duration: 0.1 }}
-                onAnimationComplete={handleExitComplete}
               >
-                {/* Label */}
                 <span
                   style={{
                     position:    'relative',
@@ -136,7 +128,6 @@ export function Tooltip({
                   {content}
                 </span>
 
-                {/* Inner depth shadow - same language as Default button, scaled down */}
                 <div
                   aria-hidden
                   style={{
@@ -147,7 +138,7 @@ export function Tooltip({
                     boxShadow:     'var(--shadow-tooltip-inner)',
                   }}
                 />
-              </motion.div>
+              </div>
             </TooltipPrimitive.Content>
           </TooltipPrimitive.Portal>
         )}

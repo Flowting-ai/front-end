@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
-import { motion } from 'framer-motion'
 import { TickTwoIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +38,8 @@ const Checkbox = React.forwardRef<
   // button would stack outside that ring and read as two concentric rings on
   // focus - same precedent as Switch. See specs/accessibility/focus-visible.md
   // → "Two-rings issue (Switch precedent)".
-  const [isFocused, setIsFocused] = React.useState(false)
+  const [isFocused,  setIsFocused]  = React.useState(false)
+  const [isPressed,  setIsPressed]  = React.useState(false)
   React.useEffect(() => {
     if (isOn) {
       const id = window.setTimeout(() => setTickOn(true), TICK_DRAW_DELAY_MS)
@@ -49,27 +49,21 @@ const Checkbox = React.forwardRef<
   }, [isOn])
 
   return (
-    <motion.span
-      // Explicit tabIndex={-1} keeps the wrapper out of the Tab order - the
-      // inner Radix button is the actual focus target. Without this, some
-      // browsers gave the wrapper its own Tab stop, forcing the user to Tab
-      // twice to reach the Checkbox. Same precedent as IconButton / Switch.
+    <span
       tabIndex={-1}
-      whileTap={disabled ? undefined : { scale: 0.9 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
+      onPointerDown={() => setIsPressed(true)}
+      onPointerUp={() => setIsPressed(false)}
+      onPointerLeave={() => setIsPressed(false)}
       style={{
         display:       'inline-flex',
         lineHeight:    0,
-        // Pattern 2 - state-gated outline on the wrapper. Keeps the focus
-        // indicator off the inner button (whose box-shadow already paints a
-        // 1 px design ring at the box edge), preventing the "two concentric
-        // rings on focus" issue.
-        borderRadius:  RADIUS,                        // match the Checkbox's resting radius
+        borderRadius:  RADIUS,
         outlineStyle:  'solid',
         outlineWidth:  '2px',
         outlineOffset: '2px',
         outlineColor:  isFocused ? 'var(--focus-ring)' : 'transparent',
-        transition:    'outline-color 150ms',
+        transform:     isPressed && !disabled ? 'scale(0.9)' : undefined,
+        transition:    'outline-color 150ms, transform 100ms ease-out',
       }}
     >
     <CheckboxPrimitive.Root
@@ -143,7 +137,7 @@ const Checkbox = React.forwardRef<
         </span>
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
-    </motion.span>
+    </span>
   )
 })
 

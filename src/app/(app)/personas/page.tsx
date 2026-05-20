@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -304,6 +305,20 @@ export default function PersonasPage() {
     return searched
   }, [tagFiltered, search, sort])
 
+  const personasScrollRef = useRef<HTMLDivElement>(null)
+  const GRID_COLS = 3
+  const gridRows = useMemo(() => {
+    const rows: typeof filtered[] = []
+    for (let i = 0; i < filtered.length; i += GRID_COLS) rows.push(filtered.slice(i, i + GRID_COLS))
+    return rows
+  }, [filtered])
+  const gridVirtualizer = useVirtualizer({
+    count:            gridRows.length,
+    getScrollElement: () => personasScrollRef.current,
+    estimateSize:     () => 172,
+    overscan:         2,
+  })
+
   const sortLabels: Record<SortKey, string> = {
     activity: 'Activity',
     az:       'A to Z',
@@ -343,6 +358,7 @@ export default function PersonasPage() {
         }}
       >
       <div
+        ref={personasScrollRef}
         className="kaya-scrollbar"
         style={{
           height: '100%',
@@ -590,28 +606,43 @@ export default function PersonasPage() {
                   </div>
                 )
               ) : (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 16,
-                }}>
-                  {filtered.map(persona => (
-                    <PersonaCard
-                      key={persona.id}
-                      variant={persona.status === 'draft' ? 'draft' : 'default'}
-                      name={persona.name}
-                      handle={persona.handle.replace(/^@/, '')}
-                      description={persona.description}
-                      avatarUrl={persona.imageUrl ?? undefined}
-                      paused={persona.isPaused}
-                      visibility="private"
-                      onEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                      onUseInChat={() => router.push(`/personas/${persona.id}/chat`)}
-                      onResume={() => handlePauseToggle(persona.id)}
-                      onMenuEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                      onMenuPauseToggle={() => handlePauseToggle(persona.id)}
-                      onMenuDelete={() => setDeleteTarget(persona)}
-                    />
+                <div style={{ position: 'relative', height: gridVirtualizer.getTotalSize() }}>
+                  {gridVirtualizer.getVirtualItems().map((vRow) => (
+                    <div
+                      key={vRow.index}
+                      data-index={vRow.index}
+                      ref={gridVirtualizer.measureElement}
+                      style={{
+                        position:            'absolute',
+                        top:                 0,
+                        left:                0,
+                        width:               '100%',
+                        transform:           `translateY(${vRow.start}px)`,
+                        display:             'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap:                 16,
+                        paddingBottom:       16,
+                      }}
+                    >
+                      {gridRows[vRow.index].map(persona => (
+                        <PersonaCard
+                          key={persona.id}
+                          variant={persona.status === 'draft' ? 'draft' : 'default'}
+                          name={persona.name}
+                          handle={persona.handle.replace(/^@/, '')}
+                          description={persona.description}
+                          avatarUrl={persona.imageUrl ?? undefined}
+                          paused={persona.isPaused}
+                          visibility="private"
+                          onEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                          onUseInChat={() => router.push(`/personas/${persona.id}/chat`)}
+                          onResume={() => handlePauseToggle(persona.id)}
+                          onMenuEdit={() => router.push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                          onMenuPauseToggle={() => handlePauseToggle(persona.id)}
+                          onMenuDelete={() => setDeleteTarget(persona)}
+                        />
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

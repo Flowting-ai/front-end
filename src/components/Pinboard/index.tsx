@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -970,6 +971,12 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     }
 
     const scrollRef    = useRef<HTMLDivElement>(null)
+    const pinVirtualizer = useVirtualizer({
+      count:            pins.length,
+      getScrollElement: () => scrollRef.current,
+      estimateSize:     () => 120,
+      overscan:         4,
+    })
     const bottomBarRef = useRef<HTMLDivElement>(null)
     const topOverlayRef = useRef<HTMLDivElement>(null)
     // Top overlay measured height (bar bottom edge). Scroll reserve adds 8 px
@@ -1533,15 +1540,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             outline:              'none',
           }}
         >
-          <div
-            style={{
-              display:       'flex',
-              flexDirection: 'column',
-              gap:           8,
-              alignItems:    'stretch',
-              width:         '100%',
-            }}
-          >
+          <div style={{ width: '100%' }}>
             {pins.length === 0 && hasActiveFilters ? (
               // Empty result - filters returned no pins. Per user spec:
               // "no pin match" copy in place of the list. The hasActiveFilters
@@ -1567,19 +1566,34 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                 No pin match
               </div>
             ) : (
-              pins.map((p, i) => {
-                const { id, ...pinRest } = p
-                return (
-                  <EnterChunk key={id} cfg={enterAnimation} index={i + 1} style={{ width: '100%' }}>
-                    <Pin
-                      fluid
-                      collapseSignal={collapseSignal}
-                      onExpandedChange={handlePinExpandedChange(id)}
-                      {...pinRest}
-                    />
-                  </EnterChunk>
-                )
-              })
+              <div style={{ position: 'relative', width: '100%', height: pinVirtualizer.getTotalSize() }}>
+                {pinVirtualizer.getVirtualItems().map((vRow) => {
+                  const p = pins[vRow.index]
+                  const { id, ...pinRest } = p
+                  return (
+                    <div
+                      key={id}
+                      data-index={vRow.index}
+                      ref={pinVirtualizer.measureElement}
+                      style={{
+                        position:  'absolute',
+                        top:       0,
+                        left:      0,
+                        width:     '100%',
+                        transform: `translateY(${vRow.start}px)`,
+                        paddingBottom: 8,
+                      }}
+                    >
+                      <Pin
+                        fluid
+                        collapseSignal={collapseSignal}
+                        onExpandedChange={handlePinExpandedChange(id)}
+                        {...pinRest}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         </div>

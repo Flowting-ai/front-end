@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { toast } from '@/components/Toast'
 import { createHighlight, removeHighlight, getHighlights, getAllHighlights } from '@/lib/api/highlights'
 import type { HighlightResponse } from '@/lib/api/highlights'
@@ -22,13 +22,16 @@ export interface HighlightEntry {
   chatId?:     string
 }
 
-interface HighlightContextValue {
-  highlights:      HighlightEntry[]
-  isOpen:          boolean
+interface HighlightDataValue {
+  highlights:  HighlightEntry[]
+  isOpen:      boolean
+  filterMode:  FilterMode
+}
+
+interface HighlightActionsValue {
   open:            () => void
   close:           () => void
   toggle:          () => void
-  filterMode:      FilterMode
   setFilterMode:   (mode: FilterMode) => void
   /** Load / reload highlights for the given chat from the backend. */
   loadForChat:     (chatId: string) => void
@@ -39,9 +42,13 @@ interface HighlightContextValue {
   copyHighlight:   (id: string) => void
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+/** Combined shape — kept for backward compatibility. */
+interface HighlightContextValue extends HighlightDataValue, HighlightActionsValue {}
 
-const HighlightContext = createContext<HighlightContextValue | null>(null)
+// ── Contexts ──────────────────────────────────────────────────────────────────
+
+const HighlightDataContext    = createContext<HighlightDataValue | null>(null)
+const HighlightActionsContext = createContext<HighlightActionsValue | null>(null)
 
 // ── Response → Entry mapper ────────────────────────────────────────────────────
 
@@ -66,16 +73,14 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const [filterMode,  setFilterMode]  = useState<FilterMode>('this-chat')
 
   // Refs kept in sync with state so callbacks can read current values without
-  // stale-closure issues. Updated during render (not in effects) so they are
-  // always current when any synchronous code or effect reads them.
-  const highlightsRef  = useRef<HighlightEntry[]>([])
-  const filterModeRef  = useRef<FilterMode>('this-chat')
+  // stale-closure issues. Updated during render so they are always current.
+  const highlightsRef = useRef<HighlightEntry[]>([])
+  const filterModeRef = useRef<FilterMode>('this-chat')
   highlightsRef.current = highlights
   filterModeRef.current = filterMode
 
-  // ── Load persisted highlights for a specific chat ───────────────────────
-  // No-op when filterMode === 'all' so that the global view is never overridden
-  // by a per-chat load triggered by the chat page on navigation.
+  // ── Actions (stable refs — never change identity) ─────────────────────────
+
   const loadForChat = useCallback((chatId: string) => {
     if (filterModeRef.current === 'all') return
     getHighlights(chatId)
@@ -89,14 +94,12 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {/* silently ignore */})
   }, [])
 
-  const open   = useCallback(() => setIsOpen(true),        [])
-  const close  = useCallback(() => setIsOpen(false),       [])
-  const toggle = useCallback(() => setIsOpen(v => !v),     [])
+  const open   = useCallback(() => setIsOpen(true),    [])
+  const close  = useCallback(() => setIsOpen(false),   [])
+  const toggle = useCallback(() => setIsOpen(v => !v), [])
 
-  /**
-   * Optimistically inserts the highlight, calls the backend, then swaps the
-   * temporary client ID for the server UUID. Rolls back on failure.
-   */
+  const handleSetFilterMode = useCallback((mode: FilterMode) => setFilterMode(mode), [])
+
   const addHighlight = useCallback(async (
     entry: Omit<HighlightEntry, 'id' | 'colorIndex' | 'renderKey'>,
   ): Promise<string> => {
@@ -113,7 +116,6 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
         end_offset:    entry.endOffset,
         color_index:   colorIndex,
       })
-      // Replace temp ID and apply all server-assigned fields via the shared mapper.
       setHighlights(prev =>
         prev.map(h => h.id === tempId ? { ...responseToEntry(result), chatId: entry.chatId, renderKey: h.renderKey } : h),
       )
@@ -128,12 +130,6 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  /**
-   * Optimistically removes the highlight, calls the backend. Rolls back and
-   * shows a toast if the request fails.
-   * Temp IDs (creation still in-flight) are removed locally only - the server
-   * has never seen them.
-   */
   const deleteHighlight = useCallback(async (id: string): Promise<void> => {
     if (id.startsWith('hl-')) {
       setHighlights(prev => prev.filter(h => h.id !== id))
@@ -165,19 +161,35 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const actions: HighlightActionsValue = {
+    open, close, toggle,
+    setFilterMode: handleSetFilterMode,
+    loadForChat, loadAll,
+    addHighlight, deleteHighlight, copyHighlight,
+  }
+
   return (
-    <HighlightContext.Provider
-      value={{ highlights, isOpen, open, close, toggle, filterMode, setFilterMode, loadForChat, loadAll, addHighlight, deleteHighlight, copyHighlight }}
-    >
-      {children}
-    </HighlightContext.Provider>
+    <HighlightActionsContext.Provider value={actions}>
+      <HighlightDataContext.Provider value={{ highlights, isOpen, filterMode }}>
+        {children}
+      </HighlightDataContext.Provider>
+    </HighlightActionsContext.Provider>
   )
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// ── Hooks ─────────────────────────────────────────────────────────────────────
 
+/** Backward-compatible hook — subscribes to both data and actions. */
 export function useHighlight(): HighlightContextValue {
-  const ctx = useContext(HighlightContext)
-  if (!ctx) throw new Error('useHighlight must be used within HighlightProvider')
-  return ctx
+  const data    = useContext(HighlightDataContext)
+  const actions = useContext(HighlightActionsContext)
+  if (!data || !actions) throw new Error('useHighlight must be used within HighlightProvider')
+  return { ...data, ...actions }
+}
+
+/** Actions-only hook — does NOT re-render when highlights/isOpen/filterMode change. */
+export function useHighlightActions(): HighlightActionsValue {
+  const actions = useContext(HighlightActionsContext)
+  if (!actions) throw new Error('useHighlightActions must be used within HighlightProvider')
+  return actions
 }
