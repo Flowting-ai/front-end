@@ -1,3 +1,5 @@
+import "katex/dist/katex.min.css";
+import "highlight.js/styles/atom-one-light.css";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";

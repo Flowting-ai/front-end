@@ -213,13 +213,13 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
     const scrollRef = useRef<HTMLDivElement>(null)
     const [atTop, setAtTop]       = useState(true)
     const [atBottom, setAtBottom] = useState(false)
-    const [moveToFolderOpen,  setMoveToFolderOpen]  = useState(false)
     const [openFolderMenuId,  setOpenFolderMenuId]  = useState<string | null>(null)
     const [hoveredFolderId,   setHoveredFolderId]   = useState<string | null>(null)
     const [expandedSearch,    setExpandedSearch]    = useState('')
-    const [searchOpen,        setSearchOpen]        = useState(false)
-    const [filterMenuOpen,    setFilterMenuOpen]    = useState(false)
-    const [sortMenuOpen,      setSortMenuOpen]      = useState(false)
+    // Single state for the four mutually-exclusive header dropdowns/panels.
+    // Previously 4 separate booleans; each toggle caused its own re-render.
+    type OpenPanel = 'search' | 'filter' | 'sort' | 'moveToFolder' | null
+    const [openPanel, setOpenPanel] = useState<OpenPanel>(null)
 
     const folderListRef = useRef<HTMLDivElement>(null)
     const [showFolderBlur, setShowFolderBlur] = useState(false)
@@ -728,21 +728,21 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   {/* Search slot - snaps from 32px (icon button) to
                       full-flex (InputField) on toggle, matching the
                       compact PinboardHeader pattern from KDS. */}
-                  <Tooltip content="Search" disabled={searchOpen}>
+                  <Tooltip content="Search" disabled={openPanel === 'search'}>
                     <motion.div
                       layout
                       transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                       style={{
                         display:    'flex',
                         alignItems: 'center',
-                        flexShrink: searchOpen ? 1 : 0,
-                        flex:       searchOpen ? '1 0 0' : undefined,
+                        flexShrink: openPanel === 'search' ? 1 : 0,
+                        flex:       openPanel === 'search' ? '1 0 0' : undefined,
                         minWidth:   0,
-                        width:      searchOpen ? undefined : 32,
+                        width:      openPanel === 'search' ? undefined : 32,
                       }}
                     >
                       <AnimatePresence initial={false} mode="popLayout">
-                        {!searchOpen ? (
+                        {openPanel !== 'search' ? (
                           <motion.span
                             key="search-btn"
                             layout
@@ -756,7 +756,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                               size="sm"
                               icon={<SearchOneIcon size={20} />}
                               aria-label="Open search"
-                              onClick={() => setSearchOpen(true)}
+                              onClick={() => setOpenPanel('search')}
                             />
                           </motion.span>
                         ) : (
@@ -781,13 +781,13 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                   aria-label="Close search"
                                   className="kds-icon-in-field"
                                   onClick={() => {
-                                    setSearchOpen(false)
+                                    setOpenPanel(null)
                                     setExpandedSearch('')
                                     onSearch?.('')
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
-                                      setSearchOpen(false)
+                                      setOpenPanel(null)
                                       setExpandedSearch('')
                                       onSearch?.('')
                                     }
@@ -842,8 +842,8 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       </Tooltip>
                     ) : filterMenu != null ? (
                       <Dropdown.Float
-                        open={filterMenuOpen}
-                        onOpenChange={setFilterMenuOpen}
+                        open={openPanel === 'filter'}
+                        onOpenChange={(open) => setOpenPanel(open ? 'filter' : null)}
                         placement="bottom-end"
                         trigger={
                           <Tooltip content="Filter">
@@ -865,8 +865,8 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                   {sortMenu != null && (
                     <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
                       <Dropdown.Float
-                        open={sortMenuOpen}
-                        onOpenChange={setSortMenuOpen}
+                        open={openPanel === 'sort'}
+                        onOpenChange={(open) => setOpenPanel(open ? 'sort' : null)}
                         placement="bottom-end"
                         trigger={
                           <Tooltip content="Sort">
@@ -919,8 +919,8 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Dropdown.Float
-                          open={moveToFolderOpen}
-                          onOpenChange={setMoveToFolderOpen}
+                          open={openPanel === 'moveToFolder'}
+                          onOpenChange={(open) => setOpenPanel(open ? 'moveToFolder' : null)}
                           placement="bottom-start"
                           trigger={
                             <Button
@@ -948,7 +948,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                     icon={<FolderOneIcon variant="static" animated />}
                                     onClick={() => {
                                       onMoveToFolder?.([...selectedPinIds], f.id, f.label)
-                                      setMoveToFolderOpen(false)
+                                      setOpenPanel(null)
                                       setSelectedPinIds(new Set())
                                     }}
                                     fluid
@@ -965,7 +965,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                     icon={<FolderOneIcon variant="static" animated />}
                                     onClick={() => {
                                       onMoveToFolder?.([...selectedPinIds], f.id, f.label)
-                                      setMoveToFolderOpen(false)
+                                      setOpenPanel(null)
                                       setSelectedPinIds(new Set())
                                     }}
                                     fluid

@@ -279,20 +279,30 @@ export default function PersonasPage() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  // Filter + sort
+  // Filter + sort — split into three chained memos so a sort change doesn't
+  // re-run filtering, and a tag/status change doesn't re-run the sort.
+  const statusFiltered = useMemo(() => {
+    if (filterStatus === 'active') return personas.filter(p => p.isActive && !p.isPaused)
+    if (filterStatus === 'paused') return personas.filter(p => p.isPaused)
+    return personas
+  }, [personas, filterStatus])
+
+  const tagFiltered = useMemo(() => {
+    if (filterTags.length === 0) return statusFiltered
+    return statusFiltered.filter(p => filterTags.some(t => p.tags.includes(t)))
+  }, [statusFiltered, filterTags])
+
   const filtered = useMemo(() => {
-    let list = [...personas]
-    if (filterStatus === 'active') list = list.filter(p => p.isActive && !p.isPaused)
-    if (filterStatus === 'paused') list = list.filter(p => p.isPaused)
-    if (filterTags.length > 0) list = list.filter(p => filterTags.some(t => p.tags.includes(t)))
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
-    }
-    if (sort === 'az') list.sort((a, b) => a.name.localeCompare(b.name))
-    else if (sort === 'za') list.sort((a, b) => b.name.localeCompare(a.name))
-    return list
-  }, [personas, search, sort, filterStatus, filterTags])
+    const searched = search.trim()
+      ? tagFiltered.filter(p => {
+          const q = search.toLowerCase()
+          return p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+        })
+      : tagFiltered
+    if (sort === 'az') return [...searched].sort((a, b) => a.name.localeCompare(b.name))
+    if (sort === 'za') return [...searched].sort((a, b) => b.name.localeCompare(a.name))
+    return searched
+  }, [tagFiltered, search, sort])
 
   const sortLabels: Record<SortKey, string> = {
     activity: 'Activity',

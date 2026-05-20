@@ -1,365 +1,517 @@
-# Performance Audit - SouvenirAI Front-End
+# Performance Optimization Reference — SouvenirAI Front-End
 
-> Audited: May 2026 | Stack: Next.js 16, React 19, Tailwind 4, Vercel
-
----
-
-## THE MAIN REASON IT IS SLOW
-
-> **Framer Motion is imported in 40+ components, the entire app is client-side only, and every chat message re-renders on every streaming token with no memoization.**
-
-Those three things compound each other. The JS bundle is huge, it all executes on the client, and then it thrashes the React reconciler dozens of times per second during streaming.
+> Last updated: May 2026 | Stack: Next.js 16, React 19, Tailwind 4, Framer Motion 12, Vercel
 
 ---
 
-## Issues - Ranked by Impact
+## Root Causes (Why It Is Slow)
 
-### 🔴 CRITICAL
+Three compounding problems drive most of the slowness:
 
----
+1. **Framer Motion is imported in 40+ components** — the entire ~130–180 KB library ends up in the shared vendor bundle on every page.
+2. **The entire app is `"use client"`** — no server components, no pre-rendered HTML, no server-side data fetching. The browser must download, parse, execute, and hydrate everything before the user sees anything.
+3. **Every chat message re-renders on every streaming token** — no `React.memo`, no memoization, and `react-markdown` re-parses the entire AST ~20 times per second during generation.
 
-#### 1. Framer Motion imported in 40+ files
-
-**What:** `framer-motion` v12 is used in virtually every component - Button, Checkbox, Chip, Tooltip, Tabs, Sidebar, ChatInput, ChatMessage, ReasoningBlock, ResponseBlocks, XmlChart, XmlTable, ActivityRow, FloatingMenu, HighlightPanel, and more.
-
-**Why it hurts:** framer-motion is ~130–180 KB gzipped. Because it is imported across the entire component tree, Next.js cannot split it into per-route chunks - it ends up in the shared vendor bundle that ships on every page load. Every `<motion.div>` also registers a JS animation loop, consuming main-thread budget even for trivial transitions.
-
-**Files:**
-```
-src/components/Button/index.tsx
-src/components/Checkbox/index.tsx
-src/components/Chip/index.tsx
-src/components/Tooltip/index.tsx
-src/components/chat/ChatMessage.tsx
-src/components/chat/ResponseBlocks.tsx
-src/components/chat/ReasoningBlock.tsx
-src/components/chat/XmlChart.tsx
-src/components/chat/XmlTable.tsx
-src/components/layout/RightSidebar.tsx
-src/components/layout/LeftSidebar.tsx
-... (40+ more)
-```
-
-**Fix:** Replace simple open/close transitions with CSS transitions or the View Transitions API. Reserve framer-motion only for genuinely complex spring physics (e.g. the pinboard drag). Saves 130–180 KB gzipped.
+These three multiply each other. Large bundle → slow parse → client waterfall → thrashing reconciler.
 
 ---
 
-#### 2. No React.memo / virtualization on chat messages
+## Risk Classification
 
-**What:** During streaming the `useStreamingChat` hook calls `setMessages` every 50 ms. The `messages` array is stored in component state and passed down without memoization. Every flush causes all `<ChatMessage>` components in the list to re-render, even past messages that have not changed.
+Before the findings, understand the risk of each type of change:
 
-**Why it hurts:** A chat with 20 messages = 20 full React subtree re-renders every 50 ms = ~400 reconciliations per second. Each `<ChatMessage>` runs `react-markdown`, the custom rehype highlight-marks plugin, and framer-motion spring physics on every tick.
-
-**Files:**
-```
-src/hooks/use-streaming-chat.ts  - FLUSH_INTERVAL_MS = 50
-src/components/chat/ChatInterface.tsx  - no React.memo, no stable keys
-src/components/chat/ChatMessage.tsx    - no React.memo
-src/lib/markdown-utils.tsx            - new Components object every render
-```
-
-**Fix:**
-- Wrap `<ChatMessage>` in `React.memo` with a custom comparator that ignores stable past messages.
-- Extract `remarkPlugins` and `rehypePlugins` arrays to module-level constants (they already are in markdown-utils, but the `components` object is recreated per render).
-- Virtualize the message list with `react-window` or `@tanstack/react-virtual` once chats grow long.
+| Change Type | UI/Logic Risk | Notes |
+|---|---|---|
+| `useCallback` / `useMemo` (correct deps) | None | React ignores hint if deps are wrong — no regression |
+| `React.memo` on leaf components | Low | Safe only if all data comes through props — audit each before wrapping |
+| RAF convergence guards | None | Visual only, imperceptible |
+| `dynamic()` lazy loading | Low | Needs a proper `loading` fallback or you get blank flashes |
+| `next/image` replacing `<img>` | Low–Medium | Requires explicit dimensions per image — do image by image |
+| Framer Motion → CSS transitions | Visual only | Animations look different (snappier, less springy) — needs design sign-off |
+| Streaming update batching | Low | May add 1–16 ms latency to visible streaming — test against current feel |
+| Context splitting | Medium | Every consumer must be updated — silent stale-data bugs if any are missed |
+| `useReducer` consolidation | Medium | Reducer must exactly replicate previous `useState` semantics |
+| **Virtualization** | **High** | Removes off-screen DOM nodes — breaks CSS sibling selectors, Framer Motion AnimatePresence on list items, drag-and-drop, focus/tab order, scroll-to-item. Needs a dedicated test pass per feature. |
 
 ---
 
-#### 3. All pages are `"use client"` - zero server components
-
-**What:** Every page, layout, and component has `"use client"` at the top. Next.js App Router is designed around React Server Components (RSC) that render on the server and ship zero JS to the client. This app ships the entire UI as JS.
-
-**Why it hurts:** On first load, the browser must download, parse, execute, and hydrate the entire application JS before the user sees anything interactive. On Vercel this means a full round-trip JS payload before first paint. There is no pre-rendered HTML beyond an empty shell.
-
-**Files:**
-```
-src/app/layout.tsx        - could have server portions
-src/app/(app)/layout.tsx  - entirely client, wraps 6 providers
-src/components/layout/AppLayout.tsx - "use client"
-```
-
-**Fix:** Identify leaf components that only display data and have no interactivity - convert them to server components. Move data fetching (chat list, pins, highlights) to server components / Route Handlers and pass data as props. Only components that need `useState`/`useEffect`/event handlers stay as `"use client"`.
+## Issues by Feature Area
 
 ---
 
-### 🟠 HIGH
+### 1. Chat Interface
+
+**File:** `src/components/chat/ChatInterface.tsx`
+
+#### No message list virtualization
+During a long conversation (50+ messages), the entire message list is in the DOM at all times. Even past messages that are not visible are mounted and can re-render.
+- **Fix:** `@tanstack/react-virtual` or `react-window` `FixedSizeList`
+- **Risk:** High — confirm no CSS `:nth-child` selectors depend on full DOM; AnimatePresence on message entrance will need reworking; scroll-to-bottom logic must be updated
+
+#### No `React.memo` on `<ChatMessage>`
+During streaming, `setMessages` fires every 50 ms. Without memoization all messages in the list re-render on every flush even if their content did not change.
+- **Fix:** `export default React.memo(ChatMessage, (prev, next) => prev.message.id === next.message.id && prev.message.content === next.message.content)`
+- **Risk:** Low — verify message receives all data through props, not closure
+
+#### Inline `onUploadProgress` object recreated in `handleSend` (~line 405)
+Every call to `handleSend` creates a new object `{ onUploadProgress: () => {...} }`, which invalidates downstream memoization.
+- **Fix:** `useCallback` wrapping `handleSend` with correct deps
+- **Risk:** None
+
+#### Pin dropdown listener re-registered on every `showPinDropdown` change (~line 268)
+`addEventListener` + `removeEventListener` is called each time the boolean flips.
+- **Fix:** `useCallback` to stabilize the handler reference; the effect re-runs but at least the function identity is stable
+- **Risk:** None
+
+#### Multiple `setAttachments` calls not batched when absorbing `addMenuFiles` (~line 316)
+Rapid successive state updates before React 19's automatic batching takes effect can cause intermediate renders.
+- **Fix:** Merge into a single `setAttachments(prev => [...prev, ...newFiles])` call
+- **Risk:** None
 
 ---
 
-#### 4. Two icon libraries + a private GitHub package
+### 2. New Chat (ChatInput)
 
-**What:**
-- `@hugeicons/react` + `@hugeicons/core-free-icons` - HugeIcons v4 ships thousands of icon definitions; each icon is a component imported from the monorepo.
-- `@strange-huge/icons` (`github:strange-rock/strange-huge-icons`) - a private package pulled from GitHub at install time, no CDN caching, unknown bundle size.
+**File:** `src/components/chat/ChatInput.tsx`
 
-**Why it hurts:** Even with tree-shaking, icon libraries that export barrel files can defeat bundlers. The private GitHub package is not on npm so Vercel re-downloads it on every build. It is also completely opaque to bundle analysis.
+#### `ChatInput` (forwardRef) not wrapped in `React.memo`
+Any parent re-render causes a full ChatInput reconciliation pass even when props have not changed.
+- **Fix:** `export default React.memo(React.forwardRef(ChatInputInner))`
+- **Risk:** Low
 
-**Files:**
-```
-src/components/chat/ResponseBlocks.tsx  - @hugeicons/react + @hugeicons/core-free-icons
-src/components/chat/ActivityRow.tsx     - both icon packages
-src/app/(app)/chat/page.tsx             - @strange-huge/icons (many named imports)
-src/components/layout/TopBar.tsx        - @strange-huge/icons
-```
+#### `handleMentionChange`, `handlePinNavigate` recreated on every render (~line 200)
+These callbacks are passed as props to child components. Without `useCallback`, child components that are memoized see new prop references on every render and re-render anyway.
+- **Fix:** `useCallback` on both handlers
+- **Risk:** None
 
-**Fix:**
-- Publish `@strange-huge/icons` to a private npm registry so Vercel can cache it.
-- Audit tree-shaking: ensure no `import * as Icons` pattern exists.
-- Consider consolidating to a single icon library.
-- For icons used in streaming paths (ActivityRow, ResponseBlocks), inline SVGs directly or use `dynamic()` lazy import.
-
----
-
-#### 5. KaTeX and Highlight.js CSS loaded globally on every page
-
-**What:** In `src/app/layout.tsx`:
-```tsx
-import "katex/dist/katex.min.css";          // ~75 KB
-import "highlight.js/styles/atom-one-light.css";  // ~8 KB
-```
-
-Both are imported in the root layout, so every page - including the landing/auth page - pays the CSS cost even when no math or code blocks exist.
-
-**Why it hurts:** ~83 KB of CSS that blocks rendering on every route.
-
-**Fix:** Move these imports to the chat layout (`src/app/(app)/layout.tsx`) or lazy-load them dynamically inside the components that need them (`CodeBlock`, `LaTeXRenderer`). For KaTeX specifically, use a `<link rel="stylesheet">` with `media="print"` trick or CSS-in-JS scoping.
+#### `AudioWaveDisplay` RAF loop has no convergence guard (~line 83)
+The decay loop animates bars toward zero but uses a multiplicative decay (`bar * 0.85`) which mathematically never reaches exactly `0`. The RAF loop runs indefinitely even when the waveform is visually flat.
+- **Fix:**
+  ```ts
+  if (bars.every(b => Math.abs(b) < 0.001) && !isActive) {
+    cancelAnimationFrame(rafId)
+    return
+  }
+  ```
+- **Risk:** None — change is imperceptible at sub-0.1% bar height
 
 ---
 
-#### 6. Highlight.js registers 38 languages eagerly
+### 3. Chat Board (Chats List)
 
-**What:** `src/lib/highlight.ts` eagerly imports and registers 38 language grammars (Python, Java, C++, Rust, Kotlin, Scala, Haskell, Elixir, Perl, Lua, etc.).
+**File:** `src/app/(app)/chats/page.tsx`
 
-**Why it hurts:** Even though `CodeBlock` dynamically imports this file, the single dynamic chunk contains all 38 grammars. A user writing a Python chat never needs Haskell or Elixir. This makes the lazy chunk much larger than it needs to be.
+#### No virtualization on chat list (~line 240)
+A user with 100+ chats renders all `ChatRow` components unconditionally.
+- **Fix:** `react-window` `FixedSizeList`
+- **Risk:** High — same concerns as message list (see above)
 
-**Files:**
-```
-src/lib/highlight.ts  - 38 registerLanguage calls
-src/components/chat/CodeBlock.tsx  - dynamic import of above
-```
+#### `ChatRow` not wrapped in `React.memo`
+Any state change in the parent (e.g. selection mode toggle) re-renders every row.
+- **Fix:** `React.memo(ChatRow)`
+- **Risk:** Low
 
-**Fix:** Use a language-detection registry that only loads grammars on demand:
+#### `pinCountMap` built as a plain object (~line 42)
+`useMemo` is correctly used, but lookups inside `ChatRow` are `O(1)` with object keys anyway — low impact. The bigger issue is that `pinCountMap` recalculates when `pins` array reference changes even if pin counts did not.
+- **Fix:** No change needed if `pins` is already stable. If not, consider a `Map` and stable reference.
+- **Risk:** None
+
+---
+
+### 4. Projects
+
+**File:** `src/app/(app)/projects/page.tsx`
+
+#### Single `useMemo` for filter + sort (~line 45)
+Filter and sort are combined in one `useMemo`. A change to the sort order recalculates the filter and vice versa. With large project lists this is wasteful.
+- **Fix:** Split into two memos: `filteredProjects = useMemo(filter, [projects, filterTerm])` then `sortedProjects = useMemo(sort, [filteredProjects, sortOrder])`
+- **Risk:** None
+
+#### `ProjectCard` not wrapped in `React.memo`
+Grid re-renders every card on any parent state change (e.g. sort order dropdown toggle).
+- **Fix:** `React.memo(ProjectCard)`
+- **Risk:** Low — confirm card reads all data from props
+
+---
+
+### 5. Personas
+
+**File:** `src/app/(app)/personas/page.tsx`
+
+#### No virtualization on persona grid (~line 589)
+Renders all personas as a grid regardless of scroll position.
+- **Fix:** `@tanstack/react-virtual` with grid support
+- **Risk:** High — CSS grid layout and multi-column virtualization is non-trivial; must verify no sibling-selector CSS
+
+#### Complex filter + sort in single `useMemo` (~line 283)
+Multiple filter conditions (status, tags, search text, sort) recalculate together. Adding a tag filter re-runs the sort on every keystroke.
+- **Fix:** Chain: `tagFiltered → statusFiltered → searchFiltered → sorted`, each as its own `useMemo`
+- **Risk:** None
+
+#### Skeleton items lack stable keys (~line 514)
+Using index as key on skeleton grid. Not a crash but causes unnecessary DOM reconciliation when count changes.
+- **Fix:** `Array.from({ length: 12 }, (_, i) => <SkeletonCard key={`sk-${i}`} />)`
+- **Risk:** None
+
+---
+
+### 6. Pinboard
+
+**File:** `src/components/Pinboard/index.tsx`
+
+#### No virtualization — critical (~line 73)
+The pinboard grid can contain 50–200+ pins. Every pin is mounted in the DOM at all times.
+- **Fix:** `react-window` `FixedSizeGrid`
+- **Risk:** High — pinboard has drag-and-drop and CSS grid layout. Virtualization removes off-screen DOM nodes, which breaks most DnD libraries. This needs a dedicated implementation using a virtualization-aware DnD solution (e.g. dnd-kit with virtual support).
+
+#### `onKeyDown` handler with `stopPropagation` recreated per render in `TagSearchInput` (~line 175)
+- **Fix:** `useCallback`
+- **Risk:** None
+
+#### Dropdown tag list items keyed by index when filter changes (~line 197)
+When the user types in the tag search, filtered list items get wrong keys, causing React to reuse DOM nodes incorrectly.
+- **Fix:** Key by tag `id` or tag text, not by array index
+- **Risk:** None — pure correctness fix, no visual change
+
+---
+
+### 7. Extended Pinboard
+
+**File:** `src/components/PinboardExpanded/index.tsx`
+
+#### Six separate `useState` for dropdown open states (~line 213)
+Each dropdown toggle causes 2 state updates (close previous, open next) × 6 = up to 12 `useState` calls for what is conceptually one piece of state (`activeDropdown: string | null`).
+- **Fix:**
+  ```ts
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  // Usage: setOpenDropdown('export') / setOpenDropdown(null)
+  ```
+- **Risk:** Medium — must map every existing `isXxxOpen` reference to the new pattern. Verify close-on-same-toggle behavior is preserved.
+
+#### `ResizeObserver` re-created on every `personalFolders` change (~line 226)
+The observer is set up in an effect that depends on `personalFolders`. Any folder rename/add/remove tears down and re-creates the observer unnecessarily.
+- **Fix:** Separate the DOM observation (depends only on the ref) from the data (depends on `personalFolders`). Use `useLayoutEffect` for the observer and a separate `useEffect` for folder data.
+- **Risk:** Low
+
+---
+
+### 8. Compare Models
+
+**File:** `src/components/compare/CompareModels.tsx`
+
+#### `transformModelForCompare` not memoized (~line 228)
+This function allocates arrays and transforms model data on every render, even when the model data has not changed.
+- **Fix:** `useMemo(() => transformModelForCompare(model), [model])`
+- **Risk:** None
+
+#### Inline style object + `CHIP_COLORS` lookup per render in `Chip` (~line 148)
+Each `<Chip>` creates a new style object `{ backgroundColor: CHIP_COLORS[type] }` on every render.
+- **Fix:** `const style = useMemo(() => ({ backgroundColor: CHIP_COLORS[type] }), [type])`
+- **Risk:** None
+
+#### Duplicate `AudioWaveDisplay` component (same as ChatInput)
+Same RAF convergence issue as ChatInput (see Section 2). This component is copy-pasted.
+- **Fix:** Extract to `src/components/shared/AudioWaveDisplay.tsx`, fix the convergence guard once, import in both places.
+- **Risk:** None — refactor only, no behavior change
+
+---
+
+### 9. Highlights
+
+**File:** `src/context/highlight-context.tsx`
+
+#### Single global context causes cascading re-renders
+Any highlight add/remove/update triggers a re-render of every component subscribed to the context — including components that only display highlights and never mutate them.
+- **Fix:** Split into two contexts:
+  ```ts
+  const HighlightsDataContext = createContext<Highlight[]>([])     // read
+  const HighlightsActionsContext = createContext<Actions>(null)     // write (stable ref)
+  ```
+  Components that only display highlights subscribe to `HighlightsDataContext`. The actions object is stable and never causes re-renders.
+- **Risk:** Medium — every current consumer (`useHighlights()`) must be audited and updated to use the correct sub-context. Silent stale-data bugs if any are missed.
+
+---
+
+### 10. Settings
+
+**File:** `src/app/(app)/settings/page.tsx`
+
+The settings shell itself is a redirect — no issues. Sub-pages (Connectors, Model Config, etc.) are the concern.
+
+#### Sub-pages not lazy-loaded
+All settings sub-pages are statically imported into the layout even when the user is on a different route.
+- **Fix:** `dynamic(() => import('@/app/(app)/settings/connectors/page'), { ssr: false })` for each sub-page
+- **Risk:** Low — needs a loading skeleton per sub-page
+
+---
+
+## Global Issues (All Areas)
+
+---
+
+### Framer Motion in 40+ components
+
+**Files:** `Button/index.tsx`, `Checkbox/index.tsx`, `Chip/index.tsx`, `Tooltip/index.tsx`, `ChatMessage.tsx`, `ResponseBlocks.tsx`, `ReasoningBlock.tsx`, `XmlChart.tsx`, `XmlTable.tsx`, `LeftSidebar.tsx`, `RightSidebar.tsx` and ~30 more.
+
+Framer Motion v12 is ~130–180 KB gzipped. Because it is imported across the component tree Next.js cannot chunk-split it — it lands in the shared vendor bundle on every page, including the auth/landing page.
+
+Every `<motion.div>` also registers a JS animation loop on the main thread.
+
+- **Fix:** Replace `motion.div` with CSS transitions in all primitive components (Button, Chip, Checkbox, Tooltip, Tabs). Keep Framer Motion only where spring physics genuinely add value: Pinboard drag-and-drop, streaming indicators, complex entrance animations.
+- **Risk:** Visual — animations become CSS-timed instead of spring-physics. Faster and snappier but less "physical." Needs design review.
+
+---
+
+### All pages are `"use client"` — no server components
+
+Every page, layout, and component has `"use client"`. Next.js App Router is built around React Server Components that render on the server and ship zero JS to the client. This app ships the entire UI as JavaScript.
+
+On first load: download → parse → execute → hydrate → API waterfalls → interactive. No pre-rendered HTML.
+
+- **Files:** `src/app/layout.tsx`, `src/app/(app)/layout.tsx`, `src/components/layout/AppLayout.tsx`
+- **Fix:** Identify leaf display components (persona cards, project cards, model cards) that have no interactivity and convert them to server components. Move list fetching to server layouts. Only components with `useState`/`useEffect`/event handlers stay as `"use client"`.
+- **Risk:** Architectural — large scope, must be done incrementally per route
+
+---
+
+### 20+ unoptimized `<img>` tags
+
+Using plain `<img>` instead of `next/image` means: no WebP conversion, no automatic lazy loading, no size hints for LCP, no blur placeholder.
+
+**Key files:**
+- `src/components/chat/ActivityRow.tsx` line 103
+- `src/components/chat/CitationsPanel.tsx` lines 209, 217
+- `src/components/chat/ChatMessage.tsx` line 595
+- `src/components/chat/ResponseBlocks.tsx` — favicon images in `CitationChip`
+- Multiple persona/project card avatar images
+
+- **Fix:** Replace with `import Image from 'next/image'` — set `width`/`height` for fixed-size images, or `fill` + positioned parent for fluid images. Whitelist external domains in `next.config.ts`.
+- **Risk:** Low–Medium — each image needs manual dimension verification. Do image by image, not in bulk.
+
+---
+
+### react-markdown re-parses entire AST on every streaming token
+
+During streaming, `ContentRenderer` → `MarkdownRenderer` → `<ReactMarkdown>` receives the growing content string every 50 ms. `react-markdown` re-parses the entire markdown AST from scratch on each call.
+
+For a 2-second response at 50 ms intervals: 40 full markdown parses.
+
+- **Files:** `src/lib/content-renderer.tsx`, `src/lib/markdown-utils.tsx`, `src/components/chat/ChatMessage.tsx`
+- **Fix (short-term):** Memoize `<ReactMarkdown>` output for completed messages: `useMemo(() => <ReactMarkdown>{content}</ReactMarkdown>, [content])`. Move `components`, `remarkPlugins`, `rehypePlugins` to module-level constants (they recreate a new object reference per render today, defeating memoization).
+- **Fix (proper):** Render raw text during streaming with no markdown parsing. Apply markdown only on the final flush when `isStreaming === false`.
+- **Risk:** Medium — the "raw text during streaming" approach changes how code blocks and formatting appear mid-stream. Test that the final-flush transition is not jarring.
+
+---
+
+### N+1 API calls from PinboardContext on mount
+
+**File:** `src/context/pinboard-context.tsx`
+
 ```ts
-const loaders: Record<string, () => Promise<unknown>> = {
-  python: () => import('highlight.js/lib/languages/python'),
-  typescript: () => import('highlight.js/lib/languages/typescript'),
-  // ...
-}
-async function loadLanguage(lang: string) {
-  const loader = loaders[lang]
-  if (loader) hljs.registerLanguage(lang, (await loader()).default)
-}
-```
-
----
-
-#### 7. N+1 API calls from PinboardContext on mount
-
-**What:** In `src/context/pinboard-context.tsx`:
-```tsx
-// Load all pins
-const apiPins = await listPins()
-
-// Then for each pin that has no tags, fetch it individually
+const apiPins = await listPins()                                // 1 call
 const enrichments = await Promise.all(
-  pinsWithoutTags.map(pin => getPin(pin.id))
+  pinsWithoutTags.map(pin => getPin(pin.id))                   // up to N calls
 )
 ```
 
-If a user has 50 pins without tags, this is 1 + 50 = 51 API calls on every app mount.
+A user with 50 pins without tags triggers 51 API calls on every app mount. These go through the `/api/backend/` Vercel proxy, saturating the connection pool.
 
-**Why it hurts:** Each call incurs a full round-trip to the backend via the Vercel `/api/backend/` proxy. 51 simultaneous requests saturate the backend connection pool and delay the app becoming interactive.
-
-**Files:**
-```
-src/context/pinboard-context.tsx  - useEffect with Promise.all(pinsWithoutTags.map(getPin))
-```
-
-**Fix:** Fix the list endpoint to include tags in the list response (backend fix). If that's not possible, batch the tag-enrichment calls or defer them completely (load tags lazily when pinboard is opened, not on app mount).
+- **Fix (backend preferred):** Have `listPins` return tags inline.
+- **Fix (frontend fallback):** Defer tag enrichment — load it lazily when the pinboard panel is opened, not on app mount. Show pins without tags immediately.
+- **Risk:** Low — deferred loading means tags briefly appear empty until the panel opens. Add a loading indicator on the tag field.
 
 ---
 
-#### 8. react-markdown re-parses on every streaming token
+### KaTeX and Highlight.js CSS loaded globally
 
-**What:** During streaming, `ContentRenderer` → `MarkdownRenderer` → `<ReactMarkdown>` is called with the growing `content` string on every 50 ms flush. ReactMarkdown re-parses the entire markdown AST from scratch on each render.
+**File:** `src/app/layout.tsx`
 
-**Why it hurts:** For a long assistant response, each re-parse walks O(n) characters with remark/rehype plugins. At 50 ms intervals this runs ~20 times/second, meaning a 2-second response triggers ~40 full markdown parses.
-
-**Files:**
-```
-src/lib/content-renderer.tsx  - segments re-parsed each render
-src/lib/markdown-utils.tsx    - MarkdownRenderer re-creates components object
-src/components/chat/ChatMessage.tsx  - no memoization of completed content
+```ts
+import "katex/dist/katex.min.css"                // ~75 KB
+import "highlight.js/styles/atom-one-light.css"  // ~8 KB
 ```
 
-**Fix:**
-- During streaming: render the raw text without markdown parsing. Apply markdown formatting only on the final flush (`isStreaming === false`).
-- Or: use a streaming-aware markdown parser that accepts append-only diffs.
-- Memoize the `<ReactMarkdown>` output for completed messages with `useMemo(() => <ReactMarkdown>...`, [content])`.
+Both block rendering on every route, including auth/landing pages that never render math or code.
+
+- **Fix:** Move these imports to `src/app/(app)/layout.tsx`. They only need to load inside the authenticated app shell.
+- **Risk:** None
 
 ---
 
-### 🟡 MEDIUM
+### Highlight.js registers 38 languages eagerly
+
+**File:** `src/lib/highlight.ts`
+
+All 38 language grammars (Python, Java, C++, Rust, Kotlin, Scala, Haskell, Elixir, Perl, Lua, etc.) are bundled into a single dynamic chunk. A user writing a Python chat never needs Haskell.
+
+- **Fix:**
+  ```ts
+  const loaders: Record<string, () => Promise<unknown>> = {
+    python:     () => import('highlight.js/lib/languages/python'),
+    typescript: () => import('highlight.js/lib/languages/typescript'),
+    // ...
+  }
+  async function loadLanguage(lang: string) {
+    const loader = loaders[lang]
+    if (loader) hljs.registerLanguage(lang, (await loader()).default)
+  }
+  ```
+- **Risk:** Low — languages load on first use. First render of a code block in that language has a one-time async delay (imperceptible on fast connections).
 
 ---
 
-#### 9. useSquircle - ResizeObserver on every Button and IconButton
+### favicon fetching via Google S2 service on every citation chip
 
-**What:** `src/lib/useSquircle.ts` creates a `ResizeObserver` per `<Button>` and `<IconButton>` instance to compute a custom SVG clip path for the squircle shape. A page with 20 buttons = 20 active ResizeObservers.
+**File:** `src/components/chat/ResponseBlocks.tsx` — `CitationChip`
 
-**Why it hurts:** ResizeObserver callbacks are synchronous with the browser layout phase. Having 20+ of them per page adds to layout cost. The SVG path is re-computed every time any button is resized.
-
-**Fix:** Cache squircle paths by `{width, height, cornerRadius}` in a module-level `Map`. Most buttons are fixed size - the observer would fire once and never again. This turns a per-instance cost into a shared lookup.
-
----
-
-#### 10. useCorrosion - rAF physics loop on every interactive element
-
-**What:** `src/lib/useCorrosion.ts` runs a spring-physics animation loop via `requestAnimationFrame` for a "ripple spreading + healing" hover effect. The loop runs at 60fps during every hover interaction.
-
-**Why it hurts:** JS on the main thread at 60fps during user interaction competes with scroll, typing, and React state updates. On lower-end devices this causes jank.
-
-**Fix:** Reimplement with a CSS `radial-gradient` + CSS custom property driven by a single rAF call that only updates one CSS variable. Or use `will-change: clip-path` and let the browser compositor handle it.
-
----
-
-#### 11. @aws-sdk/client-secrets-manager in production dependencies
-
-**What:** `package.json` lists `@aws-sdk/client-secrets-manager` as a production dependency. It is only used in `scripts/load-secrets.mjs` to fetch env vars at build/start time.
-
-**Why it hurts:** AWS SDK v3 is very large (~2–5 MB installed). It is a Node.js-only package, but if bundler hints fail, it can accidentally slip into the client bundle. Even if properly tree-shaken, it inflates the install size and Vercel function size.
-
-**Fix:** Move it to `devDependencies` since it is only needed during the `npm run load-secrets` script (which runs before build/start, not at runtime). This keeps it out of the production Lambda bundle entirely.
-
----
-
-#### 12. No `dynamic()` imports for heavy modal/dialog components
-
-**What:** Components like `PresetModelSelectorDialog`, `SystemInstructionsModal`, `EditProjectModal`, `CompareModels`, `CitationsPanel` are all statically imported into their parent pages even though they only render occasionally (on user action).
-
-**Why it hurts:** Their code is included in the initial JS bundle even for a user who never opens these dialogs.
-
-**Files:**
-```
-src/app/(app)/chat/page.tsx  - imports PresetModelSelectorDialog, CompareModels
-src/app/(app)/layout.tsx     - imports PresetModelSelectorDialog
-src/components/layout/AppLayout.tsx  - imports multiple heavy panels
-```
-
-**Fix:**
-```tsx
-const PresetModelSelectorDialog = dynamic(
-  () => import('@/components/chat/PresetModelSelectorDialog'),
-  { ssr: false }
-)
-```
-Apply to: modals, sidepanels, compare view, citations panel.
-
----
-
-#### 13. favicon fetching via Google's favicon service in every citation chip
-
-**What:** `CitationChip` in `src/components/chat/ResponseBlocks.tsx` fetches:
 ```
 https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32
 ```
-for every inline citation in every message. A response with 10 citations = 10 third-party requests on render.
 
-**Why it hurts:** Each favicon request goes to Google's servers (external, not cached by Vercel CDN). They also have their own DNS lookup cost and can block rendering if Google's endpoint is slow.
+A response with 10 citations = 10 third-party requests per message render. Each has its own DNS lookup and round-trip to Google's servers.
 
-**Fix:** Cache favicon URLs in a module-level Map (domain → URL). Or use a self-hosted favicon proxy. Or fallback to a simple letter avatar.
-
----
-
-#### 14. Three Google Fonts loaded in root layout
-
-**What:**
-```tsx
-const besley  = Besley({ subsets: ["latin"], weight: "variable" })
-const geist   = Geist({ subsets: ["latin"], weight: "variable" })
-const geistMono = Geist_Mono({ subsets: ["latin"], weight: "variable" })
-```
-
-All three are loaded on every page. `Besley` is only used as a display/title font - it may not be needed on non-chat pages.
-
-**Fix:** This is actually OK because `next/font/google` optimizes these at build time and serves them as self-hosted. The `display: "swap"` is set correctly. Low priority.
+- **Fix:** Cache in a module-level `Map<string, string>` (domain → URL). First request fetches, subsequent renders use the cached URL.
+- **Risk:** None
 
 ---
 
-### 🟢 LOW / BEST PRACTICES
+### `useSquircle` — ResizeObserver on every Button instance
+
+**File:** `src/lib/useSquircle.ts`
+
+A `ResizeObserver` is created per `<Button>` and `<IconButton>` instance to compute an SVG squircle clip path. A page with 20 buttons = 20 active ResizeObservers, all firing synchronously during layout.
+
+- **Fix:** Cache computed paths by `{width, height, cornerRadius}` in a module-level `Map`. Most buttons are fixed size — the observer fires once and the path is reused everywhere.
+- **Risk:** None
 
 ---
 
-#### 15. ChatInput duplicated between chat/page.tsx and ChatInterface.tsx
+### `useCorrosion` — rAF physics loop on every hover
 
-`ChatInput` and the mention-chip/mention-dropdown logic is copy-pasted between `src/app/(app)/chat/page.tsx` and `src/components/chat/ChatInterface.tsx`. Double the code = double the bundle for that logic.
+**File:** `src/lib/useCorrosion.ts`
 
-#### 16. Missing `Cache-Control` headers for API responses
+A spring-physics ripple animation runs via `requestAnimationFrame` at 60 fps on every hover interaction across interactive elements. JS on the main thread at 60 fps competes with scroll, typing, and React state updates.
 
-The Next.js route handlers and backend proxy do not set caching headers. Every sidebar render fetches fresh chat list, models list, etc. even when nothing changed. Adding `stale-while-revalidate` would reduce perceived latency significantly.
-
-#### 17. No Suspense boundaries inside chat routes
-
-The chat page uses one top-level `<Suspense fallback={null}>` (in AppLayout for LeftSidebar). There are no Suspense boundaries around the message list, models dropdown, or pinboard. Loading states are managed entirely in JS with `isLoading` flags rather than native React streaming.
+- **Fix:** Reimplement with CSS `radial-gradient` driven by a CSS custom property. A single `requestAnimationFrame` call updates one CSS variable; the browser compositor handles the visual update off the main thread.
+- **Risk:** Visual — the effect will look slightly different. Low functional risk.
 
 ---
 
-## Estimated Bundle Contribution
+### No `dynamic()` imports for heavy modal/panel components
+
+**Files:** `src/app/(app)/chat/page.tsx`, `src/app/(app)/layout.tsx`, `src/components/layout/AppLayout.tsx`
+
+`PresetModelSelectorDialog`, `SystemInstructionsModal`, `EditProjectModal`, `CompareModels`, `CitationsPanel`, `PinboardExpanded` are all statically imported. Their JS code is in the initial bundle even for users who never open them.
+
+- **Fix:**
+  ```ts
+  const CompareModels = dynamic(
+    () => import('@/components/compare/CompareModels'),
+    { ssr: false }
+  )
+  ```
+  Apply to every modal, drawer, and side-panel component.
+- **Risk:** Low — needs a `loading` prop or skeleton so the UI does not flash blank. `ssr: false` can cause a hydration flicker — wrap in a `mounted` guard if needed.
+
+---
+
+### `@aws-sdk/client-secrets-manager` in production dependencies
+
+**File:** `package.json`
+
+The AWS SDK (~2–5 MB installed) is only used in `scripts/load-secrets.mjs` at build time. Listed as a production dependency means it is included in the Vercel Lambda function bundle.
+
+- **Fix:** Move to `devDependencies`.
+- **Risk:** None
+
+---
+
+### Missing `Cache-Control` headers on API responses
+
+The Next.js route handlers and backend proxy do not set caching headers. Every sidebar render fetches a fresh chat list, models list, etc. even when nothing changed.
+
+- **Fix:** Add `stale-while-revalidate` headers to the models list and chat list endpoints. Return cached responses for data that changes infrequently.
+- **Risk:** Low — need to ensure cache is invalidated on mutations (new chat, model change)
+
+---
+
+## Estimated Bundle Weight
 
 | Library / Pattern | Estimated gzipped size |
 |---|---|
-| framer-motion v12 | ~130–180 KB |
+| framer-motion v12 (could be chunked) | ~130–180 KB |
 | @hugeicons/react + core-free-icons | ~40–80 KB |
-| @strange-huge/icons (unknown) | unknown |
+| @strange-huge/icons (private, unknown) | Unknown |
 | react-markdown + remark-gfm + remark-math | ~60–80 KB |
 | rehype-katex + katex | ~90–120 KB |
-| highlight.js (38 languages) | ~150–200 KB (lazy chunk) |
-| AWS SDK (if accidentally bundled) | up to 500 KB |
+| highlight.js (38 languages, lazy chunk) | ~150–200 KB |
+| AWS SDK (if accidentally bundled) | Up to 500 KB |
 | **Total avoidable weight** | **~470–660 KB gzipped** |
 
-> Current first-load JS is likely 800 KB–1.2 MB gzipped. The target for a chat app should be under 250 KB.
+> Current estimated first-load JS: 800 KB–1.2 MB gzipped. Target for a chat app: under 250 KB.
 
 ---
 
 ## Execution Plan
 
-### Phase 1 - Quick Wins (1–2 days, no UI changes)
+### Phase 1 — Zero/Low Risk, No UI Change (1–2 days)
 
-| Task | File(s) | Impact |
+| Task | File(s) | Risk |
 |---|---|---|
-| Move `@aws-sdk/client-secrets-manager` to devDependencies | `package.json` | Reduces lambda size |
-| Move KaTeX + highlight CSS imports to `(app)/layout.tsx` | `src/app/layout.tsx` | Saves ~83 KB CSS on auth page |
-| Add `React.memo` to `ChatMessage` | `src/components/chat/ChatMessage.tsx` | Halves streaming re-renders |
-| Move `remarkPlugins`/`rehypePlugins`/`components` to module-level constants | `src/lib/markdown-utils.tsx` | Stops object recreation per render |
-| Add `dynamic()` for modals: PresetModelSelectorDialog, SystemInstructionsModal, EditProjectModal | respective parent files | Removes modal code from initial bundle |
-| Cache squircle paths in module Map | `src/lib/useSquircle.ts` | Reduces ResizeObserver thrash |
+| Move KaTeX + Highlight.js CSS to `(app)/layout.tsx` | `src/app/layout.tsx` | None |
+| Move `@aws-sdk` to devDependencies | `package.json` | None |
+| Move `remarkPlugins`/`rehypePlugins`/`components` to module-level constants | `src/lib/markdown-utils.tsx` | None |
+| Cache squircle paths in module `Map` | `src/lib/useSquircle.ts` | None |
+| Cache favicon URLs in module `Map` | `src/components/chat/ResponseBlocks.tsx` | None |
+| Fix `AudioWaveDisplay` RAF convergence guard | `ChatInput.tsx`, `CompareModels.tsx` | None |
+| Skeleton items — fix keys | `src/app/(app)/personas/page.tsx` | None |
+| Dropdown tag list — fix keys | `src/components/Pinboard/index.tsx` | None |
+| Split filter + sort into two `useMemo` chains | Personas, Projects pages | None |
+| Six-dropdown state → single `openDropdown` state | `PinboardExpanded/index.tsx` | Medium |
+| `useCallback` pass on all inline handlers | ChatInterface, ChatInput, Pinboard | None |
 
 ---
 
-### Phase 2 - Medium Effort (3–5 days)
+### Phase 2 — Low Risk, Needs Visual QA (3–5 days)
 
-| Task | File(s) | Impact |
+| Task | File(s) | Risk |
 |---|---|---|
-| Replace framer-motion in Button, Checkbox, Chip, Tooltip with CSS transitions | component files | Removes ~130 KB from initial bundle |
-| Keep framer-motion only in: Pinboard, PinboardExpanded, streaming indicators | - | |
-| Split highlight.js into per-language dynamic imports | `src/lib/highlight.ts` | Reduces lazy chunk by 60–70% |
-| Fix N+1 pin tags: defer tag loading to pinboard open event | `src/context/pinboard-context.tsx` | Eliminates 50+ API calls on mount |
-| Batch/defer highlights + pins API calls behind auth ready | context files | Reduces mount waterfall |
-| Add `stale-while-revalidate` to models list + chat list fetch | `src/lib/api/chat.ts`, `src/lib/api/models.ts` | Instant sidebar on repeat visits |
-| Virtualize message list with @tanstack/react-virtual | `src/components/chat/ChatInterface.tsx` | Smooth scroll on long chats |
+| `React.memo` on `ChatMessage` with custom comparator | `src/components/chat/ChatMessage.tsx` | Low |
+| `React.memo` on `ChatRow`, `PersonaCard`, `ProjectCard`, `SourceCard` | Respective files | Low |
+| `dynamic()` lazy imports for all modals and panels | `chat/page.tsx`, `layout.tsx`, `AppLayout.tsx` | Low |
+| `next/image` replacement — one image at a time | 20+ files | Low–Medium |
+| Defer pin tag enrichment to pinboard open event | `src/context/pinboard-context.tsx` | Low |
+| Extract + deduplicate `AudioWaveDisplay` component | `ChatInput.tsx`, `CompareModels.tsx` | None |
+| Batch streaming updates with microtask flush | `src/hooks/use-streaming-chat.ts` | Low |
+| Memoize markdown output for completed messages | `src/lib/markdown-utils.tsx`, `ChatMessage.tsx` | Medium |
+| Settings sub-pages lazy-loaded with `dynamic()` | `src/app/(app)/settings/*` | Low |
 
 ---
 
-### Phase 3 - Architectural (1–2 weeks)
+### Phase 3 — Medium Risk, Needs Full Test Pass (1–2 weeks)
 
-| Task | Notes | Impact |
+| Task | File(s) | Risk |
 |---|---|---|
-| Convert static display components to React Server Components | Start with: sidebar skeleton, model cards, persona grid | Removes client JS for non-interactive parts |
-| Move chat history / model list fetching to server layout | Use Next.js server-side fetch + pass as props | Eliminates loading waterfalls on hard nav |
-| Implement streaming-aware markdown rendering | Only format markdown on stream completion | Eliminates re-parsing during generation |
-| Replace useCorrosion with CSS-only ripple | CSS `@keyframes` + custom property | Removes rAF loops |
-| Publish @strange-huge/icons to private npm registry | Required for build caching on Vercel | Faster Vercel builds |
-| Add `next/bundle-analyzer` to measure progress | `npm install @next/bundle-analyzer -D` | Validates all improvements |
+| Split Highlights context into data + actions | `src/context/highlight-context.tsx` | Medium |
+| Split pin operations context into data + operations | `src/hooks/use-pin-operations.ts` | Medium |
+| Replace Framer Motion in primitive components with CSS transitions | `Button`, `Chip`, `Checkbox`, `Tooltip`, `Tabs` | Visual |
+| Per-language dynamic imports for Highlight.js | `src/lib/highlight.ts` | Low |
+| `useCorrosion` → CSS custom property ripple | `src/lib/useCorrosion.ts` | Visual |
+| Streaming markdown: render raw text during stream, format on completion | `src/lib/content-renderer.tsx` | Medium |
+| `stale-while-revalidate` on models + chat list endpoints | `src/lib/api/` | Low |
+
+---
+
+### Phase 4 — Architectural (2–4 weeks, incremental)
+
+| Task | Notes | Risk |
+|---|---|---|
+| Virtualize chat message list | `@tanstack/react-virtual` — needs AnimatePresence + scroll-to-bottom rework | High |
+| Virtualize chats list and persona grid | `react-window` — needs DnD audit | High |
+| Virtualize pinboard grid | Requires DnD-aware virtualization (dnd-kit virtual) | High |
+| Convert display-only components to React Server Components | Persona cards, project cards, model cards — start with one grid | Architectural |
+| Move chat history + model list fetching to server layout | Eliminates loading waterfall on hard navigation | Architectural |
+| Publish `@strange-huge/icons` to private npm registry | Required for Vercel build caching | Infra |
 
 ---
 
@@ -369,30 +521,37 @@ The chat page uses one top-level `<Suspense fallback={null}>` (in AppLayout for 
 # Install bundle analyzer
 npm install --save-dev @next/bundle-analyzer
 
-# In next.config.ts
+# next.config.ts
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
 export default withBundleAnalyzer(nextConfig)
 
-# Run analysis
+# Run
 ANALYZE=true npm run build
+# Open .next/analyze/client.html
 ```
 
-Open the generated `client.html` in `.next/analyze/` - this shows every chunk and which library contributes what size.
-
-Also use **Vercel Speed Insights** (add `@vercel/speed-insights` to the app) to measure real user Core Web Vitals: LCP, FID, CLS. The primary target is LCP < 2.5 s on mobile.
+Also add `@vercel/speed-insights` to measure real-user Core Web Vitals (LCP, FID, CLS) in production. Primary target: **LCP < 2.5 s on mobile**.
 
 ---
 
-## Summary
+## Summary Table
 
-| Issue | Root Cause |
-|---|---|
-| **Heavy initial load** | framer-motion in 40+ components + two icon libraries |
-| **Slow during streaming** | No React.memo on messages + markdown re-parse every 50 ms |
-| **Slow first interactive** | All client-side, no RSC, auth + 3 API waterfalls on mount |
-| **Slow on repeat visit** | No response caching, N+1 pin tag calls every mount |
-| **Big CSS** | KaTeX + highlight.js CSS on every page including auth |
-
-The single biggest bang-for-buck fix: **add React.memo to ChatMessage + move framer-motion to CSS transitions in primitive components**. That alone will make streaming feel instant and cut the initial JS bundle in half.
+| Area | Top Issue | Phase |
+|---|---|---|
+| Chat Interface | No `React.memo` on messages — 400 re-renders/sec during streaming | 2 |
+| New Chat (ChatInput) | No `React.memo` on forwardRef component | 2 |
+| Chat Board | No virtualization on chat list | 4 |
+| Projects | Filter + sort not split | 1 |
+| Personas | No virtualization; filter + sort not split | 1 / 4 |
+| Pinboard | No virtualization; critical DnD conflict | 4 |
+| Extended Pinboard | 6 separate dropdown states | 1 |
+| Compare Models | `transformModelForCompare` not memoized | 1 |
+| Highlights | Single context causes cascading re-renders | 3 |
+| Settings | Sub-pages not lazy-loaded | 2 |
+| Global | Framer Motion in 40+ files (~150 KB in shared bundle) | 3 |
+| Global | All `"use client"` — no RSC, no pre-rendered HTML | 4 |
+| Global | react-markdown re-parses every 50 ms during streaming | 2–3 |
+| Global | N+1 pin tag calls on every app mount | 2 |
+| Global | 20+ `<img>` tags without `next/image` | 2 |

@@ -52,6 +52,22 @@ const INLINE_CODE_STYLE: React.CSSProperties = {
   whiteSpace: "pre",
 };
 
+// Module-level cache so URL parsing runs once per domain across all renders.
+const domainCache = new Map<string, string>()
+
+function extractDomain(url: string): string {
+  const cached = domainCache.get(url)
+  if (cached !== undefined) return cached
+  try {
+    const d = new URL(url).hostname.replace(/^www\./, '')
+    domainCache.set(url, d)
+    return d
+  } catch {
+    domainCache.set(url, '')
+    return ''
+  }
+}
+
 // ── CitationChip - inline {1} reference chip with popover ────────────────────
 
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
@@ -59,11 +75,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
   const [hovered, setHovered] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const isPinned = citation?.domain === "pin";
-  // Derive domain from URL if domain field is missing
-  const effectiveDomain = citation?.domain || (() => {
-    if (!citation?.url) return undefined;
-    try { return new URL(citation.url).hostname.replace(/^www\./, ""); } catch { return undefined; }
-  })();
+  const effectiveDomain = citation?.domain || (citation?.url ? extractDomain(citation.url) || undefined : undefined);
   const faviconUrl = citation && !isPinned && effectiveDomain
     ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;

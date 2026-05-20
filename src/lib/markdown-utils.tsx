@@ -384,13 +384,21 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, webCitations, highlights }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
-  const resolvedComponents: Components = hasCitations
-    ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
-    : BASE_COMPONENTS;
 
-  const processed = hasCitations
-    ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
-    : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)));
+  const resolvedComponents = useMemo<Components>(
+    () => hasCitations
+      ? { ...BASE_COMPONENTS, a: makeAComponent(webCitations) }
+      : BASE_COMPONENTS,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasCitations, webCitations],
+  );
+
+  const processed = useMemo(
+    () => hasCitations
+      ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
+      : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content))),
+    [hasCitations, content],
+  );
 
   const resolvedRehypePlugins = useMemo(
     () => highlights?.length

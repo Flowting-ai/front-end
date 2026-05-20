@@ -42,12 +42,15 @@ export default function ProjectsPage() {
   const [sortOpen,   setSortOpen]                 = useState(false)
   const [editTarget, setEditTarget]               = useState<Project | null>(null)
 
+  // Split into two memos: sort doesn't re-run when query changes, filter doesn't
+  // re-run when sort order changes.
+  const sorted = useMemo(() => sortProjects(projects, sort), [projects, sort])
+
   const filtered = useMemo(() => {
-    const sorted = sortProjects(projects, sort)
     if (!query.trim()) return sorted
     const q = query.toLowerCase()
     return sorted.filter((p) => p.name.toLowerCase().includes(q))
-  }, [projects, query, sort])
+  }, [sorted, query])
 
   const sortLabels: Record<SortKey, string> = {
     recent:       'Recent',

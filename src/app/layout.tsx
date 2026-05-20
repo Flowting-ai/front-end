@@ -3,8 +3,6 @@ import { Besley, Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "@/components/Toast";
 import "./globals.css";
-import "katex/dist/katex.min.css";
-import "highlight.js/styles/atom-one-light.css";
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
 // All three are variable-weight fonts → single file covers every weight.

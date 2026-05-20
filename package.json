@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.19.0",
-    "@aws-sdk/client-secrets-manager": "^3.1039.0",
     "@base-ui/react": "^1.4.1",
     "@hugeicons/core-free-icons": "^4.1.2",
     "@hugeicons/react": "^1.1.6",
@@ -54,6 +53,7 @@
     "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1039.0",
     "@tailwindcss/postcss": "^4",
     "@types/katex": "^0.16.8",
     "@types/node": "^20",
