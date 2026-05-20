@@ -33,11 +33,13 @@ import {
   getPersonaRepo,
   getVersion,
   setActiveVersion,
+  listVersions,
   createAndStreamPersonaChat,
   streamPersonaMessage,
   type PersonaChatStreamCallbacks,
   type PersonaVersionResponse,
   type PersonaRepoResponse,
+  type PersonaVersionListItem,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
@@ -58,6 +60,45 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Sharing:    '/persona/configure/sharing',
 }
 
+const MAX_VERSIONS = 5
+
+function formatVersionDate(iso: string): string {
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} · ${time}`
+}
+
+function nameInitials(name: string): string {
+  return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
+function parseExampleConversations(text: string): Array<{ id: string; userSays: string; personaReplies: string }> {
+  const results: Array<{ id: string; userSays: string; personaReplies: string }> = []
+  const regex = /<example>([\s\S]*?)<\/example>/g
+  let match
+  while ((match = regex.exec(text)) !== null) {
+    const block = match[1].trim()
+    const userLine      = block.match(/^User:\s*(.+)/m)
+    const assistantLine = block.match(/Assistant:\s*([\s\S]+)/m)
+    results.push({
+      id:             crypto.randomUUID(),
+      userSays:       userLine?.[1]?.trim() ?? '',
+      personaReplies: assistantLine?.[1]?.trim() ?? '',
+    })
+  }
+  return results
+}
+
+function removeExampleBlock(text: string, userSays: string, personaReplies: string): string {
+  const lines = ['<example>']
+  if (userSays.trim()) lines.push(`User: ${userSays.trim()}`)
+  lines.push(`Assistant: ${personaReplies.trim()}`)
+  lines.push('</example>')
+  const block = lines.join('\n')
+  return text.replace(`\n\n${block}`, '').replace(`${block}\n\n`, '').replace(block, '').trim()
+}
+
 function getTemperatureLabel(v: number): string {
   if (v <= 0.12) return 'Very Precise'
   if (v <= 0.37) return 'Precise'
@@ -68,12 +109,65 @@ function getTemperatureLabel(v: number): string {
 
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
+function FloatingMenuButton({
+  active,
+  title,
+  onClick,
+  children,
+}: {
+  active: boolean
+  title: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 6,
+        borderRadius: 8,
+        border: 'none',
+        cursor: 'pointer',
+        position: 'relative',
+        backgroundColor: active ? 'rgba(237,225,215,0.6)' : 'transparent',
+        boxShadow: active
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+          : 'none',
+        transition: 'background-color 150ms, box-shadow 150ms',
+      }}
+    >
+      {active && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 'inherit',
+            boxShadow:
+              'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      {children}
+    </button>
+  )
+}
+
 function FloatingMenu({
   testChatOpen,
   onToggleTestChat,
+  versionsOpen,
+  onToggleVersions,
 }: {
   testChatOpen: boolean
   onToggleTestChat: () => void
+  versionsOpen: boolean
+  onToggleVersions: () => void
 }) {
   return (
     <div
@@ -99,69 +193,15 @@ function FloatingMenu({
           pointerEvents: 'none',
         }}
       />
-      <button
-        onClick={onToggleTestChat}
-        title={testChatOpen ? 'Close test chat' : 'Open test chat'}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          position: 'relative',
-          backgroundColor: testChatOpen ? 'rgba(237,225,215,0.6)' : 'transparent',
-          boxShadow: testChatOpen
-            ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
-            : 'none',
-          transition: 'background-color 150ms, box-shadow 150ms',
-        }}
-      >
-        {testChatOpen && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 'inherit',
-              boxShadow:
-                'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
+      <FloatingMenuButton active={testChatOpen} title={testChatOpen ? 'Close test chat' : 'Open test chat'} onClick={onToggleTestChat}>
         <UserAiIcon size={20} color="var(--neutral-700)" animated />
-      </button>
-      <button
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
-        }}
-      >
+      </FloatingMenuButton>
+      <FloatingMenuButton active={false} title="AI suggestions" onClick={() => {}}>
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
-      </button>
-      <button
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 6,
-          borderRadius: 8,
-          border: 'none',
-          cursor: 'pointer',
-          backgroundColor: 'transparent',
-          opacity: 0.7,
-        }}
-      >
+      </FloatingMenuButton>
+      <FloatingMenuButton active={versionsOpen} title={versionsOpen ? 'Close versions' : 'View versions'} onClick={onToggleVersions}>
         <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
-      </button>
+      </FloatingMenuButton>
     </div>
   )
 }
@@ -520,9 +560,16 @@ function PersonaConfigureInstructionsContent() {
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
+  const [versionsOpen,              setVersionsOpen]              = useState(false)
+  const [versions,                  setVersions]                  = useState<PersonaVersionListItem[]>([])
+  const [versionsLoading,           setVersionsLoading]           = useState(false)
+  const [restoringId,               setRestoringId]               = useState<string | null>(null)
+  const [confirmDeleteOldestOpen,   setConfirmDeleteOldestOpen]   = useState(false)
+  const [versionsChangeTags,        setVersionsChangeTags]        = useState<Map<string, string[]>>(new Map())
 
   const hasPublishedRef   = useRef(false)
   const hasInitialisedRef = useRef(false)
+  const savedSnapshotRef  = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
 
   // ── Test-chat state ─────────────────────────────────────────────────────────
 
@@ -622,8 +669,9 @@ function PersonaConfigureInstructionsContent() {
           getPersonaRepo(repoIdParam),
           getVersion(repoIdParam, versionIdParam),
         ])
+        const prompt = version.prompt ?? ''
         setPersonaName(repo.name)
-        resetInstructionHistory(version.prompt ?? '')
+        resetInstructionHistory(prompt)
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(version.image_url)
         // Match stored model_id to full model object; fall back to first available
@@ -631,22 +679,70 @@ function PersonaConfigureInstructionsContent() {
           ? fetchedModels.find(m => String(m.modelId ?? m.id) === version.model_id) ?? firstModel
           : firstModel
         setSelectedModel(matchedModel)
+        // Restore example conversation cards from saved prompt text
+        const examples = parseExampleConversations(prompt)
+        if (examples.length > 0) setExampleConversations(examples)
+        // Set baseline snapshot so save button starts disabled
+        savedSnapshotRef.current = {
+          instruction: prompt,
+          modelId:     version.model_id ?? '',
+          temperature: version.temperature ?? 0.5,
+        }
         if (typeof window !== 'undefined') {
           hasPublishedRef.current = sessionStorage.getItem(publishedKey(repoIdParam)) === '1'
         }
       } else if (repoIdParam) {
-        // ── Repo exists but no specific version - load active version ─────────
-        const repo = await getPersonaRepo(repoIdParam)
+        // ── Repo exists but no specific version — load most-recently saved version
+        const [repo, versionList] = await Promise.all([
+          getPersonaRepo(repoIdParam),
+          listVersions(repoIdParam),
+        ])
         setPersonaName(repo.name)
-        if (repo.active_version) {
-          resetInstructionHistory(repo.active_version.prompt ?? '')
+        // Most-recent version = highest created_at
+        const sorted = versionList.slice().sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        const latestItem = sorted[0] ?? null
+
+        if (latestItem) {
+          const fullVersion = await getVersion(repoIdParam, latestItem.id)
+          const prompt = fullVersion.prompt ?? ''
+          resetInstructionHistory(prompt)
+          setTemperature(fullVersion.temperature ?? 0.5)
+          setImageUrl(fullVersion.image_url)
+          setVersionId(fullVersion.id)
+          // Stamp URL so a reload goes straight to this version
+          window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
+          const matchedModel = fullVersion.model_id
+            ? fetchedModels.find(m => String(m.modelId ?? m.id) === fullVersion.model_id) ?? firstModel
+            : firstModel
+          setSelectedModel(matchedModel)
+          const examples = parseExampleConversations(prompt)
+          if (examples.length > 0) setExampleConversations(examples)
+          savedSnapshotRef.current = {
+            instruction: prompt,
+            modelId:     fullVersion.model_id ?? '',
+            temperature: fullVersion.temperature ?? 0.5,
+          }
+        } else if (repo.active_version) {
+          // Fallback: version list empty but active_version exists
+          const prompt = repo.active_version.prompt ?? ''
+          resetInstructionHistory(prompt)
           setTemperature(repo.active_version.temperature ?? 0.5)
           setImageUrl(repo.active_version.image_url)
           setVersionId(repo.active_version.id)
+          window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const matchedModel = repo.active_version.model_id
             ? fetchedModels.find(m => String(m.modelId ?? m.id) === repo.active_version!.model_id) ?? firstModel
             : firstModel
           setSelectedModel(matchedModel)
+          const examples = parseExampleConversations(prompt)
+          if (examples.length > 0) setExampleConversations(examples)
+          savedSnapshotRef.current = {
+            instruction: prompt,
+            modelId:     repo.active_version.model_id ?? '',
+            temperature: repo.active_version.temperature ?? 0.5,
+          }
         } else {
           setSelectedModel(firstModel)
         }
@@ -682,6 +778,11 @@ function PersonaConfigureInstructionsContent() {
         setVersionId(newVersionId)
         setPersonaName(repo.name)
         resetInstructionHistory(initialPrompt)
+        savedSnapshotRef.current = {
+          instruction: initialPrompt,
+          modelId:     String(firstModel.modelId ?? firstModel.id ?? ''),
+          temperature: 0.5,
+        }
 
         // Update URL with IDs only - no user data in the URL
         window.history.replaceState(null, '', `?repoId=${newRepoId}&versionId=${newVersionId}`)
@@ -703,15 +804,66 @@ function PersonaConfigureInstructionsContent() {
     initialise()
   }, [initialise])
 
+  // ── Versions panel ───────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!versionsOpen || !repoId) return
+    setVersionsLoading(true)
+    listVersions(repoId)
+      .then(v => setVersions(
+        v.slice()
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, MAX_VERSIONS)
+      ))
+      .catch(() => {})
+      .finally(() => setVersionsLoading(false))
+  }, [versionsOpen, repoId])
+
+  async function handleRestoreVersion(targetId: string) {
+    if (!repoId || restoringId) return
+    setRestoringId(targetId)
+    try {
+      const full = await getVersion(repoId, targetId)
+      const prompt = full.prompt ?? ''
+      setInstruction(prompt)
+      resetInstructionHistory(prompt)
+      setTemperature(full.temperature ?? 0.5)
+      const model = allModels.find(m => String(m.modelId ?? m.id) === full.model_id) ?? null
+      if (model) setSelectedModel(model)
+      setExampleConversations(parseExampleConversations(prompt))
+      // Move restored card to top and make it current
+      setVersions(prev => {
+        const target = prev.find(x => x.id === targetId)
+        if (!target) return prev
+        return [target, ...prev.filter(x => x.id !== targetId)]
+      })
+      setVersionId(targetId)
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('versionId', targetId)
+      window.history.replaceState(null, '', `?${params.toString()}`)
+      savedSnapshotRef.current = null  // mark dirty so save button enables immediately
+      toast.success('Version restored — save to keep changes')
+    } catch {
+      toast.error('Failed to restore version')
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
   // ── Save version ─────────────────────────────────────────────────────────────
 
-  async function handleSaveVersion() {
+  async function executeSave() {
     const modelId = String(selectedModel?.modelId ?? selectedModel?.id ?? '')
     if (!repoId || !modelId) return
     setIsSaving(true)
     try {
-      // Include the avatar: prefer a newly uploaded data-URL from the Profile tab;
-      // fall back to the existing image URL so it is not lost when creating a new version.
+      // Compute change tags before save (compare to last saved snapshot)
+      const snap = savedSnapshotRef.current
+      const tags: string[] = []
+      if (snap === null || instruction !== snap.instruction) tags.push('System Prompt')
+      if (snap === null || modelId !== snap.modelId)         tags.push('Model')
+      if (snap === null || temperature !== snap.temperature) tags.push('Creativity')
+
       let imageFile: File | null = null
       let preserveImageUrl: string | null = null
       const avatarDataUrl = readProfileAvatar(repoId)
@@ -735,13 +887,39 @@ function PersonaConfigureInstructionsContent() {
       const params = new URLSearchParams(searchParams.toString())
       params.set('versionId', version.id)
       window.history.replaceState(null, '', `?${params.toString()}`)
-      toast.success('Version saved')
+
+      // Prepend to versions list, trim to MAX_VERSIONS
+      const newItem: PersonaVersionListItem = {
+        id:         version.id,
+        name:       version.name,
+        handler:    version.handler,
+        model_id:   version.model_id,
+        is_active:  version.is_active,
+        created_at: version.created_at,
+        updated_at: version.updated_at,
+      }
+      setVersions(prev => [newItem, ...prev.filter(v => v.id !== version.id)].slice(0, MAX_VERSIONS))
+
+      // Store change tags for this version and advance snapshot
+      setVersionsChangeTags(prev => new Map([...prev, [version.id, tags]]))
+      savedSnapshotRef.current = { instruction, modelId, temperature }
+
+      toast.success('Version created')
     } catch (err) {
       console.error('[PersonaConfigure] save error:', err)
       toast.error('Failed to save version')
     } finally {
       setIsSaving(false)
     }
+  }
+
+  async function handleSaveVersion() {
+    if (!canSave) return
+    if (repoId && versions.length >= MAX_VERSIONS) {
+      setConfirmDeleteOldestOpen(true)
+      return
+    }
+    await executeSave()
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────────
@@ -770,9 +948,15 @@ function PersonaConfigureInstructionsContent() {
     }
   }
 
-  const hasContent    = instruction.trim().length > 0
-  const canPublish    = hasContent && !!repoId && !!versionId && !isPublishing
-  const canSave       = hasContent && !!repoId && !!selectedModel && !isSaving
+  const currentModelId = String(selectedModel?.modelId ?? selectedModel?.id ?? '')
+  const isDirty =
+    !savedSnapshotRef.current ||
+    instruction !== savedSnapshotRef.current.instruction ||
+    currentModelId !== savedSnapshotRef.current.modelId ||
+    temperature !== savedSnapshotRef.current.temperature
+  const hasContent = instruction.trim().length > 0
+  const canPublish = hasContent && !!repoId && !!versionId && !isPublishing
+  const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
 
   const handleAddConversation = (userSays: string, personaReplies: string) => {
     setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
@@ -783,8 +967,11 @@ function PersonaConfigureInstructionsContent() {
     const block = lines.join('\n')
     setInstruction(instruction ? `${instruction}\n\n${block}` : block)
   }
-  const handleRemoveConversation = (id: string) =>
+  const handleRemoveConversation = (id: string) => {
+    const conv = exampleConversations.find(c => c.id === id)
+    if (conv) setInstruction(removeExampleBlock(instruction, conv.userSays, conv.personaReplies))
     setExampleConversations(prev => prev.filter(c => c.id !== id))
+  }
 
   // ── Tab navigation ────────────────────────────────────────────────────────────
 
@@ -973,10 +1160,17 @@ function PersonaConfigureInstructionsContent() {
                     boxShadow:
                       '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
                     overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {imageUrl && (
+                  {imageUrl ? (
                     <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 20, color: 'var(--neutral-500)', lineHeight: 1, userSelect: 'none' }}>
+                      {nameInitials(personaName)}
+                    </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1184,7 +1378,12 @@ function PersonaConfigureInstructionsContent() {
 
         {/* ── Floating vertical menu ─────────────────────────────────────────── */}
         <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
-          <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
+          <FloatingMenu
+            testChatOpen={testChatOpen}
+            onToggleTestChat={() => setTestChatOpen(v => !v)}
+            versionsOpen={versionsOpen}
+            onToggleVersions={() => setVersionsOpen(v => !v)}
+          />
         </div>
       </div>
 
@@ -1289,6 +1488,279 @@ function PersonaConfigureInstructionsContent() {
                 onSend={handleTestChatSend}
               />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Versions panel ───────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {versionsOpen && (
+          <motion.div
+            key="versions-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 400, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              height: '100%',
+              paddingLeft: 5,
+              paddingRight: 5,
+              paddingTop: 12,
+              paddingBottom: 12,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+                  <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
+                </div>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+                  Versions
+                </p>
+              </div>
+              <IconButton
+                variant="outline"
+                size="md"
+                icon={<CancelOneIcon size={20} />}
+                aria-label="Close versions"
+                onClick={() => setVersionsOpen(false)}
+              />
+            </div>
+
+            {/* Version list */}
+            <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 4 }}>
+              {versionsLoading ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
+              ) : versions.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '24px 0', textAlign: 'center' }}>
+                  No versions yet. Use &ldquo;Save version&rdquo; to create one.
+                </p>
+              ) : (
+                versions.map((v, i) => {
+                  const isCurrent  = v.id === versionId
+                  const isRestoring_ = restoringId === v.id
+                  const vNum       = versions.length - i
+                  const vLabel     = `v${String(vNum).padStart(3, '0')}`
+                  const handle     = v.handler ? `@${v.handler}·${vLabel}` : vLabel
+                  const dateStr    = formatVersionDate(v.created_at)
+                  const initials   = nameInitials(v.name || personaName)
+
+                  return (
+                    <div
+                      key={v.id}
+                      style={{
+                        display:         'flex',
+                        flexDirection:   'column',
+                        gap:             9,
+                        padding:         12,
+                        borderRadius:    16,
+                        backgroundColor: isCurrent ? 'var(--neutral-white)' : 'var(--neutral-50)',
+                        border:          isCurrent ? 'none' : '1px dashed var(--neutral-300)',
+                        boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
+                        flexShrink:      0,
+                      }}
+                    >
+                      {/* Card header: avatar + name/handle/date */}
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
+                        {/* Avatar */}
+                        <div
+                          style={{
+                            width: 37, height: 37, borderRadius: 8, flexShrink: 0,
+                            backgroundColor: 'var(--neutral-100)',
+                            boxShadow: '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
+                            overflow: 'hidden',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            position: 'relative',
+                          }}
+                        >
+                          {isCurrent && imageUrl ? (
+                            <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-600)', lineHeight: 1 }}>
+                              {initials}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Name + handle + date */}
+                        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%' }}>
+                            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }}>
+                              {v.name || personaName}
+                            </p>
+                            <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, flexShrink: 0 }}>
+                              {dateStr}
+                            </p>
+                          </div>
+                          <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {handle}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bottom row: changes + action button */}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', width: '100%' }}>
+                        {/* Changes section */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                            Changes
+                          </span>
+                          <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {(versionsChangeTags.get(v.id) ?? []).map(tag => (
+                              <span
+                                key={tag}
+                                style={{
+                                  display:         'inline-flex',
+                                  alignItems:      'center',
+                                  justifyContent:  'center',
+                                  padding:         '1px 4px',
+                                  borderRadius:    6,
+                                  fontFamily:      'var(--font-body)',
+                                  fontWeight:      500,
+                                  fontSize:        11,
+                                  lineHeight:      '16px',
+                                  whiteSpace:      'nowrap',
+                                  position:        'relative',
+                                  backgroundColor: isCurrent ? '#cadcf1' : 'var(--neutral-100)',
+                                  color:           isCurrent ? '#135487' : 'var(--neutral-700)',
+                                  boxShadow:       isCurrent
+                                    ? '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5), inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)'
+                                    : '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5), inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Current / Restore button */}
+                        {isCurrent ? (
+                          <div
+                            style={{
+                              display:        'flex',
+                              alignItems:     'center',
+                              justifyContent: 'center',
+                              padding:        '4px 8px 6px',
+                              borderRadius:   8,
+                              flexShrink:     0,
+                              position:       'relative',
+                              cursor:         'default',
+                              background:     'linear-gradient(180deg, #524b47 0%, #26211e 100%)',
+                              boxShadow:      '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+                            }}
+                          >
+                            <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)', pointerEvents: 'none' }} />
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap', textShadow: '0px -0.727px 0.364px rgba(0,0,0,0.25), 0px 0.364px 0.364px rgba(255,255,255,0.25)' }}>
+                              Current
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleRestoreVersion(v.id)}
+                            disabled={!!restoringId}
+                            style={{
+                              display:        'flex',
+                              alignItems:     'center',
+                              justifyContent: 'center',
+                              gap:            2,
+                              padding:        '5px 8px',
+                              borderRadius:   8,
+                              border:         'none',
+                              flexShrink:     0,
+                              cursor:         restoringId ? 'not-allowed' : 'pointer',
+                              backgroundColor:'transparent',
+                              boxShadow:      '0px 0px 0px 1px rgba(59,54,50,0.3)',
+                              opacity:        restoringId ? 0.5 : 1,
+                              transition:     'opacity 150ms',
+                            }}
+                          >
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
+                              {isRestoring_ ? 'Restoring…' : 'Restore'}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete oldest confirmation dialog ───────────────────────────────── */}
+      <AnimatePresence>
+        {confirmDeleteOldestOpen && (
+          <motion.div
+            key="confirm-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position:        'fixed',
+              inset:           0,
+              zIndex:          200,
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              backgroundColor: 'rgba(26,25,22,0.4)',
+            }}
+            onClick={() => setConfirmDeleteOldestOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 8 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                backgroundColor: 'var(--neutral-white)',
+                borderRadius:    20,
+                padding:         24,
+                width:           400,
+                display:         'flex',
+                flexDirection:   'column',
+                gap:             20,
+                boxShadow:       '0px 8px 32px 0px rgba(26,25,22,0.16), 0px 0px 0px 1px var(--neutral-200)',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+                  Version limit reached
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                  You already have {MAX_VERSIONS} saved versions. Saving a new version will remove the oldest one. This cannot be undone.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmDeleteOldestOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={async () => {
+                    setConfirmDeleteOldestOpen(false)
+                    await executeSave()
+                  }}
+                >
+                  Continue
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
