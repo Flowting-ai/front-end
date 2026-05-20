@@ -9,6 +9,7 @@ import { LlmIcon } from "@strange-huge/icons/llm";
 import { AtomTwoIcon, FilterMailIcon, PinIcon, TickTwoIcon, SearchOneIcon, ArrowLeftOneIcon, CancelOneIcon, ArrowExpandOneIcon, ArrowShrinkTwoIcon, ArrowUpTwoIcon, MicTwoIcon, StopCircleIcon } from "@strange-huge/icons";
 import { Button } from "@/components/Button";
 import { IconButton } from "@/components/IconButton";
+import { AudioWaveDisplay } from "@/components/shared/AudioWaveDisplay";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Tabs";
 import type { AIModel } from "@/types/ai-model";
 import { fetchModelsWithCache } from "@/lib/ai-models";
@@ -65,80 +66,6 @@ const TRAY_BG_SHADOW     = "inset 0px -1px 0px 0px rgba(255,255,255,0.9),inset 0
 const SLOT_SHADOW        = "0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 0px rgba(82,75,71,0.12),0px 0px 0px 1px #EDE1D7";
 const BTN_SHADOW         = "0px 0px 0px 1px #3B3632,0px 1.091px 1.091px 0px rgba(59,54,50,0.1),0px 1.455px 3.127px 0px rgba(59,54,50,0.4)";
 const BTN_INSET          = "inset 0px 1.455px 0.364px 0px #6A625D,inset 0px -2.182px 0.364px 0px #3B3632,inset 0px -2.545px 6.9px -2.182px #827A74";
-
-// ── Audio waveform ─────────────────────────────────────────────────────────────
-
-const BAR_X       = [3, 6, 9, 12, 15, 18, 21];
-const BAR_DEFAULT = [2, 10, 18, 12, 6, 10, 2];
-const CENTER_Y    = 12;
-const LERP        = 0.35;
-
-function AudioWaveDisplay({ analyser, color = "currentColor", size = 20 }: {
-  analyser: AnalyserNode | null;
-  color?: string;
-  size?: number;
-}) {
-  const pathRefs   = useRef<(SVGPathElement | null)[]>([]);
-  const heightsRef = useRef<number[]>([...BAR_DEFAULT]);
-  const rafRef     = useRef<number>(0);
-
-  const updatePaths = (heights: number[]) => {
-    heights.forEach((h, i) => {
-      const el = pathRefs.current[i];
-      if (el) el.setAttribute("d", `M${BAR_X[i]} ${(CENTER_Y - h / 2).toFixed(2)}V${(CENTER_Y + h / 2).toFixed(2)}`);
-    });
-  };
-
-  useEffect(() => {
-    cancelAnimationFrame(rafRef.current);
-    if (!analyser) {
-      const decay = () => {
-        const next = heightsRef.current.map((h, i) => h + (BAR_DEFAULT[i] - h) * LERP);
-        heightsRef.current = next;
-        updatePaths(next);
-        if (!next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
-          rafRef.current = requestAnimationFrame(decay);
-      };
-      rafRef.current = requestAnimationFrame(decay);
-      return () => cancelAnimationFrame(rafRef.current);
-    }
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray    = new Uint8Array(bufferLength);
-    const voiceBins    = Math.floor(bufferLength * 0.4);
-    const binPerBar    = Math.floor(voiceBins / BAR_X.length);
-    const tick = () => {
-      analyser.getByteFrequencyData(dataArray);
-      const targets = BAR_X.map((_, i) => {
-        const start = 1 + i * binPerBar;
-        const end   = start + binPerBar;
-        let sum = 0;
-        for (let j = start; j < end; j++) sum += dataArray[j] ?? 0;
-        return 2 + (sum / binPerBar / 255) * 18;
-      });
-      const next = heightsRef.current.map((h, i) => h + (targets[i] - h) * LERP);
-      heightsRef.current = next;
-      updatePaths(next);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [analyser]);
-
-  const p = { stroke: color, strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      {BAR_X.map((x, i) => {
-        const h = BAR_DEFAULT[i];
-        return (
-          <path key={x} ref={el => { pathRefs.current[i] = el; }}
-            d={`M${x} ${(CENTER_Y - h / 2).toFixed(2)}V${(CENTER_Y + h / 2).toFixed(2)}`}
-            {...p}
-          />
-        );
-      })}
-    </svg>
-  );
-}
 
 // ── Chip ───────────────────────────────────────────────────────────────────────
 

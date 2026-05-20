@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { ChatMessage } from "./ChatMessage";
+import { ChatMessageMemo } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CitationsPanel } from "./CitationsPanel";
 import { PinMentionDropdown } from "./PinMentionDropdown";
@@ -571,7 +571,7 @@ export function ChatInterface({
           {/* Messages */}
           <AnimatePresence initial={false}>
             {messages.map((message, idx) => (
-              <ChatMessage
+              <ChatMessageMemo
                 key={message.id}
                 message={message}
                 isLast={idx === messages.length - 1}

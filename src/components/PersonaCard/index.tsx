@@ -464,7 +464,7 @@ function ActionBar({
 
 // ── PersonaCard ───────────────────────────────────────────────────────────────
 
-export const PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
+const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
   function PersonaCard(
     {
       variant       = 'default',
@@ -844,5 +844,6 @@ export const PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
   },
 )
 
+export const PersonaCard = React.memo(_PersonaCard)
 PersonaCard.displayName = 'PersonaCard'
 export default PersonaCard

@@ -3,13 +3,14 @@
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
-import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
+import dynamic from "next/dynamic";
+const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
 import { X } from "lucide-react";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
-import { ModelSwitchDialog } from "@/components/chat/ModelSwitchDialog";
+const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDialog").then(m => ({ default: m.ModelSwitchDialog })), { ssr: false, loading: () => null });
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";

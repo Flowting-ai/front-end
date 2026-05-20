@@ -907,3 +907,15 @@ function ActionIconButton({
     </Tooltip>
   );
 }
+
+function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): boolean {
+  return (
+    prev.message === next.message &&
+    prev.isLast === next.isLast &&
+    prev.isNewMessage === next.isNewMessage &&
+    prev.chatId === next.chatId &&
+    prev.showReasoning === next.showReasoning
+  )
+}
+
+export const ChatMessageMemo = React.memo(ChatMessage, areMessagePropsEqual)

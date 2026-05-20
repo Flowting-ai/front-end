@@ -23,7 +23,7 @@ export interface ProjectCardProps {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
+const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
   function ProjectCard(
     { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick },
     ref,
@@ -194,5 +194,6 @@ export const ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
   },
 )
 
+export const ProjectCard = React.memo(_ProjectCard)
 ProjectCard.displayName = 'ProjectCard'
 export default ProjectCard

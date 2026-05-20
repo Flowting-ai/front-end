@@ -211,7 +211,7 @@ const ThreeDotButton = React.forwardRef<
 
 // ── ChatRow ───────────────────────────────────────────────────────────────────
 
-export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
+const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
   function ChatRow(
     {
       title         = '',
@@ -536,5 +536,6 @@ export const ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
   },
 )
 
+export const ChatRow = React.memo(_ChatRow)
 ChatRow.displayName = 'ChatRow'
 export default ChatRow

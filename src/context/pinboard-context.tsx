@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createPin,
@@ -84,6 +84,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const [isLoading,  setIsLoading]  = useState(true);
   const [isOpen,     setIsOpen]     = useState(false);
   const [chatFilter, setChatFilter] = useState<string | null>(null);
+  const enrichedRef           = useRef(false);
+  const pendingEnrichmentRef  = useRef<PinItem[]>([]);
 
   const open            = useCallback(() => { setChatFilter(null); setIsOpen(true) }, []);
   const close           = useCallback(() => { setChatFilter(null); setIsOpen(false) }, []);
@@ -114,55 +116,61 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
         setPins(items);
         setIsLoading(false); // unblock FCP — pins render immediately with whatever the list returned
 
-        // Background tag + comment enrichment.
-        // The list endpoint may omit tags; the detail endpoint always has them.
-        // This second pass is intentionally non-blocking: pins are visible before it completes.
+        // Store pins needing tag/comment enrichment; defer the N+1 getPin calls
+        // until the pinboard actually opens so they don't fire on every page load.
         const pinsWithoutTags = items.filter((p) => !p.tags || p.tags.length === 0);
-        if (!pinsWithoutTags.length) return;
-
-        const enrichments = await Promise.all(
-          pinsWithoutTags.map(async (pin) => {
-            try {
-              const detail   = await getPin(pin.id);
-              const hasTags  = detail.tags     && detail.tags.length     > 0;
-              const hasCmts  = detail.comments && detail.comments.length > 0;
-              if (!hasTags && !hasCmts) return null;
-              return {
-                id:       pin.id,
-                tags:     hasTags ? detail.tags     : undefined,
-                comments: hasCmts ? detail.comments : undefined,
-              };
-            } catch {
-              return null;
-            }
-          }),
-        );
-
-        const valid = enrichments.filter(Boolean) as Array<{
-          id: string;
-          tags?: string[];
-          comments?: PinComment[];
-        }>;
-        if (!valid.length) return;
-
-        const enrichMap = new Map(valid.map((e) => [e.id, e]));
-        setPins((prev) =>
-          prev.map((p) => {
-            const e = enrichMap.get(p.id);
-            if (!e) return p;
-            return {
-              ...p,
-              ...(e.tags     ? { tags:     e.tags     } : {}),
-              ...(e.comments ? { comments: e.comments } : {}),
-            };
-          }),
-        );
+        pendingEnrichmentRef.current = pinsWithoutTags;
       })
       .catch((err) => {
         console.error("[PinboardContext] Failed to load pins", err);
         setIsLoading(false);
       });
   }, []);
+
+  // ── Deferred tag/comment enrichment — fires once when pinboard first opens ──
+  useEffect(() => {
+    if (!isOpen || enrichedRef.current) return;
+    const pinsWithoutTags = pendingEnrichmentRef.current;
+    enrichedRef.current = true;
+    if (!pinsWithoutTags.length) return;
+
+    Promise.all(
+      pinsWithoutTags.map(async (pin) => {
+        try {
+          const detail   = await getPin(pin.id);
+          const hasTags  = detail.tags     && detail.tags.length     > 0;
+          const hasCmts  = detail.comments && detail.comments.length > 0;
+          if (!hasTags && !hasCmts) return null;
+          return {
+            id:       pin.id,
+            tags:     hasTags ? detail.tags     : undefined,
+            comments: hasCmts ? detail.comments : undefined,
+          };
+        } catch {
+          return null;
+        }
+      }),
+    ).then((enrichments) => {
+      const valid = enrichments.filter(Boolean) as Array<{
+        id: string;
+        tags?: string[];
+        comments?: PinComment[];
+      }>;
+      if (!valid.length) return;
+      const enrichMap = new Map(valid.map((e) => [e.id, e]));
+      setPins((prev) =>
+        prev.map((p) => {
+          const e = enrichMap.get(p.id);
+          if (!e) return p;
+          return {
+            ...p,
+            ...(e.tags     ? { tags:     e.tags     } : {}),
+            ...(e.comments ? { comments: e.comments } : {}),
+          };
+        }),
+      );
+    });
+  }, [isOpen]);
 
   // ── addPin - optimistic, persisted to backend ───────────────────────────
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {

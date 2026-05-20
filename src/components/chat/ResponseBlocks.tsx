@@ -158,13 +158,10 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
 
 // ── SourceList - horizontal scroll row of source cards ───────────────────────
 
-function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
+const SourceCard = React.memo(function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
   const [hovered, setHovered] = useState(false);
   const isPinned = citation.domain === "pin";
-  const effectiveDomain = citation.domain || (() => {
-    if (!citation.url) return undefined;
-    try { return new URL(citation.url).hostname.replace(/^www\./, ""); } catch { return undefined; }
-  })();
+  const effectiveDomain = citation.domain || (citation.url ? extractDomain(citation.url) || undefined : undefined);
   const faviconUrl = !isPinned && effectiveDomain
     ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;
@@ -206,7 +203,7 @@ function SourceCard({ citation, index }: { citation: WebCitation; index: number 
       </div>
     </motion.a>
   );
-}
+})
 
 export function SourceList({ citations }: { citations: WebCitation[] }) {
   return (
