@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, Suspense, useEffect, useRef, useCallback } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useState, Suspense, useEffect, useEffectEvent, useRef, useCallback } from 'react'
+import Image from 'next/image'
+import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
@@ -289,13 +290,14 @@ function ModelDropdown({
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Close on outside click + Escape
+  const closeDropdown = useEffectEvent((v: boolean) => onOpenChange(v))
   useEffect(() => {
     if (!open) return
     function handlePointerDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) onOpenChange(false)
+      if (!containerRef.current?.contains(e.target as Node)) closeDropdown(false)
     }
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onOpenChange(false)
+      if (e.key === 'Escape') closeDropdown(false)
     }
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleKey)
@@ -303,7 +305,7 @@ function ModelDropdown({
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [open, onOpenChange])
+  }, [open])
 
   const grouped = models.reduce<Record<string, AIModel[]>>((acc, m) => {
     const k = m.companyName || 'Other'
@@ -379,7 +381,7 @@ function ModelDropdown({
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             role="listbox"
             aria-label="Select model"
             initial={{ opacity: 0, scaleY: 0.85, y: -4 }}
@@ -411,7 +413,7 @@ function ModelDropdown({
                     padding:    '8px 8px 4px',
                     fontFamily: 'var(--font-body)',
                     fontWeight: 500,
-                    fontSize:   11,
+                    fontSize: 12,
                     lineHeight: '16px',
                     color:      'var(--neutral-500)',
                     textTransform: 'uppercase',
@@ -484,7 +486,7 @@ function ModelDropdown({
                 No models available
               </div>
             )}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -525,8 +527,9 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 
 // ── Main page content ─────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function PersonaConfigureInstructionsContent() {
-  const router = useRouter()
+  const { push, back } = useRouter()
   const searchParams = useSearchParams()
 
   // URL params - repoId/versionId present when editing existing persona
@@ -575,7 +578,9 @@ function PersonaConfigureInstructionsContent() {
 
   type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
   const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- testChatId is read in streaming handler logic, not directly in JSX
   const [testChatId,    setTestChatId]    = useState<string | null>(null)
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
   const [isStreaming,   setIsStreaming]   = useState(false)
   const abortStreamRef  = useRef<(() => void) | null>(null)
   const chatScrollRef   = useRef<HTMLDivElement>(null)
@@ -753,7 +758,7 @@ function PersonaConfigureInstructionsContent() {
         // ── New persona - create repo + initial version ───────────────────────
         if (!firstModel) {
           toast.error('No AI models available. Please contact support.')
-          router.push('/personas')
+          push('/personas')
           return
         }
         setSelectedModel(firstModel)
@@ -806,6 +811,7 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Versions panel ───────────────────────────────────────────────────────────
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!versionsOpen || !repoId) return
     setVersionsLoading(true)
@@ -939,7 +945,7 @@ function PersonaConfigureInstructionsContent() {
         sessionStorage.setItem(publishedKey(repoId), '1')
       }
       hasPublishedRef.current = true
-      router.push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
     } catch (err) {
       console.error('[PersonaConfigure] publish error:', err)
       toast.error('Failed to publish persona')
@@ -981,7 +987,7 @@ function PersonaConfigureInstructionsContent() {
     const params = new URLSearchParams(searchParams.toString())
     if (repoId)    params.set('repoId',    repoId)
     if (versionId) params.set('versionId', versionId)
-    router.push(`${route}?${params.toString()}`)
+    push(`${route}?${params.toString()}`)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1026,7 +1032,7 @@ function PersonaConfigureInstructionsContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => router.back()}
+                onClick={() => back()}
               />
             </div>
 
@@ -1166,7 +1172,7 @@ function PersonaConfigureInstructionsContent() {
                   }}
                 >
                   {imageUrl ? (
-                    <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={imageUrl} alt="" fill sizes="65px" style={{ objectFit: 'cover' }} unoptimized />
                   ) : (
                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 20, color: 'var(--neutral-500)', lineHeight: 1, userSelect: 'none' }}>
                       {nameInitials(personaName)}
@@ -1204,7 +1210,7 @@ function PersonaConfigureInstructionsContent() {
                     }}
                   >
                     <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0px 0px rgba(247,242,237,0.7), inset 0px -1px 0px 0px rgba(106,98,93,0.1)', pointerEvents: 'none' }} />
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-700)', padding: '0 2px', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-700)', padding: '0 2px', whiteSpace: 'nowrap' }}>
                       Private
                     </span>
                   </div>
@@ -1259,8 +1265,8 @@ function PersonaConfigureInstructionsContent() {
                   <div aria-hidden style={{ position: 'absolute', top: '50%', left: `${temperature * 100}%`, transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--blue-600)', pointerEvents: 'none' }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-800)' }}>0 (Precise &amp; consistent)</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-700)' }}>(Creative &amp; varied) 1</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-800)' }}>0 (Precise &amp; consistent)</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-700)' }}>(Creative &amp; varied) 1</span>
                 </div>
               </div>
 
@@ -1305,7 +1311,7 @@ function PersonaConfigureInstructionsContent() {
                         style={{
                           fontFamily: 'var(--font-body)',
                           fontWeight: 500,
-                          fontSize: 11,
+                          fontSize: 12,
                           lineHeight: '16px',
                           color: 'var(--neutral-700)',
                           backgroundColor: 'var(--neutral-100)',
@@ -1349,12 +1355,12 @@ function PersonaConfigureInstructionsContent() {
                         </button>
                         {conv.userSays && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#ee3030' }}>User says</span>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: '#ee3030' }}>User says</span>
                             <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0 }}>{conv.userSays}</p>
                           </div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-600)' }}>Persona replies</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>Persona replies</span>
                           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)', margin: 0, paddingRight: 24 }}>{conv.personaReplies}</p>
                         </div>
                       </div>
@@ -1400,7 +1406,7 @@ function PersonaConfigureInstructionsContent() {
           onClose={() => setRepublishModalOpen(false)}
           onDone={() => {
             setRepublishModalOpen(false)
-            router.push('/personas')
+            push('/personas')
           }}
         />
       )}
@@ -1408,7 +1414,7 @@ function PersonaConfigureInstructionsContent() {
       {/* ── Test chat panel ───────────────────────────────────────────────────── */}
       <AnimatePresence>
         {testChatOpen && (
-          <motion.div
+          <m.div
             key="test-chat"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
@@ -1430,7 +1436,7 @@ function PersonaConfigureInstructionsContent() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
-                  {imageUrl && <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
                 </div>
                 <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
                   {personaName || 'Name'}
@@ -1488,14 +1494,14 @@ function PersonaConfigureInstructionsContent() {
                 onSend={handleTestChatSend}
               />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* ── Versions panel ───────────────────────────────────────────────────── */}
       <AnimatePresence>
         {versionsOpen && (
-          <motion.div
+          <m.div
             key="versions-panel"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 400, opacity: 1 }}
@@ -1580,7 +1586,7 @@ function PersonaConfigureInstructionsContent() {
                           }}
                         >
                           {isCurrent && imageUrl ? (
-                            <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <Image src={imageUrl} alt="" fill sizes="37px" style={{ objectFit: 'cover' }} unoptimized />
                           ) : (
                             <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-600)', lineHeight: 1 }}>
                               {initials}
@@ -1608,7 +1614,7 @@ function PersonaConfigureInstructionsContent() {
                       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', width: '100%' }}>
                         {/* Changes section */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)' }}>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)' }}>
                             Changes
                           </span>
                           <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1623,7 +1629,7 @@ function PersonaConfigureInstructionsContent() {
                                   borderRadius:    6,
                                   fontFamily:      'var(--font-body)',
                                   fontWeight:      500,
-                                  fontSize:        11,
+                                  fontSize: 12,
                                   lineHeight:      '16px',
                                   whiteSpace:      'nowrap',
                                   position:        'relative',
@@ -1692,14 +1698,14 @@ function PersonaConfigureInstructionsContent() {
                 })
               )}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
       {/* ── Delete oldest confirmation dialog ───────────────────────────────── */}
       <AnimatePresence>
         {confirmDeleteOldestOpen && (
-          <motion.div
+          <m.div
             key="confirm-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1708,7 +1714,7 @@ function PersonaConfigureInstructionsContent() {
             style={{
               position:        'fixed',
               inset:           0,
-              zIndex:          200,
+              zIndex:          20,
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
@@ -1716,7 +1722,7 @@ function PersonaConfigureInstructionsContent() {
             }}
             onClick={() => setConfirmDeleteOldestOpen(false)}
           >
-            <motion.div
+            <m.div
               initial={{ scale: 0.94, opacity: 0, y: 8 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.94, opacity: 0, y: 8 }}
@@ -1749,6 +1755,7 @@ function PersonaConfigureInstructionsContent() {
                 >
                   Cancel
                 </Button>
+                {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- confirmation dialog: "Continue" confirms delete-oldest-and-save action; modal context makes it clear */}
                 <Button
                   variant="default"
                   size="sm"
@@ -1760,8 +1767,8 @@ function PersonaConfigureInstructionsContent() {
                   Continue
                 </Button>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

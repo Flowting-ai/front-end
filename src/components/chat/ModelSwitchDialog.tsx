@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/Button";
 import type { AIModel } from "@/types/ai-model";
@@ -27,7 +27,7 @@ export function ModelSwitchDialog({
       {isOpen && fromModel && toModel && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -41,7 +41,7 @@ export function ModelSwitchDialog({
           />
 
           {/* Dialog */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -177,7 +177,7 @@ export function ModelSwitchDialog({
                 Switch Model
               </Button>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

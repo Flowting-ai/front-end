@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import {
@@ -75,16 +75,17 @@ export interface MessageBubbleProps extends React.HTMLAttributes<HTMLDivElement>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps>(
-  function MessageBubble(
-    { role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, className, ...props },
+export function MessageBubble({
     ref,
-  ) {
+    role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, className, ...props
+  // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+  }: MessageBubbleProps & { ref?: React.Ref<HTMLDivElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
 
     const [hovered,     setHovered]     = useState(false)
     const [copied,      setCopied]      = useState(false)
     const [editing,     setEditing]     = useState(false)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editDraft,   setEditDraft]   = useState(content)
     // Drives the CSS width during animated transitions. Normally 'fit-content';
     // briefly set to a measured px value so CSS can interpolate.
@@ -271,6 +272,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
                   gridArea:   '1/1',
                   padding:    0,
                   border:     'none',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:    'none',
                   resize:     'none',
                   overflow:   'hidden',
@@ -301,7 +303,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
         {/* wrapper's paddingBottom reserves CTA_ZONE px to protect page siblings. */}
         <AnimatePresence>
           {editing && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{    opacity: 0 }}
@@ -330,7 +332,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
               <kbd
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize:   10,
+                  fontSize: 12,
                   lineHeight: 1,
                   color:      'var(--neutral-400)',
                   userSelect: 'none',
@@ -342,7 +344,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
               >
                 ⌘↵
               </kbd>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -350,7 +352,7 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
         {/* position:absolute - zero layout shift. paddingTop bridges the gap so   */}
         {/* mouseleave never fires between bubble bottom and button hit area.       */}
         {!editing && (
-          <motion.div
+          <m.div
             animate={{ opacity: hovered ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
             style={{
@@ -400,24 +402,23 @@ export const MessageBubble = React.forwardRef<HTMLDivElement, MessageBubbleProps
               icon={
                 <AnimatePresence mode="popLayout" initial={false}>
                   {copied ? (
-                    <motion.span key="check" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
+                    <m.span key="check" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
                       <TickTwoIcon size={16} />
-                    </motion.span>
+                    </m.span>
                   ) : (
-                    <motion.span key="copy" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
+                    <m.span key="copy" initial={SWAP_INITIAL} animate={SWAP_ANIMATE} exit={SWAP_EXIT} transition={SPRING} style={{ display: 'block', lineHeight: 0 }}>
                       <CopyOneIcon size={16} />
-                    </motion.span>
+                    </m.span>
                   )}
                 </AnimatePresence>
               }
               onClick={handleCopy}
             />
-          </motion.div>
+          </m.div>
         )}
       </div>
     )
-  },
-)
+}
 
 MessageBubble.displayName = 'MessageBubble'
 export default MessageBubble

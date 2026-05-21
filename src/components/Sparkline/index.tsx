@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+// eslint-disable-next-line react-doctor/prefer-dynamic-import -- chart primitives require synchronous import; component is already client-only
 import {
   ResponsiveContainer, AreaChart, Area, Line, ReferenceDot,
 } from 'recharts'
@@ -20,8 +21,7 @@ export interface SparklineProps extends Omit<React.HTMLAttributes<HTMLDivElement
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Sparkline = React.forwardRef<HTMLDivElement, SparklineProps>(
-  function Sparkline({ data, height = 160, color, className, style, ...props }, ref) {
+export function Sparkline({ data, height = 160, color, className, style, ref, ...props }: SparklineProps & { ref?: React.Ref<HTMLDivElement> }) {
     const reduceMotion = useReducedMotion() ?? false
     const stroke = color ?? 'var(--color-chart-primary)'
     const id     = React.useId().replace(/[^a-zA-Z0-9]/g, '')
@@ -90,8 +90,7 @@ export const Sparkline = React.forwardRef<HTMLDivElement, SparklineProps>(
         </ResponsiveContainer>
       </div>
     )
-  },
-)
+}
 
 Sparkline.displayName = 'Sparkline'
 export default Sparkline

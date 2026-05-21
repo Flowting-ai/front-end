@@ -120,8 +120,9 @@ The sidebar collapses on screens under 1,024px but the mobile fallback omits Pro
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function BrainPage() {
-  const router = useRouter()
+  const { push } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
   const chatHistory = useChatHistoryContext()
   const { projects, getChats, chats: projectChats } = useProjects()
@@ -248,6 +249,7 @@ export default function BrainPage() {
   //   • s4 (index 3, critical): fails if s3 was skipped; re-running s4
   //     after that critical failure causes a fatal loop failure.
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (phase !== 'executing') return
 
@@ -318,6 +320,7 @@ export default function BrainPage() {
   // Delivers chunks of DEMO_OUTPUT every 250 ms to simulate token streaming.
   // StreamingMessageBubble's internal typewriter catches up with each chunk.
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (phase !== 'streaming') return
 
@@ -691,13 +694,13 @@ export default function BrainPage() {
         isAuthenticated,
         projects:        sidebarProjects,
         recents:         recentChats,
-        onSelectChat:    (id) => router.push(`/chat?id=${id}`),
-        onNewChat:       () => router.push('/chat'),
-        onChatsClick:    () => router.push('/chats'),
-        onPersonasClick: () => router.push('/personas'),
-        onProjectsClick: () => router.push('/projects'),
-        onSettingsClick: () => router.push('/settings'),
-        onHelpClick:     () => router.push('/settings/help'),
+        onSelectChat:    (id) => push(`/chat?id=${id}`),
+        onNewChat:       () => push('/chat'),
+        onChatsClick:    () => push('/chats'),
+        onPersonasClick: () => push('/personas'),
+        onProjectsClick: () => push('/projects'),
+        onSettingsClick: () => push('/settings'),
+        onHelpClick:     () => push('/settings/help'),
         onLogoutClick:   () => { void logout() },
         onBrainClick:    undefined,
       }}

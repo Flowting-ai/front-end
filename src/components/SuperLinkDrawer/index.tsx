@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useEffectEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge } from '@/components/Badge'
@@ -273,17 +273,17 @@ function DrawerSettings({
 const MODAL_WIDTH  = 440
 const MODAL_HEIGHT = 640
 
-export const SuperLinkDrawer = React.forwardRef<HTMLDivElement, SuperLinkDrawerProps>(
-  function SuperLinkDrawer({ link, onClose, onStatusChange, onLimitChange, className, style }, ref) {
+export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitChange, className, style }: SuperLinkDrawerProps & { ref?: React.Ref<HTMLDivElement> }) {
     const reduceMotion = useReducedMotion() ?? false
 
     // ESC closes; only mounted while open so no idle keyboard listener.
+    const closeOnEscape = useEffectEvent(onClose)
     React.useEffect(() => {
       if (!link) return
-      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOnEscape() }
       window.addEventListener('keydown', onKey)
       return () => window.removeEventListener('keydown', onKey)
-    }, [link, onClose])
+    }, [link])
 
     // Lock body scroll while modal is open.
     React.useEffect(() => {
@@ -298,7 +298,7 @@ export const SuperLinkDrawer = React.forwardRef<HTMLDivElement, SuperLinkDrawerP
     return createPortal(
       <AnimatePresence initial={false}>
         {link && (
-          <motion.div
+          <m.div
             key="superlink-modal-root"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -307,7 +307,7 @@ export const SuperLinkDrawer = React.forwardRef<HTMLDivElement, SuperLinkDrawerP
             style={{
               position:        'fixed',
               inset:           0,
-              zIndex:          1000,
+              zIndex:          10,
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
@@ -318,7 +318,7 @@ export const SuperLinkDrawer = React.forwardRef<HTMLDivElement, SuperLinkDrawerP
             }}
             onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
           >
-          <motion.aside
+          <m.aside
             ref={ref}
             key={link.id}
             role="dialog"
@@ -422,14 +422,13 @@ export const SuperLinkDrawer = React.forwardRef<HTMLDivElement, SuperLinkDrawerP
                 </TabsContent>
               </div>
             </Tabs>
-          </motion.aside>
-          </motion.div>
+          </m.aside>
+          </m.div>
         )}
       </AnimatePresence>,
       document.body,
     )
-  },
-)
+}
 
 SuperLinkDrawer.displayName = 'SuperLinkDrawer'
 export default SuperLinkDrawer

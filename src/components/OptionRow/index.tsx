@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { DragDropVerticalIcon, TickTwoIcon } from '@strange-huge/icons'
 import { OptionBadge } from '@/components/OptionBadge'
 import { springs } from '@/lib/springs'
@@ -48,11 +48,10 @@ const badgeEnter = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
-  function OptionRow(
-    { variant = 'default', num = 1, label = '', dragHandleProps, className, style, ...props },
+export function OptionRow({
     ref,
-  ) {
+    variant = 'default', num = 1, label = '', dragHandleProps, className, style, ...props
+  }: OptionRowProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [hovered, setHovered] = useState(false)
     const [focused, setFocused] = useState(false)
 
@@ -111,14 +110,14 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
 
             {/* Numbered badge */}
             {badgeKey === 'number' && (
-              <motion.div key="number" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
+              <m.div key="number" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <OptionBadge variant="number" num={num} />
-              </motion.div>
+              </m.div>
             )}
 
             {/* Selected - white badge + tick */}
             {badgeKey === 'check' && (
-              <motion.div key="check" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
+              <m.div key="check" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
                   style={{
                     width:           28,
@@ -157,12 +156,12 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
                     }}
                   />
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {/* Multi unchecked - white badge, no tick */}
             {badgeKey === 'checkbox' && (
-              <motion.div key="checkbox" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
+              <m.div key="checkbox" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
                   style={{
                     width:           28,
@@ -198,12 +197,12 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
                     }}
                   />
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {/* Multi checked - white badge + tick */}
             {badgeKey === 'checkbox-checked' && (
-              <motion.div key="checkbox-checked" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
+              <m.div key="checkbox-checked" {...badgeEnter} style={{ position: 'absolute', inset: 0 }}>
                 <div
                   style={{
                     width:           28,
@@ -242,7 +241,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
                     }}
                   />
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
           </AnimatePresence>
@@ -289,8 +288,7 @@ export const OptionRow = React.forwardRef<HTMLDivElement, OptionRowProps>(
         )}
       </div>
     )
-  },
-)
+}
 
 OptionRow.displayName = 'OptionRow'
 export default OptionRow

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
@@ -43,6 +43,7 @@ export function PhaseRecord({
   defaultCollapsed = true,
   children,
 }: PhaseRecordProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   return (
@@ -86,19 +87,19 @@ export function PhaseRecord({
         </span>
 
         {/* Chevron */}
-        <motion.span
+        <m.span
           animate={{ rotate: collapsed ? 0 : 180 }}
           transition={springs.fast}
           style={{ flexShrink: 0, lineHeight: 0, transformOrigin: 'center' }}
         >
           <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
-        </motion.span>
+        </m.span>
       </button>
 
       {/* ── Expanded card ── */}
       <AnimatePresence initial={false}>
         {!collapsed && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{    height: 0, opacity: 0 }}
@@ -108,7 +109,7 @@ export function PhaseRecord({
             <div style={{ paddingTop: 8, paddingBottom: 4 }}>
               {children}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

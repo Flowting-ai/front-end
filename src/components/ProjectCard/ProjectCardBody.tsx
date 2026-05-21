@@ -28,8 +28,8 @@ export function ProjectCardBody({ description, tags, updatedAt, chatCount }: Pro
             padding:    '2px 1px',
           }}
         >
-          {tags.map((tag, i) => (
-            <Badge key={i} label={tag.label} color={tag.color ?? 'Blue'} />
+          {tags.map((tag) => (
+            <Badge key={tag.label} label={tag.label} color={tag.color ?? 'Blue'} />
           ))}
         </div>
       )}
@@ -41,7 +41,7 @@ export function ProjectCardBody({ description, tags, updatedAt, chatCount }: Pro
           minHeight:       0,
           fontFamily:      'var(--font-body)',
           fontWeight:      'var(--font-weight-regular)',
-          fontSize:        '11px',
+          fontSize: '12px',
           lineHeight:      '16px',
           color:           '#857a72',
           overflow:        'hidden',
@@ -65,7 +65,7 @@ export function ProjectCardBody({ description, tags, updatedAt, chatCount }: Pro
           marginTop:      '6px',
           fontFamily:     'var(--font-body)',
           fontWeight:     'var(--font-weight-regular)',
-          fontSize:       '11px',
+          fontSize: '12px',
           lineHeight:     '16px',
         }}
       >

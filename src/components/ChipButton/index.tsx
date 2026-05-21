@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 // ── ChipButton ────────────────────────────────────────────────────────────────
 // Atom. The interactive action button used inside Chip (cancel / change / expand).
@@ -52,7 +52,7 @@ export function ChipButton({
 }: ChipButtonProps) {
   const isSmall = size === '16px'
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
@@ -91,7 +91,7 @@ export function ChipButton({
           boxShadow:     'var(--chip-button-inner-shadow)',
         }}
       />
-    </motion.button>
+    </m.button>
   )
 }
 

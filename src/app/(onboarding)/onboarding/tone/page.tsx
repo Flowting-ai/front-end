@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
@@ -25,14 +25,10 @@ function ToneCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   return (
     <button
       type="button"
       onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -72,7 +68,7 @@ function ToneCard({
             fontWeight: 400,
             fontSize: "18px",
             color: "rgba(255,255,255,0.9)",
-            letterSpacing: "2px",
+            letterSpacing: "0.5px",
           }}
         >
           {symbol}
@@ -114,7 +110,7 @@ function ToneCard({
 }
 
 export default function OnboardingTonePage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { data, setTone } = useOnboarding();
 
   return (
@@ -173,32 +169,33 @@ export default function OnboardingTonePage() {
 
       {/* Nav buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="outline" size="sm" onClick={() => router.push("/onboarding/role")}>
+        <Button variant="outline" size="sm" onClick={() => push("/onboarding/role")}>
           Back
         </Button>
+        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances to import step; flow context makes action clear */}
         <Button
           size="sm"
           disabled={data.tone === null}
-          onClick={() => router.push("/onboarding/import")}
+          onClick={() => push("/onboarding/import")}
         >
           Continue
         </Button>
       </div>
 
       {/* Log out */}
-      <a
+      <Link
         href="/auth/logout"
         style={{
           fontFamily: "var(--font-body)",
           fontWeight: 400,
-          fontSize: "11px",
+          fontSize: "12px",
           lineHeight: "16px",
           color: "#0d6eb2",
           textDecoration: "underline",
         }}
       >
         Log out
-      </a>
+      </Link>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
 
 export default function NewProjectPage() {
-  const router                            = useRouter()
+  const { push, back }                    = useRouter()
   const { projects, createProject }       = useProjects()
   const [name,         setName]           = useState('')
   const [description,  setDescription]   = useState('')
@@ -20,7 +20,7 @@ export default function NewProjectPage() {
     setLoading(true)
     try {
       const project = await createProject(name.trim(), description.trim())
-      router.push(`/project/${project.id}`)
+      push(`/project/${project.id}`)
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })
       setLoading(false)
@@ -73,6 +73,7 @@ export default function NewProjectPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label
+              htmlFor="new-project-name"
               style={{
                 fontFamily:  'var(--font-body)',
                 fontWeight:  'var(--font-weight-medium)',
@@ -84,16 +85,19 @@ export default function NewProjectPage() {
               What are we working on
             </label>
             <InputField
+              id="new-project-name"
               placeholder="Name your project"
               value={name}
               onChange={setName}
               fluid
+              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into name field on page open
               autoFocus
             />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label
+              htmlFor="new-project-desc"
               style={{
                 fontFamily:  'var(--font-body)',
                 fontWeight:  'var(--font-weight-medium)',
@@ -105,6 +109,7 @@ export default function NewProjectPage() {
               What are we trying to achieve
             </label>
             <textarea
+              id="new-project-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. We're redesigning onboarding to improve activation. All related research and chats go here."
@@ -126,19 +131,23 @@ export default function NewProjectPage() {
                 boxSizing:    'border-box',
               }}
               onFocus={(e) => {
-                e.currentTarget.style.boxShadow   = '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)'
-                e.currentTarget.style.borderColor = 'var(--blue-400)'
+                Object.assign(e.currentTarget.style, {
+                  boxShadow:   '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)',
+                  borderColor: 'var(--blue-400)',
+                })
               }}
               onBlur={(e) => {
-                e.currentTarget.style.boxShadow   = '0px 1px 1.5px 0px rgba(82,75,71,0.12)'
-                e.currentTarget.style.borderColor = 'var(--neutral-300)'
+                Object.assign(e.currentTarget.style, {
+                  boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.12)',
+                  borderColor: 'var(--neutral-300)',
+                })
               }}
             />
             <p
               style={{
                 fontFamily:  'var(--font-body)',
                 fontWeight:  'var(--font-weight-regular)',
-                fontSize:    '11px',
+                fontSize: '12px',
                 lineHeight:  '16px',
                 color:       '#857a72',
                 margin:      0,
@@ -151,7 +160,7 @@ export default function NewProjectPage() {
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" onClick={() => router.back()}>
+          <Button variant="ghost" onClick={() => back()}>
             Cancel
           </Button>
           <Button

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 export interface SpinnerProps {
   size?: number
@@ -12,7 +12,7 @@ export interface SpinnerProps {
 
 export function Spinner({ size = 20, color = 'currentColor', className, style }: SpinnerProps) {
   return (
-    <motion.svg
+    <m.svg
       width={size}
       height={size}
       viewBox="0 0 20 20"
@@ -30,7 +30,7 @@ export function Spinner({ size = 20, color = 'currentColor', className, style }:
     >
       <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.25" />
       <path d="M 10 3 A 7 7 0 0 1 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </motion.svg>
+    </m.svg>
   )
 }
 

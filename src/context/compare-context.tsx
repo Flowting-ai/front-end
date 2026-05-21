@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, use, useState } from 'react'
 
 interface CompareContextValue {
   isOpen: boolean
@@ -26,7 +26,7 @@ export function CompareProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useCompare(): CompareContextValue {
-  const ctx = useContext(CompareContext)
+  const ctx = use(CompareContext)
   if (!ctx) throw new Error('useCompare must be used within CompareProvider')
   return ctx
 }

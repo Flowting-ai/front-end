@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
   AlertCircleIcon,
@@ -49,7 +49,7 @@ function LiveStepCircle({ status, index }: LiveStepCircleProps) {
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
       }}>
-        —
+        {'—'}
       </div>
     )
   }
@@ -187,7 +187,7 @@ export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
   const doneCount      = steps.filter(s => s.status === 'complete' || s.status === 'skipped').length
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={springs.moderate}
@@ -245,7 +245,7 @@ export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
           />
         ))}
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 

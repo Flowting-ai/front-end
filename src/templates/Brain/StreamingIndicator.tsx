@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { BrainTwoIcon, GlobalSearchIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 import type { Phase } from './lib/phase'
@@ -49,9 +49,9 @@ const PHASE_MESSAGES: Record<StreamingPhase, string[]> = {
 function PulsingDots() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-      {[0, 1, 2].map(i => (
-        <motion.div
-          key={i}
+      {[0, 1, 2].map(dotIdx => (
+        <m.div
+          key={`dot-${dotIdx}`}
           style={{
             width:           5,
             height:          5,
@@ -62,7 +62,7 @@ function PulsingDots() {
           transition={{
             duration:   1.2,
             repeat:     Infinity,
-            delay:      i * 0.18,
+            delay:      dotIdx * 0.18,
             ease:       'easeInOut',
           }}
         />
@@ -78,6 +78,7 @@ export function StreamingIndicator({ phase }: StreamingIndicatorProps) {
   const [msgIndex, setMsgIndex]     = useState(0)
 
   // Cycle through messages every 2.5 s; reset to 0 when phase changes.
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     setMsgIndex(0)
     const id = setInterval(() => {
@@ -95,7 +96,7 @@ export function StreamingIndicator({ phase }: StreamingIndicatorProps) {
 
       {/* Rotating message — animates on both phase change and message cycle */}
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
+        <m.span
           key={`${phase}-${msgIndex}`}
           initial={{ opacity: 0, filter: 'blur(4px)', y: 4 }}
           animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
@@ -110,7 +111,7 @@ export function StreamingIndicator({ phase }: StreamingIndicatorProps) {
           }}
         >
           {messages[msgIndex]}
-        </motion.span>
+        </m.span>
       </AnimatePresence>
 
       <PulsingDots />

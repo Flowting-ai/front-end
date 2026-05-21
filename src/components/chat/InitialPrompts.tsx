@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from 'next/image';
 import { getGreeting, getSubheading } from "@/lib/greetings";
 import { useAuth } from "@/context/auth-context";
 
@@ -18,31 +19,34 @@ export function InitialPrompts() {
   return (
     <div
       style={{
-        display: "flex",
+        display:       "flex",
         flexDirection: "column",
-        alignItems: "center",
-        padding: "0 24px",
-        textAlign: "center",
-        maxWidth: "640px",
-        margin: "0 auto",
+        alignItems:    "center",
+        padding:       "0 24px",
+        textAlign:     "center",
+        maxWidth:      "640px",
+        margin:        "0 auto",
+        pointerEvents: "none",
+        userSelect:    "none",
       }}
     >
       <h1
         style={{
           fontFamily: "var(--font-title)",
-          fontSize: "28px",
+          fontSize:   "28px",
           fontWeight: 200,
-          color: "var(--neutral-800)",
-          margin: "0 0 6px",
+          color:      "var(--neutral-800)",
+          margin:     "0 0 6px",
           lineHeight: 1.25,
         }}
       >
-        <img
+        <Image
           src="/icons/souvenir-logo-gray.svg"
           alt=""
           aria-hidden="true"
           width={28}
           height={28}
+          unoptimized
           style={{
             display: "inline-block",
             verticalAlign: "middle",
@@ -55,12 +59,12 @@ export function InitialPrompts() {
       <p
         style={{
           fontFamily: "var(--font-body)",
-          fontSize: "16px",
+          fontSize:   "16px",
           fontWeight: 400,
-          color: "#3B3632",
-          margin: "0",
+          color:      "#3B3632",
+          margin:     "0",
           lineHeight: 1.5,
-          maxWidth: "480px",
+          maxWidth:   "480px",
         }}
       >
         {subheading}

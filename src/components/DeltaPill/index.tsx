@@ -22,8 +22,7 @@ export interface DeltaPillProps extends React.HTMLAttributes<HTMLDivElement> {
 // `onRemove` handler (the icon button renders but does nothing) and pointer
 // events are suppressed on the wrapper so the cursor never changes.
 
-export const DeltaPill = React.forwardRef<HTMLDivElement, DeltaPillProps>(
-  function DeltaPill({ trend, value, className, style, ...props }, ref) {
+export function DeltaPill({ ref, trend, value, className, style, ...props }: DeltaPillProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isUp = trend === 'up'
     const Icon = isUp ? ArrowUpTwoIcon : ArrowDownTwoIcon
     const chipColor: ChipColor = isUp ? 'Green' : 'Red'
@@ -43,8 +42,7 @@ export const DeltaPill = React.forwardRef<HTMLDivElement, DeltaPillProps>(
         {...props}
       />
     )
-  },
-)
+}
 
 DeltaPill.displayName = 'DeltaPill'
 export default DeltaPill

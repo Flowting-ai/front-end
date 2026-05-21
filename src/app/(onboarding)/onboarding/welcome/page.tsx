@@ -8,7 +8,7 @@ import { InputField } from "@/components/InputField";
 import { Button } from "@/components/Button";
 
 export default function OnboardingWelcomePage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
   const { data, setFirstName, setLastName, setNickname } = useOnboarding();
 
@@ -19,7 +19,9 @@ export default function OnboardingWelcomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Redirect unauthenticated users
+  // Redirect unauthenticated users — must be client-side because auth state
+  // comes from a client context; server-side redirect would need middleware.
+  // eslint-disable-next-line react-doctor/nextjs-no-client-side-redirect
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) {
@@ -31,7 +33,7 @@ export default function OnboardingWelcomePage() {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    router.push("/onboarding/role");
+    push("/onboarding/role");
   };
 
   if (!isHydrated) return null;
@@ -130,6 +132,7 @@ export default function OnboardingWelcomePage() {
             <Button variant="outline" size="sm" onClick={() => void logout()}>
               Back
             </Button>
+            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances to role step; flow context makes action clear */}
             <Button size="sm" disabled={!canContinue} onClick={handleContinue}>
               Continue
             </Button>
@@ -147,7 +150,7 @@ export default function OnboardingWelcomePage() {
           cursor: "pointer",
           fontFamily: "var(--font-body)",
           fontWeight: 400,
-          fontSize: "11px",
+          fontSize: "12px",
           lineHeight: "16px",
           color: "#0d6eb2",
           textDecoration: "underline",

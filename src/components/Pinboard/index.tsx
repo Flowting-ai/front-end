@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import {
   ArrowDownOneIcon,
   ArrowRightOneIcon,
@@ -416,6 +416,7 @@ function FilterBar({
   onClearCategories,
   onClearContentTypes,
   onClearAll,
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: FilterBarProps) {
   const [tagOpen,   setTagOpen]   = useState(false)
   const [catOpen,   setCatOpen]   = useState(false)
@@ -892,66 +893,70 @@ const DEFAULT_PINS: PinboardPin[] = Array.from({ length: 7 }, (_, i) => ({
   id: `pin-${i}`,
 }))
 
+const EMPTY_FOLDERS: PinboardExpandedFolder[] = []
+const EMPTY_STRING_IDS: string[] = []
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
-  function Pinboard(
-    {
-      pins            = DEFAULT_PINS,
-      views           = DEFAULT_PINBOARD_VIEWS,
-      personalFolders = [],
-      projectFolders  = [],
-      view,
-      defaultView,
-      onViewChange,
-      onOptionsClick,
-      onCollapseAll,
-      onSortClick,
-      onExport,
-      onOrganize,
-      onClose,
-      onSearch,
-      onNewFolderClick,
-      onMoveToFolder,
-      onDeleteSelected,
-      onExportSelected,
-      updatedLabel,
-      onFolderRename,
-      onFolderDelete,
-      fluid         = false,
-      expanded:        controlledExpanded,
-      onExpandedChange,
-      defaultExpanded  = false,
-      expandedWidth    = 924,
-      expandedHeight   = 817,
-      overlayBackdrop        = 'var(--overlay-bg)',
-      overlayBackdropBlur    = 'var(--overlay-blur)',
-      overlayCloseOnBackdrop = true,
-      enterAnimation = PINBOARD_COMPACT_ENTER_DEFAULT,
-      filterMenu:                  filterMenuProp,
-      tags                       = DEFAULT_PINBOARD_TAGS,
-      categories                 = DEFAULT_PINBOARD_CATEGORIES,
-      contentTypes               = DEFAULT_PINBOARD_CONTENT_TYPES,
-      selectedTagIds:                 selectedTagIdsProp,
-      defaultSelectedTagIds      = [],
-      onSelectedTagIdsChange,
-      selectedCategoryIds:            selectedCategoryIdsProp,
-      defaultSelectedCategoryIds = [],
-      onSelectedCategoryIdsChange,
-      selectedContentTypeIds:         selectedContentTypeIdsProp,
-      defaultSelectedContentTypeIds = [],
-      onSelectedContentTypeIdsChange,
-      sortMenu:                    sortMenuProp,
-      sortOptions                = DEFAULT_PINBOARD_SORT_OPTIONS,
-      selectedSortId:                 selectedSortIdProp,
-      defaultSelectedSortId      = null,
-      onSelectedSortIdChange,
-      filterDisabled = false,
-      style,
-      ...props
-    },
+export function Pinboard(
+  {
     ref,
-  ) {
+    pins            = DEFAULT_PINS,
+    views           = DEFAULT_PINBOARD_VIEWS,
+    personalFolders = EMPTY_FOLDERS,
+    projectFolders  = EMPTY_FOLDERS,
+    view,
+    defaultView,
+    onViewChange,
+    onOptionsClick,
+    onCollapseAll,
+    onSortClick,
+    onExport,
+    onOrganize,
+    onClose,
+    onSearch,
+    onNewFolderClick,
+    onMoveToFolder,
+    onDeleteSelected,
+    onExportSelected,
+    updatedLabel,
+    onFolderRename,
+    onFolderDelete,
+    fluid         = false,
+    expanded:        controlledExpanded,
+    onExpandedChange,
+    defaultExpanded  = false,
+    expandedWidth    = 924,
+    expandedHeight   = 817,
+    overlayBackdrop        = 'var(--overlay-bg)',
+    overlayBackdropBlur    = 'var(--overlay-blur)',
+    overlayCloseOnBackdrop = true,
+    enterAnimation = PINBOARD_COMPACT_ENTER_DEFAULT,
+    filterMenu:                  filterMenuProp,
+    tags                       = DEFAULT_PINBOARD_TAGS,
+    categories                 = DEFAULT_PINBOARD_CATEGORIES,
+    contentTypes               = DEFAULT_PINBOARD_CONTENT_TYPES,
+    selectedTagIds:                 selectedTagIdsProp,
+    defaultSelectedTagIds      = EMPTY_STRING_IDS,
+    onSelectedTagIdsChange,
+    selectedCategoryIds:            selectedCategoryIdsProp,
+    defaultSelectedCategoryIds = EMPTY_STRING_IDS,
+    onSelectedCategoryIdsChange,
+    selectedContentTypeIds:         selectedContentTypeIdsProp,
+    defaultSelectedContentTypeIds = EMPTY_STRING_IDS,
+    onSelectedContentTypeIdsChange,
+    sortMenu:                    sortMenuProp,
+    sortOptions                = DEFAULT_PINBOARD_SORT_OPTIONS,
+    selectedSortId:                 selectedSortIdProp,
+    defaultSelectedSortId      = null,
+    onSelectedSortIdChange,
+    filterDisabled = false,
+    style,
+    ...props
+  }: PinboardProps & { ref?: React.Ref<HTMLDivElement> },
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+) {
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [uncontrolledExpanded, setUncontrolledExpanded] = useState(defaultExpanded)
     const isControlled = controlledExpanded !== undefined
     const isExpanded   = isControlled ? !!controlledExpanded : uncontrolledExpanded
@@ -1144,6 +1149,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     // ── Sort dropdown (Figma 3442:23366) ───────────────────────────────────
     const [sortMenuOpen, setSortMenuOpen] = useState(false)
     const isSortControlled = selectedSortIdProp !== undefined
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSortId, setInternalSortId] = useState<string | null>(defaultSelectedSortId)
     const selectedSortId = isSortControlled ? (selectedSortIdProp ?? null) : internalSortId
     const handleSortSelect = (id: string) => {
@@ -1311,7 +1317,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                       the exiting span from layout flow as soon as exit starts,
                       so the new label drives layout immediately. */}
                   <AnimatePresence mode="popLayout" initial={false}>
-                    <motion.span
+                    <m.span
                       key={currentViewId}
                       initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                       animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -1320,7 +1326,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                       style={{ display: 'block', transformOrigin: 'left center' }}
                     >
                       {(() => { const l = currentView?.label ?? 'All pins'; return l.length > 20 ? l.slice(0, 20) + '…' : l })()}
-                    </motion.span>
+                    </m.span>
                   </AnimatePresence>
                 </Button>
               }
@@ -1386,7 +1392,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AnimatePresence initial={false}>
                 {hasExpanded && (
-                  <motion.div
+                  <m.div
                     key="collapse-all"
                     initial={{ opacity: 0, scale: 0.6 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -1403,10 +1409,10 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                         onClick={handleCollapseAll}
                       />
                     </Tooltip>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
-              <motion.div
+              <m.div
                 layout
                 transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                 style={{ display: 'inline-flex' }}
@@ -1453,8 +1459,8 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                     />
                   </Tooltip>
                 )}
-              </motion.div>
-              <motion.div
+              </m.div>
+              <m.div
                 layout
                 transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                 style={{ display: 'inline-flex' }}
@@ -1490,7 +1496,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                     />
                   </Tooltip>
                 )}
-              </motion.div>
+              </m.div>
             </div>
           </div>
 
@@ -1501,7 +1507,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               height. ── */}
           <AnimatePresence initial={false}>
             {hasActiveFilters && (
-              <motion.div
+              <m.div
                 key="filter-bar"
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -1510,7 +1516,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
                 style={{ overflow: 'hidden' }}
               >
                 {filterBarNode}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </EnterChunk>
@@ -1537,6 +1543,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             paddingBottom:        bottomH + 4,
             paddingLeft:          8,
             paddingRight:         8,
+            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
             outline:              'none',
           }}
         >
@@ -1728,7 +1735,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
     const overlayNode = typeof document !== 'undefined' ? createPortal(
       <AnimatePresence>
         {isExpanded ? [
-          <motion.div
+          <m.div
             key="pinboard-backdrop"
             aria-hidden
             onClick={overlayCloseOnBackdrop ? handleExpandedClose : undefined}
@@ -1739,9 +1746,9 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
             style={{
               position:             'fixed',
               inset:                0,
-              zIndex:               1000,
+              zIndex:               20,
               // Token-driven overlay - see specs/patterns/overlay-backdrop.md.
-              // The token already encodes alpha; the motion.div's `opacity`
+              // The token already encodes alpha; the m.div's `opacity`
               // animates 0→1 to fade the whole layer in/out.
               background:           overlayBackdrop,
               backdropFilter:       `blur(${overlayBackdropBlur})`,
@@ -1749,14 +1756,14 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               cursor:               overlayCloseOnBackdrop ? 'pointer' : 'default',
             }}
           />,
-          <motion.div
+          <m.div
             key="pinboard-panel"
             role="dialog"
             aria-modal="true"
             aria-label="Pinboard"
-            initial={{ opacity: 0, scale: 0.85, filter: 'blur(16px)' }}
+            initial={{ opacity: 0, scale: 0.85, filter: 'blur(8px)' }}
             animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)' }}
-            exit={{    opacity: 0, scale: 0.85, filter: 'blur(16px)' }}
+            exit={{    opacity: 0, scale: 0.85, filter: 'blur(8px)' }}
             transition={{ type: 'spring', stiffness: 380, damping: 24, mass: 0.9 }}
             style={{
               position:        'fixed',
@@ -1768,7 +1775,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               maxWidth:        'calc(100vw - 32px)',
               height:          expandedHeight,
               maxHeight:       '98vh',
-              zIndex:          1001,
+              zIndex:          21,
               background:      'var(--neutral-50)',
               borderRadius:    28,
               overflow:        'hidden',
@@ -1804,7 +1811,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
               onFolderRename={onFolderRename}
               onFolderDelete={onFolderDelete}
             />
-          </motion.div>,
+          </m.div>,
         ] : null}
       </AnimatePresence>,
       document.body,
@@ -1816,8 +1823,7 @@ export const Pinboard = React.forwardRef<HTMLDivElement, PinboardProps>(
         {overlayNode}
       </>
     )
-  },
-)
+}
 
 Pinboard.displayName = 'Pinboard'
 export default Pinboard

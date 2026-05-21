@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { SearchOneIcon, CancelOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { InputField } from '@/components/InputField'
@@ -20,8 +20,7 @@ export interface PinboardHeaderProps extends React.HTMLAttributes<HTMLDivElement
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderProps>(
-  function PinboardHeader({ fluid = false, onClose, onSearch, style, ...props }, ref) {
+export function PinboardHeader({ fluid = false, onClose, onSearch, style, ref, ...props }: PinboardHeaderProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isSearchOpen, setIsSearchOpen] = useState(false)
     const [searchValue, setSearchValue]   = useState('')
 
@@ -60,7 +59,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
         {/* Title - absolutely positioned so it never affects flow width */}
         <AnimatePresence initial={false}>
           {!isSearchOpen && (
-            <motion.p
+            <m.p
               key="title"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -83,7 +82,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
               }}
             >
               Pinboard
-            </motion.p>
+            </m.p>
           )}
         </AnimatePresence>
 
@@ -98,7 +97,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
           >
             <AnimatePresence initial={false} mode="popLayout">
               {!isSearchOpen ? (
-                <motion.span
+                <m.span
                   key="search-btn"
                   layout
                   initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
@@ -113,9 +112,9 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
                     aria-label="Open search"
                     onClick={openSearch}
                   />
-                </motion.span>
+                </m.span>
               ) : (
-              <motion.div
+              <m.div
                 key="search-input"
                 initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
@@ -143,11 +142,11 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
                   value={searchValue}
                   onChange={handleSearchChange}
                   fluid
-                  // eslint-disable-next-line jsx-a11y/no-autofocus
+                  // eslint-disable-next-line jsx-a11y/no-autofocus, react-doctor/no-autofocus -- focus moves into search on user-triggered open
                   autoFocus
                   aria-label="Search pins"
                 />
-              </motion.div>
+              </m.div>
               )}
             </AnimatePresence>
           </div>
@@ -165,8 +164,7 @@ export const PinboardHeader = React.forwardRef<HTMLDivElement, PinboardHeaderPro
         </Tooltip>
       </div>
     )
-  },
-)
+}
 
 PinboardHeader.displayName = 'PinboardHeader'
 export default PinboardHeader

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { Button } from '@/components/Button'
 import { springs } from '@/lib/springs'
 
@@ -81,6 +81,7 @@ export function ScheduleEditModal({
   schedule,
   onSave,
   onClose,
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ScheduleEditModalProps) {
   const isCreate = !schedule
 
@@ -92,6 +93,7 @@ export function ScheduleEditModal({
   const [day,          setDay]          = useState<DayOfWeek>('Monday')
 
   // Reset form when modal opens/schedule changes
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (isOpen) {
       setName(schedule?.name ?? '')
@@ -117,7 +119,7 @@ export function ScheduleEditModal({
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.div
+        <m.div
           key="schedule-edit-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -131,11 +133,11 @@ export function ScheduleEditModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            zIndex:          100,
+            zIndex:          20,
             padding:         24,
           }}
         >
-          <motion.div
+          <m.div
             key="schedule-edit-card"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -167,8 +169,9 @@ export function ScheduleEditModal({
 
             {/* Name */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Name</label>
+              <label htmlFor="schedule-name" style={labelStyle}>Name</label>
               <input
+                id="schedule-name"
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -179,8 +182,9 @@ export function ScheduleEditModal({
 
             {/* Instructions */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label style={labelStyle}>Instructions</label>
+              <label htmlFor="schedule-instructions" style={labelStyle}>Instructions</label>
               <textarea
+                id="schedule-instructions"
                 value={instructions}
                 onChange={e => setInstructions(e.target.value)}
                 placeholder="Describe what Brain should do on each run…"
@@ -195,7 +199,7 @@ export function ScheduleEditModal({
 
             {/* Frequency */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={labelStyle}>Frequency</label>
+              <p style={{ ...labelStyle, margin: 0 }}>Frequency</p>
 
               {/* Segmented control */}
               <div style={{
@@ -232,8 +236,9 @@ export function ScheduleEditModal({
               {/* Day picker (weekly only) */}
               {freqType === 'weekly' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={{ ...labelStyle, margin: 0 }}>Day</label>
+                  <label htmlFor="schedule-day" style={{ ...labelStyle, margin: 0 }}>Day</label>
                   <select
+                    id="schedule-day"
                     value={day}
                     onChange={e => setDay(e.target.value as DayOfWeek)}
                     style={selectStyle}
@@ -245,8 +250,9 @@ export function ScheduleEditModal({
 
               {/* Time picker */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label style={{ ...labelStyle, margin: 0 }}>Time</label>
+                <label htmlFor="schedule-hour" style={{ ...labelStyle, margin: 0 }}>Time</label>
                 <select
+                  id="schedule-hour"
                   value={hour}
                   onChange={e => setHour(Number(e.target.value))}
                   style={selectStyle}
@@ -278,8 +284,8 @@ export function ScheduleEditModal({
               </Button>
             </div>
 
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

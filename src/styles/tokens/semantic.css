@@ -275,6 +275,31 @@
     inset 0px -2.182px 0.364px 0px var(--neutral-950),
     inset 0px -2.545px 4px -2.182px var(--neutral-50-50);
 
+  /* ── ModelFeaturedCard ────────────────────────────────────────────────────── */
+  /* Default (white) state - same lift + warm border ring as Button secondary */
+  --shadow-model-featured-default-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px var(--neutral-100);
+  --shadow-model-featured-default-inner:
+    inset 0px -2.182px 0.364px 0px var(--neutral-100);
+
+  /* Hover (white) state - elevated ring + inner depth */
+  --shadow-model-featured-hover-outer:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-300-40);
+  --shadow-model-featured-hover-inner: var(--shadow-item-inner);
+
+  /* Selected (dark gradient) state - same as preset-featured */
+  --shadow-model-featured-selected-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-10),
+    0px 1.455px 3.127px 0px var(--neutral-800-40),
+    0px 0px 0px 1px #000000;
+  --shadow-model-featured-selected-inner:
+    inset 0px 1px 0.364px 0px var(--neutral-50-30),
+    inset 0px -2.182px 0.364px 0px var(--neutral-950),
+    inset 0px -2.545px 4px -2.182px var(--neutral-50-50);
+
   /* ── ModelSelectItem ──────────────────────────────────────────────────────── */
   /* Shares the same hover shadow + bg as DropdownMenuItem. */
   --model-select-item-text:      var(--neutral-700);                  /* #524b47 */

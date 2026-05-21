@@ -38,6 +38,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
           flexShrink:      0,
         }}>
           {[true, false, false, false].map((isActive, i) => (
+            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- static fixed-length skeleton array, index is stable
             <div key={i} style={{
               height:          5,
               width:           24,
@@ -84,7 +85,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
             <span style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 400,
-              fontSize:   7,
+              fontSize: 12,
               lineHeight: '16px',
               color:      isDark ? 'white' : '#26211e',
               opacity:    0.8,
@@ -193,6 +194,7 @@ export default function PreferencesPage() {
             {THEME_OPTIONS.map(opt => {
               const selected = themeMode === opt.value
               return (
+                // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
                 <div
                   key={opt.value}
                   onClick={() => setThemeMode(opt.value)}
@@ -422,7 +424,7 @@ export default function PreferencesPage() {
                 <span style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 500,
-                  fontSize:   11,
+                  fontSize: 12,
                   lineHeight: '16px',
                   color:      'var(--green-800)',
                   padding:    '0 2px',

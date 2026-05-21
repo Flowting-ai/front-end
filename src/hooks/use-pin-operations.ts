@@ -13,6 +13,7 @@ interface UsePinOperationsResult {
 
 export function usePinOperations(): UsePinOperationsResult {
   const [pins, setPins] = useState<Pin[]>([]);
+  // eslint-disable-next-line react-doctor/rendering-usetransition-loading -- guards async fetch, not a state transition
   const [isLoading, setIsLoading] = useState(false);
   const loadedRef = useRef(false);
 

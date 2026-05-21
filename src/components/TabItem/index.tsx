@@ -27,22 +27,21 @@ export interface TabItemProps
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const TabItem = React.forwardRef<HTMLButtonElement, TabItemProps>(
-  function TabItem(
-    {
-      selected = false,
-      size = 'medium',
-      icon,
-      children,
-      disabled,
-      asChild = false,
-      disableSelectedStyle = false,
-      className,
-      'data-state': dataState,
-      ...props
-    },
+export function TabItem(
+  {
     ref,
-  ) {
+    selected = false,
+    size = 'medium',
+    icon,
+    children,
+    disabled,
+    asChild = false,
+    disableSelectedStyle = false,
+    className,
+    'data-state': dataState,
+    ...props
+  }: TabItemProps & { ref?: React.Ref<HTMLButtonElement> },
+) {
     const [hovered, setHovered] = useState(false)
     const Comp = asChild ? Slot : 'button'
 
@@ -135,8 +134,7 @@ export const TabItem = React.forwardRef<HTMLButtonElement, TabItemProps>(
         </span>
       </Comp>
     )
-  },
-)
+}
 
 TabItem.displayName = 'TabItem'
 export default TabItem

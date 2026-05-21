@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -26,8 +26,7 @@ export interface EnhanceScanningStateProps extends React.HTMLAttributes<HTMLDivE
 
 const DEFAULT_MESSAGES = ['Analysing your prompt…', 'Looking for gaps…'] as const
 
-export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScanningStateProps>(
-  function EnhanceScanningState({ rotateMs = 900, messages, className, style, ...props }, ref) {
+export function EnhanceScanningState({ ref, rotateMs = 900, messages, className, style, ...props }: EnhanceScanningStateProps & { ref?: React.Ref<HTMLDivElement> }) {
     const list = (messages && messages.length > 0) ? messages : (DEFAULT_MESSAGES as readonly string[])
     const [idx, setIdx] = useState(0)
 
@@ -71,8 +70,8 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
           }}
         >
           <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={idx}
+            {/* eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- cycling text segments; positionally stable */}
+            <m.span key={idx}
               initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
               animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
               exit={{    scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
@@ -80,7 +79,7 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
               style={{ display: 'block' }}
             >
               {list[idx]}
-            </motion.span>
+            </m.span>
           </AnimatePresence>
         </div>
 
@@ -97,7 +96,7 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
             overflow:        'hidden',
           }}
         >
-          <motion.span
+          <m.span
             initial={{ x: '-30%', width: '30%' }}
             animate={{ x: '130%' }}
             transition={{ duration: 1.2, ease: 'easeInOut', repeat: Infinity, repeatType: 'loop' }}
@@ -112,8 +111,7 @@ export const EnhanceScanningState = React.forwardRef<HTMLDivElement, EnhanceScan
         </div>
       </div>
     )
-  },
-)
+}
 
 EnhanceScanningState.displayName = 'EnhanceScanningState'
 

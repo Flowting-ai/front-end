@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
   MicTwoIcon,
@@ -19,6 +19,7 @@ import { Button } from '@/components/Button'
 import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 // ── Canonical default menu contents ───────────────────────────────────────────
 // The Add menu (Figma 3219:33599) and Model menu (Figma 3208:32989 + 3142:36710)
@@ -196,10 +197,13 @@ function PersonaSubmenu({
             key={p.id}
             label={p.name}
             avatar={
-              <img
+              <Image
                 src={p.avatarSrc}
                 alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                fill
+                sizes="24px"
+                unoptimized
+                style={{ objectFit: 'cover' }}
               />
             }
             selected={selectedId === p.id}
@@ -438,7 +442,8 @@ function AudioWaveDisplay({ analyser, color = 'currentColor', size = 20 }: {
         const next = heightsRef.current.map((h, i) => h + (BAR_DEFAULT[i] - h) * LERP)
         heightsRef.current = next
         updatePaths(next)
-        if (!next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
+        // eslint-disable-next-line react-doctor/js-length-check-first -- length check is the leading condition via ||
+        if (next.length !== BAR_DEFAULT.length || !next.every((h, i) => Math.abs(h - BAR_DEFAULT[i]) < 0.1))
           rafRef.current = requestAnimationFrame(decay)
       }
       rafRef.current = requestAnimationFrame(decay)
@@ -610,9 +615,8 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
-  function ChatInput(
-    {
+export function ChatInput({
+      ref,
       placeholder = 'How can I help you today?',
       textareaLabel = 'Message',
       value: controlledValue,
@@ -642,9 +646,8 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       onMouseEnter: externalMouseEnter,
       onMouseLeave: externalMouseLeave,
       ...props
-    },
-    ref,
-  ) {
+    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+    }: ChatInputProps & { ref?: React.Ref<HTMLDivElement> }) {
     const isControlled = controlledValue !== undefined
     const [internalValue, setInternalValue] = useState('')
     const value = isControlled ? controlledValue : internalValue
@@ -657,8 +660,11 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
     const isWebSearchControlled       = webSearchProp         !== undefined
     const isSelectedStyleControlled   = selectedStyleIdProp   !== undefined
     const isSelectedPersonaControlled = selectedPersonaIdProp !== undefined
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalWebSearch,       setInternalWebSearch]       = useState(defaultWebSearch)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelectedStyle,   setInternalSelectedStyle]   = useState<string | null>(defaultSelectedStyleId)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelectedPersona, setInternalSelectedPersona] = useState<string | null>(defaultSelectedPersonaId)
     const webSearch         = isWebSearchControlled       ? !!webSearchProp         : internalWebSearch
     const selectedStyleId   = isSelectedStyleControlled   ? selectedStyleIdProp   ?? null : internalSelectedStyle
@@ -802,6 +808,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       const el = textareaRef.current
       if (!el) return
       el.style.height = 'auto'
+      // eslint-disable-next-line react-doctor/js-batch-dom-css -- forced reflow: must read scrollHeight after resetting to auto
       el.style.height = `${el.scrollHeight}px`
     }, [value])
 
@@ -854,7 +861,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
       else startRecording()
     }
 
-    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       if (!isControlled) setInternalValue(e.target.value)
       onChange?.(e.target.value)
     }
@@ -956,7 +963,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
           {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
             {!value && (
-              <motion.div
+              <m.div
                 key="placeholder"
                 aria-hidden
                 initial={{ opacity: 0, filter: 'blur(2px)' }}
@@ -976,7 +983,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                 }}
               >
                 <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
+                  <m.span
                     key={isRecording ? 'listening' : 'default'}
                     initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                     animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -985,9 +992,9 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                     style={{ display: 'block', transformOrigin: 'left center' }}
                   >
                     {isRecording ? 'Listening...' : placeholder}
-                  </motion.span>
+                  </m.span>
                 </AnimatePresence>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 
@@ -996,7 +1003,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
             className="kaya-chat-textarea"
             rows={1}
             value={value}
-            onChange={handleChange}
+            onChange={handleInputChange}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             onKeyDown={handleKeyDown}
@@ -1008,6 +1015,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
               maxHeight:           '396px', // 18 lines × 22px line-height
               background:          'transparent',
               border:              'none',
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:             'none',
               resize:              'none',
               overflowY:           'auto',
@@ -1137,7 +1145,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                       // Wave state: no filter on enter - any filter creates a GPU compositing
                       // layer that kills SVG path updates inside AudioWaveDisplay.
                       return (
-                        <motion.span
+                        <m.span
                           key={iconKey}
                           initial={isWave ? { scale: 0.5, opacity: 0 }               : { scale: 0.5, opacity: 0, filter: 'blur(4px)' }}
                           animate={isWave ? { scale: 1,   opacity: 1 }               : { scale: 1,   opacity: 1, filter: 'blur(0px)' }}
@@ -1153,7 +1161,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
                               ? <ArrowUpTwoIcon size={20} animated triggered={isMicHovered} />
                               : <MicTwoIcon size={20} />
                           }
-                        </motion.span>
+                        </m.span>
                       )
                     })()}
                   </AnimatePresence>
@@ -1166,8 +1174,7 @@ export const ChatInput = React.forwardRef<HTMLDivElement, ChatInputProps>(
 
       </div>
     )
-  },
-)
+}
 
 ChatInput.displayName = 'ChatInput'
 

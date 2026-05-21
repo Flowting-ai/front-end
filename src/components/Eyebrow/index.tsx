@@ -9,8 +9,7 @@ export interface EyebrowProps extends React.HTMLAttributes<HTMLSpanElement> {}
 // Uses the KDS `caption` text style with the muted text colour. No custom
 // letter-spacing or uppercase — those aren't part of the system's text styles.
 
-export const Eyebrow = React.forwardRef<HTMLSpanElement, EyebrowProps>(
-  function Eyebrow({ className, style, children, ...props }, ref) {
+export function Eyebrow({ ref, className, style, children, ...props }: EyebrowProps & { ref?: React.Ref<HTMLSpanElement> }) {
     return (
       <span
         ref={ref}
@@ -29,8 +28,7 @@ export const Eyebrow = React.forwardRef<HTMLSpanElement, EyebrowProps>(
         {children}
       </span>
     )
-  },
-)
+}
 
 Eyebrow.displayName = 'Eyebrow'
 export default Eyebrow

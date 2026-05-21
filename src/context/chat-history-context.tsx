@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 import {
   useChatHistory as useChatHistoryHook,
   type UseChatHistoryResult,
@@ -22,7 +22,7 @@ export function ChatHistoryProvider({
 }
 
 export function useChatHistoryContext(): UseChatHistoryResult {
-  const ctx = useContext(ChatHistoryContext);
+  const ctx = use(ChatHistoryContext);
   if (!ctx) {
     throw new Error(
       "useChatHistoryContext must be used within ChatHistoryProvider",

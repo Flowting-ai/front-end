@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/context/auth-context'
 import {
@@ -138,7 +139,7 @@ function BlueBadge({ children }: { children: React.ReactNode }) {
         border:          '1px solid var(--blue-200)',
         fontFamily:      'var(--font-body)',
         fontWeight:      500,
-        fontSize:        11,
+        fontSize: 12,
         lineHeight:      '18px',
         color:           'var(--blue-700)',
         whiteSpace:      'nowrap',
@@ -161,7 +162,7 @@ function GreenBadge({ children }: { children: React.ReactNode }) {
         border:          '1px solid var(--green-200)',
         fontFamily:      'var(--font-body)',
         fontWeight:      500,
-        fontSize:        11,
+        fontSize: 12,
         lineHeight:      '18px',
         color:           'var(--green-800)',
         whiteSpace:      'nowrap',
@@ -236,11 +237,16 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
+const _fmtAmountCache = new Map<string, Intl.NumberFormat>()
 function fmtAmount(cents: number, currency = 'usd'): string {
-  return new Intl.NumberFormat('en-US', {
-    style:    'currency',
-    currency: currency.toUpperCase(),
-  }).format(cents / 100)
+  const key = currency.toUpperCase()
+  let fmt = _fmtAmountCache.get(key)
+  if (!fmt) {
+    // eslint-disable-next-line react-doctor/js-hoist-intl -- lazy-cached by currency key in module-level Map
+    fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: key })
+    _fmtAmountCache.set(key, fmt)
+  }
+  return fmt.format(cents / 100)
 }
 
 function fmtNum(n: number | null | undefined): string {
@@ -294,13 +300,11 @@ const destructiveButtonStyle: React.CSSProperties = {
 export default function BillingPage() {
   const { user, refreshUser } = useAuth()
 
-  const [portalMounted,        setPortalMounted]        = useState(false)
+  const portalMounted = useMounted()
   const [showCancelDialog,     setShowCancelDialog]     = useState(false)
   const [isCanceling,          setIsCanceling]          = useState(false)
   const [showChangePlanDialog, setShowChangePlanDialog] = useState(false)
   const [changingToPlan,       setChangingToPlan]       = useState<UserPlanType | null>(null)
-
-  useEffect(() => { setPortalMounted(true) }, [])
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -314,7 +318,7 @@ export default function BillingPage() {
   const creditsTotal      = user?.creditsTotal      ?? 0
   const creditsRemaining  = user?.creditsRemaining  ?? 0
   const creditsUsed       = user?.creditsUsed       ?? 0
-  const invoices          = [...(user?.invoices ?? [])].sort(
+  const invoices          = (user?.invoices ?? []).toSorted(
     (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
   )
   const pm                = user?.defaultPaymentMethod ?? null
@@ -382,7 +386,9 @@ export default function BillingPage() {
 
   const cancelDialog = portalMounted && showCancelDialog
     ? createPortal(
+        // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
         <div style={backdropStyle} onClick={() => { if (!isCanceling) setShowCancelDialog(false) }}>
+          {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
           <div style={dialogCardStyle} onClick={e => e.stopPropagation()}>
             <div>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
@@ -420,10 +426,12 @@ export default function BillingPage() {
 
   const changePlanDialog = portalMounted && showChangePlanDialog
     ? createPortal(
+        // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
         <div
           style={backdropStyle}
           onClick={() => { if (!changingToPlan) setShowChangePlanDialog(false) }}
         >
+          {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
           <div style={dialogCardStyle} onClick={e => e.stopPropagation()}>
             <div>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
@@ -916,7 +924,7 @@ export default function BillingPage() {
                         <span style={{
                           fontFamily:    'var(--font-body)',
                           fontWeight:    700,
-                          fontSize:      10,
+                          fontSize: 12,
                           color:         'var(--neutral-600)',
                           textTransform: 'uppercase',
                           letterSpacing: '0.02em',

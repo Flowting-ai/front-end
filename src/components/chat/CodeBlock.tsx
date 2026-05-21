@@ -54,8 +54,7 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
     } catch {
       const textarea = document.createElement("textarea");
       textarea.value = value;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
+      textarea.style.cssText = "position: fixed; opacity: 0;";
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
@@ -91,7 +90,7 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
           <span
             style={{
               fontFamily: "var(--font-body)",
-              fontSize: "11px",
+              fontSize: "12px",
               fontWeight: "var(--font-weight-semibold)",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
@@ -137,11 +136,11 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
               border: "1px solid var(--neutral-200)",
               backgroundColor: "var(--neutral-white)",
               fontFamily: "var(--font-body)",
-              fontSize: "11px",
+              fontSize: "12px",
               fontWeight: "var(--font-weight-medium)",
               color: copied ? "var(--green-600)" : "var(--neutral-800)",
               cursor: "pointer",
-              transition: "all 150ms",
+              transition: "color 150ms",
             }}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -168,6 +167,7 @@ export function CodeBlock({ language, value, elementKey }: CodeBlockProps) {
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
+            // eslint-disable-next-line react/no-danger, react-doctor/no-danger -- highlight.js output is library-generated, not user content
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />

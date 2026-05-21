@@ -26,11 +26,9 @@ export interface ProjectCardProps extends ProjectCardBodyProps {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
-  function ProjectCard(
-    { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body },
-    ref,
-  ) {
+function ProjectCardInner(
+  { title, description, tags, updatedAt, chatCount, active, onEdit, onArchive, onDelete, onClick, body, ref }: ProjectCardProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [hovered,  setHovered]  = useState(false)
     const [focused,  setFocused]  = useState(false)
     const [menuOpen, setMenuOpen] = useState(false)
@@ -96,6 +94,7 @@ const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
           </p>
 
           {/* ⋮ menu - fades in on hover/focus */}
+          {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
           <div
             style={{
               opacity:    showMenu ? 1 : 0,
@@ -142,9 +141,8 @@ const _ProjectCard = React.forwardRef<HTMLDivElement, ProjectCardProps>(
         )}
       </div>
     )
-  },
-)
+}
 
-export const ProjectCard = React.memo(_ProjectCard)
+export const ProjectCard = React.memo(ProjectCardInner)
 ProjectCard.displayName = 'ProjectCard'
 export default ProjectCard

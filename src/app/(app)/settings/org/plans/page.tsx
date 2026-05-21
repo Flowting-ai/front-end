@@ -231,7 +231,7 @@ function PaidBadge() {
       <span style={{
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--green-800)',
         whiteSpace: 'nowrap',
@@ -389,7 +389,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 84,000
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Resets Mar 1, 2026
               </p>
             </div>
@@ -412,7 +412,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 76,340
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 720 used this month
               </p>
             </div>
@@ -435,7 +435,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 6
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Unlimited seats
               </p>
             </div>
@@ -456,7 +456,7 @@ export default function OrgPlansPage() {
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
                   Need more credits?
                 </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                   Top up anytime. Credits roll over within the billing period and don&apos;t expire mid-month.
                 </p>
               </div>
@@ -486,7 +486,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Admin cap
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Monthly limit per admin
               </p>
             </div>
@@ -508,7 +508,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Member cap
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Monthly limit per member
               </p>
             </div>
@@ -537,7 +537,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Card ending in 1234
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Expiry 06/2024
               </p>
             </div>
@@ -586,7 +586,7 @@ export default function OrgPlansPage() {
                       width:      i === 0 ? undefined : i === 4 ? 60 : 80,
                       fontFamily: 'var(--font-body)',
                       fontWeight: 500,
-                      fontSize:   11,
+                      fontSize: 12,
                       lineHeight: '16px',
                       color:      'var(--neutral-500)',
                       margin:     0,
@@ -681,7 +681,7 @@ export default function OrgPlansPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
                 Cancel Plan
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                 Your workspace will revert to the free tier at the end of the current billing period. All members will lose access to Pro features.
               </p>
             </div>

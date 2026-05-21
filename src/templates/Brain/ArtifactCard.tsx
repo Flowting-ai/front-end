@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { ArrowRightOneIcon, FileTwoIcon } from '@strange-huge/icons'
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ export function ArtifactCard({ icon, title, meta, onClick }: ArtifactCardProps) 
   if (!isClickable) return inner
 
   return (
-    <motion.button
+    <m.button
       type="button"
       className="brain-artifact-card"
       onClick={onClick}
@@ -109,11 +109,12 @@ export function ArtifactCard({ icon, title, meta, onClick }: ArtifactCardProps) 
         padding:      0,
         cursor:       'pointer',
         borderRadius: 12,
+        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
         outline:      'none',
       }}
     >
       {inner}
-    </motion.button>
+    </m.button>
   )
 }
 

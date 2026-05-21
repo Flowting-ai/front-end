@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import { Badge } from '@/components/Badge'
 import type { BadgeColor } from '@/components/Badge'
@@ -11,6 +12,8 @@ import { cn } from '@/lib/utils'
 
 const SHADOW_CARD   = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_AVATAR = '0px 1.091px 1.09px 0px rgba(59,54,50,0.05), 0px 1.455px 1px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)'
+
+const EMPTY_VERSION_CHANGES: VersionCardChange[] = []
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,25 +50,22 @@ export interface VersionCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const VersionCard = React.forwardRef<HTMLDivElement, VersionCardProps>(
-  function VersionCard(
-    {
+export function VersionCard({
+      ref,
       variant      = 'default',
       avatarUrl,
       avatarAlt,
       personaName  = '',
       timestamp    = '',
       versionSlug  = '',
-      changes      = [],
+      changes      = EMPTY_VERSION_CHANGES,
       onRestore,
       disabled     = false,
       asChild      = false,
       className,
       style,
       ...props
-    },
-    ref,
-  ) {
+    }: VersionCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const Comp      = (asChild ? Slot : 'div') as React.ElementType
     const isCurrent = variant === 'default'
     const badgeColor: BadgeColor = isCurrent ? 'Blue' : 'Neutral'
@@ -105,12 +105,13 @@ export const VersionCard = React.forwardRef<HTMLDivElement, VersionCardProps>(
         >
           {/* Persona avatar */}
           {avatarUrl ? (
-            <img
+            <Image
               src={avatarUrl}
               alt={resolvedAlt}
+              width={37}
+              height={37}
+              unoptimized
               style={{
-                width:        37,
-                height:       37,
                 borderRadius: 8,
                 objectFit:    'cover',
                 flexShrink:   0,
@@ -254,8 +255,8 @@ export const VersionCard = React.forwardRef<HTMLDivElement, VersionCardProps>(
                   }}
                 >
                   <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-                    {changes.map((change, i) => (
-                      <Badge key={i} label={change.label} color={badgeColor} />
+                    {changes.map((change) => (
+                      <Badge key={change.label} label={change.label} color={badgeColor} />
                     ))}
                   </div>
                 </div>
@@ -284,8 +285,7 @@ export const VersionCard = React.forwardRef<HTMLDivElement, VersionCardProps>(
 
       </Comp>
     )
-  },
-)
+}
 
 VersionCard.displayName = 'VersionCard'
 export default VersionCard

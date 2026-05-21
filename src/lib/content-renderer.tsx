@@ -23,6 +23,11 @@ import { XmlChart } from "@/components/chat/XmlChart"
 import { renderTextBlock } from "@/components/chat/ResponseBlocks"
 import type { WebCitation } from "@/hooks/use-chat-state"
 
+function StreamingTextBlock({ text, citations, cursor }: { text: string; citations?: WebCitation[]; cursor?: React.ReactNode }) {
+  // eslint-disable-next-line react-doctor/no-render-in-render -- renderTextBlock is a stable module-level helper used across multiple call sites
+  return <>{renderTextBlock(text, citations, cursor)}</>
+}
+
 // ---------------------------------------------------------------------------
 // Pending block placeholder
 // ---------------------------------------------------------------------------
@@ -51,13 +56,13 @@ function PendingBlockPlaceholder({ tag }: { tag: "table" | "chart" }) {
     >
       {/* Subtle animated dots */}
       <svg width={20} height={8} viewBox="0 0 20 8" aria-hidden>
-        {[0, 7, 14].map((x, i) => (
-          <circle key={i} cx={x + 3} cy={4} r={2.5} fill="var(--neutral-300)">
+        {[0, 7, 14].map((x, dotIdx) => (
+          <circle key={x} cx={x + 3} cy={4} r={2.5} fill="var(--neutral-300)">
             <animate
               attributeName="opacity"
               values="0.3;1;0.3"
               dur="1.2s"
-              begin={`${i * 0.24}s`}
+              begin={`${dotIdx * 0.24}s`}
               repeatCount="indefinite"
             />
           </circle>
@@ -90,54 +95,57 @@ export function ContentRenderer({
   const segments = parseContentSegments(content)
   const lastIdx = segments.length - 1
 
-  return (
-    <>
-      {segments.map((seg, i) => {
-        const isLast = i === lastIdx
+  // Segments are positional (markdown, table, chart, pending) — index is the
+  // only stable key because adjacent same-type segments are possible.
+  // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segments have no IDs; adjacent same-type segments make content-based keys non-unique
+  const rendered = segments.map((seg, i) => {
+    const isLast = i === lastIdx
 
-        switch (seg.type) {
-          case "table":
-            return <XmlTable key={i} xml={seg.xml} />
+    switch (seg.type) {
+      case "table":
+        // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
+        return <XmlTable key={i} xml={seg.xml} />
 
-          case "chart":
-            return <XmlChart key={i} xml={seg.xml} />
+      case "chart":
+        // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
+        return <XmlChart key={i} xml={seg.xml} />
 
-          case "pending":
-            return <PendingBlockPlaceholder key={i} tag={seg.tag} />
+      case "pending":
+        // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
+        return <PendingBlockPlaceholder key={i} tag={seg.tag} />
 
-          case "markdown": {
-            // Trailing whitespace-only segments with no cursor are skipped
-            // to avoid rendering empty divs between structured blocks.
-            if (!seg.text.trim() && !(isLast && isStreaming && cursor)) {
-              return null
-            }
-
-            if (isStreaming) {
-              // Streaming: use inline renderTextBlock so content flows
-              // naturally with the trailing BreathingDot cursor.
-              return (
-                <React.Fragment key={i}>
-                  {renderTextBlock(
-                    seg.text,
-                    webCitations,
-                    isLast ? cursor : undefined,
-                  )}
-                </React.Fragment>
-              )
-            }
-
-            // Completed message: full MarkdownRenderer (GFM, math, code blocks…)
-            return (
-              <MarkdownRenderer
-                key={i}
-                content={seg.text}
-                webCitations={webCitations}
-                highlights={highlights}
-              />
-            )
-          }
+      case "markdown": {
+        // Trailing whitespace-only segments with no cursor are skipped
+        // to avoid rendering empty divs between structured blocks.
+        if (!seg.text.trim() && !(isLast && isStreaming && cursor)) {
+          return null
         }
-      })}
-    </>
-  )
+
+        if (isStreaming) {
+          // Streaming: use inline renderTextBlock so content flows
+          // naturally with the trailing BreathingDot cursor.
+          return (
+            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
+            <StreamingTextBlock key={i}
+              text={seg.text}
+              citations={webCitations}
+              cursor={isLast ? cursor : undefined}
+            />
+          )
+        }
+
+        // Completed message: full MarkdownRenderer (GFM, math, code blocks…)
+        return (
+          // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
+          <MarkdownRenderer key={i}
+            content={seg.text}
+            webCitations={webCitations}
+            highlights={highlights}
+          />
+        )
+      }
+    }
+  })
+
+  return <>{rendered}</>
 }

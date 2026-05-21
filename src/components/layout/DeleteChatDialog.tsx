@@ -41,7 +41,7 @@ export function DeleteChatDialog({
             inset: 0,
             backgroundColor: "var(--neutral-900-40, rgba(0,0,0,0.4))",
             backdropFilter: "blur(2px)",
-            zIndex: 100,
+            zIndex: 20,
           }}
         />
         <Dialog.Content
@@ -54,7 +54,7 @@ export function DeleteChatDialog({
             borderRadius: "16px",
             padding: "24px",
             width: "min(420px, 90vw)",
-            zIndex: 101,
+            zIndex: 21,
             boxShadow:
               "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)",
             display: "flex",

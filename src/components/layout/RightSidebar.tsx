@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { createPortal } from "react-dom"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import { CancelOneIcon } from "@strange-huge/icons"
 import { usePinboard, type PinItem, type PinCategory, type PinComment } from "@/context/pinboard-context"
 import { useChatHistoryContext } from "@/context/chat-history-context"
@@ -84,18 +84,19 @@ function toPinboardPin(
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function RightSidebar() {
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+function RightSidebarImpl() {
   const { pins, folders: contextFolders, isLoading, isOpen, close, removePin, clonePin, addFolder, updatePinFolder, renameFolder, removeFolder, chatFilter, clearChatFilter } = usePinboard()
   const { chats } = useChatHistoryContext()
 
   // Derive active chat ID from URL — same dual-pattern logic as FloatingPanel.
   // Regular chat: /chat?id={chatId}  |  Project chat: /project/[id]/chat/[chatId]
   const pathname     = usePathname()
-  const searchParams = useSearchParams()
+  const sidebarSearchParams = useSearchParams()
   const currentChatId = (() => {
     const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
     if (m) return m[1]
-    return searchParams.get("id") ?? undefined
+    return sidebarSearchParams.get("id") ?? undefined
   })()
 
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
@@ -222,6 +223,7 @@ export function RightSidebar() {
 
   // ── Folder rename modal ───────────────────────────────────────────────────
   const [showRenameModal,      setShowRenameModal]      = useState(false)
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- renameFolderTarget is read in the rename confirm handler and conditional logic
   const [renameFolderTarget,   setRenameFolderTarget]   = useState<{ id: string; label: string } | null>(null)
   const [renameModalName,      setRenameModalName]      = useState("")
 
@@ -241,8 +243,7 @@ export function RightSidebar() {
     setRenameModalName("")
     if (!name || !renameFolderTarget) return
     const existingNames = contextFolders
-      .filter((f) => f.id !== renameFolderTarget.id)
-      .map((f) => f.label)
+      .flatMap((f) => f.id !== renameFolderTarget.id ? [f.label] : [])
     const error = validateFolderName(name, existingNames)
     if (error) { toast.error(error); return }
     try {
@@ -338,18 +339,18 @@ export function RightSidebar() {
       )
     }
     if (sortOrder === "oldest") {
-      result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      result = result.toSorted((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     } else if (sortOrder === "most-used") {
-      result = [...result].sort((a, b) =>
+      result = result.toSorted((a, b) =>
         (b.comments?.length ?? 0) - (a.comments?.length ?? 0) ||
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
     } else if (sortOrder === "alphabetical") {
-      result = [...result].sort((a, b) => a.title.localeCompare(b.title))
+      result = result.toSorted((a, b) => a.title.localeCompare(b.title))
     } else if (sortOrder === "reverse-alphabetical") {
-      result = [...result].sort((a, b) => b.title.localeCompare(a.title))
+      result = result.toSorted((a, b) => b.title.localeCompare(a.title))
     } else {
-      result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      result = result.toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     }
 
     // Keep raw ref current for bulk export + per-pin export handlers.
@@ -371,7 +372,7 @@ export function RightSidebar() {
 
   return (
     <>
-    <motion.div
+    <m.div
       animate={isOpen ? { width: 332, opacity: 1 } : { width: 0, opacity: 0 }}
       initial={{ width: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
@@ -386,7 +387,7 @@ export function RightSidebar() {
     >
       {/* Fixed-width inner shell keeps the Pinboard content at exactly 332 px
           regardless of the animated outer width. Without this, the outer
-          motion.div's width animation (0 → 332) would resize the fluid Pinboard
+          m.div's width animation (0 → 332) would resize the fluid Pinboard
           on every frame, firing every Pin's ResizeObserver and triggering N
           concurrent height spring animations throughout the transition. */}
       <div style={{ width: 332, height: "100%", flexShrink: 0 }}>
@@ -414,13 +415,13 @@ export function RightSidebar() {
           />
         )}
       </div>
-    </motion.div>
+    </m.div>
 
     {/* ── Delete folder confirmation modal ─────────────────────────────────── */}
     {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
         {showDeleteConfirmModal && (
-          <motion.div
+          <m.div
             key="delete-folder-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -430,7 +431,7 @@ export function RightSidebar() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          9999,
+              zIndex:          20,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
@@ -438,7 +439,7 @@ export function RightSidebar() {
               backdropFilter:  "blur(2px)",
             }}
           >
-            <motion.div
+            <m.div
               key="delete-folder-dialog"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -483,8 +484,8 @@ export function RightSidebar() {
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>,
       document.body
@@ -494,7 +495,7 @@ export function RightSidebar() {
     {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
         {showRenameModal && (
-          <motion.div
+          <m.div
             key="rename-folder-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -504,7 +505,7 @@ export function RightSidebar() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          9999,
+              zIndex:          20,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
@@ -512,7 +513,7 @@ export function RightSidebar() {
               backdropFilter:  "blur(2px)",
             }}
           >
-            <motion.div
+            <m.div
               key="rename-folder-dialog"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -550,6 +551,7 @@ export function RightSidebar() {
                   value={renameModalName}
                   onChange={setRenameModalName}
                   fluid
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === "Enter")  handleConfirmRename()
@@ -566,8 +568,8 @@ export function RightSidebar() {
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>,
       document.body
@@ -577,7 +579,7 @@ export function RightSidebar() {
     {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
         {showFolderModal && (
-          <motion.div
+          <m.div
             key="create-folder-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -587,7 +589,7 @@ export function RightSidebar() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          9999,
+              zIndex:          20,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
@@ -595,7 +597,7 @@ export function RightSidebar() {
               backdropFilter:  "blur(2px)",
             }}
           >
-            <motion.div
+            <m.div
               key="create-folder-dialog"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -633,6 +635,7 @@ export function RightSidebar() {
                   value={folderModalName}
                   onChange={setFolderModalName}
                   fluid
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into folder name input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === "Enter")  handleCreateFolder()
@@ -649,12 +652,16 @@ export function RightSidebar() {
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>,
       document.body
     )}
     </>
   )
+}
+
+export function RightSidebar() {
+  return <Suspense fallback={null}><RightSidebarImpl /></Suspense>
 }

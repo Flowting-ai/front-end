@@ -17,9 +17,9 @@ export interface ProjectInstructionsPanelProps {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, ProjectInstructionsPanelProps>(
-  function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor }, ref) {
+export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOpenEditor, ref }: ProjectInstructionsPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [editing, setEditing] = useState(false)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [draft,   setDraft]   = useState(value)
     const [saving,  setSaving]  = useState(false)
     const isEmpty = !value.trim()
@@ -108,6 +108,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
                 color:      '#1a1714',
                 background: 'transparent',
                 border:     'none',
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:    'none',
                 resize:     'none',
                 width:      '100%',
@@ -117,6 +118,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
                 opacity:    saving ? 0.5 : 1,
                 transition: 'opacity 150ms',
               }}
+              // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into instructions field on panel open
               autoFocus
             />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -124,7 +126,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 'var(--font-weight-regular)',
-                  fontSize:   '11px',
+                  fontSize: '12px',
                   lineHeight: '16px',
                   color:      '#a39b95',
                 }}
@@ -156,13 +158,13 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
             style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 'var(--font-weight-regular)',
-              fontSize:   '11px',
+              fontSize: '12px',
               lineHeight: '16px',
               color:      '#857a72',
               margin:     0,
             }}
           >
-            Add instructions to steer this project towards the right direction...
+            Add instructions to steer this project towards the right direction…
           </p>
         ) : (
           <p
@@ -182,8 +184,7 @@ export const ProjectInstructionsPanel = React.forwardRef<HTMLDivElement, Project
         )}
       </div>
     )
-  },
-)
+}
 
 ProjectInstructionsPanel.displayName = 'ProjectInstructionsPanel'
 export default ProjectInstructionsPanel

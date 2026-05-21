@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useRef, useMemo, useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useCallback, useRef, useMemo, useState, useEffect, Suspense } from "react";
+import { m } from "framer-motion";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
@@ -17,6 +17,7 @@ import { openDeleteChatDialog } from "./AppDialogs";
 import type { UseChatHistoryResult } from "@/hooks/use-chat-history";
 import type { ProjectChat } from "@/context/projects-context";
 import { GlobalSearchModal, type SearchResult } from "@/components/GlobalSearchModal";
+import { toast } from "sonner";
 
 // ── Collapse state persistence ────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
-      <motion.div
+      <m.div
         animate={shown ? "open" : "closed"}
         initial={false}
         variants={sectionHeightVariants}
@@ -95,7 +96,7 @@ function StarredSection({ activeChatId, onSelectChat, chatHistory }: SectionProp
             />
           ))}
         </div>
-      </motion.div>
+      </m.div>
     </>
   );
 }
@@ -184,7 +185,7 @@ function RecentsSection(props: SectionProps) {
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
-      <motion.div
+      <m.div
         animate={shown ? "open" : "closed"}
         initial={false}
         variants={sectionHeightVariants}
@@ -195,7 +196,7 @@ function RecentsSection(props: SectionProps) {
         <div style={{ paddingTop: "4px" }}>
           <RecentsList {...props} />
         </div>
-      </motion.div>
+      </m.div>
     </>
   );
 }
@@ -305,7 +306,7 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
             borderRadius: "12px",
             padding: "4px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
-            zIndex: 200,
+            zIndex: 5,
             minWidth: "168px",
             outline: "none",
           }}
@@ -340,7 +341,7 @@ function ProjectChatItem({ chat, isActive, onSelect, onRename, onDelete }: Proje
 const PROJECT_LIMIT = 5
 
 function ProjectsSection() {
-  const router      = useRouter()
+  const { push }    = useRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
   const { projects, getChats, removeChat, renameChat } = useProjects()
@@ -381,7 +382,7 @@ function ProjectsSection() {
         shown={shown}
         onShowClick={() => setShown(s => !s)}
       />
-      <motion.div
+      <m.div
         animate={shown ? "open" : "closed"}
         initial={false}
         variants={sectionHeightVariants}
@@ -395,7 +396,7 @@ function ProjectsSection() {
             variant="default"
             label="New project"
             icon={<FolderAddIcon size={20} />}
-            onClick={() => router.push("/projects/new")}
+            onClick={() => push("/projects/new")}
           />
 
           {projects.length === 0 && (
@@ -421,17 +422,16 @@ function ProjectsSection() {
                 label={project.name}
                 active={isActive}
                 expanded={isExpanded}
-                onClick={() => router.push(`/project/${project.id}`)}
+                onClick={() => push(`/project/${project.id}`)}
                 onExpandedChange={(v) => toggleExpand(project.id, v)}
               >
                 {chats.length > 0 && [
-                  <SidebarMenuItem key="__header" fluid variant="header" label="Recent" />,
                   ...chats.slice(0, 5).map(chat => (
                     <ProjectChatItem
                       key={chat.id}
                       chat={chat}
                       isActive={pathname === `/project/${project.id}/chat/${chat.id}`}
-                      onSelect={() => router.push(`/project/${project.id}/chat/${chat.id}`)}
+                      onSelect={() => push(`/project/${project.id}/chat/${chat.id}`)}
                       onRename={async (chatId, title) => {
                         renameChat(project.id, chatId, title)
                         await chatHistory.rename(chatId, title)
@@ -450,11 +450,11 @@ function ProjectsSection() {
               variant="default"
               icon={<MoreHorizontalIcon size={20} />}
               label="Show all"
-              onClick={() => router.push("/projects")}
+              onClick={() => push("/projects")}
             />
           )}
         </div>
-      </motion.div>
+      </m.div>
     </>
   )
 }
@@ -462,17 +462,18 @@ function ProjectsSection() {
 // ── Personas section - recent chats for the active persona ───────────────────
 
 function PersonasSection() {
-  const router      = useRouter()
+  const { push }    = useRouter()
   const pathname    = usePathname()
-  const searchParams = useSearchParams()
+  const personaSearchParams = useSearchParams()
 
   const personaMatch = pathname?.match(/^\/personas\/([^/]+)\/chat/)
   const personaId    = personaMatch?.[1] ?? null
-  const activeChatId = searchParams.get("chatId")
+  const activeChatId = personaSearchParams.get("chatId")
 
   const [shown,     setShown]     = useState(true)
   const [overflow,  setOverflow]  = useState<"visible" | "hidden">("visible")
   const [chats,     setChats]     = useState<PersonaChat[]>([])
+  // eslint-disable-next-line react-doctor/rendering-usetransition-loading -- guards async fetch, not a state transition
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -521,7 +522,7 @@ function PersonasSection() {
         shown={shown}
         onShowClick={() => setShown((s) => !s)}
       />
-      <motion.div
+      <m.div
         animate={shown ? "open" : "closed"}
         initial={false}
         variants={sectionHeightVariants}
@@ -556,11 +557,11 @@ function PersonasSection() {
               variant="chat-item"
               label={chat.title}
               selected={chat.id === activeChatId}
-              onClick={() => router.push(`/personas/${personaId}/chat?chatId=${chat.id}`)}
+              onClick={() => push(`/personas/${personaId}/chat?chatId=${chat.id}`)}
             />
           ))}
         </div>
-      </motion.div>
+      </m.div>
     </>
   )
 }
@@ -573,14 +574,14 @@ interface LeftSidebarProps {
   onNewChat?: () => void;
 }
 
-export function LeftSidebar({
+function LeftSidebarImpl({
   activeChatId,
   onSelectChat,
   onNewChat,
 }: LeftSidebarProps) {
-  const router = useRouter();
+  const { push } = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const chatSearchParams = useSearchParams();
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats, projects } = useProjects();
@@ -659,13 +660,13 @@ export function LeftSidebar({
 
   const handleSearchSelect = useCallback((result: SearchResult) => {
     if (result.type === 'chat') {
-      router.push(`/chat?id=${result.id}`);
+      push(`/chat?id=${result.id}`);
     } else if (result.type === 'project') {
-      router.push(`/project/${result.id}`);
+      push(`/project/${result.id}`);
     }
-  }, [router]);
+  }, [push]);
 
-  const resolvedActiveChatId = activeChatId ?? searchParams.get("id") ?? undefined;
+  const resolvedActiveChatId = activeChatId ?? chatSearchParams.get("id") ?? undefined;
 
   const handleCollapse = () => {
     collapsedRef.current = !collapsedRef.current;
@@ -676,10 +677,16 @@ export function LeftSidebar({
   };
 
   const handleNewChat = () => {
+    const isAlreadyOnNewChat = pathname === "/chat" && !chatSearchParams.get("id");
+    if (isAlreadyOnNewChat) {
+      toast.info("Already on new chat");
+      return;
+    }
+    toast.info("Opening new chat");
     if (onNewChat) {
       onNewChat();
     } else {
-      router.push("/chat");
+      push("/chat");
     }
   };
 
@@ -687,7 +694,7 @@ export function LeftSidebar({
     if (onSelectChat) {
       onSelectChat(id);
     } else {
-      router.push(`/chat?id=${id}`);
+      push(`/chat?id=${id}`);
     }
   };
 
@@ -712,12 +719,12 @@ export function LeftSidebar({
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
       onSearch={() => setSearchOpen(true)}
-      onChatsClick={() => router.push("/chats")}
-      onProjectsClick={() => router.push("/projects")}
-      onPersonasClick={() => router.push("/personas")}
-      onBrainClick={() => router.push("/brain")}
-      onSettingsClick={() => router.push("/settings")}
-      onHelpClick={() => router.push("/settings/help")}
+      onChatsClick={() => push("/chats")}
+      onProjectsClick={() => push("/projects")}
+      onPersonasClick={() => push("/personas")}
+      onBrainClick={() => push("/brain")}
+      onSettingsClick={() => push("/settings")}
+      onHelpClick={() => push("/settings/help")}
       onLogoutClick={() => { void logout() }}
       isAuthenticated={isAuthenticated}
       projectItems={<ProjectsSection />}
@@ -744,5 +751,13 @@ export function LeftSidebar({
       recents={searchRecents}
     />
     </>
+  );
+}
+
+export function LeftSidebar(props: LeftSidebarProps) {
+  return (
+    <Suspense fallback={null}>
+      <LeftSidebarImpl {...props} />
+    </Suspense>
   );
 }

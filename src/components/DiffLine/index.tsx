@@ -17,8 +17,7 @@ export interface DiffLineProps extends React.HTMLAttributes<HTMLDivElement> {
 // ── Component ─────────────────────────────────────────────────────────────────
 // Per PRD §10. role="listitem" + aria-label so screen readers announce the change.
 
-export const DiffLine = React.forwardRef<HTMLDivElement, DiffLineProps>(
-  function DiffLine({ children, variant, className, style, ...props }, ref) {
+export function DiffLine({ ref, children, variant, className, style, ...props }: DiffLineProps & { ref?: React.Ref<HTMLDivElement> }) {
     const ariaLabel =
       variant === 'added'    ? 'Added line'
     : variant === 'removed'  ? 'Removed line'
@@ -64,8 +63,7 @@ export const DiffLine = React.forwardRef<HTMLDivElement, DiffLineProps>(
         {children}
       </div>
     )
-  },
-)
+}
 
 DiffLine.displayName = 'DiffLine'
 

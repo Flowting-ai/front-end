@@ -84,7 +84,7 @@ function LinkRow({
         <p style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 400,
-          fontSize:   11,
+          fontSize: 12,
           lineHeight: '16px',
           color:      'var(--neutral-500)',
           margin:     0,

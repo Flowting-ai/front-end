@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useId, useState } from 'react'
+import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
 import { useCorrosion } from '@/lib/useCorrosion'
@@ -79,7 +80,8 @@ function ButtonSpinner({ color }: { color: string }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button({
+export function Button({
+  ref: forwardedRef,
   variant = 'default',
   size = 'md',
   asChild = false,
@@ -96,7 +98,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   onFocus: externalFocus,
   onBlur: externalBlur,
   ...props
-}, forwardedRef) {
+}: ButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
   const Comp = asChild ? Slot : 'button'
   const isMd = size === 'md'
   const isDisabled = disabled || loading
@@ -454,7 +456,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
           style={{ color: textColor[variant], filter: iconFilter, pointerEvents: 'none', opacity: loading ? 0 : 1 }}
         >
           {image
-            ? <img alt="" src={image} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }} />
+            ? <Image alt="" src={image} fill sizes="16px" unoptimized style={{ objectFit: 'cover', display: 'block', borderRadius: '50%' }} />
             : leftIcon}
         </div>
       )}
@@ -534,7 +536,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
     </Comp>
     </span>
   )
-})
+}
 
 Button.displayName = 'Button'
 

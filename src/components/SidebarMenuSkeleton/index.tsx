@@ -20,9 +20,9 @@ export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivEl
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const SidebarMenuSkeleton = React.forwardRef<HTMLDivElement, SidebarMenuSkeletonProps>(
-  function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ...props }, ref) {
+export function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ref, ...props }: SidebarMenuSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
     // Randomise text bar width (50–88%) so stacked skeletons look naturally varied
+    // eslint-disable-next-line react-doctor/no-usememo-simple-expression -- random value intentionally memoized to stay stable across re-renders
     const width = useMemo(() => `${Math.floor(Math.random() * 38) + 50}%`, [])
 
     return (
@@ -54,8 +54,7 @@ export const SidebarMenuSkeleton = React.forwardRef<HTMLDivElement, SidebarMenuS
         />
       </div>
     )
-  },
-)
+}
 
 SidebarMenuSkeleton.displayName = 'SidebarMenuSkeleton'
 

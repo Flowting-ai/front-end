@@ -13,8 +13,7 @@ export interface SuperLinksEmptyProps extends React.HTMLAttributes<HTMLDivElemen
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const SuperLinksEmpty = React.forwardRef<HTMLDivElement, SuperLinksEmptyProps>(
-  function SuperLinksEmpty({ onBrowsePersonas, className, style, ...props }, ref) {
+export function SuperLinksEmpty({ ref, onBrowsePersonas, className, style, ...props }: SuperLinksEmptyProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -78,8 +77,7 @@ export const SuperLinksEmpty = React.forwardRef<HTMLDivElement, SuperLinksEmptyP
         </Button>
       </div>
     )
-  },
-)
+}
 
 SuperLinksEmpty.displayName = 'SuperLinksEmpty'
 export default SuperLinksEmpty

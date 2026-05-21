@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, m } from 'framer-motion'
 import { ShareOneIcon } from '@strange-huge/icons'
 import { Sidebar, type SidebarProps } from '@/components/Sidebar'
 import { ChatInput, type ChatInputProps } from '@/components/ChatInput'
@@ -160,10 +160,14 @@ export function BrainShell({
   onShare,
   contextRailData,
 }: BrainShellProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [phase,      setPhase]      = useState<Phase>(defaultPhase)
   const [inputValue, setInputValue] = useState('')
-
-  useEffect(() => { setPhase(defaultPhase) }, [defaultPhase])
+  const prevDefaultPhaseRef = useRef(defaultPhase)
+  if (prevDefaultPhaseRef.current !== defaultPhase) {
+    prevDefaultPhaseRef.current = defaultPhase
+    setPhase(defaultPhase)
+  }
 
   const contextRailOpen = CONTEXT_RAIL_PHASES.has(phase)
   const isIdle          = phase === 'idle'
@@ -296,7 +300,7 @@ export function BrainShell({
             }}>
               <AnimatePresence mode="wait" initial={false}>
                 {isClarifying ? (
-                  <motion.div
+                  <m.div
                     key="clarification"
                     initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                     animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
@@ -305,9 +309,9 @@ export function BrainShell({
                     style={{ width: '100%', maxWidth: '754px' }}
                   >
                     <ClarificationCard {...clarificationProps!} />
-                  </motion.div>
+                  </m.div>
                 ) : (
-                  <motion.div
+                  <m.div
                     key="chat-input"
                     initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                     animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
@@ -323,7 +327,7 @@ export function BrainShell({
                       onSend={handleSend}
                       {...chatInputProps}
                     />
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
 

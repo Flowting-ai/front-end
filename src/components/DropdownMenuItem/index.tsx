@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
@@ -181,42 +181,41 @@ const headerTextStyle: React.CSSProperties = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuItemProps>(
-  function DropdownMenuItem(
-    {
-      variant = 'default',
-      label = 'Label',
-      subLabel,
-      icon,
-      avatar,
-      badge,
-      llm,
-      rightIcon,
-      selected = false,
-      disabled = false,
-      accent = false,
-      fluid = false,
-      showSwitch = false,
-      switchChecked,
-      defaultSwitchChecked,
-      onSwitchChange,
-      showCheckbox = false,
-      checkboxChecked,
-      defaultCheckboxChecked,
-      onCheckboxChange,
-      asChild = false,
-      headerBadge,
-      children,
-      className,
-      style,
-      onMouseEnter: externalMouseEnter,
-      onMouseLeave: externalMouseLeave,
-      onKeyDown:    externalKeyDown,
-      onClick,
-      ...props
-    },
+export function DropdownMenuItem(
+  {
+    variant = 'default',
+    label = 'Label',
+    subLabel,
+    icon,
+    avatar,
+    badge,
+    llm,
+    rightIcon,
+    selected = false,
+    disabled = false,
+    accent = false,
+    fluid = false,
+    showSwitch = false,
+    switchChecked,
+    defaultSwitchChecked,
+    onSwitchChange,
+    showCheckbox = false,
+    checkboxChecked,
+    defaultCheckboxChecked,
+    onCheckboxChange,
+    asChild = false,
+    headerBadge,
+    children,
+    className,
+    style,
+    onMouseEnter: externalMouseEnter,
+    onMouseLeave: externalMouseLeave,
+    onKeyDown:    externalKeyDown,
+    onClick,
     ref,
-  ) {
+    ...props
+  }: DropdownMenuItemProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [isHovered, setIsHovered] = useState(false)
     const isHeader = variant === 'header'
     const isDanger = variant === 'danger'
@@ -352,7 +351,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                 onClick?.(e)
               }
         }
-        {...props}
+        {...(props as React.HTMLAttributes<HTMLDivElement>)}
       >
         {/* ── Header variant - left-content (label + optional badge) + right slot ── */}
         {isHeader && (
@@ -398,7 +397,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
             {/* Accent bar - 2 px left edge indicator (default only) */}
             <AnimatePresence initial={false}>
               {isActive && accent && !isDanger && (
-                <motion.div
+                <m.div
                   key="accent"
                   aria-hidden
                   initial={{ scaleY: 0, opacity: 0 }}
@@ -436,6 +435,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
                   the checkbox itself stops propagation so the row's onClick
                   doesn't double-toggle it. Default variant only. */}
               {showCheckbox && !isDanger && (
+                // eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
                 <div
                   style={{ flexShrink: 0, display: 'inline-flex', lineHeight: 0 }}
                   onClick={(e) => e.stopPropagation()}
@@ -549,6 +549,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
             {/* Trailing slot - Switch OR rightIcon (mutually exclusive). Switch
                 is default-variant-only per Figma 3139:36148. */}
             {!isDanger && showSwitch ? (
+              // eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
               <div
                 style={{ flexShrink: 0, display: 'inline-flex', lineHeight: 0 }}
                 // Switch toggle should not also fire the row's onClick.
@@ -595,8 +596,7 @@ export const DropdownMenuItem = React.forwardRef<HTMLDivElement, DropdownMenuIte
         )}
       </Comp>
     )
-  },
-)
+}
 
 DropdownMenuItem.displayName = 'DropdownMenuItem'
 

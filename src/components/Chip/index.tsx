@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { LogoIcon, CancelOneIcon, ExchangeOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 
 function useReducedMotion() {
@@ -130,30 +131,29 @@ export interface ChipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'o
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
-  function Chip(
-    {
-      label = 'Souvenir',
-      icon,
-      personaImage,
-      onRemove,
-      onChange,
-      onExpand,
-      leftIcon,
-      rightIcon,
-      leftLabel  = 'Remove',
-      rightLabel = 'Open menu',
-      color     = 'Blue',
-      size      = 'Medium',
-      disabled  = false,
-      className,
-      style: styleOverride,
-      onMouseEnter: externalMouseEnter,
-      onMouseLeave: externalMouseLeave,
-      ...props
-    },
+export function Chip(
+  {
+    label = 'Souvenir',
+    icon,
+    personaImage,
+    onRemove,
+    onChange,
+    onExpand,
+    leftIcon,
+    rightIcon,
+    leftLabel  = 'Remove',
+    rightLabel = 'Open menu',
+    color     = 'Blue',
+    size      = 'Medium',
+    disabled  = false,
+    className,
+    style: styleOverride,
+    onMouseEnter: externalMouseEnter,
+    onMouseLeave: externalMouseLeave,
     ref,
-  ) {
+    ...props
+  }: ChipProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const cfg          = COLOR_CONFIG[color]
     const [isActive, setIsActive] = useState(false)
     // Disabled freezes the Medium chip's hover-driven icon swap at rest,
@@ -355,7 +355,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
             }}
           >
             {personaImage
-              ? <img src={personaImage} alt="" style={{ width: 24, height: 24, borderRadius: '6px', display: 'block' }} />
+              ? <Image src={personaImage} alt="" width={24} height={24} unoptimized style={{ borderRadius: '6px', display: 'block' }} />
               : (icon ?? <LogoIcon size={20} color="var(--chip-text)" />)
             }
           </span>
@@ -479,8 +479,7 @@ export const Chip = React.forwardRef<HTMLDivElement, ChipProps>(
 
       </div>
     )
-  },
-)
+}
 
 Chip.displayName = 'Chip'
 export default Chip

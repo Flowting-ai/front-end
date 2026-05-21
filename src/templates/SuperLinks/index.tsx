@@ -56,33 +56,35 @@ function fmtK(n: number): string {
 
 // ── Template ──────────────────────────────────────────────────────────────────
 
-export const SuperLinks = React.forwardRef<HTMLDivElement, SuperLinksTemplateProps>(
-  function SuperLinks(
-    {
-      workspaceLabel = 'Personas · Acme inc.',
-      heading        = 'Super Links',
-      dateRange      = 'Apr 12 – May 12',
-      summary,
-      days,
-      links: linksProp,
-      totalsDaily,
-      onGenerateLink,
-      onCopyUrl,
-      onLinkStatusChange,
-      onLinkLimitChange,
-      className,
-      style,
-      ...props
-    },
+export function SuperLinks(
+  {
+    workspaceLabel = 'Personas · Acme inc.',
+    heading        = 'Super Links',
+    dateRange      = 'Apr 12 – May 12',
+    summary,
+    days,
+    links: linksProp,
+    totalsDaily,
+    onGenerateLink,
+    onCopyUrl,
+    onLinkStatusChange,
+    onLinkLimitChange,
+    className,
+    style,
     ref,
-  ) {
+    ...props
+  }: SuperLinksTemplateProps & { ref?: React.Ref<HTMLDivElement> },
+) {
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [links, setLinks]           = React.useState<SuperLinkDrawerLink[]>(linksProp)
     const [selectedId, setSelectedId] = React.useState<string | null>(null)
     const [range, setRange]           = React.useState<'7d' | '30d' | '90d'>('30d')
     const [breakdown, setBreakdown]   = React.useState<'all' | 'per-link'>('all')
-
-    // Keep state in sync if the parent swaps the links collection (Storybook arg changes).
-    React.useEffect(() => { setLinks(linksProp) }, [linksProp])
+    const prevLinksPropRef = React.useRef(linksProp)
+    if (prevLinksPropRef.current !== linksProp) {
+      prevLinksPropRef.current = linksProp
+      setLinks(linksProp)
+    }
 
     const selected = links.find(l => l.id === selectedId) ?? null
 
@@ -279,8 +281,7 @@ export const SuperLinks = React.forwardRef<HTMLDivElement, SuperLinksTemplatePro
         </main>
       </div>
     )
-  },
-)
+}
 
 SuperLinks.displayName = 'SuperLinks'
 export default SuperLinks

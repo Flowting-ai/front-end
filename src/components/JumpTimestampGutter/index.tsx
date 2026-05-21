@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 
@@ -74,10 +74,10 @@ function Mark({
   const color = GUTTER_COLORS[mark.colorIndex]
 
   return (
-    // motion.button IS the visual pill - background fills the button bounds.
+    // m.button IS the visual pill - background fills the button bounds.
     // FM animates width + height (both numeric, WAAPI-safe).
     // backgroundColor uses CSS transition - FM cannot interpolate var(--x)→var(--y).
-    <motion.button
+    <m.button
       type="button"
       className="kds-gutter-mark"
       aria-label={`Jump to highlight ${index + 1}`}

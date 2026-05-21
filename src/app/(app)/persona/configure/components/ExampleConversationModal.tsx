@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 
 type Props = {
@@ -39,7 +39,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
       {open && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -50,12 +50,12 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
               position: 'fixed',
               inset: 0,
               backgroundColor: 'rgba(26,25,22,0.3)',
-              zIndex: 200,
+              zIndex: 20,
             }}
           />
 
           {/* Modal card */}
-          <motion.div
+          <m.div
             key="modal"
             role="dialog"
             aria-modal="true"
@@ -71,7 +71,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
               left: '50%',
               x: '-50%',
               y: '-50%',
-              zIndex: 201,
+              zIndex: 21,
               width: '100%',
               maxWidth: 540,
               backgroundColor: 'var(--neutral-white)',
@@ -161,6 +161,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         lineHeight: '22px',
                         color: '#3b3632',
                         backgroundColor: 'transparent',
+                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         border: 'none',
                       }}
@@ -208,6 +209,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                         lineHeight: '22px',
                         color: '#3b3632',
                         backgroundColor: 'transparent',
+                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         border: 'none',
                         resize: 'none',
@@ -278,7 +280,7 @@ export default function ExampleConversationModal({ open, onClose, onAdd }: Props
                 </button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

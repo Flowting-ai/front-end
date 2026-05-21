@@ -148,6 +148,7 @@ function Avatar({ initials, size = 32 }: { initials: string; size?: number }) {
 
 function TableCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
+    // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
     <div
       onClick={onChange}
       style={{
@@ -328,7 +329,7 @@ export default function OrgMembersPage() {
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
               6
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
               unlimited seats available
             </p>
           </div>
@@ -351,7 +352,7 @@ export default function OrgMembersPage() {
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
               2
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
               Owner +1 admin
             </p>
           </div>
@@ -374,7 +375,7 @@ export default function OrgMembersPage() {
             <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 28, lineHeight: '36px', color: 'var(--neutral-900)', margin: 0 }}>
               2
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
               Awaiting acceptance
             </p>
           </div>
@@ -424,13 +425,13 @@ export default function OrgMembersPage() {
             gap:          12,
           }}>
             <div style={{ width: 16 }} />
-            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
               Member
             </p>
-            <p style={{ width: 120, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+            <p style={{ width: 120, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
               Role
             </p>
-            <p style={{ width: 80, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
+            <p style={{ width: 80, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0 }}>
               Action
             </p>
           </div>
@@ -457,7 +458,7 @@ export default function OrgMembersPage() {
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {member.name}
                   </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {member.email}
                   </p>
                 </div>
@@ -549,7 +550,7 @@ export default function OrgMembersPage() {
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
-                fontSize:   11,
+                fontSize: 12,
                 lineHeight: '16px',
                 color:      'var(--yellow-700)',
                 whiteSpace: 'nowrap',
@@ -580,7 +581,7 @@ export default function OrgMembersPage() {
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {invite.email}
                 </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0 }}>
                   {invite.sent}
                 </p>
               </div>

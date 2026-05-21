@@ -127,7 +127,7 @@ export function ChatHistoryItem({
             padding: "4px",
             boxShadow:
               "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
-            zIndex: 200,
+            zIndex: 5,
             minWidth: "168px",
             outline: "none",
           }}

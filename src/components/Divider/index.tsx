@@ -21,17 +21,15 @@ export interface DividerProps extends React.HTMLAttributes<HTMLHRElement> {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Divider = React.forwardRef<HTMLHRElement, DividerProps>(
-  function Divider(
-    { orientation = 'horizontal', decorative = false, className, style, ...props },
-    ref,
-  ) {
+export function Divider({
+  ref,
+  orientation = 'horizontal', decorative = false, className, style, ...props
+}: DividerProps & { ref?: React.Ref<HTMLHRElement> }) {
     const isHorizontal = orientation === 'horizontal'
 
     return (
       <hr
         ref={ref}
-        role="separator"
         aria-orientation={orientation}
         aria-hidden={decorative || undefined}
         className={cn(className)}
@@ -48,8 +46,7 @@ export const Divider = React.forwardRef<HTMLHRElement, DividerProps>(
         {...props}
       />
     )
-  },
-)
+}
 
 Divider.displayName = 'Divider'
 

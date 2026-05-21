@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
 import type { ProjectTag } from '@/context/projects-context'
+
+const EMPTY_PROJECT_TAGS: ProjectTag[] = []
 
 // ── Shared input style ────────────────────────────────────────────────────────
 
@@ -50,14 +53,14 @@ export interface EditProjectModalProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function EditProjectModal({
-  open, name, description, tags = [], onSave, onClose,
+  open, name, description, tags = EMPTY_PROJECT_TAGS, onSave, onClose,
 }: EditProjectModalProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draftName, setDraftName] = useState(name)
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draftDesc, setDraftDesc] = useState(description)
-  const [mounted,   setMounted]   = useState(false)
+  const mounted = useMounted()
   const prevOpenRef = useRef(false)
-
-  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -67,12 +70,13 @@ export function EditProjectModal({
     prevOpenRef.current = open
   }, [open, name, description])
 
+  const closeOnEscape = useEffectEvent(onClose)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOnEscape() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
   function handleSave() {
     if (!draftName.trim()) return
@@ -81,12 +85,16 @@ export function EditProjectModal({
   }
 
   function focusInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    e.currentTarget.style.boxShadow   = '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)'
-    e.currentTarget.style.borderColor = 'var(--blue-400)'
+    Object.assign(e.currentTarget.style, {
+      boxShadow:   '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)',
+      borderColor: 'var(--blue-400)',
+    })
   }
   function blurInput(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    e.currentTarget.style.boxShadow   = '0px 1px 1.5px 0px rgba(82,75,71,0.12)'
-    e.currentTarget.style.borderColor = 'var(--neutral-200)'
+    Object.assign(e.currentTarget.style, {
+      boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.12)',
+      borderColor: 'var(--neutral-200)',
+    })
   }
 
   if (!mounted) return null
@@ -94,7 +102,7 @@ export function EditProjectModal({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           key="edit-project-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -104,7 +112,7 @@ export function EditProjectModal({
           style={{
             position:        'fixed',
             inset:           0,
-            zIndex:          9999,
+            zIndex:          21,
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
@@ -112,7 +120,7 @@ export function EditProjectModal({
             backdropFilter:  'blur(2px)',
           }}
         >
-          <motion.div
+          <m.div
             key="edit-project-modal"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -169,8 +177,9 @@ export function EditProjectModal({
             >
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={LABEL_STYLE}>Name</label>
+                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name</label>
                 <input
+                  id="edit-project-name"
                   type="text"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
@@ -178,14 +187,16 @@ export function EditProjectModal({
                   style={INPUT_BASE}
                   onFocus={focusInput}
                   onBlur={blurInput}
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into name field on modal open
                   autoFocus
                 />
               </div>
 
               {/* Description */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={LABEL_STYLE}>Description</label>
+                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description</label>
                 <textarea
+                  id="edit-project-desc"
                   value={draftDesc}
                   onChange={(e) => setDraftDesc(e.target.value)}
                   placeholder="e.g. All discovery and design work for the V2 redesign"
@@ -215,8 +226,8 @@ export function EditProjectModal({
                 Save changes
               </Button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>,
     document.body

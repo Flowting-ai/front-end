@@ -216,7 +216,7 @@ export function buildRewrite(
 
 export function diffSentences(original: string, rewrite: string): DiffSegment[] {
   const split = (s: string) =>
-    s.split(/(?<=[.!?])\s+/).map(t => t.trim()).filter(Boolean)
+    s.split(/(?<=[.!?])\s+/).flatMap(t => { const v = t.trim(); return v ? [v] : [] })
 
   const origSents = split(original)
   const newSents  = split(rewrite)

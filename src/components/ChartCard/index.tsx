@@ -34,16 +34,13 @@ export interface ChartCardProps<R extends string = string>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>(
-  function ChartCard(
-    {
-      label, value, delta, deltaTrend = 'up',
-      rangeOptions, rangeValue, onRangeChange,
-      toolbarLeft, chart,
-      className, style, ...props
-    },
+export function ChartCard({
     ref,
-  ) {
+    label, value, delta, deltaTrend = 'up',
+    rangeOptions, rangeValue, onRangeChange,
+    toolbarLeft, chart,
+    className, style, ...props
+  }: ChartCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -101,8 +98,7 @@ export const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>(
         <div style={{ flex: 1, minWidth: 0 }}>{chart}</div>
       </div>
     )
-  },
-)
+}
 
 ChartCard.displayName = 'ChartCard'
 export default ChartCard

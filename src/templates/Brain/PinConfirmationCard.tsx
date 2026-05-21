@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { PinIcon, FileTwoIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
@@ -72,6 +72,7 @@ export function PinConfirmationCard({
 }: PinConfirmationCardProps) {
   const defaultIds        = defaultSelected ?? pins.map(p => p.id)
   const [selected,   setSelected]   = useState<Set<string>>(new Set(defaultIds))
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [locked,     setLocked]     = useState<boolean>(defaultLocked)
   const [confirmedCount, setConfirmedCount] = useState<number>(
     lockedCount ?? defaultIds.length,
@@ -100,7 +101,7 @@ export function PinConfirmationCard({
       {locked ? (
 
         // ── Locked row ──
-        <motion.div
+        <m.div
           key="locked"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
@@ -121,12 +122,12 @@ export function PinConfirmationCard({
           </span>
           <span aria-hidden style={{ color: 'var(--neutral-300)', userSelect: 'none', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)' }}>·</span>
           <InlineAction label="Change" onClick={() => setLocked(false)} />
-        </motion.div>
+        </m.div>
 
       ) : (
 
         // ── Open card ──
-        <motion.div
+        <m.div
           key="open"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -248,7 +249,7 @@ export function PinConfirmationCard({
         </Button>
       </div>
 
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

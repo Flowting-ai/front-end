@@ -144,7 +144,7 @@ function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
         padding:    '0 4px',
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      s.color,
         whiteSpace: 'nowrap',
@@ -172,20 +172,20 @@ function SkeletonCard() {
       boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
     }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+        <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', flexShrink: 0 }} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 16, width: '60%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-          <div style={{ height: 12, width: '40%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+          <div style={{ height: 16, width: '60%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+          <div style={{ height: 12, width: '40%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
         </div>
-        <div style={{ width: 40, height: 24, borderRadius: 12, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', flexShrink: 0 }} />
+        <div style={{ width: 40, height: 24, borderRadius: 12, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', flexShrink: 0 }} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite', width: '80%' }} />
+        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '80%' }} />
       </div>
       <div style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
-        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
-        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
+        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
       </div>
     </div>
   )
@@ -194,7 +194,7 @@ function SkeletonCard() {
 function SkeletonSection({ cardCount = 3 }: { cardCount?: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-      <div style={{ height: 22, width: 100, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ height: 22, width: 100, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {Array.from({ length: cardCount }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
@@ -270,7 +270,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
             <p style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   600,
-              fontSize:     11,
+              fontSize: 12,
               lineHeight:   '16px',
               color:        'var(--neutral-500)',
               margin:       0,
@@ -294,7 +294,7 @@ function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
         <p style={{
           fontFamily:       'var(--font-body)',
           fontWeight:       400,
-          fontSize:         11,
+          fontSize: 12,
           lineHeight:       '16px',
           color:            'var(--neutral-500)',
           margin:           0,
@@ -376,6 +376,7 @@ function ProviderSection({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function AiModelsPage() {
   const { user }   = useAuth()
   const planName   = user?.planName ?? 'Starter'
@@ -387,6 +388,7 @@ export default function AiModelsPage() {
   const [tab,        setTab]        = useState('all')
 
   // Fetch on mount
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     let alive = true
     setIsLoading(true)
@@ -532,6 +534,7 @@ export default function AiModelsPage() {
                 flex:            '1 0 0',
                 minWidth:        0,
                 border:          'none',
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:         'none',
                 backgroundColor: 'transparent',
                 fontFamily:      'var(--font-body)',

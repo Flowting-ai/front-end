@@ -44,7 +44,6 @@ export function getRecentModels(allModels: AIModel[], n = 5): AIModel[] {
   if (!recentsRaw) return [];
   const recents: string[] = JSON.parse(recentsRaw);
   return recents
-    .map((key) => allModels.find((m) => modelKey(m) === key))
-    .filter((m): m is AIModel => m !== undefined)
+    .flatMap((key) => { const found = allModels.find((m) => modelKey(m) === key); return found ? [found] : [] })
     .slice(0, n);
 }

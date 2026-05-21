@@ -52,12 +52,12 @@ const TEMPLATE_ROWS: string[][] = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PersonaTemplatesPage() {
-  const router = useRouter()
+  const { push } = useRouter()
   const [selected, setSelected] = useState<string | null>(null)
 
   function continueToBasics() {
     const q = selected ? `?template=${encodeURIComponent(selected)}` : ''
-    router.push(`/personas/basics/purpose${q}`)
+    push(`/personas/basics/purpose${q}`)
   }
 
   return (
@@ -106,7 +106,7 @@ export default function PersonaTemplatesPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => router.push('/personas/basics/purpose')}
+              onClick={() => push('/personas/basics/purpose')}
             >
               Start blank
             </Button>
@@ -165,10 +165,11 @@ export default function PersonaTemplatesPage() {
             variant="outline"
             size="sm"
             leftIcon={<ArrowLeftOneIcon size={16} />}
-            onClick={() => router.push('/personas')}
+            onClick={() => push('/personas')}
           >
             Library
           </Button>
+          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to persona details; flow context makes action clear */}
           <Button
             variant="default"
             size="sm"

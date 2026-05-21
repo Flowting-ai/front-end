@@ -83,16 +83,16 @@ function normalizePin(raw: RawPin): Pin {
       }
     }
   } else if (typeof rawTags === "string" && rawTags.trim()) {
-    tags.push(...rawTags.split(",").map((s) => s.trim()).filter(Boolean));
+    tags.push(...rawTags.split(",").flatMap((s) => { const v = s.trim(); return v ? [v] : [] }));
   }
 
   // Comments: array of { id, content, created_at, updated_at } from detail endpoint
   const rawComments = raw.comments ?? raw.pin_comments ?? raw.comment_texts ?? raw.commentTexts ?? [];
   const comments: PinComment[] = Array.isArray(rawComments)
     ? rawComments
-        .map((c) => {
+        .flatMap((c) => {
           const rc = c as Record<string, unknown>;
-          return {
+          const mapped = {
             id:         String(rc.id ?? ""),
             content:    typeof rc.comment_text === "string" ? rc.comment_text :
                         typeof rc.content     === "string" ? rc.content     :
@@ -100,8 +100,8 @@ function normalizePin(raw: RawPin): Pin {
             created_at: typeof rc.created_at === "string" ? rc.created_at : new Date().toISOString(),
             updated_at: typeof rc.updated_at === "string" ? rc.updated_at : undefined,
           };
+          return mapped.id ? [mapped] : [];
         })
-        .filter((c) => c.id)
     : [];
 
   return {

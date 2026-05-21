@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import katex from "katex";
 import { sanitizeKaTeX } from "@/lib/security";
@@ -34,7 +34,7 @@ import type {
   SearchTimeoutData,
 } from "@/hooks/use-chat-state";
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// â”€â”€ Shared helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function HIcon({ icon, size = 14, color = "#827A74", strokeWidth = 1.5 }: { icon: any; size?: number; color?: string; strokeWidth?: number }) {
@@ -68,7 +68,7 @@ function extractDomain(url: string): string {
   }
 }
 
-// ── CitationChip - inline {1} reference chip with popover ────────────────────
+// â”€â”€ CitationChip - inline {1} reference chip with popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function CitationChip({ n, citation }: { n: number; citation?: WebCitation }) {
   const [open, setOpen] = useState(false);
@@ -99,7 +99,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
         onKeyDown={(e) => e.key === "Enter" && setOpen((o) => !o)}
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 16, height: 16, borderRadius: 4, fontSize: 9, fontWeight: 700,
+          width: 16, height: 16, borderRadius: 4, fontSize: 12, fontWeight: 700,
           background: showPopover ? "#683D1B" : "rgba(104,61,27,0.12)",
           color: showPopover ? "white" : "#683D1B",
           cursor: "pointer", transition: "all 140ms", verticalAlign: "middle",
@@ -109,7 +109,7 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
       </span>
       <AnimatePresence>
         {showPopover && citation && (
-          <motion.span
+          <m.span
             initial={{ opacity: 0, y: 4, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.96 }}
@@ -123,12 +123,12 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
               minWidth: 180, maxWidth: 280, whiteSpace: "nowrap",
             }}>
             {faviconUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+              // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
               <img src={faviconUrl} width={16} height={16}
                 style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} alt="" />
             ) : (
-              <span style={{ fontSize: 12, flexShrink: 0 }}>📌</span>
+              <span style={{ fontSize: 12, flexShrink: 0 }}>ðŸ“Œ</span>
             )}
             <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
               {citation.url ? (
@@ -146,17 +146,17 @@ export function CitationChip({ n, citation }: { n: number; citation?: WebCitatio
                 </span>
               )}
               {!isPinned && (
-                <span style={{ fontSize: 11, color: "#B6ACA4" }}>{citation.domain}</span>
+                <span style={{ fontSize: 12, color: "#B6ACA4" }}>{citation.domain}</span>
               )}
             </span>
-          </motion.span>
+          </m.span>
         )}
       </AnimatePresence>
     </span>
   );
 }
 
-// ── SourceList - horizontal scroll row of source cards ───────────────────────
+// â”€â”€ SourceList - horizontal scroll row of source cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SourceCard = React.memo(function SourceCard({ citation, index }: { citation: WebCitation; index: number }) {
   const [hovered, setHovered] = useState(false);
@@ -166,7 +166,7 @@ const SourceCard = React.memo(function SourceCard({ citation, index }: { citatio
     ? `https://www.google.com/s2/favicons?domain=${effectiveDomain}&sz=32`
     : null;
   return (
-    <motion.a
+    <m.a
       href={citation.url || "#"}
       target="_blank"
       rel="noopener noreferrer"
@@ -186,50 +186,51 @@ const SourceCard = React.memo(function SourceCard({ citation, index }: { citatio
         textDecoration: "none",
       }}>
       {faviconUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
         <img src={faviconUrl} width={14} height={14}
           style={{ borderRadius: 3, flexShrink: 0, display: "block" }}
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} alt="" />
       ) : (
-        <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>📌</span>
+        <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>ðŸ“Œ</span>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
         <span style={{ fontSize: 12, fontWeight: 500, color: "#26211E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {citation.title}
         </span>
         {!isPinned && (
-          <span style={{ fontSize: 10, color: "#B6ACA4", whiteSpace: "nowrap" }}>{citation.domain}</span>
+          <span style={{ fontSize: 12, color: "#B6ACA4", whiteSpace: "nowrap" }}>{citation.domain}</span>
         )}
       </div>
-    </motion.a>
+    </m.a>
   );
 })
 
 export function SourceList({ citations }: { citations: WebCitation[] }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
       style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#9C938B", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#9C938B", letterSpacing: "0.5px", textTransform: "uppercase" }}>
         Sources
       </div>
       <div style={{ display: "flex", gap: 8, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 2 }}>
         {citations.map((c, i) => (
-          <SourceCard key={i} citation={c} index={i} />
+          <SourceCard key={c.url ?? c.title} citation={c} index={i} />
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── KaTeX helpers ─────────────────────────────────────────────────────────────
+// â”€â”€ KaTeX helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** Render a KaTeX inline span, falling back to the raw source on error. */
 function renderKatexInline(math: string, key: number | string): React.ReactNode {
   try {
     const html = katex.renderToString(math, { throwOnError: false, displayMode: false });
+    // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
     return <span key={key} dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />;
   } catch {
     return <span key={key}>${math}$</span>;
@@ -254,6 +255,7 @@ function renderKatexBlock(
         key={key}
         style={{ margin: "10px 0", overflowX: "auto", textAlign: "center" }}
       >
+        {/* eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized */}
         <span dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />
         {tail}
       </div>
@@ -263,7 +265,7 @@ function renderKatexBlock(
   }
 }
 
-// ── Inline markdown renderer ──────────────────────────────────────────────────
+// â”€â”€ Inline markdown renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactNode[] {
   // Match (in priority order): \(...\) inline math, $...$ inline math,
@@ -313,17 +315,30 @@ function renderInlineRich(line: string, citations?: WebCitation[]): React.ReactN
   return nodes.length ? nodes : [<span key={0}>{line}</span>];
 }
 
+function InlineRich({ text, citations }: { text: string; citations?: WebCitation[] }) {
+  return <>{renderInlineRich(text, citations)}</>
+}
+
 // Inline markdown for non-citation content (reasoning steps, callout bodies)
 function renderInlineMd(text: string): React.ReactNode[] {
+  // eslint-disable-next-line react/no-array-index-as-key
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)]+\))/).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
+      // eslint-disable-next-line react/no-array-index-as-key
       return <strong key={i} style={{ fontWeight: 600, color: "#26211E" }}>{part.slice(2, -2)}</strong>;
     if (part.startsWith("`") && part.endsWith("`"))
+      // eslint-disable-next-line react/no-array-index-as-key
       return <code key={i} style={INLINE_CODE_STYLE}>{part.slice(1, -1)}</code>;
     const lm = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/);
+    // eslint-disable-next-line react/no-array-index-as-key
     if (lm) return <a key={i} href={lm[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B5523", textDecoration: "underline", textUnderlineOffset: 2 }}>{lm[1]}</a>;
+    // eslint-disable-next-line react/no-array-index-as-key
     return <span key={i}>{part}</span>;
   });
+}
+
+function InlineMd({ text }: { text: string }) {
+  return <>{renderInlineMd(text)}</>
 }
 
 function isBoldHeading(line: string) {
@@ -343,6 +358,8 @@ function normalizeBoldTitles(text: string): string {
 }
 
 // Full block text renderer - supports headings, lists, blockquotes, bold, code, citations
+// Block index (bi) is the only stable key: same markdown can produce adjacent same-type blocks.
+/* eslint-disable react/no-array-index-as-key */
 export function renderTextBlock(text: string, citations?: WebCitation[], cursor?: React.ReactNode): React.ReactNode {
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
@@ -353,18 +370,18 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
         const tail = isLast ? cursor : null;
         const trimmedBlock = block.trim();
 
-        // ── Display math block: \[...\] ──────────────────────────────────────
+        // â”€â”€ Display math block: \[...\] â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (trimmedBlock.startsWith("\\[")) {
           const closeIdx = trimmedBlock.indexOf("\\]", 2);
           if (closeIdx !== -1) {
             const math = trimmedBlock.slice(2, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed \[ during streaming — render nothing until it closes
+          // Unclosed \[ during streaming â€” render nothing until it closes
           return null;
         }
 
-        // ── Display math block: $$...$$ ──────────────────────────────────────
+        // â”€â”€ Display math block: $$...$$ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (trimmedBlock.startsWith("$$")) {
           const rest = trimmedBlock.slice(2);
           const closeIdx = rest.indexOf("$$");
@@ -372,7 +389,7 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
             const math = rest.slice(0, closeIdx).trim();
             return renderKatexBlock(math, bi, tail);
           }
-          // Unclosed $$ during streaming — render nothing until it closes
+          // Unclosed $$ during streaming â€” render nothing until it closes
           return null;
         }
 
@@ -381,28 +398,29 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
 
         if (first.startsWith("# ")) return (
           <div key={bi} style={{ fontSize: 22, fontWeight: 700, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "30px", marginTop: bi > 0 ? 10 : 0, marginBottom: isLast ? 0 : GAP + 2 }}>
-            {renderInlineRich(first.slice(2), citations)}{tail}
+            <InlineRich text={first.slice(2)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("## ")) return (
           <div key={bi} style={{ fontSize: 18, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "26px", marginTop: bi > 0 ? 8 : 0, marginBottom: isLast ? 0 : GAP }}>
-            {renderInlineRich(first.slice(3), citations)}{tail}
+            <InlineRich text={first.slice(3)} citations={citations} />{tail}
           </div>
         );
 
         if (first.startsWith("### ")) return (
           <div key={bi} style={{ fontSize: 16, fontWeight: 600, color: "#26211E", fontFamily: "var(--font-body)", lineHeight: "24px", marginTop: bi > 0 ? 6 : 0, marginBottom: isLast ? 0 : GAP }}>
-            {renderInlineRich(first.slice(4), citations)}{tail}
+            <InlineRich text={first.slice(4)} citations={citations} />{tail}
           </div>
         );
 
         if (lines.length > 0 && lines.every((l) => l.startsWith("> "))) return (
           <div key={bi} style={{ borderLeft: "2.5px solid #EDE1D7", paddingLeft: 12, marginBottom: isLast ? 0 : GAP, color: "#6A625D", fontStyle: "italic", lineHeight: "26px" }}>
             {lines.map((l, li) => (
+              // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>
                 {li > 0 && <br />}
-                {renderInlineRich(l.slice(2), citations)}
+                <InlineRich text={l.slice(2)} citations={citations} />
               </React.Fragment>
             ))}
             {tail}
@@ -415,8 +433,9 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
+                // eslint-disable-next-line react/no-array-index-as-key
                 <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
-                  {renderInlineRich(l.replace(/^[-*]\s/, ""), citations)}
+                  <InlineRich text={l.replace(/^[-*]\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
               );
@@ -429,8 +448,9 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
             {nonEmpty.map((l, li) => {
               const isLastItem = li === nonEmpty.length - 1;
               return (
+                // eslint-disable-next-line react/no-array-index-as-key
                 <li key={li} style={{ lineHeight: "24px", color: "#3B3632", fontSize: 16 }}>
-                  {renderInlineRich(l.replace(/^\d+\.\s/, ""), citations)}
+                  <InlineRich text={l.replace(/^\d+\.\s/, "")} citations={citations} />
                   {isLastItem && tail}
                 </li>
               );
@@ -440,16 +460,17 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
 
         if (lines.length === 1 && isBoldHeading(first)) return (
           <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 600, fontSize: 16, color: "#26211E" }}>
-            {renderInlineRich(first, citations)}{tail}
+            <InlineRich text={first} citations={citations} />{tail}
           </p>
         );
 
         return (
           <p key={bi} style={{ margin: 0, marginBottom: isLast ? 0 : GAP, lineHeight: "26px", fontWeight: 400, fontSize: 16, color: "#3B3632" }}>
             {lines.map((line, li) => (
+              // eslint-disable-next-line react/no-array-index-as-key
               <React.Fragment key={li}>
                 {li > 0 && <br />}
-                {renderInlineRich(line, citations)}
+                <InlineRich text={line} citations={citations} />
               </React.Fragment>
             ))}
             {tail}
@@ -459,12 +480,17 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
     </div>
   );
 }
+/* eslint-enable react/no-array-index-as-key */
 
-// ── BreathingDot - streaming cursor ──────────────────────────────────────────
+export function TextBlockContent({ text, citations, cursor }: { text: string; citations?: WebCitation[]; cursor?: React.ReactNode }) {
+  return <>{renderTextBlock(text, citations, cursor)}</>
+}
+
+// â”€â”€ BreathingDot - streaming cursor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function BreathingDot() {
   return (
-    <motion.span
+    <m.span
       animate={{ opacity: [0.15, 1, 0.15] }}
       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
       style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
@@ -472,7 +498,7 @@ function BreathingDot() {
   );
 }
 
-// ── StructuredResponseWrapper - breathing dot until block starts animating ───
+// â”€â”€ StructuredResponseWrapper - breathing dot until block starts animating â”€â”€â”€
 
 function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   firstTokenDelay: number;
@@ -491,13 +517,13 @@ function StructuredResponseWrapper({ firstTokenDelay, onComplete, children }: {
   return <>{children(onComplete)}</>;
 }
 
-// ── TableCell renderer ────────────────────────────────────────────────────────
+// â”€â”€ TableCell renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"]): React.ReactNode {
   if (typeof cell === "object") {
     if (cell.type === "check") return (
       <span style={{ fontWeight: 600, fontSize: 14, color: cell.value ? "#80B707" : "#C0B5AD" }}>
-        {cell.value ? "✓" : "-"}
+        {cell.value ? "âœ“" : "-"}
       </span>
     );
     if (cell.type === "badge") return (
@@ -512,12 +538,12 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
     if (cell.type === "rich") return (
       <div>
         <div style={{ fontSize: 14, color: "#26211E", fontWeight: 500 }}>{cell.text}</div>
-        {cell.sub && <div style={{ fontSize: 11, color: "#9C938B", marginTop: 1 }}>{cell.sub}</div>}
+        {cell.sub && <div style={{ fontSize: 12, color: "#9C938B", marginTop: 1 }}>{cell.sub}</div>}
         {cell.badge && (
           <span style={{
             display: "inline-flex", marginTop: 4, background: cell.badge.bg, color: cell.badge.color,
             border: `1px solid ${cell.badge.border ?? cell.badge.bg}`, borderRadius: 99,
-            padding: "1px 7px", fontSize: 11, fontWeight: 600, lineHeight: "16px",
+            padding: "1px 7px", fontSize: 12, fontWeight: 600, lineHeight: "16px",
           }}>
             {cell.badge.label}
           </span>
@@ -538,9 +564,13 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
       </span>
     );
   }
-  if (strVal === "✓") return <span style={{ color: "#80B707", fontWeight: 700 }}>✓</span>;
+  if (strVal === "âœ“") return <span style={{ color: "#80B707", fontWeight: 700 }}>âœ“</span>;
   if (strVal === "-") return <span style={{ color: "#C0B5AD", fontWeight: 400 }}>-</span>;
   return strVal;
+}
+
+function TableCellContent({ cell, badgeMap }: { cell: TableCellValue; badgeMap?: TableData["badgeMap"] }) {
+  return <>{renderTableCell(cell, badgeMap)}</>
 }
 
 function sortableValue(cell: TableCellValue): string | number {
@@ -553,7 +583,7 @@ function sortableValue(cell: TableCellValue): string | number {
   return "";
 }
 
-// ── AnimatedTable ─────────────────────────────────────────────────────────────
+// â”€â”€ AnimatedTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () => void }) {
   const [skeletonVisible, setSkeletonVisible] = useState(true);
@@ -651,14 +681,15 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
       <div style={{ border: "1px solid #F2E8E0", borderRadius: 12, overflow: "hidden", fontSize: 14, ...(isMinimal ? { border: "none", borderRadius: 0 } : {}) }}>
         <AnimatePresence>
           {data.caption && isDone && (
-            <motion.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ padding: "7px 14px", borderBottom: "1px solid #F2E8E0", fontSize: 11, color: "#9C938B", fontStyle: "italic" }}>
+            <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+              style={{ padding: "7px 14px", borderBottom: "1px solid #F2E8E0", fontSize: 12, color: "#9C938B", fontStyle: "italic" }}>
               {data.caption}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
         <div style={{ display: "grid", gridTemplateColumns: gridCols, background: isMinimal ? "transparent" : "rgba(59,54,50,0.05)", borderBottom: "1px solid #F2E8E0" }}>
           {data.headers.map((h, ci) => (
+            // eslint-disable-next-line react/no-array-index-as-key
             <div key={ci} onClick={() => handleSort(ci)}
               style={{
                 padding: isCompact ? "6px 12px" : "9px 14px",
@@ -672,8 +703,8 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
               <span>{h}</span>
               {data.sortable && (
-                <span style={{ fontSize: 10, lineHeight: 1, color: sortCol === ci ? "#683D1B" : "#C0B5AD" }}>
-                  {sortCol === ci ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "#683D1B" : "#C0B5AD" }}>
+                  {sortCol === ci ? (sortDir === "asc" ? "â†‘" : "â†“") : "â†•"}
                 </span>
               )}
             </div>
@@ -683,30 +714,32 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
         {/* Skeleton */}
         <AnimatePresence>
           {skeletonVisible && (
-            <motion.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <m.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {data.rows.map((_, ri) => (
-                <motion.div key={ri}
+                // eslint-disable-next-line react/no-array-index-as-key
+                <m.div key={ri}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   transition={{ delay: ri * 0.045, duration: 0.18 }}
                   style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: v === "striped" && ri % 2 === 1 ? "rgba(59,54,50,0.05)" : "white" }}>
                   {data.headers.map((_, ci) => (
+                    // eslint-disable-next-line react/no-array-index-as-key
                     <div key={ci} style={{ padding: cellPad, borderLeft: cellBorderLeft(ci), display: "flex", justifyContent: (isFinancial && ci > 0) ? "flex-end" : (v === "feature-comparison" && ci > 0) ? "center" : "flex-start" }}>
                       {isMixed && ci === 0 ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
-                          <motion.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
+                          <m.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
                             style={{ height: 11, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 3 }} />
-                          <motion.div animate={{ opacity: [0.25, 0.65, 0.25] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 + 0.1 }}
+                          <m.div animate={{ opacity: [0.25, 0.65, 0.25] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 + 0.1 }}
                             style={{ height: 8, width: `${skelW(ri, ci) * 0.6}%`, background: "rgba(59,54,50,0.05)", borderRadius: 3 }} />
                         </div>
                       ) : (
-                        <motion.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
+                        <m.div animate={{ opacity: [0.35, 0.85, 0.35] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
                           style={{ height: skelH, width: `${skelW(ri, ci)}%`, background: "rgba(59,54,50,0.10)", borderRadius: 4 }} />
                       )}
                     </div>
                   ))}
-                </motion.div>
+                </m.div>
               ))}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -717,7 +750,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
             const isAccentRow = !!(data.accentRows?.includes(origIdx));
             const bg = rowBg(ri, isAccentRow, isTotalsRow);
             return (
-              <motion.div key={`r-${origIdx}`}
+              <m.div key={`r-${origIdx}`}
                 initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 onMouseEnter={() => { if (isHoverable) setHoveredRow(ri); }}
@@ -729,6 +762,7 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
                   const rightAlign = (isFinancial && ci > 0) || isNumericCell;
                   const centerAlign = v === "feature-comparison" && ci > 0 && typeof cell === "object";
                   return (
+                    // eslint-disable-next-line react/no-array-index-as-key
                     <div key={ci} style={{
                       padding: cellPad,
                       paddingLeft: isAccentRow && ci === 0 ? 17 : (isCompact ? 12 : 14),
@@ -742,11 +776,11 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
                       justifyContent: centerAlign ? "center" : undefined,
                       lineHeight: isMixed ? "1" : "20px",
                     }}>
-                      {renderTableCell(cell, data.badgeMap)}
+                      <TableCellContent cell={cell} badgeMap={data.badgeMap} />
                     </div>
                   );
                 })}
-              </motion.div>
+              </m.div>
             );
           })}
         </AnimatePresence>
@@ -754,15 +788,15 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
 
       <AnimatePresence>
         {isDone && (
-          <motion.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
+          <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
             style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
-            <span style={{ fontSize: 11, color: "#C0B5AD", flex: 1 }}>
-              {data.rows.length} rows · {data.headers.length} col
+            <span style={{ fontSize: 12, color: "#C0B5AD", flex: 1 }}>
+              {data.rows.length} rows Â· {data.headers.length} col
             </span>
             <button onClick={copyMarkdown} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "3px 9px",
               borderRadius: 6, border: "1px solid rgba(82,75,71,0.12)",
-              background: "transparent", cursor: "pointer", fontSize: 11, color: "#827A74",
+              background: "transparent", cursor: "pointer", fontSize: 12, color: "#827A74",
               fontFamily: "inherit", transition: "all 120ms",
             }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(59,54,50,0.05)"; e.currentTarget.style.color = "#524B47"; }}
@@ -770,14 +804,14 @@ function AnimatedTable({ data, onComplete }: { data: TableData; onComplete: () =
               {mdCopied ? <HIcon icon={Checkmark} size={11} color="#80B707" strokeWidth={2.5} /> : <HIcon icon={Copy01Icon} size={11} color="#827A74" strokeWidth={1.5} />}
               {mdCopied ? "Copied!" : "Copy markdown"}
             </button>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-// ── AnimatedBarChart - 6 variants ─────────────────────────────────────────────
+// â”€â”€ AnimatedBarChart - 6 variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BAR_PALETTE = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#A28847", "#524B47"];
 
@@ -785,7 +819,7 @@ function BarChartShell({ title, variant, children }: { title?: string; variant: 
   return (
     <div style={{ background: "white", border: "1px solid #F2E8E0", borderRadius: 12, padding: "16px 18px 14px" }}>
       {title && <div style={{ fontSize: 13, fontWeight: 600, color: "#26211E", marginBottom: 4 }}>{title}</div>}
-      <div style={{ fontSize: 10, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 14 }}>
+      <div style={{ fontSize: 12, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 14 }}>
         {variant} chart
       </div>
       {children}
@@ -829,7 +863,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
       <BarChartShell title={data.title} variant={v}>
         <div style={{ position: "relative", height: chartH }}>
           {[0.25, 0.5, 0.75, 1].map((pct) => (
-            <motion.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+            <m.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
               style={{ position: "absolute", bottom: `${pct * chartH}px`, left: 0, right: 0, height: 1, background: "rgba(59,54,50,0.10)", pointerEvents: "none" }} />
           ))}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: "100%" }}>
@@ -837,12 +871,12 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
               const barH = Math.max((bar.value / maxVal) * chartH, 4);
               const color = bar.color ?? BAR_PALETTE[i % BAR_PALETTE.length];
               return (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
-                    style={{ fontSize: 11, fontWeight: 600, color: "#524B47", marginBottom: 4, lineHeight: 1 }}>
+                <div key={bar.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                  <m.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
+                    style={{ fontSize: 12, fontWeight: 600, color: "#524B47", marginBottom: 4, lineHeight: 1 }}>
                     {bar.value}{data.unit ?? ""}
-                  </motion.div>
-                  <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
+                  </m.div>
+                  <m.div initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                     transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: i * 0.1 }}
                     style={{ width: "100%", height: barH, background: color, borderRadius: "4px 4px 0 0", transformOrigin: "bottom" }} />
                 </div>
@@ -852,8 +886,8 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
         </div>
         <div style={{ height: 1, background: "rgba(59,54,50,0.15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 10 }}>
-          {data.bars.map((bar, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#9C938B", lineHeight: "16px" }}>{bar.label}</div>
+          {data.bars.map((bar) => (
+            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#9C938B", lineHeight: "16px" }}>{bar.label}</div>
           ))}
         </div>
       </BarChartShell>
@@ -869,17 +903,17 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
             const color = bar.color ?? BAR_PALETTE[i % BAR_PALETTE.length];
             const pct = bar.value / maxVal;
             return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div key={bar.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 120, fontSize: 12, color: "#524B47", textAlign: "right", flexShrink: 0, lineHeight: "16px" }}>{bar.label}</div>
                 <div style={{ flex: 1, position: "relative", height: 24, background: "rgba(59,54,50,0.05)", borderRadius: 4, overflow: "hidden" }}>
-                  <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: revealed ? 1 : 0 }}
+                  <m.div initial={{ scaleX: 0 }} animate={{ scaleX: revealed ? 1 : 0 }}
                     transition={{ type: "spring", stiffness: 120, damping: 20, delay: i * 0.08 }}
                     style={{ position: "absolute", inset: 0, width: `${pct * 100}%`, background: color, borderRadius: 4, transformOrigin: "left" }} />
                 </div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.08 + 0.5, duration: 0.2 }}
+                <m.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.08 + 0.5, duration: 0.2 }}
                   style={{ width: 44, fontSize: 12, fontWeight: 600, color: "#26211E", flexShrink: 0 }}>
                   {bar.value}{data.unit ?? ""}
-                </motion.div>
+                </m.div>
               </div>
             );
           })}
@@ -896,19 +930,19 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
       <BarChartShell title={data.title} variant={v}>
         <div style={{ position: "relative", height: chartH }}>
           {[0.25, 0.5, 0.75, 1].map((pct) => (
-            <motion.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+            <m.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
               style={{ position: "absolute", bottom: `${pct * chartH}px`, left: 0, right: 0, height: 1, background: "rgba(59,54,50,0.10)", pointerEvents: "none" }} />
           ))}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: "100%" }}>
             {data.labels.map((label, gi) => (
-              <div key={gi} style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 3, height: "100%" }}>
+              <div key={label} style={{ flex: 1, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 3, height: "100%" }}>
                 {data.datasets!.map((ds, di) => {
                   const val = ds.values[gi];
                   const barH = Math.max((val / maxVal) * chartH, 3);
                   const color = ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length];
                   const globalIdx = gi * nDatasets + di;
                   return (
-                    <motion.div key={di} initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
+                    <m.div key={ds.label} initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                       transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: globalIdx * 0.06 }}
                       style={{ flex: 1, height: barH, background: color, borderRadius: "3px 3px 0 0", transformOrigin: "bottom" }} />
                   );
@@ -919,15 +953,15 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
         </div>
         <div style={{ height: 1, background: "rgba(59,54,50,0.15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 16 }}>
-          {data.labels.map((label, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
+          {data.labels.map((label) => (
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
           {data.datasets.map((ds, di) => (
-            <div key={di} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div key={ds.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length], flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#827A74" }}>{ds.label}</span>
+              <span style={{ fontSize: 12, color: "#827A74" }}>{ds.label}</span>
             </div>
           ))}
         </div>
@@ -942,7 +976,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
       <BarChartShell title={data.title} variant={v}>
         <div style={{ position: "relative", height: chartH }}>
           {[0.25, 0.5, 0.75, 1].map((pct) => (
-            <motion.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+            <m.div key={pct} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
               style={{ position: "absolute", bottom: `${pct * chartH}px`, left: 0, right: 0, height: 1, background: "rgba(59,54,50,0.10)", pointerEvents: "none" }} />
           ))}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: "100%" }}>
@@ -950,12 +984,12 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
               const total = totals[gi];
               const colH = (total / maxTotal) * chartH;
               return (
-                <div key={gi} style={{ flex: 1, height: colH, display: "flex", flexDirection: "column-reverse", borderRadius: "4px 4px 0 0", overflow: "hidden" }}>
+                <div key={label} style={{ flex: 1, height: colH, display: "flex", flexDirection: "column-reverse", borderRadius: "4px 4px 0 0", overflow: "hidden" }}>
                   {data.datasets!.map((ds, di) => {
                     const segH = (ds.values[gi] / maxTotal) * chartH;
                     const color = ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length];
                     return (
-                      <motion.div key={di} initial={{ height: 0 }} animate={{ height: revealed ? segH : 0 }}
+                      <m.div key={ds.label} initial={{ height: 0 }} animate={{ height: revealed ? segH : 0 }}
                         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: gi * 0.12 + di * 0.05 }}
                         style={{ width: "100%", background: color, flexShrink: 0 }} />
                     );
@@ -967,15 +1001,15 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
         </div>
         <div style={{ height: 1, background: "rgba(59,54,50,0.15)", margin: "0 0 8px" }} />
         <div style={{ display: "flex", gap: 14 }}>
-          {data.labels.map((label, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
+          {data.labels.map((label) => (
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
           {data.datasets.map((ds, di) => (
-            <div key={di} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div key={ds.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length], flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#827A74" }}>{ds.label}</span>
+              <span style={{ fontSize: 12, color: "#827A74" }}>{ds.label}</span>
             </div>
           ))}
         </div>
@@ -991,16 +1025,16 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
           {data.labels.map((label, gi) => {
             const total = totals[gi];
             return (
-              <div key={gi} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, borderRadius: 4, overflow: "hidden", height: "100%" }}>
+              <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1, borderRadius: 4, overflow: "hidden", height: "100%" }}>
                 {data.datasets!.map((ds, di) => {
                   const pct = total > 0 ? (ds.values[gi] / total) * 100 : 0;
                   const color = ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length];
                   return (
-                    <motion.div key={di} initial={{ flex: 0 }} animate={{ flex: revealed ? pct : 0 }}
+                    <m.div key={ds.label} initial={{ flex: 0 }} animate={{ flex: revealed ? pct : 0 }}
                       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: gi * 0.1 + di * 0.04 }}
                       style={{ background: color, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", minHeight: pct > 8 ? 16 : 0 }}>
-                      {pct > 8 && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.85)", fontWeight: 600, lineHeight: 1 }}>{Math.round(pct)}%</span>}
-                    </motion.div>
+                      {pct > 8 && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600, lineHeight: 1 }}>{Math.round(pct)}%</span>}
+                    </m.div>
                   );
                 })}
               </div>
@@ -1009,15 +1043,15 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
         </div>
         <div style={{ height: 1, background: "rgba(59,54,50,0.15)", margin: "6px 0 8px" }} />
         <div style={{ display: "flex", gap: 10 }}>
-          {data.labels.map((label, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
+          {data.labels.map((label) => (
+            <div key={label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#9C938B", lineHeight: "16px" }}>{label}</div>
           ))}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 12, flexWrap: "wrap" }}>
           {data.datasets.map((ds, di) => (
-            <div key={di} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div key={ds.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: ds.color ?? BAR_PALETTE[di % BAR_PALETTE.length], flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: "#827A74" }}>{ds.label}</span>
+              <span style={{ fontSize: 12, color: "#827A74" }}>{ds.label}</span>
             </div>
           ))}
         </div>
@@ -1033,7 +1067,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
         <div style={{ position: "relative", height: chartH }}>
           <div style={{ position: "absolute", top: halfH, left: 0, right: 0, height: 1, background: "rgba(59,54,50,0.30)", zIndex: 1 }} />
           {[-1, 1].map((side) => (
-            <motion.div key={side} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+            <m.div key={side} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
               style={{ position: "absolute", top: halfH - side * halfH * 0.5, left: 0, right: 0, height: 1, background: "rgba(59,54,50,0.05)", pointerEvents: "none" }} />
           ))}
           <div style={{ position: "absolute", inset: 0, display: "flex", gap: 10 }}>
@@ -1042,33 +1076,33 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
               const barH = Math.max(Math.abs(bar.value) / absMax * halfH, 3);
               const isPos = bar.value >= 0;
               return (
-                <div key={i} style={{ flex: 1, height: "100%", position: "relative" }}>
+                <div key={bar.label} style={{ flex: 1, height: "100%", position: "relative" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: halfH, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                     {isPos && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
+                      <m.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
                         transition={{ type: "spring", stiffness: 140, damping: 18, delay: i * 0.1 }}
                         style={{ width: "68%", background: color, borderRadius: "3px 3px 0 0" }} />
                     )}
                   </div>
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: halfH, display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
                     {!isPos && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
+                      <m.div initial={{ height: 0 }} animate={{ height: revealed ? barH : 0 }}
                         transition={{ type: "spring", stiffness: 140, damping: 18, delay: i * 0.1 }}
                         style={{ width: "68%", background: color, borderRadius: "0 0 3px 3px" }} />
                     )}
                   </div>
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
-                    style={{ position: "absolute", top: halfH - 8, left: "50%", transform: "translateX(-50%)", fontSize: 10, fontWeight: 700, color, lineHeight: "16px", background: "white", padding: "0 3px", borderRadius: 3, zIndex: 2 }}>
+                  <m.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
+                    style={{ position: "absolute", top: halfH - 8, left: "50%", transform: "translateX(-50%)", fontSize: 12, fontWeight: 700, color, lineHeight: "16px", background: "white", padding: "0 3px", borderRadius: 3, zIndex: 2 }}>
                     {bar.value > 0 ? "+" : ""}{bar.value}
-                  </motion.div>
+                  </m.div>
                 </div>
               );
             })}
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          {data.bars.map((bar, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#9C938B", lineHeight: "16px" }}>{bar.label}</div>
+          {data.bars.map((bar) => (
+            <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#9C938B", lineHeight: "16px" }}>{bar.label}</div>
           ))}
         </div>
       </BarChartShell>
@@ -1078,7 +1112,7 @@ function AnimatedBarChart({ data, onComplete }: { data: BarChartData; onComplete
   return null;
 }
 
-// ── AnimatedSteps ─────────────────────────────────────────────────────────────
+// â”€â”€ AnimatedSteps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () => void }) {
   const [revealedSteps, setRevealedSteps] = useState(0);
@@ -1094,22 +1128,22 @@ function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () =
   }, []); // eslint-disable-line
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
       {data.title && <div style={{ fontSize: 14, fontWeight: 600, color: "#26211E", marginBottom: 18, lineHeight: "20px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexDirection: "column" }}>
         <AnimatePresence initial={false}>
           {data.steps.slice(0, revealedSteps).map((step, i) => (
-            <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+            <m.div key={step.label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               style={{ display: "flex", gap: 14 }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
+                <m.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.04 }}
-                  style={{ width: 24, height: 24, borderRadius: "50%", background: "#683D1B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  style={{ width: 24, height: 24, borderRadius: "50%", background: "#683D1B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                   {i + 1}
-                </motion.div>
+                </m.div>
                 {i < data.steps.length - 1 && (
-                  <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
+                  <m.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
                     transition={{ duration: 0.22, delay: 0.12, ease: "easeOut" }}
                     style={{ width: 1, flex: 1, minHeight: 20, background: "#EDE1D7", transformOrigin: "top", marginTop: 4 }} />
                 )}
@@ -1118,15 +1152,15 @@ function AnimatedSteps({ data, onComplete }: { data: StepsData; onComplete: () =
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#26211E", lineHeight: "20px" }}>{step.label}</div>
                 {step.description && <div style={{ fontSize: 13, color: "#827A74", lineHeight: "20px", marginTop: 3 }}>{step.description}</div>}
               </div>
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedCodeBlock ─────────────────────────────────────────────────────────
+// â”€â”€ AnimatedCodeBlock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function highlightCode(line: string): React.ReactNode[] {
   const KW_COLOR = "#7BB8F5";
@@ -1195,14 +1229,14 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
   }, []); // eslint-disable-line
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
       {data.caption && <div style={{ fontSize: 12, color: "#827A74", marginBottom: 6 }}>{data.caption}</div>}
       <div style={{ background: "#1E1A17", borderRadius: 10, overflow: "hidden", boxShadow: "0px 0px 0px 1px rgba(0,0,0,0.9), 0px 1px 1px rgba(59,54,50,0.12), 0px 2px 4px rgba(59,54,50,0.28)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px 7px 14px", borderBottom: "1px solid rgba(255,255,255,0.055)", background: "linear-gradient(180deg, rgba(82,75,71,0.30) 0%, rgba(38,33,30,0.30) 100%)" }}>
-          <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(182,172,164,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.4px", color: "rgba(182,172,164,0.55)", fontFamily: "var(--font-code, monospace)", textTransform: "uppercase" }}>
             {data.language ?? "code"}
           </span>
-          <motion.button onClick={() => { navigator.clipboard.writeText(data.code).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+          <m.button onClick={() => { navigator.clipboard.writeText(data.code).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
             onMouseEnter={() => setCopyHovered(true)}
             onMouseLeave={() => setCopyHovered(false)}
             whileTap={{ scale: 0.95 }}
@@ -1217,35 +1251,36 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
             }}>
             <AnimatePresence mode="popLayout" initial={false}>
               {copied ? (
-                <motion.span key="done" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <m.span key="done" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <HIcon icon={Checkmark} size={12} color="#80B707" strokeWidth={2.5} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: "#80B707", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copied</span>
-                </motion.span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "#80B707", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copied</span>
+                </m.span>
               ) : (
-                <motion.span key="copy" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <m.span key="copy" initial={{ opacity: 0, y: 6, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.85 }} transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <HIcon icon={Copy01Icon} size={12} color="rgba(182,172,164,0.72)" strokeWidth={1.5} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: "rgba(182,172,164,0.72)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
-                </motion.span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.72)", fontFamily: "var(--font-body)", whiteSpace: "nowrap" }}>Copy</span>
+                </m.span>
               )}
             </AnimatePresence>
-          </motion.button>
+          </m.button>
         </div>
         <pre style={{ margin: 0, padding: "14px 16px", fontSize: 13, lineHeight: "20px", fontFamily: "var(--font-code, monospace)", overflowX: "auto" }}>
           {visibleLines.map((line, i) => (
-            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.08 }}
+            // eslint-disable-next-line react/no-array-index-as-key
+            <m.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.08 }}
               style={{ display: "flex", gap: 14 }}>
-              <span style={{ color: "rgba(59,54,50,0.55)", userSelect: "none", fontSize: 11, minWidth: 18, textAlign: "right", flexShrink: 0, lineHeight: "20px" }}>{i + 1}</span>
+              <span style={{ color: "rgba(59,54,50,0.55)", userSelect: "none", fontSize: 12, minWidth: 18, textAlign: "right", flexShrink: 0, lineHeight: "20px" }}>{i + 1}</span>
               <span>{highlightCode(line)}</span>
-            </motion.div>
+            </m.div>
           ))}
           {!streamDone && (
-            <motion.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 0.7, repeat: Infinity }}
+            <m.span animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 0.7, repeat: Infinity }}
               style={{ display: "inline-block", width: 7, height: 14, background: "#683D1B", borderRadius: 1, verticalAlign: "middle", marginLeft: 32 }} />
           )}
         </pre>
         <AnimatePresence initial={false}>
           {streamDone && isLong && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {!expanded ? (
                 <div style={{ position: "relative" }}>
                   <div style={{ position: "absolute", top: -48, left: 0, right: 0, height: 48, background: "linear-gradient(to bottom, transparent, #1E1A17)", pointerEvents: "none" }} />
@@ -1253,7 +1288,7 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
                     onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4.5 L6 8 L10 4.5" stroke="rgba(182,172,164,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    <span style={{ fontSize: 11, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show {hiddenCount} more {hiddenCount === 1 ? "line" : "lines"} of code</span>
                   </button>
                 </div>
               ) : (
@@ -1261,18 +1296,18 @@ function AnimatedCodeBlock({ data, onComplete }: { data: CodeData; onComplete: (
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}>
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 7.5 L6 4 L10 7.5" stroke="rgba(182,172,164,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show less</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(182,172,164,0.5)", fontFamily: "var(--font-body)" }}>Show less</span>
                 </button>
               )}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedCallout ───────────────────────────────────────────────────────────
+// â”€â”€ AnimatedCallout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CALLOUT_CFG = {
   info:    { bg: "rgba(13,110,178,0.07)",  border: "#0D6EB2", icon: InformationCircleIcon, color: "#0D6EB2" },
@@ -1286,7 +1321,7 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
   const cfg = CALLOUT_CFG[data.variant];
   useEffect(() => { const t = setTimeout(onComplete, 440); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
-    <motion.div initial={{ opacity: 0, x: -10, y: 4 }} animate={{ opacity: 1, x: 0, y: 0 }}
+    <m.div initial={{ opacity: 0, x: -10, y: 4 }} animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ type: "spring", stiffness: 340, damping: 26 }}
       style={{ borderLeft: `3px solid ${cfg.border}`, background: cfg.bg, borderRadius: "0 10px 10px 0", padding: "10px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
       <span style={{ flexShrink: 0, marginTop: 1, lineHeight: 0 }}>
@@ -1294,13 +1329,13 @@ function AnimatedCallout({ data, onComplete }: { data: CalloutData; onComplete: 
       </span>
       <div>
         {data.title && <div style={{ fontWeight: 600, fontSize: 14, color: "#26211E", marginBottom: 4, lineHeight: "20px" }}>{data.title}</div>}
-        <div style={{ fontSize: 14, lineHeight: "21px", color: "#524B47" }}>{renderInlineMd(data.body)}</div>
+        <div style={{ fontSize: 14, lineHeight: "21px", color: "#524B47" }}><InlineMd text={data.body} /></div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedTags ──────────────────────────────────────────────────────────────
+// â”€â”€ AnimatedTags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TAG_PALETTES = [
   { bg: "rgba(104,61,27,0.1)",   text: "#683D1B",  border: "rgba(104,61,27,0.2)" },
@@ -1323,7 +1358,7 @@ function AnimatedTags({ data, onComplete }: { data: TagsData; onComplete: () => 
   }, []); // eslint-disable-line
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
       {data.title && <div style={{ fontSize: 12, fontWeight: 500, color: "#9A9089", marginBottom: 9, textTransform: "uppercase", letterSpacing: "0.5px" }}>{data.title}</div>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {data.tags.slice(0, revealedTags).map((tag, i) => {
@@ -1332,20 +1367,20 @@ function AnimatedTags({ data, onComplete }: { data: TagsData; onComplete: () => 
           const fg = tag.color ?? pal.text;
           const bd = tag.color ? `${tag.color}28` : pal.border;
           return (
-            <motion.span key={i} initial={{ scale: 0.55, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            <m.span key={tag.label} initial={{ scale: 0.55, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}>
               <span style={{ display: "inline-flex", alignItems: "center", background: bg, border: `1px solid ${bd}`, color: fg, borderRadius: 99, padding: "3px 11px", fontSize: 13, fontWeight: 500, lineHeight: "19px" }}>
                 {tag.label}
               </span>
-            </motion.span>
+            </m.span>
           );
         })}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedPieChart ──────────────────────────────────────────────────────────
+// â”€â”€ AnimatedPieChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PIE_COLORS_HEX = ["#683D1B", "#0D6EB2", "#80B707", "#9C938B", "#524B47", "#A28847"];
 
@@ -1377,12 +1412,12 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
   return (
     <div style={{ background: "white", border: "1px solid #F2E8E0", borderRadius: 12, padding: "18px 20px" }}>
       {data.title && <div style={{ fontSize: 13, fontWeight: 600, color: "#26211E", marginBottom: 4 }}>{data.title}</div>}
-      <div style={{ fontSize: 10, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 16 }}>pie chart</div>
+      <div style={{ fontSize: 12, color: "#C0B5AD", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 16 }}>pie chart</div>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
         <svg width={220} height={220} viewBox="0 0 220 220" style={{ display: "block", maxWidth: "100%" }}>
           <circle r={R} cx={CX} cy={CY} fill="none" stroke="rgba(59,54,50,0.07)" strokeWidth={SW} />
           {arcs.map((arc, i) => (
-            <circle key={i} r={R} cx={CX} cy={CY} fill="none" stroke={arc.color}
+            <circle key={arc.label} r={R} cx={CX} cy={CY} fill="none" stroke={arc.color}
               strokeWidth={i === hoveredIdx ? SW + 4 : SW}
               strokeDasharray={`${arc.dashLen} ${arc.gapLen}`}
               strokeDashoffset={i < revealedCount ? 0 : arc.dashLen}
@@ -1407,7 +1442,7 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
         {arcs.map((arc, i) => (
-          <motion.div key={i}
+          <m.div key={arc.label}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: i < revealedCount ? 1 : 0, y: i < revealedCount ? 0 : 4 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
@@ -1416,19 +1451,19 @@ function AnimatedPieChart({ data, onComplete }: { data: PieChartData; onComplete
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: "#524B47", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 11, color: "#9C938B", lineHeight: "15px" }}>
+              <div style={{ fontSize: 12, color: "#9C938B", lineHeight: "15px" }}>
                 {Math.round(arc.pct * 100)}%
                 {data.unit && <span style={{ marginLeft: 4 }}>{Math.round(arc.pct * total)}{data.unit}</span>}
               </div>
             </div>
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </div>
   );
 }
 
-// ── AnimatedLineChart ─────────────────────────────────────────────────────────
+// â”€â”€ AnimatedLineChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComplete: () => void }) {
   const [revealed, setRevealed] = useState(false);
@@ -1480,7 +1515,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
   const tooltipLeft = Math.min(Math.max(hoverContainerX - tooltipWidth / 2, 4), (containerRef.current?.clientWidth ?? 360) - tooltipWidth - 4);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: "white", border: "1px solid #F2E8E0", borderRadius: 12, padding: "16px 18px 12px" }}>
       {data.title && <div style={{ fontSize: 13, fontWeight: 600, color: "#26211E", marginBottom: 14 }}>{data.title}</div>}
       <div ref={containerRef} style={{ position: "relative" }}>
@@ -1489,7 +1524,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
           onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
           {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
             const yv = PAD.top + pct * chartH;
-            return <motion.line key={pct} x1={PAD.left} x2={PAD.left + chartW} y1={yv} y2={yv} stroke="rgba(59,54,50,0.07)" strokeWidth={1} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.3, delay: 0.1 }} />;
+            return <m.line key={pct} x1={PAD.left} x2={PAD.left + chartW} y1={yv} y2={yv} stroke="rgba(59,54,50,0.07)" strokeWidth={1} initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.3, delay: 0.1 }} />;
           })}
           {[0, 0.5, 1].map((pct) => {
             const val = maxY - pct * range;
@@ -1500,8 +1535,8 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
             const pts = line.points.map((p, i) => { const { x, y } = toSVG(i, p.y); return `${x},${y}`; }).join(" ");
             const areaPts = pts + ` ${PAD.left + chartW},${PAD.top + chartH} ${PAD.left},${PAD.top + chartH}`;
             return (
-              <g key={li}>
-                <motion.polygon points={areaPts} fill={`${color}10`} stroke="none" initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: 0.35, duration: 0.4 }} />
+              <g key={line.label ?? `line-${li}`}>
+                <m.polygon points={areaPts} fill={`${color}10`} stroke="none" initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: 0.35, duration: 0.4 }} />
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} pathLength={1} strokeDasharray="1"
                   strokeDashoffset={revealed ? 0 : 1} strokeLinecap="round" strokeLinejoin="round"
                   style={{ transition: "stroke-dashoffset 1.1s cubic-bezier(0.16,1,0.3,1)" }} />
@@ -1509,7 +1544,7 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
                   const { x, y } = toSVG(i, p.y);
                   const isHovered = hoverIdx === i;
                   return (
-                    <motion.circle key={i} cx={x} cy={y} r={isHovered ? 4 : 2.5}
+                    <m.circle key={String(p.x)} cx={x} cy={y} r={isHovered ? 4 : 2.5}
                       fill={isHovered ? "white" : color} stroke={isHovered ? color : "none"} strokeWidth={isHovered ? 2 : 0}
                       initial={{ scale: 0 }} animate={{ scale: revealed ? 1 : 0 }}
                       transition={{ type: "spring", stiffness: 480, damping: 22, delay: revealed ? 0 : 0.9 + i * 0.025 }}
@@ -1525,76 +1560,76 @@ function AnimatedLineChart({ data, onComplete }: { data: LineChartData; onComple
             const skip = Math.ceil(total / 7);
             if (i % skip !== 0 && i !== total - 1) return null;
             const { x } = toSVG(i, 0);
-            return <text key={i} x={x} y={H - 6} textAnchor="middle" fill="#C0B5AD" fontSize={11} fontFamily="inherit">{p.x}</text>;
+            return <text key={String(p.x)} x={x} y={H - 6} textAnchor="middle" fill="#C0B5AD" fontSize={11} fontFamily="inherit">{p.x}</text>;
           })}
           {hoverIdx !== null && <line x1={crosshairSvgX} x2={crosshairSvgX} y1={PAD.top} y2={PAD.top + chartH} stroke="rgba(59,54,50,0.18)" strokeWidth={0.8} strokeDasharray="4 3" />}
         </svg>
         <AnimatePresence initial={false}>
           {hoverIdx !== null && tooltipItems.length > 0 && (
-            <motion.div key="tooltip" initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.96 }} transition={{ duration: 0.12 }}
+            <m.div key="tooltip" initial={{ opacity: 0, y: 4, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.96 }} transition={{ duration: 0.12 }}
               style={{ position: "absolute", top: -8, left: tooltipLeft, width: tooltipWidth, background: "#26211E", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
-              <div style={{ fontSize: 10, color: "#9C938B", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>{data.lines[0]?.points[hoverIdx]?.x}</div>
+              <div style={{ fontSize: 12, color: "#9C938B", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>{data.lines[0]?.points[hoverIdx]?.x}</div>
               {tooltipItems.map((item, ti) => (
-                <div key={ti} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: ti > 0 ? 3 : 0 }}>
+                <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: ti > 0 ? 3 : 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-                    {tooltipItems.length > 1 && <span style={{ fontSize: 10, color: "#9C938B", maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
+                    {tooltipItems.length > 1 && <span style={{ fontSize: 12, color: "#9C938B", maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "white", fontVariantNumeric: "tabular-nums" }}>{item.value}{data.unit ?? ""}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "white", fontVariantNumeric: "tabular-nums" }}>{item.value}{data.unit ?? ""}</span>
                 </div>
               ))}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
       {data.lines.length > 1 && (
         <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
           {data.lines.map((line, li) => (
-            <div key={li} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div key={line.label ?? `legend-${li}`} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 12, height: 2, background: line.color ?? LINE_COLORS[li % LINE_COLORS.length], borderRadius: 2 }} />
-              <span style={{ fontSize: 11, color: "#827A74" }}>{line.label}</span>
+              <span style={{ fontSize: 12, color: "#827A74" }}>{line.label}</span>
             </div>
           ))}
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedCard ──────────────────────────────────────────────────────────────
+// â”€â”€ AnimatedCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedCard({ data, onComplete }: { data: CardData; onComplete: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 380); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       style={{ background: "white", border: "1px solid #EDE1D7", borderRadius: 12, padding: "16px 18px" }}>
       {data.badge && (
-        <div style={{ display: "inline-flex", fontSize: 10, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: data.badgeColor ?? "#683D1B", background: `${data.badgeColor ?? "#683D1B"}12`, border: `1px solid ${data.badgeColor ?? "#683D1B"}20`, borderRadius: 6, padding: "2px 8px", marginBottom: 10 }}>
+        <div style={{ display: "inline-flex", fontSize: 12, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: data.badgeColor ?? "#683D1B", background: `${data.badgeColor ?? "#683D1B"}12`, border: `1px solid ${data.badgeColor ?? "#683D1B"}20`, borderRadius: 6, padding: "2px 8px", marginBottom: 10 }}>
           {data.badge}
         </div>
       )}
       {data.title && <div style={{ fontSize: 16, fontWeight: 600, color: "#26211E", lineHeight: "22px", marginBottom: data.subtitle ? 2 : 8 }}>{data.title}</div>}
       {data.subtitle && <div style={{ fontSize: 12, color: "#9A9089", marginBottom: 10 }}>{data.subtitle}</div>}
-      <div style={{ fontSize: 14, color: "#524B47", lineHeight: "22px" }}>{renderInlineMd(data.body)}</div>
-    </motion.div>
+      <div style={{ fontSize: 14, color: "#524B47", lineHeight: "22px" }}><InlineMd text={data.body} /></div>
+    </m.div>
   );
 }
 
-// ── AnimatedConnectorError ────────────────────────────────────────────────────
+// â”€â”€ AnimatedConnectorError â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedConnectorError({ data, onComplete, onRetry }: { data: ConnectorErrorData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
   const [retryHovered, setRetryHovered] = useState(false);
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       style={{ display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(195,56,56,0.04)", border: "1px solid rgba(195,56,56,0.18)", borderRadius: 12, padding: "14px 16px" }}>
       <div style={{ width: 3, borderRadius: 99, background: "#C33838", flexShrink: 0, alignSelf: "stretch", minHeight: 32 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 14 }}>{data.icon ?? "⚠️"}</span>
+            <span style={{ fontSize: 14 }}>{data.icon ?? "âš ï¸"}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: "#26211E" }}>{data.connector}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: "#A82E2E", background: "rgba(195,56,56,0.1)", border: "1px solid rgba(195,56,56,0.2)", borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>Auth expired</span>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase", color: "#A82E2E", background: "rgba(195,56,56,0.1)", border: "1px solid rgba(195,56,56,0.2)", borderRadius: 5, padding: "1px 6px", flexShrink: 0 }}>Auth expired</span>
           </div>
           <button onMouseEnter={() => setRetryHovered(true)} onMouseLeave={() => setRetryHovered(false)} onClick={onRetry}
             style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, background: retryHovered ? "rgba(195,56,56,0.08)" : "white", border: "1px solid rgba(195,56,56,0.28)", borderRadius: 8, padding: "6px 12px", fontSize: 14, fontWeight: 600, color: "#A82E2E", cursor: "pointer", transition: "background 140ms" }}>
@@ -1604,17 +1639,17 @@ function AnimatedConnectorError({ data, onComplete, onRetry }: { data: Connector
         </div>
         {data.message && <div style={{ fontSize: 14, color: "#827A74", lineHeight: "22px" }}>{data.message}</div>}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── AnimatedSearchTimeout ─────────────────────────────────────────────────────
+// â”€â”€ AnimatedSearchTimeout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTimeoutData; onComplete: () => void; onRetry?: () => void }) {
   useEffect(() => { const t = setTimeout(onComplete, 420); return () => clearTimeout(t); }, []); // eslint-disable-line
   const [retryHovered, setRetryHovered] = useState(false);
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+    <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       style={{ display: "flex", gap: 14, alignItems: "flex-start", background: "rgba(162,136,71,0.05)", border: "1px solid rgba(162,136,71,0.22)", borderRadius: 12, padding: "14px 16px" }}>
       <div style={{ width: 3, borderRadius: 99, background: "#A28847", flexShrink: 0, alignSelf: "stretch", minHeight: 32 }} />
       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
@@ -1633,11 +1668,11 @@ function AnimatedSearchTimeout({ data, onComplete, onRetry }: { data: SearchTime
           {data.cta}
         </button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── FollowUps renderer ────────────────────────────────────────────────────────
+// â”€â”€ FollowUps renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
   data: FollowUpsData;
@@ -1657,29 +1692,29 @@ function AnimatedFollowUps({ data, onComplete, onFollowUp }: {
   }, []); // eslint-disable-line
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
       <div style={{ fontSize: 12, fontWeight: 500, color: "#9A9089", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
         Follow-up suggestions
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {data.prompts.slice(0, revealed).map((prompt, i) => (
-          <motion.button key={i}
+        {data.prompts.slice(0, revealed).map((prompt) => (
+          <m.button key={prompt}
             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => onFollowUp?.(prompt)}
             style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #EDE1D7", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#524B47", cursor: "pointer", textAlign: "left", width: "100%", transition: "all 140ms", fontFamily: "var(--font-body)" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(104,61,27,0.04)"; e.currentTarget.style.borderColor = "rgba(104,61,27,0.2)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "white"; e.currentTarget.style.borderColor = "#EDE1D7"; }}>
-            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>→</span>
+            <span style={{ color: "#C0B5AD", flexShrink: 0 }}>â†’</span>
             {prompt}
-          </motion.button>
+          </m.button>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// ── BlockSequenceRenderer ─────────────────────────────────────────────────────
+// â”€â”€ BlockSequenceRenderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Animates each block in sequence - each block calls onComplete to advance.
 
 export interface BlockSequenceRendererProps {
@@ -1727,7 +1762,7 @@ export function BlockSequenceRenderer({
         if (block.kind === "text") {
           return (
             <div key={`b${i}`}>
-              {renderTextBlock(block.content, block.webCitations)}
+              <TextBlockContent text={block.content} citations={block.webCitations} />
               {!isDone && <BreathingDot />}
             </div>
           );

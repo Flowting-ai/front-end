@@ -101,6 +101,7 @@ export const renderLatexInlineContent = (
             display: isBlock ? "block" : "inline-block",
             margin: isBlock ? "8px 0" : "0 2px",
           }}
+          // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
           dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
         />,
       );
@@ -148,6 +149,7 @@ export function renderBlockMath(
       <div
         key={elementKey}
         style={{ margin: "8px 0", overflowX: "auto" }}
+        // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
         dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
       />
     );

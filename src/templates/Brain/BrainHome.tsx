@@ -162,7 +162,7 @@ export function BrainHome({ onSuggestion }: BrainHomeProps) {
           textAlign:  'center',
           maxWidth:   '400px',
         }}>
-          Give Brain a goal. It plans, executes, and delivers — in the world.
+          Give Brain a goal. It plans, executes, and delivers results in the world.
         </p>
       </div>
 

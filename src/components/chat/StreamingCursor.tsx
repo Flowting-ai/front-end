@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 interface StreamingCursorProps {
   isVisible: boolean;
@@ -14,7 +14,7 @@ export function StreamingCursor({ isVisible }: StreamingCursorProps) {
   if (!isVisible) return null;
 
   return (
-    <motion.span
+    <m.span
       initial={{ opacity: 0 }}
       animate={{ opacity: [0.15, 1, 0.15] }}
       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}

@@ -329,6 +329,7 @@ async function readPersonaSSEStream(
   let buffer = "";
   try {
     while (true) {
+      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
       const { done, value } = await reader.read();
       if (value) {
         buffer += decoder.decode(value, { stream: true });

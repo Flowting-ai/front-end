@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import { LinkSixIcon } from '@strange-huge/icons'
 import { Switch } from '@/components/Switch'
@@ -55,30 +55,29 @@ export interface SuperLinkProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
-  function SuperLink(
-    {
-      enabled          = false,
-      url,
-      urlPlaceholder   = 'souvenir.app/p/your-persona-a8b2c3',
-      description      = 'Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.',
-      tokenUsed        = 0,
-      tokenLimit       = 10_000,
-      tokenLimitMax    = 50_000,
-      loading          = false,
-      disabled         = false,
-      onEnabledChange,
-      onGenerate,
-      onRevoke,
-      onCopy,
-      onTokenLimitChange,
-      asChild          = false,
-      className,
-      style,
-      ...props
-    },
+export function SuperLink(
+  {
     ref,
-  ) {
+    enabled          = false,
+    url,
+    urlPlaceholder   = 'souvenir.app/p/your-persona-a8b2c3',
+    description      = 'Generate a shareable URL anyone can chat without a Souvenir account. You cover the token cost.',
+    tokenUsed        = 0,
+    tokenLimit       = 10_000,
+    tokenLimitMax    = 50_000,
+    loading          = false,
+    disabled         = false,
+    onEnabledChange,
+    onGenerate,
+    onRevoke,
+    onCopy,
+    onTokenLimitChange,
+    asChild          = false,
+    className,
+    style,
+    ...props
+  }: SuperLinkProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const Comp    = (asChild ? Slot : 'div') as React.ElementType
     const hasLink = enabled && !!url
     const pct     = tokenLimit > 0
@@ -215,7 +214,7 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
           {/* URL input row — reveals when enabled */}
           <AnimatePresence initial={false}>
             {enabled && (
-              <motion.div
+              <m.div
                 key="url-row"
                 initial={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
@@ -269,7 +268,7 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                 ) : (
                   <AnimatePresence mode="popLayout" initial={false}>
                     {!revoking ? (
-                      <motion.div
+                      <m.div
                         key="actions"
                         initial={{ opacity: 0, filter: 'blur(4px)' }}
                         animate={{ opacity: 1, filter: 'blur(0px)' }}
@@ -293,7 +292,7 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                           style={{ flexShrink: 0, minWidth: 56 }}
                         >
                           <AnimatePresence mode="popLayout" initial={false}>
-                            <motion.span
+                            <m.span
                               key={copied ? 'copied' : 'copy'}
                               initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                               animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -302,12 +301,12 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                               style={{ display: 'block', transformOrigin: 'center' }}
                             >
                               {copied ? 'Copied!' : 'Copy'}
-                            </motion.span>
+                            </m.span>
                           </AnimatePresence>
                         </Button>
-                      </motion.div>
+                      </m.div>
                     ) : (
-                      <motion.div
+                      <m.div
                         key="confirm"
                         initial={{ opacity: 0, filter: 'blur(4px)' }}
                         animate={{ opacity: 1, filter: 'blur(0px)' }}
@@ -331,11 +330,11 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                         >
                           Confirm revoke
                         </Button>
-                      </motion.div>
+                      </m.div>
                     )}
                   </AnimatePresence>
                 )}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>{/* /upper group */}
@@ -343,7 +342,7 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
         {/* ── Token usage row — separate 12px-gap item ─────────────────── */}
         <AnimatePresence initial={false}>
           {hasLink && (
-            <motion.div
+            <m.div
               key="token-usage"
               initial={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
@@ -388,19 +387,20 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                   lineHeight:      'normal',
                   color:           'var(--neutral-800)',
                   backgroundColor: 'var(--neutral-white)',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:         'none',
                   boxSizing:       'border-box' as const,
                   textAlign:       'right' as const,
                 }}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
         {/* ── Token budget slider — drag to set limit ──────────────────── */}
         <AnimatePresence initial={false}>
           {hasLink && (
-            <motion.div
+            <m.div
               key="slider"
               initial={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
               animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
@@ -417,14 +417,13 @@ export const SuperLink = React.forwardRef<HTMLDivElement, SuperLinkProps>(
                 onValueChange={handleSliderChange}
                 aria-label="Token budget limit"
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
       </Comp>
     )
-  },
-)
+}
 
 SuperLink.displayName = 'SuperLink'
 export default SuperLink

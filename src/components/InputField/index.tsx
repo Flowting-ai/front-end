@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, type ReactNode } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { Field } from '@base-ui/react/field'
 import { cn } from '@/lib/utils'
 
@@ -54,9 +54,8 @@ const BASE_SHADOW = '0px 1px 1.5px 0px var(--neutral-700-12)'
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
-  function InputField(
-    {
+export function InputField({
+      ref,
       label,
       showLabel    = true,
       subtitle,
@@ -76,9 +75,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
       onMouseLeave: externalLeave,
       placeholder,
       ...inputProps
-    },
-    ref,
-  ) {
+    }: InputFieldProps & { ref?: React.Ref<HTMLInputElement> }) {
     const [isFocused,        setIsFocused]        = useState(false)
     const [isHovered,        setIsHovered]        = useState(false)
     const [internalHasValue, setInternalHasValue] = useState(false)
@@ -212,7 +209,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
           <div style={{ position: 'relative', flex: 1, padding: '0 2px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <AnimatePresence initial={false}>
               {!hasValue && placeholder && (
-                <motion.span
+                <m.span
                   key="placeholder"
                   aria-hidden
                   initial={{ opacity: 0, filter: 'blur(2px)' }}
@@ -234,7 +231,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
                   }}
                 >
                   {placeholder}
-                </motion.span>
+                </m.span>
               )}
             </AnimatePresence>
             <Field.Control
@@ -254,6 +251,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
                     minWidth:   0,
                     background: 'transparent',
                     border:     'none',
+                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:    'none',
                     padding:    0,
                     fontFamily: 'var(--font-body)',
@@ -293,8 +291,7 @@ export const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
         )}
       </Field.Root>
     )
-  },
-)
+}
 
 InputField.displayName = 'InputField'
 

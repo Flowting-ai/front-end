@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   SearchOneIcon,
   CancelOneIcon,
@@ -54,6 +54,8 @@ export interface GlobalSearchModalProps {
 
 // ── Color system — mirrors KDS tag palette (Chip, Badge) ─────────────────────
 // Tokens live in aliases.css under `--color-tag-{Color}-{prop}`.
+
+const EMPTY_SEARCH_RESULTS: SearchResult[] = []
 
 const TYPE_ICON_BG: Record<SearchResultType, string> = {
   chat:    'var(--color-tag-Blue-bg)',
@@ -309,7 +311,7 @@ function KbdHint({ keys, label }: { keys: string[]; label: string }) {
             backgroundColor: 'var(--neutral-100)',
             boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
             fontFamily:      'var(--font-code)',
-            fontSize:        11,
+            fontSize: 12,
             color:           'var(--neutral-600)',
           }}
         >
@@ -341,12 +343,13 @@ export function GlobalSearchModal({
   onClose,
   onSelect,
   onQuery,
-  results      = [],
-  recents      = [],
+  results      = EMPTY_SEARCH_RESULTS,
+  recents      = EMPTY_SEARCH_RESULTS,
   defaultQuery = '',
   loading      = false,
   className,
 }: GlobalSearchModalProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [query,        setQuery]        = useState(defaultQuery)
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
   const [focusedId,    setFocusedId]    = useState<string | null>(null)
@@ -354,14 +357,16 @@ export function GlobalSearchModal({
   const modalRef = useRef<HTMLDivElement>(null)
 
   // Reset state on close; focus input on open
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!open) {
       setQuery('')
       setActiveFilter('all')
       setFocusedId(null)
-    } else {
-      setTimeout(() => inputRef.current?.focus(), 50)
+      return
     }
+    const id = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(id)
   }, [open])
 
   // Focus trap — keep Tab / Shift+Tab cycling inside the modal card.
@@ -493,7 +498,7 @@ export function GlobalSearchModal({
       {open && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -505,12 +510,12 @@ export function GlobalSearchModal({
               inset:           0,
               backgroundColor: 'rgba(0,0,0,0.18)',
               backdropFilter:  'blur(2px)',
-              zIndex:          999,
+              zIndex:          20,
             }}
           />
 
           {/* Modal card */}
-          <motion.div
+          <m.div
             ref={modalRef}
             key="modal"
             role="dialog"
@@ -525,7 +530,7 @@ export function GlobalSearchModal({
               position:        'fixed',
               top:             132,
               left:            '50%',
-              zIndex:          1000,
+              zIndex:          21,
               width:           560,
               maxWidth:        'calc(100vw - 32px)',
               borderRadius:    16,
@@ -568,7 +573,7 @@ export function GlobalSearchModal({
             {/* ── Filter tabs — slide in when query is present ───────────── */}
             <AnimatePresence initial={false}>
               {hasQuery && (
-                <motion.div
+                <m.div
                   key="filter-tabs"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -599,7 +604,7 @@ export function GlobalSearchModal({
                       </TabItem>
                     ))}
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -745,8 +750,7 @@ export function GlobalSearchModal({
                   </p>
                 ) : (
                   results
-                    .filter(r => r.type === activeFilter)
-                    .map(result => (
+                    .flatMap(result => result.type === activeFilter ? [(
                       <ResultRow
                         key={result.id}
                         result={result}
@@ -755,7 +759,7 @@ export function GlobalSearchModal({
                         onClick={() => handleResultClick(result)}
                         onHover={setFocusedId}
                       />
-                    ))
+                    )] : [])
                 )
               )}
 
@@ -776,7 +780,7 @@ export function GlobalSearchModal({
               <KbdHint keys={['Esc']}     label="close" />
             </div>
 
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

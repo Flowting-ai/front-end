@@ -18,11 +18,8 @@ export function useInstructionHistory(initialInstruction: string = ''): UseInstr
   const [instructionHistory, setInstructionHistory] = useState<string[]>([initialInstruction]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  const canUndo = useMemo(() => historyIndex > 0, [historyIndex]);
-  const canRedo = useMemo(
-    () => historyIndex < instructionHistory.length - 1,
-    [historyIndex, instructionHistory.length]
-  );
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex < instructionHistory.length - 1
 
   const currentInstruction = useMemo(
     () => instructionHistory[historyIndex] || '',

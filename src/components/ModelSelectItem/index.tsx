@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { use, useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { BookmarkTwoIcon, BookmarkTwoSolidIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { IconButton } from '@/components/IconButton'
@@ -96,39 +96,37 @@ const labelStyle: React.CSSProperties = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemProps>(
-  function ModelSelectItem(
-    {
-      llm,
-      image,
-      label,
-      icons,
-      bookmark         = false,
-      bookmarked,
-      defaultBookmarked = false,
-      onBookmarkedChange,
-      onBookmarkClick,
-      info,
-      selected   = false,
-      asChild    = false,
-      className,
-      style,
-      onMouseEnter: externalEnter,
-      onMouseLeave: externalLeave,
-      ...props
-    },
+export function ModelSelectItem({
     ref,
-  ) {
+    llm,
+    image,
+    label,
+    icons,
+    bookmark         = false,
+    bookmarked,
+    defaultBookmarked = false,
+    onBookmarkedChange,
+    onBookmarkClick,
+    info,
+    selected   = false,
+    asChild    = false,
+    className,
+    style,
+    onMouseEnter: externalEnter,
+    onMouseLeave: externalLeave,
+    ...props
+  }: ModelSelectItemProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isHovered, setIsHovered] = useState(false)
     const isActive = isHovered || selected
 
     // When mounted inside a ModelSelector showing the Favorites category,
     // suppress the per-row bookmark - the list itself IS the favorites set.
-    const selectorCtx = React.useContext(ModelSelectorContext)
+    const selectorCtx = use(ModelSelectorContext)
     const showBookmark = bookmark && selectorCtx?.category !== 'favorites'
 
     // Bookmark - controlled vs uncontrolled state. Render the solid icon when on.
     const isBookmarkControlled = bookmarked !== undefined
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalBookmarked, setInternalBookmarked] = useState(defaultBookmarked)
     const isBookmarked = isBookmarkControlled ? !!bookmarked : internalBookmarked
 
@@ -236,7 +234,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                 >
                   <AnimatePresence mode="popLayout" initial={false}>
                     {isHovered ? (
-                      <motion.span
+                      <m.span
                         key="info"
                         initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                         animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -251,9 +249,9 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                         }}
                       >
                         <InformationCircleIcon size={20} />
-                      </motion.span>
+                      </m.span>
                     ) : (
-                      <motion.span
+                      <m.span
                         key="image"
                         initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                         animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -267,7 +265,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                         }}
                       >
                         {resolvedImage}
-                      </motion.span>
+                      </m.span>
                     )}
                   </AnimatePresence>
                 </span>
@@ -310,7 +308,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
           >
             <AnimatePresence initial={false}>
             {showBookmark && (
-              <motion.div
+              <m.div
                 key="bookmark-button"
                 initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                 animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -338,7 +336,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                 >
                   <AnimatePresence mode="popLayout" initial={false}>
                     {isBookmarked ? (
-                      <motion.span
+                      <m.span
                         key="solid"
                         initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                         animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -347,9 +345,9 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                         style={{ display: 'flex', lineHeight: 0 }}
                       >
                         <BookmarkTwoSolidIcon size={18} />
-                      </motion.span>
+                      </m.span>
                     ) : (
-                      <motion.span
+                      <m.span
                         key="outline"
                         initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                         animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -358,7 +356,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                         style={{ display: 'flex', lineHeight: 0 }}
                       >
                         <BookmarkTwoIcon size={18} />
-                      </motion.span>
+                      </m.span>
                     )}
                   </AnimatePresence>
                 </span>
@@ -373,7 +371,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
                 onBookmarkClick?.(e)
               }}
             />
-              </motion.div>
+              </m.div>
             )}
             </AnimatePresence>
           </div>
@@ -394,8 +392,7 @@ export const ModelSelectItem = React.forwardRef<HTMLDivElement, ModelSelectItemP
         )}
       </Comp>
     )
-  },
-)
+}
 
 ModelSelectItem.displayName = 'ModelSelectItem'
 

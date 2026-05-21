@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import type { Transition } from 'framer-motion'
 
 export interface PinboardEnterAnimation {
@@ -40,29 +40,27 @@ export interface EnterChunkProps {
   className?: string
 }
 
-export const EnterChunk = React.forwardRef<HTMLDivElement, EnterChunkProps>(
-  function EnterChunk({ cfg, index, children, style, className }, ref) {
-    if (cfg.enabled === false) {
-      return <div ref={ref} className={className} style={style}>{children}</div>
-    }
-    const delay = (cfg.firstItemDelayMs + index * cfg.staggerMs) / 1000
-    return (
-      <motion.div
-        ref={ref}
-        className={className}
-        style={style}
-        initial={{
-          opacity: cfg.from.opacity,
-          y:       cfg.from.y,
-          filter:  `blur(${cfg.from.blur}px)`,
-        }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ ...cfg.transition, delay }}
-      >
-        {children}
-      </motion.div>
-    )
-  },
-)
+export function EnterChunk({ cfg, index, children, style, className, ref }: EnterChunkProps & { ref?: React.Ref<HTMLDivElement> }) {
+  if (cfg.enabled === false) {
+    return <div ref={ref} className={className} style={style}>{children}</div>
+  }
+  const delay = (cfg.firstItemDelayMs + index * cfg.staggerMs) / 1000
+  return (
+    <m.div
+      ref={ref}
+      className={className}
+      style={style}
+      initial={{
+        opacity: cfg.from.opacity,
+        y:       cfg.from.y,
+        filter:  `blur(${cfg.from.blur}px)`,
+      }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ ...cfg.transition, delay }}
+    >
+      {children}
+    </m.div>
+  )
+}
 
 EnterChunk.displayName = 'EnterChunk'

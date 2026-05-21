@@ -39,10 +39,12 @@ export default function ExampleConversationDialog({ open, onClose, onAdd }: Prop
   };
 
   return (
+    // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
       onClick={handleBackdropClick}
     >
+      {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
       <div
         className="bg-white flex flex-col gap-3 p-3 rounded-[18px] w-[480px] max-w-[calc(100vw-32px)]"
         style={{
@@ -68,12 +70,13 @@ export default function ExampleConversationDialog({ open, onClose, onAdd }: Prop
         {/* Fields */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-[14px] text-[#ee3030] leading-[1.57]">User says:</label>
+            <label htmlFor="example-user-says" className="text-[14px] text-[#ee3030] leading-[1.57]">User says:</label>
             <div
               className="flex items-center gap-[2px] px-[10px] py-[7px] rounded-[10px] bg-white"
               style={{ boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px #ede1d7" }}
             >
               <input
+                id="example-user-says"
                 type="text"
                 value={userSays}
                 onChange={(e) => setUserSays(e.target.value)}
@@ -84,7 +87,7 @@ export default function ExampleConversationDialog({ open, onClose, onAdd }: Prop
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[14px] text-[#524b47] leading-[1.57]">
+            <label htmlFor="example-persona-replies" className="text-[14px] text-[#524b47] leading-[1.57]">
               Persona replies<span className="text-[#a28847]">*</span>
             </label>
             <div
@@ -95,6 +98,7 @@ export default function ExampleConversationDialog({ open, onClose, onAdd }: Prop
               }}
             >
               <textarea
+                id="example-persona-replies"
                 value={personaReplies}
                 onChange={(e) => setPersonaReplies(e.target.value)}
                 placeholder="e.g. All discovery and design work for the V2 redesign"

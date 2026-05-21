@@ -32,11 +32,10 @@ export interface LinksSidePanelProps extends Omit<React.HTMLAttributes<HTMLDivEl
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const LinksSidePanel = React.forwardRef<HTMLDivElement, LinksSidePanelProps>(
-  function LinksSidePanel(
-    { links, selectedId, onSelect, onGenerate, onCopyUrl, label = 'Active links', className, style, ...props },
+export function LinksSidePanel({
     ref,
-  ) {
+    links, selectedId, onSelect, onGenerate, onCopyUrl, label = 'Active links', className, style, ...props
+  }: LinksSidePanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const empty = links.length === 0
     return (
       <div
@@ -118,8 +117,7 @@ export const LinksSidePanel = React.forwardRef<HTMLDivElement, LinksSidePanelPro
         )}
       </div>
     )
-  },
-)
+}
 
 LinksSidePanel.displayName = 'LinksSidePanel'
 export default LinksSidePanel

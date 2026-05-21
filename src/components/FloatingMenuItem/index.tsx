@@ -1,8 +1,8 @@
 'use client'
 
-import React, { createContext, useContext, useLayoutEffect, useRef, useState } from 'react'
+import React, { createContext, use, useLayoutEffect, useRef, useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/Tooltip'
 
@@ -15,7 +15,7 @@ export interface FloatingMenuContextValue {
 }
 
 export const FloatingMenuContext = createContext<FloatingMenuContextValue>({ opened: false })
-export const useFloatingMenuContext = () => useContext(FloatingMenuContext)
+export const useFloatingMenuContext = () => use(FloatingMenuContext)
 
 // ── Shadow tokens ─────────────────────────────────────────────────────────────
 
@@ -48,23 +48,22 @@ export interface FloatingMenuItemProps extends React.ButtonHTMLAttributes<HTMLBu
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenuItemProps>(
-  function FloatingMenuItem(
-    {
-      icon,
-      label = 'Label',
-      showLabel,
-      active = false,
-      disabled = false,
-      asChild = false,
-      className,
-      style,
-      onMouseEnter: externalMouseEnter,
-      onMouseLeave: externalMouseLeave,
-      ...props
-    },
+export function FloatingMenuItem(
+  {
     ref,
-  ) {
+    icon,
+    label = 'Label',
+    showLabel,
+    active = false,
+    disabled = false,
+    asChild = false,
+    className,
+    style,
+    onMouseEnter: externalMouseEnter,
+    onMouseLeave: externalMouseLeave,
+    ...props
+  }: FloatingMenuItemProps & { ref?: React.Ref<HTMLButtonElement> },
+) {
     const Comp = asChild ? Slot : 'button'
     const { opened } = useFloatingMenuContext()
     // Explicit prop wins; falls back to context value.
@@ -182,7 +181,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
         {/* ── Label ── */}
         <AnimatePresence initial={false}>
           {labelVisible && (
-            <motion.span
+            <m.span
               key="label"
               initial={{ opacity: 0, filter: 'blur(4px)', maxWidth: 0 }}
               animate={{
@@ -221,7 +220,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
               }}
             >
               {label}
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
 
@@ -242,8 +241,7 @@ export const FloatingMenuItem = React.forwardRef<HTMLButtonElement, FloatingMenu
       </Comp>
       </Tooltip>
     )
-  },
-)
+}
 
 FloatingMenuItem.displayName = 'FloatingMenuItem'
 export default FloatingMenuItem

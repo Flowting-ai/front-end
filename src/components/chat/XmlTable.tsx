@@ -13,8 +13,8 @@
  * See: docs/frontend-rendering.md - Tables section.
  */
 
-import React, { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import React, { useEffect, useMemo, useState } from "react"
+import { AnimatePresence, m } from "framer-motion"
 
 interface ParsedTable {
   headers: string[]
@@ -57,6 +57,7 @@ function AnimatedTable({ data }: { data: ParsedTable }) {
       ? headers.map((_, ci) => (ci === 0 ? "1.6fr" : "1fr")).join(" ")
       : Array.from({ length: colCount }, (_, ci) => (ci === 0 ? "1.6fr" : "1fr")).join(" ")
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     const skelTimer = setTimeout(() => {
       setSkeletonVisible(false)
@@ -113,49 +114,49 @@ function AnimatedTable({ data }: { data: ParsedTable }) {
         )}
         <AnimatePresence>
           {skeletonVisible && (
-            <motion.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <m.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {rows.map((_, ri) => (
-                <motion.div key={ri} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: ri * 0.045, duration: 0.18 }}
+                <m.div key={ri} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: ri * 0.045, duration: 0.18 }}
                   style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--neutral-white)" }}>
                   {Array.from({ length: colCount }).map((_, ci) => (
                     <div key={ci} style={{ padding: "10px 14px", borderLeft: ci > 0 ? "1px solid var(--neutral-800-05)" : "none" }}>
-                      <motion.div
+                      <m.div
                         animate={{ opacity: [0.35, 0.85, 0.35] }}
                         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: (ri + ci) * 0.06 }}
                         style={{ height: 12, width: `${skelW(ri, ci)}%`, background: "var(--neutral-800-10)", borderRadius: 4 }}
                       />
                     </div>
                   ))}
-                </motion.div>
+                </m.div>
               ))}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
         <AnimatePresence initial={false}>
           {rows.slice(0, revealedRows).map((row, ri) => (
-            <motion.div key={ri} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18, ease: "easeOut" }}
+            <m.div key={ri} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18, ease: "easeOut" }}
               style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: "var(--neutral-white)" }}>
               {Array.from({ length: colCount }).map((_, ci) => (
                 <div key={ci} style={{ padding: "10px 14px", color: ci === 0 ? "var(--neutral-900)" : "var(--neutral-700)", fontWeight: ci === 0 ? 500 : 400, borderLeft: ci > 0 ? "1px solid var(--neutral-800-05)" : "none", fontSize: 14, lineHeight: "20px", wordBreak: "break-word" }}>
                   {row[ci] ?? ""}
                 </div>
               ))}
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>
       <AnimatePresence>
         {isDone && (
-          <motion.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
+          <m.div key="actions" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
             style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, paddingLeft: 1 }}>
-            <span style={{ fontSize: 11, color: "var(--neutral-300)", flex: 1 }}>
+            <span style={{ fontSize: 12, color: "var(--neutral-300)", flex: 1 }}>
               {rows.length} {rows.length === 1 ? "row" : "rows"} · {headers.length} col
             </span>
             <TableActionButton onClick={copyMarkdown}>
               {mdCopied ? <span style={{ color: "var(--green-600)" }}>Copied!</span> : "Copy markdown"}
             </TableActionButton>
             <TableActionButton onClick={exportCSV}>Export CSV</TableActionButton>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -166,7 +167,7 @@ function TableActionButton({ onClick, children }: { onClick: () => void; childre
   const [hov, setHov] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6, border: "1px solid var(--neutral-700-12)", background: hov ? "var(--neutral-800-05)" : "transparent", cursor: "pointer", fontSize: 11, color: hov ? "var(--neutral-700)" : "var(--neutral-500)", fontFamily: "var(--font-body)", transition: "all 120ms" }}>
+      style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 6, border: "1px solid var(--neutral-700-12)", background: hov ? "var(--neutral-800-05)" : "transparent", cursor: "pointer", fontSize: 12, color: hov ? "var(--neutral-700)" : "var(--neutral-500)", fontFamily: "var(--font-body)", transition: "background 120ms, color 120ms" }}>
       {children}
     </button>
   )
@@ -177,13 +178,13 @@ interface XmlTableProps {
 }
 
 export function XmlTable({ xml }: XmlTableProps) {
-  const [data, setData] = useState<ParsedTable | null | "error">(null)
+  const data = useMemo(() => parseTableXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 
+  // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
   useEffect(() => {
     setMounted(true)
-    setData(parseTableXml(xml) ?? "error")
-  }, [xml])
+  }, [])
 
   if (!mounted) {
     return (

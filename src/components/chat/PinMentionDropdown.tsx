@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { ArrowDownTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
 import type { Pin } from "@/lib/api/pins";
 import { PinInsert } from "@/components/PinInsert";
@@ -90,7 +90,7 @@ export function PinMentionDropdown({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scaleY: 0.95, y: 4 }}
           animate={{ opacity: 1, scaleY: 1, y: 0 }}
           exit={{ opacity: 0, scaleY: 0.95, y: 4 }}
@@ -226,7 +226,7 @@ export function PinMentionDropdown({
               })
             )}
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

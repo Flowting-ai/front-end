@@ -35,7 +35,7 @@ function formatUpdated(iso: string) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ProjectsPage() {
-  const router                                    = useRouter()
+  const { push }                                  = useRouter()
   const { projects, loading, updateProject, deleteProject } = useProjects()
   const [query,      setQuery]                    = useState('')
   const [sort,       setSort]                     = useState<SortKey>('recent')
@@ -124,7 +124,7 @@ export default function ProjectsPage() {
               </Dropdown.Float>
 
               {/* New Project */}
-              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => router.push('/projects/new')}>
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push('/projects/new')}>
                 New Project
               </Button>
             </div>
@@ -154,6 +154,7 @@ export default function ProjectsPage() {
             style={{
               flex:        '1 0 0',
               border:      'none',
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:     'none',
               background:  'transparent',
               fontFamily:  'var(--font-body)',
@@ -226,7 +227,7 @@ export default function ProjectsPage() {
               >
                 No projects yet. Create your first one to get started.
               </p>
-              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => router.push('/projects/new')}>
+              <Button variant="default" leftIcon={<PlusSignIcon animated />} onClick={() => push('/projects/new')}>
                 New Project
               </Button>
             </div>
@@ -248,7 +249,7 @@ export default function ProjectsPage() {
                 tags={project.tags}
                 updatedAt={formatUpdated(project.updatedAt)}
                 chatCount={project.chatCount}
-                onClick={() => router.push(`/project/${project.id}`)}
+                onClick={() => push(`/project/${project.id}`)}
                 onEdit={() => setEditTarget(project)}
                 onArchive={() => {/* archive flow - backlog */}}
                 onDelete={() => deleteProject(project.id)}

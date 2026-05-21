@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef, useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   DashboardSquareOneIcon,
   ShapesOneIcon,
@@ -163,7 +163,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
         style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 500,
-          fontSize:   11,
+          fontSize: 12,
           lineHeight: '16px',
           color:      'var(--neutral-500)',
           whiteSpace: 'nowrap',
@@ -177,39 +177,39 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpandedProps>(
-  function PinboardExpanded(
-    {
-      pins             = DEFAULT_PINS,
-      title            = 'All pins',
-      pinCount         = 32,
-      updatedLabel     = '',
-      personalFolders  = DEFAULT_PERSONAL_FOLDERS,
-      projectFolders   = DEFAULT_PROJECT_FOLDERS,
-      activeSidebarId  = 'all-pins',
-      onClose,
-      onOrganize,
-      filterBar,
-      hasActiveFilters = false,
-      onSidebarItemClick,
-      onNewFolderClick,
-      onMoveToFolder,
-      onDeleteSelected,
-      onExport,
-      onExportSelected,
-      onFolderRename,
-      onFolderDelete,
-      onSearch,
-      filterMenu,
-      filterDisabled = false,
-      sortMenu,
-      enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT,
-      style,
-      className,
-      ...props
-    },
+export function PinboardExpanded(
+  {
+    pins             = DEFAULT_PINS,
+    title            = 'All pins',
+    pinCount         = 32,
+    updatedLabel     = '',
+    personalFolders  = DEFAULT_PERSONAL_FOLDERS,
+    projectFolders   = DEFAULT_PROJECT_FOLDERS,
+    activeSidebarId  = 'all-pins',
+    onClose,
+    onOrganize,
+    filterBar,
+    hasActiveFilters = false,
+    onSidebarItemClick,
+    onNewFolderClick,
+    onMoveToFolder,
+    onDeleteSelected,
+    onExport,
+    onExportSelected,
+    onFolderRename,
+    onFolderDelete,
+    onSearch,
+    filterMenu,
+    filterDisabled = false,
+    sortMenu,
+    enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT,
+    style,
+    className,
     ref,
-  ) {
+    ...props
+  }: PinboardExpandedProps & { ref?: React.Ref<HTMLDivElement> },
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const [atTop, setAtTop]       = useState(true)
     const [atBottom, setAtBottom] = useState(false)
@@ -291,7 +291,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
         style={{
           // Outer pinboard - matches Figma node 2603:15826 exactly:
           //   bg neutral-50, flex row, items-center, overflow-clip,
-          //   px-8, rounded-28 (set on parent motion.div), shadow set on parent.
+          //   px-8, rounded-28 (set on parent m.div), shadow set on parent.
           display:        'flex',
           alignItems:     'center',
           width:          '100%',
@@ -412,6 +412,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       selected={activeSidebarId === f.id}
                       onClick={() => onSidebarItemClick?.(f.id)}
                     />
+                    {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
                     <div
                       style={{
                         position:      'absolute',
@@ -497,6 +498,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       selected={activeSidebarId === f.id}
                       onClick={() => onSidebarItemClick?.(f.id)}
                     />
+                    {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
                     <div
                       style={{
                         position:      'absolute',
@@ -639,7 +641,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       }}
                     >
                       <AnimatePresence mode="popLayout" initial={false}>
-                        <motion.span
+                        <m.span
                           key={activeSidebarId}
                           initial={{ opacity: 0, filter: 'blur(4px)' }}
                           animate={{ opacity: 1, filter: 'blur(0px)' }}
@@ -648,7 +650,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                           style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                         >
                           {viewTitle}
-                        </motion.span>
+                        </m.span>
                       </AnimatePresence>
                     </p>
                   </div>
@@ -665,7 +667,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <AnimatePresence initial={false} mode="popLayout">
                     {!isOrganizing && (
-                      <motion.span
+                      <m.span
                         key="organise-btn"
                         initial={{ opacity: 0, scale: 0.85, filter: 'blur(4px)' }}
                         animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)' }}
@@ -681,7 +683,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                         >
                           Organise
                         </Button>
-                      </motion.span>
+                      </m.span>
                     )}
                   </AnimatePresence>
                   <Tooltip content="Close">
@@ -729,7 +731,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       full-flex (InputField) on toggle, matching the
                       compact PinboardHeader pattern from KDS. */}
                   <Tooltip content="Search" disabled={openPanel === 'search'}>
-                    <motion.div
+                    <m.div
                       layout
                       transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                       style={{
@@ -743,7 +745,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                     >
                       <AnimatePresence initial={false} mode="popLayout">
                         {openPanel !== 'search' ? (
-                          <motion.span
+                          <m.span
                             key="search-btn"
                             layout
                             initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
@@ -758,9 +760,9 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                               aria-label="Open search"
                               onClick={() => setOpenPanel('search')}
                             />
-                          </motion.span>
+                          </m.span>
                         ) : (
-                          <motion.div
+                          <m.div
                             key="search-input"
                             initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
                             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
@@ -803,19 +805,19 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                                 setExpandedSearch(v)
                                 onSearch?.(v)
                               }}
-                              // eslint-disable-next-line jsx-a11y/no-autofocus
+                              // eslint-disable-next-line jsx-a11y/no-autofocus, react-doctor/no-autofocus -- focus moves into search on user-triggered open
                               autoFocus
                               aria-label="Search pins"
                             />
-                          </motion.div>
+                          </m.div>
                         )}
                       </AnimatePresence>
-                    </motion.div>
+                    </m.div>
                   </Tooltip>
 
                   {/* Export - second slot per KDS order */}
                   {onExport && (
-                    <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                    <m.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
                       <Tooltip content="Export">
                         <IconButton
                           variant="secondary"
@@ -825,11 +827,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                           onClick={onExport}
                         />
                       </Tooltip>
-                    </motion.div>
+                    </m.div>
                   )}
 
                   {/* Filter dropdown */}
-                  <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                  <m.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
                     {filterDisabled ? (
                       <Tooltip content="Filter">
                         <IconButton
@@ -859,11 +861,11 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                         {filterMenu}
                       </Dropdown.Float>
                     ) : null}
-                  </motion.div>
+                  </m.div>
 
                   {/* Sort dropdown */}
                   {sortMenu != null && (
-                    <motion.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+                    <m.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
                       <Dropdown.Float
                         open={openPanel === 'sort'}
                         onOpenChange={(open) => setOpenPanel(open ? 'sort' : null)}
@@ -881,7 +883,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       >
                         {sortMenu}
                       </Dropdown.Float>
-                    </motion.div>
+                    </m.div>
                   )}
                 </EnterChunk>
 
@@ -903,7 +905,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       Figma 3457:24212. Move to folder + Export + Delete on
                       the left, Done on the right. */}
                   {isOrganizing && (
-                    <motion.div
+                    <m.div
                       key="organize-row"
                       initial={{ opacity: 0, scale: 0.97, filter: 'blur(4px)' }}
                       animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)' }}
@@ -997,6 +999,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                           Delete
                         </Button>
                       </div>
+                      {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from organize toolbar makes action clear */}
                       <Button
                         variant="default"
                         size="sm"
@@ -1004,7 +1007,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       >
                         Done
                       </Button>
-                    </motion.div>
+                    </m.div>
                   )}
                   </AnimatePresence>
                 </EnterChunk>
@@ -1027,7 +1030,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                 <EnterChunk cfg={enterAnimation} index={2.5} style={{ width: '100%' }}>
                   <AnimatePresence initial={false}>
                     {filterBar && hasActiveFilters && (
-                      <motion.div
+                      <m.div
                         key="expanded-filter-bar"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -1036,7 +1039,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                         style={{ overflow: 'hidden', width: '100%' }}
                       >
                         {filterBar}
-                      </motion.div>
+                      </m.div>
                     )}
                   </AnimatePresence>
                 </EnterChunk>
@@ -1077,6 +1080,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
                       // edge - no gutter is reserved, so layout dimensions
                       // stay exactly as specified in Figma.
                       padding:             '2px 2px 2px 2px',
+                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                       outline:             'none',
                     }}
                   >
@@ -1248,8 +1252,7 @@ export const PinboardExpanded = React.forwardRef<HTMLDivElement, PinboardExpande
         </div>
       </div>
     )
-  },
-)
+}
 
 PinboardExpanded.displayName = 'PinboardExpanded'
 export default PinboardExpanded

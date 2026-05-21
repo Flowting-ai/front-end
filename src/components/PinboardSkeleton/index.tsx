@@ -28,8 +28,7 @@ export interface PinboardSkeletonProps extends React.HTMLAttributes<HTMLDivEleme
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeletonProps>(
-  function PinboardSkeleton({ fluid = false, pinCount = 4, className, style, ...props }, ref) {
+export function PinboardSkeleton({ fluid = false, pinCount = 4, className, style, ref, ...props }: PinboardSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -252,8 +251,7 @@ export const PinboardSkeleton = React.forwardRef<HTMLDivElement, PinboardSkeleto
         </div>
       </div>
     )
-  },
-)
+}
 
 PinboardSkeleton.displayName = 'PinboardSkeleton'
 

@@ -86,8 +86,10 @@ export async function pollConnectorUntilActive(
 ): Promise<ConnectorCatalogEntry> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- polling loop; each check is gated on the previous result
     const entry = await getConnector(slug)
     if (entry.linked) return entry
+    // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional delay between polls
     await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
   }
   throw new Error(`Connector ${slug} did not become linked within ${timeoutMs}ms`)

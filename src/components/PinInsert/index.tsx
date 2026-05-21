@@ -20,12 +20,14 @@
  */
 
 import * as React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { IconButton } from '@/components/IconButton'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
+
+const EMPTY_PIN_TAGS: PinTag[] = []
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,28 +115,27 @@ function HighlightedTitle({ text, query }: { text: string; query: string }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
-  function PinInsert(
-    {
-      title,
-      type = 'with-badges',
-      tags = [],
-      subtitle,
-      hover,
-      highlight = false,
-      searchQuery = '',
-      isFocused = false,
-      onAdd,
-      onClick,
-      onKeyDown,
-      onMouseEnter,
-      onMouseLeave,
-      className,
-      style,
-      ...props
-    },
+export function PinInsert(
+  {
+    title,
+    type = 'with-badges',
+    tags = EMPTY_PIN_TAGS,
+    subtitle,
+    hover,
+    highlight = false,
+    searchQuery = '',
+    isFocused = false,
+    onAdd,
+    onClick,
+    onKeyDown,
+    onMouseEnter,
+    onMouseLeave,
+    className,
+    style,
     ref,
-  ) {
+    ...props
+  }: PinInsertProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [hovered, setHovered] = React.useState(false)
 
     // When the controlled `hover` prop is undefined, derive from internal
@@ -145,7 +146,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
     const showSubtitle = type === 'with-subtitle'
     const showBadges   = type === 'with-badges' && tags.length > 0
 
-    function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    function handlePinSelect(e: React.MouseEvent<HTMLDivElement>) {
       onAdd?.()
       onClick?.(e)
     }
@@ -165,7 +166,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
         aria-selected={isFocused}
         tabIndex={-1}
         className={cn(className)}
-        onClick={handleClick}
+        onClick={handlePinSelect}
         onKeyDown={handleKeyDown}
         onMouseEnter={(e) => { setHovered(true);  onMouseEnter?.(e) }}
         onMouseLeave={(e) => { setHovered(false); onMouseLeave?.(e) }}
@@ -280,7 +281,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
              through to the row. */}
         <AnimatePresence initial={false}>
           {isActive && (
-            <motion.span
+            <m.span
               key="add-icon"
               initial={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1   }}
@@ -302,7 +303,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
                 size="sm"
                 icon={<PlusSignIcon />}
               />
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
 
@@ -323,8 +324,7 @@ export const PinInsert = React.forwardRef<HTMLDivElement, PinInsertProps>(
         )}
       </div>
     )
-  },
-)
+}
 
 PinInsert.displayName = 'PinInsert'
 

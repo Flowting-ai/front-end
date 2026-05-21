@@ -27,21 +27,20 @@ export interface FloatingMenuProps extends React.HTMLAttributes<HTMLDivElement> 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
-  function FloatingMenu(
-    {
-      opened = false,
-      children,
-      className,
-      style,
-      onMouseEnter: externalMouseEnter,
-      onMouseLeave: externalMouseLeave,
-      onFocus:      externalFocus,
-      onBlur:       externalBlur,
-      ...props
-    },
+export function FloatingMenu(
+  {
     ref,
-  ) {
+    opened = false,
+    children,
+    className,
+    style,
+    onMouseEnter: externalMouseEnter,
+    onMouseLeave: externalMouseLeave,
+    onFocus:      externalFocus,
+    onBlur:       externalBlur,
+    ...props
+  }: FloatingMenuProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [autoExpanded, setAutoExpanded] = useState(false)
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -72,7 +71,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
     }
 
     // Keyboard users: expand immediately when any item receives focus.
-    const handleFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    const handleMenuFocus = (e: React.FocusEvent<HTMLDivElement>) => {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current)
         timerRef.current = null
@@ -82,7 +81,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
     }
 
     // Collapse when focus leaves the menu entirely (not just moving between items).
-    const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const handleMenuBlur = (e: React.FocusEvent<HTMLDivElement>) => {
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
         setAutoExpanded(false)
       }
@@ -111,8 +110,8 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
           }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onFocus={handleMenuFocus}
+          onBlur={handleMenuBlur}
           {...props}
         >
 
@@ -154,8 +153,7 @@ export const FloatingMenu = React.forwardRef<HTMLDivElement, FloatingMenuProps>(
         </div>
       </FloatingMenuContext.Provider>
     )
-  },
-)
+}
 
 FloatingMenu.displayName = 'FloatingMenu'
 export default FloatingMenu

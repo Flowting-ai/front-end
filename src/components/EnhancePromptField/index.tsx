@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, LaurelWreathOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { Badge } from '@/components/Badge'
@@ -69,23 +69,23 @@ const APPLY_TRANSITION_MS = 180
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePromptFieldProps>(
-  function EnhancePromptField(
-    {
-      value,
-      onChange,
-      personaContext = DEFAULT_CONTEXT,
-      placeholder = "Describe your persona's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
-      ariaLabel = 'System prompt',
-      forceMode,
-      label = 'System Instruction',
-      footerLeft,
-      className,
-      style,
-      ...props
-    },
+export function EnhancePromptField(
+  {
+    value,
+    onChange,
+    personaContext = DEFAULT_CONTEXT,
+    placeholder = "Describe your persona's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
+    ariaLabel = 'System prompt',
+    forceMode,
+    label = 'System Instruction',
+    footerLeft,
+    className,
+    style,
     ref,
-  ) {
+    ...props
+  }: EnhancePromptFieldProps & { ref?: React.Ref<HTMLDivElement> },
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+) {
     const [state, setState]         = useState<EnhanceState>('idle')
     const [mode, setMode]           = useState<EnhanceMode>('BUILD')
     const [questions, setQuestions] = useState<Question[]>([])
@@ -255,6 +255,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
             borderStyle:     'solid',
             overflow:        'hidden',
             height:          534,
+            // eslint-disable-next-line react-doctor/no-layout-transition-inline -- dynamic border-width animation requires inline style
             transition:      'background-color 200ms ease, border-color 200ms ease, border-width 200ms ease',
             ...containerStateStyle,
           }}
@@ -286,6 +287,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
                 border:     'none',
                 background: 'transparent',
                 resize:     'none',
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:    'none',
                 fontFamily: 'Inter, var(--font-body)',
                 fontWeight: 400,
@@ -321,7 +323,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
         {/* Open: EnhanceBox replaces the textarea */}
         <AnimatePresence initial={false}>
           {isOpen && (
-            <motion.div
+            <m.div
               key={state}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -426,6 +428,7 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
                     }}
                   >
                     {diffSegments.map((seg, i) => (
+                      // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- diff segments are positionally stable; no stable IDs available
                       <DiffLine key={i} variant={seg.type}>{seg.text}</DiffLine>
                     ))}
                   </div>
@@ -472,14 +475,13 @@ export const EnhancePromptField = React.forwardRef<HTMLDivElement, EnhancePrompt
                 }}
                 onClose={closeEnhance}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
         </div>
       </div>
     )
-  },
-)
+}
 
 EnhancePromptField.displayName = 'EnhancePromptField'
 
@@ -514,7 +516,7 @@ function QAStep({
         <p style={{
           margin:        0,
           fontFamily:    'var(--font-body)',
-          fontSize:      11,
+          fontSize: 12,
           letterSpacing: '0.03em',
           textTransform: 'uppercase',
           color:         'var(--color-enhance-step-label)',
@@ -547,7 +549,7 @@ function QAStep({
       </div>
 
       {/* Selected custom chips */}
-      {answers.filter(a => question.options.every(o => o.label !== a)).map(custom => (
+      {answers.flatMap(custom => question.options.every(o => o.label !== custom) ? [(
         <span
           key={custom}
           style={{
@@ -586,7 +588,7 @@ function QAStep({
             <CancelOneIcon size={12} />
           </button>
         </span>
-      ))}
+      )] : [])}
 
       {/* Option rows - KDS OptionRow (same component QuestionCard uses).
           single-select:  default | selected

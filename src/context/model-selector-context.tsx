@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, {
   createContext,
   useCallback,
-  useContext,
+  use,
   useEffect,
   useRef,
   useState,
@@ -13,7 +13,7 @@ import { useAuth } from "@/context/auth-context";
 import { canAccessFramework } from "@/lib/plan-config";
 import type { AIModel } from "@/types/ai-model";
 
-// ── localStorage persistence ───────────────────────────────────────────────────
+// â”€â”€ localStorage persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const STORAGE_KEY = "souvenir_model_pref";
 
@@ -48,7 +48,7 @@ function writeStoredPref(pref: StoredModelPref): void {
   } catch {}
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ModelSelectorContextValue {
   models: AIModel[];
@@ -59,29 +59,30 @@ interface ModelSelectorContextValue {
   anchorEl: HTMLElement | null;
   open: (anchor: HTMLElement) => void;
   close: () => void;
-  // ── Muse framework ──
+  // â”€â”€ Muse framework â”€â”€
   museActive: boolean;
   museAdvanced: boolean;
   activateMuse: () => void;
   deactivateMuse: () => void;
   setMuseAdvanced: (advanced: boolean) => void;
-  // ── Adaptive thinking ──
+  // â”€â”€ Adaptive thinking â”€â”€
   enableReasoning: boolean;
   setEnableReasoning: (v: boolean) => void;
 }
 
-// ── Context ────────────────────────────────────────────────────────────────────
+// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(
   null,
 );
 
-// ── Provider ───────────────────────────────────────────────────────────────────
+// â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function ModelSelectorProvider({
   children,
 }: {
   children: React.ReactNode;
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }) {
   const { user } = useAuth();
   const {
@@ -194,10 +195,10 @@ export function ModelSelectorProvider({
   );
 }
 
-// ── Hook ───────────────────────────────────────────────────────────────────────
+// â”€â”€ Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useModelSelectorContext(): ModelSelectorContextValue {
-  const ctx = useContext(ModelSelectorContext);
+  const ctx = use(ModelSelectorContext);
   if (!ctx)
     throw new Error(
       "useModelSelectorContext must be used within ModelSelectorProvider",

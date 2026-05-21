@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, use, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type { BadgeColor } from '@/components/Badge'
 import type { PinProps, PinLabel } from '@/components/Pin'
@@ -16,7 +16,7 @@ import {
 } from '@/lib/api/projects'
 import type { ApiProject, ApiProjectSummary, ApiProjectChat } from '@/lib/api/projects'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ProjectTag {
   id:    string
@@ -67,7 +67,22 @@ export interface Project {
   createdAt:    string
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function storageSizesKey(projectId: string) { return `project-file-sizes:${projectId}` }
+
+function loadStoredSizes(projectId: string): Map<string, number> {
+  if (typeof window === 'undefined') return new Map()
+  try {
+    const raw = localStorage.getItem(storageSizesKey(projectId))
+    return raw ? new Map(JSON.parse(raw) as [string, number][]) : new Map()
+  } catch { return new Map() }
+}
+
+function saveStoredSizes(projectId: string, sizes: Map<string, number>) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(storageSizesKey(projectId), JSON.stringify([...sizes])) } catch {}
+}
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0)          return ''
@@ -145,7 +160,7 @@ function apiChatToProjectChat(c: ApiProjectChat, projectId: string): ProjectChat
   }
 }
 
-// ── Context ────────────────────────────────────────────────────────────────────
+// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProjectsContextValue {
   projects:         Project[]
@@ -174,8 +189,9 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState<string | null>(null)
 
-  // ── Bootstrap ────────────────────────────────────────────────────────────────
+  // â”€â”€ Bootstrap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     fetchProjects()
       .then(summaries => setProjects(summaries.map(summaryToProject)))
@@ -183,7 +199,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────────
+  // â”€â”€ CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const createProject = useCallback(async (name: string, description: string): Promise<Project> => {
     const api = await createProjectApi({ title: name, description })
@@ -239,9 +255,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   const loadProject = useCallback(async (id: string) => {
     try {
       const api = await fetchProject(id)
+      const storedSizes = loadStoredSizes(id)
       setProjects(prev => {
         const existing = prev.find(p => p.id === id)
-        const full = apiToProject(api, existing)
+        const full = apiToProject(api, existing, storedSizes)
         return existing ? prev.map(p => p.id === id ? full : p) : [full, ...prev]
       })
     } catch (err) {
@@ -249,17 +266,17 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // ── File management ───────────────────────────────────────────────────────────
+  // â”€â”€ File management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const uploadFiles = useCallback(async (projectId: string, files: File[]) => {
     if (!files.length) return
-    // Capture sizes before the upload so we can restore them from the API
-    // response (the backend does not return file sizes).
     const uploadedSizes = new Map<string, number>(files.map(f => [f.name, f.size]))
     try {
       const updated = await updateProjectApi(projectId, { files })
+      const merged = new Map([...loadStoredSizes(projectId), ...uploadedSizes])
+      saveStoredSizes(projectId, merged)
       setProjects(prev => prev.map(p =>
-        p.id === projectId ? apiToProject(updated, p, uploadedSizes) : p,
+        p.id === projectId ? apiToProject(updated, p, merged) : p,
       ))
     } catch (err) {
       toast.error('Failed to upload files', { description: err instanceof Error ? err.message : undefined })
@@ -269,6 +286,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
   const removeFile = useCallback(async (projectId: string, fileId: string) => {
     const snapshot = projects.find(p => p.id === projectId)
+    const removedName = snapshot?.files.find(f => f.id === fileId)?.name
 
     // optimistic
     setProjects(prev => prev.map(p =>
@@ -277,16 +295,21 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await removeProjectDocumentApi(projectId, fileId)
-      // Refetch authoritative state — PATCH response may be 204 or omit documents.
+      if (removedName) {
+        const stored = loadStoredSizes(projectId)
+        stored.delete(removedName)
+        saveStoredSizes(projectId, stored)
+      }
       const refreshed = await fetchProject(projectId)
-      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(refreshed, p) : p))
+      const storedSizes = loadStoredSizes(projectId)
+      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(refreshed, p, storedSizes) : p))
     } catch (err) {
       if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
       toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })
     }
   }, [projects])
 
-  // ── Chat management ───────────────────────────────────────────────────────────
+  // â”€â”€ Chat management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   // Optimistic: called after a chat has been created via the chats API and linked to this project.
   const addChat = useCallback((projectId: string, chatId: string, title: string) => {
@@ -327,7 +350,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // ── Lookups ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Lookups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects])
 
@@ -361,7 +384,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useProjects(): ProjectsContextValue {
-  const ctx = useContext(ProjectsContext)
+  const ctx = use(ProjectsContext)
   if (!ctx) throw new Error('useProjects must be used inside <ProjectsProvider>')
   return ctx
 }

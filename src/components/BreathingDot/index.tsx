@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { m, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Size map ──────────────────────────────────────────────────────────────────
@@ -20,13 +20,12 @@ export interface BreathingDotProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const BreathingDot = React.forwardRef<HTMLSpanElement, BreathingDotProps>(
-  function BreathingDot({ size = 'md', className, style }, ref) {
+export function BreathingDot({ ref, size = 'md', className, style }: BreathingDotProps & { ref?: React.Ref<HTMLSpanElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
     const px = SIZE_PX[size]
 
     return (
-      <motion.span
+      <m.span
         ref={ref}
         aria-hidden
         className={cn(className)}
@@ -52,8 +51,7 @@ export const BreathingDot = React.forwardRef<HTMLSpanElement, BreathingDotProps>
         }}
       />
     )
-  },
-)
+}
 
 BreathingDot.displayName = 'BreathingDot'
 export default BreathingDot

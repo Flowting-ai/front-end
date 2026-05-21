@@ -33,6 +33,7 @@ export function ClarificationCard({
 }: ClarificationCardProps) {
   return (
     <QuestionCard
+      key={question}
       type="single"
       question={question}
       options={options}

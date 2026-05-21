@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useRef, useState } from 'react'
-import { AnimatePresence, motion, useAnimation } from 'framer-motion'
+import { AnimatePresence, m, useAnimation } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -42,23 +42,22 @@ export interface ChipInputProps
 // wrapper enforces the floor. No JS measurement, so it stays correct across
 // font loads, transforms, and reduced-motion.
 
-export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
-  function ChipInput(
-    {
-      placeholder      = 'Add tag…',
-      defaultValue,
-      value:            controlledValue,
-      className,
-      style,
-      onChange:         externalChange,
-      onFocus:          externalFocus,
-      onBlur:           externalBlur,
-      onMouseEnter:     externalEnter,
-      onMouseLeave:     externalLeave,
-      ...props
-    },
-    forwardedRef,
-  ) {
+export function ChipInput(
+  {
+    ref:              forwardedRef,
+    placeholder      = 'Add tag…',
+    defaultValue,
+    value:            controlledValue,
+    className,
+    style,
+    onChange:         externalChange,
+    onFocus:          externalFocus,
+    onBlur:           externalBlur,
+    onMouseEnter:     externalEnter,
+    onMouseLeave:     externalLeave,
+    ...props
+  }: ChipInputProps & { ref?: React.Ref<HTMLInputElement> },
+) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
     // Shake-on-cap animation - same controls API as `PinCommentField`'s
@@ -83,7 +82,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
 
     const shadow = isFocused ? SHADOW_FOCUS : isHovered ? SHADOW_HOVER : SHADOW_DEFAULT
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = e.target.value
       if (next.length > MAX_LENGTH) {
         // Reject - restore previous valid value and shake. Same x-keyframes /
@@ -105,7 +104,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
     const focusInput = () => inputRef.current?.focus()
 
     return (
-      <motion.div
+      <m.div
         animate={shakeControls}
         className={cn(className)}
         onMouseEnter={(e) => { setIsHovered(true);  externalEnter?.(e as unknown as React.MouseEvent<HTMLInputElement>) }}
@@ -130,7 +129,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
             Uses the same blur+opacity cross-fade as PinCommentField. */}
         <AnimatePresence initial={false}>
           {!value && placeholder && (
-            <motion.span
+            <m.span
               key="placeholder"
               aria-hidden
               initial={{ opacity: 0, filter: 'blur(2px)' }}
@@ -152,7 +151,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
               }}
             >
               {placeholder}
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
 
@@ -195,6 +194,7 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
             width:      '100%',
             minWidth:   0,
             border:     'none',
+            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
             outline:    'none',
             background: 'transparent',
             padding:    0,
@@ -205,15 +205,14 @@ export const ChipInput = React.forwardRef<HTMLInputElement, ChipInputProps>(
             lineHeight: 'var(--line-height-caption)',
             color:      'var(--neutral-900)',
           }}
-          onChange={handleChange}
+          onChange={handleInputChange}
           onFocus={(e) => { setIsFocused(true);  externalFocus?.(e) }}
           onBlur={(e)  => { setIsFocused(false); externalBlur?.(e) }}
           {...props}
         />
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 ChipInput.displayName = 'ChipInput'
 export default ChipInput

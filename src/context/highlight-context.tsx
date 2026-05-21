@@ -1,18 +1,18 @@
-'use client'
+﻿'use client'
 
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
+import React, { createContext, useCallback, use, useRef, useState } from 'react'
 import { toast } from '@/components/Toast'
 import { createHighlight, removeHighlight, getHighlights, getAllHighlights } from '@/lib/api/highlights'
 import type { HighlightResponse } from '@/lib/api/highlights'
 import { ApiError } from '@/lib/api/client'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FilterMode = 'this-chat' | 'all'
 
 export interface HighlightEntry {
   id:          string
-  /** Stable across the temp→server-ID swap. Use this as the React key to prevent remount animations. */
+  /** Stable across the tempâ†’server-ID swap. Use this as the React key to prevent remount animations. */
   renderKey:   string
   text:        string
   colorIndex:  0 | 1 | 2 | 3
@@ -42,15 +42,15 @@ interface HighlightActionsValue {
   copyHighlight:   (id: string) => void
 }
 
-/** Combined shape — kept for backward compatibility. */
+/** Combined shape â€” kept for backward compatibility. */
 interface HighlightContextValue extends HighlightDataValue, HighlightActionsValue {}
 
-// ── Contexts ──────────────────────────────────────────────────────────────────
+// â”€â”€ Contexts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HighlightDataContext    = createContext<HighlightDataValue | null>(null)
 const HighlightActionsContext = createContext<HighlightActionsValue | null>(null)
 
-// ── Response → Entry mapper ────────────────────────────────────────────────────
+// â”€â”€ Response â†’ Entry mapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function responseToEntry(r: HighlightResponse): HighlightEntry {
   return {
@@ -65,7 +65,7 @@ function responseToEntry(r: HighlightResponse): HighlightEntry {
   }
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function HighlightProvider({ children }: { children: React.ReactNode }) {
   const [highlights,  setHighlights]  = useState<HighlightEntry[]>([])
@@ -79,7 +79,7 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   highlightsRef.current = highlights
   filterModeRef.current = filterMode
 
-  // ── Actions (stable refs — never change identity) ─────────────────────────
+  // â”€â”€ Actions (stable refs â€” never change identity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const loadForChat = useCallback((chatId: string) => {
     if (filterModeRef.current === 'all') return
@@ -177,19 +177,19 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ── Hooks ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Backward-compatible hook — subscribes to both data and actions. */
+/** Backward-compatible hook â€” subscribes to both data and actions. */
 export function useHighlight(): HighlightContextValue {
-  const data    = useContext(HighlightDataContext)
-  const actions = useContext(HighlightActionsContext)
+  const data    = use(HighlightDataContext)
+  const actions = use(HighlightActionsContext)
   if (!data || !actions) throw new Error('useHighlight must be used within HighlightProvider')
   return { ...data, ...actions }
 }
 
-/** Actions-only hook — does NOT re-render when highlights/isOpen/filterMode change. */
+/** Actions-only hook â€” does NOT re-render when highlights/isOpen/filterMode change. */
 export function useHighlightActions(): HighlightActionsValue {
-  const actions = useContext(HighlightActionsContext)
+  const actions = use(HighlightActionsContext)
   if (!actions) throw new Error('useHighlightActions must be used within HighlightProvider')
   return actions
 }

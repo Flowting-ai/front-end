@@ -119,7 +119,7 @@ function BlueBadge({ children }: { children: React.ReactNode }) {
         padding:    '0 2px',
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--blue-700)',
         whiteSpace: 'nowrap',
@@ -173,7 +173,7 @@ function BrownBadge({ children }: { children: React.ReactNode }) {
         padding:    '0 2px',
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--brown-700)',
         whiteSpace: 'nowrap',
@@ -327,7 +327,7 @@ function SettingRow({
           <p style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize:   11,
+            fontSize: 12,
             lineHeight: '16px',
             color:      'var(--neutral-500)',
             margin:     0,
@@ -661,7 +661,7 @@ export default function FilesPage() {
             <p style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 400,
-              fontSize:   11,
+              fontSize: 12,
               lineHeight: '16px',
               color:      'var(--neutral-500)',
               margin:     '0 0 12px',
@@ -856,7 +856,7 @@ export default function FilesPage() {
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
-                  fontSize:   11,
+                  fontSize: 12,
                   lineHeight: '16px',
                   color:      'var(--neutral-500)',
                   margin:     0,
@@ -885,7 +885,7 @@ export default function FilesPage() {
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
-                  fontSize:   11,
+                  fontSize: 12,
                   lineHeight: '16px',
                   color:      'var(--neutral-500)',
                   margin:     0,

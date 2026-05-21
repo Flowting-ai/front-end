@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { use, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { cn } from '@/lib/utils'
 import { TabItem } from '@/components/TabItem'
@@ -58,10 +58,7 @@ const PILL_TRANSITION = 'transform 300ms cubic-bezier(0.16,1,0.3,1), width 300ms
 //   • Tab switch → spring via animate(from, to, { onUpdate }) → style.transform / style.width
 //   • Scroll     → shadowEl.style.transform directly - frame-perfect, zero lag
 
-export const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  TabsListProps
->(function TabsList({ children, className, scrollable, size = 'medium', ...props }, ref) {
+export function TabsList({ ref, children, className, scrollable, size = 'medium', ...props }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
   const isSmall  = size === 'small'
   const radius   = isSmall ? '8px' : '10px'
 
@@ -104,9 +101,11 @@ export const TabsList = React.forwardRef<
   const applyShadow = useCallback((x: number, w: number, instant = false) => {
     const el = shadowRef.current
     if (!el) return
-    el.style.transition = instant ? 'none' : PILL_TRANSITION
-    el.style.transform  = `translateX(${x}px)`
-    el.style.width      = `${w}px`
+    Object.assign(el.style, {
+      transition: instant ? 'none' : PILL_TRANSITION,
+      transform:  `translateX(${x}px)`,
+      width:      `${w}px`,
+    })
     shadowXCur.current  = x
     shadowWCur.current  = w
   }, [])
@@ -133,8 +132,10 @@ export const TabsList = React.forwardRef<
     for (const el of [pillRef1.current, pillRef2.current]) {
       if (!el) continue
       if (isFirst) el.style.transition = 'none'
-      el.style.transform = `translateX(${pill.x}px)`
-      el.style.width     = `${pill.width}px`
+      Object.assign(el.style, {
+        transform: `translateX(${pill.x}px)`,
+        width:     `${pill.width}px`,
+      })
     }
     if (isFirst) {
       isFirstInline.current = false
@@ -336,17 +337,14 @@ export const TabsList = React.forwardRef<
       </TabsPrimitive.List>
     </TabsSizeContext.Provider>
   )
-})
+}
 
 TabsList.displayName = 'TabsList'
 
 // ── Trigger ───────────────────────────────────────────────────────────────────
 
-export const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  TabsTriggerProps
->(function TabsTrigger({ children, icon, className, ...props }, ref) {
-  const size = React.useContext(TabsSizeContext)
+export function TabsTrigger({ ref, children, icon, className, ...props }: TabsTriggerProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Trigger>> }) {
+  const size = use(TabsSizeContext)
   return (
     // asChild makes Radix use Slot - it merges data-state, aria-selected, role="tab"
     // etc. onto TabItem, which reads data-state to derive its selected visual state.
@@ -358,22 +356,19 @@ export const TabsTrigger = React.forwardRef<
       </TabItem>
     </TabsPrimitive.Trigger>
   )
-})
+}
 
 TabsTrigger.displayName = 'TabsTrigger'
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
-export const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  TabsContentProps
->(function TabsContent({ children, className, ...props }, ref) {
+export function TabsContent({ ref, children, className, ...props }: TabsContentProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.Content>> }) {
   return (
     <TabsPrimitive.Content ref={ref} className={cn(className)} {...props}>
       {children}
     </TabsPrimitive.Content>
   )
-})
+}
 
 TabsContent.displayName = 'TabsContent'
 

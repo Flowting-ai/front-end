@@ -301,8 +301,8 @@ export function useStreamingChat({
 
             if (universalMsgId && universalAtts) {
               const toAdd = universalAtts
-                .filter((a) => a.origin === "generated")
                 .flatMap((a) => {
+                  if (a.origin !== "generated") return []
                   const url = (
                     typeof a.file_link === "string" ? a.file_link
                     : typeof a.url === "string" ? a.url
@@ -456,14 +456,13 @@ export function useStreamingChat({
             const rawSources = Array.isArray(savedMsg.sources) ? savedMsg.sources : null
             if (rawSources && rawSources.length > 0 && currentMsgId) {
               const hydratedCitations = (rawSources as Array<Record<string, unknown>>)
-                .filter((s) => s.url || s.title)
-                .map((s) => ({
+                .flatMap((s) => s.url || s.title ? [{
                   title: asString(s.title) ?? asString(s.url) ?? "",
                   url: asString(s.url),
                   domain: asString(s.domain) ?? (() => {
                     try { return new URL(asString(s.url) ?? "").hostname.replace(/^www\./, "") } catch { return undefined }
                   })(),
-                }))
+                }] : [])
               if (hydratedCitations.length > 0) {
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -481,8 +480,8 @@ export function useStreamingChat({
                 ? (savedMsg.file_attachments as Array<Record<string, unknown>>)
                 : []
               const generatedFromSaved: import("@/hooks/use-chat-state").GeneratedFile[] = rawAtts
-                .filter((a) => a.origin === "generated")
                 .flatMap((a) => {
+                  if (a.origin !== "generated") return []
                   const url = (
                     typeof a.file_link === "string" ? a.file_link :
                     typeof a.url      === "string" ? a.url :
@@ -517,8 +516,8 @@ export function useStreamingChat({
               const userMsgId = userMessageIdRef.current
               if (userMsgId) {
                 const uploadedAtts = rawAtts
-                  .filter((a) => a.origin === "uploaded" || a.origin === "user")
                   .flatMap((a) => {
+                    if (a.origin !== "uploaded" && a.origin !== "user") return []
                     const url = (
                       typeof a.file_link === "string" ? a.file_link :
                       typeof a.url       === "string" ? a.url :
@@ -538,6 +537,7 @@ export function useStreamingChat({
                       if (msg.id !== userMsgId) return msg
                       const existing = msg.attachments ?? []
                       const updated = existing.map((att) => {
+                          // eslint-disable-next-line react-doctor/js-index-maps -- uploadedAtts is tiny (1-5 files); Map overhead not justified
                         const match = uploadedAtts.find((u) => u.filename === att.file_name)
                         return match ? { ...att, url: match.url } : att
                       })
@@ -586,27 +586,26 @@ export function useStreamingChat({
             const rawLinks = Array.isArray(parsed.links) ? parsed.links : []
             const results = rawLinks
               .slice(0, 6)
-              .map((link: unknown) => {
+              .flatMap((link: unknown): { title: string; url?: string; domain?: string }[] => {
                 if (typeof link === "string") {
                   try {
                     const url = new URL(link)
-                    return { title: url.hostname + url.pathname.slice(0, 40), url: link, domain: url.hostname }
-                  } catch { return { title: link, url: link, domain: "" } }
+                    return [{ title: url.hostname + url.pathname.slice(0, 40), url: link, domain: url.hostname }]
+                  } catch { return [{ title: link, url: link, domain: "" }] }
                 }
                 if (typeof link === "object" && link !== null) {
                   const obj = link as Record<string, unknown>
                   const url = asString(obj.url) ?? ""
                   let domain = ""
                   try { domain = new URL(url).hostname } catch { /* ignore */ }
-                  return {
+                  return [{
                     title: asString(obj.title) ?? url,
                     url,
                     domain: asString(obj.domain) ?? domain,
-                  }
+                  }]
                 }
-                return null
+                return []
               })
-              .filter(Boolean) as { title: string; url?: string; domain?: string }[]
 
             const activity: import("@/hooks/use-chat-state").ActivityItem = {
               id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -624,8 +623,9 @@ export function useStreamingChat({
                   // Merge new web-search results into webCitations (deduped by url)
                   const existing = msg.webCitations ?? []
                   const newCitations = results
-                    .filter((r) => r.url && !existing.some((c) => c.url === r.url))
-                    .map((r) => ({ title: r.title, url: r.url, domain: r.domain ?? "" }))
+                    .flatMap((r) => r.url && !existing.some((c) => c.url === r.url)
+                      ? [{ title: r.title, url: r.url, domain: r.domain ?? "" }]
+                      : [])
                   return {
                     ...msg,
                     activities: [...(msg.activities ?? []), activity],
@@ -673,6 +673,7 @@ export function useStreamingChat({
               setMessages((prev) =>
                 prev.map((msg) => {
                   if (msg.id !== msgId) return msg
+                  // eslint-disable-next-line react-doctor/js-index-maps -- early return on msg.id !== msgId means find runs at most once across all messages
                   const existing = (msg.activities ?? []).find((a) => a.id === activityId)
                   if (existing) {
                     // Update existing activity
@@ -890,6 +891,7 @@ export function useStreamingChat({
               setMessages((prev) =>
                 prev.map((msg) => {
                   if (msg.id !== msgId) return msg
+                  // eslint-disable-next-line react-doctor/js-index-maps -- early return on msg.id !== msgId means find runs at most once across all messages
                   const existing = (msg.activities ?? []).find((a) => a.id === activityId)
                   const status: import("@/hooks/use-chat-state").ActivityStatus =
                     step === "done" ? "done" : step === "error" ? "error" : "executing"
@@ -954,17 +956,17 @@ export function useStreamingChat({
               ? (parsed.file_attachments as Array<Record<string, unknown>>)
               : []
             const doneGeneratedFiles = doneFileAttachments
-              .filter((a) => a.origin === "generated")
-              .map((a) => {
+              .flatMap((a) => {
+                if (a.origin !== "generated") return []
                 const url = (
                   typeof a.file_link === "string" ? a.file_link :
                   typeof a.url === "string" ? a.url : ""
                 ).trim()
+                if (!url) return []
                 const rawName = typeof a.file_name === "string" ? a.file_name : typeof a.name === "string" ? a.name : undefined
                 const filename = rawName?.trim() || url.split("/").pop() || "file"
-                return { url, filename, mimeType: typeof a.mime_type === "string" ? a.mime_type : undefined }
+                return [{ url, filename, mimeType: typeof a.mime_type === "string" ? a.mime_type : undefined }]
               })
-              .filter((f) => f.url.length > 0)
 
             // Merge with any files already set via generated_file SSE events
             const msgId = loadingMessageIdRef.current
@@ -986,8 +988,8 @@ export function useStreamingChat({
             const doneUserMsgId = userMessageIdRef.current
             if (doneUserMsgId) {
               const uploadedFromDone = doneFileAttachments
-                .filter((a) => a.origin === "uploaded" || a.origin === "user")
                 .flatMap((a) => {
+                  if (a.origin !== "uploaded" && a.origin !== "user") return []
                   const url = (
                     typeof a.file_link === "string" ? a.file_link :
                     typeof a.url       === "string" ? a.url :
@@ -1007,7 +1009,8 @@ export function useStreamingChat({
                     if (msg.id !== doneUserMsgId) return msg
                     const existing = msg.attachments ?? []
                     const updated = existing.map((att) => {
-                      const match = uploadedFromDone.find((u) => u.filename === att.file_name)
+                        // eslint-disable-next-line react-doctor/js-index-maps -- uploadedFromDone is tiny (1-5 files); Map overhead not justified
+                        const match = uploadedFromDone.find((u) => u.filename === att.file_name)
                       return match ? { ...att, url: match.url } : att
                     })
                     const merged = existing.length > 0 ? updated : uploadedFromDone.map((u, i) => ({
@@ -1049,9 +1052,11 @@ export function useStreamingChat({
 
             flushPending()
 
-            if (
-              lower.includes("token expired") ||
+            // eslint-disable-next-line react-doctor/js-set-map-lookups -- substring search; Set.has() checks exact values, not substrings
+            if (lower.includes("token expired") ||
+              // eslint-disable-next-line react-doctor/js-set-map-lookups
               lower.includes("not authenticated") ||
+              // eslint-disable-next-line react-doctor/js-set-map-lookups
               lower.includes("unauthorized")
             ) {
               queueUpdate(

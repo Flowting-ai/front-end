@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, Reorder } from 'framer-motion'
+import { AnimatePresence, m, Reorder } from 'framer-motion'
 import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, ArrowUpTwoIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { OptionBadge } from '@/components/OptionBadge'
@@ -162,32 +162,36 @@ function RankableRow({ option, index }: { option: QuestionCardOption; index: num
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
-  function QuestionCard(
-    {
-      question,
-      type,
-      options,
-      selected,
-      onSelect,
-      paginationLabel,
-      selectionCount,
-      openEndedLabel = 'Something else on your mind',
-      onOpenEndedSubmit,
-      onSkip,
-      onSend,
-      onRankChange,
-      onClose,
-      onPrev,
-      onNext,
-      className,
-      style,
-      ...props
-    },
+export function QuestionCard(
+  {
+    question,
+    type,
+    options,
+    selected,
+    onSelect,
+    paginationLabel,
+    selectionCount,
+    openEndedLabel = 'Something else on your mind',
+    onOpenEndedSubmit,
+    onSkip,
+    onSend,
+    onRankChange,
+    onClose,
+    onPrev,
+    onNext,
+    className,
+    style,
     ref,
-  ) {
+    ...props
+  }: QuestionCardProps & { ref?: React.Ref<HTMLDivElement> },
+) {
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [rankedOptions, setRankedOptions] = useState<QuestionCardOption[]>(options)
-    useEffect(() => { setRankedOptions(options) }, [options])
+    const prevOptionsRef = useRef(options)
+    if (prevOptionsRef.current !== options) {
+      prevOptionsRef.current = options
+      setRankedOptions(options)
+    }
 
     const [openEndedOpen, setOpenEndedOpen] = useState(false)
     const [openEndedText, setOpenEndedText] = useState('')
@@ -195,23 +199,21 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
     const optionRefs    = useRef<(HTMLDivElement | null)[]>([])
 
     // Auto-grow textarea - fires on open (initial size) and on every keystroke
+    // eslint-disable-next-line react-doctor/no-effect-chain -- openEndedOpen set by question-reset effect; separate auto-grow effect needed for openEndedText dependency
     useEffect(() => {
       const el = openEndedRef.current
       if (!el) return
       el.style.height = 'auto'
+      // eslint-disable-next-line react-doctor/js-batch-dom-css -- forced reflow: must read scrollHeight after resetting to auto
       el.style.height = `${el.scrollHeight}px`
     }, [openEndedText, openEndedOpen])
 
     // Focus textarea immediately on open
+    // eslint-disable-next-line react-doctor/no-effect-chain -- openEndedOpen set by question-reset effect; focus effect is intentionally separate
     useEffect(() => {
       if (openEndedOpen) openEndedRef.current?.focus()
     }, [openEndedOpen])
 
-    // Reset when navigating to a new question
-    useEffect(() => {
-      setOpenEndedOpen(false)
-      setOpenEndedText('')
-    }, [question])
 
     const selectedIds: string[] = Array.isArray(selected)
       ? selected : selected != null ? [selected] : []
@@ -238,7 +240,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
     const showEditBadge = !openEndedOpen
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         className={cn(className)}
         initial={{ opacity: 0, y: 16 }}
@@ -305,7 +307,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
             </Reorder.Group>
           ) : (
             <AnimatePresence mode="wait" initial={false}>
-              <motion.div
+              <m.div
                 key={optionsKey}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: { duration: 0.15, ease: 'easeOut' } }}
@@ -325,7 +327,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
                     style={{ cursor: 'pointer' }}
                   />
                 ))}
-              </motion.div>
+              </m.div>
             </AnimatePresence>
           )}
 
@@ -343,7 +345,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
             {/* Badge - exits immediately when user clicks (openEndedOpen), AnimatePresence pops it from layout */}
             <AnimatePresence mode="popLayout" initial={false}>
               {showEditBadge && (
-                <motion.div
+                <m.div
                   key="edit-badge"
                   initial={{ opacity: 0, scale: 0.5, filter: 'blur(4px)' }}
                   animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', transition: springs.fast }}
@@ -351,7 +353,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
                   style={{ flexShrink: 0 }}
                 >
                   <OptionBadge variant="edit" />
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -371,6 +373,7 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
                     resize:     'none',
                     overflow:   'hidden',
                     border:     'none',
+                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:    'none',
                     background: 'transparent',
                     padding:    0,
@@ -418,10 +421,9 @@ export const QuestionCard = React.forwardRef<HTMLDivElement, QuestionCardProps>(
           </div>
 
         </div>
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 QuestionCard.displayName = 'QuestionCard'
 export default QuestionCard

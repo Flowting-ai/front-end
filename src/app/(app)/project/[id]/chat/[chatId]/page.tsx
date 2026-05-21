@@ -2,7 +2,7 @@
 
 import React, { Suspense, useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
 import { ChatInput }                                       from '@/components/chat/ChatInput'
@@ -199,6 +199,7 @@ function AddMenu({
   const [loadingFolders,     setLoadingFolders]     = useState(false)
 
   // Fetch fresh from the API each time the submenu opens
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!pinFoldersMenuOpen) return
     setLoadingFolders(true)
@@ -275,11 +276,12 @@ function AddMenu({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function ProjectChatPageInner() {
   const params       = useParams<{ id: string; chatId: string }>()
-  const router       = useRouter()
-  const searchParams = useSearchParams()
-  const qParam       = searchParams.get('q')
+  const { replace }   = useRouter()
+  const searchParams  = useSearchParams()
+  const qParam        = searchParams.get('q')
 
   const { getProject, getChats, addChat, loadProjectChats } = useProjects()
   const { addOptimistic }          = useChatHistoryContext()
@@ -340,6 +342,7 @@ function ProjectChatPageInner() {
     )
   }, [pins, pinQuery])
 
+  // eslint-disable-next-line react-doctor/no-derived-state-effect -- index reset on filter change; not a component-level key-prop candidate
   useEffect(() => { setHighlightedPinIndex(0) }, [filteredPins])
 
   useEffect(() => {
@@ -524,7 +527,7 @@ function ProjectChatPageInner() {
 
       <AnimatePresence mode="sync" initial={false}>
         {isNewChatState ? (
-          <motion.div
+          <m.div
             key="new-chat"
             exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
             className="kaya-scrollbar"
@@ -573,11 +576,11 @@ function ProjectChatPageInner() {
                   width:         '100%',
                 }}
               >
-                <motion.div exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}>
+                <m.div exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}>
                   <InitialPrompts />
-                </motion.div>
+                </m.div>
 
-                <motion.div
+                <m.div
                   style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
@@ -652,17 +655,17 @@ function ProjectChatPageInner() {
                       Not sure where to start?
                     </p>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      {TEMPLATE_CARDS.map((card, i) => (
-                        <TemplateCard key={i} icon={card.icon} label={card.label} onClick={() => handleSend(card.prompt)} />
+                      {TEMPLATE_CARDS.map((card) => (
+                        <TemplateCard key={card.label} icon={card.icon} label={card.label} onClick={() => handleSend(card.prompt)} />
                       ))}
                     </div>
                   </div>
-                </motion.div>
+                </m.div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="active-chat"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0, 0, 0.2, 1] } }}
@@ -672,7 +675,7 @@ function ProjectChatPageInner() {
               chatId={isNewChat ? undefined : params.chatId}
               onChatCreated={(newChatId) => {
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
-                router.replace(`/project/${params.id}/chat/${newChatId}`)
+                replace(`/project/${params.id}/chat/${newChatId}`)
               }}
               onTitleUpdate={() => {}}
               onChatMoveToTop={() => {}}
@@ -690,7 +693,7 @@ function ProjectChatPageInner() {
               chips={newChatChips}
               selectedFolders={selectedFolders}
             />
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

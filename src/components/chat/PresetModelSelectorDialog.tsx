@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import {
   SearchOneIcon,
   AtomTwoIcon,
@@ -113,6 +113,7 @@ function PresetModelSelectorContent({
   museAdvanced,
   onMuseSelect,
   onAdvancedSelect,
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: PresetModelSelectorContentProps) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("all");
@@ -514,7 +515,7 @@ export function PresetModelSelectorDialog() {
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.div
+        <m.div
           ref={dropdownRef}
           key="dropdown"
           role="dialog"
@@ -545,7 +546,7 @@ export function PresetModelSelectorDialog() {
             onMuseSelect={() => { setMuseAdvanced(false); activateMuse() }}
             onAdvancedSelect={() => { setMuseAdvanced(true); close() }}
           />
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

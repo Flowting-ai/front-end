@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
-import { motion, AnimatePresence, useIsPresent } from 'framer-motion'
+import Image from 'next/image'
+import { m, AnimatePresence, useIsPresent } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import {
   MoreVerticalIcon,
@@ -22,6 +23,8 @@ import { cn } from '@/lib/utils'
 
 const SHADOW_CARD          = '0px 2px 2.8px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_CARD_TEMPLATE = '0px 2px 2.8px 0px var(--blue-100), 0px 0px 0px 1px var(--neutral-100)'
+
+const EMPTY_PERSONA_TAGS: string[] = []
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +102,7 @@ function PersonaAvatar({
           flexShrink:   0,
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic avatar URL, onError fallback requires HTMLImageElement access */}
         <img
           src={avatarUrl}
           alt={name}
@@ -180,16 +184,19 @@ function AuthorRow({
         }}
       >
         {authorAvatarUrl ? (
-          <img
+          <Image
             src={authorAvatarUrl}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            fill
+            sizes="18px"
+            style={{ objectFit: 'cover', display: 'block' }}
+            unoptimized
           />
         ) : (
           <span
             style={{
               fontFamily: 'var(--font-body)',
-              fontSize:   8,
+              fontSize: 12,
               fontWeight: 500,
               color:      'var(--neutral-600)',
               lineHeight: 1,
@@ -370,7 +377,7 @@ function ActionBar({
   const isPresent = useIsPresent()
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       exit={{   opacity: 0, y: 4, filter: 'blur(4px)' }}
@@ -432,10 +439,13 @@ function ActionBar({
                   flexShrink:      0,
                 }}
               >
-                <img
+                <Image
                   src={authorAvatarUrl ?? getFallbackAvatar(authorHandle)}
                   alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  fill
+                  sizes="18px"
+                  style={{ objectFit: 'cover', display: 'block' }}
+                  unoptimized
                 />
               </div>
               <span
@@ -458,15 +468,14 @@ function ActionBar({
           <Button variant="secondary" size="sm" onClick={onOpen}>Open</Button>
         </>
       )}
-    </motion.div>
+    </m.div>
   )
 }
 
 // ── PersonaCard ───────────────────────────────────────────────────────────────
 
-const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
-  function PersonaCard(
-    {
+function PersonaCardInner({
+      ref,
       variant       = 'default',
       name,
       handle,
@@ -478,7 +487,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
       modelVisible   = false,
       modelName      = 'Claude : Sonnet',
       visibility,
-      tags           = [],
+      tags           = EMPTY_PERSONA_TAGS,
       authorHandle,
       authorAvatarUrl,
       useCount,
@@ -501,9 +510,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
       onMouseEnter:  onMouseEnterProp,
       onMouseLeave:  onMouseLeaveProp,
       ...props
-    },
-    ref,
-  ) {
+    }: PersonaCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [internalHovered, setInternalHovered] = useState(false)
     const [menuOpen,         setMenuOpen]         = useState(false)
 
@@ -667,6 +674,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
 
                 {/* ··· menu trigger + dropdown (default variant only) */}
                 {!isTemplate && !isCommunity && (
+                  // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
                   <div
                     style={{ position: 'relative', flexShrink: 0 }}
                     onMouseDown={e => e.stopPropagation()}
@@ -685,6 +693,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
                       {menuOpen && (
                         <>
                           {/* Click-outside backdrop */}
+                          {/* eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
                           <div
                             style={{
                               position: 'fixed',
@@ -693,7 +702,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
                             }}
                             onMouseDown={() => setMenuOpen(false)}
                           />
-                          <motion.div
+                          <m.div
                             {...DROPDOWN_SCALE_PRESET}
                             style={{
                               position: 'absolute',
@@ -732,7 +741,7 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
                                 />
                               </Dropdown.Section>
                             </Dropdown>
-                          </motion.div>
+                          </m.div>
                         </>
                       )}
                     </AnimatePresence>
@@ -841,9 +850,8 @@ const _PersonaCard = React.forwardRef<HTMLDivElement, PersonaCardProps>(
 
       </Comp>
     )
-  },
-)
+}
 
-export const PersonaCard = React.memo(_PersonaCard)
+export const PersonaCard = React.memo(PersonaCardInner)
 PersonaCard.displayName = 'PersonaCard'
 export default PersonaCard

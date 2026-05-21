@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import Image from "next/image";
+import { m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { PdfIcon } from "@hugeicons/core-free-icons";
 import {
@@ -176,7 +177,7 @@ export function AttachmentManager({
           <span
             style={{
               fontFamily:  "var(--font-body)",
-              fontSize:    "10px",
+              fontSize: "12px",
               fontWeight:  500,
               color:       "var(--neutral-500)",
               lineHeight:  1,
@@ -232,12 +233,14 @@ export function AttachmentManager({
                 }}
               >
                 {attachment.preview && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={attachment.preview}
                     alt={attachment.file.name}
+                    fill
+                    sizes="46px"
+                    unoptimized
                     style={{
-                      width: "100%", height: "100%", objectFit: "cover",
+                      objectFit: "cover",
                       filter: attachment.uploading ? "blur(1.5px)" : "none",
                       transition: "filter 300ms",
                     }}
@@ -282,7 +285,7 @@ export function AttachmentManager({
                       left:            "2px",
                       backgroundColor: "rgba(0,0,0,0.55)",
                       color:           "#fff",
-                      fontSize:        "7px",
+                      fontSize: "12px",
                       fontFamily:      "var(--font-body)",
                       fontWeight:      600,
                       lineHeight:      1,
@@ -366,7 +369,7 @@ export function AttachmentManager({
                   <p
                     style={{
                       fontFamily:   "var(--font-body)",
-                      fontSize:     "11px",
+                      fontSize: "12px",
                       fontWeight:   500,
                       color:        "var(--neutral-900)",
                       overflow:     "hidden",
@@ -381,7 +384,7 @@ export function AttachmentManager({
                   <p
                     style={{
                       fontFamily: "var(--font-body)",
-                      fontSize:   "10px",
+                      fontSize: "12px",
                       color:      attachment.uploading ? "var(--green-600, #16a34a)" : "var(--neutral-500)",
                       margin:     "2px 0 0",
                       lineHeight: 1,
@@ -407,7 +410,7 @@ export function AttachmentManager({
                       backgroundColor: "var(--neutral-100)",
                     }}
                   >
-                    <motion.div
+                    <m.div
                       style={{
                         height:          "100%",
                         backgroundColor: "#22C55E",

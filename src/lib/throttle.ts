@@ -134,12 +134,14 @@ export async function exponentialBackoff<T>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- retry loop must be sequential; each attempt waits on the previous
       return await fn();
     } catch (error) {
       lastError = error as Error;
 
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt);
+        // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional backoff delay between retries
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

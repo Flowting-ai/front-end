@@ -3,7 +3,7 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { ChatRow } from '@/components/ChatRow'
@@ -34,8 +34,9 @@ function formatTimestamp(iso: string | undefined | null): string {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ChatsPage() {
-  const router                         = useRouter()
+  const { push }                       = useRouter()
   const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
   const { projects }                              = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
@@ -52,7 +53,6 @@ export default function ChatsPage() {
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [searchQuery,   setSearchQuery]   = useState('')
-  const [isDeleting,    setIsDeleting]    = useState(false)
   const [isMoving,      setIsMoving]      = useState(false)
 
   // ── Derived ──────────────────────────────────────────────────────────────────
@@ -65,10 +65,12 @@ export default function ChatsPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
-    count:           filteredChats.length,
+    count:            filteredChats.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize:    () => 70,
-    overscan:        5,
+    // Normal mode: ChatRow 68px + wrapper padding 7px = 75px.
+    // Selection mode: ChatRow 62px (explicit) + wrapper padding 7px = 69px.
+    estimateSize:     () => selectionMode ? 69 : 75,
+    overscan:         10,
   })
 
   const allSelected = selectedIds.size === chats.length && chats.length > 0
@@ -100,24 +102,21 @@ export default function ChatsPage() {
   // ── Actions ───────────────────────────────────────────────────────────────────
 
   const handleNewChat = useCallback(() => {
-    router.push('/chat')
-  }, [router])
+    push('/chat')
+  }, [push])
 
   const handleOpenChat = useCallback((chatId: string) => {
-    router.push(`/chat?id=${chatId}`)
-  }, [router])
+    push(`/chat?id=${chatId}`)
+  }, [push])
 
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
-    setIsDeleting(true)
     try {
       await Promise.all([...selectedIds].map((id) => remove(id)))
       toast.success(`Deleted ${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''}`)
       exitSelection()
     } catch {
       toast.error('Failed to delete some chats')
-    } finally {
-      setIsDeleting(false)
     }
   }, [selectedIds, remove, exitSelection])
 
@@ -193,7 +192,7 @@ export default function ChatsPage() {
           {/* Right controls — animates between normal ↔ selection */}
           <AnimatePresence mode="wait" initial={false}>
             {selectionMode ? (
-              <motion.div
+              <m.div
                 key="selection"
                 initial={{ opacity: 0, x: 8 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -208,9 +207,9 @@ export default function ChatsPage() {
                   onDelete={handleDelete}
                   onCancel={exitSelection}
                 />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 key="normal"
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -228,7 +227,7 @@ export default function ChatsPage() {
                 >
                   New chat
                 </Button>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>
@@ -236,7 +235,7 @@ export default function ChatsPage() {
         {/* ── Search — hidden in selection mode ───────────────────────────── */}
         <AnimatePresence initial={false}>
           {!selectionMode && (
-            <motion.div
+            <m.div
               key="search"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -251,7 +250,7 @@ export default function ChatsPage() {
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -259,14 +258,13 @@ export default function ChatsPage() {
         {isLoading && chats.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                style={{
+              // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- fixed-count skeleton placeholders, index is stable
+              <div key={i} style={{
                   height:          62,
                   borderRadius:    12,
                   backgroundColor: 'var(--neutral-100)',
                   opacity:         1 - i * 0.15,
-                  animation:       'pulse 1.5s ease-in-out infinite',
+                  animation:       'pulse 0.9s ease-in-out infinite',
                 }}
               />
             ))}
@@ -308,15 +306,15 @@ export default function ChatsPage() {
                     <div
                       key={chat.id}
                       role="listitem"
-                      data-index={vRow.index}
-                      ref={rowVirtualizer.measureElement}
                       style={{
                         position:  'absolute',
                         top:       0,
                         left:      0,
                         width:     '100%',
-                        transform: `translateY(${vRow.start}px)`,
+                        height:    selectionMode ? 69 : 75,
+                        boxSizing: 'border-box',
                         padding:   '1px 0 6px',
+                        transform: `translateY(${vRow.start}px)`,
                       }}
                     >
                       <ChatRow

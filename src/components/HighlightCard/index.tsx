@@ -1,7 +1,7 @@
 'use client'
 
-import React, { forwardRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useState } from 'react'
+import { AnimatePresence, m } from 'framer-motion'
 import { CopyOneIcon, MessagePreviewOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { Tooltip } from '@/components/Tooltip'
 import { springs } from '@/lib/springs'
@@ -29,11 +29,12 @@ const SHADOW_HOVER = '0px 6px 16px 0px rgba(59,54,50,0.14), 0px 2px 6px 0px rgba
 
 // ── Internal action button ─────────────────────────────────────────────────────
 
-const ActionButton = forwardRef<HTMLButtonElement, {
+function ActionButton({ icon, label, onClick, ref }: {
   icon:    React.ReactNode
   label:   string
   onClick: () => void
-}>(function ActionButton({ icon, label, onClick }, ref) {
+  ref?:    React.Ref<HTMLButtonElement>
+}) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
@@ -63,7 +64,7 @@ const ActionButton = forwardRef<HTMLButtonElement, {
       {icon}
     </button>
   )
-})
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export function HighlightCard({
   const color = HIGHLIGHT_COLORS[colorIndex]
 
   return (
-    <motion.div
+    <m.div
       className={cn(className)}
       animate={{
         y:         isHovered ? -2 : 0,
@@ -138,7 +139,7 @@ export function HighlightCard({
       {/* ── Hover: gradient fade + action row ──────────────────────────────── */}
       <AnimatePresence initial={false}>
         {isHovered && (
-          <motion.div
+          <m.div
             key="actions"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -168,7 +169,7 @@ export function HighlightCard({
               {onJump   && <Tooltip content="Open in chat"   side="top"><ActionButton icon={<MessagePreviewOneIcon size={16} />} label="Open in chat"     onClick={onJump}   /></Tooltip>}
               {onDelete && <Tooltip content="Delete"         side="top"><ActionButton icon={<CancelCircleIcon      size={16} />} label="Delete highlight" onClick={onDelete} /></Tooltip>}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -186,7 +187,7 @@ export function HighlightCard({
           pointerEvents: 'none',
         }}
       />
-    </motion.div>
+    </m.div>
   )
 }
 

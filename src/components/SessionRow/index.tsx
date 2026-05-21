@@ -28,8 +28,7 @@ function fmtK(n: number): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const SessionRow = React.forwardRef<HTMLDivElement, SessionRowProps>(
-  function SessionRow({ num, time, messages, tokens, status, className, style, ...props }, ref) {
+export function SessionRow({ num, time, messages, tokens, status, className, style, ref, ...props }: SessionRowProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -96,8 +95,7 @@ export const SessionRow = React.forwardRef<HTMLDivElement, SessionRowProps>(
         />
       </div>
     )
-  },
-)
+}
 
 SessionRow.displayName = 'SessionRow'
 export default SessionRow

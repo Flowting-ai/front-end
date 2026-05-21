@@ -2,7 +2,7 @@
 
 import React, { useCallback, useRef, useState } from 'react'
 import { Field } from '@base-ui/react/field'
-import { AnimatePresence, animate, motion } from 'framer-motion'
+import { AnimatePresence, animate, m } from 'framer-motion'
 import { ViewIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { cn } from '@/lib/utils'
@@ -38,27 +38,24 @@ const BASE_SHADOW = '0px 1px 1.5px 0px var(--neutral-700-12)'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInputFieldProps>(
-  function PasswordInputField(
-    {
-      label,
-      showLabel    = true,
-      subtitle,
-      showSubtitle = true,
-      error        = false,
-      value,
-      onChange,
-      fluid        = false,
-      disabled     = false,
-      className,
-      onFocus:      externalFocus,
-      onBlur:       externalBlur,
-      onMouseEnter: externalEnter,
-      onMouseLeave: externalLeave,
-      ...inputProps
-    },
+export function PasswordInputField({
     ref,
-  ) {
+    label,
+    showLabel    = true,
+    subtitle,
+    showSubtitle = true,
+    error        = false,
+    value,
+    onChange,
+    fluid        = false,
+    disabled     = false,
+    className,
+    onFocus:      externalFocus,
+    onBlur:       externalBlur,
+    onMouseEnter: externalEnter,
+    onMouseLeave: externalLeave,
+    ...inputProps
+  }: PasswordInputFieldProps & { ref?: React.Ref<HTMLInputElement> }) {
     const [isFocused,        setIsFocused]        = useState(false)
     const [isHovered,        setIsHovered]        = useState(false)
     const [showPassword,     setShowPassword]     = useState(false)
@@ -184,7 +181,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
           <div ref={contentRef} style={{ position: 'relative', flex: 1, padding: '0 2px', display: 'flex', alignItems: 'center', minWidth: 0 }}>
             <AnimatePresence initial={false}>
               {!hasValue && (
-                <motion.span
+                <m.span
                   key="placeholder"
                   aria-hidden
                   initial={{ opacity: 0, filter: 'blur(2px)' }}
@@ -206,7 +203,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
                   }}
                 >
                   Enter your password
-                </motion.span>
+                </m.span>
               )}
             </AnimatePresence>
             <Field.Control
@@ -228,6 +225,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
                     minWidth:     0,
                     background:   'transparent',
                     border:       'none',
+                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:      'none',
                     padding:      0,
                     fontFamily:   'var(--font-body)',
@@ -267,8 +265,7 @@ export const PasswordInputField = React.forwardRef<HTMLInputElement, PasswordInp
         )}
       </Field.Root>
     )
-  },
-)
+}
 
 PasswordInputField.displayName = 'PasswordInputField'
 

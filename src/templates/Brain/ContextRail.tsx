@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 import { PinIcon } from '@strange-huge/icons'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ function ConnectorLogo({ name, status }: { name: string; status: ContextRailConn
         alignItems:      'center',
         justifyContent:  'center',
         fontFamily:      'var(--font-body)',
-        fontSize:        9,
+        fontSize: 12,
         fontWeight:      600,
         color:           'var(--neutral-600)',
         userSelect:      'none',
@@ -200,10 +201,13 @@ export function ContextRail({ data }: ContextRailProps) {
               overflow:     'hidden',
               flexShrink:   0,
             }}>
-              <img
+              <Image
                 src={persona.avatarUrl ?? getFallbackAvatar(persona.name)}
                 alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                fill
+                sizes="40px"
+                style={{ objectFit: 'cover', display: 'block' }}
+                unoptimized
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>

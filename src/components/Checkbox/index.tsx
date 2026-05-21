@@ -17,12 +17,8 @@ const TICK_DRAW_DELAY_MS = 120
 export interface CheckboxProps
   extends Omit<React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>, 'asChild'> {}
 
-const Checkbox = React.forwardRef<
-  React.ElementRef<typeof CheckboxPrimitive.Root>,
-  CheckboxProps
->(function Checkbox(
-  { className, style, checked, defaultChecked, onCheckedChange, disabled, ...props },
-  forwardedRef,
+function Checkbox(
+  { ref: forwardedRef, className, style, checked, defaultChecked, onCheckedChange, disabled, ...props }: CheckboxProps & { ref?: React.Ref<React.ElementRef<typeof CheckboxPrimitive.Root>> },
 ) {
   const isControlled = checked !== undefined
   const [internalChecked, setInternalChecked] = React.useState<boolean>(!!defaultChecked)
@@ -139,7 +135,7 @@ const Checkbox = React.forwardRef<
     </CheckboxPrimitive.Root>
     </span>
   )
-})
+}
 
 Checkbox.displayName = 'Checkbox'
 

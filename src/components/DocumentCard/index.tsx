@@ -28,9 +28,9 @@ export interface DocumentCardProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const DocumentCard = React.forwardRef<HTMLDivElement, DocumentCardProps>(
-  function DocumentCard({ name, type, sizeLabel, onRemove, onClick }, ref) {
+export function DocumentCard({ ref, name, type, sizeLabel, onRemove, onClick }: DocumentCardProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
+      // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
       <div
         ref={ref}
         onClick={onClick}
@@ -97,8 +97,7 @@ export const DocumentCard = React.forwardRef<HTMLDivElement, DocumentCardProps>(
         </div>
       </div>
     )
-  },
-)
+}
 
 DocumentCard.displayName = 'DocumentCard'
 export default DocumentCard

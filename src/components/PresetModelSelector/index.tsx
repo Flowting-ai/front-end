@@ -59,16 +59,16 @@ const captionStyle: React.CSSProperties = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelSelectorProps>(
-  function PresetModelSelector(
-    {
-      children,
-      className,
-      style,
-      ...props
-    },
+export function PresetModelSelector(
+  {
+    children,
+    className,
+    style,
     ref,
-  ) {
+    ...props
+  }: PresetModelSelectorProps & { ref?: React.Ref<HTMLDivElement> },
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+) {
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('all')
     const [category,  setCategory]  = useState('favorites')
@@ -270,8 +270,7 @@ export const PresetModelSelector = React.forwardRef<HTMLDivElement, PresetModelS
         </div>
       </div>
     )
-  },
-)
+}
 
 PresetModelSelector.displayName = 'PresetModelSelector'
 

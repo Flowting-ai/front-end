@@ -13,8 +13,7 @@ export interface InputGroupProps extends HTMLAttributes<HTMLDivElement> {
 // Layout container that groups InputField components into a vertical stack.
 // Use for logically related fields (sign-up form, address block, etc.).
 
-export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
-  function InputGroup({ children, className, ...props }, ref) {
+export function InputGroup({ ref, children, className, ...props }: InputGroupProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -25,8 +24,7 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
         {children}
       </div>
     )
-  },
-)
+}
 
 InputGroup.displayName = 'InputGroup'
 

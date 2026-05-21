@@ -54,8 +54,7 @@ const CONFIG: Record<PinCategoryType, TypeConfig> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
-  function PinCategory({ type = 'Code', className, style, ...props }, ref) {
+export function PinCategory({ ref, type = 'Code', className, style, ...props }: PinCategoryProps & { ref?: React.Ref<HTMLDivElement> }) {
     const cfg = CONFIG[type]
     const c = cfg.color
 
@@ -117,8 +116,7 @@ export const PinCategory = React.forwardRef<HTMLDivElement, PinCategoryProps>(
         />
       </div>
     )
-  },
-)
+}
 
 PinCategory.displayName = 'PinCategory'
 

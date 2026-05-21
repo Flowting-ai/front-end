@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftOneIcon, FolderOneIcon, MoreVerticalIcon, ShareOneIcon, SettingsOneIcon, PinIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -27,9 +27,10 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
-  const router  = useRouter()
+  const { push }  = useRouter()
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats } = useProjects()
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
@@ -75,7 +76,7 @@ export default function ProjectPage() {
     if (!text.trim()) return
     // Navigate to a new project chat - ChatInterface will create the chat and
     // the page's onChatCreated callback links it back to this project.
-    router.push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
+    push(`/project/${projectId}/chat/new?q=${encodeURIComponent(text.trim())}`)
     setChatInputValue('')
   }
 
@@ -84,7 +85,7 @@ export default function ProjectPage() {
 
       {/* Back button - anchored in the TopBar zone, top-left */}
       <button
-        onClick={() => router.push('/projects')}
+        onClick={() => push('/projects')}
         style={{
           position:     'absolute',
           top:          26,
@@ -184,7 +185,7 @@ export default function ProjectPage() {
                       <Dropdown.Item
                         label="Delete"
                         variant="danger"
-                        onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => router.push('/projects')) }}
+                        onClick={() => { setMenuOpen(false); deleteProject(projectId).then(() => push('/projects')) }}
                         fluid
                       />
                     </Dropdown.Section>
@@ -317,7 +318,7 @@ export default function ProjectPage() {
                   title={chat.title}
                   timestamp="Just now"
                   pinCount={pins.filter(p => p.chatId === chat.id).length}
-                  onChatClick={() => router.push(`/project/${projectId}/chat/${chat.id}`)}
+                  onChatClick={() => push(`/project/${projectId}/chat/${chat.id}`)}
                   onPinsClick={() => togglePinboard()}
                   onRename={(newTitle) => {
                     renameChat(projectId, chat.id, newTitle)
@@ -361,7 +362,7 @@ export default function ProjectPage() {
       {/* ── Right panel - toggled by the floating menu ────────────────── */}
       <AnimatePresence>
         {panelOpen && (
-          <motion.div
+          <m.div
             key="project-panel"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 356, opacity: 1 }}
@@ -401,7 +402,7 @@ export default function ProjectPage() {
                 />
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

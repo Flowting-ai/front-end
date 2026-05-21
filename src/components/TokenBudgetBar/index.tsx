@@ -34,8 +34,7 @@ function colourForPct(pct: number): { fill: string, text: string } {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const TokenBudgetBar = React.forwardRef<HTMLDivElement, TokenBudgetBarProps>(
-  function TokenBudgetBar({ used, limit, size = 'sm', showLabel = false, className, style, ...props }, ref) {
+export function TokenBudgetBar({ ref, used, limit, size = 'sm', showLabel = false, className, style, ...props }: TokenBudgetBarProps & { ref?: React.Ref<HTMLDivElement> }) {
     const pct  = Math.max(0, Math.min(used / limit, 1))
     const col  = colourForPct(pct)
     const h    = size === 'lg' ? 10 : 6
@@ -66,6 +65,7 @@ export const TokenBudgetBar = React.forwardRef<HTMLDivElement, TokenBudgetBarPro
               height:          '100%',
               backgroundColor: col.fill,
               borderRadius:    999,
+              // eslint-disable-next-line react-doctor/no-layout-transition-inline -- bar width is dynamic state
               transition:      'width 240ms ease, background-color 200ms ease',
             }}
           />
@@ -90,8 +90,7 @@ export const TokenBudgetBar = React.forwardRef<HTMLDivElement, TokenBudgetBarPro
         )}
       </div>
     )
-  },
-)
+}
 
 TokenBudgetBar.displayName = 'TokenBudgetBar'
 export default TokenBudgetBar

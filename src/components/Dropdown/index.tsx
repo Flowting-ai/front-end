@@ -21,17 +21,17 @@
  * ```tsx
  * <AnimatePresence>
  *   {open && (
- *     <motion.div {...DROPDOWN_SCALE_PRESET}>
+ *     <m.div {...DROPDOWN_SCALE_PRESET}>
  *       <Dropdown size="md">…</Dropdown>
- *     </motion.div>
+ *     </m.div>
  *   )}
  * </AnimatePresence>
  * ```
  */
 
-import React from 'react'
+import React, { useEffectEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { Popover, type PopoverProps, type PopoverSize, type PopoverVariant, POPOVER_WIDTHS } from '@/components/Popover'
 import { DropdownSection, type DropdownSectionProps } from '@/components/DropdownSection'
 import { DropdownMenuItem, type DropdownMenuItemProps } from '@/components/DropdownMenuItem'
@@ -41,7 +41,7 @@ export type { PopoverSize, PopoverVariant, DropdownSectionProps, DropdownMenuIte
 export { POPOVER_WIDTHS }
 
 // ── Animation presets ─────────────────────────────────────────────────────────
-// Spread onto a <motion.div> wrapping <Dropdown> inside <AnimatePresence>.
+// Spread onto a <m.div> wrapping <Dropdown> inside <AnimatePresence>.
 // Both presets use independent scaleX / scaleY so the menu squishes open
 // rather than uniformly scaling - matching the article's signature look.
 //
@@ -65,9 +65,9 @@ export const DROPDOWN_SPRING_PRESET = {
  * Per-item stagger for SpringDropdown. Pass `index` for each Dropdown.Item wrapper.
  * ```tsx
  * {items.map((item, i) => (
- *   <motion.div key={item} {...dropdownItemStagger(i)}>
+ *   <m.div key={item} {...dropdownItemStagger(i)}>
  *     <Dropdown.Item label={item} fluid />
- *   </motion.div>
+ *   </m.div>
  * ))}
  * ```
  */
@@ -83,26 +83,23 @@ export function dropdownItemStagger(index: number) {
 
 export type DropdownProps = PopoverProps
 
-interface DropdownCompound
-  extends React.ForwardRefExoticComponent<DropdownProps & React.RefAttributes<HTMLDivElement>> {
+interface DropdownCompound {
   Section: typeof DropdownSection
   Item:    typeof DropdownMenuItem
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const DropdownRoot = React.forwardRef<HTMLDivElement, DropdownProps>(
-  function Dropdown({ variant = 'dropdown', children, ...props }, ref) {
-    // Dropdowns default to the `dropdown` Popover variant (12 px radius per
-    // Figma 3206:31988). Consumers can still override to `modal` if they
-    // need an 18 px-radius surface for a non-menu popover.
-    return (
-      <Popover ref={ref} variant={variant} {...props}>
-        {children}
-      </Popover>
-    )
-  },
-)
+function DropdownRoot({ variant = 'dropdown', children, ref, ...props }: DropdownProps & { ref?: React.Ref<HTMLDivElement> }) {
+  // Dropdowns default to the `dropdown` Popover variant (12 px radius per
+  // Figma 3206:31988). Consumers can still override to `modal` if they
+  // need an 18 px-radius surface for a non-menu popover.
+  return (
+    <Popover ref={ref} variant={variant} {...props}>
+      {children}
+    </Popover>
+  )
+}
 
 DropdownRoot.displayName = 'Dropdown'
 
@@ -144,7 +141,7 @@ const PLACEMENT_ORIGIN: Record<DropdownPlacement, string> = {
 
 // Position style is split into TWO layers so centred placements can apply
 // `translateX(-50%)` on a static wrapper without colliding with the
-// scale/opacity transform on the inner motion.div.
+// scale/opacity transform on the inner m.div.
 //
 // Viewport dimensions come from `document.documentElement.clientWidth/Height`,
 // NOT `window.innerWidth/Height`. The latter includes the scrollbar, while
@@ -290,14 +287,13 @@ export function DropdownFloat({
 
   // When the menu opens, move focus into it (first menu item). When it
   // closes after having been open via keyboard, return focus to the trigger.
+  const focusFirstItem = useEffectEvent(() => { getMenuItems()[0]?.focus() })
+  const focusTriggerEvent = useEffectEvent(focusTrigger)
   React.useEffect(() => {
     if (open) {
       // Defer one frame so the portal has mounted + framer-motion has
       // applied its initial styles.
-      const id = requestAnimationFrame(() => {
-        const items = getMenuItems()
-        items[0]?.focus()
-      })
+      const id = requestAnimationFrame(() => { focusFirstItem() })
       wasOpenRef.current = true
       return () => cancelAnimationFrame(id)
     }
@@ -308,11 +304,25 @@ export function DropdownFloat({
       const focusInsideMenu =
         document.activeElement === document.body ||
         panelRef.current?.contains(document.activeElement)
-      if (focusInsideMenu) focusTrigger()
+      if (focusInsideMenu) focusTriggerEvent()
       wasOpenRef.current = false
     }
-  }, [open, getMenuItems, focusTrigger])
+  }, [open])
 
+  const closeMenu = useEffectEvent((v: boolean) => onOpenChange(v))
+  const recomputeEvent = useEffectEvent(recompute)
+  const navigateItems = useEffectEvent((key: string) => {
+    if (!panelRef.current?.contains(document.activeElement)) return
+    const items = getMenuItems()
+    if (items.length === 0) return
+    const i = items.indexOf(document.activeElement as HTMLElement)
+    switch (key) {
+      case 'ArrowDown': items[(i + 1) % items.length].focus(); break
+      case 'ArrowUp':   items[i <= 0 ? items.length - 1 : i - 1].focus(); break
+      case 'Home':      items[0].focus(); break
+      case 'End':       items[items.length - 1].focus(); break
+    }
+  })
   React.useEffect(() => {
     if (!open) return
     const onPointerDown = (e: MouseEvent) => {
@@ -326,7 +336,7 @@ export function DropdownFloat({
       // if it lives inside any of them. If yes, treat as still inside.
       const targetEl = target as Element
       if (typeof targetEl.closest === 'function' && targetEl.closest('[data-kds-dropdown-panel]')) return
-      onOpenChange(false)
+      closeMenu(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -339,46 +349,23 @@ export function DropdownFloat({
         const ownerPanel = active?.closest?.('[data-kds-dropdown-panel]') ?? null
         if (ownerPanel && ownerPanel !== panelRef.current) return
         e.preventDefault()
-        onOpenChange(false)
+        closeMenu(false)
         return
       }
-      // Menu navigation only fires when focus is in the menu.
-      if (!panelRef.current?.contains(document.activeElement)) return
-      const items = getMenuItems()
-      if (items.length === 0) return
-      const i = items.indexOf(document.activeElement as HTMLElement)
-      switch (e.key) {
-        case 'ArrowDown': {
-          e.preventDefault()
-          items[(i + 1) % items.length].focus()
-          break
-        }
-        case 'ArrowUp': {
-          e.preventDefault()
-          items[i <= 0 ? items.length - 1 : i - 1].focus()
-          break
-        }
-        case 'Home': {
-          e.preventDefault()
-          items[0].focus()
-          break
-        }
-        case 'End': {
-          e.preventDefault()
-          items[items.length - 1].focus()
-          break
-        }
-        case 'Tab': {
-          // Per WAI-ARIA menu pattern, Tab dismisses the menu and lets the
-          // browser advance focus to the next page focusable. We close the
-          // menu but DON'T preventDefault - the natural Tab continues from
-          // the trigger after focus is restored.
-          onOpenChange(false)
-          break
-        }
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault()
+        navigateItems(e.key)
+        return
+      }
+      if (e.key === 'Tab') {
+        // Per WAI-ARIA menu pattern, Tab dismisses the menu and lets the
+        // browser advance focus to the next page focusable. We close the
+        // menu but DON'T preventDefault - the natural Tab continues from
+        // the trigger after focus is restored.
+        closeMenu(false)
       }
     }
-    const onScrollOrResize = () => recompute()
+    const onScrollOrResize = () => recomputeEvent()
     document.addEventListener('mousedown', onPointerDown)
     document.addEventListener('keydown',   onKey)
     window.addEventListener('scroll', onScrollOrResize, true)
@@ -389,7 +376,7 @@ export function DropdownFloat({
       window.removeEventListener('scroll', onScrollOrResize, true)
       window.removeEventListener('resize', onScrollOrResize)
     }
-  }, [open, onOpenChange, recompute, getMenuItems])
+  }, [open])
 
   // ARIA attributes on the trigger itself (focusable element); click handler
   // lives on the wrapper-span and bubbles up from any descendant click.
@@ -400,6 +387,7 @@ export function DropdownFloat({
 
   return (
     <>
+      {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
       <span
         ref={triggerWrapRef}
         style={{ display: 'inline-flex' }}
@@ -415,7 +403,7 @@ export function DropdownFloat({
           {open && (
             // Outer wrapper carries the fixed positioning + (for centred
             // placements only) a `translateX(-50%)`. Keeping the centring
-            // transform off the motion.div is essential - framer-motion's
+            // transform off the m.div is essential - framer-motion's
             // `scale` transform would otherwise collide with translate, and
             // we'd lose the centre alignment as soon as the menu animates.
             <div
@@ -428,7 +416,7 @@ export function DropdownFloat({
                 zIndex:   DROPDOWN_Z,
               }}
             >
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, scaleX: 0.95, scaleY: 0.75 }}
                 animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
                 exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
@@ -436,7 +424,7 @@ export function DropdownFloat({
                 style={{ transformOrigin: PLACEMENT_ORIGIN[placement] }}
               >
                 {children}
-              </motion.div>
+              </m.div>
             </div>
           )}
         </AnimatePresence>,
@@ -649,6 +637,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
   // Pointer-move tracker - feeds `cursorRef` and manages the frozen vertex.
   // Only mouse pointers participate in the safe triangle; touch / pen
   // pointers fall through to the standard close-grace flow.
+  const recomputeSubmenu = useEffectEvent(recompute)
   React.useEffect(() => {
     if (!open) return
     const onMove = (e: PointerEvent) => {
@@ -671,7 +660,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       prevCursorXRef.current = cx
       cursorRef.current = { x: cx, y: cy }
     }
-    const onScrollOrResize = () => recompute()
+    const onScrollOrResize = () => recomputeSubmenu()
     document.addEventListener('pointermove', onMove)
     window.addEventListener('scroll', onScrollOrResize, true)
     window.addEventListener('resize', onScrollOrResize)
@@ -680,7 +669,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       window.removeEventListener('scroll', onScrollOrResize, true)
       window.removeEventListener('resize', onScrollOrResize)
     }
-  }, [open, recompute])
+  }, [open])
 
   // rAF loop - runs only while open. Per frame:
   //   • If cursor is inside the submenu rect → clear close, restore
@@ -693,6 +682,8 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
   //     handlers manage the close.
   // The early-return when the cursor hasn't moved keeps the loop nearly
   // free in the steady state.
+  const scheduleCloseEvent = useEffectEvent(scheduleClose)
+  const clearCloseTimerEvent = useEffectEvent(clearCloseTimer)
   React.useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -712,7 +703,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
         cursor.x >= subRect.left && cursor.x <= subRect.right &&
         cursor.y >= subRect.top  && cursor.y <= subRect.bottom
       if (inSubmenu) {
-        clearCloseTimer()
+        clearCloseTimerEvent()
         if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
         rafIdRef.current = requestAnimationFrame(loop)
         return
@@ -723,10 +714,10 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
         const isInZone = isPointInPolygon(cursor, polygon)
         if (isInZone) {
           if (!inSafeZoneRef.current) inSafeZoneRef.current = true
-          clearCloseTimer()
+          clearCloseTimerEvent()
         } else if (inSafeZoneRef.current) {
           inSafeZoneRef.current = false
-          scheduleClose(SUBMENU_EXIT_CLOSE)
+          scheduleCloseEvent(SUBMENU_EXIT_CLOSE)
         }
       } else if (inSafeZoneRef.current) {
         inSafeZoneRef.current = false
@@ -747,7 +738,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
       // panel inert if the submenu unmounts mid-interaction.
       if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
     }
-  }, [open, scheduleClose, clearCloseTimer])
+  }, [open])
 
   // Trigger leave is straightforward when the rAF loop owns the safe-zone
   // logic: just schedule the standard grace close. If the user is inside
@@ -788,6 +779,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
 
   return (
     <>
+      {/* eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
       <span
         ref={triggerWrapRef}
         style={{ display: 'block' }}
@@ -827,7 +819,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
                 zIndex:   DROPDOWN_Z,
               }}
             >
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, scaleX: 0.95, scaleY: 0.75 }}
                 animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
                 exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
@@ -835,7 +827,7 @@ export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpe
                 style={{ transformOrigin }}
               >
                 {children}
-              </motion.div>
+              </m.div>
             </div>
           )}
         </AnimatePresence>,
@@ -857,6 +849,6 @@ export const Dropdown = Object.assign(DropdownRoot, {
   Item:    DropdownMenuItem,
   Float:   DropdownFloat,
   Submenu: DropdownSubmenu,
-}) as DropdownCompoundExtended
+}) as typeof DropdownRoot & DropdownCompoundExtended
 
 export default Dropdown

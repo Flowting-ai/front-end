@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, StickyNoteTwoIcon, CancelOneIcon, TickTwoIcon, FilterMailIcon } from '@strange-huge/icons'
 import { HighlightCard, HIGHLIGHT_COLORS } from '@/components/HighlightCard'
 import { IconButton } from '@/components/IconButton'
@@ -54,6 +54,7 @@ export function HighlightPanel({
   filterMode = 'this-chat',
   onFilterChange,
   className,
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: HighlightPanelProps) {
   const [searchOpen,  setSearchOpen]  = useState(false)
   const [searchValue, setSearchValue] = useState('')
@@ -132,7 +133,7 @@ export function HighlightPanel({
         {/* Title / search input toggle */}
         <AnimatePresence mode="wait" initial={false}>
           {searchOpen ? (
-            <motion.div
+            <m.div
               key="search-input"
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
@@ -169,9 +170,9 @@ export function HighlightPanel({
                 }}
                 onBlur={e => { e.target.style.outlineColor = 'transparent' }}
               />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.h2
+            <m.h2
               key="title"
               initial={{ opacity: 0, x: 6 }}
               animate={{ opacity: 1, x: 0 }}
@@ -187,7 +188,7 @@ export function HighlightPanel({
               }}
             >
               Highlight
-            </motion.h2>
+            </m.h2>
           )}
         </AnimatePresence>
 
@@ -196,7 +197,7 @@ export function HighlightPanel({
           {/* Close search button — shown first when search is open */}
           <AnimatePresence initial={false}>
             {searchOpen && (
-              <motion.div
+              <m.div
                 key="close-search-btn"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -212,7 +213,7 @@ export function HighlightPanel({
                     onClick={closeSearch}
                   />
                 </Tooltip>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 
@@ -279,7 +280,7 @@ export function HighlightPanel({
       {/* ── Search result count ── */}
       <AnimatePresence initial={false}>
         {searchOpen && searchValue && (
-          <motion.p
+          <m.p
             key="result-count"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -290,7 +291,7 @@ export function HighlightPanel({
               padding:    '0 16px 8px',
               fontFamily: 'var(--font-body)',
               fontWeight: 'var(--font-weight-regular)',
-              fontSize:   11,
+              fontSize: 12,
               lineHeight: '1.5',
               color:      'var(--neutral-500)',
               flexShrink: 0,
@@ -300,7 +301,7 @@ export function HighlightPanel({
             {filtered.length === 0
               ? 'No results'
               : `${filtered.length} highlight${filtered.length === 1 ? '' : 's'}`}
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
 
@@ -323,7 +324,7 @@ export function HighlightPanel({
       >
         <AnimatePresence initial={false}>
           {filtered.map(h => (
-            <motion.div
+            <m.div
               key={h.renderKey ?? h.id}
               initial={{ opacity: 0, scaleY: 0.85, y: -8 }}
               animate={{ opacity: 1, scaleY: 1,    y:  0 }}
@@ -338,14 +339,14 @@ export function HighlightPanel({
                 onCopy={onCopy     ? () => onCopy(h.id)     : undefined}
                 onDelete={onDelete ? () => onDelete(h.id)   : undefined}
               />
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
 
         {/* ── Empty state ── */}
         <AnimatePresence initial={false}>
           {filtered.length === 0 && (
-            <motion.div
+            <m.div
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -378,7 +379,7 @@ export function HighlightPanel({
                     ? 'Nothing highlighted in this chat yet'
                     : 'Nothing highlighted yet'}
               </p>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

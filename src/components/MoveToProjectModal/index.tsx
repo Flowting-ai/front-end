@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { InformationCircleIcon, FolderOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +12,8 @@ import { cn } from '@/lib/utils'
 const SHADOW_MODAL        = '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)'
 const SHADOW_ROW_SELECTED = '0px 0px 0px 1.5px var(--blue-400)'
 const SHADOW_ROW_HOVER    = '0px 0px 0px 1px rgba(59,54,50,0.14)'
+
+const EMPTY_PROJECTS: Project[] = []
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -196,14 +199,12 @@ export function MoveToProjectModal({
   open,
   onClose,
   onConfirm,
-  projects  = [],
+  projects  = EMPTY_PROJECTS,
   chatCount = 1,
   className,
 }: MoveToProjectModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [mounted,    setMounted]    = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = useMounted()
 
   const handleConfirm = () => {
     if (!selectedId) return
@@ -226,7 +227,7 @@ export function MoveToProjectModal({
       {open && (
         <>
           {/* Backdrop — rendered in root stacking context via portal */}
-          <motion.div
+          <m.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -238,7 +239,7 @@ export function MoveToProjectModal({
               inset:           0,
               backgroundColor: 'rgba(0,0,0,0.28)',
               backdropFilter:  'blur(2px)',
-              zIndex:          9998,
+              zIndex:          20,
             }}
           />
 
@@ -250,12 +251,12 @@ export function MoveToProjectModal({
               display:        'flex',
               alignItems:     'center',
               justifyContent: 'center',
-              zIndex:         9999,
+              zIndex:         21,
               pointerEvents:  'none',
             }}
           >
           {/* Card — framer-motion owns transform; wrapper handles centering */}
-          <motion.div
+          <m.div
             key="modal"
             role="dialog"
             aria-modal="true"
@@ -395,7 +396,7 @@ export function MoveToProjectModal({
               </ModalButton>
             </div>
 
-          </motion.div>
+          </m.div>
           </div>
         </>
       )}

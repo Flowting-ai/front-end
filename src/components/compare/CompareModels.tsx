@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, type JSX } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import { m, AnimatePresence } from "framer-motion";
 import { springs } from "@/lib/springs";
 import { Dropdown, dropdownItemStagger } from "@/components/Dropdown";
 import styles from "./compareModels.module.css";
@@ -23,7 +24,7 @@ import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
 import { isValidUUID, normalizeUuid } from "@/lib/normalizers/normalize-utils";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
+// â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ChipColor = "neutral" | "green" | "brown" | "red" | "blue";
 
@@ -67,7 +68,7 @@ const SLOT_SHADOW        = "0px 0px 0px 1px rgba(182,172,164,0.4),0px 2px 2.8px 
 const BTN_SHADOW         = "0px 0px 0px 1px #3B3632,0px 1.091px 1.091px 0px rgba(59,54,50,0.1),0px 1.455px 3.127px 0px rgba(59,54,50,0.4)";
 const BTN_INSET          = "inset 0px 1.455px 0.364px 0px #6A625D,inset 0px -2.182px 0.364px 0px #3B3632,inset 0px -2.545px 6.9px -2.182px #827A74";
 
-// ── Chip ───────────────────────────────────────────────────────────────────────
+// â”€â”€ Chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor; noCapitalize?: boolean }) {
   const { bg, text } = CHIP_COLORS[color];
@@ -86,7 +87,7 @@ function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor;
       <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", borderRadius: 6, backgroundColor: bg }} />
       <div style={{ position: "relative", display: "inline-flex", alignItems: "center", paddingLeft: 2, paddingRight: 2 }}>
         <span style={{
-          fontSize:      11,
+          fontSize: 12,
           fontWeight:    500,
           lineHeight:    "16px",
           color:         text,
@@ -103,7 +104,7 @@ function Chip({ label, color, noCapitalize }: { label: string; color: ChipColor;
   );
 }
 
-// ── CornerNotch ────────────────────────────────────────────────────────────────
+// â”€â”€ CornerNotch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Creates the inverted-border-radius "browser tab" notch effect.
 // A beige box with a white circle peeking from one corner produces a concave curve
 // that visually joins the active tab to the white content panel below.
@@ -123,7 +124,7 @@ function CornerNotch({ side }: { side: "left" | "right" }) {
   );
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface CompareModel {
   id:             string;
@@ -140,7 +141,7 @@ interface CompareModel {
   type:           string;
 }
 
-// ── Model transform ────────────────────────────────────────────────────────────
+// â”€â”€ Model transform â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const resolveRequestModelId = (model: AIModel): string | null =>
   normalizeUuid(model.id) ?? normalizeUuid(model.modelId);
@@ -189,7 +190,7 @@ const transformModelForCompare = (model: AIModel): CompareModel => {
   };
 };
 
-// ── Markdown rendering helpers ─────────────────────────────────────────────────
+// â”€â”€ Markdown rendering helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const FAVICON_BASE = "https://www.google.com/s2/favicons?sz=32&domain=";
 
@@ -231,6 +232,7 @@ const renderLatexInlineContent = (text: string, keyPrefix: string) => {
     try {
       const html = katex.renderToString(latexContent, { throwOnError: false, displayMode: isBlock });
       nodes.push(
+        // eslint-disable-next-line react-doctor/no-danger -- KaTeX output is library-generated and sanitized
         <span key={`${keyPrefix}-latex-${latexCount++}`}
           className={isBlock ? "block my-2" : "inline-block mx-0.5"}
           dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }}
@@ -280,7 +282,7 @@ const SimpleLinkPreview = ({ url, label, k }: { url: string; label?: string; k: 
       target="_blank" rel="noopener noreferrer"
       className="group inline-flex items-center gap-1 rounded-full border border-[#EDE1D7] bg-[#F7F2ED] px-2 py-0.5 text-xs font-medium text-[#26211E] hover:bg-[#EDE1D7] transition-all duration-200 max-w-full align-middle"
     >
-      {faviconSrc && <img src={faviconSrc} alt="" className="h-3.5 w-3.5 shrink-0 rounded-sm" />}
+      {faviconSrc && <Image src={faviconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5 shrink-0 rounded-sm" unoptimized />}
       <span className="truncate max-w-50">{displayLabel}</span>
       <ExternalLink size={12} className="shrink-0 opacity-60 group-hover:opacity-100" />
     </a>
@@ -337,6 +339,10 @@ const renderInlineContent = (text: string, keyPrefix: string) => {
   return nodes;
 };
 
+function InlineContent({ text, keyPrefix }: { text: string; keyPrefix: string }) {
+  return <>{renderInlineContent(text, keyPrefix)}</>
+}
+
 const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   const nodes: JSX.Element[] = [];
   const lines = value.replace(/\r/g, "").split("\n");
@@ -349,7 +355,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       <ul key={listKey} className="ml-5 list-disc space-y-1 text-[#26211E]">
         {listBuffer.map((item, idx) => (
           <li key={`${listKey}-item-${idx}`} className="leading-relaxed">
-            {renderInlineContent(item, `${listKey}-item-${idx}`)}
+            <InlineContent text={item} keyPrefix={`${listKey}-item-${idx}`} />
           </li>
         ))}
       </ul>,
@@ -402,6 +408,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
       if (closed && mathContent) {
         try {
           const html = katex.renderToString(mathContent, { throwOnError: false, displayMode: true });
+          // eslint-disable-next-line react/no-danger -- KaTeX output is library-generated and sanitized
           nodes.push(<div key={`${keyPrefix}-math-${index}`} className="my-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: sanitizeKaTeX(html) }} />);
           continue;
         } catch { /* fall through */ }
@@ -423,7 +430,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
         <HeadingTag key={`${keyPrefix}-heading-${index}`}
           className={`font-semibold text-[#26211E] tracking-tight ${headingClassByLevel[level]}`}
         >
-          {renderInlineContent(headingMatch[2], `${keyPrefix}-heading-${index}`)}
+          <InlineContent text={headingMatch[2]} keyPrefix={`${keyPrefix}-heading-${index}`} />
         </HeadingTag>,
       );
       continue;
@@ -442,7 +449,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
             <thead className="bg-[#F7F2ED] text-[#524B47]">
               <tr>{headerCells.map((cell, ci) => (
                 <th key={`${tk}-header-${ci}`} className="border-b border-[#EDE1D7] px-3 py-2 text-left font-semibold text-[#26211E]">
-                  {renderInlineContent(cell, `${tk}-header-${ci}`)}
+                  <InlineContent text={cell} keyPrefix={`${tk}-header-${ci}`} />
                 </th>
               ))}</tr>
             </thead>
@@ -451,7 +458,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
                 <tr key={`${tk}-row-${ri}`} className="odd:bg-white even:bg-[#F7F2ED]/50">
                   {row.map((cell, ci) => (
                     <td key={`${tk}-cell-${ri}-${ci}`} className="border-t border-[#EDE1D7] px-3 py-2 align-top text-[#26211E]">
-                      {renderInlineContent(cell, `${tk}-cell-${ri}-${ci}`)}
+                      <InlineContent text={cell} keyPrefix={`${tk}-cell-${ri}-${ci}`} />
                     </td>
                   ))}
                 </tr>
@@ -470,7 +477,7 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
     flushList();
     nodes.push(
       <p key={`${keyPrefix}-paragraph-${index}`} className="whitespace-pre-wrap leading-relaxed text-[#26211E]">
-        {renderInlineContent(line, `${keyPrefix}-paragraph-${index}`)}
+        <InlineContent text={line} keyPrefix={`${keyPrefix}-paragraph-${index}`} />
       </p>,
     );
   }
@@ -478,6 +485,10 @@ const renderTextContent = (value: string, keyPrefix: string): JSX.Element[] => {
   flushList();
   return nodes;
 };
+
+function TextContent({ value, keyPrefix }: { value: string; keyPrefix: string }) {
+  return <>{renderTextContent(value, keyPrefix)}</>
+}
 
 type ContentSegment = { type: "text"; value: string } | { type: "code"; value: string; language?: string };
 
@@ -501,7 +512,7 @@ const FormattedResponse = ({ content, modelId }: { content: string; modelId: str
     {parseContentSegments(content).map((seg, idx) =>
       seg.type === "code"
         ? <CodeBlock key={`${modelId}-code-${idx}`} code={seg.value} language={seg.language} />
-        : <div key={`${modelId}-text-${idx}`} className="text-sm">{renderTextContent(seg.value, `${modelId}-text-${idx}`)}</div>,
+        : <div key={`${modelId}-text-${idx}`} className="text-sm"><TextContent value={seg.value} keyPrefix={`${modelId}-text-${idx}`} /></div>,
     )}
   </div>
 );
@@ -531,7 +542,7 @@ const CodeBlock = ({ code, language }: { code: string; language?: string }) => {
   );
 };
 
-// ── ModelCard ──────────────────────────────────────────────────────────────────
+// â”€â”€ ModelCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ModelCard({
   model,
@@ -632,7 +643,7 @@ function ModelCard({
           <div style={{ fontSize: 16, fontWeight: 500, color: PRIMARY, lineHeight: "22px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
             {model.modelName}
           </div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: SECONDARY, lineHeight: "16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: SECONDARY, lineHeight: "16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%", fontFamily: "var(--font-body)" }}>
             {model.company}
           </div>
         </div>
@@ -647,7 +658,7 @@ function ModelCard({
       {/* Description - flex:1 pushes badge row to bottom */}
       <div style={{
         position:        "relative",
-        fontSize:        11,
+        fontSize: 12,
         color:           isActive ? SECONDARY : TERTIARY,
         lineHeight:      "16px",
         maxHeight:       48,
@@ -673,7 +684,7 @@ function ModelCard({
   );
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface CompareModelsProps {
   selectedModel?: AIModel | null;
@@ -717,13 +728,16 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const { transcript, resetTranscript, browserSupportsSpeechRecognition } =
     useSpeechRecognition();
 
-  // Live transcript → prompt textarea during recording
-  useEffect(() => {
-    if (!isRecording) return;
+  // Sync live transcript â†’ prompt synchronously during render to avoid an effect
+  // chain (transcript effect sets prompt â†’ layout effect reacts to prompt).
+  const prevTranscriptRef = useRef(transcript);
+  if (isRecording && prevTranscriptRef.current !== transcript) {
+    prevTranscriptRef.current = transcript;
     const base     = preRecordingTextRef.current;
     const combined = base && transcript ? `${base} ${transcript}` : transcript || base;
     setPrompt(combined);
-  }, [transcript, isRecording]);
+  }
+  if (!isRecording) prevTranscriptRef.current = transcript;
 
   useEffect(() => {
     return () => {
@@ -766,7 +780,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     return result;
   }, [models, activeTab, searchQuery, selectedTiers]);
 
-  // ── Auto-grow textarea ───────────────────────────────────────────────────────
+  // â”€â”€ Auto-grow textarea â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useLayoutEffect(() => {
     if (!showResults) return;
@@ -789,7 +803,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     }
   }, [prompt, showResults, promptInputCollapsed]);
 
-  // ── Fetch models ─────────────────────────────────────────────────────────────
+  // â”€â”€ Fetch models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     let cancelled = false;
@@ -810,7 +824,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     return () => { cancelled = true; };
   }, []);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSelect = (model: CompareModel) => {
     if (!model.requestModelId) return;
@@ -1036,6 +1050,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           } catch { /* ignore incomplete chunks */ }
         };
 
+        // eslint-disable-next-line no-await-in-loop -- sequential SSE stream reader; chunks must arrive in order
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -1062,7 +1077,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     }
   };
 
-  // ── Results view ─────────────────────────────────────────────────────────────
+  // â”€â”€ Results view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   if (showResults) {
     const modelsToShow = selectedModels
@@ -1134,7 +1149,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
           {/* Content: expanded tab view OR normal columns tray */}
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             {expandedModelId ? (
-              /* ── Expanded tab view ─────────────────────────────────────────── */
+              /* â”€â”€ Expanded tab view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
               <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW, padding: 12 }}>
                 <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", background: "#EDE1D7", boxShadow: CARD_SHADOW }}>
                   {/* Tabs header */}
@@ -1194,7 +1209,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                   const isModelStreaming = streamingModels.has(responseKey);
                   const credits          = testCredits[responseKey];
                   return (
-                    <motion.div
+                    <m.div
                       key={expandedModelId}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1211,14 +1226,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
                             <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
-                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
+                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
                           </div>
                         ) : modelResponse ? (
                           <FormattedResponse content={modelResponse} modelId={responseKey} />
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8 }}>
                             <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
-                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
+                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
                               Run a prompt to see<br />{expandedModel.modelName}&apos;s<br />answer here.
                             </div>
                           </div>
@@ -1239,14 +1254,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           Use this model
                         </Button>
                       </div>
-                    </motion.div>
+                    </m.div>
                   );
                 })()}
                 </AnimatePresence>
                 </div>
               </div>
             ) : (
-              /* ── Normal columns tray ───────────────────────────────────────── */
+              /* â”€â”€ Normal columns tray â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
               <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", gap: 12, padding: 12, borderRadius: 16, backgroundColor: "rgba(247,242,237,0.5)", boxShadow: TRAY_BG_SHADOW }}>
                 {modelsToShow.map((model) => {
                   const responseKey      = model.requestModelId ?? model.id;
@@ -1297,14 +1312,14 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                         ) : isTesting && !modelResponse ? (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                             <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} className="animate-pulse" />
-                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
+                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>Waiting to generate...</div>
                           </div>
                         ) : modelResponse ? (
                           <FormattedResponse content={modelResponse} modelId={responseKey} />
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                             <Sparkles strokeWidth={1.5} style={{ width: 48, height: 48, color: "#EDE1D7" }} />
-                            <div style={{ fontSize: 11, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
+                            <div style={{ fontSize: 12, color: TERTIARY, textAlign: "center", fontFamily: "var(--font-body)" }}>
                               Run a prompt to see<br />{model.modelName}&apos;s<br />answer here.
                             </div>
                           </div>
@@ -1357,7 +1372,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                             : prompt.trim() ? "send" : "mic";
                         const isWave = iconKey === "wave";
                         return (
-                          <motion.span
+                          <m.span
                             key={iconKey}
                             initial={isWave ? { scale: 0.5, opacity: 0 } : { scale: 0.5, opacity: 0, filter: "blur(4px)" }}
                             animate={isWave ? { scale: 1,   opacity: 1 } : { scale: 1,   opacity: 1, filter: "blur(0px)" }}
@@ -1375,7 +1390,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                                   ? <ArrowUpTwoIcon size={20} animated triggered={isMicHovered} />
                                   : <MicTwoIcon size={20} />
                             }
-                          </motion.span>
+                          </m.span>
                         );
                       })()}
                     </AnimatePresence>
@@ -1390,7 +1405,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     );
   }
 
-  // ── Compare & Select view ─────────────────────────────────────────────────────
+  // â”€â”€ Compare & Select view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <div style={{
@@ -1472,6 +1487,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             ) : (
               <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", alignItems: "center" }}>
                 <input
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
                   autoFocus
                   type="text"
                   value={searchQuery}
@@ -1564,7 +1580,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                       { id: "pro",     label: "Pro"     },
                       { id: "power",   label: "Power",  disabled: true },
                     ] as { id: string; label: string; disabled?: boolean }[]).map((tier, i) => (
-                      <motion.div key={tier.id} {...dropdownItemStagger(i)}>
+                      <m.div key={tier.id} {...dropdownItemStagger(i)}>
                         <Dropdown.Item
                           label={tier.label}
                           showCheckbox
@@ -1579,7 +1595,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           disabled={tier.disabled}
                           fluid
                         />
-                      </motion.div>
+                      </m.div>
                     ))}
                   </Dropdown.Section>
                 </Dropdown>
@@ -1604,6 +1620,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
             {isLoading ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                 {Array.from({ length: 6 }).map((_, idx) => (
+                  // eslint-disable-next-line react/no-array-index-as-key
                   <div key={idx} style={{
                     borderRadius: 16, boxShadow: CARD_SHADOW,
                     backgroundColor: "#EDE1D7", display: "flex", flexDirection: "column",
@@ -1724,12 +1741,13 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                 <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 10, backgroundColor: "rgba(247,242,237,0.5)" }} />
                 <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: TRAY_BG_SHADOW }} />
               </div>
-              {[0, 1, 2].map((i) => {
+              {[0, 1, 2].map((slotIndex) => {
+                const i = slotIndex;
                 const modelId = selectedModels[i];
                 const model   = models.find((m) => m.requestModelId === modelId);
                 const llmId   = model ? (getModelLlmId(model.companyName, model.rawModelName) ?? "") : "";
                 return model ? (
-                  <div key={i} style={{
+                  <div key={`slot-${slotIndex}`} style={{
                     position:        "relative",
                     flex:            1,
                     alignSelf:       "stretch",
@@ -1786,7 +1804,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                     </div>
                   </div>
                 ) : (
-                  <div key={i} style={{
+                  <div key={`slot-empty-${slotIndex}`} style={{
                     position:     "relative",
                     flex:         1,
                     alignSelf:    "stretch",

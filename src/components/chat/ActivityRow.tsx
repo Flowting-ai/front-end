@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiWebBrowsingIcon,
@@ -65,13 +65,13 @@ function ActivityIcon({ type, isDone }: { type: ActivityType; isDone: boolean })
 // Spinner using HugeIcons Spinner icon (rotating)
 function SpinnerIcon() {
   return (
-    <motion.span
+    <m.span
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       style={{ display: "flex", alignItems: "center", lineHeight: 0, flexShrink: 0 }}
     >
       <HIcon icon={Spinner} size={14} color="#B6ACA4" strokeWidth={2} />
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -98,7 +98,7 @@ function ErrorIcon() {
 function FaviconImg({ domain, size = 14 }: { domain?: string; size?: number }) {
   if (!domain || domain === "pin") return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+    // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- external favicon URL, next/image doesn't support arbitrary external domains without config
     <img
       src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
       width={size}
@@ -194,13 +194,13 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
 
         {/* Active "working..." indicator */}
         {isActive && (
-          <motion.span
+          <m.span
             animate={{ opacity: [0.3, 1, 0.3] }}
             transition={{ duration: 1.2, repeat: Infinity }}
             style={{ fontSize: 14, fontWeight: 400, color: "var(--neutral-300, #C0B5AD)", flexShrink: 0 }}
           >
             working…
-          </motion.span>
+          </m.span>
         )}
 
         {/* Action badge + chevron for non-web-search expandable rows */}
@@ -208,7 +208,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           <>
             <span
               style={{
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 600,
                 color: "var(--neutral-600, #6A625D)",
                 letterSpacing: "0.4px",
@@ -221,14 +221,14 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
             >
               Action
             </span>
-            <motion.svg
+            <m.svg
               width="14" height="14" viewBox="0 0 14 14" fill="none"
               animate={{ rotate: manualOpen ? 180 : 0 }}
               transition={{ type: "spring", stiffness: 380, damping: 28 }}
               style={{ display: "block", flexShrink: 0 }}
             >
               <path d="M3 5.5 L7 9.5 L11 5.5" stroke="var(--neutral-400, #9C938B)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-            </motion.svg>
+            </m.svg>
           </>
         )}
       </button>
@@ -236,7 +236,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
       {/* Results list - web-search auto-expands, others behind chevron */}
       <AnimatePresence initial={false}>
         {resultsVisible && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -248,7 +248,7 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingLeft: 48, paddingTop: 4, paddingBottom: 4 }}>
               {activity.results!.map((r, ri) => (
-                <motion.a
+                <m.a
                   key={ri}
                   href={r.url || undefined}
                   target="_blank"
@@ -275,15 +275,15 @@ export function ActivityRow({ activity }: { activity: ActivityItem }) {
                     {r.title}
                   </span>
                   {r.domain && r.domain !== "pin" && (
-                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0, fontSize: 11 }}>{r.domain}</span>
+                    <span style={{ color: "var(--neutral-300, #C0B5AD)", flexShrink: 0, fontSize: 12 }}>{r.domain}</span>
                   )}
                   {r.domain === "pin" && (
-                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic", fontSize: 11 }}>pin</span>
+                    <span style={{ color: "var(--neutral-400, #9A9089)", flexShrink: 0, fontStyle: "italic", fontSize: 12 }}>pin</span>
                   )}
-                </motion.a>
+                </m.a>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -305,14 +305,14 @@ export function ActivitiesSection({ activities }: { activities: ActivityItem[] }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
       {activities.map((activity, i) => (
-        <motion.div
+        <m.div
           key={activity.id || i}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: i * 0.06 }}
         >
           <ActivityRow activity={activity} />
-        </motion.div>
+        </m.div>
       ))}
     </div>
   );

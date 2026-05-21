@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
 import CompareModels from "@/components/compare/CompareModels";
 import { useCompare } from "@/context/compare-context";
@@ -45,7 +45,7 @@ function CompareDialog() {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             key="compare-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -55,12 +55,12 @@ function CompareDialog() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          100,
+              zIndex:          20,
               backgroundColor: "rgba(0, 0, 0, 0.5)",
             }}
           />
           {/* Dialog */}
-          <motion.div
+          <m.div
             key="compare-dialog"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1,    y: 0  }}
@@ -69,7 +69,7 @@ function CompareDialog() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          101,
+              zIndex:          21,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",
@@ -82,7 +82,7 @@ function CompareDialog() {
                 onModelSelect={handleModelSelect}
               />
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import { AnimatePresence, m } from "framer-motion";
 import { ReasoningBlock, ModelLogo } from "./ReasoningBlock";
 import { ActivitiesSection } from "./ActivityRow";
 import { StreamingCursor } from "./StreamingCursor";
@@ -95,7 +96,7 @@ function StandaloneActivitiesBlock({
             flexShrink: 0,
           }}
         >
-          <motion.svg
+          <m.svg
             width="14"
             height="14"
             viewBox="0 0 14 14"
@@ -111,14 +112,14 @@ function StandaloneActivitiesBlock({
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-          </motion.svg>
+          </m.svg>
         </button>
       </div>
 
       {/* Collapsible activities panel */}
       <AnimatePresence initial={false}>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -131,7 +132,7 @@ function StandaloneActivitiesBlock({
             <div style={{ paddingTop: 10 }}>
               <ActivitiesSection activities={activities} />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -145,7 +146,7 @@ function StandaloneActivitiesBlock({
 
 function StreamingTextContent({ content, citations }: { content: string; citations?: WebCitation[] }) {
   const dot = (
-    <motion.span
+    <m.span
       animate={{ opacity: [0.15, 1, 0.15] }}
       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
       style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#826B60", verticalAlign: "middle", marginLeft: 4 }}
@@ -194,12 +195,7 @@ export function ChatMessage({
       // messageId is missing/null (e.g. created before the API sent message_id).
       // For the latter case the rehype plugin's text-search naturally limits
       // the mark to whichever message actually contains the selected text.
-      .filter(h => h.messageId === message.id || !h.messageId)
-      .map(h => ({
-        id:         h.id,
-        text:       h.text,
-        colorIndex: h.colorIndex,
-      })),
+      .flatMap(h => (h.messageId === message.id || !h.messageId) ? [{ id: h.id, text: h.text, colorIndex: h.colorIndex }] : []),
     [highlights, message.id],
   )
 
@@ -219,6 +215,7 @@ export function ChatMessage({
   })()
 
   // ── Text selection → SelectionPopover (assistant messages only) ──────────
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!isAssistant) return
 
@@ -312,7 +309,7 @@ export function ChatMessage({
   };
 
   return (
-    <motion.div
+    <m.div
       data-message-id={message.id}
       initial={isUser ? { opacity: 0, y: 10, scale: 0.97 } : { opacity: 0, y: 10, filter: "blur(4px)" }}
       animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -375,7 +372,7 @@ export function ChatMessage({
                     <span
                       style={{
                         fontFamily:   "var(--font-body)",
-                        fontSize:     "11px",
+                        fontSize: "12px",
                         fontWeight:   500,
                         color:        "var(--neutral-700)",
                         overflow:     "hidden",
@@ -389,7 +386,7 @@ export function ChatMessage({
                       <span
                         style={{
                           fontFamily: "var(--font-body)",
-                          fontSize:   "10px",
+                          fontSize: "12px",
                           color:      "var(--neutral-400)",
                           flexShrink: 0,
                         }}
@@ -402,7 +399,7 @@ export function ChatMessage({
                       <span
                         style={{
                           fontFamily: "var(--font-body)",
-                          fontSize:   "10px",
+                          fontSize: "12px",
                           color:      "var(--neutral-400)",
                           flexShrink: 0,
                         }}
@@ -511,7 +508,7 @@ export function ChatMessage({
         {/* Message content - assistant only (user handled above) */}
         {/* When responseBlocks are present, use BlockSequenceRenderer */}
         {message.responseBlocks && message.responseBlocks.length > 0 ? (
-          <motion.div
+          <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
             animate={{ opacity: 1, y: 0 }}
@@ -523,9 +520,9 @@ export function ChatMessage({
               onFollowUp={onFollowUp}
               onRetry={onRetry}
             />
-          </motion.div>
+          </m.div>
         ) : message.content ? (
-          <motion.div
+          <m.div
             ref={contentRef}
             initial={isNewMessage ? { opacity: 0, y: 5 } : false}
             animate={{ opacity: 1, y: 0 }}
@@ -541,7 +538,7 @@ export function ChatMessage({
             {!(isNewMessage && message.isLoading) && (
               <StreamingCursor isVisible={false} />
             )}
-          </motion.div>
+          </m.div>
         ) : null}
 
         {/* Citation sources - shown below response when citations are present */}
@@ -578,8 +575,8 @@ export function ChatMessage({
             }}
           >
             {message.images.map((img, i) => (
-              <motion.div
-                key={i}
+              <m.div
+                key={img.url}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3, delay: i * 0.1 }}
@@ -590,10 +587,13 @@ export function ChatMessage({
                   maxWidth: "320px",
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={img.url}
                   alt="Generated image"
+                  width={0}
+                  height={0}
+                  sizes="100%"
+                  unoptimized
                   style={{
                     display: "block",
                     width: "100%",
@@ -602,7 +602,7 @@ export function ChatMessage({
                     objectFit: "cover",
                   }}
                 />
-              </motion.div>
+              </m.div>
             ))}
           </div>
         )}
@@ -651,8 +651,8 @@ export function ChatMessage({
               const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
 
               return (
-                <motion.div
-                  key={`${file.url}-${i}`}
+                // eslint-disable-next-line react-doctor/no-array-index-as-key -- composite key with file.url; attachments are ordered and stable within a message
+                <m.div key={`${file.url}-${i}`}
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{
@@ -689,7 +689,7 @@ export function ChatMessage({
                   >
                     <span
                       style={{
-                        fontSize: 8,
+                        fontSize: 12,
                         fontWeight: 700,
                         color: "white",
                         letterSpacing: "0.4px",
@@ -803,7 +803,7 @@ export function ChatMessage({
                       </svg>
                     </a>
                   </div>
-                </motion.div>
+                </m.div>
               )
             })}
           </div>
@@ -828,7 +828,7 @@ export function ChatMessage({
         {/* Action buttons (on hover) - assistant only */}
         <AnimatePresence>
           {isHovered && !message.isLoading && (
-          <motion.div
+          <m.div
             key="action-buttons"
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -867,7 +867,7 @@ export function ChatMessage({
                 onClick={onRegenerate}
               />
             )}
-          </motion.div>
+          </m.div>
           )}
         </AnimatePresence>
         </div>
@@ -882,7 +882,7 @@ export function ChatMessage({
           onCopy={handleCopySelection}
         />
       )}
-    </motion.div>
+    </m.div>
   );
 }
 

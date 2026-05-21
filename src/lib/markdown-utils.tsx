@@ -139,10 +139,15 @@ function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
 
 function preprocessCitations(content: string): string {
   return content
-    // {N} → [^N](citation://N)
-    .replace(/\{(\d+)\}/g, (_, n) => `[[${n}]](citation://${n})`)
-    // [N] not already followed by ( - standalone bracketed number
-    .replace(/(?<!\])\[(\d+)\](?!\()/g, (_, n) => `[[${n}]](citation://${n})`);
+    // {N} → [[N]](citation://N)
+    // Excludes LaTeX exponent syntax like a^{2} or a_{2} by blocking ^ and _ as
+    // preceding characters, and word chars to avoid mid-word false positives.
+    .replace(/(?<![[\]\w^_])\{(\d+)\}/g, (_, n) => `[[${n}]](citation://${n})`)
+    // [N] → [[N]](citation://N)
+    // Excludes [N] directly attached to a word character (letter/digit) so that
+    // exponent notation like a[2], b[2] is never treated as a citation reference.
+    // Real citation markers always follow whitespace or punctuation, not a bare letter.
+    .replace(/(?<![[\]\w])\[(\d+)\](?!\()/g, (_, n) => `[[${n}]](citation://${n})`);
 }
 
 const BASE_COMPONENTS: Components = {
@@ -297,7 +302,7 @@ const BASE_COMPONENTS: Components = {
   },
   h1({ children, ...props }) {
     return (
-      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "30px", margin: "10px 0 16px" }} {...props}>
+      <h1 style={{ fontSize: "22px", fontWeight: 500, color: "var(--neutral-900)", fontFamily: "var(--font-body)", lineHeight: "30px", margin: "10px 0 16px" }} {...props}>
         {children}
       </h1>
     );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import NextImage from "next/image";
 import { Switch } from "@/components/Switch";
 import { ChevronDown, X, Plus } from "lucide-react";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/app/(app)/personas/new/constants";
@@ -207,7 +208,7 @@ export default function ProfileTab({
             }}
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Persona avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <NextImage src={avatarUrl} alt="Persona avatar" fill sizes="65px" unoptimized style={{ objectFit: "cover" }} />
             ) : (
               <div style={{ width: "100%", height: "100%", backgroundColor: "#ede1d7", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#827a74" strokeWidth="1.5">
@@ -237,7 +238,7 @@ export default function ProfileTab({
             >
               {isCompressing ? "Processing…" : "Change image"}
             </button>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#524b47", margin: 0 }}>drag &amp; drop · paste</p>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>drag &amp; drop · paste</p>
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
         </div>
@@ -245,7 +246,7 @@ export default function ProfileTab({
 
       {/* Name */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
-        <label style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Name</label>
+        <label htmlFor="profile-persona-name" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Name</label>
         <div
           style={{
             backgroundColor: "white",
@@ -258,6 +259,7 @@ export default function ProfileTab({
           }}
         >
           <input
+            id="profile-persona-name"
             type="text"
             value={personaName}
             onChange={(e) => onPersonaNameChange(e.target.value)}
@@ -268,6 +270,7 @@ export default function ProfileTab({
               fontSize: 14,
               color: "#6a625d",
               backgroundColor: "transparent",
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               border: "none",
             }}
@@ -277,7 +280,7 @@ export default function ProfileTab({
 
       {/* Handle */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px" }}>
-        <label style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Handle</label>
+        <label htmlFor="profile-persona-handle" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Handle</label>
         <div
           style={{
             backgroundColor: "white",
@@ -291,6 +294,7 @@ export default function ProfileTab({
         >
           <span style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#9c938b" }}>@</span>
           <input
+            id="profile-persona-handle"
             type="text"
             value={personaHandle}
             onChange={(e) => handleHandleChange(e.target.value)}
@@ -301,19 +305,20 @@ export default function ProfileTab({
               fontSize: 14,
               color: "#6a625d",
               backgroundColor: "transparent",
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               border: "none",
             }}
           />
         </div>
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#524b47", margin: 0 }}>
+        <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>
           Lowercase and hyphens only · how others mention this persona
         </p>
       </div>
 
       {/* Description */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 12px", position: "relative" }}>
-        <label style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Description</label>
+        <label htmlFor="profile-persona-desc" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Description</label>
         <div
           style={{
             backgroundColor: "white",
@@ -327,6 +332,7 @@ export default function ProfileTab({
           }}
         >
           <textarea
+            id="profile-persona-desc"
             value={personaDescription}
             onChange={(e) => onPersonaDescriptionChange(e.target.value.slice(0, DESCRIPTION_MAX))}
             placeholder="Placeholder"
@@ -337,6 +343,7 @@ export default function ProfileTab({
               fontSize: 14,
               color: "#6a625d",
               backgroundColor: "transparent",
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               resize: "none",
               lineHeight: 1.57,
@@ -350,7 +357,7 @@ export default function ProfileTab({
             bottom: 12,
             right: 20,
             fontFamily: "var(--font-body)",
-            fontSize: 11,
+            fontSize: 12,
             color: "#b6aca4",
           }}
         >
@@ -374,7 +381,7 @@ export default function ProfileTab({
                   gap: 2,
                   padding: "2px 6px",
                   borderRadius: 6,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 500,
                   backgroundColor: color.bg,
                   color: color.text,
@@ -420,9 +427,10 @@ export default function ProfileTab({
                 height: 22,
                 padding: "0 8px",
                 fontFamily: "var(--font-body)",
-                fontSize: 11,
+                fontSize: 12,
                 border: "1px solid rgba(59,54,50,0.3)",
                 borderRadius: 6,
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline: "none",
                 backgroundColor: "white",
                 width: 96,
@@ -439,7 +447,7 @@ export default function ProfileTab({
                 gap: 2,
                 padding: "2px 6px",
                 borderRadius: 6,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 500,
                 color: "#524b47",
                 cursor: "pointer",
@@ -462,6 +470,7 @@ export default function ProfileTab({
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Switch checked={isMultilingual} onCheckedChange={onIsMultilingualChange} />
           <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#000", margin: 0 }}>
+            {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
             Do you want the persona to be multilingual?
           </p>
         </div>
@@ -551,7 +560,7 @@ export default function ProfileTab({
           )}
 
           {isMultilingual && (
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "#d97757", margin: 0 }}>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#d97757", margin: 0 }}>
               Only models supporting these languages will be shown in the next step.
             </p>
           )}

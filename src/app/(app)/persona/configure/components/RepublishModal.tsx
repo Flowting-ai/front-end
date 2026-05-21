@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import Image from 'next/image'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 
@@ -59,7 +60,7 @@ function YellowBadge({ label }: { label: string }) {
           position: 'relative',
           fontFamily: 'var(--font-body)',
           fontWeight: 500,
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: '16px',
           color: 'var(--yellow-700, #6d5921)',
           whiteSpace: 'nowrap',
@@ -142,7 +143,7 @@ export default function RepublishModal({
   const versionLabel = React.useMemo(buildVersionLabel, [])
 
   return (
-    /* Full-screen backdrop */
+    // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop closes modal on click; keyboard via Escape in useEffect
     <div
       role="dialog"
       aria-modal="true"
@@ -161,6 +162,7 @@ export default function RepublishModal({
       }}
     >
       {/* Modal card */}
+      {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
       <div
         onClick={e => e.stopPropagation()}
         style={{
@@ -192,9 +194,12 @@ export default function RepublishModal({
                   boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
                 }}
               >
-                <img
+                <Image
                   src="/icons/persona-image.svg"
                   alt=""
+                  width={36}
+                  height={36}
+                  unoptimized
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>
@@ -309,6 +314,7 @@ export default function RepublishModal({
           <Button variant="outline" size="sm" onClick={onClose}>
             View in workspace
           </Button>
+          {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" confirms republish completion; context is clear from modal heading */}
           <Button variant="default" size="sm" onClick={onDone}>
             Done
           </Button>

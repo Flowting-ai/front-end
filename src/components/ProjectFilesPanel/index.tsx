@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { ProjectDocumentCard } from '@/components/ProjectDocumentCard'
@@ -28,8 +28,7 @@ function formatBytes(bytes: number): string {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPanelProps>(
-  function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, onUpload, onRemove }, ref) {
+export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, onUpload, onRemove, ref }: ProjectFilesPanelProps & { ref?: React.Ref<HTMLDivElement> }) {
     const inputRef   = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
     const [dragging,  setDragging]  = useState(false)
@@ -96,7 +95,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
             : '1px solid var(--neutral-100)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',
-          minHeight:     '200px',
+          minHeight:     '400px',
           boxSizing:     'border-box',
           overflow:      'hidden',
           transition:    'background 180ms, border-color 180ms',
@@ -123,7 +122,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 'var(--font-weight-regular)',
-                  fontSize:   '11px',
+                  fontSize: '12px',
                   lineHeight: '16px',
                   color:      'var(--neutral-700)',
                 }}
@@ -157,7 +156,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
             style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 'var(--font-weight-regular)',
-              fontSize:   '11px',
+              fontSize: '12px',
               lineHeight: '16px',
               color:      '#857a72',
               margin:     0,
@@ -173,7 +172,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
               overflow:     'hidden',
             }}
           >
-            <motion.div
+            <m.div
               animate={{ width: `${usedPct}%` }}
               transition={{ type: 'spring', stiffness: 200, damping: 28 }}
               style={{
@@ -255,7 +254,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 'var(--font-weight-regular)',
-                  fontSize:   '11px',
+                  fontSize: '12px',
                   lineHeight: '16px',
                   color:      'var(--neutral-700)',
                   textAlign:  'center',
@@ -269,8 +268,7 @@ export const ProjectFilesPanel = React.forwardRef<HTMLDivElement, ProjectFilesPa
         )}
       </div>
     )
-  },
-)
+}
 
 ProjectFilesPanel.displayName = 'ProjectFilesPanel'
 export default ProjectFilesPanel

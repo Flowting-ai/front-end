@@ -1,24 +1,15 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import { Suspense, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-
-function RedirectContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
-  useEffect(() => {
-    const qs = searchParams.toString()
-    router.replace(`/persona/configure/instructions${qs ? `?${qs}` : ''}`)
-  }, [router, searchParams])
-
-  return null
-}
-
-export default function PersonasConfigurePage() {
-  return (
-    <Suspense>
-      <RedirectContent />
-    </Suspense>
-  )
+export default async function PersonasConfigurePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const qs = new URLSearchParams(
+    Object.entries(params).flatMap(([k, v]) =>
+      Array.isArray(v) ? v.map(val => [k, val]) : v !== undefined ? [[k, v]] : []
+    )
+  ).toString()
+  redirect(`/persona/configure/instructions${qs ? `?${qs}` : ''}`)
 }

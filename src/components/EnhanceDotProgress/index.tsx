@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,8 +19,7 @@ export interface EnhanceDotProgressProps extends React.HTMLAttributes<HTMLDivEle
 // Per PRD §13: past = filled primary @ 35% opacity, current = wide pill @ 100%,
 // upcoming = inactive grey. Dot 6×6, active pill 18×6, both border-radius 3.
 
-export const EnhanceDotProgress = React.forwardRef<HTMLDivElement, EnhanceDotProgressProps>(
-  function EnhanceDotProgress({ total, current, audit = false, className, style, ...props }, ref) {
+export function EnhanceDotProgress({ ref, total, current, audit = false, className, style, ...props }: EnhanceDotProgressProps & { ref?: React.Ref<HTMLDivElement> }) {
     const activeColor = audit ? 'var(--color-enhance-audit)' : 'var(--color-enhance-primary)'
 
     return (
@@ -45,8 +44,8 @@ export const EnhanceDotProgress = React.forwardRef<HTMLDivElement, EnhanceDotPro
           const isPast     = i < current
           const isUpcoming = i > current
           return (
-            <motion.span
-              key={i}
+            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- fixed-count dot indicator; index is stable
+            <m.span key={i}
               aria-hidden
               layout
               transition={{ duration: 0.2, ease: 'easeInOut' }}
@@ -66,8 +65,7 @@ export const EnhanceDotProgress = React.forwardRef<HTMLDivElement, EnhanceDotPro
         })}
       </div>
     )
-  },
-)
+}
 
 EnhanceDotProgress.displayName = 'EnhanceDotProgress'
 

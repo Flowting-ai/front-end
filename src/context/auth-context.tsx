@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, use, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   getAuth0AccessToken,
@@ -252,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = use(AuthContext);
   if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }

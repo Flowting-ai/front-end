@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { LogoIcon } from '@strange-huge/icons'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { cn } from '@/lib/utils'
@@ -61,8 +61,7 @@ export interface CyclingLabelProps {
   intervalMs?: number
 }
 
-export const CyclingLabel = React.forwardRef<HTMLSpanElement, CyclingLabelProps>(
-  function CyclingLabel({ words, textStyle, intervalMs = 2800 }, ref) {
+export function CyclingLabel({ words, textStyle, intervalMs = 2800, ref }: CyclingLabelProps & { ref?: React.Ref<HTMLSpanElement> }) {
     const [idx, setIdx] = useState(0)
 
     useEffect(() => {
@@ -73,7 +72,7 @@ export const CyclingLabel = React.forwardRef<HTMLSpanElement, CyclingLabelProps>
     return (
       <span ref={ref} style={{ display: 'block', position: 'relative' }}>
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
+          <m.span
             key={words[idx]}
             initial={WORD_ENTER}
             animate={WORD_SHOW}
@@ -82,12 +81,11 @@ export const CyclingLabel = React.forwardRef<HTMLSpanElement, CyclingLabelProps>
             style={{ transformOrigin: 'left center', display: 'block', ...textStyle }}
           >
             {words[idx]}
-          </motion.span>
+          </m.span>
         </AnimatePresence>
       </span>
     )
-  },
-)
+}
 
 CyclingLabel.displayName = 'CyclingLabel'
 
@@ -113,7 +111,7 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
       <AnimatePresence mode="popLayout" initial={false}>
         {!showModel ? (
           // Souvenir mark - spins during thinking + choosing
-          <motion.div
+          <m.div
             key="souvenir"
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
             animate={shouldReduceMotion
@@ -133,10 +131,10 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
             style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <LogoIcon size={size} color="var(--streaming-indicator-label)" />
-          </motion.div>
+          </m.div>
         ) : (
           // Model icon - smooth crossfade in
-          <motion.div
+          <m.div
             key={`model-${llmId ?? 'default'}`}
             initial={shouldReduceMotion ? { opacity: 0 } : LOGO_ENTER}
             animate={shouldReduceMotion ? { opacity: 1 } : LOGO_SHOW}
@@ -148,7 +146,7 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
               ? <LlmIcon id={llmId} size={size} variant="color" />
               : <LogoIcon size={size} color="var(--streaming-indicator-label)" />
             }
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
@@ -157,11 +155,9 @@ export function StreamingLogo({ phase, llmId, size = 16 }: StreamingLogoProps) {
 
 // ── StreamingIndicator ─────────────────────────────────────────────────────────
 
-export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndicatorProps>(
-  function StreamingIndicator(
-    { phase, label, llmId, thinkingWords = THINKING_WORDS, className, style },
-    ref,
-  ) {
+export function StreamingIndicator(
+  { phase, label, llmId, thinkingWords = THINKING_WORDS, className, style, ref }: StreamingIndicatorProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const shouldReduceMotion = useReducedMotion() ?? false
 
     const isShimmering = (phase === 'thinking' || phase === 'choosing') && !shouldReduceMotion
@@ -197,7 +193,7 @@ export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndi
     const labelStyle = isShimmering ? shimmerStyle : plainStyle
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         className={cn(className)}
         animate={
@@ -225,7 +221,7 @@ export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndi
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>
           <AnimatePresence mode="popLayout" initial={false}>
             {phase === 'thinking' ? (
-              <motion.div
+              <m.div
                 key="thinking"
                 initial={LABEL_ENTER}
                 animate={LABEL_SHOW}
@@ -237,9 +233,9 @@ export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndi
                   words={thinkingWords}
                   textStyle={{ ...labelBaseStyle, ...labelStyle }}
                 />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.span
+              <m.span
                 key={label ?? phase}
                 initial={LABEL_ENTER}
                 animate={LABEL_SHOW}
@@ -248,14 +244,13 @@ export const StreamingIndicator = React.forwardRef<HTMLDivElement, StreamingIndi
                 style={{ ...labelBaseStyle, ...labelStyle, display: 'block' }}
               >
                 {label}
-              </motion.span>
+              </m.span>
             )}
           </AnimatePresence>
         </div>
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 StreamingIndicator.displayName = 'StreamingIndicator'
 export default StreamingIndicator

@@ -21,11 +21,9 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
-  function StatCard(
-    { label, value, delta, deltaTrend = 'up', sub, className, style, ...props },
-    ref,
-  ) {
+export function StatCard(
+  { label, value, delta, deltaTrend = 'up', sub, className, style, ref, ...props }: StatCardProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [hovered, setHovered] = React.useState(false)
 
     return (
@@ -83,8 +81,7 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         )}
       </div>
     )
-  },
-)
+}
 
 StatCard.displayName = 'StatCard'
 export default StatCard

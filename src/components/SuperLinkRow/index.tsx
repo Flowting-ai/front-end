@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { CopyOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Badge, type BadgeColor } from '@/components/Badge'
@@ -36,15 +36,14 @@ export interface SuperLinkRowProps extends React.HTMLAttributes<HTMLDivElement> 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const SuperLinkRow = React.forwardRef<HTMLDivElement, SuperLinkRowProps>(
-  function SuperLinkRow(
-    {
-      personaName, avatarColor, url, tokenUsed, tokenLimit, status,
-      selected = false, onCopyUrl, onClick,
-      className, style, ...props
-    },
+export function SuperLinkRow(
+  {
     ref,
-  ) {
+    personaName, avatarColor, url, tokenUsed, tokenLimit, status,
+    selected = false, onCopyUrl, onClick,
+    className, style, ...props
+  }: SuperLinkRowProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [hovered, setHovered] = React.useState(false)
     const [copied, setCopied]   = React.useState(false)
     const copyTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -140,7 +139,7 @@ export const SuperLinkRow = React.forwardRef<HTMLDivElement, SuperLinkRowProps>(
             onClick={handleCopy}
             icon={
               <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
+                <m.span
                   key={copied ? 'check' : 'copy'}
                   initial={{ scale: 0.75, opacity: 0, filter: 'blur(4px)' }}
                   animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -149,7 +148,7 @@ export const SuperLinkRow = React.forwardRef<HTMLDivElement, SuperLinkRowProps>(
                   style={{ display: 'inline-flex', transformOrigin: 'center' }}
                 >
                   {copied ? <TickTwoIcon size={14} /> : <CopyOneIcon size={14} />}
-                </motion.span>
+                </m.span>
               </AnimatePresence>
             }
           />
@@ -158,8 +157,7 @@ export const SuperLinkRow = React.forwardRef<HTMLDivElement, SuperLinkRowProps>(
         <TokenBudgetBar used={tokenUsed} limit={tokenLimit} size="sm" />
       </div>
     )
-  },
-)
+}
 
 SuperLinkRow.displayName = 'SuperLinkRow'
 export default SuperLinkRow

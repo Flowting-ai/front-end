@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import Image from 'next/image'
+import { AnimatePresence, m } from 'framer-motion'
 import { UserIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { springs } from '@/lib/springs'
@@ -102,7 +103,7 @@ function LockedRow({
 }) {
   const isPersona = lockState === 'persona'
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springs.fast}
@@ -150,7 +151,7 @@ function LockedRow({
           <InlineAction label="Add one" onClick={onChangeLock} />
         </>
       )}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -203,7 +204,7 @@ export function PersonaSelectionCard({
           onRemove={lockState === 'persona' ? () => setLockState('none') : undefined}
         />
       ) : (
-        <motion.div
+        <m.div
           key="open"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -295,7 +296,7 @@ export function PersonaSelectionCard({
 
               {/* Avatar */}
               <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <Image src={avatarSrc} alt="" fill sizes="44px" unoptimized style={{ objectFit: 'cover', display: 'block' }} />
               </div>
 
               {/* Name · handle · description */}
@@ -378,7 +379,7 @@ export function PersonaSelectionCard({
         </Button>
       </div>
 
-    </motion.div>
+    </m.div>
       )}
     </AnimatePresence>
   )

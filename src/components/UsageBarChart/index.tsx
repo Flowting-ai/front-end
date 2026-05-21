@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+// eslint-disable-next-line react-doctor/prefer-dynamic-import -- chart primitives require synchronous import; component is already client-only
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
@@ -39,8 +40,7 @@ function fmtK(n: number): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const UsageBarChart = React.forwardRef<HTMLDivElement, UsageBarChartProps>(
-  function UsageBarChart({ days, series, mode, selectedId, height = 180, className, style, ...props }, ref) {
+export function UsageBarChart({ days, series, mode, selectedId, height = 180, className, style, ref, ...props }: UsageBarChartProps & { ref?: React.Ref<HTMLDivElement> }) {
     const reduceMotion = useReducedMotion() ?? false
 
     const data = React.useMemo(() => (
@@ -113,8 +113,7 @@ export const UsageBarChart = React.forwardRef<HTMLDivElement, UsageBarChartProps
         </ResponsiveContainer>
       </div>
     )
-  },
-)
+}
 
 UsageBarChart.displayName = 'UsageBarChart'
 export default UsageBarChart

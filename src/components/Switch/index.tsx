@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as SwitchPrimitive from '@radix-ui/react-switch'
-import { motion, useMotionValue, animate, useReducedMotion } from 'framer-motion'
+import { m, useMotionValue, animate, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { springs } from '@/lib/springs'
 
@@ -29,11 +29,9 @@ export interface SwitchProps
   disableInteractionAnimation?: boolean
 }
 
-const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitive.Root>,
-  SwitchProps
->(function Switch(
+function Switch(
   {
+    ref: forwardedRef,
     className,
     style,
     checked,
@@ -42,8 +40,7 @@ const Switch = React.forwardRef<
     disabled,
     disableInteractionAnimation = false,
     ...props
-  },
-  forwardedRef,
+  }: SwitchProps & { ref?: React.Ref<React.ElementRef<typeof SwitchPrimitive.Root>> },
 ) {
   // OS-level "Reduce motion" preference. When true: skip the spring tweens,
   // the hover-pill, the press-squash, and drag (we still toggle on click).
@@ -157,7 +154,7 @@ const Switch = React.forwardRef<
   }
 
   return (
-    <motion.span
+    <m.span
       // Explicit tabIndex={-1} keeps the wrapper out of the Tab order - the
       // inner Radix button is the actual focus target. Without this, some
       // browsers gave the wrapper its own Tab stop (likely because of the
@@ -221,7 +218,7 @@ const Switch = React.forwardRef<
       {...props}
     >
       <SwitchPrimitive.Thumb asChild>
-        <motion.span
+        <m.span
           aria-hidden="true"
           className="absolute top-0 left-0 block rounded-[9.5px]"
           initial={false}
@@ -239,9 +236,9 @@ const Switch = React.forwardRef<
         />
       </SwitchPrimitive.Thumb>
     </SwitchPrimitive.Root>
-    </motion.span>
+    </m.span>
   )
-})
+}
 
 Switch.displayName = 'Switch'
 

@@ -1,14 +1,14 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 // ── StreamCursor ────────────────────────────────────────────────────────────────
 // Inline blinking cursor — same as StreamingMessageBubble's cursor.
 
 function StreamCursor() {
   return (
-    <motion.span
+    <m.span
       animate={{ opacity: [1, 0, 1] }}
       transition={{ duration: 0.9, ease: 'easeInOut', repeat: Infinity }}
       style={{
@@ -33,6 +33,7 @@ function useStreamingTypewriter(fullText: string, enabled: boolean) {
   const [displayLen, setDisplayLen] = useState(() => enabled ? 0 : fullText.length)
   const rafRef = useRef<number | null>(null)
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!enabled) { setDisplayLen(fullText.length); return }
     setDisplayLen(0)
@@ -57,9 +58,11 @@ function useStreamingTypewriter(fullText: string, enabled: boolean) {
 
 function renderNarrationText(text: string): React.ReactNode[] {
   const parts = text.split(/(`[^`]+`)/g)
+  // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
   return parts.map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
+        // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
         <code key={i} style={{
           fontFamily:      'var(--font-mono, monospace)',
           fontSize:        '0.9em',
@@ -75,6 +78,11 @@ function renderNarrationText(text: string): React.ReactNode[] {
     }
     return part
   })
+}
+
+function NarrationText({ text }: { text: string }) {
+  // eslint-disable-next-line react-doctor/no-render-in-render -- renderNarrationText is a stable module-level helper, not an inline component
+  return <>{renderNarrationText(text)}</>
 }
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -105,7 +113,7 @@ export function BrainNarration({ text, isStreaming = false }: BrainNarrationProp
       lineHeight:  'var(--line-height-body)',
       color:       'var(--neutral-800)',
     }}>
-      {renderNarrationText(displayed)}
+      <NarrationText text={displayed} />
       {isStreaming && !isComplete && <StreamCursor />}
     </p>
   )

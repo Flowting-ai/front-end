@@ -37,7 +37,7 @@ const ORG_ITEMS = [
 ]
 
 export function SettingsSidebar() {
-  const router  = useRouter()
+  const { push } = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
 
@@ -70,7 +70,7 @@ export function SettingsSidebar() {
           size="sm"
           aria-label="Go back"
           icon={<ArrowLeftOneIcon size={20} />}
-          onClick={() => router.push('/chat')}
+          onClick={() => push('/chat')}
         />
         <p style={{
           fontFamily:   'var(--font-title)',
@@ -138,7 +138,7 @@ export function SettingsSidebar() {
                   icon={item.icon}
                   label={item.label}
                   selected={pathname === item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => push(item.href)}
                 />
               )
             ))}
@@ -180,7 +180,7 @@ export function SettingsSidebar() {
                   icon={item.icon}
                   label={item.label}
                   selected={pathname === item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => push(item.href)}
                 />
               )
             ))}
@@ -203,7 +203,7 @@ export function SettingsSidebar() {
           variant="account-item"
           label={displayName || 'Account'}
           sublabel={user?.email ?? ''}
-          onSettingsClick={() => router.push('/settings/account')}
+          onSettingsClick={() => push('/settings/account')}
         />
       </div>
     </div>

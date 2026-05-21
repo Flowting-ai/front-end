@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { BrainTwoIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 
@@ -41,6 +41,7 @@ export function BrainResultHeader({
   children,
   defaultCollapsed = true,
 }: BrainResultHeaderProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const hasChildren = children != null
 
@@ -76,13 +77,13 @@ export function BrainResultHeader({
         {summary}
       </span>
       {hasChildren && (
-        <motion.span
+        <m.span
           animate={{ rotate: collapsed ? 0 : 180 }}
           transition={springs.fast}
           style={{ lineHeight: 0, display: 'inline-flex', flexShrink: 0 }}
         >
           <ArrowDownOneIcon size={11} color="var(--neutral-400)" />
-        </motion.span>
+        </m.span>
       )}
     </div>
   )
@@ -101,7 +102,7 @@ export function BrainResultHeader({
       </button>
       <AnimatePresence initial={false}>
         {!collapsed && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -109,7 +110,7 @@ export function BrainResultHeader({
             style={{ overflow: 'hidden' }}
           >
             {children}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

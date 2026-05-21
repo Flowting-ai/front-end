@@ -136,6 +136,7 @@ export function ChatInterface({
   onClearInitialFiles,
   chips,
   selectedFolders,
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [inputValue, setInputValue] = useState("");
@@ -332,6 +333,7 @@ export function ChatInterface({
   // ── Pin-mention handlers ────────────────────────────────────────────────────
 
   // Reset highlighted index whenever the filtered list changes.
+  // eslint-disable-next-line react-doctor/no-derived-state-effect -- index reset on filter change; not a component-level key-prop candidate
   useEffect(() => {
     setHighlightedPinIndex(0);
   }, [filteredPins]);

@@ -42,11 +42,8 @@ const PIP_SIZE          = 4
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Slider = React.forwardRef<
-  React.ComponentRef<typeof SliderPrimitive.Root>,
-  SliderProps
->(function Slider(
-  {
+export function Slider({
+    ref,
     className,
     style,
     value,
@@ -64,9 +61,7 @@ export const Slider = React.forwardRef<
     fillColor = 'var(--neutral-700)',
     disabled,
     ...props
-  },
-  ref,
-) {
+  }: SliderProps & { ref?: React.Ref<React.ComponentRef<typeof SliderPrimitive.Root>> }) {
   // Track the value internally for tooltip / step-dot rendering.
   const isControlled = value !== undefined
   const [internalValue, setInternalValue] = React.useState<number[]>(
@@ -165,8 +160,8 @@ export const Slider = React.forwardRef<
               const pipValue = min + i * step
               const active   = current[0] >= pipValue
               return (
-                <span
-                  key={i}
+                // eslint-disable-next-line react/no-array-index-as-key
+                <span key={i}
                   style={{
                     width:           PIP_SIZE,
                     height:          PIP_SIZE,
@@ -181,8 +176,8 @@ export const Slider = React.forwardRef<
         )}
 
         {current.map((_, i) => (
-          <SliderPrimitive.Thumb
-            key={i}
+          // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- slider thumbs are positionally stable by definition
+          <SliderPrimitive.Thumb key={i}
             aria-label={props['aria-label'] ?? 'Value'}
             className="kds-slider-thumb"
             style={{
@@ -226,7 +221,7 @@ export const Slider = React.forwardRef<
       </SliderPrimitive.Root>
     </div>
   )
-})
+}
 
 Slider.displayName = 'Slider'
 

@@ -1,15 +1,15 @@
-'use client'
+﻿'use client'
 
-import React, { createContext, useCallback, useContext, useState } from 'react'
+import React, { createContext, useCallback, use, useState } from 'react'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface SidebarContextValue {
   /** Whether the sidebar is open */
   open: boolean
   /** Programmatically set open state */
   setOpen: (open: boolean) => void
-  /** Toggle open ↔ closed */
+  /** Toggle open â†” closed */
   toggleSidebar: () => void
 }
 
@@ -23,11 +23,11 @@ export interface SidebarProviderProps {
   defaultOpen?: boolean
 }
 
-// ── Context ────────────────────────────────────────────────────────────────────
+// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SidebarContext = createContext<SidebarContextValue | null>(null)
 
-// ── Cookie helpers ─────────────────────────────────────────────────────────────
+// â”€â”€ Cookie helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const COOKIE_KEY     = 'sidebar:state'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
@@ -42,7 +42,7 @@ function writeCookie(value: boolean) {
   document.cookie = `${COOKIE_KEY}=${value}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`
 }
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function SidebarProvider({
   children,
@@ -64,10 +64,10 @@ export function SidebarProvider({
   )
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useSidebar(): SidebarContextValue {
-  const ctx = useContext(SidebarContext)
+  const ctx = use(SidebarContext)
   if (!ctx) throw new Error('[Kaya] useSidebar must be used inside <SidebarProvider>')
   return ctx
 }

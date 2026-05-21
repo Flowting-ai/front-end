@@ -69,8 +69,8 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
   if (display.type === 'multi') {
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {display.values.map((v, i) => (
-          <AnswerChip key={i}>{v}</AnswerChip>
+        {display.values.map((v) => (
+          <AnswerChip key={v}>{v}</AnswerChip>
         ))}
       </div>
     )
@@ -80,7 +80,7 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {display.items.map((v, i) => (
-          <AnswerChip key={i}>
+          <AnswerChip key={v}>
             <span style={{ color: 'var(--neutral-400)', fontWeight: 'var(--font-weight-medium)' }}>
               {i + 1}
             </span>
@@ -122,7 +122,7 @@ export function ClarificationSummary({ items }: ClarificationSummaryProps) {
     }}>
       {items.map(({ question, answer }, i) => (
         <div
-          key={i}
+          key={question}
           style={{
             display:       'flex',
             flexDirection: 'column',

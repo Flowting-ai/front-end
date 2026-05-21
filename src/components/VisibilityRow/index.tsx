@@ -143,25 +143,24 @@ export interface VisibilityRowProps extends React.HTMLAttributes<HTMLDivElement>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const VisibilityRow = React.forwardRef<HTMLDivElement, VisibilityRowProps>(
-  function VisibilityRow(
-    {
-      label             = '',
-      description       = '',
-      selected          = false,
-      locked            = false,
-      lockedBadgeLabel  = 'Team plan',
-      onUpgrade,
-      disabled          = false,
-      asChild           = false,
-      className,
-      style,
-      onClick,
-      onKeyDown,
-      ...props
-    },
+export function VisibilityRow(
+  {
     ref,
-  ) {
+    label             = '',
+    description       = '',
+    selected          = false,
+    locked            = false,
+    lockedBadgeLabel  = 'Team plan',
+    onUpgrade,
+    disabled          = false,
+    asChild           = false,
+    className,
+    style,
+    onClick,
+    onKeyDown,
+    ...props
+  }: VisibilityRowProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const Comp = (asChild ? Slot : 'div') as React.ElementType
     const [focused, setFocused] = useState(false)
 
@@ -266,8 +265,7 @@ export const VisibilityRow = React.forwardRef<HTMLDivElement, VisibilityRowProps
         )}
       </Comp>
     )
-  },
-)
+}
 
 VisibilityRow.displayName = 'VisibilityRow'
 export default VisibilityRow

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { Button } from '@/components/Button'
 import { Checkbox } from '@/components/Checkbox'
 import { springs } from '@/lib/springs'
@@ -33,7 +33,7 @@ export function ScheduleDeleteModal({
   return (
     <AnimatePresence initial={false}>
       {isOpen && (
-        <motion.div
+        <m.div
           key="schedule-delete-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -47,11 +47,11 @@ export function ScheduleDeleteModal({
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
-            zIndex:          100,
+            zIndex:          20,
             padding:         24,
           }}
         >
-          <motion.div
+          <m.div
             key="schedule-delete-card"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -93,6 +93,7 @@ export function ScheduleDeleteModal({
             </p>
 
             {/* Clear history checkbox */}
+            {/* eslint-disable-next-line react-doctor/label-has-associated-control -- label wraps Checkbox (custom component); association via nesting is valid */}
             <label style={{
               display:    'flex',
               alignItems: 'center',
@@ -142,8 +143,8 @@ export function ScheduleDeleteModal({
               </button>
             </div>
 
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

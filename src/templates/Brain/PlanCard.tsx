@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import Image from 'next/image'
+import { AnimatePresence, m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
   AlertCircleIcon,
@@ -89,7 +90,7 @@ function StepCircle({ status, index, size = 28 }: StepCircleProps) {
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
       }}>
-        —
+        {'—'}
       </div>
     )
   }
@@ -169,7 +170,7 @@ function ConnectorRow({ connector }: { connector: ConnectorRequirement }) {
         overflow:        'hidden',
       }}>
         {connector.logoUrl
-          ? <img src={connector.logoUrl} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          ? <Image src={connector.logoUrl} alt="" width={20} height={20} unoptimized style={{ objectFit: 'contain' }} />
           : <div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: 'var(--neutral-200)' }} />
         }
       </div>
@@ -223,13 +224,13 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
   const needsAuth = !!step.requiresConnector && !step.requiresConnector.isConnected
 
   return (
-    <motion.div
+    <m.div
       style={{ overflow: 'hidden' }}
       initial={planStepsAnimatedOnce ? false : { height: 0 }}
       animate={{ height: 'auto' }}
       transition={{ ...springs.slow, delay: animDelay }}
     >
-      <motion.div
+      <m.div
         initial={planStepsAnimatedOnce ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, delay: animDelay + 0.08, ease: 'easeOut' }}
@@ -298,8 +299,8 @@ function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProp
             {needsAuth && <ConnectorRow connector={step.requiresConnector!} />}
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   )
 }
 
@@ -349,13 +350,13 @@ interface PlanParallelGroupProps {
 
 function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: PlanParallelGroupProps) {
   return (
-    <motion.div
+    <m.div
       style={{ overflow: 'hidden' }}
       initial={planStepsAnimatedOnce ? false : { height: 0 }}
       animate={{ height: 'auto' }}
       transition={{ ...springs.slow, delay: animDelay }}
     >
-      <motion.div
+      <m.div
         initial={planStepsAnimatedOnce ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.24, delay: animDelay + 0.08, ease: 'easeOut' }}
@@ -431,8 +432,8 @@ function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: Pla
             </div>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   )
 }
 

@@ -1,7 +1,8 @@
 'use client'
 
+import { Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { PinIcon, AtomOneIcon, QuillWriteOneIcon } from '@strange-huge/icons'
 import { FloatingMenu } from '@/components/FloatingMenu'
 import { FloatingMenuItem } from '@/components/FloatingMenuItem'
@@ -23,7 +24,7 @@ function useCurrentChatId(): string | undefined {
   return searchParams.get('id') ?? undefined
 }
 
-export function FloatingPanel() {
+function FloatingPanelImpl() {
   const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
@@ -64,8 +65,7 @@ export function FloatingPanel() {
   // until the backend provides chat_id in the response.
   const gutterMarks: GutterMark[] = currentChatId
     ? highlights
-        .filter(h => !h.chatId || h.chatId === currentChatId)
-        .map(h => ({ id: h.id, colorIndex: h.colorIndex }))
+        .flatMap(h => (!h.chatId || h.chatId === currentChatId) ? [{ id: h.id, colorIndex: h.colorIndex }] : [])
     : []
 
   return (
@@ -73,7 +73,7 @@ export function FloatingPanel() {
       {/* Gutter - right edge of chat, between TopBar and FloatingMenu */}
       <AnimatePresence>
         {gutterMarks.length > 0 && (
-          <motion.div
+          <m.div
             key="chat-gutter"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -87,7 +87,7 @@ export function FloatingPanel() {
             }}
           >
             <JumpTimestampGutter marks={gutterMarks} onJump={handleJump} />
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -124,4 +124,8 @@ export function FloatingPanel() {
       </div>
     </>
   )
+}
+
+export function FloatingPanel() {
+  return <Suspense fallback={null}><FloatingPanelImpl /></Suspense>
 }

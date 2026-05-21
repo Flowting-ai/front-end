@@ -21,8 +21,7 @@ const INNER_SHADOW  = 'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const OptionBadge = React.forwardRef<HTMLDivElement, OptionBadgeProps>(
-  function OptionBadge({ variant = 'number', num = 1, className, ...props }, ref) {
+export function OptionBadge({ ref, variant = 'number', num = 1, className, ...props }: OptionBadgeProps & { ref?: React.Ref<HTMLDivElement> }) {
     return (
       <div
         ref={ref}
@@ -75,8 +74,7 @@ export const OptionBadge = React.forwardRef<HTMLDivElement, OptionBadgeProps>(
         />
       </div>
     )
-  },
-)
+}
 
 OptionBadge.displayName = 'OptionBadge'
 export default OptionBadge

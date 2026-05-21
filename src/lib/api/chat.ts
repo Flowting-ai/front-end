@@ -276,8 +276,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
 function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").BackendFileAttachment[] {
   if (!Array.isArray(raw.file_attachments) || raw.file_attachments.length === 0) return [];
   return raw.file_attachments
-    .filter((a) => a != null)
-    .map((a) => ({
+    .flatMap((a) => a != null ? [{
       file_link: a.file_link ?? undefined,
       url: a.url ?? undefined,
       link: a.link ?? undefined,
@@ -285,7 +284,7 @@ function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").B
       file_name: a.file_name ?? undefined,
       name: a.name ?? undefined,
       origin: a.origin ?? undefined,
-    }));
+    }] : []);
 }
 
 /** Extract sources from any of the known backend shapes. */
@@ -293,27 +292,25 @@ function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
   // Explicit sources array
   if (Array.isArray(raw.sources) && raw.sources.length > 0) {
     return raw.sources
-      .filter((s) => s && (s.url || s.title))
-      .map((s, i) => ({
+      .flatMap((s, i) => s && (s.url || s.title) ? [{
         id: s.id ?? String(i),
         url: s.url ?? "",
         title: s.title ?? s.url ?? "",
         favicon: s.favicon,
-      }));
+      }] : []);
   }
   // Explicit web_citations array
   if (Array.isArray(raw.web_citations) && raw.web_citations.length > 0) {
     return raw.web_citations
-      .filter((s) => s && (s.url || s.title))
-      .map((s, i) => ({
+      .flatMap((s, i) => s && (s.url || s.title) ? [{
         id: String(i),
         url: s.url ?? "",
         title: s.title ?? s.url ?? "",
-      }));
+      }] : []);
   }
   // web_searches format: [{query, links: string[]}] - links are bare URLs
   if (Array.isArray(raw.web_searches) && raw.web_searches.length > 0) {
-    const allLinks = raw.web_searches.flatMap((ws) => ws.links ?? []).filter(Boolean);
+    const allLinks = raw.web_searches.flatMap((ws) => (ws.links ?? []).filter(Boolean));
     if (allLinks.length > 0) {
       return allLinks.map((url, i) => {
         let domain = "";
@@ -334,13 +331,12 @@ function parseSources(raw: BackendMessage): import("@/types/chat").Source[] {
     const ms = (meta.sources ?? meta.web_citations ?? meta.citations) as Array<Record<string, string>> | undefined;
     if (Array.isArray(ms) && ms.length > 0) {
       return ms
-        .filter((s) => s && (s.url || s.title))
-        .map((s, i) => ({
+        .flatMap((s, i) => s && (s.url || s.title) ? [{
           id: s.id ?? String(i),
           url: s.url ?? "",
           title: s.title ?? s.url ?? "",
           favicon: s.favicon,
-        }));
+        }] : []);
     }
   }
   return [];

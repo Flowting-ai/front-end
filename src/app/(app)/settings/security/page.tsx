@@ -42,7 +42,7 @@ function GreenBadge({ children }: { children: React.ReactNode }) {
       <span style={{
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--green-800)',
         padding:    '0 2px',
@@ -69,7 +69,7 @@ function BrownBadge({ children }: { children: React.ReactNode }) {
       <span style={{
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--brown-700)',
         padding:    '0 2px',
@@ -96,7 +96,7 @@ function YellowBadge({ children }: { children: React.ReactNode }) {
       <span style={{
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      '#6d5921',
         padding:    '0 2px',
@@ -257,7 +257,7 @@ function SessionRow({
           <span style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize:   11,
+            fontSize: 12,
             lineHeight: '16px',
             color:      'var(--neutral-500)',
             whiteSpace: 'nowrap',
@@ -267,7 +267,7 @@ function SessionRow({
           <span style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize:   11,
+            fontSize: 12,
             lineHeight: '16px',
             color:      'var(--neutral-500)',
             whiteSpace: 'nowrap',
@@ -381,7 +381,7 @@ export default function SecurityPage() {
                   <span style={{
                     fontFamily: 'var(--font-body)',
                     fontWeight: 500,
-                    fontSize:   11,
+                    fontSize: 12,
                     lineHeight: '16px',
                     color:      '#a28847',
                   }}>
@@ -391,7 +391,7 @@ export default function SecurityPage() {
                 <p style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
-                  fontSize:   11,
+                  fontSize: 12,
                   lineHeight: '16px',
                   color:      'var(--neutral-500)',
                   margin:     0,
@@ -452,7 +452,7 @@ export default function SecurityPage() {
                   fontSize:   14,
                   lineHeight: '22px',
                   color:      'var(--neutral-500)',
-                  letterSpacing: '0.12em',
+                  letterSpacing: '0.04em',
                 }}>
                   ••••••••••••••••
                 </span>
@@ -509,8 +509,8 @@ export default function SecurityPage() {
             right={<GhostButton>Log out all devices</GhostButton>}
           />
           {sessions.map((session, i) => (
-            <SessionRow
-              key={i}
+            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- sessions are ordered by recency, index is stable
+            <SessionRow key={i}
               browser={session.browser}
               location={session.location}
               lastActive={session.lastActive}
@@ -563,7 +563,7 @@ export default function SecurityPage() {
               <p style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 400,
-                fontSize:   11,
+                fontSize: 12,
                 lineHeight: '16px',
                 color:      'var(--neutral-500)',
                 margin:     0,

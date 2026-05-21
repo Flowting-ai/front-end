@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useEffectEvent, useCallback } from 'react'
+import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import {
   CancelOneIcon,
@@ -46,6 +47,8 @@ const PERMISSION_OPTIONS: { value: SharePermission; label: string; icon: React.R
 function permissionLabel(p: SharePermission): string {
   return PERMISSION_OPTIONS.find((o) => o.value === p)?.label ?? 'Can use'
 }
+
+const EMPTY_SHARE_PEOPLE: ShareModalPerson[] = []
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -98,18 +101,19 @@ function PermissionMenu({ triggerRef, current, onSelect, onRemove, onClose }: Pe
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close when clicking outside — use capture so it fires before any bubbling
+  const closeMenu = useEffectEvent(onClose)
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       if (
         menuRef.current    && !menuRef.current.contains(e.target as Node) &&
         triggerRef.current && !triggerRef.current.contains(e.target as Node)
       ) {
-        onClose()
+        closeMenu()
       }
     }
     document.addEventListener('pointerdown', handlePointerDown, { capture: true })
     return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true })
-  }, [onClose, triggerRef])
+  }, [triggerRef])
 
   // Focus first item when opened
   useEffect(() => {
@@ -149,7 +153,7 @@ function PermissionMenu({ triggerRef, current, onSelect, onRemove, onClose }: Pe
         position: 'absolute',
         top:      'calc(100% + 4px)',
         right:    0,
-        zIndex:   200,
+        zIndex:   21,
         padding:  4,
         minWidth: 160,
       }}
@@ -220,12 +224,13 @@ function PersonRow({ person, onPermissionChange, onRemove }: PersonRowProps) {
     >
       {/* Avatar */}
       {person.avatarUrl ? (
-        <img
+        <Image
           src={person.avatarUrl}
           alt={`${person.name} avatar`}
+          width={40}
+          height={40}
+          unoptimized
           style={{
-            width:        40,
-            height:       40,
             borderRadius: '50%',
             objectFit:    'cover',
             flexShrink:   0,
@@ -377,13 +382,12 @@ function PersonRow({ person, onPermissionChange, onRemove }: PersonRowProps) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ShareModal = React.forwardRef<HTMLDivElement, ShareModalProps>(
-  function ShareModal(
-    {
+export function ShareModal({
+      ref,
       personaName       = '',
       personaAvatarUrl,
       personaAvatarAlt,
-      people            = [],
+      people            = EMPTY_SHARE_PEOPLE,
       loading           = false,
       disabled          = false,
       onClose,
@@ -394,9 +398,7 @@ export const ShareModal = React.forwardRef<HTMLDivElement, ShareModalProps>(
       className,
       style,
       ...props
-    },
-    ref,
-  ) {
+    }: ShareModalProps & { ref?: React.Ref<HTMLDivElement> }) {
     const Comp       = (asChild ? Slot : 'div') as React.ElementType
     const inputRef   = useRef<HTMLInputElement>(null)
     const [emailDraft, setEmailDraft] = useState('')
@@ -483,12 +485,13 @@ export const ShareModal = React.forwardRef<HTMLDivElement, ShareModalProps>(
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             {/* Persona avatar */}
             {personaAvatarUrl ? (
-              <img
+              <Image
                 src={personaAvatarUrl}
                 alt={resolvedAlt}
+                width={36}
+                height={36}
+                unoptimized
                 style={{
-                  width:        36,
-                  height:       36,
                   borderRadius: 10,
                   objectFit:    'cover',
                   flexShrink:   0,
@@ -569,6 +572,7 @@ export const ShareModal = React.forwardRef<HTMLDivElement, ShareModalProps>(
             style={{
               flex:       1,
               border:     'none',
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline:    'none',
               background: 'transparent',
               fontFamily: 'var(--font-body)',
@@ -644,8 +648,7 @@ export const ShareModal = React.forwardRef<HTMLDivElement, ShareModalProps>(
 
       </Comp>
     )
-  },
-)
+}
 
 ShareModal.displayName = 'ShareModal'
 export default ShareModal

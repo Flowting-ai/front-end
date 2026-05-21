@@ -1,26 +1,26 @@
-'use client'
+﻿'use client'
 
 /**
- * ProjectDocumentCard – full-width list-item card for project file panels.
+ * ProjectDocumentCard â€“ full-width list-item card for project file panels.
  *
  * Design language mirrors ChatThumbnail (same CARD_SHADOW, framer-motion
  * entry/exit, hover-revealed remove button) but laid out as a horizontal
  * two-row card that fills the panel width.
  *
- *   ┌────────────────────────────────────────┐
- *   │  filename.pdf truncated…          [×] │
- *   │  [PDF • 1.2 MB]                        │
- *   └────────────────────────────────────────┘
+ *   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ *   â”‚  filename.pdf truncatedâ€¦          [Ã—] â”‚
+ *   â”‚  [PDF â€¢ 1.2 MB]                        â”‚
+ *   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
  *
  * Figma: KDS 4174-23401 (Document cards, project variant)
  */
 
 import * as React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Badge, type BadgeColor } from '@/components/Badge'
 
-// ── File-extension → badge colour (mirrors ChatThumbnail) ─────────────────────
+// â”€â”€ File-extension â†’ badge colour (mirrors ChatThumbnail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const FILE_EXT_COLOR: Record<string, BadgeColor> = {
   pdf:  'Red',
@@ -52,31 +52,29 @@ function extractExt(name: string): { ext: string; color: BadgeColor } {
 const CARD_SHADOW =
   '0px 4px 4px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ProjectDocumentCardProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   name:       string
   sizeLabel?: string
-  /** Shows a spinner instead of remove button – for optimistic upload rows. */
+  /** Shows a spinner instead of remove button â€“ for optimistic upload rows. */
   uploading?: boolean
   onRemove?:  React.MouseEventHandler<HTMLButtonElement>
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export const ProjectDocumentCard = React.forwardRef<HTMLDivElement, ProjectDocumentCardProps>(
-  function ProjectDocumentCard(
-    { name, sizeLabel, uploading, onRemove, style, onMouseEnter, onMouseLeave, ...props },
-    ref,
-  ) {
+export function ProjectDocumentCard(
+  { name, sizeLabel, uploading, onRemove, style, onMouseEnter, onMouseLeave, ref, ...props }: ProjectDocumentCardProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [removeButtonFocused, setRemoveButtonFocused] = React.useState(false)
 
     const { ext, color } = extractExt(name)
-    const badgeLabel = sizeLabel ? `${ext} • ${sizeLabel}` : ext
+    const badgeLabel = ext
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         layout
         initial={{ opacity: 0, scale: 0.97, filter: 'blur(2px)' }}
@@ -189,14 +187,26 @@ export const ProjectDocumentCard = React.forwardRef<HTMLDivElement, ProjectDocum
           </div>
 
           {/* Badge row */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Badge label={badgeLabel} color={uploading ? 'Neutral' : color} />
+            {sizeLabel && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  fontSize:   '12px',
+                  lineHeight: '16px',
+                  color:      'var(--neutral-600)',
+                }}
+              >
+                {sizeLabel}
+              </span>
+            )}
           </div>
         </div>
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 ProjectDocumentCard.displayName = 'ProjectDocumentCard'
 export default ProjectDocumentCard

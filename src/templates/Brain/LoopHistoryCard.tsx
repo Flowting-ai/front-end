@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   PlayListIcon,
   CheckmarkCircleTwoIcon,
@@ -62,6 +62,7 @@ export function LoopHistoryCard({
   runLabel,
   defaultOpen = false,
 }: LoopHistoryCardProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [open, setOpen] = useState(defaultOpen)
 
   const completedCount = steps.filter(s => s.status === 'complete').length
@@ -157,19 +158,19 @@ export function LoopHistoryCard({
           </span>
         )}
 
-        <motion.div
+        <m.div
           animate={{ rotate: open ? 180 : 0 }}
           transition={springs.fast}
           style={{ flexShrink: 0, lineHeight: 0 }}
         >
           <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
-        </motion.div>
+        </m.div>
       </button>
 
       {/* Expandable step list */}
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{    height: 0, opacity: 0 }}
@@ -209,7 +210,7 @@ export function LoopHistoryCard({
                 </div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

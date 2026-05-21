@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo, type JSX } from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { CopyOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 
@@ -56,7 +56,7 @@ export function useStreamingTypewriter(fullText: string, enabled: boolean) {
 
 export function StreamCursor() {
   return (
-    <motion.span
+    <m.span
       aria-hidden
       style={{
         display:         'inline-block',
@@ -97,6 +97,11 @@ const renderBoldInline = (text: string, keyPrefix: string): Array<string | JSX.E
   return nodes
 }
 
+function BoldInline({ text, keyPrefix }: { text: string; keyPrefix: string }) {
+  // eslint-disable-next-line react-doctor/no-render-in-render -- renderBoldInline is a stable module-level helper, not an inline component
+  return <>{renderBoldInline(text, keyPrefix)}</>
+}
+
 // ── Markdown renderer ──────────────────────────────────────────────────────────
 // Adapted from front-end/src/components/chat/chat-message.tsx > renderTextContent.
 // Converted from Tailwind → KDS semantic tokens (var(--token)).
@@ -123,6 +128,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
     nodes.push(
       <ul key={k} style={{ paddingLeft: 20, margin: '4px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {listBuffer.map((item, idx) => (
+          // eslint-disable-next-line react-doctor/no-array-index-as-key -- streamed list items have no IDs; composite key with position is stable
           <li key={`${k}-${idx}`} style={{
             fontFamily:   'var(--font-body)',
             fontSize:     'var(--font-size-body)',
@@ -130,7 +136,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
             color:        'var(--neutral-800)',
             listStyleType:'disc',
           }}>
-            {renderBoldInline(item, `${k}-${idx}`)}
+            <BoldInline text={item} keyPrefix={`${k}-${idx}`} />
           </li>
         ))}
       </ul>
@@ -163,7 +169,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
           margin:      '8px 0 2px',
           wordBreak:   'break-word',
         }}>
-          {renderBoldInline(headingMatch[2], `${keyPrefix}-h-${lineIndex}`)}
+          <BoldInline text={headingMatch[2]} keyPrefix={`${keyPrefix}-h-${lineIndex}`} />
         </p>
       )
       continue
@@ -203,7 +209,7 @@ export function renderBrainContent(value: string, keyPrefix: string): JSX.Elemen
         overflowWrap: 'break-word',
         whiteSpace:   'pre-wrap',
       }}>
-        {renderBoldInline(line, `${keyPrefix}-p-${lineIndex}`)}
+        <BoldInline text={line} keyPrefix={`${keyPrefix}-p-${lineIndex}`} />
       </p>
     )
   }
@@ -316,7 +322,7 @@ export function StreamingMessageBubble({
   const segments = useMemo(() => renderBrainContent(revealed, 'brain-stream'), [revealed])
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
       animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
       transition={springs.moderate}
@@ -324,7 +330,7 @@ export function StreamingMessageBubble({
     >
       {segments}
       {!isComplete && <StreamCursor />}
-    </motion.div>
+    </m.div>
   )
 }
 

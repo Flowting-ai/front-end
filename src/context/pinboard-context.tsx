@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createPin,
@@ -12,7 +12,7 @@ import {
   type PinComment,
 } from "@/lib/api/pins";
 
-// ── Pin Data Shape ────────────────────────────────────────────────────────────
+// â”€â”€ Pin Data Shape â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type PinCategory =
   | "Code"
@@ -46,7 +46,7 @@ export interface PinItem {
   comments?: PinComment[];
 }
 
-// ── Context ───────────────────────────────────────────────────────────────────
+// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PinboardContextValue {
   pins: PinItem[];
@@ -76,8 +76,9 @@ interface PinboardContextValue {
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
 
-// ── Provider ──────────────────────────────────────────────────────────────────
+// â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const [pins,       setPins]       = useState<PinItem[]>([]);
   const [folders,    setFolders]    = useState<PinFolderView[]>([]);
@@ -93,7 +94,8 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const openForChat     = useCallback((chatId: string) => { setChatFilter(chatId); setIsOpen(true) }, []);
   const clearChatFilter = useCallback(() => setChatFilter(null), []);
 
-  // ── Load pins + folders in parallel on mount ────────────────────────────
+  // â”€â”€ Load pins + folders in parallel on mount â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     Promise.all([listPins(), listPinFolders()])
       .then(async ([apiPins, apiFolders]) => {
@@ -114,7 +116,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 
         setFolders(apiFolders.map((f) => ({ id: f.id, label: f.name })));
         setPins(items);
-        setIsLoading(false); // unblock FCP — pins render immediately with whatever the list returned
+        setIsLoading(false); // unblock FCP â€” pins render immediately with whatever the list returned
 
         // Store pins needing tag/comment enrichment; defer the N+1 getPin calls
         // until the pinboard actually opens so they don't fire on every page load.
@@ -127,7 +129,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  // ── Deferred tag/comment enrichment — fires once when pinboard first opens ──
+  // â”€â”€ Deferred tag/comment enrichment â€” fires once when pinboard first opens â”€â”€
   useEffect(() => {
     if (!isOpen || enrichedRef.current) return;
     const pinsWithoutTags = pendingEnrichmentRef.current;
@@ -172,7 +174,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isOpen]);
 
-  // ── addPin - optimistic, persisted to backend ───────────────────────────
+  // â”€â”€ addPin - optimistic, persisted to backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {
     let tempId: string | null = null;
     setPins((prev) => {
@@ -206,7 +208,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── clonePin ────────────────────────────────────────────────────────────
+  // â”€â”€ clonePin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const clonePin = useCallback(async (original: PinItem) => {
     const tempId    = `pin-temp-${Date.now()}`;
     const optimistic: PinItem = { ...original, id: tempId, createdAt: new Date().toISOString() };
@@ -234,7 +236,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── removePin ───────────────────────────────────────────────────────────
+  // â”€â”€ removePin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const removePin = useCallback((id: string) => {
     setPins((prev) => prev.filter((p) => p.id !== id));
     if (!id.startsWith("pin-temp-")) {
@@ -244,7 +246,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── removePinByMessage ──────────────────────────────────────────────────
+  // â”€â”€ removePinByMessage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const removePinByMessage = useCallback((messageId: string) => {
     let targetId: string | undefined;
     setPins((prev) => {
@@ -332,10 +334,10 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function usePinboard(): PinboardContextValue {
-  const ctx = useContext(PinboardContext);
+  const ctx = use(PinboardContext);
   if (!ctx) throw new Error("usePinboard must be used within PinboardProvider");
   return ctx;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
@@ -38,6 +39,7 @@ function RoleCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- hovered feeds isActive which is used in render
   const [hovered, setHovered] = useState(false);
   const isActive = selected || hovered;
 
@@ -133,10 +135,8 @@ function RoleCard({
 }
 
 export default function OnboardingRolePage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { data, setRole, setRoleOther } = useOnboarding();
-  const [hovered, setHovered] = useState(false);
-
   const canContinue = data.role !== null && (data.role !== "Other" || data.roleOther.trim().length > 0);
 
   return (
@@ -210,8 +210,6 @@ export default function OnboardingRolePage() {
         <button
           type="button"
           onClick={() => setRole("Other")}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
           style={{
             display: "flex",
             gap: "12px",
@@ -288,6 +286,7 @@ export default function OnboardingRolePage() {
 
           {/* Input - shown when Other is selected */}
           {data.role === "Other" && (
+            // eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements
             <div
               onClick={(e) => e.stopPropagation()}
               style={{ width: 327, flexShrink: 0 }}
@@ -305,28 +304,29 @@ export default function OnboardingRolePage() {
 
       {/* Nav buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-        <Button variant="outline" size="sm" onClick={() => router.push("/onboarding/welcome")}>
+        <Button variant="outline" size="sm" onClick={() => push("/onboarding/welcome")}>
           Back
         </Button>
-        <Button size="sm" disabled={!canContinue} onClick={() => router.push("/onboarding/tone")}>
+        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances to tone step; flow context makes action clear */}
+        <Button size="sm" disabled={!canContinue} onClick={() => push("/onboarding/tone")}>
           Continue
         </Button>
       </div>
 
       {/* Log out */}
-      <a
+      <Link
         href="/auth/logout"
         style={{
           fontFamily: "var(--font-body)",
           fontWeight: 400,
-          fontSize: "11px",
+          fontSize: "12px",
           lineHeight: "16px",
           color: "#0d6eb2",
           textDecoration: "underline",
         }}
       >
         Log out
-      </a>
+      </Link>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 
 interface ModelChoosingIndicatorProps {
   modelName?: string | null;
@@ -18,7 +18,7 @@ export function ModelChoosingIndicator({
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.9, y: 4 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -2 }}
@@ -35,7 +35,7 @@ export function ModelChoosingIndicator({
           }}
         >
           {/* Animated sparkle icon */}
-          <motion.svg
+          <m.svg
             width="14"
             height="14"
             viewBox="0 0 16 16"
@@ -47,7 +47,7 @@ export function ModelChoosingIndicator({
               d="M8 1L9.5 6.5L15 8L9.5 9.5L8 15L6.5 9.5L1 8L6.5 6.5L8 1Z"
               fill="var(--neutral-600)"
             />
-          </motion.svg>
+          </m.svg>
 
           <span
             style={{
@@ -59,7 +59,7 @@ export function ModelChoosingIndicator({
           >
             Using{" "}
             <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
+              <m.span
                 key={modelName ?? "model"}
                 initial={{ opacity: 0, filter: "blur(3px)" }}
                 animate={{ opacity: 1, filter: "blur(0px)" }}
@@ -68,10 +68,10 @@ export function ModelChoosingIndicator({
                 style={{ fontWeight: "var(--font-weight-semibold)", color: "var(--neutral-800)" }}
               >
                 {modelName ?? "model"}
-              </motion.span>
+              </m.span>
             </AnimatePresence>
           </span>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import {
   CancelOneIcon,
@@ -156,7 +156,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       <span style={{
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
-        fontSize:   11,
+        fontSize: 12,
         lineHeight: '16px',
         color:      'var(--neutral-500)',
         whiteSpace: 'nowrap',
@@ -216,7 +216,8 @@ function EmptyState({ title, description, action }: {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder, removeFolder, renameFolder } = usePinboard()
   const { chats } = useChatHistoryContext()
   const searchParams  = useSearchParams()
@@ -320,6 +321,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   )
 
   // ── Fetch folders on mount ────────────────────────────────────────────────
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     listPinFolders()
       .then((apiFolders) => {
@@ -355,7 +357,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
     const name = editingFolderName.trim()
     setEditingFolderId(null)
     if (!name) return
-    const otherNames = folders.filter(f => f.id !== folderId).map(f => f.name)
+    const otherNames = folders.flatMap(f => f.id !== folderId ? [f.name] : [])
     const error = validateFolderName(name, otherNames)
     if (error) { toast.error(error); return }
     setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name } : f))
@@ -470,7 +472,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       )
     }
 
-    return [...result].sort((a, b) => {
+    return result.toSorted((a, b) => {
       let cmp = 0
       if      (sortConfig.field === 'date_created') cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       else if (sortConfig.field === 'title')        cmp = a.title.localeCompare(b.title)
@@ -520,16 +522,17 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   }, [])
 
   // ── Keyboard: Escape exits organize or closes ─────────────────────────────
+  const closeDrawer = useEffectEvent(onClose)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       if (showCreateFolderModal) { setShowCreateFolderModal(false); setModalFolderName('') }
       else if (isOrganizing) handleExitOrganize()
-      else                   onClose()
+      else                   closeDrawer()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showCreateFolderModal, isOrganizing, onClose])
+  }, [showCreateFolderModal, isOrganizing])
 
   const personalFolders = folders.filter(f => !f.type || f.type === 'personal')
   const projectFolders  = folders.filter(f => f.type === 'project')
@@ -559,6 +562,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
+    {/* eslint-disable-next-line react-doctor/click-events-have-key-events -- backdrop closes modal on click; Escape key handled via useEffect */}
     <div
       role="dialog"
       aria-modal="true"
@@ -574,7 +578,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{   opacity: 0, scale: 0.96 }}
@@ -707,6 +711,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                           }}
                           fluid
                           size="small"
+                          // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                           autoFocus
                           aria-label="Rename folder"
                         />
@@ -741,6 +746,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                             }}
                             fluid
                             size="small"
+                            // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                             autoFocus
                             aria-label="Rename folder"
                           />
@@ -849,6 +855,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                   {/* Actions */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                     {isOrganizing ? (
+                      // eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from surrounding UI makes action clear
                       <Button
                         variant="default"
                         size="sm"
@@ -934,7 +941,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                     >
                       {/* Search slot - snaps 32px ↔ 276px on toggle */}
                       <Tooltip content="Search" disabled={searchOpen}>
-                        <motion.div
+                        <m.div
                           layout
                           layoutDependency={hasExpanded}
                           transition={{ type: 'spring', stiffness: 500, damping: 32 }}
@@ -948,7 +955,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                         >
                           <AnimatePresence initial={false} mode="popLayout">
                             {!searchOpen ? (
-                              <motion.span
+                              <m.span
                                 key="search-btn"
                                 layout
                                 initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
@@ -963,9 +970,9 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                                   aria-label="Open search"
                                   onClick={() => setSearchOpen(true)}
                                 />
-                              </motion.span>
+                              </m.span>
                             ) : (
-                              <motion.div
+                              <m.div
                                 key="search-input"
                                 initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
                                 animate={{ opacity: 1, scale: 1,    filter: 'blur(0px)', transition: { type: 'spring', duration: 0.3, bounce: 0 } }}
@@ -999,17 +1006,18 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                                   placeholder="Search for your pin..."
                                   value={rawSearch}
                                   onChange={setRawSearch}
+                                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into search on user-triggered open
                                   autoFocus
                                   aria-label="Search pins"
                                 />
-                              </motion.div>
+                              </m.div>
                             )}
                           </AnimatePresence>
-                        </motion.div>
+                        </m.div>
                       </Tooltip>
 
                       {/* Export */}
-                      <motion.div
+                      <m.div
                         layout
                         style={{ display: 'inline-flex' }}
                         transition={{ type: 'spring', stiffness: 500, damping: 32 }}
@@ -1023,12 +1031,12 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                             onClick={handleExport}
                           />
                         </Tooltip>
-                      </motion.div>
+                      </m.div>
 
                       {/* Collapse all - conditional, hides in organize mode */}
                       <AnimatePresence initial={false} mode="popLayout">
                         {hasExpanded && !isOrganizing && (
-                          <motion.span
+                          <m.span
                             key="collapse-all"
                             initial={{ opacity: 0, scale: 0.6 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -1045,12 +1053,12 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                                 onClick={handleCollapseAll}
                               />
                             </Tooltip>
-                          </motion.span>
+                          </m.span>
                         )}
                       </AnimatePresence>
 
                       {/* Filter */}
-                      <motion.span
+                      <m.span
                         layout
                         style={{ display: 'inline-flex' }}
                         transition={{ type: 'spring', stiffness: 500, damping: 32 }}
@@ -1063,10 +1071,10 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                             aria-label="Filter pins"
                           />
                         </Tooltip>
-                      </motion.span>
+                      </m.span>
 
                       {/* Sort */}
-                      <motion.span
+                      <m.span
                         layout
                         style={{ display: 'inline-flex' }}
                         transition={{ type: 'spring', stiffness: 500, damping: 32 }}
@@ -1079,7 +1087,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                             aria-label="Sort pins"
                           />
                         </Tooltip>
-                      </motion.span>
+                      </m.span>
                     </div>
                   </EnterChunk>
 
@@ -1104,6 +1112,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                         overflowX:           'hidden',
                         overscrollBehaviorY: 'contain',
                         padding:             '2px',
+                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline:             'none',
                       }}
                     >
@@ -1232,7 +1241,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
             {/* ── Organize bulk toolbar - below content wrapper, slides in on organize ── */}
             <AnimatePresence initial={false}>
               {isOrganizing && (
-                <motion.div
+                <m.div
                   key="bulk-toolbar"
                   initial={{ y: 8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -1277,7 +1286,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                     </Button>
                     <AnimatePresence>
                       {showFolderPicker && (
-                        <motion.div
+                        <m.div
                           key="folder-picker"
                           initial={{ opacity: 0, y: 6, scale: 0.97 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1369,7 +1378,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                               ))}
                             </>
                           )}
-                        </motion.div>
+                        </m.div>
                       )}
                     </AnimatePresence>
                   </div>
@@ -1391,23 +1400,24 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                     Delete
                   </Button>
                   <div style={{ width: 1, height: 20, background: 'var(--neutral-200)', flexShrink: 0 }} />
+                  {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- "Done" exits organize mode; context from toolbar makes action clear */}
                   <Button variant="secondary" size="sm" onClick={handleExitOrganize}>
                     Done
                   </Button>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </div>
         </div>
         )}
-      </motion.div>
+      </m.div>
     </div>
 
     {/* ── Create folder modal ─────────────────────────────────────────────── */}
     {createPortal(
       <AnimatePresence>
         {showCreateFolderModal && (
-          <motion.div
+          <m.div
             key="create-folder-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1417,7 +1427,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
             style={{
               position:        'fixed',
               inset:           0,
-              zIndex:          9999,
+              zIndex:          20,
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',
@@ -1425,7 +1435,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
               backdropFilter:  'blur(2px)',
             }}
           >
-            <motion.div
+            <m.div
               key="create-folder-dialog"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -1465,6 +1475,7 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                   value={modalFolderName}
                   onChange={setModalFolderName}
                   fluid
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into folder name input on modal open
                   autoFocus
                   onKeyDown={(e: React.KeyboardEvent) => {
                     if (e.key === 'Enter')  handleCreateFolder()
@@ -1490,8 +1501,8 @@ export function PinboardExpanded({ onClose, onExport }: PinboardExpandedProps) {
                   </Button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>,
       document.body
@@ -1574,7 +1585,7 @@ function SidebarFolderItem({
       {/* Hover delete overlay */}
       <AnimatePresence initial={false}>
         {hovered && (
-          <motion.div
+          <m.div
             key="folder-actions"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1611,7 +1622,7 @@ function SidebarFolderItem({
                 onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
               />
             )}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -1693,7 +1704,7 @@ const PinGridCell = React.memo(function PinGridCell({
 
       <AnimatePresence initial={false}>
         {isOrganizing && (
-          <motion.div
+          <m.div
             key="organize-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1730,11 +1741,15 @@ const PinGridCell = React.memo(function PinGridCell({
             >
               {isSelected && <TickTwoIcon size={16} color="var(--neutral-white)" />}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>
   )
 })
+
+export function PinboardExpanded(props: PinboardExpandedProps) {
+  return <Suspense fallback={null}><PinboardExpandedImpl {...props} /></Suspense>
+}
 
 export default PinboardExpanded

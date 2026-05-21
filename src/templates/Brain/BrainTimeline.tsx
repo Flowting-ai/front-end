@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   CheckmarkCircleTwoIcon,
   CancelCircleIcon,
@@ -152,6 +152,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
                   padding:         '2px 8px',
                   borderRadius:    999,
                   border:          'none',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline:         'none',
                   backgroundColor: CHIP_BG[variant],
                   color:           CHIP_COLOR[variant],
@@ -164,13 +165,13 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
                 }}
               >
                 {result.label}
-                <motion.span
+                <m.span
                   animate={{ rotate: chipOpen ? 180 : 0 }}
                   transition={springs.fast}
                   style={{ lineHeight: 0, display: 'inline-flex' }}
                 >
                   <ArrowDownOneIcon size={10} color={CHIP_COLOR[variant]} />
-                </motion.span>
+                </m.span>
               </button>
             ) : (
               <span style={{
@@ -194,7 +195,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
         {/* Expanded details — below the label+chip row, full width */}
         <AnimatePresence initial={false}>
           {chipOpen && result?.details && (
-            <motion.div
+            <m.div
               id={detailsId}
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -223,7 +224,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
               >
                 {result.details}
               </pre>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 

@@ -1,23 +1,23 @@
-'use client'
+﻿'use client'
 
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useAnimation } from 'framer-motion'
+import { AnimatePresence, m, useAnimation } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// 2 lines × 16px line-height (--line-height-caption)
+// 2 lines Ã— 16px line-height (--line-height-caption)
 const MAX_HEIGHT = 32
 const MIN_HEIGHT = 16
 
-// ── Shadow tokens ──────────────────────────────────────────────────────────────
+// â”€â”€ Shadow tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Drop shadow is 0px 1px 2px - shallower than the chat-input family (0px 2px 2.8px)
 const SHADOW_DEFAULT = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10)'
 const SHADOW_HOVER   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-800-10), 0px 0px 0px 3px var(--neutral-100-60)'
 const SHADOW_FOCUS   = '0px 1px 2px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--focus-ring)'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface PinCommentFieldProps
   extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'children'> {
@@ -27,11 +27,10 @@ export interface PinCommentFieldProps
   'aria-label'?: string
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentFieldProps>(
-  function PinCommentField(
-    {
+export function PinCommentField({
+      ref: forwardedRef,
       fluid           = false,
       className,
       style,
@@ -44,9 +43,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       onMouseEnter: externalEnter,
       onMouseLeave: externalLeave,
       ...props
-    },
-    forwardedRef,
-  ) {
+    }: PinCommentFieldProps & { ref?: React.Ref<HTMLTextAreaElement> }) {
     const [isHovered, setIsHovered] = useState(false)
     const [isFocused, setIsFocused] = useState(false)
 
@@ -71,7 +68,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
 
     const shadow = isFocused ? SHADOW_FOCUS : isHovered ? SHADOW_HOVER : SHADOW_DEFAULT
 
-    // ── Height measurement helper ──────────────────────────────────────────────
+    // â”€â”€ Height measurement helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // scrollHeight reports full content height even through overflow:hidden, so
     // we never touch overflowY. We save/restore the inline height so there is
     // no flash between our cleanup and React's next render commit.
@@ -86,14 +83,14 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       return h
     }
 
-    // ── Initial height (corrects for defaultValue) ─────────────────────────────
+    // â”€â”€ Initial height (corrects for defaultValue) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useLayoutEffect(() => {
       const ta = internalRef.current
       if (!ta) return
       setTaHeight(Math.min(measureHeight(ta), MAX_HEIGHT))
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Auto-grow + 2-line enforcement ─────────────────────────────────────────
+    // â”€â”€ Auto-grow + 2-line enforcement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const ta = internalRef.current
       if (!ta) return
@@ -121,7 +118,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
     }
 
     return (
-      <motion.div
+      <m.div
         animate={shakeControls}
         className={cn(className)}
         style={{
@@ -146,7 +143,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
       >
         <AnimatePresence initial={false}>
           {!value && placeholder && (
-            <motion.span
+            <m.span
               key="placeholder"
               aria-hidden
               initial={{ opacity: 0, filter: 'blur(2px)' }}
@@ -168,7 +165,7 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
               }}
             >
               {placeholder}
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
 
@@ -200,10 +197,9 @@ export const PinCommentField = React.forwardRef<HTMLTextAreaElement, PinCommentF
           onBlur={(e)  => { setIsFocused(false); externalBlur?.(e) }}
           {...props}
         />
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 PinCommentField.displayName = 'PinCommentField'
 export default PinCommentField

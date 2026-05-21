@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, use, useState } from "react";
 import type { ReactNode } from "react";
 
 export type OnboardingRole =
@@ -70,7 +70,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 }
 
 export function useOnboarding() {
-  const ctx = useContext(OnboardingContext);
+  const ctx = use(OnboardingContext);
   if (!ctx) throw new Error("useOnboarding must be used within OnboardingProvider");
   return ctx;
 }

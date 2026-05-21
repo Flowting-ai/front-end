@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, Suspense } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, LinkSixIcon, ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
@@ -109,7 +110,7 @@ function SuperLinkSection({
             style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
-              fontSize: 11,
+              fontSize: 12,
               lineHeight: '16px',
               color: '#6a625d',
             }}
@@ -216,6 +217,7 @@ function SuperLinkSection({
                 style={{
                   width: 96,
                   border: 'none',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline: 'none',
                   backgroundColor: 'transparent',
                   fontFamily: 'var(--font-body)',
@@ -239,7 +241,7 @@ function SuperLinkSection({
 // ── Page content ──────────────────────────────────────────────────────────────
 
 function PersonaPublishedContent() {
-  const router = useRouter()
+  const { push } = useRouter()
   const searchParams = useSearchParams()
   const personaName = searchParams.get('name') ?? 'Persona'
 
@@ -303,7 +305,7 @@ function PersonaPublishedContent() {
               size="md"
               icon={<ArrowLeftOneIcon size={20} />}
               aria-label="Back to library"
-              onClick={() => router.push('/personas')}
+              onClick={() => push('/personas')}
             />
           </div>
           <div style={{ height: 32, flexShrink: 0 }} />
@@ -343,6 +345,7 @@ function PersonaPublishedContent() {
                 width: 716,
                 height: 586,
                 borderRadius: 28,
+                // eslint-disable-next-line react-doctor/no-large-animated-blur -- static decorative background gradient, not animated
                 filter: 'blur(108px)',
                 mixBlendMode: 'hard-light',
                 background:
@@ -378,10 +381,13 @@ function PersonaPublishedContent() {
                   backgroundColor: 'var(--neutral-100)',
                 }}
               >
-                <img
+                <Image
                   src="/icons/persona-image.svg"
                   alt={personaName}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  fill
+                  sizes="152px"
+                  unoptimized
+                  style={{ objectFit: 'cover' }}
                 />
               </div>
 
@@ -471,7 +477,7 @@ function PersonaPublishedContent() {
 
               {/* Back to library */}
               <button
-                onClick={() => router.push('/personas')}
+                onClick={() => push('/personas')}
                 style={{
                   width: 242,
                   padding: '6px 10px',

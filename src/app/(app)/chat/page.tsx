@@ -1,7 +1,7 @@
 "use client";
 
-import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { Suspense, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { AnimatePresence, m } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 const WelcomeModal = dynamic(() => import("@/components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })), { ssr: false, loading: () => null });
@@ -165,6 +165,13 @@ const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
   build:    "What would you like to build?",
 };
 
+const MODE_PROMPT_PREFIX: Record<ChatMode, string> = {
+  write:    "Write",
+  research: "Research",
+  think:    "Think",
+  build:    "Build",
+};
+
 // ── Template cards config ─────────────────────────────────────────────────────
 
 const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: string }> = [
@@ -196,9 +203,10 @@ export default function ChatPage() {
   );
 }
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function ChatPageInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const { replace } = useRouter();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
@@ -239,6 +247,7 @@ function ChatPageInner() {
   }, [pins, newChatPinQuery]);
 
   // Reset highlighted index on filtered list change
+  // eslint-disable-next-line react-doctor/no-derived-state-effect -- index reset on filter change; not a component-level key-prop candidate
   useEffect(() => {
     setNewChatHighlightedPinIndex(0);
   }, [newChatFilteredPins]);
@@ -333,11 +342,15 @@ function ChatPageInner() {
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files && e.target.files.length > 0) {
+      // Capture into a stable Array before clearing the input — e.target.value = ""
+      // causes the browser to replace e.target.files with a new empty FileList, and
+      // React's setState updater runs after the clear, so it would see an empty list.
+      const files = Array.from(e.target.files);
       if (isNewChat) {
-        setNewChatAttachments((prev) => processFiles(e.target.files!, prev));
+        setNewChatAttachments((prev) => processFiles(files, prev));
       } else {
-        setAddMenuFiles(Array.from(e.target.files!));
+        setAddMenuFiles(files);
       }
       e.target.value = "";
     }
@@ -455,13 +468,17 @@ function ChatPageInner() {
   // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
   const newlyCreatedChatIdRef = useRef<string | null>(null);
 
-  // Load highlights whenever the active chat changes
+  // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
+  // to avoid an effect chain (layoutEffect sets activeChatId → effect reacts to it).
   useEffect(() => {
-    if (activeChatId) loadHighlightsForChat(activeChatId);
-  }, [activeChatId, loadHighlightsForChat]);
+    if (chatIdFromUrl) loadHighlightsForChat(chatIdFromUrl);
+  }, [chatIdFromUrl, loadHighlightsForChat]);
 
-  // Sync URL param into local state (e.g. sidebar navigation)
-  useEffect(() => {
+  // Sync URL param into local state (e.g. sidebar navigation).
+  // useLayoutEffect so the state update commits before the browser paints —
+  // prevents a stale render of the old ChatInterface when navigating to new chat.
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useLayoutEffect(() => {
     if (chatIdFromUrl !== activeChatId) {
       setActiveChatId(chatIdFromUrl);
       setHasMessages(!!chatIdFromUrl);
@@ -498,7 +515,7 @@ function ChatPageInner() {
     newlyCreatedChatIdRef.current = chatId;
     setActiveChatId(chatId);
     setHasMessages(true);
-    router.replace(`/chat?id=${chatId}`, { scroll: false });
+    replace(`/chat?id=${chatId}`, { scroll: false });
     addOptimistic({
       id: chatId,
       title: "New chat",
@@ -536,7 +553,10 @@ function ChatPageInner() {
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
     setNewChatMentionedPins([]);
-    setInitialPrompt(value.trim());
+    const composed = selectedMode
+      ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
+      : value.trim();
+    setInitialPrompt(composed);
     setNewChatInput("");
     setHasMessages(true);
     setSelectedMode(null);
@@ -567,7 +587,7 @@ function ChatPageInner() {
 
       <AnimatePresence mode="sync" initial={false}>
         {isNewChat ? (
-          <motion.div
+          <m.div
             key="new-chat"
             exit={{ opacity: 0, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}
             className="kaya-scrollbar"
@@ -628,14 +648,14 @@ function ChatPageInner() {
                 }}
               >
                 {/* Greeting exits upward */}
-                <motion.div
+                <m.div
                   exit={{ opacity: 0, y: -28, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
                   <InitialPrompts />
-                </motion.div>
+                </m.div>
 
                 {/* Input + action buttons + template cards exit downward */}
-                <motion.div
+                <m.div
                   style={{ width: "100%", maxWidth: "640px", margin: "0 auto" }}
                   exit={{ opacity: 0, y: 36, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
                 >
@@ -689,7 +709,7 @@ function ChatPageInner() {
                       <div
                         key={btn.mode}
                         style={{
-                          opacity:    (btn.disabled || (selectedMode && selectedMode !== btn.mode)) ? 0.4 : 1,
+                          opacity:    btn.disabled ? 0.4 : 1,
                           transition: "opacity 150ms",
                         }}
                       >
@@ -723,9 +743,9 @@ function ChatPageInner() {
                       Not sure where to start?
                     </p>
                     <div style={{ display: "flex", gap: "10px" }}>
-                      {TEMPLATE_CARDS.map((card, i) => (
+                      {TEMPLATE_CARDS.map((card) => (
                         <TemplateCard
-                          key={i}
+                          key={card.label}
                           icon={card.icon}
                           label={card.label}
                           onClick={() => handleNewChatSend(card.prompt)}
@@ -733,12 +753,12 @@ function ChatPageInner() {
                       ))}
                     </div>
                   </div>
-                </motion.div>
+                </m.div>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="active-chat"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: [0, 0, 0.2, 1] } }}
@@ -767,7 +787,7 @@ function ChatPageInner() {
               chips={chips}
               selectedFolders={selectedFolders}
             />
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

@@ -40,8 +40,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
-  function Badge({ label = 'Label', color = 'Blue', className, style, ...props }, ref) {
+export function Badge({ ref, label = 'Label', color = 'Blue', className, style, ...props }: BadgeProps & { ref?: React.Ref<HTMLSpanElement> }) {
     const cfg = COLOR_CONFIG[color]
 
     return (
@@ -91,8 +90,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
         />
       </span>
     )
-  },
-)
+}
 
 Badge.displayName = 'Badge'
 export default Badge

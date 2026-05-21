@@ -33,7 +33,7 @@ function StepBadge({ label, state }: WizardStep) {
       <span style={{
         padding: '0 2px',
         fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)',
-        fontSize: 11, lineHeight: '16px', color: 'var(--blue-700)', whiteSpace: 'nowrap',
+        fontSize: 12, lineHeight: '16px', color: 'var(--blue-700)', whiteSpace: 'nowrap',
       }}>
         {label}
       </span>
@@ -49,7 +49,7 @@ interface WizardShellProps {
 }
 
 export function WizardShell({ steps, children }: WizardShellProps) {
-  const router = useRouter()
+  const { push } = useRouter()
 
   return (
     <div className="kaya-scrollbar" style={{
@@ -76,7 +76,7 @@ export function WizardShell({ steps, children }: WizardShellProps) {
           {steps.map(step => <StepBadge key={step.label} {...step} />)}
         </div>
         <button
-          onClick={() => router.push('/personas')}
+          onClick={() => push('/personas')}
           aria-label="Close"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',

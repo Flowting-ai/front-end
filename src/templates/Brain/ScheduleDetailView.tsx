@@ -88,6 +88,7 @@ export function ScheduleDetailView({
   onRunNow,
   onToggleActive,
 }: ScheduleDetailViewProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [isActive, setIsActive] = useState(schedule.isActive)
 
   const handleToggle = (v: boolean) => {

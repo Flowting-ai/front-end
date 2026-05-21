@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
@@ -18,7 +19,7 @@ const UNIVERSAL_PROMPT = `Based on everything you know about me - past conversat
 Write it as a briefing for someone who has never met me. Plain prose only. Under 400 words.`;
 
 export default function OnboardingImportPage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { data, setAiContext } = useOnboarding();
   const { refreshUser } = useAuth();
   const [copied, setCopied] = useState(false);
@@ -47,7 +48,7 @@ export default function OnboardingImportPage() {
       ]);
 
       await refreshUser();
-      router.push("/chat?welcome=1");
+      push("/chat?welcome=1");
     } catch (err) {
       console.error("Onboarding submission failed", err);
     } finally {
@@ -150,7 +151,7 @@ export default function OnboardingImportPage() {
                 style={{
                   fontFamily: "var(--font-body)",
                   fontWeight: 500,
-                  fontSize: "11px",
+                  fontSize: "12px",
                   lineHeight: "16px",
                   color: "#135487",
                 }}
@@ -178,7 +179,7 @@ export default function OnboardingImportPage() {
                 style={{
                   fontFamily: "var(--font-body)",
                   fontWeight: 500,
-                  fontSize: "11px",
+                  fontSize: "12px",
                   lineHeight: "16px",
                   color: "#135487",
                 }}
@@ -206,7 +207,7 @@ export default function OnboardingImportPage() {
                 style={{
                   fontFamily: "var(--font-body)",
                   fontWeight: 500,
-                  fontSize: "11px",
+                  fontSize: "12px",
                   lineHeight: "16px",
                   color: "#135487",
                 }}
@@ -236,7 +237,7 @@ export default function OnboardingImportPage() {
             style={{
               fontFamily: "var(--font-body)",
               fontWeight: 400,
-              fontSize: "11px",
+              fontSize: "12px",
               lineHeight: "16px",
               color: "var(--neutral-700, #524b47)",
               margin: 0,
@@ -300,6 +301,7 @@ export default function OnboardingImportPage() {
             style={{
               width: "100%",
               border: "none",
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               resize: "vertical",
               fontFamily: "var(--font-body)",
@@ -335,19 +337,19 @@ export default function OnboardingImportPage() {
       </div>
 
       {/* Log out */}
-      <a
+      <Link
         href="/auth/logout"
         style={{
           fontFamily: "var(--font-body)",
           fontWeight: 400,
-          fontSize: "11px",
+          fontSize: "12px",
           lineHeight: "16px",
           color: "#0d6eb2",
           textDecoration: "underline",
         }}
       >
         Log out
-      </a>
+      </Link>
     </div>
   );
 }

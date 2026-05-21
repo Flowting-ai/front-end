@@ -126,8 +126,8 @@ function EdgeFade({ edge, visible }: EdgeFadeProps) {
   return (
     <>
       {VERTICAL_FADE_LAYERS.map(({ depth, blur }, i) => (
-        <div
-          key={`${edge}-blur-${i}`}
+        // eslint-disable-next-line react-doctor/no-array-index-as-key -- static VERTICAL_FADE_LAYERS array never reorders; composite key is stable
+        <div key={`${edge}-blur-${i}`}
           aria-hidden
           style={{
             position:           'absolute',
@@ -219,11 +219,9 @@ function ScrollArea({ maxHeight, children }: ScrollAreaProps) {
  * open/close logic. Wire to `@radix-ui/react-popover` or
  * `@radix-ui/react-dropdown-menu` Content for full behaviour.
  */
-export const Popover = React.forwardRef<HTMLDivElement, PopoverProps>(
-  function Popover(
-    { size, variant = 'modal', maxHeight = POPOVER_DEFAULT_MAX_HEIGHT, header, children, className, style, ...props },
-    ref,
-  ) {
+export function Popover(
+  { size, variant = 'modal', maxHeight = POPOVER_DEFAULT_MAX_HEIGHT, header, children, className, style, ref, ...props }: PopoverProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const capped = maxHeight !== false
     return (
       <div
@@ -249,8 +247,7 @@ export const Popover = React.forwardRef<HTMLDivElement, PopoverProps>(
         )}
       </div>
     )
-  },
-)
+}
 
 Popover.displayName = 'Popover'
 

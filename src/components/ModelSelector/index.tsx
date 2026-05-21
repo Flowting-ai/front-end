@@ -105,16 +105,14 @@ function FeaturedModeRow() {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps>(
-  function ModelSelector(
-    {
-      children,
-      className,
-      style,
-      ...props
-    },
+export function ModelSelector({
     ref,
-  ) {
+    children,
+    className,
+    style,
+    ...props
+  // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+  }: ModelSelectorProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [search,    setSearch]    = useState('')
     const [tier,      setTier]      = useState('free')
     const [category,  setCategory]  = useState('all')
@@ -319,8 +317,7 @@ export const ModelSelector = React.forwardRef<HTMLDivElement, ModelSelectorProps
         </div>
       </div>
     )
-  },
-)
+}
 
 ModelSelector.displayName = 'ModelSelector'
 

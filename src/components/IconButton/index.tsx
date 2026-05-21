@@ -2,7 +2,7 @@
 
 import React, { useRef, useId, useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { useCorrosion } from '@/lib/useCorrosion'
@@ -61,7 +61,7 @@ export type IconButtonProps =
 // size prop controls the rendered px; viewBox always 20×20 so arc proportions are preserved
 function IconButtonSpinner({ color, size: px = 24 }: { color: string; size?: number }) {
   return (
-    <motion.svg
+    <m.svg
       width={px}
       height={px}
       viewBox="0 0 20 20"
@@ -78,13 +78,14 @@ function IconButtonSpinner({ color, size: px = 24 }: { color: string; size?: num
     >
       <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.25" />
       <path d="M 10 3 A 7 7 0 0 1 17 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </motion.svg>
+    </m.svg>
   )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({
+export function IconButton({
+  ref: forwardedRef,
   variant = 'default',
   size = 'md',
   asChild = false,
@@ -97,7 +98,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
   onFocus: externalFocus,
   onBlur: externalBlur,
   ...props
-}, forwardedRef) {
+}: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
   const Comp = asChild ? Slot : 'button'
   const isMd = size === 'md'
   const isXs = size === 'xs'
@@ -232,7 +233,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
   // ghost-2 never applies a wrapper filter - no outer shadow on hover
 
   return (
-    <motion.span
+    <m.span
       tabIndex={-1}
       whileTap={isDisabled ? undefined : { scale: 0.96 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
@@ -464,9 +465,9 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
       )}
 
     </Comp>
-    </motion.span>
+    </m.span>
   )
-})
+}
 
 IconButton.displayName = 'IconButton'
 

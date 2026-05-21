@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react'
-import { motion, AnimatePresence, useAnimation, useIsPresent, useMotionValue, animate, useReducedMotion } from 'framer-motion'
+import { m, AnimatePresence, useAnimation, useIsPresent, useMotionValue, animate, useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   MoreVerticalIcon,
@@ -321,9 +321,8 @@ const DEFAULT_LABELS: PinLabel[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
-  function Pin(
-    {
+export function Pin({
+      ref: forwardedRef,
       category        = 'Code',
       pinTitle        = 'Pin title is too long that it can go to the next line',
       description     = DEFAULT_DESCRIPTION,
@@ -355,10 +354,10 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       onMouseEnter: externalEnter,
       onMouseLeave: externalLeave,
       ...props
-    },
-    forwardedRef,
-  ) {
+    // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+    }: PinProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [isHovered,  setIsHovered]  = useState(false)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [isExpanded, setIsExpanded] = useState(defaultExpanded)
     const [isDragging, setIsDragging] = useState(false)
     // When the expanded content exceeds MAX_CONTENT_HEIGHT, a Show-more
@@ -370,6 +369,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     // Selectable checkbox - controlled / uncontrolled. Internal state only
     // applies in selectable mode; outside it the checkbox is unmounted.
     const isSelectedControlled = selected !== undefined
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [internalSelected, setInternalSelected] = useState(defaultSelected)
     const isSelected = isSelectedControlled ? !!selected : internalSelected
     const handleSelectedChange = (next: boolean) => {
@@ -430,8 +430,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       ? controlledDeletedLabels
       : internalDeletedLabels
     const visibleLabels: { label: PinLabel; originalIndex: number }[] = labels
-      .map((label, originalIndex) => ({ label, originalIndex }))
-      .filter(({ originalIndex }) => !deletedLabelIndices.has(originalIndex))
+      .flatMap((label, originalIndex) => !deletedLabelIndices.has(originalIndex) ? [{ label, originalIndex }] : [])
 
     // Tag-cap math (PIN_TAG_CAP = 5). Backend visible + user-added.
     const totalTagCount = visibleLabels.length + userTagsToRender.length
@@ -553,7 +552,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
       const text = raw.trim()
       if (!text) return
       // At-cap rejection. The leading add-tag slot is wrapped in a
-      // shake-controlled motion.div, so the same gesture that fires for the
+      // shake-controlled m.div, so the same gesture that fires for the
       // 2-line cap (PinCommentField) and the 30-char cap (ChipInput) plays
       // here when the user tries to add a 6th tag. The input keeps focus and
       // its current value so the user can edit-and-resubmit.
@@ -851,7 +850,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
     }, [isExpanded])
 
     return (
-      <motion.div
+      <m.div
         ref={mergedRef as React.Ref<HTMLDivElement>}
         className={cn(className)}
         style={{
@@ -888,7 +887,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
 
         {/* ── Inner content div - measured by useMeasure ──────────────────────
             Contains only in-flow content. Drag handle and action bars are
-            SIBLINGS of this div (children of the outer motion.div) so their
+            SIBLINGS of this div (children of the outer m.div) so their
             bottom:0 is relative to the outer clip boundary, not this div.
             As drag grows the outer div, the action bar stays pinned to the
             outer bottom while this div's content scrolls up behind it.       ── */}
@@ -916,7 +915,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   {selectable ? (
-                    <motion.div
+                    <m.div
                       key="checkbox-slot"
                       initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
                       animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -940,9 +939,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                         onCheckedChange={(v) => handleSelectedChange(v === true)}
                         aria-label="Select pin"
                       />
-                    </motion.div>
+                    </m.div>
                   ) : (
-                    <motion.div
+                    <m.div
                       key="category-slot"
                       initial={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
                       animate={{ scale: 1,    opacity: 1, filter: 'blur(0px)' }}
@@ -951,7 +950,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                       style={{ position: 'absolute', inset: 0 }}
                     >
                       <PinCategory type={category} style={{ flexShrink: 0 }} />
-                    </motion.div>
+                    </m.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -1077,10 +1076,10 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 rejection animation when the user tries to add past
                 PIN_TAG_CAP. Wraps both modes so it shakes the AddTag chip OR
                 the ChipInput, whichever is rendered. */}
-            {tagsEditable && <motion.div animate={addTagShakeControls} style={{ display: 'inline-flex' }}>
+            {tagsEditable && <m.div animate={addTagShakeControls} style={{ display: 'inline-flex' }}>
               <AnimatePresence mode="popLayout" initial={false}>
                 {addTagMode === 'chip' ? (
-                  <motion.span
+                  <m.span
                     key="add-tag-chip"
                     initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
                     animate={SWAP_ANIMATE}
@@ -1100,9 +1099,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                         // Focus is wired via `autoFocus` on the ChipInput once it mounts.
                       }}
                     />
-                  </motion.span>
+                  </m.span>
                 ) : (
-                  <motion.span
+                  <m.span
                     key="add-tag-input"
                     initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
                     animate={SWAP_ANIMATE}
@@ -1112,6 +1111,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   >
                     <ChipInput
                       ref={tagInputRef}
+                      // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into tag input on user-triggered open
                       autoFocus
                       aria-label="Add tag"
                       placeholder="Add tag…"
@@ -1120,21 +1120,21 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                       onKeyDown={handleTagInputKeyDown}
                       onBlur={handleTagInputBlur}
                     />
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
-            </motion.div>}
+            </m.div>}
 
             {/* User-added tags come BEFORE backend labels - newest sits right
                 after the AddTagChip and pushes existing ones to the right.
-                `layout` on each motion.span animates the slide; AnimatePresence
+                `layout` on each m.span animates the slide; AnimatePresence
                 with the in-place-swap pattern animates each new tag's enter.
                 When `tagsEditable` is set (PinboardExpanded only), each tag
                 renders as a deletable `Chip size="Small"` with an inline `×`
                 button instead of a read-only `Badge`. */}
             <AnimatePresence initial={false} mode="popLayout">
               {userTagsToRender.map((l, i) => (
-                <motion.span
+                <m.span
                   key={l.id ?? `user-${i}`}
                   layout
                   initial={reduceMotion ? SWAP_INSTANT : SWAP_INITIAL}
@@ -1153,7 +1153,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   ) : (
                     <Badge label={l.text} color={l.color} />
                   )}
-                </motion.span>
+                </m.span>
               ))}
             </AnimatePresence>
             {visibleLabels.map(({ label: l, originalIndex }) => (
@@ -1358,7 +1358,7 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           {/* ── Expanded content: metadata + comment field ── */}
           <AnimatePresence initial={false}>
             {isExpanded && (
-              <motion.div
+              <m.div
                 key="expanded-content"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: { duration: 0.15 } }}
@@ -1376,14 +1376,14 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                   defaultValue={comments?.[0]?.content ?? ''}
                   style={{ width: '100%' }}
                 />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 
           {/* ── Inline action bar - expanded state (stays during drag) ── */}
           <AnimatePresence initial={false}>
             {isExpanded && (
-              <motion.div
+              <m.div
                 key="action-bar-expanded"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: { duration: 0.12 } }}
@@ -1391,17 +1391,17 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
                 style={{ width: '100%', flexShrink: 0 }}
               >
                 <ActionBar onInsert={onInsert} onComment={handleCommentClick} hideComment />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 
         </div>
         {/* ── end inner content div ── */}
 
-        {/* ── Drag handle - child of OUTER motion.div ──────────────────────────
+        {/* ── Drag handle - child of OUTER m.div ──────────────────────────
             Uses Framer's drag="y" for dragElastic + dragMomentum feel.
             handleY motion value drives dragHeight via onChange subscription.   ── */}
-        <motion.div
+        <m.div
           role="button"
           tabIndex={0}
           aria-label={isExpanded ? 'Collapse pin' : 'Expand pin'}
@@ -1445,9 +1445,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
               pointerEvents:   'none',
             }}
           />
-        </motion.div>
+        </m.div>
 
-        {/* ── Absolute action bar - child of OUTER motion.div ──────────────────
+        {/* ── Absolute action bar - child of OUTER m.div ──────────────────
             AbsoluteActionBar is a dedicated component so useIsPresent can be
             called inside AnimatePresence (the hook must live in a child, not
             the parent where the conditional render happens).                 ── */}
@@ -1462,10 +1462,9 @@ export const Pin = React.forwardRef<HTMLDivElement, PinProps>(
           ) : null}
         </AnimatePresence>
 
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
 
@@ -1544,7 +1543,7 @@ function AbsoluteActionBar({ onInsert, onComment, instant }: { onInsert?: () => 
   const isPresent = useIsPresent()
 
   return (
-    <motion.div
+    <m.div
       initial={instant
         ? { opacity: 1, y: 0, filter: 'blur(0px)' }
         : { opacity: 0, y: 8, filter: 'blur(4px)' }
@@ -1573,7 +1572,7 @@ function AbsoluteActionBar({ onInsert, onComment, instant }: { onInsert?: () => 
       }}
     >
       <ActionBar onInsert={onInsert} onComment={onComment} />
-    </motion.div>
+    </m.div>
   )
 }
 

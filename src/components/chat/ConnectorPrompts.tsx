@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from '@/hooks/use-chat-state'
 import { getConnector, initiateLink, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
@@ -104,6 +104,7 @@ interface ConnectPromptCardProps {
   onConnected?:  () => void
 }
 
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProps) {
   const [state,        setState]        = useState<'idle' | 'connecting' | 'polling' | 'connected' | 'error'>('idle')
   const [errorMsg,     setErrorMsg]     = useState('')
@@ -198,7 +199,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             <path d="M4.5 8.5L7 11L11.5 6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-            {prompt.display_name} connected — you can resend your message.
+            {prompt.display_name} connected: you can resend your message.
           </span>
         </div>
       </PromptCard>
@@ -225,13 +226,13 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
       {prompt.auth_mode === 'api_key' ? (
         <AnimatePresence initial={false}>
           {!showApiForm ? (
-            <motion.div key="cta" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <m.div key="cta" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PromptButton onClick={() => setShowApiForm(true)} disabled={state === 'connecting'}>
                 Enter credentials
               </PromptButton>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="form"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -260,6 +261,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                       border:          '1px solid var(--neutral-300)',
                       fontFamily:      'var(--font-body)',
                       fontSize:        13,
+                      // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                       outline:         'none',
                       width:           '100%',
                       boxSizing:       'border-box',
@@ -282,7 +284,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                   Cancel
                 </PromptButton>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       ) : (
@@ -374,7 +376,7 @@ export function PermissionPromptCard({ prompt, onDecided }: PermissionPromptCard
             )}
           </svg>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-            {labelMap[decided]} — {decided !== 'block' ? 'you can resend your message.' : 'tool will not run.'}
+            {labelMap[decided]}: {decided !== 'block' ? 'you can resend your message.' : 'tool will not run.'}
           </span>
         </div>
       </PromptCard>

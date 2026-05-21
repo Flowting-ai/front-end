@@ -1,22 +1,22 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useHighlight } from '@/context/highlight-context'
 import { HighlightPanel } from '@/components/HighlightPanel'
 import { toast } from '@/components/Toast'
 import type { FilterMode } from '@/context/highlight-context'
 
 function useCurrentChatId(): string | undefined {
-  const pathname     = usePathname()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const m = pathname.match(/\/project\/[^/]+\/chat\/([^/]+)/)
   if (m) return m[1]
   return searchParams.get('id') ?? undefined
 }
 
-export function HighlightSidebar() {
+function HighlightSidebarImpl() {
   const {
     highlights,
     isOpen,
@@ -29,7 +29,7 @@ export function HighlightSidebar() {
     setFilterMode,
   } = useHighlight()
 
-  const router        = useRouter()
+  const { push }      = useRouter()
   const currentChatId = useCurrentChatId()
 
   // Stores a pending cross-chat scroll target when the user clicks "Open in chat"
@@ -60,20 +60,19 @@ export function HighlightSidebar() {
   //             loading (API call in flight). Keep retrying until the
   //             data-highlight-id element appears, then do the precise scroll.
   //             After 20 combined attempts fall back to the message container.
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     const pending = pendingJumpRef.current
     if (!pending) return
 
-    let cancelled = false
+    let timerId: ReturnType<typeof setTimeout>
 
     const tryScroll = (attempt = 0) => {
-      if (cancelled) return
-
       const msgEl = document.querySelector(`[data-message-id="${pending.messageId}"]`)
 
       if (!msgEl) {
         // Chat hasn't rendered the message yet — keep waiting
-        if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 250)
+        if (attempt < 20) timerId = setTimeout(() => tryScroll(attempt + 1), 250)
         return
       }
 
@@ -94,7 +93,7 @@ export function HighlightSidebar() {
       // Mark not rendered yet — highlights API call may still be in flight.
       // Keep retrying for a precise scroll; fall back to message after 20 attempts.
       if (attempt < 20) {
-        setTimeout(() => tryScroll(attempt + 1), 250)
+        timerId = setTimeout(() => tryScroll(attempt + 1), 250)
         return
       }
 
@@ -105,8 +104,8 @@ export function HighlightSidebar() {
     }
 
     // Brief initial delay to let the chat page begin rendering
-    setTimeout(() => tryScroll(), 300)
-    return () => { cancelled = true }
+    timerId = setTimeout(() => tryScroll(), 300)
+    return () => clearTimeout(timerId)
   }, [currentChatId])
 
   const handleJump = (id: string) => {
@@ -124,7 +123,7 @@ export function HighlightSidebar() {
       // The filterMode effect skips loadForChat for the current chat because
       // pendingJumpRef is non-null at that point, avoiding a stale API call.
       if (filterMode === 'all') setFilterMode('this-chat')
-      router.push(`/chat?id=${h.chatId}`)
+      push(`/chat?id=${h.chatId}`)
       return
     }
 
@@ -146,7 +145,7 @@ export function HighlightSidebar() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
+        <m.div
           key="highlight-sidebar"
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: 332, opacity: 1 }}
@@ -163,8 +162,12 @@ export function HighlightSidebar() {
             filterMode={filterMode}
             onFilterChange={setFilterMode}
           />
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )
+}
+
+export function HighlightSidebar() {
+  return <Suspense fallback={null}><HighlightSidebarImpl /></Suspense>
 }

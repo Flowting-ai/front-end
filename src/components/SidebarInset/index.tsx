@@ -25,8 +25,7 @@ export interface SidebarInsetProps extends React.HTMLAttributes<HTMLElement> {}
  * </SidebarProvider>
  * ```
  */
-export const SidebarInset = React.forwardRef<HTMLElement, SidebarInsetProps>(
-  function SidebarInset({ className, children, style, ...props }, ref) {
+export function SidebarInset({ className, children, style, ref, ...props }: SidebarInsetProps & { ref?: React.Ref<HTMLElement> }) {
     return (
       <main
         ref={ref}
@@ -47,8 +46,7 @@ export const SidebarInset = React.forwardRef<HTMLElement, SidebarInsetProps>(
         {children}
       </main>
     )
-  },
-)
+}
 
 SidebarInset.displayName = 'SidebarInset'
 

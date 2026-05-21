@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from 'next/image';
 import { usePathname } from "next/navigation";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
@@ -67,7 +68,7 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
             }}
           >
             {museActive ? (
-              <img src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" style={{ display: "block" }} />
+              <Image src="/icons/souvenir-logo-white.svg" width={16} height={16} alt="" unoptimized style={{ display: "block" }} />
             ) : (
               <LlmIcon
                 id={modelLlmId!}

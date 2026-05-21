@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
 
@@ -31,6 +31,7 @@ export function BrainPhaseGroup({
   defaultCollapsed = true,
   children,
 }: BrainPhaseGroupProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const contentId = React.useId()
 
@@ -58,6 +59,7 @@ export function BrainPhaseGroup({
           cursor:     'pointer',
           textAlign:  'left',
           width:      '100%',
+          // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
           outline:    'none',
         }}
       >
@@ -73,18 +75,18 @@ export function BrainPhaseGroup({
           {title}
         </span>
 
-        <motion.span
+        <m.span
           animate={{ rotate: collapsed ? 0 : 180 }}
           transition={springs.fast}
           style={{ flexShrink: 0, lineHeight: 0, transformOrigin: 'center' }}
         >
           <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AnimatePresence initial={false}>
         {!collapsed && (
-          <motion.div
+          <m.div
             id={contentId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -95,7 +97,7 @@ export function BrainPhaseGroup({
             <div style={{ padding: '0 16px 14px' }}>
               {children}
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

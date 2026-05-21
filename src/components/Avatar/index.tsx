@@ -37,8 +37,7 @@ function deriveInitials(name: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
-  function Avatar({ name, color, size = 'md', initials, asChild, className, style, ...props }, ref) {
+export function Avatar({ ref, name, color, size = 'md', initials, asChild, className, style, ...props }: AvatarProps & { ref?: React.Ref<HTMLSpanElement> }) {
     const Comp = asChild ? Slot : 'span'
     const px = SIZE_PX[size]
     const fontSize = FONT_TOKEN[size]
@@ -71,8 +70,7 @@ export const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
         {text}
       </Comp>
     )
-  },
-)
+}
 
 Avatar.displayName = 'Avatar'
 export default Avatar

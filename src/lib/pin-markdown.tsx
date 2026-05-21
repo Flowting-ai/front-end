@@ -33,7 +33,7 @@ const pinComponents: Components = {
             borderRadius: 6,
             background: "var(--neutral-800-10, rgba(59,54,50,0.06))",
             overflowX: "auto",
-            fontSize: 10,
+            fontSize: 12,
             lineHeight: "14px",
             fontFamily: "var(--font-code, monospace)",
             color: "var(--neutral-700)",
@@ -50,7 +50,7 @@ const pinComponents: Components = {
       <code
         style={{
           fontFamily: "var(--font-code, monospace)",
-          fontSize: 10,
+          fontSize: 12,
           background: "var(--neutral-800-10, rgba(59,54,50,0.06))",
           color: "var(--neutral-700)",
           borderRadius: 3,
@@ -71,7 +71,7 @@ const pinComponents: Components = {
       <p
         style={{
           margin: "0 0 4px 0",
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: "16px",
           color: "var(--neutral-600)",
         }}
@@ -91,7 +91,7 @@ const pinComponents: Components = {
           color: "var(--brown-500, #92400e)",
           textDecoration: "underline",
           textUnderlineOffset: "1px",
-          fontSize: 11,
+          fontSize: 12,
         }}
         {...props}
       >
@@ -137,7 +137,7 @@ const pinComponents: Components = {
     return (
       <li
         style={{
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: "16px",
           color: "var(--neutral-600)",
         }}
@@ -184,7 +184,7 @@ const pinComponents: Components = {
       <p
         style={{
           margin: "0 0 2px 0",
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           lineHeight: "16px",
           color: "var(--neutral-800)",
@@ -200,7 +200,7 @@ const pinComponents: Components = {
       <p
         style={{
           margin: "0 0 2px 0",
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           lineHeight: "16px",
           color: "var(--neutral-700)",
@@ -216,7 +216,7 @@ const pinComponents: Components = {
       <p
         style={{
           margin: "0 0 2px 0",
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           lineHeight: "16px",
           color: "var(--neutral-700)",
@@ -232,7 +232,7 @@ const pinComponents: Components = {
       <p
         style={{
           margin: "0 0 2px 0",
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           lineHeight: "16px",
           color: "var(--neutral-700)",
@@ -252,7 +252,7 @@ const pinComponents: Components = {
           borderLeft: "2px solid var(--neutral-200)",
           color: "var(--neutral-500)",
           fontStyle: "italic",
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: "16px",
         }}
         {...props}
@@ -304,7 +304,7 @@ const pinComponents: Components = {
           style={{
             minWidth: "100%",
             borderCollapse: "collapse",
-            fontSize: 10,
+            fontSize: 12,
             lineHeight: "14px",
             whiteSpace: "nowrap",
           }}
@@ -322,7 +322,7 @@ const pinComponents: Components = {
           padding: "3px 6px",
           textAlign: "left",
           fontWeight: 600,
-          fontSize: 10,
+          fontSize: 12,
           color: "var(--neutral-700)",
           borderBottom: "1px solid var(--neutral-200)",
           background: "var(--neutral-50)",
@@ -339,7 +339,7 @@ const pinComponents: Components = {
       <td
         style={{
           padding: "3px 6px",
-          fontSize: 10,
+          fontSize: 12,
           color: "var(--neutral-600)",
           borderBottom: "1px solid var(--neutral-100)",
           whiteSpace: "nowrap",
@@ -367,7 +367,7 @@ export function PinMarkdownRenderer({ content }: { content: string }) {
     <div
       style={{
         fontFamily: "var(--font-body)",
-        fontSize: 11,
+        fontSize: 12,
         lineHeight: "16px",
         color: "var(--neutral-600)",
         wordBreak: "break-word",

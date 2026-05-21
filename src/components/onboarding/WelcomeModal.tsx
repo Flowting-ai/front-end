@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 
 // ── Status card ────────────────────────────────────────────────────────────────
 
@@ -98,9 +98,8 @@ function SouvenirWordmark() {
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
 
-export function WelcomeModal() {
+function WelcomeModalImpl() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { user } = useAuth();
   const [visible, setVisible] = useState(false);
 
@@ -126,7 +125,7 @@ export function WelcomeModal() {
       {visible && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -146,7 +145,7 @@ export function WelcomeModal() {
           />
 
           {/* Modal */}
-          <motion.div
+          <m.div
             key="modal"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -233,7 +232,7 @@ export function WelcomeModal() {
               style={{
                 fontFamily: "var(--font-body)",
                 fontWeight: 400,
-                fontSize: "11px",
+                fontSize: "12px",
                 lineHeight: "16px",
                 color: "black",
                 margin: 0,
@@ -241,9 +240,13 @@ export function WelcomeModal() {
             >
               Invoice will arrive within 1 hour
             </p>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>
   );
+}
+
+export function WelcomeModal() {
+  return <Suspense fallback={null}><WelcomeModalImpl /></Suspense>
 }

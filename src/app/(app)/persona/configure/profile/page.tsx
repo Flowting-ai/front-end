@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
-import React, { useState, Suspense, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import React, { useState, useRef, Suspense, useEffect } from 'react'
+import Image from 'next/image'
+import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
@@ -149,7 +150,7 @@ function FloatingMenu({
 }
 
 function PersonaConfigureProfileContent() {
-  const router = useRouter()
+  const { push, back } = useRouter()
   const searchParams = useSearchParams()
   const nameParam  = searchParams.get('name')      ?? ''
   const repoId     = searchParams.get('repoId')    ?? ''
@@ -158,7 +159,7 @@ function PersonaConfigureProfileContent() {
   // Session-storage key scoped to this persona (or 'new' while creating)
   const PROFILE_KEY = `persona_profile_${repoId || 'new'}`
 
-  // Helper: read saved draft (runs synchronously — client only)
+  // Helper: read saved draft (runs synchronously â€” client only)
   function loadDraft() {
     if (typeof window === 'undefined') return null
     try { return JSON.parse(sessionStorage.getItem(PROFILE_KEY) ?? 'null') as Record<string, unknown> | null }
@@ -169,7 +170,7 @@ function PersonaConfigureProfileContent() {
   const [isSaving,     setIsSaving]     = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
 
-  // ProfileTab state — initialise from sessionStorage on first render
+  // ProfileTab state â€” initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
   const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Persona Name' })
   const [personaHandle,      setPersonaHandle]      = useState<string>(() => { const d = loadDraft(); return (d?.personaHandle as string) ?? '' })
@@ -195,15 +196,19 @@ function PersonaConfigureProfileContent() {
 
   // Gate auto-save so we never persist placeholder defaults before the API has
   // had a chance to load the real persona data.
-  // • No repoId (still in wizard): initialize as true — save whatever the user types.
-  // • Has repoId (editing existing): start false, flip to true after API resolves.
+  // â€¢ No repoId (still in wizard): initialize as true â€” save whatever the user types.
+  // â€¢ Has repoId (editing existing): start false, flip to true after API resolves.
   const [isInitialized, setIsInitialized] = useState(!repoId)
+  // Ref mirrors the state so the auto-save effect can gate on it without listing
+  // isInitialized as a dep (which would create an effect chain: fetch sets
+  // isInitialized â†’ auto-save effect triggers solely because isInitialized changed).
+  const isInitializedRef = useRef(!repoId)
 
-  // ── Load real persona data from API on first visit (no meaningful draft yet) ─────
+  // â”€â”€ Load real persona data from API on first visit (no meaningful draft yet) â”€â”€â”€â”€â”€
   useEffect(() => {
-    if (!repoId) { setIsInitialized(true); return }
+    if (!repoId) { isInitializedRef.current = true; setIsInitialized(true); return }
 
-    // Wizard purpose has been consumed into state — clean up the one-shot key
+    // Wizard purpose has been consumed into state â€” clean up the one-shot key
     try { sessionStorage.removeItem(`persona_wizard_purpose_${repoId}`) } catch { /* ignore */ }
 
     // If the user already has meaningful profile data saved, skip the API call
@@ -214,7 +219,7 @@ function PersonaConfigureProfileContent() {
       !!(draft.avatarUrl as string | null | undefined) ||
       ((draft.personaName as string | undefined) ?? 'Persona Name') !== 'Persona Name'
     )
-    if (hasMeaningfulDraft) { setIsInitialized(true); return }
+    if (hasMeaningfulDraft) { isInitializedRef.current = true; setIsInitialized(true); return }
 
     getPersonaRepo(repoId)
       .then(repo => {
@@ -223,21 +228,22 @@ function PersonaConfigureProfileContent() {
         setPersonaName(repo.name || 'Persona Name')
         if (v?.handler)   setPersonaHandle(`@${v.handler}`)
         if (v?.image_url) setAvatarUrl(v.image_url)
-        // Use the prompt as description only if it’s short enough — on a brand-new
+        // Use the prompt as description only if it's short enough â€” on a brand-new
         // persona the prompt is just the one-sentence wizard purpose.
         if (v?.prompt && v.prompt.trim().length <= 120) {
           setPersonaDescription(v.prompt.trim())
         }
       })
       .catch(err => console.error('[ProfilePage] API load error:', err))
-      .finally(() => setIsInitialized(true))
+      .finally(() => { isInitializedRef.current = true; setIsInitialized(true) })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])
 
-  // Auto-save to sessionStorage whenever any profile field changes
-  // (gated on isInitialized so we don’t overwrite real data with defaults)
+  // Auto-save to sessionStorage whenever any profile field changes.
+  // Uses isInitializedRef (not state) so this effect is not triggered by the
+  // initialization itself â€” only by actual field edits after loading completes.
   useEffect(() => {
-    if (!isInitialized) return   // don't persist placeholder defaults
+    if (!isInitializedRef.current) return
     try {
       sessionStorage.setItem(PROFILE_KEY, JSON.stringify({
         avatarUrl,
@@ -248,8 +254,8 @@ function PersonaConfigureProfileContent() {
         isMultilingual,
         selectedLanguages: [...selectedLanguages],
       }))
-    } catch { /* storage quota exceeded — ignore */ }
-  }, [PROFILE_KEY, isInitialized, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
+    } catch { /* storage quota exceeded â€” ignore */ }
+  }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
@@ -281,7 +287,7 @@ function PersonaConfigureProfileContent() {
         await updateVersion({ repoId, versionId, name: personaName, prompt: personaDescription, ...(imageFile ? { image: imageFile } : {}) })
       }
       await setActiveVersion(repoId, versionId)
-      router.push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
     } catch (err) {
       console.error('[ProfilePage] publish error:', err)
       toast.error('Failed to publish')
@@ -293,7 +299,7 @@ function PersonaConfigureProfileContent() {
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) {
-      router.push(`${route}?${searchParams.toString()}`)
+      push(`${route}?${searchParams.toString()}`)
     }
   }
 
@@ -308,7 +314,7 @@ function PersonaConfigureProfileContent() {
         position: 'relative',
       }}
     >
-      {/* ── Left configure panel ─────────────────────────────────────────────── */}
+      {/* â”€â”€ Left configure panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div
         style={{
           backgroundColor: 'rgba(255,255,255,0.2)',
@@ -327,7 +333,7 @@ function PersonaConfigureProfileContent() {
           minWidth: 0,
         }}
       >
-        {/* ── Top navigation bar ────────────────────────────────────────────── */}
+        {/* â”€â”€ Top navigation bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div
             style={{
@@ -345,11 +351,11 @@ function PersonaConfigureProfileContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => router.back()}
+                onClick={() => back()}
               />
             </div>
 
-            {/* Tabs — absolutely centered so left/right items don't affect positioning */}
+            {/* Tabs â€” absolutely centered so left/right items don't affect positioning */}
             <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
@@ -458,7 +464,7 @@ function PersonaConfigureProfileContent() {
           <div style={{ height: 32, flexShrink: 0 }} />
         </div>
 
-        {/* ── Scrollable profile form ────────────────────────────────────────── */}
+        {/* â”€â”€ Scrollable profile form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div
           className="kaya-scrollbar"
           style={{
@@ -500,7 +506,7 @@ function PersonaConfigureProfileContent() {
           </div>
         </div>
 
-        {/* ── Floating vertical menu (pinboard-style: always anchored to right of configure panel) */}
+        {/* â”€â”€ Floating vertical menu (pinboard-style: always anchored to right of configure panel) */}
         <div
           style={{
             position: 'absolute',
@@ -514,10 +520,10 @@ function PersonaConfigureProfileContent() {
         </div>
       </div>
 
-      {/* ── Test chat panel ────────────────────────────────────────────────── */}
+      {/* â”€â”€ Test chat panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <AnimatePresence>
         {testChatOpen && (
-          <motion.div
+          <m.div
             key="test-chat"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
@@ -558,7 +564,7 @@ function PersonaConfigureProfileContent() {
                   }}
                 >
                   {avatarUrl && (
-                    <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={avatarUrl} alt="" fill unoptimized style={{ objectFit: 'cover' }} />
                   )}
                 </div>
                 <p
@@ -635,7 +641,7 @@ function PersonaConfigureProfileContent() {
                 modelName="Souvenir"
               />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 

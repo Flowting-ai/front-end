@@ -64,7 +64,7 @@ function FileBadge({ label }: { label: string }) {
         height: 20,
         padding: "0 4px",
         borderRadius: 6,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 500,
         whiteSpace: "nowrap",
         backgroundColor: color.bg,
@@ -166,12 +166,12 @@ function FileRow({ file, onRemove, onPriorityChange, onPreview }: {
       <div style={{ display: "flex", gap: 17, alignItems: "center", width: 265, flexShrink: 0 }}>
         <FileBadge label={badgeLabel} />
         {file.size && file.size !== '-' && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
             {file.size}
           </span>
         )}
         {file.date && (
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500, color: "#6a625d", whiteSpace: "nowrap" }}>
             {file.date}
           </span>
         )}
@@ -213,7 +213,7 @@ function FileRow({ file, onRemove, onPriorityChange, onPreview }: {
                 border: "1px solid #d1c6bd",
                 borderRadius: 8,
                 boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-                zIndex: 1000,
+                zIndex: 5,
                 minWidth: 120,
                 overflow: "hidden",
               }}
@@ -299,7 +299,7 @@ function FileRow({ file, onRemove, onPriorityChange, onPreview }: {
                 border: "1px solid #d1c6bd",
                 borderRadius: 8,
                 boxShadow: "0px 4px 12px rgba(0,0,0,0.1)",
-                zIndex: 1000,
+                zIndex: 5,
                 minWidth: 120,
                 overflow: "hidden",
               }}
@@ -646,7 +646,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
+            <label htmlFor="knowledge-url-input" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
             <div
               style={{
                 backgroundColor: "white",
@@ -659,6 +659,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               }}
             >
               <input
+                id="knowledge-url-input"
                 type="url"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
@@ -671,6 +672,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   color: "#6a625d",
                   backgroundColor: "transparent",
                   border: "none",
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   outline: "none",
                 }}
               />
@@ -730,7 +732,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 height: 20,
                 padding: "0 6px",
                 borderRadius: 6,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 500,
                 color: "#524b47",
                 backgroundColor: "#ede1d7",
@@ -749,7 +751,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                   height: 20,
                   padding: "0 6px",
                   borderRadius: 6,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 500,
                   color: "#524b47",
                   backgroundColor: "#ede1d7",
@@ -836,6 +838,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               color: "#6a625d",
               backgroundColor: "transparent",
               border: "none",
+              // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
               outline: "none",
               padding: "0 2px",
             }}
@@ -922,7 +925,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                     backgroundColor: active ? "#524b47" : "transparent",
                     color: active ? "white" : "#524b47",
                     cursor: "pointer",
-                    transition: "all 150ms",
+                    transition: "border 150ms, background-color 150ms, color 150ms",
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -962,7 +965,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
 
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-          <label style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
+          <label htmlFor="knowledge-url-input-2" style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47" }}>Paste URLs</label>
           <div
             style={{
               backgroundColor: "white",
@@ -975,6 +978,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             }}
           >
             <input
+              id="knowledge-url-input-2"
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
@@ -987,6 +991,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 color: "#6a625d",
                 backgroundColor: "transparent",
                 border: "none",
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline: "none",
               }}
             />

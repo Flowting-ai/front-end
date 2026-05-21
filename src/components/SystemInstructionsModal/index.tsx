@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { PenOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
@@ -28,11 +29,10 @@ export function SystemInstructionsModal({
   onClose,
   maxLength = 2000,
 }: SystemInstructionsModalProps) {
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [draft,   setDraft]   = useState(value)
-  const [mounted, setMounted] = useState(false)
+  const mounted = useMounted()
   const prevOpenRef = useRef(false)
-
-  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -41,12 +41,13 @@ export function SystemInstructionsModal({
     prevOpenRef.current = open
   }, [open, value])
 
+  const closeOnEscape = useEffectEvent(onClose)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOnEscape() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
   function handleSave() {
     onSave(draft.trim())
@@ -58,7 +59,7 @@ export function SystemInstructionsModal({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           key="sys-instructions-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -68,7 +69,7 @@ export function SystemInstructionsModal({
           style={{
             position:        'fixed',
             inset:           0,
-            zIndex:          9999,
+            zIndex:          21,
             display:         'flex',
             alignItems:      'center',
             justifyContent:  'center',
@@ -76,7 +77,7 @@ export function SystemInstructionsModal({
             backdropFilter:  'blur(2px)',
           }}
         >
-          <motion.div
+          <m.div
             key="sys-instructions-modal"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1,    y: 0 }}
@@ -197,6 +198,7 @@ export function SystemInstructionsModal({
                   onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
                   maxLength={maxLength}
                   placeholder="e.g. Always respond in British English. Format all code in TypeScript. Be concise and avoid filler phrases..."
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into instructions field on modal open
                   autoFocus
                   style={{
                     fontFamily:   'var(--font-body)',
@@ -217,19 +219,23 @@ export function SystemInstructionsModal({
                     boxSizing:    'border-box',
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.boxShadow   = '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)'
-                    e.currentTarget.style.borderColor = 'var(--blue-400)'
+                    Object.assign(e.currentTarget.style, {
+                      boxShadow:   '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)',
+                      borderColor: 'var(--blue-400)',
+                    })
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.boxShadow   = '0px 1px 1.5px 0px rgba(82,75,71,0.08)'
-                    e.currentTarget.style.borderColor = 'var(--neutral-200)'
+                    Object.assign(e.currentTarget.style, {
+                      boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.08)',
+                      borderColor: 'var(--neutral-200)',
+                    })
                   }}
                 />
                 <p
                   style={{
                     fontFamily:  'var(--font-body)',
                     fontWeight:  'var(--font-weight-regular)',
-                    fontSize:    '11px',
+                    fontSize: '12px',
                     lineHeight:  '16px',
                     color:       '#a39b95',
                     margin:      0,
@@ -258,8 +264,8 @@ export function SystemInstructionsModal({
               <Button variant="ghost" onClick={onClose}>Cancel</Button>
               <Button variant="default" onClick={handleSave}>Save instructions</Button>
             </div>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>,
     document.body

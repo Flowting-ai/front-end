@@ -27,11 +27,9 @@ export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElemen
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const DropdownSection = React.forwardRef<HTMLDivElement, DropdownSectionProps>(
-  function DropdownSection(
-    { label, divider = false, fluid = false, children, className, style, ...props },
-    ref,
-  ) {
+export function DropdownSection(
+  { label, divider = false, fluid = false, children, className, style, ref, ...props }: DropdownSectionProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     return (
       <div
         ref={ref}
@@ -55,8 +53,7 @@ export const DropdownSection = React.forwardRef<HTMLDivElement, DropdownSectionP
         </div>
       </div>
     )
-  },
-)
+}
 
 DropdownSection.displayName = 'DropdownSection'
 

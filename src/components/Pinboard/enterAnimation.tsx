@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import type { Transition } from 'framer-motion'
 
 /**
@@ -15,7 +15,7 @@ import type { Transition } from 'framer-motion'
  * surface). Consumers can override per-instance via the `enterAnimation` prop.
  *
  * The animation runs on mount only - once the chunks settle, the wrapping
- * motion.div is at identity transform / no filter and is invisible to its
+ * m.div is at identity transform / no filter and is invisible to its
  * children's behaviour. Reduced motion is honoured via the app-root
  * <MotionConfig reducedMotion="user">.
  */
@@ -60,32 +60,30 @@ export interface EnterChunkProps {
   /** Stagger position - chunk 0 fires first, then 1, 2, … */
   index:      number
   children:   React.ReactNode
-  /** Spread onto the underlying motion.div. */
+  /** Spread onto the underlying m.div. */
   style?:     React.CSSProperties
   className?: string
 }
 
-export const EnterChunk = React.forwardRef<HTMLDivElement, EnterChunkProps>(
-  function EnterChunk({ cfg, index, children, style, className }, ref) {
-    if (cfg.enabled === false) {
-      return <div ref={ref} className={className} style={style}>{children}</div>
-    }
-    const delay = (cfg.firstItemDelayMs + index * cfg.staggerMs) / 1000
-    return (
-      <motion.div
-        ref={ref}
-        className={className}
-        style={style}
-        initial={{
-          opacity: cfg.from.opacity,
-          y:       cfg.from.y,
-          filter:  `blur(${cfg.from.blur}px)`,
-        }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        transition={{ ...cfg.transition, delay }}
-      >
-        {children}
-      </motion.div>
-    )
-  },
-)
+export function EnterChunk({ cfg, index, children, style, className, ref }: EnterChunkProps & { ref?: React.Ref<HTMLDivElement> }) {
+  if (cfg.enabled === false) {
+    return <div ref={ref} className={className} style={style}>{children}</div>
+  }
+  const delay = (cfg.firstItemDelayMs + index * cfg.staggerMs) / 1000
+  return (
+    <m.div
+      ref={ref}
+      className={className}
+      style={style}
+      initial={{
+        opacity: cfg.from.opacity,
+        y:       cfg.from.y,
+        filter:  `blur(${cfg.from.blur}px)`,
+      }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ ...cfg.transition, delay }}
+    >
+      {children}
+    </m.div>
+  )
+}

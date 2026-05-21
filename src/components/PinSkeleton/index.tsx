@@ -50,19 +50,16 @@ export interface PinSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
-  function PinSkeleton(
-    {
-      variant    = 'compact',
-      fluid      = false,
-      bodyLines  = 2,
-      labelCount = 3,
-      className,
-      style,
-      ...props
-    },
+export function PinSkeleton({
     ref,
-  ) {
+    variant    = 'compact',
+    fluid      = false,
+    bodyLines  = 2,
+    labelCount = 3,
+    className,
+    style,
+    ...props
+  }: PinSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
     // Randomise label widths so the row reads naturally rather than as a
     // mechanical strip of identical bars. Memoised per-instance.
     const labelWidths = useMemo(
@@ -176,8 +173,8 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
               }}
             >
               {Array.from({ length: bodyLines }).map((_, i) => (
-                <div
-                  key={i}
+                // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- skeleton placeholder widths are positionally stable
+                <div key={i}
                   className="kaya-skeleton"
                   style={{
                     height:       16,
@@ -212,8 +209,8 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
                 }}
               />
               {labelWidths.map((w, i) => (
-                <div
-                  key={i}
+                // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- skeleton placeholder widths are positionally stable
+                <div key={i}
                   className="kaya-skeleton"
                   style={{
                     width:        w,
@@ -228,8 +225,7 @@ export const PinSkeleton = React.forwardRef<HTMLDivElement, PinSkeletonProps>(
         </div>
       </div>
     )
-  },
-)
+}
 
 PinSkeleton.displayName = 'PinSkeleton'
 

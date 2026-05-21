@@ -13,8 +13,8 @@
  * See: docs/frontend-rendering.md - Charts section.
  */
 
-import React, { useEffect, useRef, useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, m } from "framer-motion"
 
 // ---------------------------------------------------------------------------
 // Palette - mirrors souvenir-chat-preview BAR_PALETTE / PIE_COLORS_HEX
@@ -118,11 +118,11 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
   return (
     <ChartShell title={attrs.title}>
       {attrs.yLabel && (
-        <div style={{ fontSize: 11, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
+        <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
       <div style={{ position: "relative", height: chartH }}>
         {[0.25, 0.5, 0.75, 1].map((pct) => (
-          <motion.div key={pct}
+          <m.div key={pct}
             initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
             style={{ position: "absolute", bottom: `${pct * 100}%`, left: 0, right: 0, height: 1, background: "var(--neutral-800-10)", pointerEvents: "none" }}
           />
@@ -132,14 +132,14 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
             const barH = Math.max((bar.value / maxVal) * chartH, 4)
             const color = BAR_PALETTE[i % BAR_PALETTE.length]
             return (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                <motion.div
+              <div key={bar.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                <m.div
                   initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }}
                   transition={{ delay: i * 0.1 + 0.55, duration: 0.2 }}
-                  style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-700)", marginBottom: 4, lineHeight: 1 }}>
+                  style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-700)", marginBottom: 4, lineHeight: 1 }}>
                   {formatNum(bar.value)}{attrs.yLabel ? "" : ""}
-                </motion.div>
-                <motion.div
+                </m.div>
+                <m.div
                   initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                   transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: i * 0.1 }}
                   style={{ width: "100%", height: barH, background: color ?? "var(--brown-700)", borderRadius: "4px 4px 0 0", transformOrigin: "bottom" }}
@@ -151,14 +151,14 @@ function BarChart({ attrs, bars }: { attrs: ChartAttrs; bars: BarDatum[] }) {
       </div>
       <div style={{ height: 1, background: "var(--neutral-800-15)", margin: "0 0 8px" }} />
       <div style={{ display: "flex", gap: 10 }}>
-        {bars.map((bar, i) => (
-          <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "var(--neutral-400)", lineHeight: "16px" }}>
+        {bars.map((bar) => (
+          <div key={bar.label} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "16px" }}>
             {bar.label}
           </div>
         ))}
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 11, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChartShell>
   )
@@ -215,12 +215,13 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
           {/* Track ring */}
           <circle r={R} cx={CX} cy={CY} fill="none" stroke="rgba(59,54,50,0.07)" strokeWidth={SW} />
           {arcs.map((arc, i) => (
-            <circle key={i} r={R} cx={CX} cy={CY} fill="none"
+            <circle key={arc.label} r={R} cx={CX} cy={CY} fill="none"
               stroke={arc.color}
               strokeWidth={i === hoveredIdx ? SW + 4 : SW}
               strokeDasharray={`${arc.dashLen} ${arc.gapLen}`}
               strokeDashoffset={i < revealedCount ? 0 : arc.dashLen}
               transform={`rotate(${arc.startDeg} ${CX} ${CY})`}
+              // eslint-disable-next-line react-doctor/no-layout-transition-inline -- SVG stroke-width animation requires inline style
               style={{ transition: "stroke-dashoffset 0.52s cubic-bezier(0.16,1,0.3,1), stroke-width 120ms", strokeLinecap: "butt", cursor: "pointer" }}
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
@@ -244,7 +245,7 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
       {/* Two-column legend */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
         {arcs.map((arc, i) => (
-          <motion.div key={i}
+          <m.div key={arc.label}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: i < revealedCount ? 1 : 0, y: i < revealedCount ? 0 : 4 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
@@ -253,9 +254,9 @@ function PieChart({ attrs, slices }: { attrs: ChartAttrs; slices: SliceDatum[] }
             <div style={{ width: 10, height: 10, borderRadius: 3, background: arc.color, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: "var(--neutral-700)", lineHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{arc.label}</div>
-              <div style={{ fontSize: 11, color: "var(--neutral-400)", lineHeight: "15px" }}>{Math.round(arc.pct * 100)}%</div>
+              <div style={{ fontSize: 12, color: "var(--neutral-400)", lineHeight: "15px" }}>{Math.round(arc.pct * 100)}%</div>
             </div>
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </div>
@@ -321,7 +322,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
   return (
     <ChartShell title={attrs.title}>
       {attrs.yLabel && (
-        <div style={{ fontSize: 11, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
+        <div style={{ fontSize: 12, color: "var(--neutral-400)", textAlign: "center", marginBottom: 4 }}>{attrs.yLabel}</div>
       )}
       <div ref={containerRef} style={{ position: "relative" }}>
         <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`}
@@ -332,7 +333,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
             const yv = PAD.top + pct * chartH
             return (
-              <motion.line key={pct} x1={PAD.left} x2={PAD.left + chartW} y1={yv} y2={yv}
+              <m.line key={pct} x1={PAD.left} x2={PAD.left + chartW} y1={yv} y2={yv}
                 stroke="rgba(59,54,50,0.07)" strokeWidth={1}
                 initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.3, delay: 0.1 }}
               />
@@ -350,25 +351,25 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
           })}
 
           {/* Area fill */}
-          <motion.polygon points={areaPts} fill={`${color}10`} stroke="none"
+          <m.polygon points={areaPts} fill={`${color}10`} stroke="none"
             initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ delay: 0.35, duration: 0.4 }} />
 
           {/* Line - pathLength draw trick */}
           <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5}
             pathLength={1} strokeDasharray="1"
             strokeDashoffset={revealed ? 0 : 1} strokeLinecap="round" strokeLinejoin="round"
-            style={{ transition: "stroke-dashoffset 1.1s cubic-bezier(0.16,1,0.3,1)" }} />
+            style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.16,1,0.3,1)" }} />
 
           {/* Dots */}
           {points.map((p, i) => {
             const { x, y } = toSVGPt(i, p.y)
             const isHov = hoverIdx === i
             return (
-              <motion.circle key={i} cx={x} cy={y} r={isHov ? 4 : 2.5}
+              <m.circle key={String(p.x)} cx={x} cy={y} r={isHov ? 4 : 2.5}
                 fill={isHov ? "var(--neutral-white)" : color}
                 stroke={isHov ? color : "none"}
                 strokeWidth={isHov ? 2 : 0}
-                initial={{ scale: 0 }} animate={{ scale: revealed ? 1 : 0 }}
+                initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }}
                 transition={{ type: "spring", stiffness: 480, damping: 22, delay: 0.9 + i * 0.025 }}
                 style={{ transformOrigin: `${x}px ${y}px` }}
               />
@@ -383,7 +384,7 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
             if (i % skip !== 0 && i !== points.length - 1) return null
             const { x } = toSVGPt(i, 0)
             return (
-              <text key={i} x={x} y={H - 6} textAnchor="middle" fill="#C0B5AD" fontSize={11} fontFamily="var(--font-body)">
+              <text key={String(p.x)} x={x} y={H - 6} textAnchor="middle" fill="#C0B5AD" fontSize={11} fontFamily="var(--font-body)">
                 {String(p.x)}
               </text>
             )
@@ -399,29 +400,29 @@ function LineChart({ attrs, points }: { attrs: ChartAttrs; points: PointDatum[] 
         {/* Floating tooltip */}
         <AnimatePresence initial={false}>
           {hoverIdx !== null && (
-            <motion.div key="tip"
+            <m.div key="tip"
               initial={{ opacity: 0, y: 4, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 4, scale: 0.96 }}
               transition={{ duration: 0.12 }}
               style={{ position: "absolute", top: -8, left: Math.max(4, Math.min(tooltipLeft, (containerRef.current?.clientWidth ?? 400) - tooltipWidth - 4)), width: tooltipWidth, background: "var(--neutral-900)", borderRadius: 8, padding: "7px 10px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 12px rgba(18,12,8,0.22)" }}>
-              <div style={{ fontSize: 10, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
+              <div style={{ fontSize: 12, color: "var(--neutral-400)", fontWeight: 500, marginBottom: 5, letterSpacing: "0.3px" }}>
                 {String(points[hoverIdx]?.x ?? "")}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--neutral-white)", fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--neutral-white)", fontVariantNumeric: "tabular-nums" }}>
                   {formatNum(points[hoverIdx]?.y ?? 0)}
                 </span>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 11, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChartShell>
   )
@@ -462,7 +463,7 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
     <ChartShell title={attrs.title}>
       <div style={{ position: "relative", height: chartH }}>
         {[0.25, 0.5, 0.75, 1].map((pct) => (
-          <motion.div key={pct}
+          <m.div key={pct}
             initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={{ duration: 0.4, delay: 0.1 }}
             style={{ position: "absolute", bottom: `${pct * 100}%`, left: 0, right: 0, height: 1, background: "var(--neutral-800-10)", pointerEvents: "none" }}
           />
@@ -471,14 +472,14 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
           {bins.map((bin, i) => {
             const barH = Math.max((bin.count / maxCount) * chartH, 2)
             return (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                <motion.div
+              <div key={bin.rangeStart} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                <m.div
                   initial={{ scaleY: 0 }} animate={{ scaleY: revealed ? 1 : 0 }}
                   transition={{ type: "spring", stiffness: 140, damping: 18, mass: 1, delay: i * 0.05 }}
                   style={{ width: "100%", height: barH, background: color, borderRadius: "2px 2px 0 0", transformOrigin: "bottom" }}
                 >
                   <title>{`${bin.label}: ${bin.count}`}</title>
-                </motion.div>
+                </m.div>
               </div>
             )
           })}
@@ -488,16 +489,16 @@ function HistogramChart({ attrs, values }: { attrs: ChartAttrs; values: number[]
       <div style={{ display: "flex", gap: 1 }}>
         {bins.map((bin, i) => {
           const skip = Math.ceil(bins.length / 8)
-          if (i % skip !== 0 && i !== bins.length - 1) return <div key={i} style={{ flex: 1 }} />
+          if (i % skip !== 0 && i !== bins.length - 1) return <div key={`spacer-${bin.rangeStart}`} style={{ flex: 1 }} />
           return (
-            <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 10, color: "var(--neutral-400)", lineHeight: "14px" }}>
+            <div key={`label-${bin.rangeStart}`} style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--neutral-400)", lineHeight: "14px" }}>
               {formatNum(bin.rangeStart)}
             </div>
           )
         })}
       </div>
       {attrs.xLabel && (
-        <div style={{ textAlign: "center", fontSize: 11, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--neutral-400)", marginTop: 4 }}>{attrs.xLabel}</div>
       )}
     </ChartShell>
   )
@@ -581,13 +582,13 @@ function parseChartXml(xml: string): ChartState | null {
 interface XmlChartProps { xml: string }
 
 export function XmlChart({ xml }: XmlChartProps) {
-  const [state, setState] = useState<ChartState | "error" | null>(null)
+  const state = useMemo(() => parseChartXml(xml) ?? "error", [xml])
   const [mounted, setMounted] = useState(false)
 
+  // eslint-disable-next-line react-doctor/rendering-hydration-no-flicker -- intentional SSR skeleton; chart animations need client-only render
   useEffect(() => {
     setMounted(true)
-    setState(parseChartXml(xml) ?? "error")
-  }, [xml])
+  }, [])
 
   if (!mounted) {
     return (

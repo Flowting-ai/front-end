@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import { AnimatePresence, m } from "framer-motion";
 import { X, ExternalLink } from "lucide-react";
 import type { Source } from "@/types/chat";
 import { sanitizeURL } from "@/lib/security";
@@ -43,7 +44,7 @@ export function CitationsPanel({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.aside
+        <m.aside
           initial={{ x: "100%", opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
@@ -155,7 +156,7 @@ export function CitationsPanel({
                     border: isHighlighted
                       ? "1px solid var(--blue-200)"
                       : "1px solid transparent",
-                    transition: "all 150ms",
+                    transition: "background-color 150ms, border-color 150ms",
                     cursor: safeUrl ? "pointer" : "default",
                   }}
                 >
@@ -171,7 +172,7 @@ export function CitationsPanel({
                       backgroundColor: "var(--blue-100)",
                       color: "var(--blue-700)",
                       fontFamily: "var(--font-body)",
-                      fontSize: "11px",
+                      fontSize: "12px",
                       fontWeight: "var(--font-weight-semibold)",
                       flexShrink: 0,
                     }}
@@ -205,26 +206,28 @@ export function CitationsPanel({
                       }}
                     >
                       {source.favicon ? (
-                        <img
+                        <Image
                           src={source.favicon}
                           alt=""
                           width={12}
                           height={12}
+                          unoptimized
                           style={{ borderRadius: "2px" }}
                         />
                       ) : (
-                        <img
+                        <Image
                           src={`${FAVICON_BASE}${getHostname(source.url)}`}
                           alt=""
                           width={12}
                           height={12}
+                          unoptimized
                           style={{ borderRadius: "2px" }}
                         />
                       )}
                       <span
                         style={{
                           fontFamily: "var(--font-body)",
-                          fontSize: "11px",
+                          fontSize: "12px",
                           color: "var(--neutral-500)",
                         }}
                       >
@@ -240,7 +243,7 @@ export function CitationsPanel({
               );
             })}
           </div>
-        </motion.aside>
+        </m.aside>
       )}
     </AnimatePresence>
   );

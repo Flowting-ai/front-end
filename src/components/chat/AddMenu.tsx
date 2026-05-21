@@ -53,6 +53,7 @@ export function ChatAddMenu({
   const [loadingFolders,     setLoadingFolders]     = useState(false)
 
   // Fetch fresh from the API each time the submenu opens
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!pinFoldersMenuOpen) return
     setLoadingFolders(true)

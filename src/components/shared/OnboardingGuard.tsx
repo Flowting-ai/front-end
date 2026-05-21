@@ -6,7 +6,7 @@ import { useAuth } from "@/context/auth-context";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const { isHydrated, isAuthenticated, user } = useAuth();
-  const router = useRouter();
+  const { replace } = useRouter();
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -16,9 +16,9 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     }
     // Only redirect if we have user data and onboarding is explicitly not completed
     if (user && user.onboardingCompleted === false) {
-      router.replace("/onboarding/welcome");
+      replace("/onboarding/welcome");
     }
-  }, [isHydrated, isAuthenticated, user, router]);
+  }, [isHydrated, isAuthenticated, user, replace]);
 
   return <>{children}</>;
 }

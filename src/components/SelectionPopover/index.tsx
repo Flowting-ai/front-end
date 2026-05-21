@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import React, { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { computePosition, flip, offset, shift } from '@floating-ui/dom'
 import { CopyOneIcon, TickTwoIcon, RedoIcon, PenOneIcon } from '@strange-huge/icons'
 import { useCorrosion } from '@/lib/useCorrosion'
@@ -189,7 +190,7 @@ export function SelectionPopover({
   onHighlight,
   onCopy,
 }: SelectionPopoverProps) {
-  const [mounted,   setMounted]   = useState(false)
+  const mounted = useMounted()
   const [copied,    setCopied]    = useState(false)
   const [pos,       setPos]       = useState({ x: 0, y: 0 })
   const [placement, setPlacement] = useState<'top' | 'bottom'>('top')
@@ -197,8 +198,7 @@ export function SelectionPopover({
 
   const floatingRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setMounted(true) }, [])
-
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useLayoutEffect(() => {
     if (!mounted || !open || !anchorRect || !floatingRef.current) return
 
@@ -235,7 +235,7 @@ export function SelectionPopover({
   const copyIcon = (
     <AnimatePresence mode="popLayout" initial={false}>
       {copied ? (
-        <motion.span
+        <m.span
           key="tick"
           initial={SWAP_INITIAL}
           animate={SWAP_ANIMATE}
@@ -244,9 +244,9 @@ export function SelectionPopover({
           style={{ display: 'flex', lineHeight: 0 }}
         >
           <TickTwoIcon size={16} />
-        </motion.span>
+        </m.span>
       ) : (
-        <motion.span
+        <m.span
           key="copy"
           initial={SWAP_INITIAL}
           animate={SWAP_ANIMATE}
@@ -255,7 +255,7 @@ export function SelectionPopover({
           style={{ display: 'flex', lineHeight: 0 }}
         >
           <CopyOneIcon size={16} />
-        </motion.span>
+        </m.span>
       )}
     </AnimatePresence>
   )
@@ -263,7 +263,7 @@ export function SelectionPopover({
   const popover = (
     <AnimatePresence initial={false}>
       {open && anchorRect && (
-        <motion.div
+        <m.div
           ref={floatingRef}
           key="selection-popover"
           role="toolbar"
@@ -276,7 +276,7 @@ export function SelectionPopover({
             position:        'fixed',
             top:             pos.y,
             left:            pos.x,
-            zIndex:          9999,
+            zIndex:          40,
             display:         'flex',
             flexDirection:   'row',
             alignItems:      'center',
@@ -344,7 +344,7 @@ export function SelectionPopover({
               }}
             />
           )}
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )

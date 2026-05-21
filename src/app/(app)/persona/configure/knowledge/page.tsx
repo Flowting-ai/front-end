@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, Suspense, useEffect, useCallback, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftOneIcon,
@@ -23,6 +23,7 @@ import { ChatInput } from '@/components/ChatInput'
 import KnowledgeTab, { KnowledgeFile } from '@/app/(app)/persona/configure/components/KnowledgeTab'
 import {
   getVersion,
+  updateVersion,
   uploadDocument,
   deleteDocument,
   type PersonaVersionResponse,
@@ -148,7 +149,7 @@ function FloatingMenu({
 // ── Main page content ─────────────────────────────────────────────────────────
 
 function PersonaConfigureKnowledgeContent() {
-  const router = useRouter()
+  const { push, back } = useRouter()
   const searchParams = useSearchParams()
 
   const repoId    = searchParams.get('repoId')    ?? ''
@@ -156,6 +157,7 @@ function PersonaConfigureKnowledgeContent() {
   const personaName = searchParams.get('name') ?? ''
 
   const [testChatOpen, setTestChatOpen] = useState(false)
+  const [isSaving,     setIsSaving]     = useState(false)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
@@ -179,6 +181,7 @@ function PersonaConfigureKnowledgeContent() {
 
   // ── Load existing documents from API on mount ──────────────────────────────
 
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!repoId || !versionId) return
     setIsLoading(true)
@@ -383,11 +386,28 @@ function PersonaConfigureKnowledgeContent() {
     }
   }
 
+  // ── Save version ─────────────────────────────────────────────────────────
+
+  async function handleSaveVersion() {
+    if (!repoId || !versionId) return
+    setIsSaving(true)
+    try {
+      // updateVersion patches in place, preserving document attachments on this versionId.
+      await updateVersion({ repoId, versionId, name: personaName || undefined })
+      toast.success('Version saved')
+    } catch (err) {
+      console.error('[KnowledgePage] save error:', err)
+      toast.error('Failed to save version')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // ── Tab navigation ────────────────────────────────────────────────────────
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
-    if (route) router.push(`${route}?${searchParams.toString()}`)
+    if (route) push(`${route}?${searchParams.toString()}`)
   }
 
   return (
@@ -415,7 +435,7 @@ function PersonaConfigureKnowledgeContent() {
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36 }}>
             <div style={{ flexShrink: 0 }}>
-              <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={() => router.back()} />
+              <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={() => back()} />
             </div>
 
             {/* Tabs */}
@@ -462,9 +482,25 @@ function PersonaConfigureKnowledgeContent() {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               <IconButton variant="outline" size="md" icon={<MoreVerticalIcon size={20} />} aria-label="More options" />
               {testChatOpen ? (
-                <IconButton variant="outline" size="md" icon={<QuillWriteOneIcon size={20} />} aria-label="Save version" />
+                <IconButton
+                  variant="outline"
+                  size="md"
+                  icon={<QuillWriteOneIcon size={20} />}
+                  aria-label={isSaving ? 'Saving…' : 'Save version'}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                  loading={isSaving}
+                />
               ) : (
-                <Button variant="outline" size="sm" leftIcon={<QuillWriteOneIcon size={16} />}>Save version</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                >
+                  {isSaving ? 'Saving…' : 'Save version'}
+                </Button>
               )}
               <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>Publish</Button>
             </div>
@@ -504,7 +540,7 @@ function PersonaConfigureKnowledgeContent() {
       {/* ── Test chat panel ────────────────────────────────────────────────── */}
       <AnimatePresence>
         {testChatOpen && (
-          <motion.div
+          <m.div
             key="test-chat"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
@@ -539,7 +575,7 @@ function PersonaConfigureKnowledgeContent() {
             <div style={{ flexShrink: 0 }}>
               <ChatInput placeholder={`Message ${personaName || 'persona'}...`} textareaLabel="Test message" modelName="Souvenir" />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

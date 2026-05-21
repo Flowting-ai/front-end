@@ -14,8 +14,7 @@ export interface DateRangePillProps extends React.ButtonHTMLAttributes<HTMLButto
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const DateRangePill = React.forwardRef<HTMLButtonElement, DateRangePillProps>(
-  function DateRangePill({ label, dotColor, className, style, ...props }, ref) {
+export function DateRangePill({ ref, label, dotColor, className, style, ...props }: DateRangePillProps & { ref?: React.Ref<HTMLButtonElement> }) {
     return (
       <button
         ref={ref}
@@ -54,8 +53,7 @@ export const DateRangePill = React.forwardRef<HTMLButtonElement, DateRangePillPr
         {label}
       </button>
     )
-  },
-)
+}
 
 DateRangePill.displayName = 'DateRangePill'
 export default DateRangePill

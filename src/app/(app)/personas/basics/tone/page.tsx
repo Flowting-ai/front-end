@@ -104,7 +104,7 @@ function ToneCard({
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function TonePageContent() {
-  const router = useRouter()
+  const { push } = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
@@ -133,7 +133,7 @@ function TonePageContent() {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, tone: selectedTone }))
     } catch { /* ignore */ }
-    router.push('/persona/configure/instructions')
+    push('/persona/configure/instructions')
   }
 
   return (
@@ -179,10 +179,11 @@ function TonePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => router.push(`/personas/basics/name${buildQuery()}`)}
+              onClick={() => push(`/personas/basics/name${buildQuery()}`)}
             >
               Back
             </Button>
+            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to template selection; flow context makes action clear */}
             <Button
               variant="default"
               size="sm"

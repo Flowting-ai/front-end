@@ -43,6 +43,7 @@ function SidebarSection({
       />
       {showAddRow && <SidebarRow withIcon />}
       {Array.from({ length: rows }).map((_, i) => (
+        // eslint-disable-next-line react/no-array-index-as-key
         <SidebarRow key={i} withIcon />
       ))}
     </div>
@@ -94,12 +95,8 @@ export interface PinboardExpandedSkeletonProps
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const PinboardExpandedSkeleton = React.forwardRef<
-  HTMLDivElement,
-  PinboardExpandedSkeletonProps
->(function PinboardExpandedSkeleton(
-  { pinCount = 6, width = 924, height = 817, className, style, ...props },
-  ref,
+export function PinboardExpandedSkeleton(
+  { pinCount = 6, width = 924, height = 817, className, style, ref, ...props }: PinboardExpandedSkeletonProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
   return (
     <div
@@ -290,9 +287,9 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                       gap:      4,
                     }}
                   >
-                    {[88, 80, 72, 76].map((w, i) => (
+                    {[88, 80, 72, 76].map((w) => (
                       <div
-                        key={i}
+                        key={`tab-skel-${w}`}
                         className="kaya-skeleton"
                         style={{ width: w, height: 28, borderRadius: 8, flexShrink: 0 }}
                       />
@@ -309,9 +306,9 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                       flexShrink:     0,
                     }}
                   >
-                    {[0, 1, 2, 3].map((i) => (
+                    {[0, 1, 2, 3].map((slotIdx) => (
                       <div
-                        key={i}
+                        key={`action-skel-${slotIdx}`}
                         className="kaya-skeleton"
                         style={{ width: 32, height: 32, borderRadius: 8 }}
                       />
@@ -360,8 +357,8 @@ export const PinboardExpandedSkeleton = React.forwardRef<
                             const bodyLines  = (i % 3 === 0) ? 3 : 2
                             const labelCount = 2 + (i % 3)
                             return (
-                              <PinSkeleton
-                                key={i}
+                              // eslint-disable-next-line react/no-array-index-as-key
+                              <PinSkeleton key={i}
                                 variant="compact"
                                 bodyLines={bodyLines}
                                 labelCount={labelCount}
@@ -456,7 +453,7 @@ export const PinboardExpandedSkeleton = React.forwardRef<
       </div>
     </div>
   )
-})
+}
 
 PinboardExpandedSkeleton.displayName = 'PinboardExpandedSkeleton'
 

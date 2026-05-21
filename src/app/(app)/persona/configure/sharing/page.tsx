@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState, Suspense } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
+import { updateVersion } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -144,16 +146,33 @@ function FloatingMenu({
 // ── Main page content ─────────────────────────────────────────────────────────
 
 function PersonaConfigureSharingContent() {
-  const router = useRouter()
+  const { push, back } = useRouter()
   const searchParams = useSearchParams()
-  const personaName = searchParams.get('name') ?? ''
+  const personaName = searchParams.get('name')      ?? ''
+  const repoId      = searchParams.get('repoId')    ?? ''
+  const versionId   = searchParams.get('versionId') ?? ''
 
   const [testChatOpen, setTestChatOpen] = useState(false)
+  const [isSaving,     setIsSaving]     = useState(false)
+
+  async function handleSaveVersion() {
+    if (!repoId || !versionId) return
+    setIsSaving(true)
+    try {
+      await updateVersion({ repoId, versionId, name: personaName || undefined })
+      toast.success('Version saved')
+    } catch (err) {
+      console.error('[SharingPage] save error:', err)
+      toast.error('Failed to save version')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
     if (route) {
-      router.push(`${route}?${searchParams.toString()}`)
+      push(`${route}?${searchParams.toString()}`)
     }
   }
 
@@ -204,7 +223,7 @@ function PersonaConfigureSharingContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => router.back()}
+                onClick={() => back()}
               />
             </div>
 
@@ -286,15 +305,20 @@ function PersonaConfigureSharingContent() {
                   variant="outline"
                   size="md"
                   icon={<QuillWriteOneIcon size={20} />}
-                  aria-label="Save version"
+                  aria-label={isSaving ? 'Saving…' : 'Save version'}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                  loading={isSaving}
                 />
               ) : (
                 <Button
                   variant="outline"
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
                 >
-                  Save version
+                  {isSaving ? 'Saving…' : 'Save version'}
                 </Button>
               )}
               <Button
@@ -354,7 +378,7 @@ function PersonaConfigureSharingContent() {
       {/* ── Test chat panel (slides in from right) ─────────────────────────── */}
       <AnimatePresence>
         {testChatOpen && (
-          <motion.div
+          <m.div
             key="test-chat"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 448, opacity: 1 }}
@@ -468,7 +492,7 @@ function PersonaConfigureSharingContent() {
                 modelName="Souvenir"
               />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

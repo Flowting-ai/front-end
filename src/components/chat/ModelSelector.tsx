@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Search, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import type { AIModel } from "@/types/ai-model";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { getModelLlmId } from "@/lib/model-icons";
@@ -51,7 +51,7 @@ export function ModelSelector({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -65,7 +65,7 @@ export function ModelSelector({
           />
 
           {/* Dialog */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -153,6 +153,7 @@ export function ModelSelector({
                   style={{
                     flex: 1,
                     border: "none",
+                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline: "none",
                     backgroundColor: "transparent",
                     fontFamily: "var(--font-body)",
@@ -179,7 +180,7 @@ export function ModelSelector({
                     style={{
                       padding: "8px 8px 4px",
                       fontFamily: "var(--font-body)",
-                      fontSize: "11px",
+                      fontSize: "12px",
                       fontWeight: "var(--font-weight-semibold)",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em",
@@ -248,7 +249,7 @@ export function ModelSelector({
                             <div
                               style={{
                                 fontFamily: "var(--font-body)",
-                                fontSize: "11px",
+                                fontSize: "12px",
                                 color: "var(--neutral-500)",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
@@ -299,7 +300,7 @@ export function ModelSelector({
                 </div>
               )}
             </div>
-          </motion.div>
+          </m.div>
         </>
       )}
     </AnimatePresence>

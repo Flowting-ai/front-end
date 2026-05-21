@@ -20,8 +20,7 @@ export interface EnhanceSummaryBarProps extends React.HTMLAttributes<HTMLDivElem
 // Per PRD §10. Compact purple-tinted banner above the diff. Falls back to the
 // "refined existing content" copy when additions are minor (<5 words).
 
-export const EnhanceSummaryBar = React.forwardRef<HTMLDivElement, EnhanceSummaryBarProps>(
-  function EnhanceSummaryBar({ wordsAdded, guidelineGroups, className, style, ...props }, ref) {
+export function EnhanceSummaryBar({ ref, wordsAdded, guidelineGroups, className, style, ...props }: EnhanceSummaryBarProps & { ref?: React.Ref<HTMLDivElement> }) {
     const minorAdds = wordsAdded < 5
     const summary = minorAdds
       ? 'Refined existing content with no major additions.'
@@ -58,8 +57,7 @@ export const EnhanceSummaryBar = React.forwardRef<HTMLDivElement, EnhanceSummary
         <span>{summary}</span>
       </div>
     )
-  },
-)
+}
 
 EnhanceSummaryBar.displayName = 'EnhanceSummaryBar'
 

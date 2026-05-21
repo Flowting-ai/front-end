@@ -43,7 +43,7 @@ function TeamPlanBadge() {
           position: 'relative',
           fontFamily: 'var(--font-body)',
           fontWeight: 500,
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: '16px',
           color: '#135487',
           whiteSpace: 'nowrap',
@@ -134,7 +134,7 @@ function VisibilityRow({
           style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 500,
-            fontSize: 11,
+            fontSize: 12,
             lineHeight: '16px',
             color: locked ? 'var(--neutral-500)' : 'var(--neutral-600)',
             whiteSpace: 'nowrap',
@@ -171,6 +171,7 @@ function UsageBar({ percent }: { percent: number }) {
           width: `${clamped}%`,
           backgroundColor: '#0d6eb2',
           borderRadius: 2,
+          // eslint-disable-next-line react-doctor/no-layout-transition-inline -- progress bar width is dynamic state
           transition: 'width 300ms ease',
         }}
       />
@@ -296,7 +297,7 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
-                fontSize: 11,
+                fontSize: 12,
                 lineHeight: '16px',
                 color: '#6a625d',
                 maxWidth: 560,
@@ -422,6 +423,7 @@ export default function SharingTab({ hasTeamsPlan = false }: SharingTabProps) {
                       style={{
                         width: 96,
                         border: 'none',
+                        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                         outline: 'none',
                         backgroundColor: 'transparent',
                         fontFamily: 'var(--font-body)',

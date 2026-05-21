@@ -16,11 +16,12 @@
  */
 
 import * as React from 'react'
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { CancelOneIcon, FolderOneIcon, PinIcon } from '@strange-huge/icons'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ function RemoveButton({
   const [isFocused, setIsFocused] = React.useState(false)
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={`Remove "${title}"`}
       onClick={onRemove}
@@ -204,15 +205,14 @@ function RemoveButton({
       }}
     >
       <CancelOneIcon size={20} color="currentColor" />
-    </motion.button>
+    </m.button>
   )
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps>(
-  function ChatThumbnail(
-    {
+export function ChatThumbnail({
+      ref,
       type,
       title,
       fileSize,
@@ -226,9 +226,7 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
       onMouseEnter,
       onMouseLeave,
       ...props
-    },
-    ref,
-  ) {
+    }: ChatThumbnailProps & { ref?: React.Ref<HTMLDivElement> }) {
     const [hovered,             setHovered]             = React.useState(false)
     const [removeButtonFocused, setRemoveButtonFocused] = React.useState(false)
 
@@ -236,7 +234,7 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
     const showRemove = isActive && onRemove !== undefined
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         layout
         // Enter - scale up + de-blur (220 ms ease-out cubic)
@@ -385,14 +383,13 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
               }}
             >
               {imageSrc && (
-                <img
+                <Image
                   src={imageSrc}
                   alt={imageAlt ?? title}
+                  fill
+                  sizes="120px"
+                  unoptimized
                   style={{
-                    position:     'absolute',
-                    inset:        0,
-                    width:        '100%',
-                    height:       '100%',
                     objectFit:    'cover',
                     display:      'block',
                   }}
@@ -422,10 +419,9 @@ export const ChatThumbnail = React.forwardRef<HTMLDivElement, ChatThumbnailProps
             onFocusChange={setRemoveButtonFocused}
           />
         )}
-      </motion.div>
+      </m.div>
     )
-  },
-)
+}
 
 ChatThumbnail.displayName = 'ChatThumbnail'
 export default ChatThumbnail

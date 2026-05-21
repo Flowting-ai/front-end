@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { PinIcon, MoreHorizontalIcon } from '@strange-huge/icons'
 import { Checkbox } from '@/components/Checkbox'
 import { cn } from '@/lib/utils'
@@ -151,6 +151,7 @@ function MenuItem({ label, destructive, onSelect }: MenuItemProps) {
         fontSize:        'var(--font-size-body)',
         fontWeight:      500,
         lineHeight:      'var(--line-height-body)',
+        // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
         outline:         'none',
         userSelect:      'none',
         transition:      'background-color 100ms',
@@ -168,10 +169,7 @@ interface ThreeDotButtonOwnProps {
   title: string
 }
 
-const ThreeDotButton = React.forwardRef<
-  HTMLButtonElement,
-  ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'>
->(function ThreeDotButton({ visible, title, onClick, ...rest }, ref) {
+function ThreeDotButton({ visible, title, onClick, ref, ...rest }: ThreeDotButtonOwnProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> & { ref?: React.Ref<HTMLButtonElement> }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
 
@@ -207,36 +205,36 @@ const ThreeDotButton = React.forwardRef<
       <MoreHorizontalIcon size={20} color="var(--neutral-600)" />
     </button>
   )
-})
+}
 
 // ── ChatRow ───────────────────────────────────────────────────────────────────
 
-const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
-  function ChatRow(
-    {
-      title         = '',
-      timestamp     = '',
-      pinCount      = 0,
-      pinBoardOpen  = false,
-      onPinClick,
-      selectionMode = false,
-      selected      = false,
-      onSelect,
-      starred       = false,
-      onRename,
-      onStar,
-      onDelete,
-      isEmpty       = false,
-      disabled      = false,
-      asChild       = false,
-      className,
-      style,
-      onClick,
-      onKeyDown,
-      ...props
-    },
+function ChatRowInner(
+  {
+    title         = '',
+    timestamp     = '',
+    pinCount      = 0,
+    pinBoardOpen  = false,
+    onPinClick,
+    selectionMode = false,
+    selected      = false,
+    onSelect,
+    starred       = false,
+    onRename,
+    onStar,
+    onDelete,
+    isEmpty       = false,
+    disabled      = false,
+    asChild       = false,
+    className,
+    style,
+    onClick,
+    onKeyDown,
     ref,
-  ) {
+    ...props
+  }: ChatRowProps & { ref?: React.Ref<HTMLDivElement> },
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+) {
     const Comp = (asChild ? Slot : 'div') as React.ElementType
 
     const [rowHovered,  setRowHovered]  = useState(false)
@@ -257,11 +255,11 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
       setIsRenaming(false)
     }, [renameValue, resolvedTitle, onRename])
 
-    const handleFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const handleRowFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) setRowFocused(true)
     }, [])
 
-    const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const handleRowBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setRowFocused(false)
     }, [])
 
@@ -309,8 +307,8 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
         tabIndex={isEmpty ? undefined : 0}
         onMouseEnter={() => setRowHovered(true)}
         onMouseLeave={() => setRowHovered(false)}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
+        onFocus={handleRowFocus}
+        onBlur={handleRowBlur}
         onClick={
           selectionMode
             ? () => onSelect?.(!selected)
@@ -352,7 +350,7 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
         {/* ── Checkbox (selection mode only) ─────────────────────────────── */}
         <AnimatePresence initial={false}>
           {selectionMode && (
-            <motion.div
+            <m.div
               key="checkbox"
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
@@ -365,7 +363,7 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
                 checked={selected}
                 onCheckedChange={(v) => onSelect?.(v === true)}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -405,6 +403,7 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
               {isRenaming ? (
                 <input
                   ref={renameInputRef}
+                  // eslint-disable-next-line react-doctor/no-autofocus -- focus moves into rename input on user-triggered rename
                   autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
@@ -424,6 +423,7 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
                     color:           '#1a1714',
                     border:          'none',
                     borderBottom:    '1.5px solid var(--blue-400)',
+                    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                     outline:         'none',
                     backgroundColor: 'transparent',
                     padding:         0,
@@ -493,7 +493,7 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
                         boxShadow:     '0px 4px 16px 0px rgba(26,23,20,0.16), 0px 0px 0px 1px rgba(59,54,50,0.10)',
                         padding:       4,
                         minWidth:      160,
-                        zIndex:        9999,
+                        zIndex:        5,
                       }}
                     >
                       <MenuItem
@@ -533,9 +533,8 @@ const _ChatRow = React.forwardRef<HTMLDivElement, ChatRowProps>(
 
       </Comp>
     )
-  },
-)
+}
 
-export const ChatRow = React.memo(_ChatRow)
+export const ChatRow = React.memo(ChatRowInner)
 ChatRow.displayName = 'ChatRow'
 export default ChatRow

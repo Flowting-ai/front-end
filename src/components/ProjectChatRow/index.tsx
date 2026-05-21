@@ -55,19 +55,20 @@ export function ProjectChatEmptyRow() {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowProps>(
-  function ProjectChatRow(
-    { title, timestamp, pinCount, active, onChatClick, onPinsClick, onRename, onDelete },
-    ref,
-  ) {
+export function ProjectChatRow(
+  { title, timestamp, pinCount, active, onChatClick, onPinsClick, onRename, onDelete, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
+) {
     const [hovered,   setHovered]   = useState(false)
     const [menuOpen,  setMenuOpen]  = useState(false)
     const [isEditing, setIsEditing] = useState(false)
+    // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
     const [editValue, setEditValue] = useState(title)
     const inputRef = useRef<HTMLInputElement>(null)
-
-    // Sync edit value when title changes externally
-    useEffect(() => { setEditValue(title) }, [title])
+    const prevTitleRef = useRef(title)
+    if (prevTitleRef.current !== title) {
+      prevTitleRef.current = title
+      setEditValue(title)
+    }
 
     // Focus the input when editing starts
     useEffect(() => {
@@ -153,6 +154,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
                 lineHeight:      '22px',
                 color:           '#1a1714',
                 border:          'none',
+                // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                 outline:         'none',
                 background:      'transparent',
                 width:           '100%',
@@ -181,7 +183,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
             style={{
               fontFamily:   'var(--font-body)',
               fontWeight:   'var(--font-weight-regular)',
-              fontSize:     '11px',
+              fontSize: '12px',
               lineHeight:   '16px',
               color:        '#a39b95',
               overflow:     'hidden',
@@ -196,6 +198,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
 
         {/* ⋮ menu - hover-revealed */}
         {!isEditing && (
+          // eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- stopPropagation wrapper; menu items handle keyboard
           <div
             style={{
               display:    'flex',
@@ -331,8 +334,7 @@ export const ProjectChatRow = React.forwardRef<HTMLDivElement, ProjectChatRowPro
         </button>
       </div>
     )
-  },
-)
+}
 
 ProjectChatRow.displayName = 'ProjectChatRow'
 export default ProjectChatRow

@@ -19,7 +19,7 @@ function toHandle(name: string) {
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 function NamePageContent() {
-  const router = useRouter()
+  const { push } = useRouter()
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
@@ -44,7 +44,7 @@ function NamePageContent() {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
       sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, name }))
     } catch { /* ignore */ }
-    router.push(`/personas/basics/tone${buildQuery()}`)
+    push(`/personas/basics/tone${buildQuery()}`)
   }
 
   const handle = name.trim() ? `@${toHandle(name)}01` : ''
@@ -88,6 +88,7 @@ function NamePageContent() {
                   width: '100%',
                   fontFamily: 'var(--font-body)', fontWeight: 400,
                   fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)',
+                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
                   background: 'transparent', border: 'none', outline: 'none',
                 }}
               />
@@ -117,10 +118,11 @@ function NamePageContent() {
               variant="outline"
               size="sm"
               leftIcon={<ArrowLeftOneIcon size={16} />}
-              onClick={() => router.push(`/personas/basics/purpose${buildQuery()}`)}
+              onClick={() => push(`/personas/basics/purpose${buildQuery()}`)}
             >
               Back
             </Button>
+            {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- wizard step: "Continue" advances to next step; position in flow makes action clear */}
             <Button
               variant="default"
               size="sm"

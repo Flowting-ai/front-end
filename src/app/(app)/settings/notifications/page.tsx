@@ -153,7 +153,7 @@ function NotifRow({
         <p style={{
           fontFamily: 'var(--font-body)',
           fontWeight: 400,
-          fontSize:   11,
+          fontSize: 12,
           lineHeight: '16px',
           color:      'var(--neutral-500)',
           margin:     0,
@@ -249,7 +249,7 @@ export default function NotificationsPage() {
     pct100: false,
   })
 
-  const handleChange = (id: string, field: 'inApp' | 'email', val: boolean) => {
+  const toggleNotifPref = (id: string, field: 'inApp' | 'email', val: boolean) => {
     setPrefs(prev => ({ ...prev, [id]: { ...prev[id], [field]: val } }))
   }
 
@@ -331,13 +331,13 @@ export default function NotificationsPage() {
               id="automation-complete"
               label="Automation complete"
               description="A scheduled workflow finished running successfully"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow
               id="automation-failed"
               label="Automation failed"
               description="A workflow encountered an error and stopped"
-              prefs={prefs} onChange={handleChange}
+              prefs={prefs} onChange={toggleNotifPref}
             />
           </div>
 
@@ -348,19 +348,19 @@ export default function NotificationsPage() {
               id="pin-created"
               label="Pin created"
               description="A response was saved to your Pinboard"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow
               id="file-processed"
               label="File processed"
               description="An uploaded file has finished processing"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow
               id="memory-updated"
               label="Memory updated"
               description="Souvenir learned something new from your conversations"
-              prefs={prefs} onChange={handleChange}
+              prefs={prefs} onChange={toggleNotifPref}
             />
           </div>
 
@@ -373,7 +373,7 @@ export default function NotificationsPage() {
               id="budget-alert"
               label="Budget alert"
               description="Your credit usage has crossed a threshold you set in Routing"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
 
             {/* Budget routing - checkbox group */}
@@ -441,19 +441,19 @@ export default function NotificationsPage() {
               id="team-invite"
               label="Team invite"
               description="Someone invited you to join a workspace"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow
               id="persona-invite"
               label="Persona invite"
               description="A persona was shared with you"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
             />
             <NotifRow
               id="workflow-invite"
               label="Workflow invite"
               description="A workflow template was shared with you"
-              prefs={prefs} onChange={handleChange}
+              prefs={prefs} onChange={toggleNotifPref}
             />
           </div>
         </NotifCard>
@@ -473,14 +473,14 @@ export default function NotificationsPage() {
               id="payment-successful"
               label="Payment successful"
               description="Your subscription was renewed or a top-up was purchased"
-              prefs={prefs} onChange={handleChange} divider
+              prefs={prefs} onChange={toggleNotifPref} divider
               emailLocked
             />
             <NotifRow
               id="payment-failed"
               label="Payment failed"
               description="A payment attempt was unsuccessful - action may be required"
-              prefs={prefs} onChange={handleChange}
+              prefs={prefs} onChange={toggleNotifPref}
               emailLocked
             />
           </div>
