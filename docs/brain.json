@@ -1,0 +1,2686 @@
+ "/brain": {
+      "get": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "List Chats",
+        "operationId": "list_chats_brain_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BrainChatListItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Chats Brain Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Remove Chat",
+        "operationId": "remove_chat_brain_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteChat"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/brain/create": {
+      "post": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Create Brain Chat",
+        "operationId": "create_brain_chat_brain_create_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_brain_chat_brain_create_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE stream"
+                },
+                "x-sse-events": {
+                  "message_saved": {
+                    "properties": {
+                      "message_id": {
+                        "title": "Message Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "message_id"
+                    ],
+                    "title": "MessageSavedEvent",
+                    "type": "object"
+                  },
+                  "title": {
+                    "properties": {
+                      "title": {
+                        "title": "Title",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title"
+                    ],
+                    "title": "TitleEvent",
+                    "type": "object"
+                  },
+                  "web_search": {
+                    "properties": {
+                      "query": {
+                        "title": "Query",
+                        "type": "string"
+                      },
+                      "links": {
+                        "items": {
+
+                        },
+                        "title": "Links",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "query",
+                      "links"
+                    ],
+                    "title": "WebSearchEvent",
+                    "type": "object"
+                  },
+                  "image": {
+                    "properties": {
+                      "url": {
+                        "title": "Url",
+                        "type": "string"
+                      },
+                      "s3_key": {
+                        "title": "S3 Key",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "s3_key"
+                    ],
+                    "title": "ImageEvent",
+                    "type": "object"
+                  },
+                  "generated_file": {
+                    "properties": {
+                      "url": {
+                        "title": "Url",
+                        "type": "string"
+                      },
+                      "s3_key": {
+                        "title": "S3 Key",
+                        "type": "string"
+                      },
+                      "filename": {
+                        "title": "Filename",
+                        "type": "string"
+                      },
+                      "mime_type": {
+                        "title": "Mime Type",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "s3_key",
+                      "filename",
+                      "mime_type"
+                    ],
+                    "title": "GeneratedFileEvent",
+                    "type": "object"
+                  },
+                  "tool_progress": {
+                    "properties": {
+                      "tool": {
+                        "title": "Tool",
+                        "type": "string"
+                      },
+                      "label": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Label"
+                      },
+                      "status": {
+                        "title": "Status",
+                        "type": "string"
+                      },
+                      "filename": {
+                        "title": "Filename",
+                        "type": "string"
+                      },
+                      "step": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Step"
+                      },
+                      "message": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Message"
+                      },
+                      "code_preview": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Code Preview"
+                      },
+                      "elapsed_seconds": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Elapsed Seconds"
+                      },
+                      "percent": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Percent"
+                      },
+                      "detail": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Detail"
+                      }
+                    },
+                    "required": [
+                      "tool",
+                      "status",
+                      "filename"
+                    ],
+                    "title": "ToolProgressEvent",
+                    "type": "object"
+                  },
+                  "tool_connect_prompt": {
+                    "description": "The model called a connector tool for an app the user hasn't linked.\nThe UI renders a 'Connect \u003CApp\u003E' button; clicking it opens the OAuth or\nAPI-key flow, then the user resends their message.",
+                    "properties": {
+                      "connector_slug": {
+                        "title": "Connector Slug",
+                        "type": "string"
+                      },
+                      "display_name": {
+                        "title": "Display Name",
+                        "type": "string"
+                      },
+                      "auth_mode": {
+                        "title": "Auth Mode",
+                        "type": "string"
+                      },
+                      "tool_name": {
+                        "title": "Tool Name",
+                        "type": "string"
+                      },
+                      "request_id": {
+                        "title": "Request Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "connector_slug",
+                      "display_name",
+                      "auth_mode",
+                      "tool_name",
+                      "request_id"
+                    ],
+                    "title": "ToolConnectPromptEvent",
+                    "type": "object"
+                  },
+                  "user_prompt": {
+                    "description": "Generic mid-stream \"the model is asking the user something\" event.\n\nThe same event handles connector permission asks, plan approvals,\ndestructive-action confirmations, and free-text clarifications.\nBackend code calls `core.prompt_gate.ask_user(...)` which emits this\nevent and blocks until the FE POSTs to `respond_url`.\n\nFields:\n  prompt_id    — UUID; FE POSTs to /chats/prompts/{prompt_id}.\n  kind         — \"permission\" | \"confirm\" | \"choice\" | \"input\".\n  title        — headline rendered in the assistant message.\n  description  — optional longer body.\n  options      — for choice-style kinds, [{value, label, style?}].\n  metadata     — kind-specific context (e.g. {connector_slug, tool_slug,\n                 suggested_args} for permission asks). FE renders or\n                 ignores per its UI.\n  respond_url  — server-built path to POST the response to.",
+                    "properties": {
+                      "prompt_id": {
+                        "title": "Prompt Id",
+                        "type": "string"
+                      },
+                      "kind": {
+                        "title": "Kind",
+                        "type": "string"
+                      },
+                      "title": {
+                        "title": "Title",
+                        "type": "string"
+                      },
+                      "description": {
+                        "default": "",
+                        "title": "Description",
+                        "type": "string"
+                      },
+                      "options": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Options",
+                        "type": "array"
+                      },
+                      "metadata": {
+                        "additionalProperties": true,
+                        "default": {
+
+                        },
+                        "title": "Metadata",
+                        "type": "object"
+                      },
+                      "respond_url": {
+                        "default": "",
+                        "title": "Respond Url",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "prompt_id",
+                      "kind",
+                      "title"
+                    ],
+                    "title": "UserPromptEvent",
+                    "type": "object"
+                  },
+                  "plan_proposed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "title": "Summary",
+                        "type": "string"
+                      },
+                      "steps": {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Steps",
+                        "type": "array"
+                      },
+                      "required_connectors": {
+                        "default": [],
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Required Connectors",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "summary",
+                      "steps"
+                    ],
+                    "title": "PlanProposedEvent",
+                    "type": "object"
+                  },
+                  "plan_approved": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id"
+                    ],
+                    "title": "PlanApprovedEvent",
+                    "type": "object"
+                  },
+                  "plan_countered": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "counter_text": {
+                        "title": "Counter Text",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "counter_text"
+                    ],
+                    "title": "PlanCounteredEvent",
+                    "type": "object"
+                  },
+                  "plan_cancelled": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id"
+                    ],
+                    "title": "PlanCancelledEvent",
+                    "type": "object"
+                  },
+                  "step_started": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id"
+                    ],
+                    "title": "StepStartedEvent",
+                    "type": "object"
+                  },
+                  "step_completed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id"
+                    ],
+                    "title": "StepCompletedEvent",
+                    "type": "object"
+                  },
+                  "step_failed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "error": {
+                        "title": "Error",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "error"
+                    ],
+                    "title": "StepFailedEvent",
+                    "type": "object"
+                  },
+                  "reasoning_heading": {
+                    "description": "Opens a new reasoning section. Subsequent `reasoning_body` events\nappend to this section's body until the next `reasoning_heading`\nor the first `content` event.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning_heading",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningHeadingEvent",
+                    "type": "object"
+                  },
+                  "reasoning_body": {
+                    "description": "Appends a delta to the current reasoning section's body.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning_body",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningBodyEvent",
+                    "type": "object"
+                  },
+                  "reasoning": {
+                    "description": "Legacy: full raw reasoning text delta. Kept for backward compat —\nnew clients should use `reasoning_heading` + `reasoning_body` instead.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningEvent",
+                    "type": "object"
+                  },
+                  "content": {
+                    "description": "Token of the assistant's visible answer. Concat into the answer text.",
+                    "properties": {
+                      "type": {
+                        "default": "content",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ContentEvent",
+                    "type": "object"
+                  },
+                  "tool_calls_streaming": {
+                    "description": "Tool name + argument fragments arriving live, before tool execution\nstarts. UX hint so the frontend can show 'Calling X…'.",
+                    "properties": {
+                      "type": {
+                        "default": "tool_calls_streaming",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Tool Call"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ToolCallsStreamingEvent",
+                    "type": "object"
+                  },
+                  "tool_executing": {
+                    "description": "Tool just started running (after args fully streamed and parsed).",
+                    "properties": {
+                      "type": {
+                        "default": "tool_executing",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "additionalProperties": true,
+                        "title": "Tool Call",
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "tool_call"
+                    ],
+                    "title": "ToolExecutingEvent",
+                    "type": "object"
+                  },
+                  "tool_complete": {
+                    "description": "Tool finished. `tool_call.result` is a string preview (capped 8KB).",
+                    "properties": {
+                      "type": {
+                        "default": "tool_complete",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "additionalProperties": true,
+                        "title": "Tool Call",
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "tool_call"
+                    ],
+                    "title": "ToolCompleteEvent",
+                    "type": "object"
+                  },
+                  "done": {
+                    "description": "End of an agentic round. The final `done` is followed by\n`message_saved`. `finish_reason` of `length`, `incomplete`, or\n`content_filter` indicates a truncated response.",
+                    "properties": {
+                      "type": {
+                        "default": "done",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "usage": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Usage"
+                      },
+                      "reasoning_details": {
+                        "anyOf": [
+                          {
+                            "items": {
+
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Reasoning Details"
+                      },
+                      "tool_calls": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Tool Calls"
+                      },
+                      "finish_reason": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Finish Reason"
+                      }
+                    },
+                    "title": "DoneEvent",
+                    "type": "object"
+                  },
+                  "error": {
+                    "description": "Stream-level error. May still be followed by a final `done`.",
+                    "properties": {
+                      "type": {
+                        "default": "error",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "error": {
+                        "title": "Error",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "error"
+                    ],
+                    "title": "ErrorEvent",
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/brain/{chat_id}/stream": {
+      "post": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Stream Brain Message",
+        "operationId": "stream_brain_message_brain__chat_id__stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Streaming Brain orchestrator response via Server-Sent Events.\n\nTwo kinds of events arrive on the same SSE stream:\n\n**Named events** (`event: \u003Cname\u003E\\ndata: {...}`) — lifecycle, tools, model:\n\n- **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n- **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n- **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n- **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n- **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"\u003Cname\u003E\",...}`) — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n- **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n- **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE stream"
+                },
+                "x-sse-events": {
+                  "message_saved": {
+                    "properties": {
+                      "message_id": {
+                        "title": "Message Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "message_id"
+                    ],
+                    "title": "MessageSavedEvent",
+                    "type": "object"
+                  },
+                  "title": {
+                    "properties": {
+                      "title": {
+                        "title": "Title",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title"
+                    ],
+                    "title": "TitleEvent",
+                    "type": "object"
+                  },
+                  "web_search": {
+                    "properties": {
+                      "query": {
+                        "title": "Query",
+                        "type": "string"
+                      },
+                      "links": {
+                        "items": {
+
+                        },
+                        "title": "Links",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "query",
+                      "links"
+                    ],
+                    "title": "WebSearchEvent",
+                    "type": "object"
+                  },
+                  "image": {
+                    "properties": {
+                      "url": {
+                        "title": "Url",
+                        "type": "string"
+                      },
+                      "s3_key": {
+                        "title": "S3 Key",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "s3_key"
+                    ],
+                    "title": "ImageEvent",
+                    "type": "object"
+                  },
+                  "generated_file": {
+                    "properties": {
+                      "url": {
+                        "title": "Url",
+                        "type": "string"
+                      },
+                      "s3_key": {
+                        "title": "S3 Key",
+                        "type": "string"
+                      },
+                      "filename": {
+                        "title": "Filename",
+                        "type": "string"
+                      },
+                      "mime_type": {
+                        "title": "Mime Type",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "s3_key",
+                      "filename",
+                      "mime_type"
+                    ],
+                    "title": "GeneratedFileEvent",
+                    "type": "object"
+                  },
+                  "tool_progress": {
+                    "properties": {
+                      "tool": {
+                        "title": "Tool",
+                        "type": "string"
+                      },
+                      "label": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Label"
+                      },
+                      "status": {
+                        "title": "Status",
+                        "type": "string"
+                      },
+                      "filename": {
+                        "title": "Filename",
+                        "type": "string"
+                      },
+                      "step": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Step"
+                      },
+                      "message": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Message"
+                      },
+                      "code_preview": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Code Preview"
+                      },
+                      "elapsed_seconds": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Elapsed Seconds"
+                      },
+                      "percent": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Percent"
+                      },
+                      "detail": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Detail"
+                      }
+                    },
+                    "required": [
+                      "tool",
+                      "status",
+                      "filename"
+                    ],
+                    "title": "ToolProgressEvent",
+                    "type": "object"
+                  },
+                  "tool_connect_prompt": {
+                    "description": "The model called a connector tool for an app the user hasn't linked.\nThe UI renders a 'Connect \u003CApp\u003E' button; clicking it opens the OAuth or\nAPI-key flow, then the user resends their message.",
+                    "properties": {
+                      "connector_slug": {
+                        "title": "Connector Slug",
+                        "type": "string"
+                      },
+                      "display_name": {
+                        "title": "Display Name",
+                        "type": "string"
+                      },
+                      "auth_mode": {
+                        "title": "Auth Mode",
+                        "type": "string"
+                      },
+                      "tool_name": {
+                        "title": "Tool Name",
+                        "type": "string"
+                      },
+                      "request_id": {
+                        "title": "Request Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "connector_slug",
+                      "display_name",
+                      "auth_mode",
+                      "tool_name",
+                      "request_id"
+                    ],
+                    "title": "ToolConnectPromptEvent",
+                    "type": "object"
+                  },
+                  "user_prompt": {
+                    "description": "Generic mid-stream \"the model is asking the user something\" event.\n\nThe same event handles connector permission asks, plan approvals,\ndestructive-action confirmations, and free-text clarifications.\nBackend code calls `core.prompt_gate.ask_user(...)` which emits this\nevent and blocks until the FE POSTs to `respond_url`.\n\nFields:\n  prompt_id    — UUID; FE POSTs to /chats/prompts/{prompt_id}.\n  kind         — \"permission\" | \"confirm\" | \"choice\" | \"input\".\n  title        — headline rendered in the assistant message.\n  description  — optional longer body.\n  options      — for choice-style kinds, [{value, label, style?}].\n  metadata     — kind-specific context (e.g. {connector_slug, tool_slug,\n                 suggested_args} for permission asks). FE renders or\n                 ignores per its UI.\n  respond_url  — server-built path to POST the response to.",
+                    "properties": {
+                      "prompt_id": {
+                        "title": "Prompt Id",
+                        "type": "string"
+                      },
+                      "kind": {
+                        "title": "Kind",
+                        "type": "string"
+                      },
+                      "title": {
+                        "title": "Title",
+                        "type": "string"
+                      },
+                      "description": {
+                        "default": "",
+                        "title": "Description",
+                        "type": "string"
+                      },
+                      "options": {
+                        "default": [],
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Options",
+                        "type": "array"
+                      },
+                      "metadata": {
+                        "additionalProperties": true,
+                        "default": {
+
+                        },
+                        "title": "Metadata",
+                        "type": "object"
+                      },
+                      "respond_url": {
+                        "default": "",
+                        "title": "Respond Url",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "prompt_id",
+                      "kind",
+                      "title"
+                    ],
+                    "title": "UserPromptEvent",
+                    "type": "object"
+                  },
+                  "plan_proposed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "title": "Summary",
+                        "type": "string"
+                      },
+                      "steps": {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "title": "Steps",
+                        "type": "array"
+                      },
+                      "required_connectors": {
+                        "default": [],
+                        "items": {
+                          "type": "string"
+                        },
+                        "title": "Required Connectors",
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "summary",
+                      "steps"
+                    ],
+                    "title": "PlanProposedEvent",
+                    "type": "object"
+                  },
+                  "plan_approved": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id"
+                    ],
+                    "title": "PlanApprovedEvent",
+                    "type": "object"
+                  },
+                  "plan_countered": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "counter_text": {
+                        "title": "Counter Text",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "counter_text"
+                    ],
+                    "title": "PlanCounteredEvent",
+                    "type": "object"
+                  },
+                  "plan_cancelled": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id"
+                    ],
+                    "title": "PlanCancelledEvent",
+                    "type": "object"
+                  },
+                  "step_started": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id"
+                    ],
+                    "title": "StepStartedEvent",
+                    "type": "object"
+                  },
+                  "step_completed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id"
+                    ],
+                    "title": "StepCompletedEvent",
+                    "type": "object"
+                  },
+                  "step_failed": {
+                    "properties": {
+                      "plan_id": {
+                        "title": "Plan Id",
+                        "type": "string"
+                      },
+                      "step_id": {
+                        "title": "Step Id",
+                        "type": "string"
+                      },
+                      "error": {
+                        "title": "Error",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "plan_id",
+                      "step_id",
+                      "error"
+                    ],
+                    "title": "StepFailedEvent",
+                    "type": "object"
+                  },
+                  "reasoning_heading": {
+                    "description": "Opens a new reasoning section. Subsequent `reasoning_body` events\nappend to this section's body until the next `reasoning_heading`\nor the first `content` event.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning_heading",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningHeadingEvent",
+                    "type": "object"
+                  },
+                  "reasoning_body": {
+                    "description": "Appends a delta to the current reasoning section's body.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning_body",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningBodyEvent",
+                    "type": "object"
+                  },
+                  "reasoning": {
+                    "description": "Legacy: full raw reasoning text delta. Kept for backward compat —\nnew clients should use `reasoning_heading` + `reasoning_body` instead.",
+                    "properties": {
+                      "type": {
+                        "default": "reasoning",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ReasoningEvent",
+                    "type": "object"
+                  },
+                  "content": {
+                    "description": "Token of the assistant's visible answer. Concat into the answer text.",
+                    "properties": {
+                      "type": {
+                        "default": "content",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ContentEvent",
+                    "type": "object"
+                  },
+                  "tool_calls_streaming": {
+                    "description": "Tool name + argument fragments arriving live, before tool execution\nstarts. UX hint so the frontend can show 'Calling X…'.",
+                    "properties": {
+                      "type": {
+                        "default": "tool_calls_streaming",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Tool Call"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ToolCallsStreamingEvent",
+                    "type": "object"
+                  },
+                  "tool_executing": {
+                    "description": "Tool just started running (after args fully streamed and parsed).",
+                    "properties": {
+                      "type": {
+                        "default": "tool_executing",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "additionalProperties": true,
+                        "title": "Tool Call",
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "tool_call"
+                    ],
+                    "title": "ToolExecutingEvent",
+                    "type": "object"
+                  },
+                  "tool_complete": {
+                    "description": "Tool finished. `tool_call.result` is a string preview (capped 8KB).",
+                    "properties": {
+                      "type": {
+                        "default": "tool_complete",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "content": {
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "tool_call": {
+                        "additionalProperties": true,
+                        "title": "Tool Call",
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "tool_call"
+                    ],
+                    "title": "ToolCompleteEvent",
+                    "type": "object"
+                  },
+                  "done": {
+                    "description": "End of an agentic round. The final `done` is followed by\n`message_saved`. `finish_reason` of `length`, `incomplete`, or\n`content_filter` indicates a truncated response.",
+                    "properties": {
+                      "type": {
+                        "default": "done",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "usage": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Usage"
+                      },
+                      "reasoning_details": {
+                        "anyOf": [
+                          {
+                            "items": {
+
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Reasoning Details"
+                      },
+                      "tool_calls": {
+                        "anyOf": [
+                          {
+                            "items": {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Tool Calls"
+                      },
+                      "finish_reason": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "title": "Finish Reason"
+                      }
+                    },
+                    "title": "DoneEvent",
+                    "type": "object"
+                  },
+                  "error": {
+                    "description": "Stream-level error. May still be followed by a final `done`.",
+                    "properties": {
+                      "type": {
+                        "default": "error",
+                        "title": "Type",
+                        "type": "string"
+                      },
+                      "error": {
+                        "title": "Error",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "error"
+                    ],
+                    "title": "ErrorEvent",
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/{chat_id}/messages": {
+      "get": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Get Messages",
+        "operationId": "get_messages_brain__chat_id__messages_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BrainMessage"
+                  },
+                  "title": "Response Get Messages Brain  Chat Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/{chat_id}/plans": {
+      "get": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Get Chat Plans",
+        "operationId": "get_chat_plans_brain__chat_id__plans_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BrainPlanResponse"
+                  },
+                  "title": "Response Get Chat Plans Brain  Chat Id  Plans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/{chat_id}/stop": {
+      "post": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Stop",
+        "operationId": "stop_brain__chat_id__stop_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/{chat_id}/star": {
+      "patch": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Star",
+        "operationId": "star_brain__chat_id__star_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chat Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/rename": {
+      "patch": {
+        "tags": [
+          "brain"
+        ],
+        "summary": "Rename",
+        "operationId": "rename_brain_rename_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameChat"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BlockModel": {
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Model Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_id"
+        ],
+        "title": "BlockModel"
+      },
+      "Body_create_brain_chat_brain_create_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "persona_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Id"
+          },
+          "pin_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin Ids"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_create_brain_chat_brain_create_post"
+      },
+      "Body_create_new_chat_chats_create_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "algorithm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithm"
+          },
+          "pin_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin Ids"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          },
+          "system_instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Instruction"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_create_new_chat_chats_create_post"
+      },
+      "Body_create_new_persona_repo_persona_post": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "model_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Model Id"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt",
+            "default": ""
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "model_id"
+        ],
+        "title": "Body_create_new_persona_repo_persona_post"
+      },
+      "Body_create_new_version_persona__repo_id__versions_post": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "model_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Model Id"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt",
+            "default": ""
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "model_id"
+        ],
+        "title": "Body_create_new_version_persona__repo_id__versions_post"
+      },
+      "Body_create_project_projects_post": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "system_instruction": {
+            "type": "string",
+            "title": "System Instruction",
+            "default": ""
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "Body_create_project_projects_post"
+      },
+      "Body_create_repo_chat_persona__repo_id__chats_create_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_create_repo_chat_persona__repo_id__chats_create_post"
+      },
+      "Body_enhance_persona_enhance_prompt_post": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "Body_enhance_persona_enhance_prompt_post"
+      },
+      "Body_stream_brain_message_brain__chat_id__stream_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "persona_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona Id"
+          },
+          "pin_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin Ids"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_stream_brain_message_brain__chat_id__stream_post"
+      },
+      "Body_stream_chat_message_chats__chat_id__stream_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "algorithm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algorithm"
+          },
+          "pin_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin Ids"
+          },
+          "reference_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Message Id"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          },
+          "system_instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Instruction"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_stream_chat_message_chats__chat_id__stream_post"
+      },
+      "Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "use_mistral_ocr": {
+            "type": "boolean",
+            "title": "Use Mistral Ocr",
+            "default": false
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_stream_persona_message_persona__repo_id__chats__chat_id__stream_post"
+      },
+      "Body_test_version_stream_persona__repo_id__versions__persona_id__test_post": {
+        "properties": {
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "Body_test_version_stream_persona__repo_id__versions__persona_id__test_post"
+      },
+      "Body_update_project_projects__project_id__patch": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "system_instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Instruction"
+          },
+          "remove_document_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remove Document Ids"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "title": "Body_update_project_projects__project_id__patch"
+      },
+      "Body_update_version_persona__repo_id__versions__persona_id__patch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "contentMediaType": "application/octet-stream"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "remove_document_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remove Document Ids"
+          }
+        },
+        "type": "object",
+        "title": "Body_update_version_persona__repo_id__versions__persona_id__patch"
+      },
+      "Body_upload_version_document_persona__repo_id__versions__persona_id__document_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_version_document_persona__repo_id__versions__persona_id__document_post"
+      },
+      "BrainChatListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "chat_title": {
+            "type": "string",
+            "title": "Chat Title"
+          },
+          "starred": {
+            "type": "boolean",
+            "title": "Starred",
+            "default": false
+          },
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "chat_title",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BrainChatListItem",
+        "description": "Row returned by GET /brain (one per Brain chat)."
+      },
+      "BrainMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
+          "reasoning_sections": {
+            "anyOf": [
+              {
+                "items": {
+
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Sections"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrainPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "input",
+          "output",
+          "created_at"
+        ],
+        "title": "BrainMessage",
+        "description": "Returned by GET /brain/{chat_id}/messages — one row per turn."
+      },
+      "BrainPlanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "counter_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counter Text"
+          },
+          "plan_json": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Plan Json"
+          },
+          "final_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "plan_json",
+          "created_at"
+        ],
+        "title": "BrainPlanResponse",
+        "description": "One BrainPlan row, surfaced inline on a Brain message GET."
+      },
+      

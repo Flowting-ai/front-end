@@ -35,8 +35,7 @@ import {
   getVersion,
   setActiveVersion,
   listVersions,
-  createAndStreamPersonaChat,
-  streamPersonaMessage,
+  testVersionStream,
   type PersonaChatStreamCallbacks,
   type PersonaVersionResponse,
   type PersonaRepoResponse,
@@ -46,6 +45,12 @@ import { fetchModelsWithCache } from '@/lib/ai-models'
 import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
+import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
+import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
+import { useFileUpload } from '@/hooks/use-file-upload'
+import type { PinFolder } from '@/lib/api/pins'
+import { MessageBubble } from '@/components/MessageBubble'
+import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -554,7 +559,7 @@ function PersonaConfigureInstructionsContent() {
   const [allModels,      setAllModels]      = useState<AIModel[]>([])
   const [selectedModel,  setSelectedModel]  = useState<AIModel | null>(null)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
-  const [imageUrl,    setImageUrl]    = useState<string | null>(null)
+  const [imageUrl,    setImageUrl]    = useState<string | null>(() => readProfileAvatar(repoIdParam))
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
@@ -578,12 +583,37 @@ function PersonaConfigureInstructionsContent() {
 
   type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
   const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
-  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- testChatId is read in streaming handler logic, not directly in JSX
-  const [testChatId,    setTestChatId]    = useState<string | null>(null)
   // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
   const [isStreaming,   setIsStreaming]   = useState(false)
   const abortStreamRef  = useRef<(() => void) | null>(null)
   const chatScrollRef   = useRef<HTMLDivElement>(null)
+
+  // ── Test-chat add-menu state ──────────────────────────────────────────────────
+  const [testChatWebSearch,   setTestChatWebSearch]   = useState(false)
+  const [testChatStyleId,     setTestChatStyleId]     = useState<string | null>(null)
+  const [testChatFolders,     setTestChatFolders]     = useState<PinFolder[]>([])
+  const [testChatPersonaId,   setTestChatPersonaId]   = useState<string | null>(null)
+  const [testChatAttachments, setTestChatAttachments] = useState<PendingAttachment[]>([])
+  const testChatFileInputRef = useRef<HTMLInputElement>(null)
+  const { processFiles, FILE_ACCEPT } = useFileUpload()
+
+  function handleTestChatAddFiles() { testChatFileInputRef.current?.click() }
+
+  function handleTestChatFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.length) {
+      const captured = Array.from(e.target.files)
+      e.target.value = ''
+      setTestChatAttachments(prev => processFiles(captured, prev))
+    }
+  }
+
+  function handleTestChatFolderToggle(folder: PinFolder) {
+    setTestChatFolders(prev =>
+      prev.some(f => f.id === folder.id)
+        ? prev.filter(f => f.id !== folder.id)
+        : [...prev, folder]
+    )
+  }
 
   // Auto-scroll to bottom when new content arrives
   useEffect(() => {
@@ -592,7 +622,7 @@ function PersonaConfigureInstructionsContent() {
   }, [chatMessages])
 
   async function handleTestChatSend(value: string) {
-    if (!value.trim() || !repoId || isStreaming) return
+    if (!value.trim() || !repoId || !versionId || isStreaming) return
 
     const userMsgId = `user-${Date.now()}`
     const asstMsgId = `asst-${Date.now()}`
@@ -605,8 +635,7 @@ function PersonaConfigureInstructionsContent() {
     setIsStreaming(true)
 
     const callbacks: PersonaChatStreamCallbacks = {
-      onChatId: (id) => setTestChatId(id),
-      onChunk:  (delta) => setChatMessages(prev =>
+      onChunk: (delta) => setChatMessages(prev =>
         prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
       ),
       onDone: () => {
@@ -624,10 +653,7 @@ function PersonaConfigureInstructionsContent() {
     }
 
     try {
-      const abort = testChatId
-        ? await streamPersonaMessage(repoId, testChatId, value.trim(), callbacks)
-        : await createAndStreamPersonaChat(repoId, value.trim(), callbacks)
-      abortStreamRef.current = abort
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks)
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -678,7 +704,7 @@ function PersonaConfigureInstructionsContent() {
         setPersonaName(repo.name)
         resetInstructionHistory(prompt)
         setTemperature(version.temperature ?? 0.5)
-        setImageUrl(version.image_url)
+        setImageUrl(readProfileAvatar(repoIdParam) ?? version.image_url ?? null)
         // Match stored model_id to full model object; fall back to first available
         const matchedModel = version.model_id
           ? fetchedModels.find(m => String(m.modelId ?? m.id) === version.model_id) ?? firstModel
@@ -714,7 +740,7 @@ function PersonaConfigureInstructionsContent() {
           const prompt = fullVersion.prompt ?? ''
           resetInstructionHistory(prompt)
           setTemperature(fullVersion.temperature ?? 0.5)
-          setImageUrl(fullVersion.image_url)
+          setImageUrl(readProfileAvatar(repoIdParam) ?? fullVersion.image_url ?? null)
           setVersionId(fullVersion.id)
           // Stamp URL so a reload goes straight to this version
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
@@ -734,7 +760,7 @@ function PersonaConfigureInstructionsContent() {
           const prompt = repo.active_version.prompt ?? ''
           resetInstructionHistory(prompt)
           setTemperature(repo.active_version.temperature ?? 0.5)
-          setImageUrl(repo.active_version.image_url)
+          setImageUrl(readProfileAvatar(repoIdParam) ?? repo.active_version.image_url ?? null)
           setVersionId(repo.active_version.id)
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const matchedModel = repo.active_version.model_id
@@ -1109,15 +1135,16 @@ function PersonaConfigureInstructionsContent() {
                 icon={<MoreHorizontalIcon size={20} />}
                 aria-label="More options"
               />
-              <IconButton
+              <Button
                 variant="outline"
-                size="md"
-                icon={<QuillWriteOneIcon size={20} />}
-                aria-label={isSaving ? 'Saving version…' : 'Save version'}
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
                 onClick={handleSaveVersion}
                 disabled={!canSave}
                 loading={isSaving}
-              />
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
               <Button
                 variant="default"
                 size="sm"
@@ -1169,6 +1196,7 @@ function PersonaConfigureInstructionsContent() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    position: 'relative',
                   }}
                 >
                   {imageUrl ? (
@@ -1435,7 +1463,7 @@ function PersonaConfigureInstructionsContent() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
                   {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
                 </div>
                 <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
@@ -1452,7 +1480,7 @@ function PersonaConfigureInstructionsContent() {
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => setTestChatOpen(false)} />
               </div>
             </div>
-            <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
               {chatMessages.length === 0 ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
                   Hi! I&apos;m your persona. Test me here while you configure.
@@ -1466,31 +1494,59 @@ function PersonaConfigureInstructionsContent() {
                       justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     }}
                   >
-                    <div
-                      style={{
-                        maxWidth: '85%',
-                        padding: '8px 12px',
-                        borderRadius: msg.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                        backgroundColor: msg.role === 'user' ? 'var(--neutral-900)' : 'var(--neutral-100)',
-                        color: msg.role === 'user' ? 'white' : 'var(--neutral-900)',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: 14,
-                        lineHeight: '22px',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {msg.text || (msg.isStreaming ? '…' : '')}
-                    </div>
+                    {msg.role === 'assistant' ? (
+                      <StreamingMessageBubble
+                        content={msg.text}
+                        isComplete={!msg.isStreaming}
+                      />
+                    ) : (
+                      <MessageBubble
+                        role={msg.role}
+                        content={msg.text}
+                        maxWidth="85%"
+                        hideActions
+                      />
+                    )}
                   </div>
                 ))
               )}
             </div>
             <div style={{ flexShrink: 0 }}>
+              <input
+                ref={testChatFileInputRef}
+                type="file"
+                multiple
+                accept={FILE_ACCEPT}
+                onChange={handleTestChatFileChange}
+                style={{ display: 'none' }}
+                aria-hidden="true"
+              />
               <ChatInput
                 placeholder="Test your persona..."
                 textareaLabel="Test message"
-                modelName="Souvenir"
+                modelName={selectedModel?.modelName ?? 'AI'}
+                hideModelSelector={true}
+                webSearch={testChatWebSearch}
+                onWebSearchChange={setTestChatWebSearch}
+                addMenu={
+                  <ChatAddMenu
+                    webSearchEnabled={testChatWebSearch}
+                    onWebSearchChange={setTestChatWebSearch}
+                    onAddFilesClick={handleTestChatAddFiles}
+                    selectedStyleId={testChatStyleId}
+                    onStyleChange={setTestChatStyleId}
+                    selectedFolders={testChatFolders}
+                    onFolderToggle={handleTestChatFolderToggle}
+                    selectedPersonaId={testChatPersonaId}
+                    onPersonaChange={(p) => setTestChatPersonaId(p?.id ?? null)}
+                  />
+                }
+                attachmentsSlot={
+                  <AttachmentManager
+                    attachments={testChatAttachments}
+                    onAttachmentsChange={setTestChatAttachments}
+                  />
+                }
                 onSend={handleTestChatSend}
               />
             </div>

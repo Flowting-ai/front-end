@@ -605,6 +605,13 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
    */
   pinCards?: React.ReactNode
   /**
+   * Rendered inside the input box above the textarea.
+   * Intended for the AttachmentManager chip strip.
+   */
+  attachmentsSlot?: React.ReactNode
+  /** When true, hides the model-selector button entirely. */
+  hideModelSelector?: boolean
+  /**
    * Props forwarded directly to the internal `<textarea>` element.
    * Use this to wire ARIA combobox attributes when a pin-picker dropdown
    * is open: `role`, `aria-expanded`, `aria-haspopup`, `aria-controls`,
@@ -639,6 +646,8 @@ export function ChatInput({
       selectedPersonaId:       selectedPersonaIdProp,
       defaultSelectedPersonaId = null,
       onSelectedPersonaChange,
+      attachmentsSlot,
+      hideModelSelector = false,
       chips,
       pinCards,
       textareaProps,
@@ -937,6 +946,9 @@ export function ChatInput({
           {isRecording ? 'Recording started. Listening.' : ''}
         </span>
 
+        {/* ── Attachments slot — chip strip above textarea ── */}
+        {attachmentsSlot}
+
         {/* ── Pin context cards - appear above textarea when pins are inserted ──
              12 px gap (KDS override of the Figma spec sheet's 24 - chosen for
              tighter row density). The `kaya-pin-cards-row` class sets
@@ -1066,7 +1078,8 @@ export function ChatInput({
                   />
                 }
               >
-                {addMenu}
+                {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
+                <div onClick={() => setAddMenuOpen(false)}>{addMenu}</div>
               </Dropdown.Float>
             ) : (
               <IconButton
@@ -1095,7 +1108,7 @@ export function ChatInput({
 
           {/* Right: model selector + mic/send button */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {modelMenu != null ? (
+            {!hideModelSelector && (modelMenu != null ? (
               // Inline Dropdown - opens above the trigger (top-start) since
               // ChatInput typically lives at the bottom of its scroll
               // container. Figma 3208:32989.
@@ -1124,7 +1137,7 @@ export function ChatInput({
               >
                 {modelName}
               </Button>
-            )}
+            ))}
 
             <span
               onMouseEnter={() => setIsMicHovered(true)}

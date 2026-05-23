@@ -115,6 +115,8 @@ interface ChatInterfaceProps {
   chips?: React.ReactNode;
   /** Pin folders selected in the add menu — their pins are sent as context on every send. */
   selectedFolders?: PinFolder[];
+  /** When set, routes all API calls through the persona-specific backend endpoint. */
+  selectedPersonaId?: string | null;
 }
 
 export function ChatInterface({
@@ -136,6 +138,7 @@ export function ChatInterface({
   onClearInitialFiles,
   chips,
   selectedFolders,
+  selectedPersonaId,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -257,6 +260,7 @@ export function ChatInterface({
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: folderPinIds,
+        personaId: selectedPersonaId ?? undefined,
         onUploadProgress: files.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -437,6 +441,7 @@ export function ChatInterface({
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
         pinIds: folderPinIds,
+        personaId: selectedPersonaId ?? undefined,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {

@@ -298,27 +298,16 @@ function PersonaConfigureConnectorsContent() {
                 icon={<MoreVerticalIcon size={20} />}
                 aria-label="More options"
               />
-              {testChatOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<QuillWriteOneIcon size={20} />}
-                  aria-label={isSaving ? 'Saving…' : 'Save version'}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                  loading={isSaving}
-                />
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                >
-                  {isSaving ? 'Saving…' : 'Save version'}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
+                onClick={handleSaveVersion}
+                disabled={!repoId || !versionId || isSaving}
+                loading={isSaving}
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
               <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>
                 Publish
               </Button>

@@ -18,6 +18,7 @@ import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { ChatAddMenu, USE_STYLE_OPTIONS } from '@/components/chat/AddMenu'
+import type { SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { IconButton } from '@/components/IconButton'
@@ -54,6 +55,7 @@ export default function ProjectPage() {
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([])
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { FILE_ACCEPT } = useFileUpload()
@@ -252,6 +254,8 @@ export default function ProjectPage() {
                   onFolderToggle={(folder) => setSelectedFolders(prev =>
                     prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
                   )}
+                  selectedPersonaId={selectedPersonaId}
+                  onPersonaChange={(persona: SelectedPersonaInfo | null) => setSelectedPersonaId(persona?.id ?? null)}
                 />
               }
               chips={

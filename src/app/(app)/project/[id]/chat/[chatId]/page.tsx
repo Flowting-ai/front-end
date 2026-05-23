@@ -18,6 +18,8 @@ import { useFileUpload }                                   from '@/hooks/use-fil
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
 import { usePinOperations }                                from '@/hooks/use-pin-operations'
 import { listPinFolders }                                  from '@/lib/api/pins'
+import { fetchPersonas, getVersion }                       from '@/lib/api/personas'
+import type { Persona }                                    from '@/lib/api/personas'
 import { Dropdown }                                        from '@/components/Dropdown'
 import { Chip }                                            from '@/components/Chip'
 import { Button }                                          from '@/components/Button'
@@ -27,7 +29,7 @@ import {
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
-  UserIcon,
+  UserAiIcon,
   QuillWriteOneIcon,
   NeuralNetworkIcon,
   AiVisionRecognitionIcon,
@@ -176,6 +178,8 @@ const USE_STYLE_OPTIONS = [
 
 // ── Add-menu ──────────────────────────────────────────────────────────────────
 
+interface SelectedPersonaInfo { id: string; name: string; imageUrl: string | null; modelId: string | null; activeVersionId: string | null }
+
 function AddMenu({
   webSearchEnabled,
   onWebSearchChange,
@@ -184,19 +188,26 @@ function AddMenu({
   onStyleChange,
   selectedFolders,
   onFolderToggle,
+  selectedPersonaId,
+  onPersonaChange,
 }: {
-  webSearchEnabled: boolean
+  webSearchEnabled:  boolean
   onWebSearchChange: (enabled: boolean) => void
-  onAddFilesClick: () => void
-  selectedStyleId: string | null
-  onStyleChange: (id: string | null) => void
-  selectedFolders: PinFolder[]
-  onFolderToggle: (folder: PinFolder) => void
+  onAddFilesClick:   () => void
+  selectedStyleId:   string | null
+  onStyleChange:     (id: string | null) => void
+  selectedFolders:   PinFolder[]
+  onFolderToggle:    (folder: PinFolder) => void
+  selectedPersonaId: string | null
+  onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
 }) {
   const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
   const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
+  const [personaMenuOpen,    setPersonaMenuOpen]    = useState(false)
   const [pinFolders,         setPinFolders]         = useState<PinFolder[]>([])
   const [loadingFolders,     setLoadingFolders]     = useState(false)
+  const [personas,           setPersonas]           = useState<Persona[]>([])
+  const [loadingPersonas,    setLoadingPersonas]    = useState(false)
 
   // Fetch fresh from the API each time the submenu opens
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
@@ -208,6 +219,16 @@ function AddMenu({
       .catch(() => setPinFolders([]))
       .finally(() => setLoadingFolders(false))
   }, [pinFoldersMenuOpen])
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaMenuOpen) return
+    setLoadingPersonas(true)
+    fetchPersonas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]))
+      .finally(() => setLoadingPersonas(false))
+  }, [personaMenuOpen])
 
   return (
     <Dropdown style={{ width: 200 }}>
@@ -240,7 +261,42 @@ function AddMenu({
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
-<Dropdown.Item label="Add persona" icon={<UserIcon />} fluid rightIcon={<ArrowRightOneIcon />} disabled />
+        <Dropdown.Float
+          open={personaMenuOpen}
+          onOpenChange={setPersonaMenuOpen}
+          placement="right-start"
+          trigger={
+            <Dropdown.Item
+              label="Add persona"
+              icon={<UserAiIcon />}
+              fluid
+              rightIcon={<ArrowRightOneIcon />}
+              selected={!!selectedPersonaId}
+            />
+          }
+        >
+          <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+            <Dropdown.Section fluid>
+              {loadingPersonas
+                ? <Dropdown.Item label="Loading…" fluid disabled />
+                : personas.length > 0
+                  ? personas.map((p) => (
+                      <Dropdown.Item
+                        key={p.id}
+                        label={p.name}
+                        fluid
+                        selected={selectedPersonaId === p.id}
+                        onClick={() => {
+                          onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId })
+                          setPersonaMenuOpen(false)
+                        }}
+                      />
+                    ))
+                  : <Dropdown.Item label="No personas yet" fluid disabled />
+              }
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
         <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={setPinFoldersMenuOpen}
@@ -319,6 +375,13 @@ function ProjectChatPageInner() {
   const [selectedStyleId,    setSelectedStyleId]    = useState<string | null>(null)
   const [styleChipOpen,      setStyleChipOpen]      = useState(false)
   const [selectedFolders,    setSelectedFolders]    = useState<PinFolder[]>([])
+  const [selectedPersona,    setSelectedPersona]    = useState<SelectedPersonaInfo | null>(null)
+  const [personaChipOpen,    setPersonaChipOpen]    = useState(false)
+  const [chipPersonas,       setChipPersonas]       = useState<SelectedPersonaInfo[]>([])
+  const [loadingChipPersonas, setLoadingChipPersonas] = useState(false)
+
+  // Tracks which chatIds in this session were created via the persona endpoint.
+  const personaChatIds = useRef(new Map<string, string>()) // chatId → personaId
 
   const fileInputRef           = useRef<HTMLInputElement>(null)
   const newChatInputWrapperRef = useRef<HTMLDivElement>(null)
@@ -396,7 +459,7 @@ function ProjectChatPageInner() {
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const { selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced } = useModelSelectorContext()
+  const { models, selectedModel, selectModel, open: openModelSelector, museActive, museAdvanced } = useModelSelectorContext()
 
   const modelButtonLabel = museActive
     ? museAdvanced ? 'Souvenir AI Muse (Advanced)' : 'Souvenir AI Muse (Basic)'
@@ -408,9 +471,51 @@ function ProjectChatPageInner() {
     if (pendingModelSwitch) { selectModel(pendingModelSwitch); setPendingModelSwitch(null) }
   }
 
+  const selectModelRef = useRef(selectModel)
+  selectModelRef.current = selectModel
+
+  useEffect(() => {
+    if (!selectedPersona || !models.length) return
+
+    if (selectedPersona.modelId) {
+      const match = models.find(m => String(m.modelId ?? m.id) === selectedPersona.modelId)
+      if (match) selectModelRef.current(match)
+      return
+    }
+
+    if (!selectedPersona.activeVersionId) return
+    let cancelled = false
+    getVersion(selectedPersona.id, selectedPersona.activeVersionId)
+      .then(version => {
+        if (cancelled || !version.model_id) return
+        const match = models.find(m => String(m.modelId ?? m.id) === version.model_id)
+        if (match) selectModelRef.current(match)
+        setSelectedPersona(prev =>
+          prev?.id === selectedPersona.id ? { ...prev, modelId: version.model_id } : prev
+        )
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
+  }, [selectedPersona, models])
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaChipOpen) return
+    setLoadingChipPersonas(true)
+    fetchPersonas()
+      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId }))))
+      .catch(() => setChipPersonas([]))
+      .finally(() => setLoadingChipPersonas(false))
+  }, [personaChipOpen])
+
   // ── Chips ─────────────────────────────────────────────────────────────────
 
   const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
+
+  // Persona is "active" when starting a new chat or the current chat was created
+  // as a persona chat in this session; otherwise the chip is cosmetic (model only).
+  const personaApplied = isNewChat || !!personaChatIds.current.get(params.chatId)
 
   const newChatChips: React.ReactNode = (
     <>
@@ -458,6 +563,42 @@ function ProjectChatPageInner() {
       {webSearchEnabled && (
         <Chip key="web-search" size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
       )}
+      {selectedPersona && (
+        <Dropdown.Float
+          open={personaChipOpen}
+          onOpenChange={setPersonaChipOpen}
+          placement="top-start"
+          trigger={
+            <Chip
+              label={selectedPersona.name}
+              personaImage={selectedPersona.imageUrl ?? undefined}
+              onRemove={() => setSelectedPersona(null)}
+              onExpand={() => setPersonaChipOpen(v => !v)}
+              title={!personaApplied ? "Persona model is active — system instructions apply to new chats only" : undefined}
+              style={!personaApplied ? { opacity: 0.65 } : undefined}
+            />
+          }
+        >
+          <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+            <Dropdown.Section fluid>
+              {loadingChipPersonas
+                ? <Dropdown.Item label="Loading…" fluid disabled />
+                : chipPersonas.length > 0
+                  ? chipPersonas.map(p => (
+                      <Dropdown.Item
+                        key={p.id}
+                        label={p.name}
+                        fluid
+                        selected={selectedPersona.id === p.id}
+                        onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
+                      />
+                    ))
+                  : <Dropdown.Item label="No personas yet" fluid disabled />
+              }
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+      )}
     </>
   )
 
@@ -472,6 +613,8 @@ function ProjectChatPageInner() {
       onFolderToggle={(folder) => setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
+      selectedPersonaId={selectedPersona?.id ?? null}
+      onPersonaChange={setSelectedPersona}
     />
   )
 
@@ -674,6 +817,9 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={isNewChat ? undefined : params.chatId}
               onChatCreated={(newChatId) => {
+                if (selectedPersona) {
+                  personaChatIds.current.set(newChatId, selectedPersona.id)
+                }
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
                 replace(`/project/${params.id}/chat/${newChatId}`)
               }}
@@ -692,6 +838,11 @@ function ProjectChatPageInner() {
               onClearAddMenuFiles={() => setAddMenuFiles([])}
               chips={newChatChips}
               selectedFolders={selectedFolders}
+              selectedPersonaId={
+                isNewChat
+                  ? (selectedPersona?.id ?? null)
+                  : (personaChatIds.current.get(params.chatId) ?? null)
+              }
             />
           </m.div>
         )}

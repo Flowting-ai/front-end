@@ -94,19 +94,20 @@ export function ModelSelectorProvider({
 
   const [isOpen, setIsOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  // SSR-safe defaults; client-side preferences are restored in useEffect below
-  const [museActive, setMuseActive] = useState(true);
-  const [museAdvanced, setMuseAdvanced] = useState(false);
-  const [enableReasoning, setEnableReasoning] = useState(true);
-
-  // Restore from localStorage after hydration (client-only, avoids SSR mismatch)
-  useEffect(() => {
+  // Lazy initializers read localStorage synchronously on the client during the first
+  // render so the correct branding is committed before any browser paint.
+  // The server returns the safe defaults (true/false) since window is undefined there.
+  const [museActive, setMuseActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
     const pref = readStoredPref();
-    if (pref !== null) {
-      setMuseActive(pref.type === "muse");
-      setMuseAdvanced(pref.type === "muse" ? (pref.museAdvanced ?? false) : false);
-    }
-  }, []); // mount only
+    return pref === null || pref.type === "muse";
+  });
+  const [museAdvanced, setMuseAdvanced] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const pref = readStoredPref();
+    return pref?.type === "muse" ? (pref.museAdvanced ?? false) : false;
+  });
+  const [enableReasoning, setEnableReasoning] = useState(true);
 
   // Apply plan-based defaults once user loads, only when no stored preference exists
   const planDefaultApplied = useRef(false);

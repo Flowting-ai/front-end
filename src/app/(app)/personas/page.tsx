@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import {
   PlusSignIcon,
@@ -32,6 +32,7 @@ const RECOMMENDED: Persona[] = [
     handle: '@general_assistant',
     description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
     imageUrl: null,
+    modelId: null,
     tags: [],
     temperature: 0.5,
     isActive: true,
@@ -48,6 +49,7 @@ const RECOMMENDED: Persona[] = [
     handle: '@research_analyst',
     description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
     imageUrl: null,
+    modelId: null,
     tags: [],
     temperature: 0.3,
     isActive: true,
@@ -64,6 +66,7 @@ const RECOMMENDED: Persona[] = [
     handle: '@code_reviewer',
     description: 'Example: The key distinction is that replicants possess artificial intelligence. It\'s all there. Let me walk you through what\'s built.',
     imageUrl: null,
+    modelId: null,
     tags: [],
     temperature: 0.3,
     isActive: true,
@@ -261,9 +264,11 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export default function PersonasPage() {
   const { push } = useRouter()
+  const pathname = usePathname()
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
+  const [draftAvatarMap, setDraftAvatarMap] = useState<Record<string, string>>({})
   const [isLoading,    setIsLoading]    = useState(true)
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
@@ -274,14 +279,29 @@ export default function PersonasPage() {
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Persona | null>(null)
 
-  // Load personas on mount
+  // Re-fetch whenever this page becomes the active route so navigating back
+  // from configure always shows the latest avatar / state.
   useEffect(() => {
+    if (pathname !== '/personas') return
     setIsLoading(true)
     fetchPersonas()
-      .then(setPersonas)
+      .then(list => {
+        setPersonas(list)
+        // Build draft-avatar overrides from sessionStorage (covers the case
+        // where the user uploaded an image but hasn't saved to the API yet).
+        const overrides: Record<string, string> = {}
+        for (const p of list) {
+          try {
+            const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
+            const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
+            if (typeof draft?.avatarUrl === 'string') overrides[p.id] = draft.avatarUrl
+          } catch { /* ignore quota / parse errors */ }
+        }
+        setDraftAvatarMap(overrides)
+      })
       .catch(console.error)
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [pathname])
 
   // Filter + sort — split into three chained memos so a sort change doesn't
   // re-run filtering, and a tag/status change doesn't re-run the sort.
@@ -618,10 +638,9 @@ export default function PersonasPage() {
                       ref={gridVirtualizer.measureElement}
                       style={{
                         position:            'absolute',
-                        top:                 0,
+                        top:                 vRow.start,
                         left:                0,
                         width:               '100%',
-                        transform:           `translateY(${vRow.start}px)`,
                         display:             'grid',
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gap:                 16,
@@ -635,7 +654,7 @@ export default function PersonasPage() {
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={persona.description}
-                          avatarUrl={persona.imageUrl ?? undefined}
+                          avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
                           paused={persona.isPaused}
                           visibility="private"
                           onEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}

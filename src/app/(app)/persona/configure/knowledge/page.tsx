@@ -481,27 +481,16 @@ function PersonaConfigureKnowledgeContent() {
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
               <IconButton variant="outline" size="md" icon={<MoreVerticalIcon size={20} />} aria-label="More options" />
-              {testChatOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<QuillWriteOneIcon size={20} />}
-                  aria-label={isSaving ? 'Saving…' : 'Save version'}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                  loading={isSaving}
-                />
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                >
-                  {isSaving ? 'Saving…' : 'Save version'}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
+                onClick={handleSaveVersion}
+                disabled={!repoId || !versionId || isSaving}
+                loading={isSaving}
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
               <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>Publish</Button>
             </div>
           </div>

@@ -23,7 +23,18 @@ import { toast } from 'sonner'
 import { ChatInput } from '@/components/ChatInput'
 import ProfileTab from '@/app/(app)/persona/configure/components/ProfileTab'
 import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
-import { getPersonaRepo, updateVersion, setActiveVersion } from '@/lib/api/personas'
+import {
+  getPersonaRepo, updateVersion, setActiveVersion,
+  testVersionStream,
+  type PersonaChatStreamCallbacks,
+} from '@/lib/api/personas'
+import { fetchModelsWithCache } from '@/lib/ai-models'
+import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
+import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
+import { useFileUpload } from '@/hooks/use-file-upload'
+import type { PinFolder } from '@/lib/api/pins'
+import { MessageBubble } from '@/components/MessageBubble'
+import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, data] = dataUrl.split(',')
@@ -170,6 +181,24 @@ function PersonaConfigureProfileContent() {
   const [isSaving,     setIsSaving]     = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
 
+  // ── Test-chat streaming state ────────────────────────────────────────────────
+  const [personaModelName,  setPersonaModelName]  = useState<string>('AI')
+  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
+  const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
+  const [isStreaming,   setIsStreaming]   = useState(false)
+  const abortStreamRef  = useRef<(() => void) | null>(null)
+  const chatScrollRef   = useRef<HTMLDivElement>(null)
+
+  // ── Test-chat add-menu state ──────────────────────────────────────────────────
+  const [testChatWebSearch,   setTestChatWebSearch]   = useState(false)
+  const [testChatStyleId,     setTestChatStyleId]     = useState<string | null>(null)
+  const [testChatFolders,     setTestChatFolders]     = useState<PinFolder[]>([])
+  const [testChatPersonaId,   setTestChatPersonaId]   = useState<string | null>(null)
+  const [testChatAttachments, setTestChatAttachments] = useState<PendingAttachment[]>([])
+  const testChatFileInputRef = useRef<HTMLInputElement>(null)
+  const { processFiles, FILE_ACCEPT } = useFileUpload()
+
   // ProfileTab state â€” initialise from sessionStorage on first render
   const [avatarUrl,          setAvatarUrl]          = useState<string | null>(() => { const d = loadDraft(); return (d?.avatarUrl as string | null) ?? null })
   const [personaName,        setPersonaName]        = useState<string>(() => { const d = loadDraft(); return (d?.personaName as string) || nameParam || 'Persona Name' })
@@ -233,6 +262,15 @@ function PersonaConfigureProfileContent() {
         if (v?.prompt && v.prompt.trim().length <= 120) {
           setPersonaDescription(v.prompt.trim())
         }
+        // Load model name for test-chat display (informational, fire-and-forget)
+        if (v?.model_id) {
+          fetchModelsWithCache()
+            .then(models => {
+              const m = models.find(m => String(m.modelId ?? m.id) === v!.model_id)
+              if (m) setPersonaModelName(m.modelName)
+            })
+            .catch(() => {})
+        }
       })
       .catch(err => console.error('[ProfilePage] API load error:', err))
       .finally(() => { isInitializedRef.current = true; setIsInitialized(true) })
@@ -256,6 +294,68 @@ function PersonaConfigureProfileContent() {
       }))
     } catch { /* storage quota exceeded â€” ignore */ }
   }, [PROFILE_KEY, avatarUrl, personaName, personaHandle, personaDescription, personaTags, isMultilingual, selectedLanguages])
+
+  // Auto-scroll to bottom when new content arrives
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatMessages])
+
+  async function handleTestChatSend(value: string) {
+    if (!value.trim() || !repoId || !versionId || isStreaming) return
+
+    const userMsgId = `user-${Date.now()}`
+    const asstMsgId = `asst-${Date.now()}`
+
+    setChatMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user',      text: value.trim() },
+      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
+    ])
+    setIsStreaming(true)
+
+    const callbacks: PersonaChatStreamCallbacks = {
+      onChunk: (delta) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)
+      ),
+      onDone: () => {
+        setChatMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)
+        )
+        setIsStreaming(false)
+      },
+      onError: (err) => {
+        setChatMessages(prev =>
+          prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)
+        )
+        setIsStreaming(false)
+      },
+    }
+
+    try {
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks)
+    } catch (err) {
+      callbacks.onError?.((err as Error).message ?? 'Failed to send message')
+    }
+  }
+
+  function handleTestChatAddFiles() { testChatFileInputRef.current?.click() }
+
+  function handleTestChatFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.length) {
+      const captured = Array.from(e.target.files)
+      e.target.value = ''
+      setTestChatAttachments(prev => processFiles(captured, prev))
+    }
+  }
+
+  function handleTestChatFolderToggle(folder: PinFolder) {
+    setTestChatFolders(prev =>
+      prev.some(f => f.id === folder.id)
+        ? prev.filter(f => f.id !== folder.id)
+        : [...prev, folder]
+    )
+  }
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
@@ -428,27 +528,16 @@ function PersonaConfigureProfileContent() {
                 icon={<MoreVerticalIcon size={20} />}
                 aria-label="More options"
               />
-              {testChatOpen ? (
-                <IconButton
-                  variant="outline"
-                  size="md"
-                  icon={<QuillWriteOneIcon size={20} />}
-                  aria-label={isSaving ? 'Saving…' : 'Save version'}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                  loading={isSaving}
-                />
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<QuillWriteOneIcon size={16} />}
-                  onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
-                >
-                  {isSaving ? 'Saving…' : 'Save version'}
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<QuillWriteOneIcon size={16} />}
+                onClick={handleSaveVersion}
+                disabled={!repoId || !versionId || isSaving}
+                loading={isSaving}
+              >
+                {isSaving ? 'Saving…' : 'Save version'}
+              </Button>
               <Button
                 variant="default"
                 size="sm"
@@ -554,6 +643,7 @@ function PersonaConfigureProfileContent() {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div
                   style={{
+                    position: 'relative',
                     width: 36,
                     height: 36,
                     borderRadius: 10,
@@ -610,6 +700,7 @@ function PersonaConfigureProfileContent() {
 
             {/* Messages area */}
             <div
+              ref={chatScrollRef}
               className="kaya-scrollbar"
               style={{
                 flex: '1 0 0',
@@ -617,28 +708,88 @@ function PersonaConfigureProfileContent() {
                 overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
+                gap: 12,
+                padding: '4px 8px',
               }}
             >
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: 16,
-                  lineHeight: '22px',
-                  color: 'var(--neutral-600)',
-                  margin: 0,
-                }}
-              >
-                {`Hi! I'm ${personaName}. Test me here while you configure.`}
-              </p>
+              {chatMessages.length === 0 ? (
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 400,
+                    fontSize: 16,
+                    lineHeight: '22px',
+                    color: 'var(--neutral-600)',
+                    margin: 0,
+                  }}
+                >
+                  {`Hi! I'm ${personaName}. Test me here while you configure.`}
+                </p>
+              ) : (
+                chatMessages.map(msg => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    {msg.role === 'assistant' ? (
+                      <StreamingMessageBubble
+                        content={msg.text}
+                        isComplete={!msg.isStreaming}
+                      />
+                    ) : (
+                      <MessageBubble
+                        role={msg.role}
+                        content={msg.text}
+                        maxWidth="85%"
+                        hideActions
+                      />
+                    )}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Chat input */}
             <div style={{ flexShrink: 0 }}>
+              <input
+                ref={testChatFileInputRef}
+                type="file"
+                multiple
+                accept={FILE_ACCEPT}
+                onChange={handleTestChatFileChange}
+                style={{ display: 'none' }}
+                aria-hidden="true"
+              />
               <ChatInput
                 placeholder={`Message ${personaName}...`}
                 textareaLabel="Test message"
-                modelName="Souvenir"
+                modelName={personaModelName}
+                hideModelSelector={true}
+                webSearch={testChatWebSearch}
+                onWebSearchChange={setTestChatWebSearch}
+                addMenu={
+                  <ChatAddMenu
+                    webSearchEnabled={testChatWebSearch}
+                    onWebSearchChange={setTestChatWebSearch}
+                    onAddFilesClick={handleTestChatAddFiles}
+                    selectedStyleId={testChatStyleId}
+                    onStyleChange={setTestChatStyleId}
+                    selectedFolders={testChatFolders}
+                    onFolderToggle={handleTestChatFolderToggle}
+                    selectedPersonaId={testChatPersonaId}
+                    onPersonaChange={(p) => setTestChatPersonaId(p?.id ?? null)}
+                  />
+                }
+                attachmentsSlot={
+                  <AttachmentManager
+                    attachments={testChatAttachments}
+                    onAttachmentsChange={setTestChatAttachments}
+                  />
+                }
+                onSend={handleTestChatSend}
               />
             </div>
           </m.div>

@@ -732,7 +732,7 @@ function PersonaCardInner({
                                   onClick={() => { setMenuOpen(false); onMenuPauseToggle?.() }}
                                 />
                               </Dropdown.Section>
-                              <Dropdown.Section fluid>
+                              <Dropdown.Section fluid divider>
                                 <Dropdown.Item
                                   label="Delete"
                                   variant="danger"

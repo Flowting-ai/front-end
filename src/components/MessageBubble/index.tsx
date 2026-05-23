@@ -63,21 +63,23 @@ const TEXT_STYLE: React.CSSProperties = {
 export type MessageBubbleRole = 'user' | 'assistant'
 
 export interface MessageBubbleProps extends React.HTMLAttributes<HTMLDivElement> {
-  role:        MessageBubbleRole
-  content:     string
-  timestamp?:  string
-  onRetry?:    () => void
+  role:         MessageBubbleRole
+  content:      string
+  timestamp?:   string
+  onRetry?:     () => void
   /** Called when the user saves an edit - parent handles re-submission */
-  onEditSave?: (newContent: string) => void
-  onCopy?:     () => void
-  maxWidth?:   string | number
+  onEditSave?:  (newContent: string) => void
+  onCopy?:      () => void
+  maxWidth?:    string | number
+  /** Hides the hover action bar (edit / copy / retry) on user bubbles */
+  hideActions?: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function MessageBubble({
     ref,
-    role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, className, ...props
+    role, content, timestamp, onRetry, onEditSave, onCopy, maxWidth, hideActions, className, ...props
   // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
   }: MessageBubbleProps & { ref?: React.Ref<HTMLDivElement> }) {
     const shouldReduceMotion = useReducedMotion() ?? false
@@ -96,8 +98,12 @@ export function MessageBubble({
     // Pixel width captured just before entering edit mode - used to animate back on exit.
     const naturalWidthRef = useRef<number>(0)
     const timers          = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+    const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    useEffect(() => () => timers.current.forEach(clearTimeout), [])
+    useEffect(() => () => {
+      timers.current.forEach(clearTimeout)
+      if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current)
+    }, [])
 
     // Focus + move cursor to end when entering edit mode
     useEffect(() => {
@@ -175,13 +181,30 @@ export function MessageBubble({
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleEditSave() }
     }
 
+    const handleHoverEnter = () => {
+      if (hoverLeaveTimer.current) clearTimeout(hoverLeaveTimer.current)
+      if (!editing) setHovered(true)
+    }
+    const handleHoverLeave = () => {
+      hoverLeaveTimer.current = setTimeout(() => setHovered(false), 80)
+    }
+
     const fadeDuration = shouldReduceMotion ? 0 : 0.15
 
-    // ── Assistant placeholder ──────────────────────────────────────────────────
+    // ── Assistant bubble ───────────────────────────────────────────────────────
     if (!isUser) {
       return (
         <div ref={ref} className={cn('flex flex-col items-start', className)} style={{ maxWidth }} {...props}>
-          <p style={{ ...TEXT_STYLE, color: 'var(--message-bubble-user-text)' }}>{content}</p>
+          <div
+            style={{
+              padding:         '10px 16px',
+              borderRadius:    '16px 16px 16px 4px',
+              backgroundColor: 'var(--neutral-100)',
+              boxShadow:       '0px 1px 2px rgba(59,54,50,0.08), 0px 0px 0px 1px var(--neutral-200)',
+            }}
+          >
+            <p style={{ ...TEXT_STYLE, color: 'var(--neutral-900)', margin: 0 }}>{content}</p>
+          </div>
         </div>
       )
     }
@@ -197,8 +220,8 @@ export function MessageBubble({
           paddingBottom: editing ? CTA_ZONE : 0,
           transition:    shouldReduceMotion ? 'none' : `padding-bottom ${fadeDuration}s ease-out`,
         }}
-        onMouseEnter={() => { if (!editing) setHovered(true) }}
-        onMouseLeave={() => setHovered(false)}
+        onMouseEnter={handleHoverEnter}
+        onMouseLeave={handleHoverLeave}
         {...props}
       >
         {/* ── Bubble card ── */}
@@ -351,10 +374,12 @@ export function MessageBubble({
         {/* ── Hover action bar ── */}
         {/* position:absolute - zero layout shift. paddingTop bridges the gap so   */}
         {/* mouseleave never fires between bubble bottom and button hit area.       */}
-        {!editing && (
+        {!editing && !hideActions && (
           <m.div
             animate={{ opacity: hovered ? 1 : 0 }}
             transition={{ duration: fadeDuration, ease: 'easeOut' }}
+            onMouseEnter={handleHoverEnter}
+            onMouseLeave={handleHoverLeave}
             style={{
               position:      'absolute',
               top:           '100%',

@@ -825,51 +825,45 @@ export function ChatMessage({
           </span>
         )}
 
-        {/* Action buttons (on hover) - assistant only */}
-        <AnimatePresence>
-          {isHovered && !message.isLoading && (
-          <m.div
-            key="action-buttons"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 2 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              display: "flex",
-              gap: 2,
-              marginTop: 4,
-            }}
-          >
+        {/* Action buttons - always in-flow to prevent layout shift; opacity/pointer-events control visibility */}
+        <m.div
+          animate={{ opacity: isHovered && !message.isLoading ? 1 : 0 }}
+          transition={{ duration: 0.15 }}
+          style={{
+            display: "flex",
+            gap: 2,
+            marginTop: 4,
+            pointerEvents: isHovered && !message.isLoading ? "auto" : "none",
+          }}
+        >
+          <ActionIconButton
+            icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
+            label={pinned ? "Unpin" : "Pin"}
+            onClick={handlePin}
+          />
+          <ActionIconButton
+            icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
+            label={copied ? "Copied" : "Copy"}
+            onClick={handleCopy}
+          />
+          <ActionIconButton
+            icon={<ThumbsUpIcon size={18} color="var(--neutral-400)" />}
+            label="Like"
+            onClick={() => {/* wired later */}}
+          />
+          <ActionIconButton
+            icon={<ThumbsDownIcon size={18} color="var(--neutral-400)" />}
+            label="Dislike"
+            onClick={() => {/* wired later */}}
+          />
+          {isLast && onRegenerate && (
             <ActionIconButton
-              icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
-              label={pinned ? "Unpin" : "Pin"}
-              onClick={handlePin}
+              icon={<RedoIcon size={18} color="var(--neutral-400)" />}
+              label="Regenerate"
+              onClick={onRegenerate}
             />
-            <ActionIconButton
-              icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
-              label={copied ? "Copied" : "Copy"}
-              onClick={handleCopy}
-            />
-            <ActionIconButton
-              icon={<ThumbsUpIcon size={18} color="var(--neutral-400)" />}
-              label="Like"
-              onClick={() => {/* wired later */}}
-            />
-            <ActionIconButton
-              icon={<ThumbsDownIcon size={18} color="var(--neutral-400)" />}
-              label="Dislike"
-              onClick={() => {/* wired later */}}
-            />
-            {isLast && onRegenerate && (
-              <ActionIconButton
-                icon={<RedoIcon size={18} color="var(--neutral-400)" />}
-                label="Regenerate"
-                onClick={onRegenerate}
-              />
-            )}
-          </m.div>
           )}
-        </AnimatePresence>
+        </m.div>
         </div>
       )}
 

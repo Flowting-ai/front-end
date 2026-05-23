@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
   const pinIds             = formData.get("pinIds") as string | null
   const referenceMessageId = formData.get("referenceMessageId") as string | null
   const webSearch          = formData.get("webSearch") === "true"
+  const personaId          = formData.get("personaId") as string | null
   const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
 
   if (!input.trim() && clientFiles.length === 0) {
@@ -58,9 +59,13 @@ export async function POST(request: NextRequest) {
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────
   const isExistingChat = Boolean(chatId && !String(chatId).startsWith("temp-"))
-  const endpoint = isExistingChat && chatId
-    ? `${BACKEND_BASE}/chats/${chatId}/stream`
-    : `${BACKEND_BASE}/chats/create`
+  const endpoint = personaId
+    ? isExistingChat && chatId
+      ? `${BACKEND_BASE}/persona/${personaId}/chats/${chatId}/stream`
+      : `${BACKEND_BASE}/persona/${personaId}/chats/create`
+    : isExistingChat && chatId
+      ? `${BACKEND_BASE}/chats/${chatId}/stream`
+      : `${BACKEND_BASE}/chats/create`
 
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()

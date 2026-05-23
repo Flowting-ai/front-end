@@ -21,7 +21,8 @@ import { usePinOperations } from "@/hooks/use-pin-operations";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/Button";
-import { ChatAddMenu, USE_STYLE_OPTIONS } from "@/components/chat/AddMenu";
+import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/components/chat/AddMenu";
+import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import {
   FolderOneIcon,
@@ -192,7 +193,27 @@ const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: stri
   },
 ];
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Per-chat settings helpers ─────────────────────────────────────────────────
+// Settings (webSearch, persona) are stored per-chatId so each chat remembers
+// its own state and navigating between chats never bleeds settings across.
+
+interface ChatSettings {
+  webSearch: boolean;
+  persona: SelectedPersonaInfo | null;
+}
+
+function loadChatSettings(chatId: string): ChatSettings | null {
+  try {
+    const raw = localStorage.getItem(`souvenir_chat_${chatId}`);
+    return raw ? (JSON.parse(raw) as ChatSettings) : null;
+  } catch { return null; }
+}
+
+function saveChatSettings(chatId: string, settings: ChatSettings): void {
+  try { localStorage.setItem(`souvenir_chat_${chatId}`, JSON.stringify(settings)); } catch {}
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   return (
@@ -219,8 +240,38 @@ function ChatPageInner() {
   // ── Add-menu feature state ────────────────────────────────────────────────
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
-  const [styleChipOpen,    setStyleChipOpen]    = useState(false);
+  const [styleChipOpen,       setStyleChipOpen]       = useState(false);
+  const [personaChipOpen,     setPersonaChipOpen]     = useState(false);
+  const [chipPersonas,        setChipPersonas]        = useState<SelectedPersonaInfo[]>([]);
+  const [loadingChipPersonas, setLoadingChipPersonas] = useState(false);
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
+  const [selectedPersona,  setSelectedPersona]  = useState<SelectedPersonaInfo | null>(null);
+
+  // Tracks which chatIds were created in this session as persona chats.
+  // This prevents routing an existing regular chatId through the persona endpoint.
+  const personaChatIds = useRef(new Map<string, string>()); // chatId → personaId
+
+  // When the URL chatId changes (navigation), load that chat's stored settings.
+  // Settings are per-chat — navigating away resets to defaults so no cross-chat bleed.
+  useEffect(() => {
+    if (chatIdFromUrl) {
+      const s = loadChatSettings(chatIdFromUrl);
+      setWebSearchEnabled(s?.webSearch ?? false);
+      setSelectedPersona(s?.persona ?? null);
+      // Restore persona routing for chats we previously created as persona chats
+      if (s?.persona?.id) personaChatIds.current.set(chatIdFromUrl, s.persona.id);
+    } else {
+      setWebSearchEnabled(false);
+      setSelectedPersona(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdFromUrl]);
+
+  // Persist settings whenever they change for an existing active chat.
+  useEffect(() => {
+    if (!activeChatId) return;
+    saveChatSettings(activeChatId, { webSearch: webSearchEnabled, persona: selectedPersona });
+  }, [activeChatId, webSearchEnabled, selectedPersona]);
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([]);
   const [addMenuFiles, setAddMenuFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -412,9 +463,51 @@ function ChatPageInner() {
     />
   ));
 
-  // Chips for ChatInterface (style + folders + web search)
-  const chips: React.ReactNode = (styleChip || folderChips.length > 0 || webSearchChip) ? (
-    <>{styleChip}{folderChips}{webSearchChip}</>
+  // Persona is "active" (messages routed through persona endpoint) when:
+  // - starting a new chat (will be created as persona chat on first send), or
+  // - the current chat was created as a persona chat this session
+  const personaActive = !activeChatId || !!personaChatIds.current.get(activeChatId)
+
+  const personaChip = selectedPersona ? (
+    <Dropdown.Float
+      open={personaChipOpen}
+      onOpenChange={setPersonaChipOpen}
+      placement="top-start"
+      trigger={
+        <Chip
+          label={selectedPersona.name}
+          personaImage={selectedPersona.imageUrl ?? undefined}
+          onRemove={() => setSelectedPersona(null)}
+          onExpand={() => setPersonaChipOpen(v => !v)}
+          title={!personaActive ? "Persona model is active — system instructions apply to new chats only" : undefined}
+          style={!personaActive ? { opacity: 0.65 } : undefined}
+        />
+      }
+    >
+      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+        <Dropdown.Section fluid>
+          {loadingChipPersonas
+            ? <Dropdown.Item label="Loading…" fluid disabled />
+            : chipPersonas.length > 0
+              ? chipPersonas.map(p => (
+                  <Dropdown.Item
+                    key={p.id}
+                    label={p.name}
+                    fluid
+                    selected={selectedPersona.id === p.id}
+                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
+                  />
+                ))
+              : <Dropdown.Item label="No personas yet" fluid disabled />
+          }
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  ) : null;
+
+  // Chips for ChatInterface (style + folders + web search + persona)
+  const chips: React.ReactNode = (styleChip || folderChips.length > 0 || webSearchChip || personaChip) ? (
+    <>{styleChip}{folderChips}{webSearchChip}{personaChip}</>
   ) : undefined;
 
   // Chips for the new-chat input (adds pin mention chips on top)
@@ -426,6 +519,7 @@ function ChatPageInner() {
         <MentionChip key={mp.id} label={mp.label} onRemove={() => handleNewChatRemoveMention(mp.id)} />
       ))}
       {webSearchChip}
+      {personaChip}
     </>
   );
 
@@ -442,12 +536,15 @@ function ChatPageInner() {
       onFolderToggle={(folder) => setSelectedFolders(prev =>
         prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
       )}
+      selectedPersonaId={selectedPersona?.id ?? null}
+      onPersonaChange={setSelectedPersona}
     />
   );
 
   // ── Model selector ────────────────────────────────────────────────────────
 
   const {
+    models,
     selectedModel,
     selectModel,
     open: openModelSelector,
@@ -455,6 +552,47 @@ function ChatPageInner() {
     museAdvanced,
     enableReasoning,
   } = useModelSelectorContext();
+
+  // Keep a stable ref to selectModel so the effect below doesn't re-run every render
+  // due to the context function being recreated on each render.
+  const selectModelRef = useRef(selectModel)
+  selectModelRef.current = selectModel
+
+  useEffect(() => {
+    if (!selectedPersona || !models.length) return
+
+    if (selectedPersona.modelId) {
+      const match = models.find(m => String(m.modelId ?? m.id) === selectedPersona.modelId)
+      if (match) selectModelRef.current(match)
+      return
+    }
+
+    // modelId absent from list — fetch from active version (list returns active_version: null)
+    if (!selectedPersona.activeVersionId) return
+    let cancelled = false
+    getVersion(selectedPersona.id, selectedPersona.activeVersionId)
+      .then(version => {
+        if (cancelled || !version.model_id) return
+        const match = models.find(m => String(m.modelId ?? m.id) === version.model_id)
+        if (match) selectModelRef.current(match)
+        setSelectedPersona(prev =>
+          prev?.id === selectedPersona.id ? { ...prev, modelId: version.model_id } : prev
+        )
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
+  }, [selectedPersona, models])
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaChipOpen) return
+    setLoadingChipPersonas(true)
+    fetchPersonas()
+      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId }))))
+      .catch(() => setChipPersonas([]))
+      .finally(() => setLoadingChipPersonas(false))
+  }, [personaChipOpen])
 
   const modelButtonLabel = museActive
     ? museAdvanced
@@ -523,6 +661,12 @@ function ChatPageInner() {
       updated_at: new Date().toISOString(),
       starred: false,
     });
+    // Register persona routing for this chat and persist its initial settings.
+    // selectedPersona is captured from the closure at creation time.
+    if (selectedPersona) {
+      personaChatIds.current.set(chatId, selectedPersona.id);
+    }
+    saveChatSettings(chatId, { webSearch: webSearchEnabled, persona: selectedPersona });
   };
 
   const handleTitleUpdate = (chatId: string, title: string) => {
@@ -786,6 +930,14 @@ function ChatPageInner() {
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}
               selectedFolders={selectedFolders}
+              selectedPersonaId={
+                // For a new chat: use the selected persona.
+                // For an existing chat: only use persona routing if this chat
+                // was actually created as a persona chat (prevents 404 on regular chats).
+                !activeChatId
+                  ? (selectedPersona?.id ?? null)
+                  : (personaChatIds.current.get(activeChatId) ?? null)
+              }
             />
           </m.div>
         )}

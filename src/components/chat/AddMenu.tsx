@@ -8,9 +8,20 @@ import {
   FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
+  UserAiIcon,
 } from '@strange-huge/icons'
 import { listPinFolders } from '@/lib/api/pins'
 import type { PinFolder } from '@/lib/api/pins'
+import { fetchPersonas } from '@/lib/api/personas'
+import type { Persona } from '@/lib/api/personas'
+
+export interface SelectedPersonaInfo {
+  id:              string
+  name:            string
+  imageUrl:        string | null
+  modelId:         string | null
+  activeVersionId: string | null
+}
 
 export const USE_STYLE_OPTIONS = [
   { id: 'none',         label: 'None',         subLabel: 'Default AI behavior' },
@@ -36,6 +47,8 @@ export interface ChatAddMenuProps {
   onStyleChange:     (id: string | null) => void
   selectedFolders:   PinFolder[]
   onFolderToggle:    (folder: PinFolder) => void
+  selectedPersonaId: string | null
+  onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
 }
 
 export function ChatAddMenu({
@@ -46,11 +59,16 @@ export function ChatAddMenu({
   onStyleChange,
   selectedFolders,
   onFolderToggle,
+  selectedPersonaId,
+  onPersonaChange,
 }: ChatAddMenuProps) {
   const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
   const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
+  const [personaMenuOpen,    setPersonaMenuOpen]    = useState(false)
   const [pinFolders,         setPinFolders]         = useState<PinFolder[]>([])
   const [loadingFolders,     setLoadingFolders]     = useState(false)
+  const [personas,           setPersonas]           = useState<Persona[]>([])
+  const [loadingPersonas,    setLoadingPersonas]    = useState(false)
 
   // Fetch fresh from the API each time the submenu opens
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
@@ -62,6 +80,16 @@ export function ChatAddMenu({
       .catch(() => setPinFolders([]))
       .finally(() => setLoadingFolders(false))
   }, [pinFoldersMenuOpen])
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaMenuOpen) return
+    setLoadingPersonas(true)
+    fetchPersonas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]))
+      .finally(() => setLoadingPersonas(false))
+  }, [personaMenuOpen])
 
   return (
     <Dropdown style={{ width: 200 }}>
@@ -93,7 +121,43 @@ export function ChatAddMenu({
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
-<Dropdown.Float
+        <Dropdown.Float
+          open={personaMenuOpen}
+          onOpenChange={setPersonaMenuOpen}
+          placement="right-start"
+          trigger={
+            <Dropdown.Item
+              label="Add persona"
+              icon={<UserAiIcon />}
+              fluid
+              rightIcon={<ArrowRightOneIcon />}
+              selected={!!selectedPersonaId}
+            />
+          }
+        >
+          <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+            <Dropdown.Section fluid>
+              {loadingPersonas
+                ? <Dropdown.Item label="Loading…" fluid disabled />
+                : personas.length > 0
+                  ? personas.map((p) => (
+                      <Dropdown.Item
+                        key={p.id}
+                        label={p.name}
+                        fluid
+                        selected={selectedPersonaId === p.id}
+                        onClick={() => {
+                          onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId })
+                          setPersonaMenuOpen(false)
+                        }}
+                      />
+                    ))
+                  : <Dropdown.Item label="No personas yet" fluid disabled />
+              }
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+        <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={setPinFoldersMenuOpen}
           placement="right-start"

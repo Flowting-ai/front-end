@@ -9,6 +9,7 @@ import {
   PERSONA_ACTIVE_ENDPOINT,
   PERSONA_VERSIONS_ENDPOINT,
   PERSONA_VERSION_DETAIL_ENDPOINT,
+  PERSONA_VERSION_TEST_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
@@ -80,6 +81,7 @@ export interface Persona {
   handle: string;
   description: string;
   imageUrl: string | null;
+  modelId: string | null;
   tags: string[];
   temperature: number | null;
   isActive: boolean;
@@ -102,6 +104,7 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
     handle,
     description: v?.prompt?.slice(0, 140) ?? "",
     imageUrl: v?.image_url ?? null,
+    modelId:  v?.model_id  ?? null,
     tags: [],
     temperature: v?.temperature ?? null,
     isActive: repo.is_active,
@@ -369,6 +372,47 @@ async function readPersonaSSEStream(
   } finally {
     reader.cancel().catch(() => {});
   }
+}
+
+/**
+ * Send a single stateless test message to a specific persona version and stream
+ * the response. No chat session is created; each call is independent.
+ * Returns an abort function that cancels the in-flight request.
+ */
+export async function testVersionStream(
+  repoId: string,
+  versionId: string,
+  input: string,
+  callbacks: PersonaChatStreamCallbacks,
+): Promise<() => void> {
+  const controller = new AbortController();
+  const form = new FormData();
+  form.append("input", input);
+  let response: Response;
+  try {
+    response = await apiFetch(PERSONA_VERSION_TEST_ENDPOINT(repoId, versionId), {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name !== "AbortError") {
+      callbacks.onError?.((err as Error).message ?? "Failed to test persona");
+    }
+    return () => controller.abort();
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    callbacks.onError?.(text || `HTTP ${response.status}`);
+    return () => controller.abort();
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    callbacks.onError?.("No response body");
+    return () => controller.abort();
+  }
+  readPersonaSSEStream(reader, callbacks);
+  return () => controller.abort();
 }
 
 /**
