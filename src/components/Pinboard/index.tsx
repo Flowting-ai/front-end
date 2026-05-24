@@ -1473,14 +1473,12 @@ export function Pinboard(
                     onOpenChange={setSortMenuOpen}
                     placement="bottom-end"
                     trigger={
-                      <Tooltip content="Sort">
-                        <IconButton
-                          variant="secondary"
-                          size="sm"
-                          icon={<ArrowUpDownIcon size={20} />}
-                          aria-label="Sort pins"
-                        />
-                      </Tooltip>
+                      <IconButton
+                        variant="secondary"
+                        size="sm"
+                        icon={<ArrowUpDownIcon size={20} />}
+                        aria-label="Sort pins"
+                      />
                     }
                   >
                     {sortMenu}

@@ -380,7 +380,6 @@ function RightSidebarImpl() {
         height:        "100%",
         flexShrink:    0,
         overflow:      "hidden",
-        borderRadius:  16,
         pointerEvents: isOpen ? undefined : "none",
       }}
       aria-hidden={!isOpen || undefined}

@@ -375,6 +375,11 @@ function normalizeMathDelimiters(content: string): string {
 // so ReactMarkdown treats it as a standalone paragraph/heading rather than inline bold.
 function normalizeInlineBoldTitles(content: string): string {
   return content
+    // Collapse bold markers split across line breaks (LLM sometimes puts ** on its own line):
+    // **text\n**  →  **text**   (closing marker landed on the next line)
+    .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
+    // **\ntext**  →  **text**   (newlines right after the opening marker)
+    .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2')
     // Blank line BEFORE **..** when immediately preceded by a non-whitespace char
     .replace(/([^\s\n])(\*\*[^*\n]+\*\*)/g, '$1\n\n$2')
     // Blank line AFTER **..** when immediately followed by a letter (start of new sentence)

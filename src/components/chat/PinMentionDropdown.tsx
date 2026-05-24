@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { ArrowDownTwoIcon, ArrowUpTwoIcon } from "@strange-huge/icons";
-import type { Pin } from "@/lib/api/pins";
 import { PinInsert } from "@/components/PinInsert";
 import type { PinTag } from "@/components/PinInsert";
 import { Badge, type BadgeColor } from "@/components/Badge";
@@ -52,12 +51,22 @@ function mapTags(tags: string[]): PinTag[] {
   }));
 }
 
+// ── Minimal shape required by this dropdown – satisfied by both Pin and PinItem ──
+
+export interface PinMentionable {
+  id: string;
+  title: string;
+  content: string;
+  tags?: string[];
+  category?: string;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export interface PinMentionDropdownProps {
   isOpen: boolean;
   /** Filtered pin list - computed and passed in by the parent. */
-  pins: Pin[];
+  pins: PinMentionable[];
   /** Current search query (text typed after `@`). */
   query: string;
   /** Index of the keyboard-highlighted item. */
@@ -65,7 +74,7 @@ export interface PinMentionDropdownProps {
   /** Called when the mouse enters an item row (syncs keyboard selection). */
   onHighlight: (index: number) => void;
   /** Called when the user clicks or keyboard-confirms a pin. */
-  onSelect: (pin: Pin) => void;
+  onSelect: (pin: PinMentionable) => void;
 }
 
 export function PinMentionDropdown({

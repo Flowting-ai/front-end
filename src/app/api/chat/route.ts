@@ -22,6 +22,9 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  *   pinIds             - optional JSON-stringified pin ID array
  *   referenceMessageId - optional reference message for context
  *   webSearch          - "true" to enable web search tool
+ *   toneId             - optional style/tone ID (e.g. "professional", "teaching")
+ *   systemPrompt       - optional persona system instruction (explicit override)
+ *   temperature        - optional persona temperature override
  *   files              - zero or more File parts (uploaded attachments)
  */
 export async function POST(request: NextRequest) {
@@ -51,6 +54,9 @@ export async function POST(request: NextRequest) {
   const referenceMessageId = formData.get("referenceMessageId") as string | null
   const webSearch          = formData.get("webSearch") === "true"
   const personaId          = formData.get("personaId") as string | null
+  const systemPrompt       = formData.get("systemPrompt") as string | null
+  const temperature        = formData.get("temperature") as string | null
+  const toneId             = formData.get("toneId") as string | null
   const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
 
   if (!input.trim() && clientFiles.length === 0) {
@@ -75,6 +81,9 @@ export async function POST(request: NextRequest) {
   if (pinIds)  fd.append("pin_ids", pinIds)
   if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
   if (webSearch) fd.append("web_search", "true")
+  if (systemPrompt) fd.append("system_prompt", systemPrompt)
+  if (temperature) fd.append("temperature", temperature)
+  if (toneId) fd.append("tone_id", toneId)
   clientFiles.forEach((f) => fd.append("files", f))
 
   // ── Proxy request ────────────────────────────────────────────────────────────

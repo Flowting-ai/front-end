@@ -57,6 +57,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean
   /** Stretch the button to fill its parent's width. */
   fluid?: boolean
+  /** Force the button into its hover visual state (e.g. to indicate selection). */
+  selected?: boolean
   children?: React.ReactNode
 }
 
@@ -91,6 +93,7 @@ export function Button({
   loading = false,
   disabled = false,
   fluid = false,
+  selected = false,
   children = 'Button',
   className,
   onMouseEnter: externalMouseEnter,
@@ -119,6 +122,9 @@ export function Button({
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [isPressed, setIsPressed] = useState(false)
+
+  // Treat `selected` as a persistent hover — same visual state, no pointer needed.
+  const isActive = isHovered || (selected && !isDisabled)
 
   // ── Squircle corner smoothing ────────────────────────────────────────────────
   const cornerRadius = isMd ? 10 : 8
@@ -224,7 +230,7 @@ export function Button({
   // Outer drop-shadow on wrapper so it doesn't composite with icon/text filters
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
-    : isSubtle && isHovered
+    : isSubtle && isActive
       ? SHADOW_SUBTLE_OUTER_HOVER
       : undefined
 
@@ -276,7 +282,7 @@ export function Button({
             position: 'absolute',
             inset: -1,
             clipPath: strokeClipPath,
-            backgroundColor: isHovered ? 'var(--button-subtle-border-hover)' : 'transparent',
+            backgroundColor: isActive ? 'var(--button-subtle-border-hover)' : 'transparent',
             pointerEvents: 'none',
             transition: 'background-color 200ms',
           }}
@@ -288,7 +294,7 @@ export function Button({
               position: 'absolute',
               inset: 1,
               clipPath: clipPath,
-              backgroundColor: isHovered ? 'var(--neutral-50)' : 'transparent',
+              backgroundColor: isActive ? 'var(--neutral-50)' : 'transparent',
               transition: 'background-color 200ms',
             }}
           />
@@ -405,7 +411,7 @@ export function Button({
           className="absolute inset-0 pointer-events-none rounded-[inherit]"
           style={{
             boxShadow: `inset 0 0 0 1px ${outlineStrokeColor}`,
-            opacity: isHovered ? 0 : 1,
+            opacity: isActive ? 0 : 1,
             transition: 'opacity 200ms',
           }}
         />
@@ -417,7 +423,7 @@ export function Button({
           aria-hidden
           className="absolute inset-0 pointer-events-none rounded-[inherit]"
           style={{
-            backgroundColor: isHovered
+            backgroundColor: isActive
               ? variant === 'ghost' ? 'var(--button-ghost-bg-hover)' : 'var(--button-outline-bg-hover)'
               : 'transparent',
             transition: 'background-color 200ms',
@@ -503,7 +509,7 @@ export function Button({
           aria-hidden
           className="absolute inset-0 pointer-events-none rounded-[inherit]"
           style={{
-            boxShadow: isHovered ? SHADOW_SUBTLE_INNER_HOVER : undefined,
+            boxShadow: isActive ? SHADOW_SUBTLE_INNER_HOVER : undefined,
             transition: 'box-shadow 200ms',
           }}
         />

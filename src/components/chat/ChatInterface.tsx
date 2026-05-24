@@ -14,14 +14,15 @@ import {
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useChatState } from "@/hooks/use-chat-state";
-import { usePinOperations } from "@/hooks/use-pin-operations";
 import {
   useStreamingChat,
   type StreamState,
 } from "@/hooks/use-streaming-chat";
 import { useModelSelectorContext } from "@/context/model-selector-context";
+import { usePinboard, type PinItem } from "@/context/pinboard-context";
 import { listPinsByFolders } from "@/lib/api/pins";
-import type { Pin, PinFolder } from "@/lib/api/pins";
+import type { PinFolder } from "@/lib/api/pins";
+import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { Upload } from "lucide-react";
@@ -117,6 +118,12 @@ interface ChatInterfaceProps {
   selectedFolders?: PinFolder[];
   /** When set, routes all API calls through the persona-specific backend endpoint. */
   selectedPersonaId?: string | null;
+  /** System instruction for the selected persona, forwarded explicitly to the backend. */
+  selectedPersonaSystemPrompt?: string | null;
+  /** Temperature override from the selected persona. */
+  selectedPersonaTemperature?: number | null;
+  /** Style/tone ID to send with every message (e.g. "professional", "teaching"). */
+  selectedStyleId?: string | null;
 }
 
 export function ChatInterface({
@@ -139,6 +146,9 @@ export function ChatInterface({
   chips,
   selectedFolders,
   selectedPersonaId,
+  selectedPersonaSystemPrompt,
+  selectedPersonaTemperature,
+  selectedStyleId,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -180,17 +190,17 @@ export function ChatInterface({
   // Muse framework state — consumed from context to compute algorithm for API calls
   const { museActive, museAdvanced } = useModelSelectorContext();
 
-  // Pin data for the @-mention dropdown.
-  const { pins } = usePinOperations();
+  // Pin data for the @-mention dropdown — read from context (no extra fetch).
+  const { pins } = usePinboard();
 
-  const filteredPins = useMemo<Pin[]>(() => {
+  const filteredPins = useMemo<PinItem[]>(() => {
     if (!pinQuery.trim()) return pins.slice(0, 10);
     const q = pinQuery.toLowerCase();
     return pins.filter(
       (p) =>
         p.title.toLowerCase().includes(q) ||
         p.content.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q)),
+        (p.tags ?? []).some((t) => t.toLowerCase().includes(q)),
     );
   }, [pins, pinQuery]);
 
@@ -261,6 +271,9 @@ export function ChatInterface({
         userMessageId: userMsgId,
         pinIds: folderPinIds,
         personaId: selectedPersonaId ?? undefined,
+        systemPrompt: selectedPersonaSystemPrompt ?? undefined,
+        temperature: selectedPersonaTemperature ?? undefined,
+        toneId: selectedStyleId ?? undefined,
         onUploadProgress: files.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {
@@ -368,7 +381,7 @@ export function ChatInterface({
     }
   }, []);
 
-  const handlePinSelect = useCallback((pin: Pin) => {
+  const handlePinSelect = useCallback((pin: PinMentionable) => {
     const label = (pin.title || pin.content).slice(0, 50) || pin.id;
     // Strip the `@query` fragment that the user typed from the input value.
     setInputValue((prev) => {
@@ -442,6 +455,9 @@ export function ChatInterface({
         userMessageId: userMsgId,
         pinIds: folderPinIds,
         personaId: selectedPersonaId ?? undefined,
+        systemPrompt: selectedPersonaSystemPrompt ?? undefined,
+        temperature: selectedPersonaTemperature ?? undefined,
+        toneId: selectedStyleId ?? undefined,
         onUploadProgress: allFiles.length > 0 ? (pct) => {
           setMessages((prev) => prev.map((msg) =>
             msg.id !== userMsgId ? msg : {

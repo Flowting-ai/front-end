@@ -136,24 +136,37 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     enrichedRef.current = true;
     if (!pinsWithoutTags.length) return;
 
-    Promise.all(
-      pinsWithoutTags.map(async (pin) => {
-        try {
-          const detail   = await getPin(pin.id);
-          const hasTags  = detail.tags     && detail.tags.length     > 0;
-          const hasCmts  = detail.comments && detail.comments.length > 0;
-          if (!hasTags && !hasCmts) return null;
-          return {
-            id:       pin.id,
-            tags:     hasTags ? detail.tags     : undefined,
-            comments: hasCmts ? detail.comments : undefined,
-          };
-        } catch {
-          return null;
-        }
-      }),
-    ).then((enrichments) => {
-      const valid = enrichments.filter(Boolean) as Array<{
+    const BATCH = 3;
+    (async () => {
+      const allResults: Array<{
+        id: string;
+        tags?: string[];
+        comments?: PinComment[];
+      } | null> = [];
+
+      for (let i = 0; i < pinsWithoutTags.length; i += BATCH) {
+        const batch = pinsWithoutTags.slice(i, i + BATCH);
+        const batchResults = await Promise.all(
+          batch.map(async (pin) => {
+            try {
+              const detail   = await getPin(pin.id);
+              const hasTags  = detail.tags     && detail.tags.length     > 0;
+              const hasCmts  = detail.comments && detail.comments.length > 0;
+              if (!hasTags && !hasCmts) return null;
+              return {
+                id:       pin.id,
+                tags:     hasTags ? detail.tags     : undefined,
+                comments: hasCmts ? detail.comments : undefined,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        allResults.push(...batchResults);
+      }
+
+      const valid = allResults.filter(Boolean) as Array<{
         id: string;
         tags?: string[];
         comments?: PinComment[];
@@ -171,7 +184,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           };
         }),
       );
-    });
+    })();
   }, [isOpen]);
 
   // â”€â”€ addPin - optimistic, persisted to backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

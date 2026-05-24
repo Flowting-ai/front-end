@@ -448,6 +448,18 @@ components:
         content:
           type: string
           title: Content
+        tags:
+          items:
+            $ref: '#/components/schemas/TagResponse'
+          type: array
+          title: Tags
+          default: []
+        comments:
+          items:
+            $ref: '#/components/schemas/CommentResponse'
+          type: array
+          title: Comments
+          default: []
         created_at:
           type: string
           format: date-time

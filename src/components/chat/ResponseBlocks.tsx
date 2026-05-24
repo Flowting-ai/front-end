@@ -215,7 +215,7 @@ export function SourceList({ citations }: { citations: WebCitation[] }) {
       <div style={{ fontSize: 12, fontWeight: 600, color: "#9C938B", letterSpacing: "0.5px", textTransform: "uppercase" }}>
         Sources
       </div>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 2 }}>
+      <div className="kaya-scrollbar" style={{ display: "flex", gap: 8, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 6 }}>
         {citations.map((c, i) => (
           <SourceCard key={c.url ?? c.title} citation={c} index={i} />
         ))}
@@ -351,6 +351,11 @@ const GAP = 14;
 // boundary gets blank lines inserted so it renders as its own paragraph/heading.
 function normalizeBoldTitles(text: string): string {
   return text
+    // Collapse bold markers split across line breaks (LLM sometimes puts ** on its own line):
+    // **text\n**  →  **text**
+    .replace(/(\*\*[^*\n]+)\n\s*(\*\*)/g, '$1$2')
+    // **\ntext**  →  **text**
+    .replace(/(\*\*)\n+([^*\n]+\*\*)/g, '$1$2')
     // Insert blank line BEFORE **..** when immediately preceded by a non-whitespace char
     .replace(/([^\s\n])(\*\*[^*\n]+\*\*)/g, '$1\n\n$2')
     // Insert blank line AFTER **..** when immediately followed by a letter (new sentence)
@@ -364,7 +369,7 @@ export function renderTextBlock(text: string, citations?: WebCitation[], cursor?
   const blocks = normalizeBoldTitles(text).split(/\n\n+/);
 
   return (
-    <div style={{ color: "#3B3632", fontSize: 16 }}>
+    <div style={{ color: "#3B3632", fontSize: 16, fontFamily: "var(--font-body)" }}>
       {blocks.map((block, bi) => {
         const isLast = bi === blocks.length - 1;
         const tail = isLast ? cursor : null;

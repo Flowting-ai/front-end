@@ -3,10 +3,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { m } from "framer-motion";
-import { ArrowLeftOneIcon, PlusSignIcon } from "@strange-huge/icons";
+import { ArrowLeftOneIcon, PlusSignIcon, FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/IconButton";
 import { Button } from "@/components/Button";
+import { Chip } from "@/components/Chip";
+import { Dropdown } from "@/components/Dropdown";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatAddMenu, USE_STYLE_OPTIONS } from "@/components/chat/AddMenu";
+import { ModelMenu, useModelButtonLabel } from "@/components/chat/ModelMenu";
+import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
+import { useModelSelectorContext } from "@/context/model-selector-context";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import type { PinFolder } from "@/lib/api/pins";
 import {
   getPersona,
   fetchPersonaChatMessages,
@@ -273,6 +281,19 @@ export function PersonaChatInterface({
   const [isStreaming,       setIsStreaming]        = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(!!initialChatId);
 
+  // ── Add-menu feature state ────────────────────────────────────────────────
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
+  const [styleChipOpen,    setStyleChipOpen]    = useState(false);
+  const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
+  const [attachments,      setAttachments]      = useState<PendingAttachment[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { open: openModelSelector } = useModelSelectorContext();
+  const { processFiles, FILE_ACCEPT } = useFileUpload();
+  const modelButtonLabel = useModelButtonLabel();
+
   const abortRef  = useRef<(() => void) | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -308,6 +329,7 @@ export function PersonaChatInterface({
       if (!trimmed || isStreaming) return;
 
       setInput("");
+      setAttachments([]);
 
       const userMsgId      = `u-${Date.now()}`;
       const assistantMsgId = `a-${Date.now()}`;
@@ -521,6 +543,20 @@ export function PersonaChatInterface({
           background:  "var(--neutral-50)",
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={FILE_ACCEPT}
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              setAttachments(prev => processFiles(Array.from(e.target.files!), prev));
+              e.target.value = "";
+            }
+          }}
+          style={{ display: "none" }}
+          aria-hidden="true"
+        />
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
           <ChatInput
             value={input}
@@ -529,6 +565,81 @@ export function PersonaChatInterface({
             onStop={handleStop}
             isStreaming={isStreaming}
             placeholder={`Message ${name || "persona"}…`}
+            modelName={modelButtonLabel}
+            onModelClick={(e) => openModelSelector(e.currentTarget)}
+            addMenu={
+              <ChatAddMenu
+                webSearchEnabled={webSearchEnabled}
+                onWebSearchChange={setWebSearchEnabled}
+                onAddFilesClick={() => fileInputRef.current?.click()}
+                selectedStyleId={selectedStyleId}
+                onStyleChange={setSelectedStyleId}
+                selectedFolders={selectedFolders}
+                onFolderToggle={(folder) => setSelectedFolders(prev =>
+                  prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
+                )}
+                selectedPersonaId={null}
+                onPersonaChange={() => {}}
+              />
+            }
+            modelMenu={<ModelMenu />}
+            chips={
+              <>
+                {(USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)) && (
+                  <Dropdown.Float
+                    open={styleChipOpen}
+                    onOpenChange={setStyleChipOpen}
+                    placement="top-start"
+                    trigger={
+                      <Chip
+                        label={USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)!.label}
+                        icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+                        onRemove={() => setSelectedStyleId(null)}
+                        onExpand={() => setStyleChipOpen(v => !v)}
+                      />
+                    }
+                  >
+                    <Dropdown size="md">
+                      <Dropdown.Section fluid>
+                        {USE_STYLE_OPTIONS.map(opt => (
+                          <Dropdown.Item
+                            key={opt.id}
+                            label={opt.label}
+                            subLabel={opt.subLabel}
+                            selected={opt.id === "none" ? selectedStyleId === null : selectedStyleId === opt.id}
+                            onClick={() => { setSelectedStyleId(opt.id === "none" ? null : opt.id); setStyleChipOpen(false); }}
+                            fluid
+                          />
+                        ))}
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
+                )}
+                {selectedFolders.map(folder => (
+                  <Chip
+                    key={folder.id}
+                    label={folder.name}
+                    icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+                    onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+                  />
+                ))}
+                {webSearchEnabled && (
+                  <Chip
+                    size="Medium"
+                    icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
+                    label="Web search"
+                    onRemove={() => setWebSearchEnabled(false)}
+                  />
+                )}
+              </>
+            }
+            attachmentsSlot={
+              <AttachmentManager
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+                disabled={isStreaming}
+              />
+            }
           />
         </div>
       </div>

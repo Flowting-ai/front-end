@@ -17,10 +17,11 @@ import { ProjectFilesPanel } from '@/components/ProjectFilesPanel'
 import { EditProjectModal } from '@/components/EditProjectModal'
 import { SystemInstructionsModal } from '@/components/SystemInstructionsModal'
 import { ChatInput } from '@/components/chat/ChatInput'
-import { ChatAddMenu, USE_STYLE_OPTIONS } from '@/components/chat/AddMenu'
-import type { SelectedPersonaInfo } from '@/components/chat/AddMenu'
+import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
+import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import type { PinFolder } from '@/lib/api/pins'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
+import { fetchPersonas } from '@/lib/api/personas'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown } from '@/components/Dropdown'
 import { FloatingMenu } from '@/components/FloatingMenu'
@@ -55,10 +56,24 @@ export default function ProjectPage() {
   const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null)
   const [styleChipOpen,    setStyleChipOpen]    = useState(false)
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([])
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
+  const [selectedPersona,      setSelectedPersona]      = useState<SelectedPersonaInfo | null>(null)
+  const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
+  const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
+  const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
+  const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { FILE_ACCEPT } = useFileUpload()
+  const { processFiles, FILE_ACCEPT } = useFileUpload()
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaChipOpen) return
+    setLoadingChipPersonas(true)
+    fetchPersonas()
+      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      .catch(() => setChipPersonas([]))
+      .finally(() => setLoadingChipPersonas(false))
+  }, [personaChipOpen])
 
   if (!project) {
     return (
@@ -231,7 +246,13 @@ export default function ProjectPage() {
               type="file"
               multiple
               accept={FILE_ACCEPT}
-              onChange={(e) => { e.target.value = '' }}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const files = Array.from(e.target.files)
+                  setNewChatAttachments(prev => processFiles(files, prev))
+                  e.target.value = ''
+                }
+              }}
               style={{ display: 'none' }}
               aria-hidden
             />
@@ -254,8 +275,8 @@ export default function ProjectPage() {
                   onFolderToggle={(folder) => setSelectedFolders(prev =>
                     prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
                   )}
-                  selectedPersonaId={selectedPersonaId}
-                  onPersonaChange={(persona: SelectedPersonaInfo | null) => setSelectedPersonaId(persona?.id ?? null)}
+                  selectedPersonaId={selectedPersona?.id ?? null}
+                  onPersonaChange={setSelectedPersona}
                 />
               }
               chips={
@@ -306,7 +327,49 @@ export default function ProjectPage() {
                       onRemove={() => setWebSearchEnabled(false)}
                     />
                   )}
+                  {selectedPersona && (
+                    <Dropdown.Float
+                      open={personaChipOpen}
+                      onOpenChange={setPersonaChipOpen}
+                      placement="top-start"
+                      trigger={
+                        <Chip
+                          label={selectedPersona.name}
+                          personaImage={selectedPersona.imageUrl ?? undefined}
+                          onRemove={() => setSelectedPersona(null)}
+                          onExpand={() => setPersonaChipOpen(v => !v)}
+                          title={undefined}
+                          style={undefined}
+                        />
+                      }
+                    >
+                      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+                        <Dropdown.Section fluid>
+                          {loadingChipPersonas
+                            ? <Dropdown.Item label="Loading…" fluid disabled />
+                            : chipPersonas.length > 0
+                              ? chipPersonas.map(p => (
+                                  <Dropdown.Item
+                                    key={p.id}
+                                    label={p.name}
+                                    fluid
+                                    selected={selectedPersona.id === p.id}
+                                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
+                                  />
+                                ))
+                              : <Dropdown.Item label="No personas yet" fluid disabled />
+                          }
+                        </Dropdown.Section>
+                      </Dropdown>
+                    </Dropdown.Float>
+                  )}
                 </>
+              }
+              attachmentsSlot={
+                <AttachmentManager
+                  attachments={newChatAttachments}
+                  onAttachmentsChange={setNewChatAttachments}
+                />
               }
             />
           </div>

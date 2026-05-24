@@ -18,9 +18,18 @@ import { MessageBubble } from '@/components/MessageBubble'
 import { useAuth } from '@/context/auth-context'
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { useProjects } from '@/context/projects-context'
+import { useModelSelectorContext } from '@/context/model-selector-context'
 import type { SidebarProject, SidebarRecentItem } from '@/components/Sidebar'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
-import { StopCircleIcon } from '@strange-huge/icons'
+import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
+import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
+import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
+import { Dropdown } from '@/components/Dropdown'
+import { Chip } from '@/components/Chip'
+import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-huge/icons'
+import { useFileUpload } from '@/hooks/use-file-upload'
+import { fetchPersonas, getVersion } from '@/lib/api/personas'
+import type { PinFolder } from '@/lib/api/pins'
 import {
   startBrainChat,
   continueBrainChat,
@@ -236,6 +245,72 @@ function BrainPageInner() {
   const abortRef         = useRef<AbortController | null>(null)
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const turnCounterRef   = useRef(0)
+
+  // ── Add-menu feature state ────────────────────────────────────────────────
+
+  const { models, selectedModel, selectModel, open: openModelSelector } = useModelSelectorContext()
+  const modelButtonLabel = useModelButtonLabel()
+  const { processFiles, FILE_ACCEPT } = useFileUpload()
+
+  const [webSearchEnabled,     setWebSearchEnabled]     = useState(false)
+  const [selectedStyleId,      setSelectedStyleId]      = useState<string | null>(null)
+  const [styleChipOpen,        setStyleChipOpen]        = useState(false)
+  const [selectedFolders,      setSelectedFolders]      = useState<PinFolder[]>([])
+  const [selectedPersona,      setSelectedPersona]      = useState<SelectedPersonaInfo | null>(null)
+  const [personaChipOpen,      setPersonaChipOpen]      = useState(false)
+  const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
+  const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
+  const [brainAttachments,     setBrainAttachments]     = useState<PendingAttachment[]>([])
+
+  const fileInputRef    = useRef<HTMLInputElement>(null)
+  const selectModelRef  = useRef(selectModel)
+  selectModelRef.current = selectModel
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!selectedPersona) return
+    if (selectedPersona.systemPrompt !== null) {
+      if (selectedPersona.modelId && models.length > 0) {
+        const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
+        if (match) selectModelRef.current(match)
+      }
+      return
+    }
+    if (!selectedPersona.activeVersionId) {
+      if (selectedPersona.modelId && models.length > 0) {
+        const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
+        if (match) selectModelRef.current(match)
+      }
+      return
+    }
+    let cancelled = false
+    getVersion(selectedPersona.id, selectedPersona.activeVersionId)
+      .then(version => {
+        if (cancelled) return
+        if (version.model_id && models.length > 0) {
+          const match = models.find(m => String(m.modelId ?? m.id) === version.model_id)
+          if (match) selectModelRef.current(match)
+        }
+        setSelectedPersona(prev =>
+          prev?.id === selectedPersona.id
+            ? { ...prev, modelId: version.model_id ?? prev.modelId, systemPrompt: version.prompt, temperature: version.temperature }
+            : prev
+        )
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectModel intentionally via ref
+  }, [selectedPersona, models])
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!personaChipOpen) return
+    setLoadingChipPersonas(true)
+    fetchPersonas()
+      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
+      .catch(() => setChipPersonas([]))
+      .finally(() => setLoadingChipPersonas(false))
+  }, [personaChipOpen])
 
   useEffect(() => () => {
     if (completeTimerRef.current) clearTimeout(completeTimerRef.current)
@@ -690,43 +765,157 @@ function BrainPageInner() {
     </div>
   ) : null
 
-  // ── Stop chip ─────────────────────────────────────────────────────────────────
+  // ── Add menu + chips ──────────────────────────────────────────────────────────
 
-  const stopChip = phase === 'executing' ? (
-    <button
-      type="button"
-      onClick={handleStop}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        gap:             5,
-        padding:         '4px 10px',
-        borderRadius:    999,
-        border:          '1px solid var(--neutral-200)',
-        backgroundColor: 'var(--neutral-white)',
-        cursor:          'pointer',
-        fontFamily:      'var(--font-body)',
-        fontSize:        'var(--font-size-caption)',
-        fontWeight:      'var(--font-weight-medium)',
-        color:           'var(--neutral-600)',
-        userSelect:      'none',
-        boxShadow:       '0 1px 2px rgba(0,0,0,0.06)',
-      }}
+  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null
+
+  const styleChip = activeStyle && (
+    <Dropdown.Float
+      open={styleChipOpen}
+      onOpenChange={setStyleChipOpen}
+      placement="top-start"
+      trigger={
+        <Chip
+          label={activeStyle.label}
+          icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+          onRemove={() => setSelectedStyleId(null)}
+          onExpand={() => setStyleChipOpen(v => !v)}
+        />
+      }
     >
-      <StopCircleIcon size={12} color="var(--neutral-500)" />
-      Stop
-    </button>
+      <Dropdown size="md">
+        <Dropdown.Section fluid>
+          {USE_STYLE_OPTIONS.map(opt => (
+            <Dropdown.Item
+              key={opt.id}
+              label={opt.label}
+              subLabel={opt.subLabel}
+              selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+              onClick={() => { setSelectedStyleId(opt.id === 'none' ? null : opt.id); setStyleChipOpen(false) }}
+              fluid
+            />
+          ))}
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  )
+
+  const folderChips = selectedFolders.map(folder => (
+    <Chip
+      key={folder.id}
+      label={folder.name}
+      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+      onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+    />
+  ))
+
+  const webSearchChip = webSearchEnabled ? (
+    <Chip
+      key="web-search"
+      size="Medium"
+      icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
+      label="Web search"
+      onRemove={() => setWebSearchEnabled(false)}
+    />
+  ) : null
+
+  const personaChip = selectedPersona ? (
+    <Dropdown.Float
+      open={personaChipOpen}
+      onOpenChange={setPersonaChipOpen}
+      placement="top-start"
+      trigger={
+        <Chip
+          label={selectedPersona.name}
+          personaImage={selectedPersona.imageUrl ?? undefined}
+          onRemove={() => setSelectedPersona(null)}
+          onExpand={() => setPersonaChipOpen(v => !v)}
+          title={undefined}
+          style={undefined}
+        />
+      }
+    >
+      <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+        <Dropdown.Section fluid>
+          {loadingChipPersonas
+            ? <Dropdown.Item label="Loading…" fluid disabled />
+            : chipPersonas.length > 0
+              ? chipPersonas.map(p => (
+                  <Dropdown.Item
+                    key={p.id}
+                    label={p.name}
+                    fluid
+                    selected={selectedPersona.id === p.id}
+                    onClick={() => { setSelectedPersona(p); setPersonaChipOpen(false) }}
+                  />
+                ))
+              : <Dropdown.Item label="No personas yet" fluid disabled />
+          }
+        </Dropdown.Section>
+      </Dropdown>
+    </Dropdown.Float>
+  ) : null
+
+  const chips = (styleChip || folderChips.length > 0 || webSearchChip || personaChip) ? (
+    <>{styleChip}{folderChips}{webSearchChip}{personaChip}</>
   ) : undefined
+
+  const addMenu = (
+    <ChatAddMenu
+      webSearchEnabled={webSearchEnabled}
+      onWebSearchChange={setWebSearchEnabled}
+      onAddFilesClick={() => fileInputRef.current?.click()}
+      selectedStyleId={selectedStyleId}
+      onStyleChange={setSelectedStyleId}
+      selectedFolders={selectedFolders}
+      onFolderToggle={(folder) => setSelectedFolders(prev =>
+        prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
+      )}
+      selectedPersonaId={selectedPersona?.id ?? null}
+      onPersonaChange={setSelectedPersona}
+    />
+  )
+
+  const brainIsStreaming = !['idle', 'complete', 'cancelled', 'failed', 'paused'].includes(phase)
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
   const hasContent = historyMessages.length > 0 || localTurns.length > 0 || !!userMessage
 
   return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={FILE_ACCEPT}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            setBrainAttachments(prev => processFiles(Array.from(e.target.files!), prev))
+            e.target.value = ''
+          }
+        }}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+      />
     <BrainShell
       defaultPhase={phase}
       onSend={handleSend}
-      chatInputProps={stopChip ? { chips: stopChip } : undefined}
+      chatInputProps={{
+        isStreaming: brainIsStreaming,
+        disabled: brainIsStreaming,
+        onStop: handleStop,
+        addMenu,
+        modelMenu: <ModelMenu />,
+        modelName: modelButtonLabel,
+        chips,
+        attachmentsSlot: (
+          <AttachmentManager
+            attachments={brainAttachments}
+            onAttachmentsChange={setBrainAttachments}
+          />
+        ),
+      }}
       sidebarProps={{
         userName:        displayName || 'Account',
         userEmail:       user?.email ?? '',
@@ -752,5 +941,6 @@ function BrainPageInner() {
         </div>
       ) : null}
     </BrainShell>
+    </>
   )
 }

@@ -3,6 +3,9 @@
 import React, { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
+// Deterministic widths so SSR and client render the same values (no hydration mismatch).
+const LABEL_WIDTH_CYCLE = [67, 63, 68, 56, 73, 65, 60, 47, 70, 50]
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Card shadow + radius mirror Pin's outer card so the skeleton drops in at the
 // same elevation as a real pin in the Pinboard grid.
@@ -60,12 +63,12 @@ export function PinSkeleton({
     style,
     ...props
   }: PinSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
-    // Randomise label widths so the row reads naturally rather than as a
-    // mechanical strip of identical bars. Memoised per-instance.
+    // Cycle through deterministic widths so the row reads naturally without
+    // causing SSR/client hydration mismatches from Math.random().
     const labelWidths = useMemo(
       () =>
-        Array.from({ length: Math.max(0, labelCount - 1) }, () =>
-          Math.floor(Math.random() * 32) + 44, // 44–76 px
+        Array.from({ length: Math.max(0, labelCount - 1) }, (_, i) =>
+          LABEL_WIDTH_CYCLE[i % LABEL_WIDTH_CYCLE.length],
         ),
       [labelCount],
     )

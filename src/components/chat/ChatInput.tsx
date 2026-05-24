@@ -118,6 +118,7 @@ export function ChatInput(
     const [isMicHovered,  setIsMicHovered]  = useState(false);
     const [addMenuOpen,   setAddMenuOpen]   = useState(false);
     const [modelMenuOpen, setModelMenuOpen] = useState(false);
+    const [mounted,       setMounted]       = useState(false);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -129,6 +130,8 @@ export function ChatInput(
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
+
+    useEffect(() => { setMounted(true); }, []);
 
     const { transcript, resetTranscript, browserSupportsSpeechRecognition } =
       useSpeechRecognition();
@@ -322,7 +325,7 @@ export function ChatInput(
     // no text to send.
     const isActionDisabled =
       (disabled && !isStreaming && !isRecording) ||
-      (!value && !isRecording && !isStreaming && !browserSupportsSpeechRecognition);
+      (!value && !isRecording && !isStreaming && !(mounted && browserSupportsSpeechRecognition));
 
     const szPadding    = compact ? "12px 16px"                  : "20px"
     const szGap        = compact ? "12px"                       : "24px"

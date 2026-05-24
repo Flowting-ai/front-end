@@ -21,6 +21,7 @@ import {
   formatFileSize,
   type PendingAttachment,
 } from "@/hooks/use-file-upload";
+import { Badge, type BadgeColor } from "@/components/Badge";
 
 // Re-export so callers that imported PendingAttachment from here still work.
 export type { PendingAttachment };
@@ -49,6 +50,20 @@ function getFileIcon(file: File): React.ReactNode {
   }
   // Fallback: Word, Excel, PPT, EPUB, etc.
   return <FolderOneIcon size={14} color="var(--neutral-500)" />;
+}
+
+// ── Type-label → Badge color ──────────────────────────────────────────────────
+function getTypeBadgeColor(label: string): BadgeColor {
+  switch (label) {
+    case "PDF":           return "Red";
+    case "Word":          return "Blue";
+    case "PPT":           return "Brown";
+    case "Excel":         return "Green";
+    case "CSV":           return "Green";
+    case "JSON": case "XML": case "HTML": return "Purple";
+    case "ZIP":           return "Brown";
+    default:              return "Neutral";
+  }
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -160,7 +175,6 @@ export function AttachmentManager({
       <div
         style={{
           position: "relative",
-          padding:  "10px 16px 0",
           width:    "100%",
         }}
       >
@@ -381,21 +395,34 @@ export function AttachmentManager({
                   >
                     {attachment.file.name}
                   </p>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: "12px",
-                      color:      attachment.uploading ? "var(--green-600, #16a34a)" : "var(--neutral-500)",
-                      margin:     "2px 0 0",
-                      lineHeight: 1,
-                      transition: "color 200ms",
-                    }}
-                  >
-                    {attachment.uploading
-                      ? `Uploading… ${attachment.uploadProgress ?? 0}%`
-                      : `${typeLabel} · ${formatFileSize(attachment.file.size)}`
-                    }
-                  </p>
+                  {attachment.uploading ? (
+                    <p
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize:   "12px",
+                        color:      "var(--green-600, #16a34a)",
+                        margin:     "2px 0 0",
+                        lineHeight: 1,
+                        transition: "color 200ms",
+                      }}
+                    >
+                      {`Uploading… ${attachment.uploadProgress ?? 0}%`}
+                    </p>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                      <Badge label={typeLabel} color={getTypeBadgeColor(typeLabel)} style={{ padding: '1.5px' }} />
+                      <span
+                        style={{
+                          fontFamily: "var(--font-body)",
+                          fontSize:   "12px",
+                          color:      "var(--neutral-500)",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {formatFileSize(attachment.file.size)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress bar - sits at the bottom of the chip */}

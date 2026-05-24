@@ -17,7 +17,8 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useHighlight } from "@/context/highlight-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFileDrop } from "@/hooks/use-file-drop";
-import { usePinOperations } from "@/hooks/use-pin-operations";
+import { usePinboard, type PinItem } from "@/context/pinboard-context";
+import type { PinMentionable } from "@/components/chat/PinMentionDropdown";
 import { Dropdown } from "@/components/Dropdown";
 import { Chip } from "@/components/Chip";
 import { Button } from "@/components/Button";
@@ -37,9 +38,7 @@ import {
   AuctionIcon,
 } from "@strange-huge/icons";
 import type { AIModel } from "@/types/ai-model";
-import type { Pin, PinFolder } from "@/lib/api/pins";
-import { getTopUsedModels, getRecentModels, recordModelUsage } from "@/lib/model-usage";
-import { getModelLlmId } from "@/lib/model-icons";
+import type { PinFolder } from "@/lib/api/pins";
 
 // ── Mentioned-pin state type ──────────────────────────────────────────────────
 
@@ -284,16 +283,16 @@ function ChatPageInner() {
   const [newChatHighlightedPinIndex, setNewChatHighlightedPinIndex] = useState(0);
   const [newChatMentionedPins, setNewChatMentionedPins] = useState<MentionedPin[]>([]);
 
-  const { pins } = usePinOperations();
+  const { pins } = usePinboard();
 
-  const newChatFilteredPins = useMemo<Pin[]>(() => {
+  const newChatFilteredPins = useMemo<PinItem[]>(() => {
     if (!newChatPinQuery.trim()) return pins.slice(0, 10);
     const q = newChatPinQuery.toLowerCase();
     return pins.filter(
       (p) =>
         p.title.toLowerCase().includes(q) ||
         p.content.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q)),
+        (p.tags ?? []).some((t) => t.toLowerCase().includes(q)),
     );
   }, [pins, newChatPinQuery]);
 
@@ -342,7 +341,7 @@ function ChatPageInner() {
     }
   }, []);
 
-  const handleNewChatPinSelect = useCallback((pin: Pin) => {
+  const handleNewChatPinSelect = useCallback((pin: PinMentionable) => {
     const label = (pin.title || pin.content).slice(0, 50) || pin.id;
     setNewChatInput((prev) => {
       const lastAt = prev.lastIndexOf("@");
@@ -463,11 +462,6 @@ function ChatPageInner() {
     />
   ));
 
-  // Persona is "active" (messages routed through persona endpoint) when:
-  // - starting a new chat (will be created as persona chat on first send), or
-  // - the current chat was created as a persona chat this session
-  const personaActive = !activeChatId || !!personaChatIds.current.get(activeChatId)
-
   const personaChip = selectedPersona ? (
     <Dropdown.Float
       open={personaChipOpen}
@@ -479,8 +473,8 @@ function ChatPageInner() {
           personaImage={selectedPersona.imageUrl ?? undefined}
           onRemove={() => setSelectedPersona(null)}
           onExpand={() => setPersonaChipOpen(v => !v)}
-          title={!personaActive ? "Persona model is active — system instructions apply to new chats only" : undefined}
-          style={!personaActive ? { opacity: 0.65 } : undefined}
+          title={undefined}
+          style={undefined}
         />
       }
     >
@@ -559,24 +553,44 @@ function ChatPageInner() {
   selectModelRef.current = selectModel
 
   useEffect(() => {
-    if (!selectedPersona || !models.length) return
+    if (!selectedPersona) return
 
-    if (selectedPersona.modelId) {
-      const match = models.find(m => String(m.modelId ?? m.id) === selectedPersona.modelId)
-      if (match) selectModelRef.current(match)
+    // Version data already cached — just apply model
+    if (selectedPersona.systemPrompt !== null) {
+      if (selectedPersona.modelId && models.length > 0) {
+        const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
+        if (match) selectModelRef.current(match)
+      }
       return
     }
 
-    // modelId absent from list — fetch from active version (list returns active_version: null)
-    if (!selectedPersona.activeVersionId) return
+    // No activeVersionId — apply model from list data if available, can't fetch prompt
+    if (!selectedPersona.activeVersionId) {
+      if (selectedPersona.modelId && models.length > 0) {
+        const match = models.find(m => String(m.modelId ?? m.id) === String(selectedPersona.modelId))
+        if (match) selectModelRef.current(match)
+      }
+      return
+    }
+
+    // Fetch active version to get systemPrompt, temperature, and authoritative modelId
     let cancelled = false
     getVersion(selectedPersona.id, selectedPersona.activeVersionId)
       .then(version => {
-        if (cancelled || !version.model_id) return
-        const match = models.find(m => String(m.modelId ?? m.id) === version.model_id)
-        if (match) selectModelRef.current(match)
+        if (cancelled) return
+        if (version.model_id && models.length > 0) {
+          const match = models.find(m => String(m.modelId ?? m.id) === version.model_id)
+          if (match) selectModelRef.current(match)
+        }
         setSelectedPersona(prev =>
-          prev?.id === selectedPersona.id ? { ...prev, modelId: version.model_id } : prev
+          prev?.id === selectedPersona.id
+            ? {
+                ...prev,
+                modelId:      version.model_id ?? prev.modelId,
+                systemPrompt: version.prompt,
+                temperature:  version.temperature,
+              }
+            : prev
         )
       })
       .catch(() => {})
@@ -589,7 +603,7 @@ function ChatPageInner() {
     if (!personaChipOpen) return
     setLoadingChipPersonas(true)
     fetchPersonas()
-      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId }))))
+      .then(list => setChipPersonas(list.map(p => ({ id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null }))))
       .catch(() => setChipPersonas([]))
       .finally(() => setLoadingChipPersonas(false))
   }, [personaChipOpen])
@@ -600,7 +614,7 @@ function ChatPageInner() {
       : "Souvenir AI Muse (Basic)"
     : selectedModel?.modelName;
 
-  const { rename: renameChat, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
+  const { renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const { loadForChat: loadHighlightsForChat } = useHighlight();
 
   // Tracks a newly-created chat so handleChatMoveToTop can schedule a title refresh.
@@ -862,6 +876,8 @@ function ChatPageInner() {
                           size="sm"
                           leftIcon={btn.icon}
                           disabled={btn.disabled}
+                          selected={selectedMode === btn.mode}
+                          aria-pressed={selectedMode === btn.mode}
                           onClick={btn.disabled ? undefined : () =>
                             setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))
                           }
@@ -930,14 +946,10 @@ function ChatPageInner() {
               onClearAddMenuFiles={clearAddMenuFiles}
               chips={chips}
               selectedFolders={selectedFolders}
-              selectedPersonaId={
-                // For a new chat: use the selected persona.
-                // For an existing chat: only use persona routing if this chat
-                // was actually created as a persona chat (prevents 404 on regular chats).
-                !activeChatId
-                  ? (selectedPersona?.id ?? null)
-                  : (personaChatIds.current.get(activeChatId) ?? null)
-              }
+              selectedStyleId={selectedStyleId}
+              selectedPersonaId={selectedPersona?.id ?? null}
+              selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
+              selectedPersonaTemperature={selectedPersona?.temperature ?? null}
             />
           </m.div>
         )}

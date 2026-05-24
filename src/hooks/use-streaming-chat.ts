@@ -153,7 +153,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -196,6 +196,9 @@ export function useStreamingChat({
       if (options?.enableReasoning) fd.append("enable_thinking", "true")
       if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
       if (options?.personaId) fd.append("personaId", options.personaId)
+      if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
+      if (options?.temperature != null) fd.append("temperature", String(options.temperature))
+      if (options?.toneId) fd.append("toneId", options.toneId)
       options?.files?.forEach((f) => fd.append("files", f))
 
       let buffer = ""

@@ -21,6 +21,9 @@ export interface SelectedPersonaInfo {
   imageUrl:        string | null
   modelId:         string | null
   activeVersionId: string | null
+  /** null = not yet fetched from the version; populated by the model-selector effect. */
+  systemPrompt:    string | null
+  temperature:     number | null
 }
 
 export const USE_STYLE_OPTIONS = [
@@ -147,7 +150,7 @@ export function ChatAddMenu({
                         fluid
                         selected={selectedPersonaId === p.id}
                         onClick={() => {
-                          onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId })
+                          onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })
                           setPersonaMenuOpen(false)
                         }}
                       />

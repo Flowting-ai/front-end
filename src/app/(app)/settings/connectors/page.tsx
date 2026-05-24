@@ -14,6 +14,7 @@ import {
 } from '@/lib/api/connectors'
 import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
+import { Button } from '@/components/Button'
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -671,46 +672,22 @@ function ApiKeyForm({
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-        <button
+        <Button
+          size="sm"
           onClick={onSubmit}
-          disabled={!allFilled || submitting}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            gap:             6,
-            padding:         '6px 14px',
-            borderRadius:    8,
-            border:          'none',
-            cursor:          (!allFilled || submitting) ? 'not-allowed' : 'pointer',
-            opacity:         (!allFilled || submitting) ? 0.55 : 1,
-            background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-            fontFamily:      'var(--font-body)',
-            fontWeight:      500,
-            fontSize:        13,
-            color:           'white',
-          }}
+          disabled={!allFilled}
+          loading={submitting}
         >
-          {submitting ? <><SpinnerIcon size={12} /> Connecting…</> : 'Connect'}
-        </button>
-        <button
+          Connect
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onCancel}
           disabled={submitting}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            padding:         '6px 14px',
-            borderRadius:    8,
-            border:          '1px solid var(--neutral-200)',
-            cursor:          submitting ? 'not-allowed' : 'pointer',
-            backgroundColor: 'white',
-            fontFamily:      'var(--font-body)',
-            fontWeight:      500,
-            fontSize:        13,
-            color:           'var(--neutral-700)',
-          }}
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -790,24 +767,15 @@ function ConnectorCard({
           </div>
         </div>
         {isActive && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onManage(entry)}
-            style={{
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              width:           36,
-              height:          36,
-              borderRadius:    10,
-              border:          'none',
-              backgroundColor: 'transparent',
-              cursor:          'pointer',
-              flexShrink:      0,
-              color:           'var(--neutral-500)',
-            }}
+            style={{ flexShrink: 0, color: 'var(--neutral-500)' }}
+            aria-label="Manage connector"
           >
             <MoreVerticalIcon size={20} />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -855,60 +823,22 @@ function ConnectorCard({
       {!showApiForm && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           {isActive ? (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => onManage(entry)}
-              style={{
-                display:         'inline-flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                padding:         '5px 10px',
-                borderRadius:    8,
-                border:          'none',
-                cursor:          'pointer',
-                backgroundColor: 'white',
-                boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-                fontFamily:      'var(--font-body)',
-                fontWeight:      500,
-                fontSize:        14,
-                lineHeight:      '22px',
-                color:           'var(--neutral-700)',
-                whiteSpace:      'nowrap',
-              }}
             >
               Manage
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              size="sm"
               onClick={handleConnectClick}
-              disabled={isOpening || isPolling || isSubmitting}
-              style={{
-                display:         'inline-flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                gap:             6,
-                padding:         '5px 10px',
-                borderRadius:    8,
-                border:          'none',
-                cursor:          (isOpening || isPolling || isSubmitting) ? 'not-allowed' : 'pointer',
-                opacity:         (isOpening || isPolling || isSubmitting) ? 0.7 : 1,
-                background:      'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-                boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.24), 0px 0px 0px 1px var(--neutral-800)',
-                fontFamily:      'var(--font-body)',
-                fontWeight:      500,
-                fontSize:        14,
-                lineHeight:      '22px',
-                color:           'white',
-                whiteSpace:      'nowrap',
-              }}
+              disabled={isOpening || isSubmitting}
+              loading={isPolling}
             >
-              {isPolling ? (
-                <><SpinnerIcon size={12} /> Connecting…</>
-              ) : isOpening ? (
-                'Opening…'
-              ) : (
-                'Connect'
-              )}
-            </button>
+              {isOpening ? 'Opening…' : 'Connect'}
+            </Button>
           )}
         </div>
       )}
