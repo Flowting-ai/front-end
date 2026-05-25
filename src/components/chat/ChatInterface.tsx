@@ -20,7 +20,6 @@ import {
 } from "@/hooks/use-streaming-chat";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard, type PinItem } from "@/context/pinboard-context";
-import { listPinsByFolders } from "@/lib/api/pins";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -267,7 +266,7 @@ export function ChatInterface({
       onClearInitialFiles?.();
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
-        ? (await listPinsByFolders(selectedFolders.map((f) => f.id)).catch(() => [])).map((p) => p.id)
+        ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : undefined;
       fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
@@ -458,7 +457,7 @@ export function ChatInterface({
     onClearAddMenuFiles?.();
 
     const folderPinIds = selectedFolders && selectedFolders.length > 0
-      ? (await listPinsByFolders(selectedFolders.map((f) => f.id)).catch(() => [])).map((p) => p.id)
+      ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
       : undefined;
 
     try {

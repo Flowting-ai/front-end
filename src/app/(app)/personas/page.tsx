@@ -17,6 +17,7 @@ import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
 import { fetchPersonas, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
+import { usePinboard } from '@/context/pinboard-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -265,6 +266,7 @@ function DeleteDialog({ name, onConfirm, onCancel }: { name: string; onConfirm: 
 export default function PersonasPage() {
   const { push } = useRouter()
   const pathname = usePathname()
+  const { close: closePinboard } = usePinboard()
 
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
@@ -278,6 +280,9 @@ export default function PersonasPage() {
   const [allOpen,      setAllOpen]      = useState(false)
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Persona | null>(null)
+
+  // Close the pinboard whenever the personas page is mounted.
+  useEffect(() => { closePinboard() }, [closePinboard])
 
   // Re-fetch whenever this page becomes the active route so navigating back
   // from configure always shows the latest avatar / state.

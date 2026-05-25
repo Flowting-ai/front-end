@@ -16,10 +16,8 @@ import {
 } from '@/templates/Brain'
 import { MessageBubble } from '@/components/MessageBubble'
 import { useAuth } from '@/context/auth-context'
-import { useChatHistoryContext } from '@/context/chat-history-context'
-import { useProjects } from '@/context/projects-context'
 import { useModelSelectorContext } from '@/context/model-selector-context'
-import type { SidebarProject, SidebarRecentItem } from '@/components/Sidebar'
+import { BrainSidebarSections } from './BrainSidebarSections'
 import type { Phase, PlanStep, StepStatus } from '@/templates/Brain/lib/phase'
 import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from '@/components/chat/AddMenu'
 import { ModelMenu, useModelButtonLabel } from '@/components/chat/ModelMenu'
@@ -168,42 +166,11 @@ function BrainPageInner() {
   const searchParams = useSearchParams()
   const { push, replace } = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
-  const chatHistory = useChatHistoryContext()
-  const { projects, getChats, chats: projectChats } = useProjects()
-
   const chatIdFromUrl = searchParams.get('id')
 
   const displayName = user
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
-
-  // ── Sidebar ─────────────────────────────────────────────────────────────────
-
-  const projectChatIds = useMemo(
-    () => new Set(projectChats.map((c) => c.id)),
-    [projectChats],
-  )
-
-  const sidebarProjects = useMemo<SidebarProject[]>(
-    () =>
-      projects.map((p) => ({
-        id:        p.id,
-        label:     p.name,
-        chatItems: getChats(p.id)
-          .slice(0, 5)
-          .map((c) => ({ id: c.id, label: c.title || 'Untitled' })),
-      })),
-    [projects, getChats],
-  )
-
-  const recentChats = useMemo<SidebarRecentItem[]>(
-    () =>
-      chatHistory.chats
-        .filter((c) => !projectChatIds.has(c.id))
-        .slice(0, 20)
-        .map((c) => ({ id: c.id, label: c.title || 'Untitled' })),
-    [chatHistory.chats, projectChatIds],
-  )
 
   // ── Chat identity ────────────────────────────────────────────────────────────
 
@@ -920,10 +887,15 @@ function BrainPageInner() {
         userName:        displayName || 'Account',
         userEmail:       user?.email ?? '',
         isAuthenticated,
-        projects:        sidebarProjects,
-        recents:         recentChats,
-        onSelectChat:    (id) => push(`/chat?id=${id}`),
-        onNewChat:       () => push('/chat'),
+        projectItems: (
+          <BrainSidebarSections
+            activeChatId={chatId}
+            isSchedulesPage={false}
+            onThreadClick={(id) => { replace(`/brain?id=${id}`) }}
+          />
+        ),
+        recentItems:     null,
+        onNewChat:       () => push('/brain'),
         onChatsClick:    () => push('/chats'),
         onPersonasClick: () => push('/personas'),
         onProjectsClick: () => push('/projects'),

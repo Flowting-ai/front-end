@@ -101,17 +101,17 @@ export function AppLayout({
           backgroundColor: "var(--neutral-50)",
         }}
       >
-        {isPersonaPage ? (
-          /* ── Persona pages: no rounded container, no TopBar, no FloatingPanel ── */
+        {isPersonaPage && !isPersonaChatPage ? (
+          /* ── Non-chat persona pages (list, configure): plain main, no container ── */
           <main
-            className={isPersonaChatPage ? undefined : "kaya-scrollbar"}
+            className="kaya-scrollbar"
             style={{
               flex:                "1 0 0",
               minHeight:           0,
               width:               "100%",
-              overflowY:           isPersonaChatPage ? "hidden" : "auto",
+              overflowY:           "auto",
               overflowX:           "hidden",
-              overscrollBehaviorY: isPersonaChatPage ? undefined : "contain",
+              overscrollBehaviorY: "contain",
               display:             "flex",
               flexDirection:       "column",
             }}
@@ -148,14 +148,14 @@ export function AppLayout({
 
             {/* ── Main content - fills remaining height ── */}
             <main
-              className="kaya-scrollbar"
+              className={isPersonaChatPage ? undefined : "kaya-scrollbar"}
               style={{
                 flex:                "1 0 0",
                 minHeight:           0,
                 width:               "100%",
-                overflowY:           "auto",
+                overflowY:           isPersonaChatPage ? "hidden" : "auto",
                 overflowX:           "hidden",
-                overscrollBehaviorY: "contain",
+                overscrollBehaviorY: isPersonaChatPage ? undefined : "contain",
                 display:             "flex",
                 flexDirection:       "column",
               }}

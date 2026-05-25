@@ -137,6 +137,14 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    */
   defaultCollapsed?: boolean
   /**
+   * Initial body section shown on first mount.
+   * Useful when a consuming page (e.g. a persona chat page) needs the sidebar
+   * to start on a specific section. Respects the remount-on-key pattern so each
+   * page type gets the right default without fighting internal state.
+   * @default 'chat-board'
+   */
+  defaultBodySection?: 'chat-board' | 'persona' | 'workflow'
+  /**
    * Controlled "current chat" id - driven by the app router. When set, the
    * Sidebar highlights the matching chat row (in Recents or inside a project)
    * and auto-expands the parent project. The Sidebar itself never sets this
@@ -426,6 +434,7 @@ export function Sidebar({
       recentItems,
       onShowAllRecents,
       defaultCollapsed = false,
+      defaultBodySection,
       activeChatId,
       onSelectChat,
       className,
@@ -470,11 +479,11 @@ export function Sidebar({
     }
     const [activeFolder,    setActiveFolder]    = useState<string | null>(null)
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-    const [selectedItem,    setSelectedItem]    = useState<string | null>(null)
+    const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultBodySection ?? null)
     // bodySection controls which content area is shown in the scrollable body.
     // 'chat-board' → Projects + Recents; 'persona' / 'workflow' → Recents only.
     // New chat shares the 'chat-board' layout but does NOT highlight the Chat board nav item.
-    const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>('chat-board')
+    const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>(defaultBodySection ?? 'chat-board')
 
     // Select a section nav item (Chat board / Persona / Workflow)
     const onSelectSection = (section: 'chat-board' | 'persona' | 'workflow') => {

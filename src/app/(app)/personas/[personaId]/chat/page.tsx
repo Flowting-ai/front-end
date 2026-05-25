@@ -9,7 +9,7 @@ function PersonaChatPageInner() {
   const searchParams = useSearchParams();
   const chatId      = searchParams.get("chatId") ?? undefined;
 
-  return <PersonaChatInterface personaId={params.personaId} initialChatId={chatId} />;
+  return <PersonaChatInterface key={chatId ?? "new"} personaId={params.personaId} initialChatId={chatId} />;
 }
 
 export default function PersonaChatPage() {

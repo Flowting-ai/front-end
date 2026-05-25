@@ -52,6 +52,7 @@ export interface ChatAddMenuProps {
   onFolderToggle:    (folder: PinFolder) => void
   selectedPersonaId: string | null
   onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
+  hidePersona?:      boolean
 }
 
 export function ChatAddMenu({
@@ -64,6 +65,7 @@ export function ChatAddMenu({
   onFolderToggle,
   selectedPersonaId,
   onPersonaChange,
+  hidePersona,
 }: ChatAddMenuProps) {
   const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
   const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
@@ -124,42 +126,44 @@ export function ChatAddMenu({
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
-        <Dropdown.Float
-          open={personaMenuOpen}
-          onOpenChange={setPersonaMenuOpen}
-          placement="right-start"
-          trigger={
-            <Dropdown.Item
-              label="Add persona"
-              icon={<UserAiIcon />}
-              fluid
-              rightIcon={<ArrowRightOneIcon />}
-              selected={!!selectedPersonaId}
-            />
-          }
-        >
-          <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
-            <Dropdown.Section fluid>
-              {loadingPersonas
-                ? <Dropdown.Item label="Loading…" fluid disabled />
-                : personas.length > 0
-                  ? personas.map((p) => (
-                      <Dropdown.Item
-                        key={p.id}
-                        label={p.name}
-                        fluid
-                        selected={selectedPersonaId === p.id}
-                        onClick={() => {
-                          onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })
-                          setPersonaMenuOpen(false)
-                        }}
-                      />
-                    ))
-                  : <Dropdown.Item label="No personas yet" fluid disabled />
-              }
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
+        {!hidePersona && (
+          <Dropdown.Float
+            open={personaMenuOpen}
+            onOpenChange={setPersonaMenuOpen}
+            placement="right-start"
+            trigger={
+              <Dropdown.Item
+                label="Add persona"
+                icon={<UserAiIcon />}
+                fluid
+                rightIcon={<ArrowRightOneIcon />}
+                selected={!!selectedPersonaId}
+              />
+            }
+          >
+            <Dropdown size="md" style={{ minWidth: 200 }} maxHeight="min(280px, calc(100dvh - 120px))">
+              <Dropdown.Section fluid>
+                {loadingPersonas
+                  ? <Dropdown.Item label="Loading…" fluid disabled />
+                  : personas.length > 0
+                    ? personas.map((p) => (
+                        <Dropdown.Item
+                          key={p.id}
+                          label={p.name}
+                          fluid
+                          selected={selectedPersonaId === p.id}
+                          onClick={() => {
+                            onPersonaChange(selectedPersonaId === p.id ? null : { id: p.id, name: p.name, imageUrl: p.imageUrl, modelId: p.modelId, activeVersionId: p.activeVersionId, systemPrompt: null, temperature: null })
+                            setPersonaMenuOpen(false)
+                          }}
+                        />
+                      ))
+                    : <Dropdown.Item label="No personas yet" fluid disabled />
+                }
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
+        )}
         <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={setPinFoldersMenuOpen}

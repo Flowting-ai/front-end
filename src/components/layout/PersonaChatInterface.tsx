@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { m } from "framer-motion";
-import { ArrowLeftOneIcon, PlusSignIcon, FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from "@strange-huge/icons";
-import { IconButton } from "@/components/IconButton";
-import { Button } from "@/components/Button";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from "@strange-huge/icons";
 import { Chip } from "@/components/Chip";
 import { Dropdown } from "@/components/Dropdown";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatAddMenu, USE_STYLE_OPTIONS } from "@/components/chat/AddMenu";
 import { ModelMenu, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
+import { ChatMessageMemo } from "@/components/chat/ChatMessage";
+import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import type { UIMessage } from "@/hooks/use-chat-state";
 import type { PinFolder } from "@/lib/api/pins";
 import {
   getPersona,
@@ -48,124 +47,23 @@ const AVATAR_COLORS = [
   "#D97706", "#0891B2", "#BE185D", "#65A30D",
 ];
 
-function PersonaAvatar({
-  imageUrl,
-  name,
-  size = 32,
-}: {
-  imageUrl: string | null;
-  name:     string;
-  size?:    number;
-}) {
+function PersonaAvatar({ imageUrl, name, size = 32 }: { imageUrl: string | null; name: string; size?: number }) {
   const bg  = AVATAR_COLORS[(name.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
   const rad = size * 0.4;
 
   if (imageUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic user-uploaded avatar URL, external domain not in next config
-      <img
-        src={imageUrl}
-        alt={name}
-        style={{
-          width:        size,
-          height:       size,
-          borderRadius: "50%",
-          objectFit:    "cover",
-          flexShrink:   0,
-          display:      "block",
-        }}
-      />
+      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic user-uploaded avatar URL
+      <img src={imageUrl} alt={name} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, display: "block" }} />
     );
   }
 
   return (
     <div
       aria-hidden
-      style={{
-        width:          size,
-        height:         size,
-        borderRadius:   "50%",
-        background:     bg,
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "center",
-        flexShrink:     0,
-        color:          "#fff",
-        fontFamily:     "var(--font-body)",
-        fontWeight:     700,
-        fontSize:       rad,
-        userSelect:     "none",
-      }}
+      style={{ width: size, height: size, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff", fontFamily: "var(--font-body)", fontWeight: 700, fontSize: rad, userSelect: "none" }}
     >
       {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
-
-// ── Message row ───────────────────────────────────────────────────────────────
-
-function MessageRow({
-  message,
-  persona,
-}: {
-  message: LocalMessage;
-  persona: Persona | null;
-}) {
-  const isUser = message.role === "user";
-
-  return (
-    <div
-      style={{
-        display:       "flex",
-        flexDirection: isUser ? "row-reverse" : "row",
-        alignItems:    "flex-end",
-        gap:           10,
-        padding:       "4px 0",
-      }}
-    >
-      {/* Persona avatar beside assistant messages */}
-      {!isUser && persona && (
-        <div style={{ flexShrink: 0, marginBottom: 2 }}>
-          <PersonaAvatar imageUrl={persona.imageUrl} name={persona.name} size={28} />
-        </div>
-      )}
-
-      {/* Bubble */}
-      <div
-        style={{
-          maxWidth:    "76%",
-          padding:     isUser ? "10px 14px" : "10px 14px",
-          borderRadius: isUser
-            ? "18px 18px 4px 18px"
-            : "4px 18px 18px 18px",
-          background:  isUser ? "var(--neutral-900)" : "var(--neutral-white)",
-          color:       isUser ? "var(--neutral-white)" : "var(--neutral-900)",
-          boxShadow:   isUser ? "none" : "0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--neutral-150, var(--neutral-200))",
-          fontFamily:  "var(--font-body)",
-          fontWeight:  "var(--font-weight-regular)",
-          fontSize:    "var(--font-size-body)",
-          lineHeight:  "var(--line-height-body)",
-          whiteSpace:  "pre-wrap",
-          wordBreak:   "break-word",
-        }}
-      >
-        {message.content || (message.isStreaming ? null : "")}
-        {message.isStreaming && (
-          <m.span
-            animate={{ opacity: [1, 0, 1] }}
-            transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-            style={{
-              display:       "inline-block",
-              width:         2,
-              height:        "1em",
-              background:    "currentColor",
-              marginLeft:    2,
-              verticalAlign: "text-bottom",
-              borderRadius:  1,
-            }}
-          />
-        )}
-      </div>
     </div>
   );
 }
@@ -176,57 +74,20 @@ function EmptyState({ persona }: { persona: Persona | null }) {
   if (!persona) {
     return (
       <div style={{ flex: "1 0 0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div
-          style={{
-            width:        48,
-            height:       48,
-            borderRadius: "50%",
-            background:   "var(--neutral-100)",
-          }}
-        />
+        <LoadingSpinner size={24} />
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        flex:           "1 0 0",
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        justifyContent: "center",
-        gap:            20,
-        padding:        "60px 32px",
-        textAlign:      "center",
-      }}
-    >
+    <div style={{ flex: "1 0 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: "60px 32px", textAlign: "center" }}>
       <PersonaAvatar imageUrl={persona.imageUrl} name={persona.name} size={80} />
-
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 440 }}>
-        <p
-          style={{
-            margin:     0,
-            fontFamily: "var(--font-title)",
-            fontWeight: 400,
-            fontSize:   24,
-            lineHeight: "32px",
-            color:      "var(--neutral-900)",
-          }}
-        >
+        <p style={{ margin: 0, fontFamily: "var(--font-title)", fontWeight: 400, fontSize: 24, lineHeight: "32px", color: "var(--neutral-900)" }}>
           {persona.name}
         </p>
         {persona.description && (
-          <p
-            style={{
-              margin:     0,
-              fontFamily: "var(--font-body)",
-              fontWeight: "var(--font-weight-regular)",
-              fontSize:   "var(--font-size-body)",
-              lineHeight: "var(--line-height-body)",
-              color:      "var(--neutral-500)",
-            }}
-          >
+          <p style={{ margin: 0, fontFamily: "var(--font-body)", fontWeight: "var(--font-weight-regular)", fontSize: "var(--font-size-body)", lineHeight: "var(--line-height-body)", color: "var(--neutral-500)" }}>
             {persona.description}
           </p>
         )}
@@ -235,33 +96,17 @@ function EmptyState({ persona }: { persona: Persona | null }) {
   );
 }
 
-// ── Loading skeleton ──────────────────────────────────────────────────────────
+// ── LocalMessage → UIMessage adapter ─────────────────────────────────────────
 
-function MessageSkeleton() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "24px 24px 0" }}>
-      {[{ w: "55%", user: false }, { w: "45%", user: true }, { w: "70%", user: false }].map(
-        ({ w, user }) => (
-          <div
-            key={`skeleton-${user ? "user" : "assistant"}-${w}`}
-            style={{
-              display:        "flex",
-              justifyContent: user ? "flex-end" : "flex-start",
-            }}
-          >
-            <div
-              style={{
-                width:        w,
-                height:       40,
-                borderRadius: 12,
-                background:   "var(--neutral-100)",
-              }}
-            />
-          </div>
-        ),
-      )}
-    </div>
-  );
+function toUIMessage(msg: LocalMessage, chatId: string): UIMessage {
+  return {
+    id:         msg.id,
+    role:       msg.role,
+    content:    msg.content ?? "",
+    created_at: "",
+    chat_id:    chatId,
+    isLoading:  msg.isStreaming,
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -271,11 +116,9 @@ export function PersonaChatInterface({
   initialChatId,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: PersonaChatInterfaceProps) {
-  const { push } = useRouter();
-
   const [persona,           setPersona]           = useState<Persona | null>(null);
   const [messages,          setMessages]          = useState<LocalMessage[]>([]);
-  // eslint-disable-next-line react-doctor/no-derived-useState, react-doctor/rerender-state-only-in-handlers -- intentional draft-state; read in effect deps
+  // eslint-disable-next-line react-doctor/no-derived-useState, react-doctor/rerender-state-only-in-handlers
   const [activeChatId,      setActiveChatId]      = useState<string | undefined>(initialChatId);
   const [input,             setInput]             = useState("");
   const [isStreaming,       setIsStreaming]        = useState(false);
@@ -288,285 +131,237 @@ export function PersonaChatInterface({
   const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
   const [attachments,      setAttachments]      = useState<PendingAttachment[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef         = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef       = useRef<HTMLDivElement>(null);
+  const abortRef             = useRef<(() => void) | null>(null);
+  const streamContentRef     = useRef("");
 
-  const { open: openModelSelector } = useModelSelectorContext();
+  const { open: openModelSelector, models, selectModel } = useModelSelectorContext();
   const { processFiles, FILE_ACCEPT } = useFileUpload();
   const modelButtonLabel = useModelButtonLabel();
 
-  const abortRef  = useRef<(() => void) | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const selectModelRef = useRef(selectModel);
+  selectModelRef.current = selectModel;
 
-  // Load persona metadata
+  // ── Persona load + model sync ─────────────────────────────────────────────
+
   useEffect(() => {
     getPersona(personaId).then(setPersona).catch(console.error);
   }, [personaId]);
 
-  // Load history when resuming an existing chat
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  useEffect(() => {
+    if (!persona?.modelId || !models.length) return;
+    const match = models.find(m => String(m.modelId ?? m.id) === persona.modelId);
+    if (match) selectModelRef.current(match);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona?.modelId, models]);
+
+  // ── Load history ──────────────────────────────────────────────────────────
+
+  // eslint-disable-next-line react-doctor/no-cascading-set-state
   useEffect(() => {
     if (!initialChatId) return;
     setIsLoadingMessages(true);
     fetchPersonaChatMessages(personaId, initialChatId)
-      .then((msgs) =>
-        setMessages(msgs.map((m) => ({ id: m.id, role: m.role, content: m.content }))),
-      )
+      .then(msgs => setMessages(msgs.map(m => ({ id: m.id, role: m.role, content: m.content ?? "" }))))
       .catch(console.error)
       .finally(() => setIsLoadingMessages(false));
   }, [personaId, initialChatId]);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // ── Scroll to bottom on new messages ─────────────────────────────────────
 
-  // Cleanup stream on unmount
+  const prevIsLoadingRef = useRef(false);
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoadingMessages;
+    if (wasLoading && !isLoadingMessages && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
+  }, [isLoadingMessages, messages.length]);
+
+  const lastMsgContent = messages.length > 0 ? messages[messages.length - 1]?.content?.length ?? 0 : 0;
+  useEffect(() => {
+    if (!isLoadingMessages && messages.length > 0 && isStreaming) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [isStreaming, messages.length, lastMsgContent, isLoadingMessages]);
+
   useEffect(() => () => { abortRef.current?.(); }, []);
 
-  const handleSend = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || isStreaming) return;
+  // ── Send ──────────────────────────────────────────────────────────────────
 
-      setInput("");
-      setAttachments([]);
+  const handleSend = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isStreaming) return;
 
-      const userMsgId      = `u-${Date.now()}`;
-      const assistantMsgId = `a-${Date.now()}`;
+    setInput("");
+    setAttachments([]);
 
-      setMessages((prev) => [
-        ...prev,
-        { id: userMsgId,      role: "user",      content: trimmed },
-        { id: assistantMsgId, role: "assistant",  content: "", isStreaming: true },
-      ]);
-      setIsStreaming(true);
+    const userMsgId      = `u-${Date.now()}`;
+    const assistantMsgId = `a-${Date.now()}`;
+    streamContentRef.current = "";
 
-      // Snapshot the chatId at call-time; avoid stale closure inside callbacks
-      const currentChatId = activeChatId;
+    setMessages(prev => [
+      ...prev,
+      { id: userMsgId,      role: "user",      content: trimmed },
+      { id: assistantMsgId, role: "assistant",  content: "", isStreaming: true },
+    ]);
+    setIsStreaming(true);
 
-      const callbacks = {
-        onChatId: (chatId: string) => {
-          setActiveChatId(chatId);
-          window.history.replaceState(
-            null, "",
-            `/personas/${personaId}/chat?chatId=${chatId}`,
-          );
-          emitPersonaChatCreated({
-            personaId,
-            chatId,
-            title: trimmed.slice(0, 80),
-          });
-        },
-        onChunk: (delta: string) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId ? { ...m, content: m.content + delta } : m,
-            ),
-          );
-        },
-        onDone: () => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId ? { ...m, isStreaming: false } : m,
-            ),
-          );
-          setIsStreaming(false);
-          abortRef.current = null;
-          // Surface the first assistant reply as the chat title in the sidebar
-          setMessages((snap) => {
-            const assistantMsg = snap.find((m) => m.id === assistantMsgId);
-            if (assistantMsg?.content && activeChatId) {
-              emitPersonaChatTitleUpdated({
-                personaId,
-                chatId: activeChatId,
-                title:  assistantMsg.content.slice(0, 80),
-              });
-            }
-            return snap;
-          });
-        },
-        onError: (err: string) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? { ...m, content: `Something went wrong: ${err}`, isStreaming: false }
-                : m,
-            ),
-          );
-          setIsStreaming(false);
-          abortRef.current = null;
-        },
-      };
+    const currentChatId = activeChatId;
 
-      try {
-        const abort = currentChatId
-          ? await streamPersonaMessage(personaId, currentChatId, trimmed, callbacks)
-          : await createAndStreamPersonaChat(personaId, trimmed, callbacks);
-        abortRef.current = abort;
-      } catch {
+    const callbacks = {
+      onChatId: (chatId: string) => {
+        setActiveChatId(chatId);
+        window.history.replaceState(null, "", `/personas/${personaId}/chat?chatId=${chatId}`);
+        emitPersonaChatCreated({ personaId, chatId, title: trimmed.slice(0, 80) });
+      },
+      onChunk: (delta: string) => {
+        streamContentRef.current += delta;
+        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: m.content + delta } : m));
+      },
+      onDone: () => {
+        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, isStreaming: false } : m));
         setIsStreaming(false);
-      }
-    },
-    [personaId, activeChatId, isStreaming],
-  );
+        abortRef.current = null;
+        if (streamContentRef.current && activeChatId) {
+          emitPersonaChatTitleUpdated({ personaId, chatId: activeChatId, title: streamContentRef.current.slice(0, 80) });
+        }
+        streamContentRef.current = "";
+      },
+      onError: (err: string) => {
+        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: `Something went wrong: ${err}`, isStreaming: false } : m));
+        setIsStreaming(false);
+        abortRef.current = null;
+      },
+    };
+
+    try {
+      const abort = currentChatId
+        ? await streamPersonaMessage(personaId, currentChatId, trimmed, callbacks)
+        : await createAndStreamPersonaChat(personaId, trimmed, callbacks);
+      abortRef.current = abort;
+    } catch {
+      setIsStreaming(false);
+    }
+  }, [personaId, activeChatId, isStreaming]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.();
     abortRef.current = null;
-    setMessages((prev) =>
-      prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
-    );
+    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m));
     setIsStreaming(false);
   }, []);
 
-  const handleNewChat = useCallback(() => {
-    abortRef.current?.();
-    abortRef.current = null;
-    setMessages([]);
-    setActiveChatId(undefined);
-    setInput("");
-    setIsStreaming(false);
-    window.history.replaceState(null, "", `/personas/${personaId}/chat`);
-  }, [personaId]);
+  // ── Chips ─────────────────────────────────────────────────────────────────
 
-  const name = persona?.name ?? "";
+  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null;
+
+  const chips = useMemo(() => (
+    <>
+      {activeStyle && (
+        <Dropdown.Float open={styleChipOpen} onOpenChange={setStyleChipOpen} placement="top-start"
+          trigger={
+            <Chip
+              label={activeStyle.label}
+              icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
+              onRemove={() => setSelectedStyleId(null)}
+              onExpand={() => setStyleChipOpen(v => !v)}
+            />
+          }
+        >
+          <Dropdown size="md">
+            <Dropdown.Section fluid>
+              {USE_STYLE_OPTIONS.map(opt => (
+                <Dropdown.Item
+                  key={opt.id} label={opt.label} subLabel={opt.subLabel} fluid
+                  selected={opt.id === "none" ? selectedStyleId === null : selectedStyleId === opt.id}
+                  onClick={() => { setSelectedStyleId(opt.id === "none" ? null : opt.id); setStyleChipOpen(false); }}
+                />
+              ))}
+            </Dropdown.Section>
+          </Dropdown>
+        </Dropdown.Float>
+      )}
+      {selectedFolders.map(folder => (
+        <Chip key={folder.id} label={folder.name} icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
+          onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))} />
+      ))}
+      {webSearchEnabled && (
+        <Chip size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
+      )}
+    </>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [activeStyle, styleChipOpen, selectedFolders, webSearchEnabled, selectedStyleId]);
+
+  const chatId = activeChatId ?? "";
 
   return (
-    <div
-      style={{
-        display:       "flex",
-        flexDirection: "column",
-        flex:          "1 0 0",
-        minHeight:     0,
-        height:        "100%",
-        background:    "var(--neutral-50)",
-      }}
-    >
-      {/* ── Header ── */}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", position: "relative" }}>
+
+      {/* ── Messages area ── */}
       <div
-        style={{
-          display:      "flex",
-          alignItems:   "center",
-          gap:          10,
-          padding:      "10px 16px",
-          borderBottom: "1px solid var(--neutral-200)",
-          background:   "var(--neutral-white)",
-          flexShrink:   0,
-          minHeight:    56,
-        }}
-      >
-        <IconButton
-          variant="ghost"
-          size="sm"
-          icon={<ArrowLeftOneIcon size={20} />}
-          aria-label="Back to personas"
-          onClick={() => push("/personas")}
-        />
-
-        {persona ? (
-          <>
-            <PersonaAvatar imageUrl={persona.imageUrl} name={name} size={32} />
-            <span
-              style={{
-                flex:         "1 0 0",
-                minWidth:     0,
-                fontFamily:   "var(--font-body)",
-                fontWeight:   "var(--font-weight-semibold)",
-                fontSize:     "var(--font-size-body)",
-                lineHeight:   "var(--line-height-body)",
-                color:        "var(--neutral-900)",
-                overflow:     "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace:   "nowrap",
-              }}
-            >
-              {name}
-            </span>
-          </>
-        ) : (
-          <div style={{ flex: "1 0 0" }} />
-        )}
-
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<PlusSignIcon size={16} />}
-          onClick={handleNewChat}
-        >
-          New chat
-        </Button>
-      </div>
-
-      {/* ── Message area ── */}
-      <div
+        ref={messagesContainerRef}
         className="kaya-scrollbar"
-        style={{
-          flex:                "1 0 0",
-          minHeight:           0,
-          overflowY:           "auto",
-          overflowX:           "hidden",
-          overscrollBehaviorY: "contain",
-          display:             "flex",
-          flexDirection:       "column",
-        }}
+        style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", alignItems: "center" }}
       >
-        {isLoadingMessages ? (
-          <MessageSkeleton />
-        ) : messages.length === 0 ? (
-          <EmptyState persona={persona} />
-        ) : (
-          <div
-            style={{
-              display:       "flex",
-              flexDirection: "column",
-              gap:           4,
-              padding:       "24px 24px 16px",
-              maxWidth:      760,
-              margin:        "0 auto",
-              width:         "100%",
-              boxSizing:     "border-box",
-            }}
-          >
-            {messages.map((msg) => (
-              <MessageRow key={msg.id} message={msg} persona={persona} />
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        )}
+        <div style={{ width: "100%", maxWidth: "720px" }}>
+
+          {/* Loading spinner while fetching history */}
+          {isLoadingMessages && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "16px" }}>
+              <LoadingSpinner size={20} />
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoadingMessages && messages.length === 0 && (
+            <EmptyState persona={persona} />
+          )}
+
+          {/* Messages */}
+          {messages.map((msg, idx) => (
+            <ChatMessageMemo
+              key={msg.id}
+              message={toUIMessage(msg, chatId)}
+              isLast={idx === messages.length - 1}
+              isNewMessage={idx === messages.length - 1 && isStreaming}
+              chatId={chatId || undefined}
+            />
+          ))}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* ── Input footer ── */}
-      <div
-        style={{
-          flexShrink:  0,
-          padding:     "10px 24px 16px",
-          background:  "var(--neutral-50)",
-        }}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={FILE_ACCEPT}
-          onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) {
-              setAttachments(prev => processFiles(Array.from(e.target.files!), prev));
-              e.target.value = "";
-            }
-          }}
-          style={{ display: "none" }}
-          aria-hidden="true"
-        />
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      {/* ── Input area ── */}
+      <div style={{ padding: "16px 16px 24px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ width: "100%", maxWidth: "754px", position: "relative" }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={FILE_ACCEPT}
+            onChange={e => {
+              if (e.target.files && e.target.files.length > 0) {
+                setAttachments(prev => processFiles(Array.from(e.target.files!), prev));
+                e.target.value = "";
+              }
+            }}
+            style={{ display: "none" }}
+            aria-hidden="true"
+          />
           <ChatInput
             value={input}
             onChange={setInput}
             onSend={handleSend}
             onStop={handleStop}
             isStreaming={isStreaming}
-            placeholder={`Message ${name || "persona"}…`}
+            disabled={isStreaming}
+            placeholder={`Message ${persona?.name || "persona"}…`}
             modelName={modelButtonLabel}
-            onModelClick={(e) => openModelSelector(e.currentTarget)}
+            onModelClick={e => openModelSelector(e.currentTarget)}
             addMenu={
               <ChatAddMenu
                 webSearchEnabled={webSearchEnabled}
@@ -575,64 +370,16 @@ export function PersonaChatInterface({
                 selectedStyleId={selectedStyleId}
                 onStyleChange={setSelectedStyleId}
                 selectedFolders={selectedFolders}
-                onFolderToggle={(folder) => setSelectedFolders(prev =>
+                onFolderToggle={folder => setSelectedFolders(prev =>
                   prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
                 )}
                 selectedPersonaId={null}
                 onPersonaChange={() => {}}
+                hidePersona
               />
             }
             modelMenu={<ModelMenu />}
-            chips={
-              <>
-                {(USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)) && (
-                  <Dropdown.Float
-                    open={styleChipOpen}
-                    onOpenChange={setStyleChipOpen}
-                    placement="top-start"
-                    trigger={
-                      <Chip
-                        label={USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId)!.label}
-                        icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
-                        onRemove={() => setSelectedStyleId(null)}
-                        onExpand={() => setStyleChipOpen(v => !v)}
-                      />
-                    }
-                  >
-                    <Dropdown size="md">
-                      <Dropdown.Section fluid>
-                        {USE_STYLE_OPTIONS.map(opt => (
-                          <Dropdown.Item
-                            key={opt.id}
-                            label={opt.label}
-                            subLabel={opt.subLabel}
-                            selected={opt.id === "none" ? selectedStyleId === null : selectedStyleId === opt.id}
-                            onClick={() => { setSelectedStyleId(opt.id === "none" ? null : opt.id); setStyleChipOpen(false); }}
-                            fluid
-                          />
-                        ))}
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
-                )}
-                {selectedFolders.map(folder => (
-                  <Chip
-                    key={folder.id}
-                    label={folder.name}
-                    icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
-                    onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
-                  />
-                ))}
-                {webSearchEnabled && (
-                  <Chip
-                    size="Medium"
-                    icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />}
-                    label="Web search"
-                    onRemove={() => setWebSearchEnabled(false)}
-                  />
-                )}
-              </>
-            }
+            chips={chips}
             attachmentsSlot={
               <AttachmentManager
                 attachments={attachments}

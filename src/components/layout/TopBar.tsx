@@ -1,15 +1,18 @@
 "use client";
 
-import React from "react";
+import { useState, useEffect } from "react";
 import Image from 'next/image';
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useProjects } from "@/context/projects-context";
 import { LlmIcon } from "@strange-huge/icons/llm";
 import { getModelLlmId } from "@/lib/model-icons";
 import { Button } from "@/components/Button";
-import { IconButton } from "@/components/IconButton";
-import { ArrowDownOneIcon } from "@strange-huge/icons";
+import { ArrowDownOneIcon, PenOneIcon } from "@strange-huge/icons";
+import { getPersona } from "@/lib/api/personas";
+import type { Persona } from "@/lib/api/personas";
+import { fetchModelsWithCache } from "@/lib/ai-models";
+import type { AIModel } from "@/types/ai-model";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,18 +24,37 @@ interface TopBarProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }: TopBarProps) {
+export function TopBar({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
   const { selectedModel, isOpen, open, museActive, museAdvanced } =
     useModelSelectorContext();
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
+  const router   = useRouter();
 
   // Detect page type from pathname
-  const projectChatMatch = pathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
-  const isProjectChatPage  = !!projectChatMatch;
-  // Suppress temp/share on all project pages except project chat (which shows context label instead)
+  const projectChatMatch    = pathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
+  const isProjectChatPage   = !!projectChatMatch;
   const isProjectDetailPage = pathname.startsWith('/project') && !isProjectChatPage;
   const isChatsPage         = pathname === '/chats';
+  const personaChatMatch    = pathname.match(/^\/personas\/([^/]+)\/chat/);
+  const isPersonaChatPage   = !!personaChatMatch;
+  const personaId           = personaChatMatch?.[1] ?? null;
+
+  // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
+  const [persona,      setPersona]      = useState<Persona | null>(null);
+  const [personaModel, setPersonaModel] = useState<AIModel | null>(null);
+  useEffect(() => {
+    if (!personaId) { setPersona(null); setPersonaModel(null); return; }
+    Promise.all([getPersona(personaId), fetchModelsWithCache()])
+      .then(([p, models]) => {
+        setPersona(p);
+        const matched = p.modelId
+          ? models.find(m => String(m.modelId ?? m.id) === p.modelId) ?? null
+          : null;
+        setPersonaModel(matched);
+      })
+      .catch(console.error);
+  }, [personaId]);
 
   const modelLlmId = museActive
     ? null
@@ -163,13 +185,73 @@ export function TopBar({ showCitationsToggle, citationsOpen, onCitationsToggle }
               </span>
             </span>
           </div>
+        </>
+      ) : isPersonaChatPage ? (
+        <>
+          {/* ── Persona chat: non-interactive model tag + Edit button ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
 
+            {/* Model tag — same visual as model selector button, no arrow, not interactive */}
+            {(personaModel || persona?.modelId) && (() => {
+              const llmId     = personaModel
+                ? getModelLlmId(personaModel.companyName, personaModel.modelName)
+                : getModelLlmId(null, persona!.modelId);
+              const modelName = personaModel?.modelName ?? persona!.modelId;
+              return (
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {llmId && (
+                      <span
+                        style={{
+                          width:          "16px",
+                          height:         "16px",
+                          borderRadius:   "4px",
+                          overflow:       "hidden",
+                          flexShrink:     0,
+                          display:        "flex",
+                          alignItems:     "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <LlmIcon
+                          id={llmId}
+                          variant={llmId === "OpenAI" ? "color" : "avatar"}
+                          size={16}
+                          style={llmId === "OpenAI" ? { filter: "brightness(0) invert(1)" } : undefined}
+                        />
+                      </span>
+                    )}
+                    {modelName}
+                  </span>
+                </Button>
+              );
+            })()}
+
+            {/* Edit button — secondary variant with pen icon, navigates to persona config */}
+            {persona && (
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<PenOneIcon animated />}
+                onClick={() =>
+                  router.push(
+                    `/persona/configure/instructions?repoId=${personaId}&name=${encodeURIComponent(persona.name)}`,
+                  )
+                }
+              >
+                Edit
+              </Button>
+            )}
+          </div>
         </>
       ) : (
         <>
-          {/* ── Left: model selector (hidden on project pages) ── */}
+          {/* ── Left: model selector (hidden on project detail / chats pages) ── */}
           {!isProjectDetailPage && !isChatsPage && modelSelectorButton}
-
         </>
       )}
     </div>
