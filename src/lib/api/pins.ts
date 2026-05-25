@@ -130,12 +130,6 @@ function normalizePin(raw: RawPin): Pin {
   };
 }
 
-export async function listPinsByFolders(folderIds: string[]): Promise<Pin[]> {
-  if (folderIds.length === 0) return []
-  const all = await listPins()
-  return all.filter((p) => p.folder_id && folderIds.includes(p.folder_id))
-}
-
 export async function listPins(search?: string): Promise<Pin[]> {
   const url = search
     ? `${PINS_ENDPOINT}?search=${encodeURIComponent(search)}`

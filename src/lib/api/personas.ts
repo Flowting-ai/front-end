@@ -123,9 +123,36 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
 
 // ── Repo CRUD ─────────────────────────────────────────────────────────────────
 
-export async function fetchPersonas(): Promise<Persona[]> {
-  const list = await apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT);
-  return list.map(normalizeRepo);
+// 30-second TTL cache — return visits within the window are instant.
+// Mutating operations (create, delete, save) must call bustPersonasCache().
+let _personasCache: Persona[] | null = null
+let _personasCacheTime = 0
+const PERSONAS_CACHE_TTL = 30_000
+
+export function bustPersonasCache(): void {
+  _personasCache = null
+  _personasCacheTime = 0
+}
+
+// Deduplicates concurrent calls: all callers that arrive while a request is
+// already in-flight receive the same Promise, so only one HTTP request is made.
+let _fetchPersonasInFlight: Promise<Persona[]> | null = null
+
+export function fetchPersonas(): Promise<Persona[]> {
+  const now = Date.now()
+  if (_personasCache && now - _personasCacheTime < PERSONAS_CACHE_TTL) {
+    return Promise.resolve(_personasCache)
+  }
+  if (_fetchPersonasInFlight) return _fetchPersonasInFlight
+  _fetchPersonasInFlight = apiFetchJson<PersonaRepoResponse[]>(PERSONAS_ENDPOINT)
+    .then(list => {
+      const normalized = list.map(normalizeRepo)
+      _personasCache = normalized
+      _personasCacheTime = Date.now()
+      return normalized
+    })
+    .finally(() => { _fetchPersonasInFlight = null })
+  return _fetchPersonasInFlight
 }
 
 export async function getPersona(repoId: string): Promise<Persona> {

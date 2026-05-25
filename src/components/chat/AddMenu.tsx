@@ -10,10 +10,10 @@ import {
   QuillWriteTwoIcon,
   UserAiIcon,
 } from '@strange-huge/icons'
-import { listPinFolders } from '@/lib/api/pins'
 import type { PinFolder } from '@/lib/api/pins'
 import { fetchPersonas } from '@/lib/api/personas'
 import type { Persona } from '@/lib/api/personas'
+import { usePinboard } from '@/context/pinboard-context'
 
 export interface SelectedPersonaInfo {
   id:              string
@@ -67,24 +67,16 @@ export function ChatAddMenu({
   onPersonaChange,
   hidePersona,
 }: ChatAddMenuProps) {
+  const { folders: contextFolders } = usePinboard()
+  const pinFolders: PinFolder[] = contextFolders
+    .filter(f => f.pinCount === undefined || f.pinCount > 0)
+    .map(f => ({ id: f.id, name: f.label, pin_count: f.pinCount ?? 0 }))
+
   const [styleMenuOpen,      setStyleMenuOpen]      = useState(false)
   const [pinFoldersMenuOpen, setPinFoldersMenuOpen] = useState(false)
   const [personaMenuOpen,    setPersonaMenuOpen]    = useState(false)
-  const [pinFolders,         setPinFolders]         = useState<PinFolder[]>([])
-  const [loadingFolders,     setLoadingFolders]     = useState(false)
   const [personas,           setPersonas]           = useState<Persona[]>([])
   const [loadingPersonas,    setLoadingPersonas]    = useState(false)
-
-  // Fetch fresh from the API each time the submenu opens
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
-  useEffect(() => {
-    if (!pinFoldersMenuOpen) return
-    setLoadingFolders(true)
-    listPinFolders()
-      .then((folders) => setPinFolders(folders.filter((f) => f.pin_count > 0)))
-      .catch(() => setPinFolders([]))
-      .finally(() => setLoadingFolders(false))
-  }, [pinFoldersMenuOpen])
 
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
@@ -174,9 +166,7 @@ export function ChatAddMenu({
         >
           <Dropdown size="md" style={{ minWidth: 180 }} maxHeight="min(200px, calc(100dvh - 120px))">
             <Dropdown.Section label="Your folders" fluid>
-              {loadingFolders
-                ? <Dropdown.Item label="Loading…" fluid disabled />
-                : pinFolders.length > 0
+              {pinFolders.length > 0
                   ? pinFolders.map((f) => (
                       <Dropdown.Item
                         key={f.id}

@@ -16,8 +16,9 @@ interface UseModelSelectionResult {
   refreshModels: () => Promise<void>;
 }
 
-// Prefer the semantic string modelId over the numeric database id for stable storage
-function stableKey(model: Pick<AIModel, "modelId" | "id">): string | null {
+// Prefer the semantic string modelId over the numeric database id for stable storage.
+// Exported so other model-selection sites (e.g. persona configure) use the same key format.
+export function stableKey(model: Pick<AIModel, "modelId" | "id">): string | null {
   if (model.modelId != null && String(model.modelId) !== "undefined") return String(model.modelId);
   if (model.id != null && String(model.id) !== "undefined") return String(model.id);
   return null;

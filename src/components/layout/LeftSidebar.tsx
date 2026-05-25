@@ -690,6 +690,22 @@ function LeftSidebarImpl({
 
   const isPersonaPage = pathname?.startsWith("/personas") || pathname?.startsWith("/persona");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
+  const isNewChatPage = pathname === '/chat' && !chatSearchParams.get('id');
+
+  // Determines which Sidebar key to use (triggers remount on section change)
+  // and which nav item to pre-select on mount.
+  const sidebarSectionKey = isPersonaPage ? 'persona'
+    : isProjectPage ? 'projects'
+    : isNewChatPage ? 'new-chat'
+    : 'chat-board';
+
+  const computedDefaultBodySection = (
+    isPersonaPage ? 'persona'
+    : isProjectPage ? 'projects'
+    : isNewChatPage ? 'new-chat'
+    : 'chat-board'
+  ) as 'chat-board' | 'persona' | 'workflow' | 'new-chat' | 'projects';
+
   const collapsedRef = useRef<boolean>(readCollapsed());
 
   // Exclude project chats from the Recents/Starred lists - they are already
@@ -809,19 +825,20 @@ function LeftSidebarImpl({
   return (
     <>
     <Sidebar
-      key={isPersonaPage ? "persona" : "default"}
+      key={sidebarSectionKey}
       userName={displayName || "Account"}
       userEmail={user?.email ?? ""}
       avatarSrc={undefined}
       defaultCollapsed={isPersonaPage ? true : collapsedRef.current}
-      defaultBodySection={isPersonaPage ? "persona" : undefined}
+      defaultBodySection={computedDefaultBodySection}
+      searchActive={searchOpen}
       onCollapse={handleCollapse}
       onNewChat={handleNewChat}
       onSearch={() => setSearchOpen(true)}
-      onChatsClick={() => push("/chats")}
-      onProjectsClick={() => push("/projects")}
-      onPersonasClick={() => push("/personas")}
-      onBrainClick={() => push("/brain")}
+      onChatsClick={() => { toast.info("Opening Chat Board"); push("/chats") }}
+      onProjectsClick={() => { toast.info("Opening Projects"); push("/projects") }}
+      onPersonasClick={() => { toast.info("Opening Personas"); push("/personas") }}
+      onBrainClick={() => { toast.info("Opening Brain"); push("/brain") }}
       onSettingsClick={() => push("/settings")}
       onHelpClick={() => push("/settings/help")}
       onLogoutClick={() => { void logout() }}

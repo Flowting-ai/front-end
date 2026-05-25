@@ -9,7 +9,7 @@ import { StreamingCursor } from "./StreamingCursor";
 import { BlockSequenceRenderer, SourceList } from "./ResponseBlocks";
 import { ConnectPromptCard, PermissionPromptCard } from "./ConnectorPrompts";
 import { ContentRenderer } from "@/lib/content-renderer";
-import { usePinboard } from "@/context/pinboard-context";
+import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
 import { SelectionPopover } from "@/components/SelectionPopover";
 import type { UIMessage, ActivityItem, WebCitation, ModelSelectedMeta } from "@/hooks/use-chat-state";
@@ -163,6 +163,8 @@ interface ChatMessageProps {
   isNewMessage?: boolean;
   chatId?: string;
   showReasoning?: boolean;
+  /** Pre-computed pin status for this message — avoids context subscription churn */
+  pinned?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -176,6 +178,7 @@ export function ChatMessage({
   isNewMessage = false,
   chatId,
   showReasoning = true,
+  pinned: pinnedProp = false,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -186,7 +189,7 @@ export function ChatMessage({
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const { addPin, removePinByMessage, isPinned, open: openPinboard } = usePinboard();
+  const { addPin, removePinByMessage, open: openPinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, highlights } = useHighlight();
 
   const messageHighlights = useMemo(
@@ -202,7 +205,7 @@ export function ChatMessage({
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
   const hasThinking = Boolean(message.thinking);
-  const pinned = isAssistant ? isPinned(message.id) : false;
+  const pinned = isAssistant && pinnedProp;
 
   // Resolve the actual model display name — never expose "souvenir" as a model label.
   // "souvenir" is a routing algorithm, not a model; show the real selected model name instead.
@@ -908,7 +911,8 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     prev.isLast === next.isLast &&
     prev.isNewMessage === next.isNewMessage &&
     prev.chatId === next.chatId &&
-    prev.showReasoning === next.showReasoning
+    prev.showReasoning === next.showReasoning &&
+    prev.pinned === next.pinned
   )
 }
 

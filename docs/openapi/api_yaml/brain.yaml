@@ -1,0 +1,694 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Brain
+  version: 0.1.0
+paths:
+  /brain:
+    get:
+      tags:
+      - brain
+      summary: List Chats
+      operationId: list_brain_chats_brain_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BrainChatListItem'
+                type: array
+                title: Response List Brain Chats Brain Get
+      security:
+      - HTTPBearer: []
+    delete:
+      tags:
+      - brain
+      summary: Remove Chat
+      operationId: remove_brain_chat_brain_delete
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteBrainChat'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Remove Brain Chat Brain Delete
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/create:
+    post:
+      tags:
+      - brain
+      summary: Create Brain Chat
+      operationId: create_brain_chat_brain_create_post
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Body_create_brain_chat_brain_create_post'
+        required: true
+      responses:
+        '200':
+          description: "Streaming Brain orchestrator response via Server-Sent Events.\n\
+            \nTwo kinds of events arrive on the same SSE stream:\n\n**Named events**\
+            \ (`event: <name>\\ndata: {...}`) — lifecycle, tools, model:\n\n\
+            - **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n\
+            - **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n\
+            - **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n\
+            - **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n\
+            - **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"<name>\",...}`)\
+            \ — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n\
+            - **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n\
+            - **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**"
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream
+              x-sse-events:
+                message_saved:
+                  properties:
+                    message_id:
+                      title: Message Id
+                      type: string
+                  required:
+                  - message_id
+                  title: MessageSavedEvent
+                  type: object
+                title:
+                  properties:
+                    title:
+                      title: Title
+                      type: string
+                  required:
+                  - title
+                  title: TitleEvent
+                  type: object
+                plan_proposed:
+                  properties:
+                    summary:
+                      title: Summary
+                      type: string
+                    steps:
+                      items:
+                        $ref: '#/components/schemas/BackendPlanStep'
+                      title: Steps
+                      type: array
+                  required:
+                  - summary
+                  - steps
+                  title: PlanProposedEvent
+                  type: object
+                plan_approved:
+                  properties: {}
+                  title: PlanApprovedEvent
+                  type: object
+                plan_countered:
+                  properties:
+                    counter_text:
+                      title: Counter Text
+                      type: string
+                  title: PlanCounteredEvent
+                  type: object
+                plan_cancelled:
+                  properties: {}
+                  title: PlanCancelledEvent
+                  type: object
+                step_started:
+                  properties:
+                    step_id:
+                      title: Step Id
+                      type: string
+                  required:
+                  - step_id
+                  title: StepStartedEvent
+                  type: object
+                step_completed:
+                  properties:
+                    step_id:
+                      title: Step Id
+                      type: string
+                    result_preview:
+                      anyOf:
+                      - type: string
+                      - type: 'null'
+                      title: Result Preview
+                  required:
+                  - step_id
+                  title: StepCompletedEvent
+                  type: object
+                step_failed:
+                  properties:
+                    step_id:
+                      title: Step Id
+                      type: string
+                    error:
+                      title: Error
+                      type: string
+                  required:
+                  - step_id
+                  - error
+                  title: StepFailedEvent
+                  type: object
+                user_prompt:
+                  properties:
+                    kind:
+                      title: Kind
+                      type: string
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                  required:
+                  - kind
+                  - prompt_id
+                  title: UserPromptEvent
+                  type: object
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/rename:
+    patch:
+      tags:
+      - brain
+      summary: Rename
+      operationId: rename_brain_chat_brain_rename_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameBrainChat'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Rename Brain Chat Brain Rename Patch
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/{chat_id}/stream:
+    post:
+      tags:
+      - brain
+      summary: Stream Brain Message
+      operationId: stream_brain_message_brain__chat_id__stream_post
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post'
+        required: true
+      responses:
+        '200':
+          description: "Streaming Brain orchestrator response via Server-Sent Events.\n\
+            \nTwo kinds of events arrive on the same SSE stream:\n\n**Named events**\
+            \ (`event: <name>\\ndata: {...}`) — lifecycle, tools, model:\n\n\
+            - **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n\
+            - **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n\
+            - **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n\
+            - **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n\
+            - **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"<name>\",...}`)\
+            \ — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n\
+            - **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n\
+            - **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**"
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/{chat_id}/messages:
+    get:
+      tags:
+      - brain
+      summary: Get Messages
+      operationId: get_brain_messages_brain__chat_id__messages_get
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BrainMessage'
+                type: array
+                title: Response Get Brain Messages
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/{chat_id}/plans:
+    get:
+      tags:
+      - brain
+      summary: Get Chat Plans
+      operationId: get_brain_chat_plans_brain__chat_id__plans_get
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BrainPlanResponse'
+                type: array
+                title: Response Get Brain Chat Plans
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/{chat_id}/stop:
+    post:
+      tags:
+      - brain
+      summary: Stop
+      operationId: stop_brain_chat_brain__chat_id__stop_post
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Stop Brain Chat
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /brain/{chat_id}/star:
+    patch:
+      tags:
+      - brain
+      summary: Star
+      operationId: star_brain_chat_brain__chat_id__star_patch
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: string
+                title: Response Star Brain Chat
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+components:
+  schemas:
+    BackendPlanStep:
+      properties:
+        id:
+          title: Id
+          type: string
+        title:
+          title: Title
+          type: string
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        kind:
+          title: Kind
+          type: string
+          enum:
+          - skill
+          - connector
+          - tool
+          - synthesis
+        tool:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tool
+        connector_slug:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Connector Slug
+        depends_on:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Depends On
+        status:
+          anyOf:
+          - type: string
+            enum:
+            - pending
+            - running
+            - completed
+            - failed
+          - type: 'null'
+          title: Status
+        result_preview:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result Preview
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+      required:
+      - id
+      - title
+      - kind
+      title: BackendPlanStep
+      type: object
+    BrainChatListItem:
+      properties:
+        id:
+          title: Id
+          type: string
+          format: uuid
+        chat_title:
+          title: Chat Title
+          type: string
+        starred:
+          title: Starred
+          type: boolean
+          default: false
+        message_count:
+          title: Message Count
+          type: integer
+          default: 0
+        created_at:
+          title: Created At
+          type: string
+          format: date-time
+        updated_at:
+          title: Updated At
+          type: string
+          format: date-time
+      required:
+      - id
+      - chat_title
+      - created_at
+      - updated_at
+      title: BrainChatListItem
+      type: object
+    BrainMessage:
+      properties:
+        id:
+          title: Id
+          type: string
+          format: uuid
+        input:
+          title: Input
+          type: string
+        output:
+          title: Output
+          type: string
+          default: ''
+        reasoning:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reasoning
+        reasoning_sections:
+          anyOf:
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Reasoning Sections
+        model_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model Name
+        created_at:
+          title: Created At
+          type: string
+          format: date-time
+        tool_calls:
+          anyOf:
+          - items: {}
+            type: array
+          - type: 'null'
+          title: Tool Calls
+        plan:
+          anyOf:
+          - $ref: '#/components/schemas/BrainPlanResponse'
+          - type: 'null'
+      required:
+      - id
+      - input
+      - created_at
+      title: BrainMessage
+      type: object
+    BrainPlanResponse:
+      properties:
+        id:
+          title: Id
+          type: string
+          format: uuid
+        status:
+          title: Status
+          type: string
+        supersedes_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Supersedes Id
+        counter_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Counter Text
+        plan_json:
+          title: Plan Json
+          type: object
+        final_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Final Error
+        created_at:
+          title: Created At
+          type: string
+          format: date-time
+      required:
+      - id
+      - status
+      - plan_json
+      - created_at
+      title: BrainPlanResponse
+      type: object
+    Body_create_brain_chat_brain_create_post:
+      properties:
+        input:
+          title: Input
+          type: string
+        persona_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Persona Id
+        pin_ids:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pin Ids
+        use_mistral_ocr:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Use Mistral Ocr
+      required:
+      - input
+      title: Body_create_brain_chat_brain_create_post
+      type: object
+    Body_stream_brain_message_brain__chat_id__stream_post:
+      properties:
+        input:
+          title: Input
+          type: string
+        persona_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Persona Id
+        pin_ids:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pin Ids
+        use_mistral_ocr:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Use Mistral Ocr
+      required:
+      - input
+      title: Body_stream_brain_message_brain__chat_id__stream_post
+      type: object
+    DeleteBrainChat:
+      properties:
+        chat_id:
+          title: Chat Id
+          type: string
+          format: uuid
+      required:
+      - chat_id
+      title: DeleteBrainChat
+      type: object
+    RenameBrainChat:
+      properties:
+        chat_id:
+          title: Chat Id
+          type: string
+          format: uuid
+        chat_title:
+          title: Chat Title
+          type: string
+      required:
+      - chat_id
+      - chat_title
+      title: RenameBrainChat
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

@@ -196,7 +196,7 @@ export function ChatInterface({
   const { museActive, museAdvanced } = useModelSelectorContext();
 
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
-  const { pins } = usePinboard();
+  const { pins, isPinned } = usePinboard();
 
   const filteredPins = useMemo<PinItem[]>(() => {
     if (!pinQuery.trim()) return pins.slice(0, 10);
@@ -637,6 +637,7 @@ export function ChatInterface({
                     isNewMessage={idx === messages.length - 1 && isStreaming}
                     chatId={chatId}
                     showReasoning={enableReasoning}
+                    pinned={message.role === 'assistant' ? isPinned(message.id) : false}
                     onRegenerate={
                       idx === messages.length - 1 &&
                       message.role === "assistant" &&

@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { Dropdown, DROPDOWN_SCALE_PRESET } from '@/components/Dropdown'
-import { fetchPersonas, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
+import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Persona } from '@/lib/api/personas'
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import { usePinboard } from '@/context/pinboard-context'
@@ -356,6 +356,7 @@ export default function PersonasPage() {
   async function handleDelete(id: string) {
     try {
       await deletePersona(id)
+      bustPersonasCache()
       setPersonas(prev => prev.filter(p => p.id !== id))
     } catch (err) {
       console.error('Failed to delete persona:', err)

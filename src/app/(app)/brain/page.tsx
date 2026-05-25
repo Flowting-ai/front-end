@@ -28,6 +28,7 @@ import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-hug
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
+import { toast } from 'sonner'
 import {
   startBrainChat,
   continueBrainChat,
@@ -172,6 +173,18 @@ function BrainPageInner() {
     ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
     : ''
 
+  // ── Sidebar collapse state — shared via localStorage with all other pages ─────
+
+  const sidebarCollapsedRef = useRef(
+    typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false
+  )
+  const handleSidebarCollapse = useCallback(() => {
+    sidebarCollapsedRef.current = !sidebarCollapsedRef.current
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar_collapsed', String(sidebarCollapsedRef.current))
+    }
+  }, [])
+
   // ── Chat identity ────────────────────────────────────────────────────────────
 
   const [chatId, setChatId] = useState<string | null>(chatIdFromUrl)
@@ -212,6 +225,12 @@ function BrainPageInner() {
   const abortRef         = useRef<AbortController | null>(null)
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const turnCounterRef   = useRef(0)
+  // Set to true when we navigate to a newly-created chat — prevents the thread-change
+  // reset effect from wiping the live stream that just started.
+  const skipNextResetRef = useRef(false)
+  // Same guard for the history-load effect: a freshly-created chat already has its
+  // user input in local state, so re-fetching messages would render it twice.
+  const skipNextHistoryLoadRef = useRef(false)
 
   // ── Add-menu feature state ────────────────────────────────────────────────
 
@@ -284,10 +303,42 @@ function BrainPageInner() {
     abortRef.current?.abort()
   }, [])
 
+  // ── Sync chatId + full state reset when navigating between brain threads ──────
+  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18 batches; intentional full reset
+  useEffect(() => {
+    if (skipNextResetRef.current) {
+      skipNextResetRef.current = false
+      return
+    }
+    abortRef.current?.abort()
+    setChatId(chatIdFromUrl)
+    setPhase('idle')
+    setUserMessage('')
+    setActivePlanSteps([])
+    setActivePlanSummary('')
+    setPromptId('')
+    setStepStatuses({})
+    setShowCounterInput(false)
+    setCounterText('')
+    setStreamedContent('')
+    setStreamingComplete(false)
+    setCompletedAt(null)
+    setStreamError(null)
+    setPausedAfterLabel(undefined)
+    setHistoryMessages([])
+    setLocalTurns([])
+    setHistoryLoaded(!chatIdFromUrl)
+  }, [chatIdFromUrl])
+
   // ── Load history on mount (when chat_id is in URL) ───────────────────────────
 
   useEffect(() => {
     if (!chatIdFromUrl) return
+    if (skipNextHistoryLoadRef.current) {
+      skipNextHistoryLoadRef.current = false
+      setHistoryLoaded(true)
+      return
+    }
 
     void getBrainMessages(chatIdFromUrl)
       .then((messages) => {
@@ -478,6 +529,8 @@ function BrainPageInner() {
         resolvedChatId = result.chatId
         response = result.stream
         if (resolvedChatId) {
+          skipNextResetRef.current = true
+          skipNextHistoryLoadRef.current = true
           setChatId(resolvedChatId)
           replace(`/brain?id=${resolvedChatId}`, { scroll: false })
         }
@@ -884,32 +937,34 @@ function BrainPageInner() {
         ),
       }}
       sidebarProps={{
-        userName:        displayName || 'Account',
-        userEmail:       user?.email ?? '',
+        userName:           displayName || 'Account',
+        userEmail:          user?.email ?? '',
         isAuthenticated,
-        projectItems: (
+        defaultBodySection: 'workflow',
+        defaultCollapsed:   sidebarCollapsedRef.current,
+        onCollapse:         handleSidebarCollapse,
+        recentItems: (
           <BrainSidebarSections
             activeChatId={chatId}
             isSchedulesPage={false}
             onThreadClick={(id) => { replace(`/brain?id=${id}`) }}
           />
         ),
-        recentItems:     null,
         onNewChat:       () => push('/brain'),
-        onChatsClick:    () => push('/chats'),
-        onPersonasClick: () => push('/personas'),
-        onProjectsClick: () => push('/projects'),
+        onChatsClick:    () => { toast.info("Opening Chat Board"); push('/chats') },
+        onPersonasClick: () => { toast.info("Opening Personas"); push('/personas') },
+        onProjectsClick: () => { toast.info("Opening Projects"); push('/projects') },
         onSettingsClick: () => push('/settings'),
         onHelpClick:     () => push('/settings/help'),
         onLogoutClick:   () => { void logout() },
         onBrainClick:    undefined,
       }}
     >
-      {historyLoaded && hasContent ? (
+      {chatIdFromUrl || hasContent ? (
         <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: 20 }}>
-          {historyElements}
-          {localTurnElements}
-          {activeTurnContent}
+          {historyLoaded && historyElements}
+          {historyLoaded && localTurnElements}
+          {historyLoaded && activeTurnContent}
         </div>
       ) : null}
     </BrainShell>

@@ -36,12 +36,14 @@ import {
   setActiveVersion,
   listVersions,
   testVersionStream,
+  bustPersonasCache,
   type PersonaChatStreamCallbacks,
   type PersonaVersionResponse,
   type PersonaRepoResponse,
   type PersonaVersionListItem,
 } from '@/lib/api/personas'
 import { fetchModelsWithCache } from '@/lib/ai-models'
+import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
@@ -498,6 +500,61 @@ function ModelDropdown({
   )
 }
 
+// ── Per-repo model cache (mirrors useModelSelection's localStorage cache) ─────
+// Stores {modelName, companyName} in sessionStorage so that if the backend ever
+// changes its model IDs the name+company fallback can still resolve the right model.
+
+function personaModelCacheKey(repoId: string) {
+  return `persona_model_cache_${repoId}`
+}
+
+function writePersonaModelCache(repoId: string, model: AIModel): void {
+  if (!repoId || typeof window === 'undefined') return
+  try {
+    sessionStorage.setItem(
+      personaModelCacheKey(repoId),
+      JSON.stringify({ modelName: model.modelName, companyName: model.companyName }),
+    )
+  } catch { /* ignore quota errors */ }
+}
+
+function readPersonaModelCache(repoId: string): { modelName: string; companyName: string } | null {
+  if (!repoId || typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(personaModelCacheKey(repoId))
+    return raw ? (JSON.parse(raw) as { modelName: string; companyName: string }) : null
+  } catch { return null }
+}
+
+// ── Model lookup (3-tier — same strategy as useModelSelection) ────────────────
+// Tier 1: exact match by modelId (string slug, stable) or id (numeric DB key)
+// Tier 2: modelName + companyName from the per-repo sessionStorage cache
+//         — guards against API id changes between saves
+function matchModel(
+  models: AIModel[],
+  modelId: string | null | undefined,
+  repoId: string,
+  fallback: AIModel | null,
+): AIModel | null {
+  if (!modelId) return fallback
+
+  const byId = models.find(m =>
+    (m.modelId != null && String(m.modelId) !== 'undefined' && String(m.modelId) === modelId) ||
+    (m.id     != null && String(m.id)      !== 'undefined' && String(m.id)      === modelId),
+  )
+  if (byId) return byId
+
+  const cached = readPersonaModelCache(repoId)
+  if (cached?.modelName && cached?.companyName) {
+    const byName = models.find(
+      m => m.modelName === cached.modelName && m.companyName === cached.companyName,
+    )
+    if (byName) return byName
+  }
+
+  return fallback
+}
+
 // ── Session-storage keys ─────────────────────────────────────────────────────
 
 function publishedKey(repoId: string) {
@@ -705,11 +762,9 @@ function PersonaConfigureInstructionsContent() {
         resetInstructionHistory(prompt)
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(readProfileAvatar(repoIdParam) ?? version.image_url ?? null)
-        // Match stored model_id to full model object; fall back to first available
-        const matchedModel = version.model_id
-          ? fetchedModels.find(m => String(m.modelId ?? m.id) === version.model_id) ?? firstModel
-          : firstModel
-        setSelectedModel(matchedModel)
+        const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
+        setSelectedModel(resolvedModel1)
+        if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
         // Restore example conversation cards from saved prompt text
         const examples = parseExampleConversations(prompt)
         if (examples.length > 0) setExampleConversations(examples)
@@ -744,10 +799,9 @@ function PersonaConfigureInstructionsContent() {
           setVersionId(fullVersion.id)
           // Stamp URL so a reload goes straight to this version
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
-          const matchedModel = fullVersion.model_id
-            ? fetchedModels.find(m => String(m.modelId ?? m.id) === fullVersion.model_id) ?? firstModel
-            : firstModel
-          setSelectedModel(matchedModel)
+          const resolvedModel2 = matchModel(fetchedModels, fullVersion.model_id, repoIdParam, firstModel)
+          setSelectedModel(resolvedModel2)
+          if (resolvedModel2) writePersonaModelCache(repoIdParam, resolvedModel2)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
           savedSnapshotRef.current = {
@@ -763,10 +817,9 @@ function PersonaConfigureInstructionsContent() {
           setImageUrl(readProfileAvatar(repoIdParam) ?? repo.active_version.image_url ?? null)
           setVersionId(repo.active_version.id)
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
-          const matchedModel = repo.active_version.model_id
-            ? fetchedModels.find(m => String(m.modelId ?? m.id) === repo.active_version!.model_id) ?? firstModel
-            : firstModel
-          setSelectedModel(matchedModel)
+          const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
+          setSelectedModel(resolvedModel3)
+          if (resolvedModel3) writePersonaModelCache(repoIdParam, resolvedModel3)
           const examples = parseExampleConversations(prompt)
           if (examples.length > 0) setExampleConversations(examples)
           savedSnapshotRef.current = {
@@ -796,9 +849,10 @@ function PersonaConfigureInstructionsContent() {
         // Purpose is stored as the persona description only - system instruction starts empty
         const initialPrompt = ''
 
+        const firstModelKey = stableKey(firstModel) ?? ''
         const repo = await createPersonaRepo({
           name:    effectiveName,
-          modelId: String(firstModel.modelId ?? firstModel.id ?? ''),
+          modelId: firstModelKey,
           prompt:  initialPrompt,
         })
 
@@ -809,9 +863,10 @@ function PersonaConfigureInstructionsContent() {
         setVersionId(newVersionId)
         setPersonaName(repo.name)
         resetInstructionHistory(initialPrompt)
+        writePersonaModelCache(newRepoId, firstModel)
         savedSnapshotRef.current = {
           instruction: initialPrompt,
-          modelId:     String(firstModel.modelId ?? firstModel.id ?? ''),
+          modelId:     firstModelKey,
           temperature: 0.5,
         }
 
@@ -860,8 +915,8 @@ function PersonaConfigureInstructionsContent() {
       setInstruction(prompt)
       resetInstructionHistory(prompt)
       setTemperature(full.temperature ?? 0.5)
-      const model = allModels.find(m => String(m.modelId ?? m.id) === full.model_id) ?? null
-      if (model) setSelectedModel(model)
+      const model = matchModel(allModels, full.model_id, repoId, null)
+      if (model) { setSelectedModel(model); writePersonaModelCache(repoId, model) }
       setExampleConversations(parseExampleConversations(prompt))
       // Move restored card to top and make it current
       setVersions(prev => {
@@ -885,7 +940,7 @@ function PersonaConfigureInstructionsContent() {
   // ── Save version ─────────────────────────────────────────────────────────────
 
   async function executeSave() {
-    const modelId = String(selectedModel?.modelId ?? selectedModel?.id ?? '')
+    const modelId = selectedModel ? stableKey(selectedModel) : null
     if (!repoId || !modelId) return
     setIsSaving(true)
     try {
@@ -935,6 +990,7 @@ function PersonaConfigureInstructionsContent() {
       // Store change tags for this version and advance snapshot
       setVersionsChangeTags(prev => new Map([...prev, [version.id, tags]]))
       savedSnapshotRef.current = { instruction, modelId, temperature }
+      bustPersonasCache()
 
       toast.success('Version created')
     } catch (err) {
@@ -967,6 +1023,7 @@ function PersonaConfigureInstructionsContent() {
     setIsPublishing(true)
     try {
       await setActiveVersion(repoId, versionId)
+      bustPersonasCache()
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(publishedKey(repoId), '1')
       }
@@ -980,7 +1037,7 @@ function PersonaConfigureInstructionsContent() {
     }
   }
 
-  const currentModelId = String(selectedModel?.modelId ?? selectedModel?.id ?? '')
+  const currentModelId = (selectedModel ? stableKey(selectedModel) : null) ?? ''
   const isDirty =
     !savedSnapshotRef.current ||
     instruction !== savedSnapshotRef.current.instruction ||

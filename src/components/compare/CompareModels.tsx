@@ -17,7 +17,7 @@ import { fetchModelsWithCache } from "@/lib/ai-models";
 import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
-import { usePinboard } from "@/context/pinboard-context";
+import { usePinboardActions } from "@/context/pinboard-context";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
@@ -892,7 +892,7 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     }
   };
 
-  const { addPin, isPinned, open: openPinboard } = usePinboard();
+  const { addPin, open: openPinboard } = usePinboardActions();
 
   const handleSavePin = useCallback((responseKey: string, modelDisplayName: string) => {
     const content   = testResponses[responseKey] ?? "";

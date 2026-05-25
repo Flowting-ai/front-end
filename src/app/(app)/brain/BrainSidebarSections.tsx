@@ -1,16 +1,48 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { m } from 'framer-motion'
 import { CalendarThreeIcon, FolderAddIcon } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { useProjects } from '@/context/projects-context'
-import { listBrainChats, type BrainChatListItem } from '@/lib/api/brain'
+import {
+  listBrainChats,
+  renameBrainChat,
+  starBrainChat,
+  deleteBrainChat,
+  type BrainChatListItem,
+} from '@/lib/api/brain'
+import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
 
-// Section height collapse animation — matches LeftSidebar pattern
+// ── Dropdown styles — match ChatHistoryItem / ProjectChatItem exactly ─────────
+
+const menuItemStyle: React.CSSProperties = {
+  display:    'flex',
+  alignItems: 'center',
+  gap:        '8px',
+  padding:    '7px 10px',
+  borderRadius: '8px',
+  cursor:     'pointer',
+  fontFamily: 'var(--font-body)',
+  fontWeight: 'var(--font-weight-medium)',
+  fontSize:   'var(--font-size-body)',
+  lineHeight: 'var(--line-height-body)',
+  color:      'var(--neutral-700)',
+  outline:    'none',
+  userSelect: 'none',
+}
+
+const menuItemDestructiveStyle: React.CSSProperties = {
+  ...menuItemStyle,
+  color: 'var(--red-500)',
+}
+
+// ── Section collapse animation — matches LeftSidebar pattern ──────────────────
+
 const sectionHeightVariants = {
   open: {
     height: 'auto' as const,
@@ -151,7 +183,129 @@ function BrainSchedulesSection({ isActive }: { isActive: boolean }) {
   )
 }
 
-// ── Threads ───────────────────────────────────────────────────────────────────
+// ── Thread item with rename / star / delete dropdown ─────────────────────────
+
+interface BrainThreadItemProps {
+  thread:   BrainChatListItem
+  isActive: boolean
+  onSelect: () => void
+  onRename: (id: string, title: string) => Promise<void>
+  onStar:   (id: string) => Promise<void>
+  onDelete: (id: string, title: string) => void
+}
+
+function BrainThreadItem({
+  thread,
+  isActive,
+  onSelect,
+  onRename,
+  onStar,
+  onDelete,
+}: BrainThreadItemProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [menuOpen,  setMenuOpen]  = useState(false)
+  const triggerRef       = useRef<HTMLButtonElement>(null)
+  const pendingRenameRef = useRef(false)
+
+  const handleCommit = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== thread.chat_title) void onRename(thread.id, trimmed)
+    setIsEditing(false)
+  }
+
+  const handleMoreClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    e.stopPropagation()
+    setMenuOpen(true)
+  }
+
+  return (
+    <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+      <div style={{ position: 'relative', width: '100%' }}>
+        <SidebarMenuItem
+          fluid
+          variant={isEditing ? 'chat-item-edit' : 'chat-item'}
+          label={thread.chat_title || 'Untitled'}
+          selected={isActive}
+          onClick={() => { if (!isEditing) onSelect() }}
+          onMoreClick={handleMoreClick}
+          onRename={() => setIsEditing(true)}
+          onCommit={handleCommit}
+          onCancel={() => setIsEditing(false)}
+        />
+        {/* Zero-size Radix trigger anchored to the right edge — same pattern as ChatHistoryItem */}
+        <DropdownMenu.Trigger
+          ref={triggerRef}
+          style={{
+            position:      'absolute',
+            right:         '8px',
+            top:           '50%',
+            width:         1,
+            height:        1,
+            opacity:       0,
+            pointerEvents: 'none',
+            border:        'none',
+            background:    'none',
+            padding:       0,
+          }}
+        />
+      </div>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          side="bottom"
+          align="end"
+          sideOffset={4}
+          onCloseAutoFocus={(e) => {
+            if (pendingRenameRef.current) {
+              e.preventDefault()
+              pendingRenameRef.current = false
+            }
+          }}
+          style={{
+            backgroundColor: 'var(--neutral-white)',
+            borderRadius:    '12px',
+            padding:         '4px',
+            boxShadow:       '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
+            zIndex:          5,
+            minWidth:        '168px',
+            outline:         'none',
+          }}
+        >
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => { pendingRenameRef.current = true; setIsEditing(true) }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
+          >
+            Rename
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => void onStar(thread.id)}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--neutral-50)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
+          >
+            {thread.starred ? 'Unstar' : 'Star'}
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator style={{ height: '1px', backgroundColor: 'var(--neutral-100)', margin: '4px 0' }} />
+
+          <DropdownMenu.Item
+            style={menuItemDestructiveStyle}
+            onSelect={() => onDelete(thread.id, thread.chat_title)}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = 'transparent')}
+          >
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+
+// ── Threads — starred + all, with optimistic mutations ────────────────────────
 
 interface BrainThreadsSectionProps {
   activeChatId:  string | null
@@ -159,10 +313,14 @@ interface BrainThreadsSectionProps {
 }
 
 function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectionProps) {
-  const [shown,     setShown]     = useState(true)
-  const [overflow,  setOverflow]  = useState<'visible' | 'hidden'>('visible')
-  const [threads,   setThreads]   = useState<BrainChatListItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { push } = useRouter()
+
+  const [threads,        setThreads]        = useState<BrainChatListItem[]>([])
+  const [isLoading,      setIsLoading]      = useState(true)
+  const [shownStarred,   setShownStarred]   = useState(true)
+  const [overflowStar,   setOverflowStar]   = useState<'visible' | 'hidden'>('visible')
+  const [shownAll,       setShownAll]       = useState(true)
+  const [overflowAll,    setOverflowAll]    = useState<'visible' | 'hidden'>('visible')
 
   useEffect(() => {
     setIsLoading(true)
@@ -172,47 +330,121 @@ function BrainThreadsSection({ activeChatId, onThreadClick }: BrainThreadsSectio
       .finally(() => setIsLoading(false))
   }, [])
 
+  const handleRename = async (id: string, title: string) => {
+    // Optimistic update
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, chat_title: title } : t))
+    try {
+      await renameBrainChat(id, title)
+    } catch {
+      // Revert isn't critical — next fetch will correct it
+    }
+  }
+
+  const handleStar = async (id: string) => {
+    // Optimistic toggle
+    setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+    try {
+      await starBrainChat(id)
+    } catch {
+      // Revert on failure
+      setThreads(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t))
+    }
+  }
+
+  const handleDelete = (id: string, title: string) => {
+    openDeleteChatDialog({
+      chatId:    id,
+      chatTitle: title,
+      onConfirm: async () => {
+        await deleteBrainChat(id)
+        setThreads(prev => prev.filter(t => t.id !== id))
+        if (id === activeChatId) push('/brain')
+      },
+    })
+  }
+
+  const starredThreads = threads.filter(t => t.starred)
+
+  const emptyRow = (
+    <div style={{
+      padding:    '8px 6px',
+      fontFamily: 'var(--font-body)',
+      fontSize:   'var(--font-size-caption)',
+      color:      'var(--neutral-400)',
+    }}>
+      No threads yet
+    </div>
+  )
+
   return (
     <>
+      {/* ── Starred Threads — self-hides when empty ── */}
+      {starredThreads.length > 0 && (
+        <>
+          <SidebarMenuItem
+            fluid
+            variant="header"
+            label="Starred Threads"
+            shown={shownStarred}
+            onShowClick={() => setShownStarred(s => !s)}
+          />
+          <m.div
+            animate={shownStarred ? 'open' : 'closed'}
+            initial={false}
+            variants={sectionHeightVariants}
+            style={{ overflow: overflowStar }}
+            onAnimationStart={(def) => { if (def === 'closed') setOverflowStar('hidden') }}
+            onAnimationComplete={(def) => { if (def === 'open') setOverflowStar('visible') }}
+          >
+            <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {starredThreads.map(thread => (
+                <BrainThreadItem
+                  key={thread.id}
+                  thread={thread}
+                  isActive={thread.id === activeChatId}
+                  onSelect={() => onThreadClick(thread.id)}
+                  onRename={handleRename}
+                  onStar={handleStar}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          </m.div>
+        </>
+      )}
+
+      {/* ── All Threads ── */}
       <SidebarMenuItem
         fluid
         variant="header"
         label="Threads"
-        shown={shown}
-        onShowClick={() => setShown(s => !s)}
+        shown={shownAll}
+        onShowClick={() => setShownAll(s => !s)}
       />
       <m.div
-        animate={shown ? 'open' : 'closed'}
+        animate={shownAll ? 'open' : 'closed'}
         initial={false}
         variants={sectionHeightVariants}
-        style={{ overflow }}
-        onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
-        onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
+        style={{ overflow: overflowAll }}
+        onAnimationStart={(def) => { if (def === 'closed') setOverflowAll('hidden') }}
+        onAnimationComplete={(def) => { if (def === 'open') setOverflowAll('visible') }}
       >
         <div style={{ paddingTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {isLoading && Array.from({ length: 3 }).map((_, i) => (
             <SidebarMenuSkeleton key={i} fluid />
           ))}
 
-          {!isLoading && threads.length === 0 && (
-            <div style={{
-              padding:    '8px 6px',
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              color:      'var(--neutral-400)',
-            }}>
-              No threads yet
-            </div>
-          )}
+          {!isLoading && threads.length === 0 && emptyRow}
 
           {!isLoading && threads.map(thread => (
-            <SidebarMenuItem
+            <BrainThreadItem
               key={thread.id}
-              fluid
-              variant="chat-item"
-              label={thread.chat_title || 'Untitled'}
-              selected={thread.id === activeChatId}
-              onClick={() => onThreadClick(thread.id)}
+              thread={thread}
+              isActive={thread.id === activeChatId}
+              onSelect={() => onThreadClick(thread.id)}
+              onRename={handleRename}
+              onStar={handleStar}
+              onDelete={handleDelete}
             />
           ))}
         </div>

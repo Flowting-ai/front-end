@@ -3,6 +3,9 @@ import { audience } from "@/lib/config";
 
 let inMemoryAccessToken: string | null = null;
 let tokenExpiresAt: number | null = null;
+// Deduplicates concurrent token fetches: all callers that arrive while a
+// request is in-flight share the same Promise instead of hammering Auth0.
+let _tokenFetchPromise: Promise<string | null> | null = null;
 
 const EXPIRY_BUFFER_SECONDS = 60;
 
@@ -39,21 +42,29 @@ export function isTokenExpiringSoon(): boolean {
 export async function getAuth0AccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
-  try {
-    const token = audience
-      ? await getAccessToken({ audience })
-      : await getAccessToken();
+  if (_tokenFetchPromise) return _tokenFetchPromise;
 
-    const normalized = typeof token === "string" && token.length > 0 ? token : null;
-    setInMemoryAccessToken(normalized);
-    return normalized;
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("Failed to fetch Auth0 access token", error);
+  _tokenFetchPromise = (async () => {
+    try {
+      const token = audience
+        ? await getAccessToken({ audience })
+        : await getAccessToken();
+
+      const normalized = typeof token === "string" && token.length > 0 ? token : null;
+      setInMemoryAccessToken(normalized);
+      return normalized;
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Failed to fetch Auth0 access token", error);
+      }
+      setInMemoryAccessToken(null);
+      return null;
+    } finally {
+      _tokenFetchPromise = null;
     }
-    setInMemoryAccessToken(null);
-    return null;
-  }
+  })();
+
+  return _tokenFetchPromise;
 }
 
 export async function ensureFreshToken(): Promise<string | null> {

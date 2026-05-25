@@ -84,6 +84,15 @@ function toPinboardPin(
   }
 }
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(id)
+  }, [value, delay])
+  return debounced
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
@@ -102,7 +111,8 @@ function RightSidebarImpl() {
   })()
 
   const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
-  const [searchQuery,    setSearchQuery]    = useState("")
+  const [rawSearch,      setRawSearch]      = useState("")
+  const searchQuery = useDebounce(rawSearch, 150)
   const [sortOrder,      setSortOrder]      = useState<string>("newest")
   const [selectedViewId,   setSelectedViewId]   = useState<string>(() => chatFilter ? "current-chat" : "all")
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
@@ -408,7 +418,7 @@ function RightSidebarImpl() {
             fluid
             pins={filteredPins}
             personalFolders={folders}
-            onSearch={setSearchQuery}
+            onSearch={setRawSearch}
             onClose={close}
             filterDisabled
             defaultSelectedSortId="newest"

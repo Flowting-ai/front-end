@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -21,9 +21,11 @@ export interface SidebarMenuSkeletonProps extends React.HTMLAttributes<HTMLDivEl
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SidebarMenuSkeleton({ showIcon = false, fluid = false, className, ref, ...props }: SidebarMenuSkeletonProps & { ref?: React.Ref<HTMLDivElement> }) {
-    // Randomise text bar width (50–88%) so stacked skeletons look naturally varied
-    // eslint-disable-next-line react-doctor/no-usememo-simple-expression -- random value intentionally memoized to stay stable across re-renders
-    const width = useMemo(() => `${Math.floor(Math.random() * 38) + 50}%`, [])
+    // Start with a fixed width on SSR; randomise only after mount to avoid hydration mismatch
+    const [width, setWidth] = useState('70%')
+    useEffect(() => {
+      setWidth(`${Math.floor(Math.random() * 38) + 50}%`)
+    }, [])
 
     return (
       <div

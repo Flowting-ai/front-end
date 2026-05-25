@@ -281,10 +281,7 @@ export function BrainShell({
                 paddingRight: 28,
                 boxSizing:  'border-box',
               }}>
-                {isIdle
-                  ? <BrainHome onSuggestion={handleSuggestion} />
-                  : children
-                }
+                {children ?? (isIdle ? <BrainHome onSuggestion={handleSuggestion} /> : null)}
               </div>
             </div>
 

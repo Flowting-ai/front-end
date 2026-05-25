@@ -38,6 +38,10 @@ export function useChatHistory(): UseChatHistoryResult {
   const [hasMore, setHasMore] = useState(false);
   const cursorRef = useRef<string | undefined>(undefined);
   const loadingRef = useRef(false);
+  // Mirrors `chats` synchronously so refreshChatTitle can read current state
+  // without stale-closure issues inside async callbacks / setTimeout handlers.
+  const chatsRef = useRef<Chat[]>(chats);
+  useEffect(() => { chatsRef.current = chats }, [chats]);
 
   const loadChats = async (reset: boolean) => {
     if (loadingRef.current) return;
@@ -130,8 +134,14 @@ export function useChatHistory(): UseChatHistoryResult {
    * given chat has been updated (i.e. is no longer the placeholder "New chat"),
    * update it locally.  Intentionally bypasses the loadingRef lock so it can
    * run concurrently with an ongoing sidebar load.
+   *
+   * Bails out early when local state already has a real title — prevents the
+   * staggered second timeout (5 s) from firing a redundant listChats() after
+   * the first timeout (2.5 s) already resolved it.
    */
   const refreshChatTitle = async (chatId: string): Promise<void> => {
+    const current = chatsRef.current.find((c) => c.id === chatId);
+    if (current?.title && current.title !== "New chat" && current.title !== "Untitled") return;
     try {
       const res = await listChats(undefined);
       const found = (res.chats ?? []).find((c) => c.id === chatId);

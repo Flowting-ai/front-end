@@ -35,7 +35,7 @@ import { usePinboard, type PinItem, type PinCategory } from '@/context/pinboard-
 import { useChatHistoryContext } from '@/context/chat-history-context'
 import { exportSinglePin } from '@/lib/export-pins'
 import type { BadgeColor } from '@/components/Badge'
-import { listPinFolders, createPinFolder, movePinToFolder, validateFolderName } from '@/lib/api/pins'
+import { createPinFolder, movePinToFolder, validateFolderName } from '@/lib/api/pins'
 import { toast } from 'sonner'
 import { EnterChunk, PINBOARD_EXPANDED_ENTER_DEFAULT } from './pinboardEnterAnimation'
 import { PinboardExpandedSkeleton } from '@/components/PinboardExpandedSkeleton'
@@ -218,7 +218,7 @@ function EmptyState({ title, description, action }: {
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
-  const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder, removeFolder, renameFolder } = usePinboard()
+  const { pins, removePin, clonePin, updatePinTags, updatePinFolder, addFolder, removeFolder, renameFolder, folders: contextFolders, isLoading: contextLoading } = usePinboard()
   const { chats } = useChatHistoryContext()
   const searchParams  = useSearchParams()
   const activeChatId  = searchParams.get('id')
@@ -229,11 +229,13 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
   }, [chats])
   const enterAnimation = PINBOARD_EXPANDED_ENTER_DEFAULT
 
-  // ── Loading state - show skeleton until first folder fetch settles ───────
-  const [foldersLoaded, setFoldersLoaded] = useState(false)
+  // ── Loading state - settled once context finishes its initial fetch ──────
+  const foldersLoaded = !contextLoading
 
-  // ── Folder state ──────────────────────────────────────────────────────────
-  const [folders,           setFolders]           = useState<PinFolder[]>([])
+  // ── Folder state — seeded from context, then managed locally for optimistic ops ──
+  const [folders, setFolders] = useState<PinFolder[]>(() =>
+    contextFolders.map(f => ({ id: f.id, name: f.label, type: 'personal' as const }))
+  )
   const [activeFolderId,    setActiveFolderId]    = useState<FolderFilter>('all')
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
   const [modalFolderName,       setModalFolderName]       = useState('')
@@ -320,16 +322,15 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
     [],
   )
 
-  // ── Fetch folders on mount ────────────────────────────────────────────────
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
+  // Sync once when context transitions from loading → loaded (edge case: panel
+  // mounts before the initial listPins/listPinFolders response returns).
+  // After that, local state owns folders (optimistic creates/renames/deletes).
+  const syncedRef = useRef(false)
   useEffect(() => {
-    listPinFolders()
-      .then((apiFolders) => {
-        setFolders(apiFolders.map(f => ({ id: f.id, name: f.name, type: 'personal' as const })))
-        setFoldersLoaded(true)
-      })
-      .catch(() => { setFoldersLoaded(true) })
-  }, [])
+    if (contextLoading || syncedRef.current) return
+    syncedRef.current = true
+    setFolders(contextFolders.map(f => ({ id: f.id, name: f.label, type: 'personal' as const })))
+  }, [contextLoading, contextFolders])
 
   // ── Folder operations ─────────────────────────────────────────────────────
 

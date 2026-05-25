@@ -12,6 +12,7 @@ const BRAIN_CREATE   = withBase('/brain/create')
 const BRAIN_RENAME   = withBase('/brain/rename')
 const BRAIN_STREAM   = (chatId: string) => withBase(`/brain/${chatId}/stream`)
 const BRAIN_MESSAGES = (chatId: string) => withBase(`/brain/${chatId}/messages`)
+const BRAIN_PLANS    = (chatId: string) => withBase(`/brain/${chatId}/plans`)
 const BRAIN_STOP     = (chatId: string) => withBase(`/brain/${chatId}/stop`)
 const BRAIN_STAR     = (chatId: string) => withBase(`/brain/${chatId}/star`)
 const PROMPT_RESPOND = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
@@ -211,6 +212,10 @@ export async function continueBrainChat(
 
 export async function getBrainMessages(chatId: string): Promise<BrainMessage[]> {
   return apiFetchJson<BrainMessage[]>(BRAIN_MESSAGES(chatId))
+}
+
+export async function getBrainPlans(chatId: string): Promise<BrainPlanResponse[]> {
+  return apiFetchJson<BrainPlanResponse[]>(BRAIN_PLANS(chatId))
 }
 
 export async function listBrainChats(): Promise<BrainChatListItem[]> {

@@ -21,6 +21,7 @@ import {
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
 import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/Tooltip'
 
 // ── Souvenir wordmark SVG (115×20px) ──────────────────────────────────────────
 
@@ -141,9 +142,13 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
    * Useful when a consuming page (e.g. a persona chat page) needs the sidebar
    * to start on a specific section. Respects the remount-on-key pattern so each
    * page type gets the right default without fighting internal state.
+   * 'new-chat' and 'projects' map to the 'chat-board' body section but highlight
+   * their respective nav items.
    * @default 'chat-board'
    */
-  defaultBodySection?: 'chat-board' | 'persona' | 'workflow'
+  defaultBodySection?: 'chat-board' | 'persona' | 'workflow' | 'new-chat' | 'projects'
+  /** When true, the Search nav item is shown as selected (e.g. while the search modal is open). */
+  searchActive?: boolean
   /**
    * Controlled "current chat" id - driven by the app router. When set, the
    * Sidebar highlights the matching chat row (in Recents or inside a project)
@@ -435,6 +440,7 @@ export function Sidebar({
       onShowAllRecents,
       defaultCollapsed = false,
       defaultBodySection,
+      searchActive,
       activeChatId,
       onSelectChat,
       className,
@@ -482,8 +488,12 @@ export function Sidebar({
     const [selectedItem,    setSelectedItem]    = useState<string | null>(defaultBodySection ?? null)
     // bodySection controls which content area is shown in the scrollable body.
     // 'chat-board' → Projects + Recents; 'persona' / 'workflow' → Recents only.
-    // New chat shares the 'chat-board' layout but does NOT highlight the Chat board nav item.
-    const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>(defaultBodySection ?? 'chat-board')
+    // 'new-chat' and 'projects' share the chat-board layout but highlight different nav items.
+    const [bodySection, setBodySection] = useState<'chat-board' | 'persona' | 'workflow'>(
+      defaultBodySection === 'persona' ? 'persona'
+      : defaultBodySection === 'workflow' ? 'workflow'
+      : 'chat-board'
+    )
 
     // Select a section nav item (Chat board / Persona / Workflow)
     const onSelectSection = (section: 'chat-board' | 'persona' | 'workflow') => {
@@ -592,21 +602,23 @@ export function Sidebar({
             {!isCollapsed && <SouvenirWordmark />}
 
             {/* Single stable toggle button - variant flips, no unmount/remount */}
-            <IconButton
-              variant="ghost"
-              size="sm"
-              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              icon={
-                <SidebarLeftIcon
-                  size={20}
-                  variant={isCollapsed ? 'open' : 'close'}
-                  triggered={collapseHovered}
-                />
-              }
-              onClick={handleCollapse}
-              onMouseEnter={() => setCollapseHovered(true)}
-              onMouseLeave={() => setCollapseHovered(false)}
-            />
+            <Tooltip content="Expand sidebar" side="right" disabled={!isCollapsed}>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                icon={
+                  <SidebarLeftIcon
+                    size={20}
+                    variant={isCollapsed ? 'open' : 'close'}
+                    triggered={collapseHovered}
+                  />
+                }
+                onClick={handleCollapse}
+                onMouseEnter={() => setCollapseHovered(true)}
+                onMouseLeave={() => setCollapseHovered(false)}
+              />
+            </Tooltip>
           </div>
 
           {/* ── Nav strip - New chat + Search ── */}
@@ -621,21 +633,26 @@ export function Sidebar({
             paddingRight:  '8px',
             overflow:      'hidden',
           }}>
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="new-chat"
-              label="New chat"
-              selected={selectedItem === 'new-chat'}
-              onClick={() => { setBodySection('chat-board'); setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
-            />
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<SearchOneIcon size={20} />}
-              label="Search"
-              shortcut="⌘ K"
-              onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
-            />
+            <Tooltip content="New chat" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="new-chat"
+                label="New chat"
+                selected={selectedItem === 'new-chat'}
+                onClick={() => { setBodySection('chat-board'); setSelectedItem('new-chat'); setActiveFolder(null); onNewChat?.() }}
+              />
+            </Tooltip>
+            <Tooltip content="Search" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<SearchOneIcon size={20} />}
+                label="Search"
+                shortcut="⌘ K"
+                selected={searchActive}
+                onClick={(e) => { (e.currentTarget as HTMLElement).blur(); onSearch?.() }}
+              />
+            </Tooltip>
           </div>
         </div>
 
@@ -667,38 +684,46 @@ export function Sidebar({
             paddingBottom: '8px',
             flexShrink:    0,
           }}>
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<BubbleChatIcon size={20} />}
-              label="Chat board"
-              selected={selectedItem === 'chat-board'}
-              onClick={() => { onSelectSection('chat-board'); onChatsClick?.() }}
-            />
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<UserAiIcon size={20} />}
-              label="Persona"
-              selected={selectedItem === 'persona'}
-              onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
-            />
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<NeuralNetworkIcon size={20} animated />}
-              label="Brain"
-              selected={selectedItem === 'workflow'}
-              onClick={() => { onSelectSection('workflow'); onBrainClick?.() }}
-            />
-            <SidebarMenuItem
-              {...(isCollapsed ? { collapsed: true } : { fluid: true })}
-              variant="default"
-              icon={<FolderLibraryIcon size={20} />}
-              label="Projects"
-              selected={selectedItem === 'projects'}
-              onClick={() => { onSelect('projects'); onProjectsClick?.() }}
-            />
+            <Tooltip content="Chat board" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<BubbleChatIcon size={20} />}
+                label="Chat board"
+                selected={selectedItem === 'chat-board'}
+                onClick={() => { onSelectSection('chat-board'); onChatsClick?.() }}
+              />
+            </Tooltip>
+            <Tooltip content="Personas" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<UserAiIcon size={20} />}
+                label="Persona"
+                selected={selectedItem === 'persona'}
+                onClick={() => { onSelectSection('persona'); onPersonasClick?.() }}
+              />
+            </Tooltip>
+            <Tooltip content="Brain" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<NeuralNetworkIcon size={20} animated />}
+                label="Brain"
+                selected={selectedItem === 'workflow'}
+                onClick={() => { onSelectSection('workflow'); onBrainClick?.() }}
+              />
+            </Tooltip>
+            <Tooltip content="Projects" side="right" disabled={!isCollapsed}>
+              <SidebarMenuItem
+                {...(isCollapsed ? { collapsed: true } : { fluid: true })}
+                variant="default"
+                icon={<FolderLibraryIcon size={20} />}
+                label="Projects"
+                selected={selectedItem === 'projects'}
+                onClick={() => { onSelect('projects'); onProjectsClick?.() }}
+              />
+            </Tooltip>
           </div>
 
           {/* Projects + Recents - always mounted so shown/scroll state survives collapse/expand.

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { createContext, useCallback, use, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, use, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   createPin,
@@ -28,6 +28,7 @@ export type { PinComment };
 export interface PinFolderView {
   id: string;
   label: string;
+  pinCount?: number;
 }
 
 export interface PinItem {
@@ -76,7 +77,18 @@ interface PinboardContextValue {
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
 
-// â”€â”€ Provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Stable actions context — holds only useCallback([], []) functions so
+// consumers (e.g. ChatMessage) never re-render when pin data changes ──────────
+
+interface PinboardActionsContextValue {
+  addPin: (pin: Omit<PinItem, "id" | "createdAt">) => void;
+  removePinByMessage: (messageId: string) => void;
+  open: () => void;
+}
+
+const PinboardActionsContext = createContext<PinboardActionsContextValue | null>(null);
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
@@ -114,7 +126,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           comments:   p.comments,
         }));
 
-        setFolders(apiFolders.map((f) => ({ id: f.id, label: f.name })));
+        setFolders(apiFolders.map((f) => ({ id: f.id, label: f.name, pinCount: f.pin_count })));
         setPins(items);
         setIsLoading(false); // unblock FCP â€” pins render immediately with whatever the list returned
 
@@ -327,23 +339,42 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const isPinned = useCallback(
-    (messageId: string) => pins.some((p) => p.messageId === messageId),
+  const pinnedMessageIds = useMemo(
+    () => new Set(pins.flatMap((p) => (p.messageId ? [p.messageId] : []))),
     [pins],
   );
 
+  const isPinned = useCallback(
+    (messageId: string) => pinnedMessageIds.has(messageId),
+    [pinnedMessageIds],
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      pins, folders, isLoading, isOpen, chatFilter,
+      open, close, toggle, openForChat, clearChatFilter,
+      addPin, clonePin, removePin, removePinByMessage, isPinned,
+      updatePinCategory, updatePinFolder, updatePinTags,
+      addFolder, removeFolder, renameFolder,
+    }),
+    // primitives + stable callbacks — new object only when something actually changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pins, folders, isLoading, isOpen, chatFilter, isPinned],
+  );
+
+  // All three are useCallback([], []) — reference never changes, so this value
+  // is created once and the context never triggers re-renders on its consumers.
+  const actionsValue = useMemo(
+    () => ({ addPin, removePinByMessage, open }),
+    [addPin, removePinByMessage, open],
+  );
+
   return (
-    <PinboardContext.Provider
-      value={{
-        pins, folders, isLoading, isOpen, chatFilter,
-        open, close, toggle, openForChat, clearChatFilter,
-        addPin, clonePin, removePin, removePinByMessage, isPinned,
-        updatePinCategory, updatePinFolder, updatePinTags,
-        addFolder, removeFolder, renameFolder,
-      }}
-    >
-      {children}
-    </PinboardContext.Provider>
+    <PinboardActionsContext.Provider value={actionsValue}>
+      <PinboardContext.Provider value={contextValue}>
+        {children}
+      </PinboardContext.Provider>
+    </PinboardActionsContext.Provider>
   );
 }
 
@@ -352,5 +383,11 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
 export function usePinboard(): PinboardContextValue {
   const ctx = use(PinboardContext);
   if (!ctx) throw new Error("usePinboard must be used within PinboardProvider");
+  return ctx;
+}
+
+export function usePinboardActions(): PinboardActionsContextValue {
+  const ctx = use(PinboardActionsContext);
+  if (!ctx) throw new Error("usePinboardActions must be used within PinboardProvider");
   return ctx;
 }
