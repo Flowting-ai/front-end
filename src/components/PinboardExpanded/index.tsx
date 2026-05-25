@@ -72,6 +72,12 @@ export interface PinboardExpandedProps extends Omit<React.HTMLAttributes<HTMLDiv
    * The parent is responsible for removing the pins and showing a toast.
    */
   onDeleteSelected?: (pinIds: string[]) => void
+  /**
+   * Legacy callback fired when the bare Filter `IconButton` is clicked.
+   * Only used when `filterMenu` is explicitly passed `null` (opt-out of the
+   * canonical Filter dropdown). With the default menu this is a no-op.
+   */
+  onOptionsClick?:   () => void
   /** Called when the user clicks the Export button in the search row. */
   onExport?:         () => void
   /**
@@ -199,6 +205,7 @@ export function PinboardExpanded(
     onFolderRename,
     onFolderDelete,
     onSearch,
+    onOptionsClick,
     filterMenu,
     filterDisabled = false,
     sortMenu,
@@ -860,29 +867,50 @@ export function PinboardExpanded(
                       >
                         {filterMenu}
                       </Dropdown.Float>
-                    ) : null}
+                    ) : (
+                      <Tooltip content="Filter">
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          icon={<FilterMailIcon size={20} />}
+                          aria-label="Filter pins"
+                          onClick={onOptionsClick}
+                        />
+                      </Tooltip>
+                    )}
                   </m.div>
 
                   {/* Sort dropdown */}
-                  {sortMenu != null && (
+                  {sortMenu !== null && (
                     <m.div layout style={{ display: 'inline-flex' }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
-                      <Dropdown.Float
-                        open={openPanel === 'sort'}
-                        onOpenChange={(open) => setOpenPanel(open ? 'sort' : null)}
-                        placement="bottom-end"
-                        trigger={
-                          <Tooltip content="Sort">
-                            <IconButton
-                              variant="secondary"
-                              size="sm"
-                              icon={<ArrowUpDownIcon size={20} />}
-                              aria-label="Sort pins"
-                            />
-                          </Tooltip>
-                        }
-                      >
-                        {sortMenu}
-                      </Dropdown.Float>
+                      {sortMenu != null ? (
+                        <Dropdown.Float
+                          open={openPanel === 'sort'}
+                          onOpenChange={(open) => setOpenPanel(open ? 'sort' : null)}
+                          placement="bottom-end"
+                          trigger={
+                            <Tooltip content="Sort">
+                              <IconButton
+                                variant="secondary"
+                                size="sm"
+                                icon={<ArrowUpDownIcon size={20} />}
+                                aria-label="Sort pins"
+                              />
+                            </Tooltip>
+                          }
+                        >
+                          {sortMenu}
+                        </Dropdown.Float>
+                      ) : (
+                        <Tooltip content="Sort">
+                          <IconButton
+                            variant="secondary"
+                            size="sm"
+                            icon={<ArrowUpDownIcon size={20} />}
+                            aria-label="Sort pins"
+                          />
+                        </Tooltip>
+                      )}
                     </m.div>
                   )}
                 </EnterChunk>

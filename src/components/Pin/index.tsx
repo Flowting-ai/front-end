@@ -222,6 +222,11 @@ export interface PinProps extends Omit<React.HTMLAttributes<HTMLDivElement>,
   onExpandedChange?: (open: boolean) => void
   onInsert?:        () => void
   /**
+   * Fires when the user clicks "Show in chat" — navigates to the source chat
+   * and scrolls to the message this pin was created from.
+   */
+  onShowInChat?:    () => void
+  /**
    * More-options menu callbacks. Each fires when the user picks the
    * corresponding row from the ellipsis dropdown. Figma 3139:36280.
    */
@@ -332,6 +337,7 @@ export function Pin({
       collapseSignal,
       onExpandedChange,
       onInsert,
+      onShowInChat,
       onDuplicate,
       onExport,
       onDelete,
@@ -1390,7 +1396,7 @@ export function Pin({
                 exit={{   opacity: 0, transition: { duration: 0 } }}
                 style={{ width: '100%', flexShrink: 0 }}
               >
-                <ActionBar onInsert={onInsert} onComment={handleCommentClick} hideComment />
+                <ActionBar onInsert={onInsert} onShowInChat={onShowInChat} onComment={handleCommentClick} hideComment />
               </m.div>
             )}
           </AnimatePresence>
@@ -1456,6 +1462,7 @@ export function Pin({
             <AbsoluteActionBar
               key="action-bar-absolute"
               onInsert={onInsert}
+              onShowInChat={onShowInChat}
               onComment={handleCommentClick}
               instant={skipActionBarEntry.current}
             />
@@ -1539,7 +1546,7 @@ function PinCommentItem({ comment }: { comment: PinComment }) {
 //   useIsPresent → pointerEvents:none during exit so fast mouse-outs can't
 //                  accidentally trigger Insert during the 180ms fade
 
-function AbsoluteActionBar({ onInsert, onComment, instant }: { onInsert?: () => void; onComment?: () => void; instant?: boolean }) {
+function AbsoluteActionBar({ onInsert, onShowInChat, onComment, instant }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; instant?: boolean }) {
   const isPresent = useIsPresent()
 
   return (
@@ -1571,17 +1578,17 @@ function AbsoluteActionBar({ onInsert, onComment, instant }: { onInsert?: () => 
         pointerEvents:   isPresent ? 'auto' : 'none',
       }}
     >
-      <ActionBar onInsert={onInsert} onComment={onComment} />
+      <ActionBar onInsert={onInsert} onShowInChat={onShowInChat} onComment={onComment} />
     </m.div>
   )
 }
 
-function ActionBar({ onInsert, onComment, hideComment = false }: { onInsert?: () => void; onComment?: () => void; hideComment?: boolean }) {
+function ActionBar({ onInsert, onShowInChat, onComment, hideComment = false }: { onInsert?: () => void; onShowInChat?: () => void; onComment?: () => void; hideComment?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <Tooltip content="Show in chat">
-          <IconButton variant="ghost" size="sm" icon={<MessagePreviewOneIcon size={20} />} aria-label="Show in chat" />
+          <IconButton variant="ghost" size="sm" icon={<MessagePreviewOneIcon size={20} />} aria-label="Show in chat" onClick={onShowInChat} />
         </Tooltip>
         {!hideComment && (
           <Tooltip content="Comment">

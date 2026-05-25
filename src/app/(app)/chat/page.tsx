@@ -228,6 +228,7 @@ function ChatPageInner() {
   const searchParams = useSearchParams();
   const { replace } = useRouter();
   const chatIdFromUrl = searchParams.get("id") ?? undefined;
+  const msgFromUrl    = searchParams.get("msg") ?? undefined;
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(chatIdFromUrl);
   const [pendingModelSwitch, setPendingModelSwitch] = useState<AIModel | null>(null);
@@ -950,6 +951,7 @@ function ChatPageInner() {
               selectedPersonaId={selectedPersona?.id ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
+              scrollToMessageId={msgFromUrl}
             />
           </m.div>
         )}

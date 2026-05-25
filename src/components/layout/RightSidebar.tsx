@@ -1,7 +1,7 @@
 "use client"
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { usePathname, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { createPortal } from "react-dom"
 import { m, AnimatePresence } from "framer-motion"
 import { CancelOneIcon } from "@strange-huge/icons"
@@ -51,6 +51,7 @@ function toPinboardPin(
   onExport: () => void,
   onDelete: () => void,
   onDuplicate: () => void,
+  onShowInChat: () => void,
 ): PinboardPin {
   const tagLabels: { color: BadgeColor; text: string }[] =
     item.tags && item.tags.length > 0
@@ -76,6 +77,7 @@ function toPinboardPin(
     onExport,
     onDelete,
     onDuplicate,
+    onShowInChat,
     onInsert: () => window.dispatchEvent(
       new CustomEvent('pin:insert', { detail: { content: item.content } })
     ),
@@ -293,8 +295,10 @@ function RightSidebarImpl() {
   chatNameByIdRef.current = chatNameById
 
   const handlersRef = useRef(
-    new Map<string, { onExport: () => void; onDelete: () => void; onDuplicate: () => void }>(),
+    new Map<string, { onExport: () => void; onDelete: () => void; onDuplicate: () => void; onShowInChat: () => void }>(),
   )
+
+  const router = useRouter()
 
   const getHandlers = useCallback(
     (pinId: string) => {
@@ -309,11 +313,18 @@ function RightSidebarImpl() {
             const p = filteredRawRef.current.find((x) => x.id === pinId)
             if (p) clonePin(p)
           },
+          onShowInChat: () => {
+            const p = filteredRawRef.current.find((x) => x.id === pinId)
+            if (!p?.chatId) return
+            const params = new URLSearchParams({ id: p.chatId })
+            if (p.messageId) params.set('msg', p.messageId)
+            router.push(`/chat?${params.toString()}`)
+          },
         })
       }
       return handlersRef.current.get(pinId)!
     },
-    [removePin, clonePin],
+    [removePin, clonePin, router],
   )
 
   // ── Single filtered+mapped memo (replaces two separate memos) ───────────
@@ -366,7 +377,7 @@ function RightSidebarImpl() {
 
     return result.map((p) => {
       const h = getHandlers(p.id)
-      return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate)
+      return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate, h.onShowInChat)
     })
   }, [pins, selectedViewId, selectedFolderId, effectiveChatId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
 

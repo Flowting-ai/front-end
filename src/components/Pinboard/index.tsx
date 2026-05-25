@@ -1473,12 +1473,14 @@ export function Pinboard(
                     onOpenChange={setSortMenuOpen}
                     placement="bottom-end"
                     trigger={
-                      <IconButton
-                        variant="secondary"
-                        size="sm"
-                        icon={<ArrowUpDownIcon size={20} />}
-                        aria-label="Sort pins"
-                      />
+                      <Tooltip content="Sort">
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          icon={<ArrowUpDownIcon size={20} />}
+                          aria-label="Sort pins"
+                        />
+                      </Tooltip>
                     }
                   >
                     {sortMenu}
@@ -1794,6 +1796,7 @@ export function Pinboard(
               hasActiveFilters={hasActiveFilters}
               filterMenu={filterMenu}
               filterDisabled={filterDisabled}
+              onOptionsClick={onOptionsClick}
               sortMenu={sortMenu}
               onSearch={onSearch}
               onSidebarItemClick={(id) => {

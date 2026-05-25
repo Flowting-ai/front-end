@@ -124,6 +124,11 @@ interface ChatInterfaceProps {
   selectedPersonaTemperature?: number | null;
   /** Style/tone ID to send with every message (e.g. "professional", "teaching"). */
   selectedStyleId?: string | null;
+  /**
+   * When set, scrolls to the message with this ID once the chat finishes
+   * loading. Navigated here from the pinboard "Show in chat" button.
+   */
+  scrollToMessageId?: string | null;
 }
 
 export function ChatInterface({
@@ -149,6 +154,7 @@ export function ChatInterface({
   selectedPersonaSystemPrompt,
   selectedPersonaTemperature,
   selectedStyleId,
+  scrollToMessageId,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -301,14 +307,24 @@ export function ChatInterface({
   // We track the previous loading state so we fire exactly once on the
   // false→true transition, not on every subsequent message change.
   const prevIsLoadingRef = useRef(false);
+  const scrolledToMessageRef = useRef<string | null>(null);
   useEffect(() => {
     const wasLoading = prevIsLoadingRef.current;
     prevIsLoadingRef.current = isLoadingMessages;
     if (wasLoading && !isLoadingMessages && messages.length > 0) {
+      // If a specific message was requested, scroll to it instead of the bottom.
+      if (scrollToMessageId && scrolledToMessageRef.current !== scrollToMessageId) {
+        const idx = messages.findIndex((m) => m.id === scrollToMessageId);
+        if (idx !== -1) {
+          scrolledToMessageRef.current = scrollToMessageId;
+          msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'smooth' });
+          return;
+        }
+      }
       // Use instant scroll - smooth scroll can leave the user mid-thread.
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
     }
-  }, [isLoadingMessages, messages.length]);
+  }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer]);
 
   // Scroll to bottom smoothly as new streaming content arrives.
   const lastMessageContent = messages.length > 0
