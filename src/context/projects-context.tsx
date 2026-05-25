@@ -13,6 +13,7 @@ import {
   deleteProjectApi,
   addChatToProject,
   removeProjectDocumentApi,
+  addProjectFilesApi,
 } from '@/lib/api/projects'
 import type { ApiProject, ApiProjectSummary, ApiProjectChat } from '@/lib/api/projects'
 
@@ -272,7 +273,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     if (!files.length) return
     const uploadedSizes = new Map<string, number>(files.map(f => [f.name, f.size]))
     try {
-      const updated = await updateProjectApi(projectId, { files })
+      const updated = await addProjectFilesApi(projectId, files)
       const merged = new Map([...loadStoredSizes(projectId), ...uploadedSizes])
       saveStoredSizes(projectId, merged)
       setProjects(prev => prev.map(p =>

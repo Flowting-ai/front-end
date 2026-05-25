@@ -6,7 +6,7 @@ paths:
   /pins:
     get:
       tags:
-      - pins
+        - pins
       summary: Get All Pins
       operationId: get_all_pins_pins_get
       responses:
@@ -16,27 +16,27 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/PinListItem'
+                  $ref: '#/components/schemas/PinResponse'
                 type: array
                 title: Response Get All Pins Pins Get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /pins/{pin_id}:
     get:
       tags:
-      - pins
+        - pins
       summary: Get Pin By Id
       operationId: get_pin_by_id_pins__pin_id__get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
       responses:
         '200':
           description: Successful Response
@@ -52,19 +52,19 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
-      - pins
+        - pins
       summary: Remove Pin
       operationId: remove_pin_pins__pin_id__delete
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
       responses:
         '204':
           description: Successful Response
@@ -77,19 +77,19 @@ paths:
   /pins/message/{message_id}:
     post:
       tags:
-      - pins
+        - pins
       summary: Create New Pin
       operationId: create_new_pin_pins_message__message_id__post
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: message_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Message Id
+        - name: message_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Message Id
       responses:
         '201':
           description: Successful Response
@@ -106,7 +106,7 @@ paths:
   /pins/folders/all:
     get:
       tags:
-      - pins
+        - pins
       summary: Get All Folders
       operationId: get_all_folders_pins_folders_all_get
       responses:
@@ -120,11 +120,11 @@ paths:
                 type: array
                 title: Response Get All Folders Pins Folders All Get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /pins/folders:
     post:
       tags:
-      - pins
+        - pins
       summary: Create New Folder
       operationId: create_new_folder_pins_folders_post
       requestBody:
@@ -147,23 +147,82 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
+  /pins/folders/{folder_id}:
+    patch:
+      tags:
+        - pins
+      summary: Rename Pin Folder
+      operationId: rename_pin_folder_pins_folders__folder_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: folder_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Folder Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameFolder'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - pins
+      summary: Delete Pin Folder
+      operationId: delete_pin_folder_pins_folders__folder_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: folder_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Folder Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /pins/{pin_id}/folder:
     patch:
       tags:
-      - pins
+        - pins
       summary: Move Pin To Folder
       operationId: move_pin_to_folder_pins__pin_id__folder_patch
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
       requestBody:
         required: true
         content:
@@ -186,19 +245,19 @@ paths:
   /pins/{pin_id}/tags:
     put:
       tags:
-      - pins
+        - pins
       summary: Replace Pin Tags
       operationId: replace_pin_tags_pins__pin_id__tags_put
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
       requestBody:
         required: true
         content:
@@ -221,19 +280,19 @@ paths:
   /pins/{pin_id}/comments:
     post:
       tags:
-      - pins
+        - pins
       summary: Add Pin Comment
       operationId: add_pin_comment_pins__pin_id__comments_post
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
       requestBody:
         required: true
         content:
@@ -256,26 +315,26 @@ paths:
   /pins/{pin_id}/comments/{comment_id}:
     patch:
       tags:
-      - pins
+        - pins
       summary: Edit Pin Comment
       operationId: edit_pin_comment_pins__pin_id__comments__comment_id__patch
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
-      - name: comment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Comment Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Comment Id
       requestBody:
         required: true
         content:
@@ -297,26 +356,26 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
-      - pins
+        - pins
       summary: Delete Pin Comment
       operationId: delete_pin_comment_pins__pin_id__comments__comment_id__delete
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: pin_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Pin Id
-      - name: comment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Comment Id
+        - name: pin_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Pin Id
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Comment Id
       responses:
         '204':
           description: Successful Response
@@ -336,7 +395,7 @@ components:
           title: Comment Text
       type: object
       required:
-      - comment_text
+        - comment_text
       title: CommentCreate
     CommentResponse:
       properties:
@@ -357,10 +416,10 @@ components:
           title: Updated At
       type: object
       required:
-      - id
-      - comment_text
-      - created_at
-      - updated_at
+        - id
+        - comment_text
+        - created_at
+        - updated_at
       title: CommentResponse
     CommentUpdate:
       properties:
@@ -370,7 +429,7 @@ components:
           title: Comment Text
       type: object
       required:
-      - comment_text
+        - comment_text
       title: CommentUpdate
     CreateFolder:
       properties:
@@ -380,7 +439,7 @@ components:
           title: Folder Name
       type: object
       required:
-      - folder_name
+        - folder_name
       title: CreateFolder
     FolderResponse:
       properties:
@@ -401,9 +460,9 @@ components:
           title: Created At
       type: object
       required:
-      - id
-      - folder_name
-      - created_at
+        - id
+        - folder_name
+        - created_at
       title: FolderResponse
     HTTPValidationError:
       properties:
@@ -422,58 +481,19 @@ components:
           title: Folder Id
       type: object
       required:
-      - folder_id
+        - folder_id
       title: MovePin
-    PinListItem:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        pins_title:
-          type: string
-          title: Pins Title
-        message_id:
-          type: string
-          format: uuid
-          title: Message Id
-        chat_id:
-          type: string
-          format: uuid
-          title: Chat Id
-        folder_id:
-          type: string
-          format: uuid
-          title: Folder Id
-        content:
-          type: string
-          title: Content
-        tags:
-          items:
-            $ref: '#/components/schemas/TagResponse'
-          type: array
-          title: Tags
-          default: []
-        comments:
-          items:
-            $ref: '#/components/schemas/CommentResponse'
-          type: array
-          title: Comments
-          default: []
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-      type: object
-      required:
-      - id
-      - pins_title
-      - message_id
-      - chat_id
-      - folder_id
-      - content
-      - created_at
-      title: PinListItem
+    PinCategory:
+      type: string
+      enum:
+        - Code
+        - Research
+        - Creative
+        - Planning
+        - Tasks
+        - Quote
+        - Workflow
+      title: PinCategory
     PinResponse:
       properties:
         id:
@@ -495,6 +515,8 @@ components:
           type: string
           format: uuid
           title: Folder Id
+        category:
+          $ref: '#/components/schemas/PinCategory'
         content:
           type: string
           title: Content
@@ -516,14 +538,26 @@ components:
           title: Created At
       type: object
       required:
-      - id
-      - pins_title
-      - message_id
-      - chat_id
-      - folder_id
-      - content
-      - created_at
+        - id
+        - pins_title
+        - message_id
+        - chat_id
+        - folder_id
+        - category
+        - content
+        - created_at
       title: PinResponse
+    RenameFolder:
+      properties:
+        folder_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Folder Name
+      type: object
+      required:
+        - folder_name
+      title: RenameFolder
     ReplaceTags:
       properties:
         tags:
@@ -544,16 +578,16 @@ components:
           title: Tag Name
       type: object
       required:
-      - id
-      - tag_name
+        - id
+        - tag_name
       title: TagResponse
     ValidationError:
       properties:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
+              - type: string
+              - type: integer
           type: array
           title: Location
         msg:
@@ -569,9 +603,9 @@ components:
           title: Context
       type: object
       required:
-      - loc
-      - msg
-      - type
+        - loc
+        - msg
+        - type
       title: ValidationError
   securitySchemes:
     HTTPBearer:

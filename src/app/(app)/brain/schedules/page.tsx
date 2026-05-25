@@ -16,6 +16,7 @@ import {
 } from '@/templates/Brain'
 import { BrainSidebarSections } from '../BrainSidebarSections'
 import { listTasks, getTask, runTaskNow, type Task, type TaskDetail } from '@/lib/api/tasks'
+import { getAllScheduleLinks, getChatForSchedule, stashPendingPrompt } from '@/lib/scheduleLinks'
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────
 
@@ -68,26 +69,28 @@ function formatCreatedAt(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-function taskToListItem(task: Task): ScheduleListItem {
+function taskToListItem(task: Task, chatId?: string): ScheduleListItem {
   return {
     id:          task.id,
     name:        task.title,
     description: task.plan_text || undefined,
     frequency:   formatScheduleJson(task.schedule_json),
     isActive:    task.is_active,
+    chatId,
   }
 }
 
-function taskDetailToDetail(task: TaskDetail): ScheduleDetailItem {
+function taskDetailToDetail(task: TaskDetail, chatId?: string): ScheduleDetailItem {
   return {
     id:           task.id,
     name:         task.title,
-    instructions: task.plan_text,
+    instructions: task.plan_text ?? '',
     frequency:    formatScheduleJson(task.schedule_json),
     nextRun:      task.next_run_at ? formatNextRun(task.next_run_at) : undefined,
     isActive:     task.is_active,
-    createdAt:    formatCreatedAt(task.created_at),
+    createdAt:    formatCreatedAt(task.created_at ?? ''),
     runHistory:   [],
+    chatId,
   }
 }
 
@@ -98,6 +101,7 @@ function listItemToDetail(item: ScheduleListItem): ScheduleDetailItem {
     instructions: item.description ?? '',
     frequency:    item.frequency,
     isActive:     item.isActive,
+    chatId:       item.chatId,
   }
 }
 
@@ -139,7 +143,10 @@ function BrainSchedulesPageInner() {
 
   useEffect(() => {
     listTasks()
-      .then(tasks => setSchedules(tasks.map(taskToListItem)))
+      .then(tasks => {
+        const links = getAllScheduleLinks()
+        setSchedules(tasks.map(t => taskToListItem(t, links[t.id])))
+      })
       .catch(() => toast.error('Failed to load schedules'))
       .finally(() => setIsLoadingList(false))
   }, [])
@@ -157,7 +164,7 @@ function BrainSchedulesPageInner() {
     // Fetch full detail (includes run history)
     setSelectedDetail(null)
     getTask(id)
-      .then(detail => setSelectedDetail(taskDetailToDetail(detail)))
+      .then(detail => setSelectedDetail(taskDetailToDetail(detail, getChatForSchedule(id))))
       .catch(() => {
         const item = schedules.find(s => s.id === id)
         setSelectedDetail(item ? listItemToDetail(item) : null)
@@ -189,34 +196,38 @@ function BrainSchedulesPageInner() {
   const handleSave = useCallback((data: ScheduleEditData) => {
     const isEdit = !!(editingSchedule && selectedId)
 
-    setSchedules(prev => {
-      if (isEdit) {
-        return prev.map(s =>
-          s.id === selectedId
-            ? { ...s, name: data.name, description: data.instructions, frequency: data.frequency }
-            : s
-        )
-      }
-      const newId = `${idPrefix}-${Date.now()}`
-      localIdsRef.current.add(newId)
-      return [...prev, {
-        id:          newId,
-        name:        data.name,
-        description: data.instructions,
-        frequency:   data.frequency,
-        isActive:    true,
-      }]
-    })
-
     if (isEdit) {
+      setSchedules(prev => prev.map(s =>
+        s.id === selectedId
+          ? { ...s, name: data.name, description: data.instructions, frequency: data.frequency }
+          : s
+      ))
       setSelectedDetail(prev =>
         prev ? { ...prev, name: data.name, instructions: data.instructions, frequency: data.frequency } : prev
       )
+      setEditModalOpen(false)
+      setEditingSchedule(undefined)
+      return
     }
 
+    // Create: stash the prompt so the Brain page can pick it up, then route
+    // there. Brain will start a new chat with this prompt and write the
+    // chatId back into the link store, binding the two for the lifetime of
+    // the schedule.
+    const newId = `${idPrefix}-${Date.now()}`
+    localIdsRef.current.add(newId)
+    stashPendingPrompt(newId, data.instructions)
+    setSchedules(prev => [...prev, {
+      id:          newId,
+      name:        data.name,
+      description: data.instructions,
+      frequency:   data.frequency,
+      isActive:    true,
+    }])
     setEditModalOpen(false)
     setEditingSchedule(undefined)
-  }, [editingSchedule, selectedId, idPrefix])
+    push(`/brain?fromSchedule=${encodeURIComponent(newId)}`)
+  }, [editingSchedule, selectedId, idPrefix, push])
 
   // ── Delete (local — no delete endpoint available yet) ─────────────────────
 
@@ -336,6 +347,7 @@ function BrainSchedulesPageInner() {
                   onDelete={() => setDeleteModalOpen(true)}
                   onRunNow={handleRunNow}
                   onToggleActive={handleToggleActive}
+                  onOpenChat={(chatId) => push(`/brain?id=${chatId}`)}
                 />
               ) : isLoadingList ? (
                 <SchedulesLoadingState />

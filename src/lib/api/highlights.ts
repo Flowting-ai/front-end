@@ -15,12 +15,12 @@ export interface HighlightCreate {
 
 export interface HighlightResponse {
   id:            string;
+  chat_id:       string;
   message_id:    string;
   selected_text: string;
   start_offset:  number;
   end_offset:    number;
   color_index:   number;
-  chat_id?:      string;
   created_at:    string;
 }
 

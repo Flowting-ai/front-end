@@ -31,6 +31,8 @@ export interface ScheduleDetailItem {
   isActive:     boolean
   createdAt?:   string
   runHistory?:  ScheduleRunRecord[]
+  /** Brain chat permanently bound to this schedule. */
+  chatId?:      string
 }
 
 export interface ScheduleDetailViewProps {
@@ -40,6 +42,7 @@ export interface ScheduleDetailViewProps {
   onDelete?:       () => void
   onRunNow?:       () => void
   onToggleActive?: (active: boolean) => void
+  onOpenChat?:     (chatId: string) => void
 }
 
 // ── Inline toggle ─────────────────────────────────────────────────────────────
@@ -87,6 +90,7 @@ export function ScheduleDetailView({
   onDelete,
   onRunNow,
   onToggleActive,
+  onOpenChat,
 }: ScheduleDetailViewProps) {
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [isActive, setIsActive] = useState(schedule.isActive)
@@ -277,6 +281,38 @@ export function ScheduleDetailView({
               }}>
                 {schedule.createdAt}
               </span>
+            </div>
+          )}
+          {schedule.chatId && onOpenChat && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                color:      'var(--neutral-400)',
+              }}>
+                Linked chat
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenChat(schedule.chatId!)}
+                style={{
+                  display:         'inline-flex',
+                  alignItems:      'center',
+                  gap:             4,
+                  border:          'none',
+                  background:      'transparent',
+                  padding:         0,
+                  cursor:          'pointer',
+                  fontFamily:      'var(--font-body)',
+                  fontSize:        'var(--font-size-body)',
+                  lineHeight:      'var(--line-height-body)',
+                  color:           'var(--neutral-700)',
+                  textDecoration:  'underline',
+                }}
+              >
+                Open chat
+                <ArrowRightOneIcon size={12} />
+              </button>
             </div>
           )}
         </div>

@@ -445,9 +445,13 @@ export interface PlanCardProps {
   onApprove?:      () => void
   onCounter?:      () => void
   onCancel?:       () => void
+  /** Disable all three action buttons. Used while the user_prompt is not
+   *  yet available, or while a decision is mid-flight, to prevent races
+   *  that would silently no-op on the backend. */
+  actionsDisabled?: boolean
 }
 
-export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel }: PlanCardProps) {
+export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel, actionsDisabled = false }: PlanCardProps) {
   const items           = groupSteps(steps)
   const allConnected = steps.every(s => !s.requiresConnector || s.requiresConnector.isConnected)
 
@@ -540,14 +544,14 @@ export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel
       {/* Footer */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={actionsDisabled}>Cancel</Button>
           <div style={{ flex: '1 0 0' }} />
-          <Button variant="outline" size="sm" rightIcon={<PenOneIcon />} onClick={onCounter}>Counter</Button>
+          <Button variant="outline" size="sm" rightIcon={<PenOneIcon />} onClick={onCounter} disabled={actionsDisabled}>Counter</Button>
           <Button
             variant="default"
             size="sm"
             rightIcon={<TickTwoIcon />}
-            disabled={!allConnected}
+            disabled={!allConnected || actionsDisabled}
             onClick={onApprove}
           >
             Approve

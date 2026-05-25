@@ -62,10 +62,20 @@ export { ContextRail, type ContextRailProps, type ContextRailData, type ContextR
 import { type Phase, PHASE_TRANSITIONS } from './lib/phase'
 
 // ── Phases where the ContextRail is visible ───────────────────────────────────
-// Rail slides in once a plan exists — from planning onwards.
+// Rail slides in once a plan exists (planning → complete), AND whenever any
+// context is attached at page load (persona, pins, or connectors). The latter
+// lets the rail show during idle / thinking / clarifying-goal too, so the
+// user can see what's in scope before the first turn.
 const CONTEXT_RAIL_PHASES = new Set<Phase>([
   'planning', 'executing', 'paused', 'node-failed', 'streaming', 'complete',
 ])
+
+function hasAnyContext(data: ContextRailData | undefined): boolean {
+  if (!data) return false
+  return !!data.persona
+      || (data.pins?.length ?? 0) > 0
+      || (data.connectors?.length ?? 0) > 0
+}
 
 // ── ContextRail placeholder ───────────────────────────────────────────────────
 // Real content (pins, context sources) comes in a later sprint.
@@ -169,7 +179,7 @@ export function BrainShell({
     setPhase(defaultPhase)
   }
 
-  const contextRailOpen = CONTEXT_RAIL_PHASES.has(phase)
+  const contextRailOpen = CONTEXT_RAIL_PHASES.has(phase) || hasAnyContext(contextRailData)
   const isIdle          = phase === 'idle'
   const isClarifying    = phase === 'clarifying-goal' && clarificationProps != null
 

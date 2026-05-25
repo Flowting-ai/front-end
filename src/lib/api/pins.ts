@@ -251,11 +251,23 @@ export async function updatePinTags(pinId: string, tags: string[]): Promise<void
   })
 }
 
+function normalizeCommentResponse(raw: Record<string, unknown>): PinComment {
+  return {
+    id:         String(raw.id ?? ""),
+    content:    typeof raw.comment_text === "string" ? raw.comment_text
+              : typeof raw.content      === "string" ? raw.content
+              : "",
+    created_at: typeof raw.created_at === "string" ? raw.created_at : new Date().toISOString(),
+    updated_at: typeof raw.updated_at === "string" ? raw.updated_at : undefined,
+  };
+}
+
 export async function addPinComment(pinId: string, content: string): Promise<PinComment> {
-  return apiFetchJson<PinComment>(PIN_COMMENT_ENDPOINT(pinId), {
+  const raw = await apiFetchJson<Record<string, unknown>>(PIN_COMMENT_ENDPOINT(pinId), {
     method: "POST",
-    body: JSON.stringify({ comment_text: content }),
+    body:   JSON.stringify({ comment_text: content }),
   });
+  return normalizeCommentResponse(raw);
 }
 
 export async function editPinComment(
@@ -263,10 +275,11 @@ export async function editPinComment(
   commentId: string,
   content: string,
 ): Promise<PinComment> {
-  return apiFetchJson<PinComment>(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), {
+  const raw = await apiFetchJson<Record<string, unknown>>(PIN_COMMENT_CRUD_ENDPOINT(pinId, commentId), {
     method: "PATCH",
-    body: JSON.stringify({ comment_text: content }),
+    body:   JSON.stringify({ comment_text: content }),
   });
+  return normalizeCommentResponse(raw);
 }
 
 export async function deletePinComment(pinId: string, commentId: string): Promise<void> {

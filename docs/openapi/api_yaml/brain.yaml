@@ -6,9 +6,9 @@ paths:
   /brain:
     get:
       tags:
-      - brain
+        - brain
       summary: List Chats
-      operationId: list_brain_chats_brain_get
+      operationId: list_chats_brain_get
       responses:
         '200':
           description: Successful Response
@@ -18,28 +18,26 @@ paths:
                 items:
                   $ref: '#/components/schemas/BrainChatListItem'
                 type: array
-                title: Response List Brain Chats Brain Get
+                title: Response List Chats Brain Get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
     delete:
       tags:
-      - brain
+        - brain
       summary: Remove Chat
-      operationId: remove_brain_chat_brain_delete
+      operationId: remove_chat_brain_delete
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteBrainChat'
+              $ref: '#/components/schemas/DeleteChat'
         required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                type: string
-                title: Response Remove Brain Chat Brain Delete
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -47,11 +45,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /brain/create:
     post:
       tags:
-      - brain
+        - brain
       summary: Create Brain Chat
       operationId: create_brain_chat_brain_create_post
       requestBody:
@@ -62,17 +60,40 @@ paths:
         required: true
       responses:
         '200':
-          description: "Streaming Brain orchestrator response via Server-Sent Events.\n\
-            \nTwo kinds of events arrive on the same SSE stream:\n\n**Named events**\
-            \ (`event: <name>\\ndata: {...}`) — lifecycle, tools, model:\n\n\
-            - **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n\
-            - **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n\
-            - **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n\
-            - **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n\
-            - **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"<name>\",...}`)\
-            \ — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n\
-            - **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n\
-            - **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**"
+          description: |-
+            Streaming Brain orchestrator response via Server-Sent Events.
+
+            Two kinds of events arrive on the same SSE stream:
+
+            **Named events** (`event: <name>\ndata: {...}`) — lifecycle, tools, model:
+
+            - **`message_saved`**
+            - **`title`**
+            - **`web_search`**
+            - **`image`**
+            - **`generated_file`**
+            - **`tool_progress`**
+            - **`tool_connect_prompt`**
+            - **`user_prompt`**
+            - **`plan_proposed`**
+            - **`plan_approved`**
+            - **`plan_countered`**
+            - **`plan_cancelled`**
+            - **`step_started`**
+            - **`step_completed`**
+            - **`step_failed`**
+
+            **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
+
+            - **`reasoning_heading`**
+            - **`reasoning_body`**
+            - **`reasoning`**
+            - **`content`**
+            - **`tool_calls_streaming`**
+            - **`tool_executing`**
+            - **`tool_complete`**
+            - **`done`**
+            - **`error`**
           content:
             application/json:
               schema: {}
@@ -87,7 +108,7 @@ paths:
                       title: Message Id
                       type: string
                   required:
-                  - message_id
+                    - message_id
                   title: MessageSavedEvent
                   type: object
                 title:
@@ -96,64 +117,292 @@ paths:
                       title: Title
                       type: string
                   required:
-                  - title
+                    - title
                   title: TitleEvent
+                  type: object
+                web_search:
+                  properties:
+                    query:
+                      title: Query
+                      type: string
+                    links:
+                      items: {}
+                      title: Links
+                      type: array
+                  required:
+                    - query
+                    - links
+                  title: WebSearchEvent
+                  type: object
+                image:
+                  properties:
+                    url:
+                      title: Url
+                      type: string
+                    s3_key:
+                      title: S3 Key
+                      type: string
+                  required:
+                    - url
+                    - s3_key
+                  title: ImageEvent
+                  type: object
+                generated_file:
+                  properties:
+                    url:
+                      title: Url
+                      type: string
+                    s3_key:
+                      title: S3 Key
+                      type: string
+                    filename:
+                      title: Filename
+                      type: string
+                    mime_type:
+                      title: Mime Type
+                      type: string
+                  required:
+                    - url
+                    - s3_key
+                    - filename
+                    - mime_type
+                  title: GeneratedFileEvent
+                  type: object
+                tool_progress:
+                  properties:
+                    tool:
+                      title: Tool
+                      type: string
+                    label:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Label
+                    status:
+                      title: Status
+                      type: string
+                    filename:
+                      title: Filename
+                      type: string
+                    step:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step
+                    message:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Message
+                    code_preview:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Code Preview
+                    elapsed_seconds:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                      title: Elapsed Seconds
+                    percent:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                      title: Percent
+                    detail:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Detail
+                  required:
+                    - tool
+                    - status
+                    - filename
+                  title: ToolProgressEvent
+                  type: object
+                tool_connect_prompt:
+                  description: |-
+                    The model called a connector tool for an app the user hasn't linked.
+                    The UI renders a 'Connect <App>' button; clicking it opens the OAuth or
+                    API-key flow, then the user resends their message.
+                  properties:
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    auth_mode:
+                      title: Auth Mode
+                      type: string
+                    tool_name:
+                      title: Tool Name
+                      type: string
+                    request_id:
+                      title: Request Id
+                      type: string
+                  required:
+                    - connector_slug
+                    - display_name
+                    - auth_mode
+                    - tool_name
+                    - request_id
+                  title: ToolConnectPromptEvent
+                  type: object
+                user_prompt:
+                  description: |-
+                    Generic mid-stream "the model is asking the user something" event.
+
+                    The same event handles connector permission asks, plan approvals,
+                    destructive-action confirmations, and free-text clarifications.
+                    Backend code calls `core.prompt_gate.ask_user(...)` which emits this
+                    event and blocks until the FE POSTs to `respond_url`.
+
+                    Fields:
+                      prompt_id    — UUID; FE POSTs to /chats/prompts/{prompt_id}.
+                      kind         — "permission" | "confirm" | "choice" | "input".
+                      title        — headline rendered in the assistant message.
+                      description  — optional longer body.
+                      options      — for choice-style kinds, [{value, label, style?}].
+                      metadata     — kind-specific context (e.g. {connector_slug, tool_slug,
+                                     suggested_args} for permission asks). FE renders or
+                                     ignores per its UI.
+                      respond_url  — server-built path to POST the response to.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    kind:
+                      title: Kind
+                      type: string
+                    title:
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                    metadata:
+                      additionalProperties: true
+                      default: {}
+                      title: Metadata
+                      type: object
+                    respond_url:
+                      default: ''
+                      title: Respond Url
+                      type: string
+                  required:
+                    - prompt_id
+                    - kind
+                    - title
+                  title: UserPromptEvent
                   type: object
                 plan_proposed:
                   properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
                     summary:
                       title: Summary
                       type: string
                     steps:
                       items:
-                        $ref: '#/components/schemas/BackendPlanStep'
+                        additionalProperties: true
+                        type: object
                       title: Steps
                       type: array
+                    edges:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Edges
+                      type: array
+                    plan_text:
+                      default: ''
+                      title: Plan Text
+                      type: string
+                    required_connectors:
+                      default: []
+                      items:
+                        type: string
+                      title: Required Connectors
+                      type: array
                   required:
-                  - summary
-                  - steps
+                    - plan_id
+                    - summary
+                    - steps
                   title: PlanProposedEvent
                   type: object
                 plan_approved:
-                  properties: {}
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                  required:
+                    - plan_id
                   title: PlanApprovedEvent
                   type: object
                 plan_countered:
                   properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
                     counter_text:
                       title: Counter Text
                       type: string
+                  required:
+                    - plan_id
+                    - counter_text
                   title: PlanCounteredEvent
                   type: object
                 plan_cancelled:
-                  properties: {}
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                  required:
+                    - plan_id
                   title: PlanCancelledEvent
                   type: object
                 step_started:
                   properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
                     step_id:
                       title: Step Id
                       type: string
                   required:
-                  - step_id
+                    - plan_id
+                    - step_id
                   title: StepStartedEvent
                   type: object
                 step_completed:
                   properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
                     step_id:
                       title: Step Id
                       type: string
-                    result_preview:
-                      anyOf:
-                      - type: string
-                      - type: 'null'
-                      title: Result Preview
                   required:
-                  - step_id
+                    - plan_id
+                    - step_id
                   title: StepCompletedEvent
                   type: object
                 step_failed:
                   properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
                     step_id:
                       title: Step Id
                       type: string
@@ -161,22 +410,182 @@ paths:
                       title: Error
                       type: string
                   required:
-                  - step_id
-                  - error
+                    - plan_id
+                    - step_id
+                    - error
                   title: StepFailedEvent
                   type: object
-                user_prompt:
+                reasoning_heading:
+                  description: |-
+                    Opens a new reasoning section. Subsequent `reasoning_body` events
+                    append to this section's body until the next `reasoning_heading`
+                    or the first `content` event.
                   properties:
-                    kind:
-                      title: Kind
+                    type:
+                      default: reasoning_heading
+                      title: Type
                       type: string
-                    prompt_id:
-                      title: Prompt Id
+                    content:
+                      title: Content
                       type: string
                   required:
-                  - kind
-                  - prompt_id
-                  title: UserPromptEvent
+                    - content
+                  title: ReasoningHeadingEvent
+                  type: object
+                reasoning_body:
+                  description: Appends a delta to the current reasoning section's body.
+                  properties:
+                    type:
+                      default: reasoning_body
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningBodyEvent
+                  type: object
+                reasoning:
+                  description: |-
+                    Legacy: full raw reasoning text delta. Kept for backward compat —
+                    new clients should use `reasoning_heading` + `reasoning_body` instead.
+                  properties:
+                    type:
+                      default: reasoning
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningEvent
+                  type: object
+                content:
+                  description: Token of the assistant's visible answer. Concat into the answer text.
+                  properties:
+                    type:
+                      default: content
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ContentEvent
+                  type: object
+                tool_calls_streaming:
+                  description: |-
+                    Tool name + argument fragments arriving live, before tool execution
+                    starts. UX hint so the frontend can show 'Calling X…'.
+                  properties:
+                    type:
+                      default: tool_calls_streaming
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Tool Call
+                  required:
+                    - content
+                  title: ToolCallsStreamingEvent
+                  type: object
+                tool_executing:
+                  description: Tool just started running (after args fully streamed and parsed).
+                  properties:
+                    type:
+                      default: tool_executing
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      additionalProperties: true
+                      title: Tool Call
+                      type: object
+                  required:
+                    - content
+                    - tool_call
+                  title: ToolExecutingEvent
+                  type: object
+                tool_complete:
+                  description: Tool finished. `tool_call.result` is a string preview (capped 8KB).
+                  properties:
+                    type:
+                      default: tool_complete
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      additionalProperties: true
+                      title: Tool Call
+                      type: object
+                  required:
+                    - content
+                    - tool_call
+                  title: ToolCompleteEvent
+                  type: object
+                done:
+                  description: |-
+                    End of an agentic round. The final `done` is followed by
+                    `message_saved`. `finish_reason` of `length`, `incomplete`, or
+                    `content_filter` indicates a truncated response.
+                  properties:
+                    type:
+                      default: done
+                      title: Type
+                      type: string
+                    usage:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Usage
+                    reasoning_details:
+                      anyOf:
+                        - items: {}
+                          type: array
+                        - type: 'null'
+                      title: Reasoning Details
+                    tool_calls:
+                      anyOf:
+                        - items:
+                            additionalProperties: true
+                            type: object
+                          type: array
+                        - type: 'null'
+                      title: Tool Calls
+                    finish_reason:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Finish Reason
+                  title: DoneEvent
+                  type: object
+                error:
+                  description: Stream-level error. May still be followed by a final `done`.
+                  properties:
+                    type:
+                      default: error
+                      title: Type
+                      type: string
+                    error:
+                      title: Error
+                      type: string
+                  required:
+                    - error
+                  title: ErrorEvent
                   type: object
         '422':
           description: Validation Error
@@ -185,68 +594,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
-  /brain/rename:
-    patch:
-      tags:
-      - brain
-      summary: Rename
-      operationId: rename_brain_chat_brain_rename_patch
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenameBrainChat'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: string
-                title: Response Rename Brain Chat Brain Rename Patch
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /brain/{chat_id}/stream:
     post:
       tags:
-      - brain
+        - brain
       summary: Stream Brain Message
       operationId: stream_brain_message_brain__chat_id__stream_post
+      security:
+        - HTTPBearer: []
       parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       requestBody:
+        required: true
         content:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/Body_stream_brain_message_brain__chat_id__stream_post'
-        required: true
       responses:
         '200':
-          description: "Streaming Brain orchestrator response via Server-Sent Events.\n\
-            \nTwo kinds of events arrive on the same SSE stream:\n\n**Named events**\
-            \ (`event: <name>\\ndata: {...}`) — lifecycle, tools, model:\n\n\
-            - **`message_saved`**\n- **`title`**\n- **`web_search`**\n- **`image`**\n\
-            - **`generated_file`**\n- **`tool_progress`**\n- **`tool_connect_prompt`**\n\
-            - **`user_prompt`**\n- **`plan_proposed`**\n- **`plan_approved`**\n- **`plan_countered`**\n\
-            - **`plan_cancelled`**\n- **`step_started`**\n- **`step_completed`**\n\
-            - **`step_failed`**\n\n**Inline events** (`data: {\"type\":\"<name>\",...}`)\
-            \ — streaming LLM tokens, reasoning, tool execution:\n\n- **`reasoning_heading`**\n\
-            - **`reasoning_body`**\n- **`reasoning`**\n- **`content`**\n- **`tool_calls_streaming`**\n\
-            - **`tool_executing`**\n- **`tool_complete`**\n- **`done`**\n- **`error`**"
+          description: |-
+            Streaming Brain orchestrator response via Server-Sent Events.
+
+            Two kinds of events arrive on the same SSE stream:
+
+            **Named events** (`event: <name>\ndata: {...}`) — lifecycle, tools, model:
+
+            - **`message_saved`**
+            - **`title`**
+            - **`web_search`**
+            - **`image`**
+            - **`generated_file`**
+            - **`tool_progress`**
+            - **`tool_connect_prompt`**
+            - **`user_prompt`**
+            - **`plan_proposed`**
+            - **`plan_approved`**
+            - **`plan_countered`**
+            - **`plan_cancelled`**
+            - **`step_started`**
+            - **`step_completed`**
+            - **`step_failed`**
+
+            **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
+
+            - **`reasoning_heading`**
+            - **`reasoning_body`**
+            - **`reasoning`**
+            - **`content`**
+            - **`tool_calls_streaming`**
+            - **`tool_executing`**
+            - **`tool_complete`**
+            - **`done`**
+            - **`error`**
           content:
             application/json:
               schema: {}
@@ -254,130 +660,636 @@ paths:
               schema:
                 type: string
                 description: SSE stream
+              x-sse-events:
+                message_saved:
+                  properties:
+                    message_id:
+                      title: Message Id
+                      type: string
+                  required:
+                    - message_id
+                  title: MessageSavedEvent
+                  type: object
+                title:
+                  properties:
+                    title:
+                      title: Title
+                      type: string
+                  required:
+                    - title
+                  title: TitleEvent
+                  type: object
+                web_search:
+                  properties:
+                    query:
+                      title: Query
+                      type: string
+                    links:
+                      items: {}
+                      title: Links
+                      type: array
+                  required:
+                    - query
+                    - links
+                  title: WebSearchEvent
+                  type: object
+                image:
+                  properties:
+                    url:
+                      title: Url
+                      type: string
+                    s3_key:
+                      title: S3 Key
+                      type: string
+                  required:
+                    - url
+                    - s3_key
+                  title: ImageEvent
+                  type: object
+                generated_file:
+                  properties:
+                    url:
+                      title: Url
+                      type: string
+                    s3_key:
+                      title: S3 Key
+                      type: string
+                    filename:
+                      title: Filename
+                      type: string
+                    mime_type:
+                      title: Mime Type
+                      type: string
+                  required:
+                    - url
+                    - s3_key
+                    - filename
+                    - mime_type
+                  title: GeneratedFileEvent
+                  type: object
+                tool_progress:
+                  properties:
+                    tool:
+                      title: Tool
+                      type: string
+                    label:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Label
+                    status:
+                      title: Status
+                      type: string
+                    filename:
+                      title: Filename
+                      type: string
+                    step:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step
+                    message:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Message
+                    code_preview:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Code Preview
+                    elapsed_seconds:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                      title: Elapsed Seconds
+                    percent:
+                      anyOf:
+                        - type: number
+                        - type: 'null'
+                      title: Percent
+                    detail:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Detail
+                  required:
+                    - tool
+                    - status
+                    - filename
+                  title: ToolProgressEvent
+                  type: object
+                tool_connect_prompt:
+                  description: |-
+                    The model called a connector tool for an app the user hasn't linked.
+                    The UI renders a 'Connect <App>' button; clicking it opens the OAuth or
+                    API-key flow, then the user resends their message.
+                  properties:
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    auth_mode:
+                      title: Auth Mode
+                      type: string
+                    tool_name:
+                      title: Tool Name
+                      type: string
+                    request_id:
+                      title: Request Id
+                      type: string
+                  required:
+                    - connector_slug
+                    - display_name
+                    - auth_mode
+                    - tool_name
+                    - request_id
+                  title: ToolConnectPromptEvent
+                  type: object
+                user_prompt:
+                  description: |-
+                    Generic mid-stream "the model is asking the user something" event.
+
+                    The same event handles connector permission asks, plan approvals,
+                    destructive-action confirmations, and free-text clarifications.
+                    Backend code calls `core.prompt_gate.ask_user(...)` which emits this
+                    event and blocks until the FE POSTs to `respond_url`.
+
+                    Fields:
+                      prompt_id    — UUID; FE POSTs to /chats/prompts/{prompt_id}.
+                      kind         — "permission" | "confirm" | "choice" | "input".
+                      title        — headline rendered in the assistant message.
+                      description  — optional longer body.
+                      options      — for choice-style kinds, [{value, label, style?}].
+                      metadata     — kind-specific context (e.g. {connector_slug, tool_slug,
+                                     suggested_args} for permission asks). FE renders or
+                                     ignores per its UI.
+                      respond_url  — server-built path to POST the response to.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    kind:
+                      title: Kind
+                      type: string
+                    title:
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                    metadata:
+                      additionalProperties: true
+                      default: {}
+                      title: Metadata
+                      type: object
+                    respond_url:
+                      default: ''
+                      title: Respond Url
+                      type: string
+                  required:
+                    - prompt_id
+                    - kind
+                    - title
+                  title: UserPromptEvent
+                  type: object
+                plan_proposed:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    summary:
+                      title: Summary
+                      type: string
+                    steps:
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Steps
+                      type: array
+                    edges:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Edges
+                      type: array
+                    plan_text:
+                      default: ''
+                      title: Plan Text
+                      type: string
+                    required_connectors:
+                      default: []
+                      items:
+                        type: string
+                      title: Required Connectors
+                      type: array
+                  required:
+                    - plan_id
+                    - summary
+                    - steps
+                  title: PlanProposedEvent
+                  type: object
+                plan_approved:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                  required:
+                    - plan_id
+                  title: PlanApprovedEvent
+                  type: object
+                plan_countered:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    counter_text:
+                      title: Counter Text
+                      type: string
+                  required:
+                    - plan_id
+                    - counter_text
+                  title: PlanCounteredEvent
+                  type: object
+                plan_cancelled:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                  required:
+                    - plan_id
+                  title: PlanCancelledEvent
+                  type: object
+                step_started:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                  required:
+                    - plan_id
+                    - step_id
+                  title: StepStartedEvent
+                  type: object
+                step_completed:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                  required:
+                    - plan_id
+                    - step_id
+                  title: StepCompletedEvent
+                  type: object
+                step_failed:
+                  properties:
+                    plan_id:
+                      title: Plan Id
+                      type: string
+                    step_id:
+                      title: Step Id
+                      type: string
+                    error:
+                      title: Error
+                      type: string
+                  required:
+                    - plan_id
+                    - step_id
+                    - error
+                  title: StepFailedEvent
+                  type: object
+                reasoning_heading:
+                  description: |-
+                    Opens a new reasoning section. Subsequent `reasoning_body` events
+                    append to this section's body until the next `reasoning_heading`
+                    or the first `content` event.
+                  properties:
+                    type:
+                      default: reasoning_heading
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningHeadingEvent
+                  type: object
+                reasoning_body:
+                  description: Appends a delta to the current reasoning section's body.
+                  properties:
+                    type:
+                      default: reasoning_body
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningBodyEvent
+                  type: object
+                reasoning:
+                  description: |-
+                    Legacy: full raw reasoning text delta. Kept for backward compat —
+                    new clients should use `reasoning_heading` + `reasoning_body` instead.
+                  properties:
+                    type:
+                      default: reasoning
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningEvent
+                  type: object
+                content:
+                  description: Token of the assistant's visible answer. Concat into the answer text.
+                  properties:
+                    type:
+                      default: content
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ContentEvent
+                  type: object
+                tool_calls_streaming:
+                  description: |-
+                    Tool name + argument fragments arriving live, before tool execution
+                    starts. UX hint so the frontend can show 'Calling X…'.
+                  properties:
+                    type:
+                      default: tool_calls_streaming
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Tool Call
+                  required:
+                    - content
+                  title: ToolCallsStreamingEvent
+                  type: object
+                tool_executing:
+                  description: Tool just started running (after args fully streamed and parsed).
+                  properties:
+                    type:
+                      default: tool_executing
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      additionalProperties: true
+                      title: Tool Call
+                      type: object
+                  required:
+                    - content
+                    - tool_call
+                  title: ToolExecutingEvent
+                  type: object
+                tool_complete:
+                  description: Tool finished. `tool_call.result` is a string preview (capped 8KB).
+                  properties:
+                    type:
+                      default: tool_complete
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                    tool_call:
+                      additionalProperties: true
+                      title: Tool Call
+                      type: object
+                  required:
+                    - content
+                    - tool_call
+                  title: ToolCompleteEvent
+                  type: object
+                done:
+                  description: |-
+                    End of an agentic round. The final `done` is followed by
+                    `message_saved`. `finish_reason` of `length`, `incomplete`, or
+                    `content_filter` indicates a truncated response.
+                  properties:
+                    type:
+                      default: done
+                      title: Type
+                      type: string
+                    usage:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Usage
+                    reasoning_details:
+                      anyOf:
+                        - items: {}
+                          type: array
+                        - type: 'null'
+                      title: Reasoning Details
+                    tool_calls:
+                      anyOf:
+                        - items:
+                            additionalProperties: true
+                            type: object
+                          type: array
+                        - type: 'null'
+                      title: Tool Calls
+                    finish_reason:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Finish Reason
+                  title: DoneEvent
+                  type: object
+                error:
+                  description: Stream-level error. May still be followed by a final `done`.
+                  properties:
+                    type:
+                      default: error
+                      title: Type
+                      type: string
+                    error:
+                      title: Error
+                      type: string
+                  required:
+                    - error
+                  title: ErrorEvent
+                  type: object
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
   /brain/{chat_id}/messages:
     get:
       tags:
-      - brain
+        - brain
       summary: Get Messages
-      operationId: get_brain_messages_brain__chat_id__messages_get
+      operationId: get_messages_brain__chat_id__messages_get
+      security:
+        - HTTPBearer: []
       parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/BrainMessage'
-                type: array
-                title: Response Get Brain Messages
+                title: Response Get Messages Brain  Chat Id  Messages Get
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
   /brain/{chat_id}/plans:
     get:
       tags:
-      - brain
+        - brain
       summary: Get Chat Plans
-      operationId: get_brain_chat_plans_brain__chat_id__plans_get
+      operationId: get_chat_plans_brain__chat_id__plans_get
+      security:
+        - HTTPBearer: []
       parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/BrainPlanResponse'
-                type: array
-                title: Response Get Brain Chat Plans
+                title: Response Get Chat Plans Brain  Chat Id  Plans Get
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
   /brain/{chat_id}/stop:
     post:
       tags:
-      - brain
+        - brain
       summary: Stop
-      operationId: stop_brain_chat_brain__chat_id__stop_post
+      operationId: stop_brain__chat_id__stop_post
+      security:
+        - HTTPBearer: []
       parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
-              schema:
-                type: string
-                title: Response Stop Brain Chat
+              schema: {}
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
   /brain/{chat_id}/star:
     patch:
       tags:
-      - brain
+        - brain
       summary: Star
-      operationId: star_brain_chat_brain__chat_id__star_patch
+      operationId: star_brain__chat_id__star_patch
+      security:
+        - HTTPBearer: []
       parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
               schema:
-                type: string
-                title: Response Star Brain Chat
+                $ref: '#/components/schemas/HTTPValidationError'
+  /brain/rename:
+    patch:
+      tags:
+        - brain
+      summary: Rename
+      operationId: rename_brain_rename_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameChat'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -385,309 +1297,244 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
 components:
   schemas:
-    BackendPlanStep:
-      properties:
-        id:
-          title: Id
-          type: string
-        title:
-          title: Title
-          type: string
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        kind:
-          title: Kind
-          type: string
-          enum:
-          - skill
-          - connector
-          - tool
-          - synthesis
-        tool:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Tool
-        connector_slug:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Connector Slug
-        depends_on:
-          anyOf:
-          - items:
-              type: string
-            type: array
-          - type: 'null'
-          title: Depends On
-        status:
-          anyOf:
-          - type: string
-            enum:
-            - pending
-            - running
-            - completed
-            - failed
-          - type: 'null'
-          title: Status
-        result_preview:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Result Preview
-        error:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error
-        started_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Started At
-        completed_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Completed At
-      required:
-      - id
-      - title
-      - kind
-      title: BackendPlanStep
-      type: object
-    BrainChatListItem:
-      properties:
-        id:
-          title: Id
-          type: string
-          format: uuid
-        chat_title:
-          title: Chat Title
-          type: string
-        starred:
-          title: Starred
-          type: boolean
-          default: false
-        message_count:
-          title: Message Count
-          type: integer
-          default: 0
-        created_at:
-          title: Created At
-          type: string
-          format: date-time
-        updated_at:
-          title: Updated At
-          type: string
-          format: date-time
-      required:
-      - id
-      - chat_title
-      - created_at
-      - updated_at
-      title: BrainChatListItem
-      type: object
-    BrainMessage:
-      properties:
-        id:
-          title: Id
-          type: string
-          format: uuid
-        input:
-          title: Input
-          type: string
-        output:
-          title: Output
-          type: string
-          default: ''
-        reasoning:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reasoning
-        reasoning_sections:
-          anyOf:
-          - items: {}
-            type: array
-          - type: 'null'
-          title: Reasoning Sections
-        model_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Model Name
-        created_at:
-          title: Created At
-          type: string
-          format: date-time
-        tool_calls:
-          anyOf:
-          - items: {}
-            type: array
-          - type: 'null'
-          title: Tool Calls
-        plan:
-          anyOf:
-          - $ref: '#/components/schemas/BrainPlanResponse'
-          - type: 'null'
-      required:
-      - id
-      - input
-      - created_at
-      title: BrainMessage
-      type: object
-    BrainPlanResponse:
-      properties:
-        id:
-          title: Id
-          type: string
-          format: uuid
-        status:
-          title: Status
-          type: string
-        supersedes_id:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Supersedes Id
-        counter_text:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Counter Text
-        plan_json:
-          title: Plan Json
-          type: object
-        final_error:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Final Error
-        created_at:
-          title: Created At
-          type: string
-          format: date-time
-      required:
-      - id
-      - status
-      - plan_json
-      - created_at
-      title: BrainPlanResponse
-      type: object
     Body_create_brain_chat_brain_create_post:
       properties:
         input:
-          title: Input
           type: string
+          title: Input
         persona_id:
           anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
+            - type: string
+              format: uuid
+            - type: 'null'
           title: Persona Id
         pin_ids:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Pin Ids
         use_mistral_ocr:
-          anyOf:
-          - type: boolean
-          - type: 'null'
+          type: boolean
           title: Use Mistral Ocr
-      required:
-      - input
-      title: Body_create_brain_chat_brain_create_post
+          default: false
       type: object
+      required:
+        - input
+      title: Body_create_brain_chat_brain_create_post
     Body_stream_brain_message_brain__chat_id__stream_post:
       properties:
         input:
-          title: Input
           type: string
+          title: Input
         persona_id:
           anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
+            - type: string
+              format: uuid
+            - type: 'null'
           title: Persona Id
         pin_ids:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Pin Ids
         use_mistral_ocr:
-          anyOf:
-          - type: boolean
-          - type: 'null'
+          type: boolean
           title: Use Mistral Ocr
+          default: false
+      type: object
       required:
-      - input
+        - input
       title: Body_stream_brain_message_brain__chat_id__stream_post
-      type: object
-    DeleteBrainChat:
+    BrainChatListItem:
       properties:
-        chat_id:
-          title: Chat Id
+        id:
           type: string
           format: uuid
-      required:
-      - chat_id
-      title: DeleteBrainChat
-      type: object
-    RenameBrainChat:
-      properties:
-        chat_id:
-          title: Chat Id
-          type: string
-          format: uuid
+          title: Id
         chat_title:
-          title: Chat Title
           type: string
-      required:
-      - chat_id
-      - chat_title
-      title: RenameBrainChat
+          title: Chat Title
+        starred:
+          type: boolean
+          title: Starred
+          default: false
+        message_count:
+          type: integer
+          title: Message Count
+          default: 0
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Updated At
       type: object
+      required:
+        - id
+        - chat_title
+      title: BrainChatListItem
+      description: Row returned by GET /brain (one per Brain chat).
+    BrainMessage:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        input:
+          type: string
+          title: Input
+        output:
+          type: string
+          title: Output
+          default: ''
+        reasoning:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Reasoning
+        reasoning_sections:
+          anyOf:
+            - items: {}
+              type: array
+            - type: 'null'
+          title: Reasoning Sections
+        model_name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Model Name
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        tool_calls:
+          anyOf:
+            - items: {}
+              type: array
+            - type: 'null'
+          title: Tool Calls
+        plan:
+          anyOf:
+            - $ref: '#/components/schemas/BrainPlanResponse'
+            - type: 'null'
+      type: object
+      required:
+        - id
+        - input
+      title: BrainMessage
+      description: Returned by GET /brain/{chat_id}/messages — one row per turn.
+    BrainPlanResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        supersedes_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Supersedes Id
+        counter_text:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Counter Text
+        plan_json:
+          additionalProperties: true
+          type: object
+          title: Plan Json
+        final_error:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Final Error
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+      type: object
+      required:
+        - id
+        - status
+        - plan_json
+      title: BrainPlanResponse
+      description: One BrainPlan row, surfaced inline on a Brain message GET.
+    DeleteChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+      type: object
+      required:
+        - chat_id
+      title: DeleteChat
     HTTPValidationError:
       properties:
         detail:
           items:
             $ref: '#/components/schemas/ValidationError'
-          title: Detail
           type: array
-      title: HTTPValidationError
+          title: Detail
       type: object
+      title: HTTPValidationError
+    RenameChat:
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+          title: Chat Id
+        chat_title:
+          type: string
+          title: Chat Title
+      type: object
+      required:
+        - chat_id
+        - chat_title
+      title: RenameChat
     ValidationError:
       properties:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
-          title: Location
+              - type: string
+              - type: integer
           type: array
+          title: Location
         msg:
+          type: string
           title: Message
-          type: string
         type:
-          title: Error Type
           type: string
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
       type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
   securitySchemes:
     HTTPBearer:
       type: http

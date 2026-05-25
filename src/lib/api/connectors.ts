@@ -15,14 +15,15 @@ export interface ConnectorTool {
 }
 
 export interface ConnectorCatalogEntry {
-  slug:           string
-  display_name:   string
-  auth_mode:      'oauth2' | 'api_key'
-  description:    string
-  tools:          ConnectorTool[]
-  api_key_fields: string[]
-  linked:         boolean
-  icon_url?:      string
+  slug:            string
+  display_name:    string
+  auth_mode:       'oauth2' | 'api_key'
+  description:     string
+  tools?:          ConnectorTool[]
+  api_key_fields?: string[]
+  linked:          boolean
+  /** Not in OpenAPI spec — kept for back-compat with code that reads it. */
+  icon_url?:       string
 }
 
 export interface ConnectorListResponse {

@@ -12,6 +12,8 @@ export interface ScheduleCardProps {
   /** Human-readable frequency label — e.g. "Daily 8:00 AM". */
   frequency:    string
   isActive:     boolean
+  /** Brain chat permanently bound to this schedule (set once on create). */
+  chatId?:      string
   onClick?:     (id: string) => void
 }
 

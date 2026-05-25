@@ -1,0 +1,272 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Connectors
+  version: 0.1.0
+paths:
+  /connectors:
+    get:
+      tags:
+        - connectors
+      summary: List Connectors
+      operationId: list_connectors_connectors_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorListResponse'
+      security:
+        - HTTPBearer: []
+  /connectors/{slug}:
+    get:
+      tags:
+        - connectors
+      summary: Get Connector
+      operationId: get_connector_connectors__slug__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorCatalogEntry'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+        - connectors
+      summary: Update Connector
+      operationId: update_connector_connectors__slug__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConnectorRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorCatalogEntry'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+        - connectors
+      summary: Unlink Connector
+      operationId: unlink_connector_connectors__slug__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /connectors/{slug}/link:
+    post:
+      tags:
+        - connectors
+      summary: Initiate Link
+      operationId: initiate_link_connectors__slug__link_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    ConnectorCatalogEntry:
+      properties:
+        slug:
+          type: string
+          title: Slug
+        display_name:
+          type: string
+          title: Display Name
+        auth_mode:
+          type: string
+          enum:
+            - oauth2
+            - api_key
+          title: Auth Mode
+        description:
+          type: string
+          title: Description
+        tools:
+          items:
+            $ref: '#/components/schemas/ToolEntry'
+          type: array
+          title: Tools
+        api_key_fields:
+          items:
+            type: string
+          type: array
+          title: Api Key Fields
+        linked:
+          type: boolean
+          title: Linked
+      type: object
+      required:
+        - slug
+        - display_name
+        - auth_mode
+        - description
+        - linked
+      title: ConnectorCatalogEntry
+    ConnectorListResponse:
+      properties:
+        connectors:
+          items:
+            $ref: '#/components/schemas/ConnectorCatalogEntry'
+          type: array
+          title: Connectors
+      type: object
+      required:
+        - connectors
+      title: ConnectorListResponse
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LinkResponse:
+      properties:
+        connector_slug:
+          type: string
+          title: Connector Slug
+        redirect_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Redirect Url
+      type: object
+      required:
+        - connector_slug
+      title: LinkResponse
+    ToolEntry:
+      properties:
+        slug:
+          type: string
+          title: Slug
+        policy:
+          type: string
+          enum:
+            - allow
+            - block
+            - ask
+            - allow_once
+          title: Policy
+          default: ask
+      type: object
+      required:
+        - slug
+      title: ToolEntry
+    UpdateConnectorRequest:
+      properties:
+        permissions:
+          anyOf:
+            - items:
+                $ref: '#/components/schemas/ToolEntry'
+              type: array
+            - type: 'null'
+          title: Permissions
+        credentials:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+            - type: 'null'
+          title: Credentials
+      type: object
+      title: UpdateConnectorRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

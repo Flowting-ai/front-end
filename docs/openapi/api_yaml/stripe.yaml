@@ -6,7 +6,7 @@ paths:
   /stripe/checkout:
     post:
       tags:
-      - stripe
+        - stripe
       summary: Create Checkout
       operationId: create_checkout_stripe_checkout_post
       requestBody:
@@ -29,11 +29,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /stripe/topup:
     post:
       tags:
-      - stripe
+        - stripe
       summary: Create Topup
       operationId: create_topup_stripe_topup_post
       requestBody:
@@ -56,11 +56,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /stripe/subscription:
     delete:
       tags:
-      - stripe
+        - stripe
       summary: Cancel My Subscription
       operationId: cancel_my_subscription_stripe_subscription_delete
       responses:
@@ -70,7 +70,7 @@ paths:
             application/json:
               schema: {}
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
 components:
   schemas:
     CreateCheckoutSessionRequest:
@@ -83,7 +83,7 @@ components:
           default: monthly
       type: object
       required:
-      - plan_type
+        - plan_type
       title: CreateCheckoutSessionRequest
     CreateCheckoutSessionResponse:
       properties:
@@ -95,19 +95,19 @@ components:
           title: Session Id
       type: object
       required:
-      - checkout_url
-      - session_id
+        - checkout_url
+        - session_id
       title: CreateCheckoutSessionResponse
     CreateTopUpSessionRequest:
       properties:
         amount_usd:
           type: number
-          minimum: 1.0
+          minimum: 1
           title: Amount Usd
           description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
       type: object
       required:
-      - amount_usd
+        - amount_usd
       title: CreateTopUpSessionRequest
     CreateTopUpSessionResponse:
       properties:
@@ -116,7 +116,7 @@ components:
           title: Checkout Url
       type: object
       required:
-      - checkout_url
+        - checkout_url
       title: CreateTopUpSessionResponse
     HTTPValidationError:
       properties:
@@ -130,17 +130,17 @@ components:
     PlanType:
       type: string
       enum:
-      - starter
-      - pro
-      - power
+        - starter
+        - pro
+        - power
       title: PlanType
     ValidationError:
       properties:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
+              - type: string
+              - type: integer
           type: array
           title: Location
         msg:
@@ -156,9 +156,9 @@ components:
           title: Context
       type: object
       required:
-      - loc
-      - msg
-      - type
+        - loc
+        - msg
+        - type
       title: ValidationError
   securitySchemes:
     HTTPBearer:

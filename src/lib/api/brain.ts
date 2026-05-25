@@ -7,15 +7,16 @@ import { API_BASE_URL } from '../config'
 
 const withBase = (path: string) => `${API_BASE_URL}${path}`
 
-const BRAIN_BASE     = withBase('/brain')
-const BRAIN_CREATE   = withBase('/brain/create')
-const BRAIN_RENAME   = withBase('/brain/rename')
-const BRAIN_STREAM   = (chatId: string) => withBase(`/brain/${chatId}/stream`)
-const BRAIN_MESSAGES = (chatId: string) => withBase(`/brain/${chatId}/messages`)
-const BRAIN_PLANS    = (chatId: string) => withBase(`/brain/${chatId}/plans`)
-const BRAIN_STOP     = (chatId: string) => withBase(`/brain/${chatId}/stop`)
-const BRAIN_STAR     = (chatId: string) => withBase(`/brain/${chatId}/star`)
-const PROMPT_RESPOND = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
+const BRAIN_BASE      = withBase('/brain')
+const BRAIN_BOOTSTRAP = withBase('/brain/bootstrap')
+const BRAIN_CREATE    = withBase('/brain/create')
+const BRAIN_RENAME    = withBase('/brain/rename')
+const BRAIN_STREAM    = (chatId: string) => withBase(`/brain/${chatId}/stream`)
+const BRAIN_MESSAGES  = (chatId: string) => withBase(`/brain/${chatId}/messages`)
+const BRAIN_PLANS     = (chatId: string) => withBase(`/brain/${chatId}/plans`)
+const BRAIN_STOP      = (chatId: string) => withBase(`/brain/${chatId}/stop`)
+const BRAIN_STAR      = (chatId: string) => withBase(`/brain/${chatId}/star`)
+const PROMPT_RESPOND  = (promptId: string) => withBase(`/chats/prompts/${promptId}`)
 
 // ── Backend types ─────────────────────────────────────────────────────────────
 
@@ -42,42 +43,275 @@ export interface BackendPlanJson {
 }
 
 export interface BrainChatListItem {
-  id:            string
-  chat_title:    string
-  starred:       boolean
-  message_count: number
-  created_at:    string
-  updated_at:    string
+  id:             string
+  chat_title:     string
+  starred?:       boolean
+  message_count?: number
+  created_at?:    string | null
+  updated_at?:    string | null
 }
 
 export interface BrainPlanResponse {
   id:             string
-  status:         'proposed' | 'approved' | 'countered' | 'cancelled' | 'executing' | 'completed' | 'failed'
-  supersedes_id?: string
-  counter_text?:  string
+  status:         'proposed' | 'approved' | 'countered' | 'cancelled' | 'executing' | 'completed' | 'failed' | string
+  supersedes_id?: string | null
+  counter_text?:  string | null
   plan_json:      BackendPlanJson
-  final_error?:   string
-  created_at:     string
+  final_error?:   string | null
+  created_at?:    string | null
 }
 
 export interface BrainMessage {
   id:                  string
   input:               string
-  output:              string
-  reasoning?:          string
-  reasoning_sections?: unknown[]
-  model_name?:         string
-  created_at:          string
-  tool_calls?:         unknown[]
-  plan:                BrainPlanResponse | null
+  output?:             string
+  reasoning?:          string | null
+  reasoning_sections?: unknown[] | null
+  model_name?:         string | null
+  created_at?:         string | null
+  tool_calls?:         unknown[] | null
+  plan?:               BrainPlanResponse | null
 }
 
+// ── Bootstrap (GET /brain/bootstrap) ──────────────────────────────────────────
+// Hydrates the Brain page on mount: which persona is in scope, what the user's
+// context looks like, which pins/files/connectors are wired up, and the list
+// of models the user can switch to. Used to seed the ContextRail before the
+// first turn so the rail isn't empty when the user starts typing.
+
+export interface BootstrapPersona {
+  persona_id:      string
+  name:            string
+  handler:         string
+  prompt_preview?: string
+  model_id?:       string | null
+}
+
+export interface BootstrapUserContext {
+  first_name?: string
+  last_name?:  string
+  email?:      string
+  role?:       string
+  tone?:       string
+}
+
+export interface BootstrapPin {
+  pin_id:           string
+  title:            string
+  tags?:            string[]
+  content_preview?: string
+}
+
+export interface BootstrapFile {
+  file_id:    string
+  filename:   string
+  mime_type?: string
+  url?:       string
+}
+
+export type ConnectorStatus = 'connected' | 'disconnected' | 'failed' | 'pending'
+
+export interface BootstrapConnector {
+  slug:         string
+  display_name: string
+  auth_mode:    string
+  status:       ConnectorStatus | string
+  tool_count?:  number
+}
+
+export interface BootstrapModel {
+  model_id:             string
+  model_name:           string
+  deployment_name?:     string
+  description_preview?: string
+  supports_tool_use?:   boolean
+  input_modalities?:    string[]
+}
+
+export interface BootstrapProject {
+  project_id: string
+  name:       string
+}
+
+export interface BootstrapDocument {
+  document_id: string
+  filename:    string
+  mime_type?:  string
+}
+
+export interface BrainBootstrap {
+  persona?:         BootstrapPersona | null
+  user_context?:    BootstrapUserContext
+  pins?:            BootstrapPin[]
+  files?:           BootstrapFile[]
+  connectors?:      BootstrapConnector[]
+  available_models?: BootstrapModel[]
+  project?:         BootstrapProject | null
+  documents?:       BootstrapDocument[]
+  loaded_skills?:   string[]
+}
+
+// ── SSE event payloads (named) ────────────────────────────────────────────────
+// Mirror brain.yaml's x-sse-events. Optional fields use `?:` — required
+// per spec are typed as non-optional. UserPromptKind reflects the new
+// "permission" | "confirm" | "choice" | "input" vocabulary; plan approval
+// arrives as a `choice` prompt with approve/counter/cancel options.
+
+export interface MessageSavedEvent       { message_id: string }
+export interface TitleEvent              { title: string }
+export interface WebSearchEvent          { query: string; links: Array<Record<string, unknown> | string> }
+export interface ImageEvent              { url: string; s3_key: string }
+export interface GeneratedFileEvent      { url: string; s3_key: string; filename: string; mime_type: string }
+
+export interface ToolProgressEvent {
+  tool:            string
+  status:          string
+  filename:        string
+  label?:          string | null
+  step?:           string | null
+  message?:        string | null
+  code_preview?:   string | null
+  elapsed_seconds?: number | null
+  percent?:        number | null
+  detail?:         string | null
+}
+
+export interface ToolConnectPromptEvent {
+  connector_slug: string
+  display_name:   string
+  auth_mode:      string
+  tool_name:      string
+  request_id:     string
+}
+
+export type UserPromptKind = 'permission' | 'confirm' | 'choice' | 'input'
+
+export interface UserPromptOption {
+  value:  string
+  label:  string
+  style?: 'primary' | 'secondary' | 'destructive' | string
+}
+
+export interface UserPromptEvent {
+  prompt_id:    string
+  kind:         UserPromptKind | string
+  title:        string
+  description?: string
+  options?:     UserPromptOption[]
+  metadata?:    Record<string, unknown>
+  respond_url?: string
+}
+
+export interface PlanProposedEvent {
+  plan_id:              string
+  summary:              string
+  steps:                BackendPlanStep[]
+  edges?:               Array<Record<string, unknown>>
+  plan_text?:           string
+  required_connectors?: string[]
+}
+
+export interface PlanApprovedEvent  { plan_id: string }
+export interface PlanCounteredEvent { plan_id: string; counter_text: string }
+export interface PlanCancelledEvent { plan_id: string }
+export interface StepStartedEvent   { plan_id: string; step_id: string }
+export interface StepCompletedEvent { plan_id: string; step_id: string }
+export interface StepFailedEvent    { plan_id: string; step_id: string; error: string }
+
+// Map of named event name → payload shape. Add new events here; the
+// dispatcher in page.tsx is type-checked against this map.
+export interface BrainNamedEvents {
+  message_saved:       MessageSavedEvent
+  title:               TitleEvent
+  web_search:          WebSearchEvent
+  image:               ImageEvent
+  generated_file:      GeneratedFileEvent
+  tool_progress:       ToolProgressEvent
+  tool_connect_prompt: ToolConnectPromptEvent
+  user_prompt:         UserPromptEvent
+  plan_proposed:       PlanProposedEvent
+  plan_approved:       PlanApprovedEvent
+  plan_countered:      PlanCounteredEvent
+  plan_cancelled:      PlanCancelledEvent
+  step_started:        StepStartedEvent
+  step_completed:      StepCompletedEvent
+  step_failed:         StepFailedEvent
+}
+
+// ── SSE event payloads (inline) ───────────────────────────────────────────────
+// Inline events arrive as `data: {"type": "<name>", ...}` with no `event:`
+// header. Discriminated on `type`.
+
+export interface ReasoningHeadingInline    { type: 'reasoning_heading'; content: string }
+export interface ReasoningBodyInline       { type: 'reasoning_body';    content: string }
+export interface ReasoningInline           { type: 'reasoning';         content: string }
+export interface ContentInline             { type: 'content';           content: string }
+
+export interface ToolCallPreview {
+  id?:        string
+  name?:      string
+  arguments?: string | Record<string, unknown>
+  result?:    string
+  status?:    string
+}
+
+export interface ToolCallsStreamingInline {
+  type:       'tool_calls_streaming'
+  content:    string
+  tool_call?: ToolCallPreview | null
+}
+
+export interface ToolExecutingInline {
+  type:      'tool_executing'
+  content:   string
+  tool_call: ToolCallPreview
+}
+
+export interface ToolCompleteInline {
+  type:      'tool_complete'
+  content:   string
+  tool_call: ToolCallPreview
+}
+
+export interface DoneInline {
+  type:               'done'
+  usage?:             Record<string, unknown> | null
+  reasoning_details?: unknown[] | null
+  tool_calls?:        ToolCallPreview[] | null
+  finish_reason?:     string | null
+}
+
+export interface ErrorInline {
+  type:  'error'
+  error: string
+}
+
+export type BrainInlineEvent =
+  | ReasoningHeadingInline
+  | ReasoningBodyInline
+  | ReasoningInline
+  | ContentInline
+  | ToolCallsStreamingInline
+  | ToolExecutingInline
+  | ToolCompleteInline
+  | DoneInline
+  | ErrorInline
+
 // ── Prompt response body ──────────────────────────────────────────────────────
+// Plan prompts use the documented approve/counter/cancel shape. Non-plan
+// kinds (choice/input/confirm/permission) follow the same envelope but
+// carry kind-specific fields — `value` for choice/input, `decision: 'skip'`
+// for user-skipped clarifications, `decision: 'confirm'|'deny'` for confirm.
+// The shape is intentionally open: the backend validates per prompt.
 
 export type PromptResponseBody =
   | { response: { decision: 'approve' } }
   | { response: { decision: 'counter'; counter_text: string } }
   | { response: { decision: 'cancel' } }
+  | { response: { decision: 'select'; value: string } }
+  | { response: { decision: 'submit'; value: string } }
+  | { response: { decision: 'skip' } }
+  | { response: Record<string, unknown> }
 
 // ── SSE callbacks ─────────────────────────────────────────────────────────────
 
@@ -91,9 +325,27 @@ export interface BrainSSECallbacks {
 // ── SSE stream consumer ───────────────────────────────────────────────────────
 
 /**
+ * Max gap between any bytes from the server before we declare the stream
+ * dead. The backend sends `event: stream_heartbeat` every ~5s while blocked
+ * on user prompts, but during model thinking and tool execution it can fall
+ * silent for tens of seconds — extended-thinking turns and slow tools both
+ * produce zero events until they're done. Two minutes covers realistic
+ * worst-case latency while still catching a truly wedged backend.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 120_000
+
+/**
  * Reads a Brain SSE response body until the stream closes.
- * Named events  ("event: <name>\ndata: {...}")  → callbacks.onNamed
- * Inline events ("data: {...}")                 → callbacks.onInline
+ *
+ * Spec-compliant parsing: tolerates `\r\n` / `\n` line endings, optional
+ * space after `event:` / `data:`, and multi-line `data:` (joined with `\n`
+ * before JSON.parse, per WHATWG EventSource spec).
+ *
+ * Named events  (`event: <name>\ndata: {...}`)  → callbacks.onNamed
+ * Inline events (`data: {...}`)                 → callbacks.onInline
+ *
+ * Idle watchdog: if no chunk arrives for STREAM_IDLE_TIMEOUT_MS, the reader
+ * is cancelled and `onError` is invoked with a timeout error.
  */
 export async function consumeBrainStream(
   response: Response,
@@ -108,37 +360,74 @@ export async function consumeBrainStream(
   const reader  = response.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  let timedOut = false
+  let watchdog: ReturnType<typeof setTimeout> | null = null
+
+  const armWatchdog = () => {
+    if (watchdog) clearTimeout(watchdog)
+    watchdog = setTimeout(() => {
+      timedOut = true
+      reader.cancel().catch(() => {})
+    }, STREAM_IDLE_TIMEOUT_MS)
+  }
+  armWatchdog()
+
+  // Matches `\n\n`, `\r\n\r\n`, and the mixed forms — per the SSE spec, any
+  // of CR / LF / CRLF is a valid line terminator.
+  const boundaryRe = /\r?\n\r?\n/
 
   try {
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
       buf += decoder.decode(value, { stream: true })
+      armWatchdog()
 
-      let idx: number
-      while ((idx = buf.indexOf('\n\n')) !== -1) {
-        const raw = buf.slice(0, idx)
-        buf = buf.slice(idx + 2)
+      let m: RegExpExecArray | null
+      while ((m = boundaryRe.exec(buf)) !== null) {
+        const block = buf.slice(0, m.index)
+        buf = buf.slice(m.index + m[0].length)
+        if (!block) continue
 
-        const lines = raw.split('\n')
         let eventName = ''
-        let dataStr   = ''
-        for (const line of lines) {
-          if (line.startsWith('event: '))     eventName = line.slice(7).trim()
-          else if (line.startsWith('data: ')) dataStr  += line.slice(6)
+        const dataLines: string[] = []
+        for (const rawLine of block.split(/\r?\n/)) {
+          if (rawLine.startsWith('event:')) {
+            const v = rawLine.slice(6)
+            eventName = v.startsWith(' ') ? v.slice(1) : v
+          } else if (rawLine.startsWith('data:')) {
+            const v = rawLine.slice(5)
+            dataLines.push(v.startsWith(' ') ? v.slice(1) : v)
+          }
+          // `id:`, `retry:`, `:` comments, and blank lines are ignored.
         }
-        if (!dataStr) continue
+        if (dataLines.length === 0) continue
 
+        const dataStr = dataLines.join('\n')
         let data: unknown
-        try { data = JSON.parse(dataStr) } catch { continue }
+        try {
+          data = JSON.parse(dataStr)
+        } catch {
+          console.warn('[Brain SSE] failed to parse data block:', dataStr.slice(0, 200))
+          continue
+        }
 
         if (eventName) callbacks.onNamed(eventName, data)
         else           callbacks.onInline(data)
       }
     }
   } catch (e) {
-    callbacks.onError?.(e instanceof Error ? e : new Error(String(e)))
+    // Cancelling via the watchdog resolves read() with {done:true}; only
+    // genuine fetch/abort errors land here. AbortError (user-initiated stop)
+    // is forwarded as-is so the caller can recognise it.
+    if (!timedOut) {
+      callbacks.onError?.(e instanceof Error ? e : new Error(String(e)))
+    }
   } finally {
+    if (watchdog) clearTimeout(watchdog)
+    if (timedOut) {
+      callbacks.onError?.(new Error('Brain went quiet for 2 minutes — the connection may have stalled. Please try again.'))
+    }
     callbacks.onClose?.()
   }
 }
@@ -151,13 +440,14 @@ export async function consumeBrainStream(
  */
 export async function startBrainChat(
   input:   string,
-  opts:    { persona_id?: string; pin_ids?: string[] } = {},
+  opts:    { persona_id?: string; pin_ids?: string[]; use_mistral_ocr?: boolean } = {},
   signal?: AbortSignal,
 ): Promise<{ chatId: string; stream: Response }> {
   const params = new URLSearchParams()
   params.append('input', input)
   if (opts.persona_id) params.append('persona_id', opts.persona_id)
   if (opts.pin_ids?.length) params.append('pin_ids', JSON.stringify(opts.pin_ids))
+  if (opts.use_mistral_ocr) params.append('use_mistral_ocr', 'true')
 
   const response = await apiFetch(BRAIN_CREATE, {
     method:  'POST',
@@ -184,13 +474,14 @@ export async function startBrainChat(
 export async function continueBrainChat(
   chatId:  string,
   input:   string,
-  opts:    { persona_id?: string; pin_ids?: string[] } = {},
+  opts:    { persona_id?: string; pin_ids?: string[]; use_mistral_ocr?: boolean } = {},
   signal?: AbortSignal,
 ): Promise<Response> {
   const params = new URLSearchParams()
   params.append('input', input)
   if (opts.persona_id) params.append('persona_id', opts.persona_id)
   if (opts.pin_ids?.length) params.append('pin_ids', JSON.stringify(opts.pin_ids))
+  if (opts.use_mistral_ocr) params.append('use_mistral_ocr', 'true')
 
   const response = await apiFetch(BRAIN_STREAM(chatId), {
     method:  'POST',
@@ -220,6 +511,15 @@ export async function getBrainPlans(chatId: string): Promise<BrainPlanResponse[]
 
 export async function listBrainChats(): Promise<BrainChatListItem[]> {
   return apiFetchJson<BrainChatListItem[]>(BRAIN_BASE)
+}
+
+/**
+ * GET /brain/bootstrap — page-load context: persona in scope, user_context,
+ * pins/files attached, linked connectors, available models, current project.
+ * Seeds the ContextRail before the first turn.
+ */
+export async function getBrainBootstrap(): Promise<BrainBootstrap> {
+  return apiFetchJson<BrainBootstrap>(BRAIN_BOOTSTRAP)
 }
 
 /**

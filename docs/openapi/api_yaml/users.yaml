@@ -6,7 +6,7 @@ paths:
   /users/create:
     post:
       tags:
-      - users
+        - users
       summary: Create User
       operationId: create_user_users_create_post
       responses:
@@ -17,11 +17,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /users/me:
     get:
       tags:
-      - users
+        - users
       summary: Get Me
       operationId: get_me_users_me_get
       responses:
@@ -32,20 +32,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
     delete:
       tags:
-      - users
+        - users
       summary: Delete Me
       operationId: delete_me_users_me_delete
       responses:
         '204':
           description: Successful Response
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
     patch:
       tags:
-      - users
+        - users
       summary: Update Me
       operationId: update_me_users_me_patch
       requestBody:
@@ -68,11 +68,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /users/me/onboarding:
     patch:
       tags:
-      - users
+        - users
       summary: Patch My Onboarding
       operationId: patch_my_onboarding_users_me_onboarding_patch
       requestBody:
@@ -95,7 +95,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
 components:
   schemas:
     CategoryUsage:
@@ -103,11 +103,11 @@ components:
         chat:
           type: number
           title: Chat
-          default: 0.0
+          default: 0
         persona:
           type: number
           title: Persona
-          default: 0.0
+          default: 0
       type: object
       title: CategoryUsage
     HTTPValidationError:
@@ -129,28 +129,28 @@ components:
           title: Currency
         status:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Status
         created:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Created
         invoice_url:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Invoice Url
         invoice_pdf:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Invoice Pdf
       type: object
       required:
-      - amount_paid
-      - currency
+        - amount_paid
+        - currency
       title: InvoiceInfo
     OnboardingSummary:
       properties:
@@ -159,22 +159,22 @@ components:
           title: Completed
         user_role:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: User Role
         ai_tone:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Ai Tone
         role_fit:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Role Fit
       type: object
       required:
-      - completed
+        - completed
       title: OnboardingSummary
     UpcomingInvoiceInfo:
       properties:
@@ -186,35 +186,35 @@ components:
           title: Currency
         next_payment_date:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Next Payment Date
       type: object
       required:
-      - amount_due
-      - currency
+        - amount_due
+        - currency
       title: UpcomingInvoiceInfo
     UpdateOnboarding:
       properties:
         user_role:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: User Role
         ai_tone:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Ai Tone
         role_fit:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Role Fit
         onboarding_completed:
           anyOf:
-          - type: boolean
-          - type: 'null'
+            - type: boolean
+            - type: 'null'
           title: Onboarding Completed
       type: object
       title: UpdateOnboarding
@@ -222,18 +222,18 @@ components:
       properties:
         first_name:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: First Name
         last_name:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Last Name
         phone_number:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Phone Number
       type: object
       title: UpdateUser
@@ -251,21 +251,21 @@ components:
         bonus_credits:
           type: number
           title: Bonus Credits
-          default: 0.0
+          default: 0
         effective_limit:
           type: number
           title: Effective Limit
-          default: 0.0
+          default: 0
         by_category:
           $ref: '#/components/schemas/CategoryUsage'
           default:
-            chat: 0.0
-            persona: 0.0
+            chat: 0
+            persona: 0
       type: object
       required:
-      - monthly_limit
-      - monthly_used
-      - monthly_used_pct
+        - monthly_limit
+        - monthly_used
+        - monthly_used_pct
       title: UsageResponse
     UserResponse:
       properties:
@@ -287,18 +287,18 @@ components:
           title: Active
         plan_type:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Plan Type
         subscription_status:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Subscription Status
         current_period_end:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Current Period End
         cancel_at_period_end:
           type: boolean
@@ -312,31 +312,31 @@ components:
           default: []
         upcoming_invoice:
           anyOf:
-          - $ref: '#/components/schemas/UpcomingInvoiceInfo'
-          - type: 'null'
+            - $ref: '#/components/schemas/UpcomingInvoiceInfo'
+            - type: 'null'
         usage:
           anyOf:
-          - $ref: '#/components/schemas/UsageResponse'
-          - type: 'null'
+            - $ref: '#/components/schemas/UsageResponse'
+            - type: 'null'
         onboarding:
           anyOf:
-          - $ref: '#/components/schemas/OnboardingSummary'
-          - type: 'null'
+            - $ref: '#/components/schemas/OnboardingSummary'
+            - type: 'null'
       type: object
       required:
-      - first_name
-      - last_name
-      - email
-      - created_at
-      - active
+        - first_name
+        - last_name
+        - email
+        - created_at
+        - active
       title: UserResponse
     ValidationError:
       properties:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
+              - type: string
+              - type: integer
           type: array
           title: Location
         msg:
@@ -352,9 +352,9 @@ components:
           title: Context
       type: object
       required:
-      - loc
-      - msg
-      - type
+        - loc
+        - msg
+        - type
       title: ValidationError
   securitySchemes:
     HTTPBearer:

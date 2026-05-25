@@ -55,15 +55,11 @@ const nextConfig: NextConfig = {
     SERVER_URL: process.env.SERVER_URL,
   },
 
-  // Proxy client-side API requests to the backend to avoid CORS issues.
-  async rewrites() {
-    return [
-      {
-        source: "/api/backend/:path*",
-        destination: `${backendOrigin}/:path*`,
-      },
-    ];
-  },
+  // NOTE: client-side API requests are proxied via the streaming route
+  // handler at `src/app/api/backend/[...path]/route.ts`, not a `rewrites()`
+  // rule. Rewrites cause `next dev` (Turbopack) to buffer chunked responses,
+  // which broke SSE for Brain. The route handler streams both directions
+  // and works identically in dev and production.
 
   async headers() {
     return [

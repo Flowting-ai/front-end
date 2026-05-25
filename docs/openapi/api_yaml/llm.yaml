@@ -6,7 +6,7 @@ paths:
   /llm/models:
     get:
       tags:
-      - llm
+        - llm
       summary: List Models
       operationId: list_models_llm_models_get
       responses:
@@ -15,16 +15,13 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/GetModels'
-                type: array
-                title: Response List Models Llm Models Get
+                $ref: '#/components/schemas/ModelsResponse'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /llm/models/all:
     get:
       tags:
-      - llm
+        - llm
       summary: List All Models
       operationId: list_all_models_llm_models_all_get
       responses:
@@ -38,11 +35,11 @@ paths:
                 type: array
                 title: Response List All Models Llm Models All Get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /llm/models/block:
     patch:
       tags:
-      - llm
+        - llm
       summary: Block Model
       operationId: block_model_llm_models_block_patch
       requestBody:
@@ -64,11 +61,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /llm/models/test:
     post:
       tags:
-      - llm
+        - llm
       summary: Test Models
       operationId: test_models_llm_models_test_post
       requestBody:
@@ -90,7 +87,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
 components:
   schemas:
     BlockModel:
@@ -101,7 +98,7 @@ components:
           title: Model Id
       type: object
       required:
-      - model_id
+        - model_id
       title: BlockModel
     GetModels:
       properties:
@@ -127,23 +124,23 @@ components:
           title: Model Outputs
         model_context_window:
           anyOf:
-          - type: integer
-          - type: 'null'
+            - type: integer
+            - type: 'null'
           title: Model Context Window
         model_output_size:
           anyOf:
-          - type: integer
-          - type: 'null'
+            - type: integer
+            - type: 'null'
           title: Model Output Size
         model_input_cost:
           anyOf:
-          - type: number
-          - type: 'null'
+            - type: number
+            - type: 'null'
           title: Model Input Cost
         model_output_cost:
           anyOf:
-          - type: number
-          - type: 'null'
+            - type: number
+            - type: 'null'
           title: Model Output Cost
         model_plan_type:
           type: string
@@ -153,13 +150,13 @@ components:
           title: Model Description
       type: object
       required:
-      - model_id
-      - model_name
-      - model_provider
-      - model_inputs
-      - model_outputs
-      - model_plan_type
-      - model_description
+        - model_id
+        - model_name
+        - model_provider
+        - model_inputs
+        - model_outputs
+        - model_plan_type
+        - model_description
       title: GetModels
     GetModelsWithStatus:
       properties:
@@ -185,23 +182,23 @@ components:
           title: Model Outputs
         model_context_window:
           anyOf:
-          - type: integer
-          - type: 'null'
+            - type: integer
+            - type: 'null'
           title: Model Context Window
         model_output_size:
           anyOf:
-          - type: integer
-          - type: 'null'
+            - type: integer
+            - type: 'null'
           title: Model Output Size
         model_input_cost:
           anyOf:
-          - type: number
-          - type: 'null'
+            - type: number
+            - type: 'null'
           title: Model Input Cost
         model_output_cost:
           anyOf:
-          - type: number
-          - type: 'null'
+            - type: number
+            - type: 'null'
           title: Model Output Cost
         model_plan_type:
           type: string
@@ -214,14 +211,14 @@ components:
           title: Blocked
       type: object
       required:
-      - model_id
-      - model_name
-      - model_provider
-      - model_inputs
-      - model_outputs
-      - model_plan_type
-      - model_description
-      - blocked
+        - model_id
+        - model_name
+        - model_provider
+        - model_inputs
+        - model_outputs
+        - model_plan_type
+        - model_description
+        - blocked
       title: GetModelsWithStatus
     HTTPValidationError:
       properties:
@@ -232,6 +229,32 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    ModelsResponse:
+      properties:
+        all:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: All
+        recent:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: Recent
+        most_used:
+          items:
+            $ref: '#/components/schemas/GetModels'
+          type: array
+          title: Most Used
+      type: object
+      required:
+        - all
+        - recent
+        - most_used
+      title: ModelsResponse
+      description: |-
+        Bundled response for GET /llm/models — all eligible models plus this
+        user's recent and most-used rails (already tier-filtered).
     TestModelRequest:
       properties:
         model_ids:
@@ -247,16 +270,16 @@ components:
           title: Prompt
       type: object
       required:
-      - model_ids
-      - prompt
+        - model_ids
+        - prompt
       title: TestModelRequest
     ValidationError:
       properties:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
+              - type: string
+              - type: integer
           type: array
           title: Location
         msg:
@@ -272,9 +295,9 @@ components:
           title: Context
       type: object
       required:
-      - loc
-      - msg
-      - type
+        - loc
+        - msg
+        - type
       title: ValidationError
   securitySchemes:
     HTTPBearer:

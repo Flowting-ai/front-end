@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, type JSX } from 'react'
 import { m } from 'framer-motion'
 import { CopyOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
+import { MarkdownRenderer } from '@/lib/markdown-utils'
 
 // ── Streaming typewriter hook ─────────────────────────────────────────────────
 // Ported from front-end/src/components/chat/chat-message.tsx.
@@ -319,7 +320,30 @@ export function StreamingMessageBubble({
   // Typewriter: enabled while stream is live, disabled (snap) once complete
   const revealed = useStreamingTypewriter(content, !isComplete)
 
-  const segments = useMemo(() => renderBrainContent(revealed, 'brain-stream'), [revealed])
+  // Lightweight inline renderer used during streaming. We can't run the full
+  // markdown pipeline on every token (perf + half-formed block elements),
+  // so this only handles bold + simple block structure to give the reveal
+  // animation something to chew on.
+  const streamingSegments = useMemo(
+    () => isComplete ? null : renderBrainContent(revealed, 'brain-stream'),
+    [revealed, isComplete],
+  )
+
+  // Completed message: hand off to the full MarkdownRenderer so GFM tables,
+  // links, code blocks, math, and embedded HTML (e.g. `<table>` from LLMs
+  // that ignore the markdown-table convention) all render correctly. HTML
+  // is sanitised inside MarkdownRenderer via DOMPurify.
+  if (isComplete) {
+    return (
+      <m.div
+        initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+        animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
+        transition={springs.moderate}
+      >
+        <MarkdownRenderer content={content} allowHtml />
+      </m.div>
+    )
+  }
 
   return (
     <m.div
@@ -328,8 +352,8 @@ export function StreamingMessageBubble({
       transition={springs.moderate}
       style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
     >
-      {segments}
-      {!isComplete && <StreamCursor />}
+      {streamingSegments}
+      <StreamCursor />
     </m.div>
   )
 }

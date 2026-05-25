@@ -42,6 +42,10 @@ export const CHAT_STAR_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/star`);
 export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>
   withBase(`/chats/message/${messageId}`);
+export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>
+  withBase(`/chats/files/${attachmentId}/save-to-drive`);
+export const CHAT_PROMPT_RESPOND_ENDPOINT = (promptId: string) =>
+  withBase(`/chats/prompts/${promptId}`);
 
 // ── LLM Models ───────────────────────────────────────────────────────────────
 export const MODELS_ENDPOINT = withBase("/llm/models");
@@ -111,6 +115,10 @@ export const PROJECT_DETAIL_ENDPOINT = (projectId: string) => withBase(`/project
 export const PROJECT_CHATS_ENDPOINT  = (projectId: string) => withBase(`/projects/${projectId}/chats`)
 export const PROJECT_CHAT_LINK_ENDPOINT = (projectId: string, chatId: string) =>
   withBase(`/projects/${projectId}/chats/${chatId}`)
+export const PROJECT_FILES_ENDPOINT  = (projectId: string) =>
+  withBase(`/projects/${projectId}/files`)
+export const PROJECT_FILE_ENDPOINT   = (projectId: string, documentId: string) =>
+  withBase(`/projects/${projectId}/files/${documentId}`)
 
 // ── Connectors ────────────────────────────────────────────────────────────────
 export const CONNECTORS_ENDPOINT            = withBase('/connectors')

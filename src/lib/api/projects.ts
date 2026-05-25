@@ -1,23 +1,25 @@
 "use client"
 
-import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from './client'
+import { apiFetch, apiFetchJson } from './client'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
   PROJECT_CHATS_ENDPOINT,
   PROJECT_CHAT_LINK_ENDPOINT,
+  PROJECT_FILES_ENDPOINT,
+  PROJECT_FILE_ENDPOINT,
 } from '@/lib/config'
 
-// ── Backend shapes (snake_case from FastAPI) ──────────────────────────────────
+// ── Backend shapes (snake_case from FastAPI, matches OpenAPI components) ──────
 
-interface BackendDocument {
+export interface ProjectDocumentResponse {
   id:                string
   document_filename: string
   file_link:         string
   created_at:        string
 }
 
-interface BackendProjectSummary {
+export interface ProjectSummary {
   id:             string
   title:          string
   description:    string
@@ -26,17 +28,17 @@ interface BackendProjectSummary {
   document_count: number
 }
 
-interface BackendProjectResponse {
+export interface ProjectResponse {
   id:                 string
   title:              string
   description:        string
   system_instruction: string
   created_at:         string
   updated_at:         string
-  documents:          BackendDocument[]
+  documents:          ProjectDocumentResponse[]
 }
 
-interface BackendProjectChatSummary {
+export interface ProjectChatSummary {
   id:            string
   chat_title:    string
   starred:       boolean
@@ -44,7 +46,7 @@ interface BackendProjectChatSummary {
   message_count: number
 }
 
-// ── Normalized types (camelCase for the frontend) ─────────────────────────────
+// ── Normalized types (camelCase, used by frontend code) ───────────────────────
 
 export interface ApiProjectDocument {
   id:        string
@@ -82,11 +84,11 @@ export interface ApiProjectChat {
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
-function normalizeDocument(d: BackendDocument): ApiProjectDocument {
+function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
   return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at }
 }
 
-function normalizeProjectSummary(p: BackendProjectSummary): ApiProjectSummary {
+function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {
   return {
     id:            p.id,
     title:         p.title,
@@ -97,7 +99,7 @@ function normalizeProjectSummary(p: BackendProjectSummary): ApiProjectSummary {
   }
 }
 
-function normalizeProject(p: BackendProjectResponse): ApiProject {
+function normalizeProject(p: ProjectResponse): ApiProject {
   return {
     id:                p.id,
     title:             p.title,
@@ -109,7 +111,7 @@ function normalizeProject(p: BackendProjectResponse): ApiProject {
   }
 }
 
-function normalizeProjectChat(c: BackendProjectChatSummary): ApiProjectChat {
+function normalizeProjectChat(c: ProjectChatSummary): ApiProjectChat {
   return {
     id:           c.id,
     chatTitle:    c.chat_title,
@@ -121,23 +123,26 @@ function normalizeProjectChat(c: BackendProjectChatSummary): ApiProjectChat {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
+/** GET /projects */
 export async function fetchProjects(): Promise<ApiProjectSummary[]> {
-  const list = await apiFetchJson<BackendProjectSummary[]>(PROJECTS_ENDPOINT)
+  const list = await apiFetchJson<ProjectSummary[]>(PROJECTS_ENDPOINT)
   return list.map(normalizeProjectSummary)
 }
 
+/** GET /projects/{project_id} */
 export async function fetchProject(projectId: string): Promise<ApiProject> {
-  const project = await apiFetchJson<BackendProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
   return normalizeProject(project)
 }
 
 export interface CreateProjectParams {
-  title:             string
-  description?:      string
+  title:              string
+  description?:       string
   systemInstruction?: string
-  files?:            File[]
+  files?:             File[]
 }
 
+/** POST /projects (multipart/form-data) */
 export async function createProjectApi(params: CreateProjectParams): Promise<ApiProject> {
   const form = new FormData()
   form.append('title', params.title)
@@ -145,7 +150,7 @@ export async function createProjectApi(params: CreateProjectParams): Promise<Api
   if (params.systemInstruction) form.append('system_instruction', params.systemInstruction)
   params.files?.forEach(f => form.append('files', f))
 
-  const project = await apiFetchJson<BackendProjectResponse>(PROJECTS_ENDPOINT, { method: 'POST', body: form })
+  const project = await apiFetchJson<ProjectResponse>(PROJECTS_ENDPOINT, { method: 'POST', body: form })
   return normalizeProject(project)
 }
 
@@ -153,51 +158,59 @@ export interface UpdateProjectParams {
   title?:             string
   description?:       string
   systemInstruction?: string
-  removeDocumentIds?: string[]
-  files?:             File[]
 }
 
+/** PATCH /projects/{project_id} (application/x-www-form-urlencoded) */
 export async function updateProjectApi(projectId: string, params: UpdateProjectParams): Promise<ApiProject> {
-  const form = new FormData()
+  const form = new URLSearchParams()
   if (params.title !== undefined)             form.append('title', params.title)
   if (params.description !== undefined)       form.append('description', params.description)
   if (params.systemInstruction !== undefined) form.append('system_instruction', params.systemInstruction)
-  if (params.removeDocumentIds?.length)       form.append('remove_document_ids', params.removeDocumentIds.join(','))
-  params.files?.forEach(f => form.append('files', f))
 
-  const project = await apiFetchJson<BackendProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'PATCH', body: form })
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
+    method:  'PATCH',
+    body:    form,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
   return normalizeProject(project)
 }
 
+/** DELETE /projects/{project_id} */
 export async function deleteProjectApi(projectId: string): Promise<void> {
   await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
 }
 
+/** PUT /projects/{project_id}/files (multipart/form-data) — uploads files. */
+export async function addProjectFilesApi(projectId: string, files: File[]): Promise<ApiProject> {
+  const form = new FormData()
+  files.forEach(f => form.append('files', f))
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_FILES_ENDPOINT(projectId), {
+    method: 'PUT',
+    body:   form,
+  })
+  return normalizeProject(project)
+}
+
+/** DELETE /projects/{project_id}/files/{document_id} */
+export async function removeProjectDocumentApi(projectId: string, documentId: string): Promise<ApiProject> {
+  const project = await apiFetchJson<ProjectResponse>(PROJECT_FILE_ENDPOINT(projectId, documentId), {
+    method: 'DELETE',
+  })
+  return normalizeProject(project)
+}
+
+/** GET /projects/{project_id}/chats */
 export async function fetchProjectChats(projectId: string): Promise<ApiProjectChat[]> {
-  const list = await apiFetchJson<BackendProjectChatSummary[]>(PROJECT_CHATS_ENDPOINT(projectId))
+  const list = await apiFetchJson<ProjectChatSummary[]>(PROJECT_CHATS_ENDPOINT(projectId))
   return list.map(normalizeProjectChat)
 }
 
+/** POST /projects/{project_id}/chats/{chat_id} */
 export async function addChatToProject(projectId: string, chatId: string): Promise<void> {
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'POST' })
 }
 
+/** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
   await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
-}
-
-export async function removeProjectDocumentApi(projectId: string, documentId: string): Promise<void> {
-  const form = new FormData()
-  form.append('remove_document_ids', documentId)
-  const response = await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'PATCH', body: form })
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
-    try {
-      const body = (await response.clone().json()) as { detail?: string | Array<{ msg: string }> }
-      if (typeof body.detail === 'string') message = body.detail
-      else if (Array.isArray(body.detail) && body.detail.length > 0) message = body.detail[0].msg
-    } catch { /* non-JSON error body */ }
-    throw new ApiError(response.status, 'api_error', friendlyApiError(message, response.status), message)
-  }
-  // Don't parse response body — PATCH for removal may return 204 or omit `documents`.
 }

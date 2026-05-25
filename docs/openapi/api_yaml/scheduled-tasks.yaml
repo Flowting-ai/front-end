@@ -1,0 +1,327 @@
+openapi: 3.1.0
+info:
+  title: FastAPI - Scheduled Tasks
+  version: 0.1.0
+paths:
+  /tasks:
+    get:
+      tags:
+        - scheduled-tasks
+      summary: List Tasks
+      operationId: list_tasks_tasks_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ScheduledTaskListItem'
+                type: array
+                title: Response List Tasks Tasks Get
+      security:
+        - HTTPBearer: []
+  /tasks/{task_id}:
+    get:
+      tags:
+        - scheduled-tasks
+      summary: Get Task
+      operationId: get_task_tasks__task_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Task Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledTaskDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tasks/{task_id}/run:
+    post:
+      tags:
+        - scheduled-tasks
+      summary: Run Now
+      operationId: run_now_tasks__task_id__run_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Task Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ScheduledTaskDetail:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        plan_text:
+          type: string
+          title: Plan Text
+          default: ''
+        plan_json:
+          additionalProperties: true
+          type: object
+          title: Plan Json
+        schedule_json:
+          additionalProperties: true
+          type: object
+          title: Schedule Json
+        is_active:
+          type: boolean
+          title: Is Active
+        next_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Next Run At
+        last_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Last Run At
+        run_count:
+          type: integer
+          title: Run Count
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Updated At
+        runs:
+          items:
+            $ref: '#/components/schemas/ScheduledTaskRunResponse'
+          type: array
+          title: Runs
+          default: []
+      type: object
+      required:
+        - id
+        - title
+        - plan_json
+        - schedule_json
+        - is_active
+        - run_count
+      title: ScheduledTaskDetail
+      description: GET /tasks/{id} — task + plan + run history.
+    ScheduledTaskListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        title:
+          type: string
+          title: Title
+        plan_text:
+          type: string
+          title: Plan Text
+          default: ''
+        schedule_json:
+          additionalProperties: true
+          type: object
+          title: Schedule Json
+        is_active:
+          type: boolean
+          title: Is Active
+        next_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Next Run At
+        last_run_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Last Run At
+        run_count:
+          type: integer
+          title: Run Count
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Updated At
+      type: object
+      required:
+        - id
+        - title
+        - schedule_json
+        - is_active
+        - run_count
+      title: ScheduledTaskListItem
+      description: Row returned by GET /tasks.
+    ScheduledTaskLogResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        level:
+          type: string
+          title: Level
+        node_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Node Id
+        message:
+          type: string
+          title: Message
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+      type: object
+      required:
+        - id
+        - level
+        - message
+      title: ScheduledTaskLogResponse
+    ScheduledTaskRunResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        status:
+          type: string
+          title: Status
+        started_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Started At
+        completed_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Completed At
+        error:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Error
+        node_outputs:
+          anyOf:
+            - additionalProperties: true
+              type: object
+            - type: 'null'
+          title: Node Outputs
+        synthesis:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Synthesis
+        created_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Created At
+        logs:
+          items:
+            $ref: '#/components/schemas/ScheduledTaskLogResponse'
+          type: array
+          title: Logs
+          default: []
+      type: object
+      required:
+        - id
+        - status
+      title: ScheduledTaskRunResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer

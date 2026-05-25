@@ -6,6 +6,9 @@ import {
   CHATS_RENAME_ENDPOINT,
   CHAT_MESSAGES_ENDPOINT,
   CHAT_STAR_ENDPOINT,
+  CHAT_STOP_ENDPOINT,
+  CHAT_SAVE_TO_DRIVE_ENDPOINT,
+  CHAT_PROMPT_RESPOND_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -396,5 +399,38 @@ export async function deleteMessage(messageId: string): Promise<void> {
       "delete_message_failed",
       "Failed to delete message",
     );
+  }
+}
+
+/** POST /chats/{chat_id}/stop — abort an in-flight stream. */
+export async function stopChat(chatId: string): Promise<void> {
+  await apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" });
+}
+
+/** POST /chats/files/{attachment_id}/save-to-drive */
+export async function saveFileToDrive(
+  attachmentId: string,
+  folderId?: string | null,
+): Promise<unknown> {
+  return apiFetchJson<unknown>(CHAT_SAVE_TO_DRIVE_ENDPOINT(attachmentId), {
+    method: "POST",
+    body:   JSON.stringify(folderId ? { folder_id: folderId } : {}),
+  });
+}
+
+/**
+ * POST /chats/prompts/{prompt_id} — submit the user's reply to a mid-stream
+ * `user_prompt` SSE event. Handles permission asks, confirmations, choices, etc.
+ */
+export async function respondToChatPrompt(
+  promptId: string,
+  response: unknown,
+): Promise<void> {
+  const res = await apiFetch(CHAT_PROMPT_RESPOND_ENDPOINT(promptId), {
+    method: "POST",
+    body:   JSON.stringify({ response }),
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new ApiError(res.status, "prompt_respond_failed", "Failed to respond to prompt");
   }
 }

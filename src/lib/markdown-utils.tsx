@@ -6,13 +6,16 @@ import { HighlightMark } from "@/components/HighlightMark";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import DOMPurify from "isomorphic-dompurify";
 import { CodeBlock } from "@/components/chat/CodeBlock";
 import { CitationChip } from "@/components/chat/ResponseBlocks";
 import type { Components } from "react-markdown";
+import type { Pluggable } from "unified";
 import type { WebCitation } from "@/hooks/use-chat-state";
 
 const remarkPlugins = [remarkGfm, remarkMath];
-const rehypePlugins = [rehypeKatex];
+const rehypePlugins: Pluggable[] = [rehypeKatex];
 
 // ── Highlight mark types & rehype plugin ──────────────────────────────────────
 
@@ -390,9 +393,16 @@ interface MarkdownRendererProps {
   content: string;
   webCitations?: WebCitation[];
   highlights?: HighlightSpec[];
+  /**
+   * When true, raw HTML in the source (e.g. an LLM that emits `<table>`
+   * tags instead of markdown tables) is parsed and rendered. The input is
+   * sanitised with DOMPurify before rendering so `<script>`, javascript:
+   * URLs, and inline event handlers are stripped. Default: false.
+   */
+  allowHtml?: boolean;
 }
 
-export function MarkdownRenderer({ content, webCitations, highlights }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, webCitations, highlights, allowHtml = false }: MarkdownRendererProps) {
   const hasCitations = !!webCitations?.length;
 
   const resolvedComponents = useMemo<Components>(
@@ -403,20 +413,28 @@ export function MarkdownRenderer({ content, webCitations, highlights }: Markdown
     [hasCitations, webCitations],
   );
 
-  const processed = useMemo(
-    () => hasCitations
+  const processed = useMemo(() => {
+    const base = hasCitations
       ? closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(preprocessCitations(content))))
-      : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content))),
-    [hasCitations, content],
-  );
+      : closeOpenFences(normalizeMathDelimiters(normalizeInlineBoldTitles(content)));
+    // Sanitise only when we're about to ask rehype-raw to parse HTML —
+    // for pure-markdown rendering, DOMPurify's HTML-context parsing can
+    // corrupt characters like `<` that appear in code blocks.
+    return allowHtml
+      ? DOMPurify.sanitize(base, { USE_PROFILES: { html: true } })
+      : base;
+  }, [hasCitations, content, allowHtml]);
 
-  const resolvedRehypePlugins = useMemo(
-    () => highlights?.length
+  const resolvedRehypePlugins = useMemo<Pluggable[]>(() => {
+    const plugins: Pluggable[] = highlights?.length
       ? [rehypeKatex, makeHighlightMarksPlugin(highlights)]
-      : rehypePlugins,
+      : [...rehypePlugins];
+    // rehype-raw must run before rehype-katex so math delimiters that
+    // were turned into HTML by remark-math aren't double-processed.
+    if (allowHtml) plugins.unshift(rehypeRaw);
+    return plugins;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [highlights],
-  )
+  }, [highlights, allowHtml]);
 
   return (
     <div

@@ -228,7 +228,7 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
   onUpdate: (updated: ConnectorCatalogEntry) => void
 }) {
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [tools,     setTools]     = useState<ConnectorTool[]>(entry.tools)
+  const [tools,     setTools]     = useState<ConnectorTool[]>(entry.tools ?? [])
   const [saving,    setSaving]    = useState<string | null>(null)
   const [unlinking, setUnlinking] = useState(false)
   const [expanded,  setExpanded]  = useState(false)
@@ -247,12 +247,12 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
       // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
       const updated = await updateConnector(entry.slug, { permissions: [{ slug: toolSlug, policy: apiPolicy }] })
       if (abortedRef.current) return
-      setTools(updated.tools)
+      setTools(updated.tools ?? [])
       onUpdate(updated)
       toast.success('Permission updated')
     } catch (err) {
       if (abortedRef.current) return
-      setTools(entry.tools)
+      setTools(entry.tools ?? [])
       toast.error(err instanceof Error ? err.message : 'Failed to update permission')
     } finally {
       if (!abortedRef.current) setSaving(null)
@@ -606,7 +606,7 @@ function ConnectorCard({ entry, onManage, onUpdate }: {
 
       {showApiForm && !isActive && (
         <ApiKeyForm
-          fields={entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
+          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
           values={apiKeyValues}
           onChange={setApiKeyValues}
           onSubmit={submitApiKey}

@@ -6,7 +6,7 @@ paths:
   /projects:
     get:
       tags:
-      - projects
+        - projects
       summary: List Projects
       operationId: list_projects_projects_get
       responses:
@@ -20,10 +20,10 @@ paths:
                 type: array
                 title: Response List Projects Projects Get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
     post:
       tags:
-      - projects
+        - projects
       summary: Create Project
       operationId: create_project_projects_post
       requestBody:
@@ -46,23 +46,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
   /projects/{project_id}:
     get:
       tags:
-      - projects
+        - projects
       summary: Get Project
       operationId: get_project_projects__project_id__get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
       responses:
         '200':
           description: Successful Response
@@ -78,22 +78,22 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     patch:
       tags:
-      - projects
+        - projects
       summary: Update Project
       operationId: update_project_projects__project_id__patch
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
       requestBody:
         content:
-          multipart/form-data:
+          application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/Body_update_project_projects__project_id__patch'
       responses:
@@ -111,19 +111,19 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
-      - projects
+        - projects
       summary: Delete Project
       operationId: delete_project_projects__project_id__delete
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
       responses:
         '200':
           description: Successful Response
@@ -136,22 +136,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /projects/{project_id}/files:
+    put:
+      tags:
+        - projects
+      summary: Add Project Files
+      operationId: add_project_files_projects__project_id__files_put
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_add_project_files_projects__project_id__files_put'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /projects/{project_id}/files/{document_id}:
+    delete:
+      tags:
+        - projects
+      summary: Remove Project File
+      operationId: remove_project_file_projects__project_id__files__document_id__delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /projects/{project_id}/chats:
     get:
       tags:
-      - projects
+        - projects
       summary: List Project Chats
       operationId: list_project_chats_projects__project_id__chats_get
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
       responses:
         '200':
           description: Successful Response
@@ -171,26 +242,26 @@ paths:
   /projects/{project_id}/chats/{chat_id}:
     post:
       tags:
-      - projects
+        - projects
       summary: Add Chat To Project
       operationId: add_chat_to_project_projects__project_id__chats__chat_id__post
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
@@ -205,26 +276,26 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
-      - projects
+        - projects
       summary: Remove Chat From Project
       operationId: remove_chat_from_project_projects__project_id__chats__chat_id__delete
       security:
-      - HTTPBearer: []
+        - HTTPBearer: []
       parameters:
-      - name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Project Id
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Project Id
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Chat Id
       responses:
         '200':
           description: Successful Response
@@ -239,6 +310,18 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    Body_add_project_files_projects__project_id__files_put:
+      properties:
+        files:
+          items:
+            type: string
+            contentMediaType: application/octet-stream
+          type: array
+          title: Files
+      type: object
+      required:
+        - files
+      title: Body_add_project_files_projects__project_id__files_put
     Body_create_project_projects_post:
       properties:
         title:
@@ -254,46 +337,33 @@ components:
           default: ''
         files:
           anyOf:
-          - items:
-              type: string
-              contentMediaType: application/octet-stream
-            type: array
-          - type: 'null'
+            - items:
+                type: string
+                contentMediaType: application/octet-stream
+              type: array
+            - type: 'null'
           title: Files
       type: object
       required:
-      - title
+        - title
       title: Body_create_project_projects_post
     Body_update_project_projects__project_id__patch:
       properties:
         title:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Title
         description:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Description
         system_instruction:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: System Instruction
-        remove_document_ids:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Remove Document Ids
-        files:
-          anyOf:
-          - items:
-              type: string
-              contentMediaType: application/octet-stream
-            type: array
-          - type: 'null'
-          title: Files
       type: object
       title: Body_update_project_projects__project_id__patch
     HTTPValidationError:
@@ -326,11 +396,11 @@ components:
           title: Message Count
       type: object
       required:
-      - id
-      - chat_title
-      - starred
-      - updated_at
-      - message_count
+        - id
+        - chat_title
+        - starred
+        - updated_at
+        - message_count
       title: ProjectChatSummary
     ProjectDocumentResponse:
       properties:
@@ -341,19 +411,19 @@ components:
         document_filename:
           type: string
           title: Document Filename
-        document_s3_key:
+        file_link:
           type: string
-          title: Document S3 Key
+          title: File Link
+          default: ''
         created_at:
           type: string
           format: date-time
           title: Created At
       type: object
       required:
-      - id
-      - document_filename
-      - document_s3_key
-      - created_at
+        - id
+        - document_filename
+        - created_at
       title: ProjectDocumentResponse
     ProjectResponse:
       properties:
@@ -386,12 +456,12 @@ components:
           default: []
       type: object
       required:
-      - id
-      - title
-      - description
-      - system_instruction
-      - created_at
-      - updated_at
+        - id
+        - title
+        - description
+        - system_instruction
+        - created_at
+        - updated_at
       title: ProjectResponse
     ProjectSummary:
       properties:
@@ -417,12 +487,12 @@ components:
           title: Document Count
       type: object
       required:
-      - id
-      - title
-      - description
-      - updated_at
-      - chat_count
-      - document_count
+        - id
+        - title
+        - description
+        - updated_at
+        - chat_count
+        - document_count
       title: ProjectSummary
       description: Row shape returned by GET /projects (list view).
     ValidationError:
@@ -430,8 +500,8 @@ components:
         loc:
           items:
             anyOf:
-            - type: string
-            - type: integer
+              - type: string
+              - type: integer
           type: array
           title: Location
         msg:
@@ -447,9 +517,9 @@ components:
           title: Context
       type: object
       required:
-      - loc
-      - msg
-      - type
+        - loc
+        - msg
+        - type
       title: ValidationError
   securitySchemes:
     HTTPBearer:

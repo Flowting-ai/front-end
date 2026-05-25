@@ -17,6 +17,8 @@ import {
   PERSONA_CHAT_MESSAGES_ENDPOINT,
   PERSONA_CHAT_STREAM_ENDPOINT,
   PERSONA_CHATS_RENAME_ENDPOINT,
+  PERSONA_CHAT_STOP_ENDPOINT,
+  PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 
 // ── Backend types (match OpenAPI schema) ──────────────────────────────────────
@@ -239,6 +241,7 @@ export async function updateVersion(params: {
   modelId?: string;
   temperature?: number | null;
   image?: File | null;
+  files?: File[];
 }): Promise<PersonaVersionResponse> {
   const form = new FormData();
   if (params.name != null) form.append("name", params.name);
@@ -246,10 +249,16 @@ export async function updateVersion(params: {
   if (params.modelId != null) form.append("model_id", params.modelId);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
+  params.files?.forEach(f => form.append("files", f));
   return apiFetchJson<PersonaVersionResponse>(
     PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
     { method: "PATCH", body: form },
   );
+}
+
+/** DELETE /persona/{repo_id}/versions/{persona_id} */
+export async function deleteVersion(repoId: string, versionId: string): Promise<void> {
+  await apiFetch(PERSONA_VERSION_DETAIL_ENDPOINT(repoId, versionId), { method: "DELETE" });
 }
 
 // ── Document management ───────────────────────────────────────────────────────
@@ -288,37 +297,70 @@ export async function enhancePrompt(prompt: string): Promise<EnhancePromptRespon
 
 // ── Persona chat history ──────────────────────────────────────────────────────
 
+/** Row returned by GET /persona/{repo_id}/chats — one per persona chat. */
+export interface PersonaChatsResponse {
+  id:            string;
+  chat_title:    string;
+  message_count: number;
+  persona_id?:   string | null;
+}
+
+/** Row returned by GET /persona/{repo_id}/chats/{chat_id}/messages — one per turn. */
+export interface PersonaFileAttachment {
+  file_link: string;
+  mime_type: string;
+  origin:    string;
+}
+
+export interface GetPersonaMessages {
+  id:                string;
+  input:             string;
+  output:            string;
+  reasoning?:        string | null;
+  file_attachments?: PersonaFileAttachment[];
+}
+
+/** Caller-friendly shape: each backend turn is split into a user message + assistant message. */
 export interface PersonaChat {
-  id: string;
-  title: string;
-  created_at: string;
+  id:          string;
+  title:       string;
+  created_at?: string;
   updated_at?: string;
 }
 
 export interface PersonaMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
+  id:          string;
+  role:        "user" | "assistant";
+  content:     string;
+  created_at?: string;
 }
 
+/** GET /persona/{repo_id}/chats */
 export async function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
-  const data = await apiFetchJson<PersonaChat[] | { chats: PersonaChat[] }>(
+  const data = await apiFetchJson<PersonaChatsResponse[] | { chats: PersonaChatsResponse[] }>(
     PERSONA_CHATS_ENDPOINT(repoId),
   );
-  return Array.isArray(data) ? data : (data.chats ?? []);
+  const list = Array.isArray(data) ? data : (data.chats ?? []);
+  return list.map(c => ({ id: c.id, title: c.chat_title }));
 }
 
+/** GET /persona/{repo_id}/chats/{chat_id}/messages — each turn → user + assistant pair. */
 export async function fetchPersonaChatMessages(
   repoId: string,
   chatId: string,
 ): Promise<PersonaMessage[]> {
-  const data = await apiFetchJson<PersonaMessage[] | { messages: PersonaMessage[] }>(
+  const turns = await apiFetchJson<GetPersonaMessages[]>(
     PERSONA_CHAT_MESSAGES_ENDPOINT(repoId, chatId),
   );
-  return Array.isArray(data) ? data : (data.messages ?? []);
+  const out: PersonaMessage[] = [];
+  for (const t of turns) {
+    if (t.input)  out.push({ id: `${t.id}:in`,  role: "user",      content: t.input  });
+    if (t.output) out.push({ id: `${t.id}:out`, role: "assistant", content: t.output });
+  }
+  return out;
 }
 
+/** PATCH /persona/{repo_id}/chats/rename */
 export async function renamePersonaChat(
   repoId: string,
   chatId: string,
@@ -326,14 +368,31 @@ export async function renamePersonaChat(
 ): Promise<void> {
   await apiFetch(PERSONA_CHATS_RENAME_ENDPOINT(repoId), {
     method: "PATCH",
-    body: JSON.stringify({ chat_id: chatId, chat_title: title }),
+    body:   JSON.stringify({ chat_id: chatId, chat_title: title }),
   });
 }
 
+/** DELETE /persona/{repo_id}/chats — body: { chat_id }. */
 export async function deletePersonaChat(repoId: string, chatId: string): Promise<void> {
   await apiFetch(PERSONA_CHATS_ENDPOINT(repoId), {
     method: "DELETE",
-    body: JSON.stringify({ chat_id: chatId }),
+    body:   JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+/** POST /persona/{repo_id}/chats/{chat_id}/stop — cancel an in-flight stream. */
+export async function stopPersonaChat(repoId: string, chatId: string): Promise<void> {
+  await apiFetch(PERSONA_CHAT_STOP_ENDPOINT(repoId, chatId), { method: "POST" });
+}
+
+/** DELETE /persona/{repo_id}/chats/{chat_id}/message/{message_id}. */
+export async function removePersonaMessage(
+  repoId: string,
+  chatId: string,
+  messageId: string,
+): Promise<void> {
+  await apiFetch(PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT(repoId, chatId, messageId), {
+    method: "DELETE",
   });
 }
 

@@ -244,7 +244,7 @@ function ToolPermissionsModal({
 }) {
   // local copy of tools so UI updates optimistically
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [tools,      setTools]      = useState<ConnectorTool[]>(entry.tools)
+  const [tools,      setTools]      = useState<ConnectorTool[]>(entry.tools ?? [])
   const [saving,     setSaving]     = useState<string | null>(null)  // slug being saved
   const [unlinking,  setUnlinking]  = useState(false)
   const [expanded,   setExpanded]   = useState(false)
@@ -268,13 +268,13 @@ function ToolPermissionsModal({
         permissions: [{ slug: toolSlug, policy: apiPolicy }],
       })
       if (abortedRef.current) return
-      setTools(updated.tools)
+      setTools(updated.tools ?? [])
       onUpdate(updated)
       toast.success('Permission updated')
     } catch (err) {
       if (abortedRef.current) return
       // revert
-      setTools(entry.tools)
+      setTools(entry.tools ?? [])
       const msg = err instanceof Error ? err.message : 'Failed to update permission'
       toast.error(msg)
     } finally {
@@ -810,7 +810,7 @@ function ConnectorCard({
       {/* API key form (inline) */}
       {showApiForm && !isActive && (
         <ApiKeyForm
-          fields={entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
+          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
           values={apiKeyValues}
           onChange={setApiKeyValues}
           onSubmit={submitApiKey}

@@ -119,7 +119,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     if (prompt.auth_mode !== 'api_key' || !showApiForm || fieldNames !== null) return
     getConnector(prompt.connector_slug)
       .then((entry) => {
-        if (!abortedRef.current) setFieldNames(entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key'])
+        if (!abortedRef.current) setFieldNames(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key'])
       })
       .catch(() => {
         if (!abortedRef.current) setFieldNames(['api_key'])
