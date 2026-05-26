@@ -2,6 +2,7 @@
 
 import { Suspense, useMemo, useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
 import {
   BrainShell,
   StreamingIndicator,
@@ -32,26 +33,25 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
 import {
-  listConnectors,
   initiateLink,
   pollConnectorUntilActive,
   getConnector,
   updateConnector,
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
-  type ConnectorCatalogEntry,
 } from '@/lib/api/connectors'
 import { toast } from 'sonner'
 import {
   startBrainChat,
   continueBrainChat,
   consumeBrainStream,
-  getBrainBootstrap,
   getBrainMessages,
   respondToPrompt,
   stopBrainChat,
   type BackendPlanStep,
-  type BrainBootstrap,
+  type BackendPlanNode,
+  type BrainContextEvent,
+  type ContextPersona,
   type BrainMessage,
   type BrainPlanResponse,
   type GeneratedFileEvent,
@@ -63,6 +63,7 @@ import {
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
 import { linkScheduleToChat, consumePendingPrompt } from '@/lib/scheduleLinks'
+import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
 
 // ── Page (Suspense wrapper required for useSearchParams) ──────────────────────
@@ -96,11 +97,190 @@ function mapBackendStep(step: BackendPlanStep): PlanStep {
   }
 }
 
+function mapBackendNode(node: BackendPlanNode): PlanStep {
+  // Title only — the node also carries a model_id, which we intentionally
+  // do not surface in the plan UI.
+  return {
+    id:         node.id,
+    label:      node.title,
+    isCritical: false,
+    status:     mapBackendStepStatus(node.status),
+  }
+}
+
+// ── Edge-derived flow grouping ────────────────────────────────────────────────
+// The plan is a DAG: nodes are subtasks, edges {from,to} mean "to waits on
+// from". We turn that into the flat, ordered PlanStep[] the UI already speaks:
+// each step's dependency depth becomes its level, steps are ordered by level
+// (authored order preserved within a level), and independent steps sharing a
+// level are tagged with the same parallelGroup so PlanCard/LoopHistoryCard
+// render them as "runs at the same time". No graph library required.
+function applyFlowGrouping(steps: PlanStep[], edges: unknown): PlanStep[] {
+  const edgeList = Array.isArray(edges) ? edges : []
+  if (steps.length <= 1 || edgeList.length === 0) return steps
+
+  const ids = new Set(steps.map((s) => s.id))
+  const upstream = new Map<string, string[]>()
+  for (const e of edgeList) {
+    if (!e || typeof e !== 'object') continue
+    const { from, to } = e as { from?: unknown; to?: unknown }
+    if (typeof from === 'string' && typeof to === 'string' && ids.has(from) && ids.has(to)) {
+      upstream.set(to, [...(upstream.get(to) ?? []), from])
+    }
+  }
+  if (upstream.size === 0) return steps // no usable edges → leave as authored
+
+  // Longest-path depth via memoised DFS (DAG). onPath guards against a stray
+  // cycle so a malformed plan can't hang the render.
+  const level = new Map<string, number>()
+  const onPath = new Set<string>()
+  const depthOf = (id: string): number => {
+    const cached = level.get(id)
+    if (cached !== undefined) return cached
+    if (onPath.has(id)) return 0
+    onPath.add(id)
+    const deps = upstream.get(id) ?? []
+    const d = deps.length ? 1 + Math.max(...deps.map(depthOf)) : 0
+    onPath.delete(id)
+    level.set(id, d)
+    return d
+  }
+  steps.forEach((s) => depthOf(s.id))
+
+  const levelCounts = new Map<number, number>()
+  steps.forEach((s) => {
+    const l = level.get(s.id) ?? 0
+    levelCounts.set(l, (levelCounts.get(l) ?? 0) + 1)
+  })
+
+  // Sort by level, breaking ties on original index so the order is stable and
+  // same-level steps land adjacent (groupSteps only clusters consecutive ones).
+  return steps
+    .map((s, i) => ({ s, i, l: level.get(s.id) ?? 0 }))
+    .sort((a, b) => a.l - b.l || a.i - b.i)
+    .map(({ s, l }) => ((levelCounts.get(l) ?? 0) > 1 ? { ...s, parallelGroup: `lvl-${l}` } : s))
+}
+
 function mapHistoryPlanSteps(plan: BrainPlanResponse): PlanStep[] {
   // The OpenAPI spec marks plan_json + steps as required, but legacy rows
   // and partially-saved plans can land here with either missing — guard so
-  // we don't crash when reopening an existing chat.
-  return (plan.plan_json?.steps ?? []).map(mapBackendStep)
+  // we don't crash when reopening an existing chat. Newer plans persist a
+  // `nodes`/`edges` graph instead of a flat `steps` list; fall back to nodes
+  // so node-format plans still render, and derive flow grouping from edges.
+  const pj = plan.plan_json
+  if (pj?.steps?.length) return applyFlowGrouping(pj.steps.map(mapBackendStep), pj.edges)
+  if (pj?.nodes?.length) return applyFlowGrouping(pj.nodes.map(mapBackendNode), pj.edges)
+  return []
+}
+
+// ── Synthesize a context snapshot from fetched messages ──────────────────────
+// The live `context` SSE event only fires during an active turn and is never
+// persisted; `GET /brain/{id}/messages` carries no context field. So on chat
+// reload we reconstruct what we can from the messages: connector slugs from
+// `tool_calls` (list_connector_tools.connector_slug + the prefix of
+// run_connector_tool.tool_slug), and the persona used from plan-node
+// `persona_id` / `ask_user` answers. Pins/files inputs aren't recoverable —
+// they aren't in the fetched data — so those sections stay empty.
+
+interface SynthPersonaSource { id: string; name: string; imageUrl?: string | null; activeVersionId?: string | null }
+
+// Strip the descriptive tail from an ask_user persona option label, e.g.
+// `kratos — (GPT-5 mini)` → `kratos`, `Digital Marketing Assistant — expert …` →
+// `Digital Marketing Assistant`. Splits on an em/en dash (not a hyphen, so
+// "kratos-2" survives) and drops any "(…)" parenthetical.
+function cleanPersonaLabel(label: string): string {
+  const head = label.split(/\s*[—–]\s*/)[0] ?? label
+  return head.replace(/\s*\([^)]*\)\s*/g, '').trim() || label.trim()
+}
+
+function synthesizeContextFromMessages(
+  messages: BrainMessage[],
+  personas: SynthPersonaSource[],
+): BrainContextEvent | null {
+  const connectorSlugs = new Set<string>()
+  // Persona picks in order (latest wins). `label` is the human name pulled from
+  // the ask_user option, which survives even if the persona was later deleted.
+  const personaPicks: Array<{ id: string; label?: string }> = []
+
+  for (const m of messages) {
+    // Plan nodes carry the persona_id (a version id) + (optional) connector_slugs.
+    const nodes = m.plan?.plan_json?.nodes ?? []
+    for (const n of nodes) {
+      const np = (n as unknown as Record<string, unknown>)
+      const pid = np.persona_id
+      if (typeof pid === 'string' && pid) personaPicks.push({ id: pid })
+      const cs = np.connector_slugs
+      if (Array.isArray(cs)) for (const s of cs) if (typeof s === 'string') connectorSlugs.add(s.toLowerCase())
+    }
+
+    // tool_calls: persisted as { tool, args, output } objects.
+    const tcs = (m.tool_calls ?? []) as Array<Record<string, unknown>>
+    for (const t of tcs) {
+      const tool = typeof t?.tool === 'string' ? t.tool : ''
+      const args = (t?.args && typeof t.args === 'object' ? t.args : {}) as Record<string, unknown>
+
+      if (tool === 'list_connector_tools' && typeof args.connector_slug === 'string') {
+        connectorSlugs.add(args.connector_slug.toLowerCase())
+      }
+      if (tool === 'run_connector_tool' && typeof args.tool_slug === 'string') {
+        // Tool slugs are uppercase-prefixed by their connector, e.g. SLACK_FIND_USERS.
+        const prefix = args.tool_slug.split('_')[0]?.toLowerCase()
+        if (prefix) connectorSlugs.add(prefix)
+      }
+      if (tool === 'ask_user' && typeof t?.output === 'string') {
+        try {
+          const out = JSON.parse(t.output) as { answers?: Record<string, unknown> }
+          const answers = out?.answers
+          const questions = Array.isArray(args.questions) ? (args.questions as Array<Record<string, unknown>>) : []
+          if (answers && typeof answers === 'object') {
+            for (const [k, v] of Object.entries(answers)) {
+              // Persona-selection questions are keyed `persona`, `persona_pick2`,
+              // etc. Their value is the chosen persona's (version) id; the
+              // matching option's label gives us the display name for free.
+              if (k.toLowerCase().startsWith('persona') && typeof v === 'string' && v.length >= 8) {
+                const q = questions.find((qq) => qq?.id === k)
+                const opts = (q && Array.isArray(q.options) ? q.options : []) as Array<Record<string, unknown>>
+                const opt = opts.find((o) => o?.value === v)
+                const label = typeof opt?.label === 'string' ? cleanPersonaLabel(opt.label) : undefined
+                personaPicks.push({ id: v, label })
+              }
+            }
+          }
+        } catch { /* ignore malformed tool_call output */ }
+      }
+    }
+  }
+
+  if (connectorSlugs.size === 0 && personaPicks.length === 0) return null
+
+  // Resolve the latest-mentioned persona. Prefer the ask_user label (works even
+  // for deleted personas); else match the user's personas list by repo id OR
+  // active version id (Brain stores the version id); else a graceful fallback.
+  let persona: ContextPersona | null = null
+  if (personaPicks.length > 0) {
+    const pick = personaPicks[personaPicks.length - 1]
+    const p = personas.find((x) => x.id === pick.id || x.activeVersionId === pick.id)
+    const resolvedName = pick.label || p?.name
+    persona = {
+      persona_id: pick.id,
+      name:       resolvedName || 'Persona',
+      // Only emit a handle when we actually resolved a name — a raw id slice
+      // ("@0c72c3e6") is meaningless to the user, so leave it blank otherwise.
+      handler:    resolvedName ? resolvedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '',
+      avatar_url: p?.imageUrl ?? undefined,
+    }
+  }
+
+  return {
+    persona,
+    pins:  [],
+    files: [],
+    connectors: Array.from(connectorSlugs).sort().map((slug) => ({
+      slug,
+      display_name: connectorDisplayName(slug),
+      status:       'connected',
+    })),
+  }
 }
 
 // ── Local completed-turn snapshot (built up during the session) ───────────────
@@ -111,6 +291,7 @@ interface LocalTurn {
   output:       string
   planSteps?:   PlanStep[]
   planSummary?: string
+  images?:      ImageEvent[]
   completedAt?: Date
   cancelled:    boolean
 }
@@ -306,16 +487,49 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
     fontSize:        'var(--font-size-caption)',
   })
 
+  const logoSrc = connectorLogoSrc(event.connector_slug) ?? connectorLogoSrc(event.display_name)
+
   return (
     <div style={cardStyle}>
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-body)',
-        fontWeight: 'var(--font-weight-medium)',
-        color:      'var(--neutral-800)',
-      }}>
-        Connect {event.display_name} to continue
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+          <img
+            src={logoSrc}
+            alt=""
+            width={24}
+            height={24}
+            style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
+          />
+        ) : (
+          <span style={{
+            width:           24,
+            height:          24,
+            borderRadius:    6,
+            backgroundColor: 'var(--neutral-100)',
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'center',
+            fontFamily:      'var(--font-body)',
+            fontSize:        13,
+            fontWeight:      600,
+            color:           'var(--neutral-600)',
+            flexShrink:      0,
+            textTransform:   'uppercase',
+            userSelect:      'none',
+          }}>
+            {(event.display_name || event.connector_slug || '?').charAt(0)}
+          </span>
+        )}
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-body)',
+          fontWeight: 'var(--font-weight-medium)',
+          color:      'var(--neutral-800)',
+        }}>
+          Connect {event.display_name} to continue
+        </span>
+      </div>
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize:   'var(--font-size-caption)',
@@ -374,6 +588,115 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
   )
 }
 
+// ── Permission prompt card ────────────────────────────────────────────────────
+// Rendered inline when the model wants to run a connector tool whose policy is
+// `ask` (connector already linked). The user picks a decision; the page POSTs
+// the plain-string response to release the blocked stream.
+
+interface PermissionPromptCardProps {
+  prompt: {
+    displayName:  string
+    toolSlug:     string
+    connectorSlug: string
+    options:      { value: string; label: string; style?: string }[]
+  }
+  disabled?: boolean
+  onDecide:  (decision: string) => void
+}
+
+function PermissionPromptCard({ prompt, disabled = false, onDecide }: PermissionPromptCardProps) {
+  const logoSrc = connectorLogoSrc(prompt.connectorSlug) ?? connectorLogoSrc(prompt.displayName)
+  return (
+    <div style={{
+      display:         'flex',
+      flexDirection:   'column',
+      gap:             10,
+      padding:         '14px 16px',
+      borderRadius:    12,
+      border:          '1px solid var(--neutral-200)',
+      backgroundColor: 'var(--neutral-white)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+          <img
+            src={logoSrc}
+            alt=""
+            width={24}
+            height={24}
+            style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
+          />
+        ) : (
+          <span style={{
+            width:           24,
+            height:          24,
+            borderRadius:    6,
+            backgroundColor: 'var(--neutral-100)',
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'center',
+            fontFamily:      'var(--font-body)',
+            fontSize:        13,
+            fontWeight:      600,
+            color:           'var(--neutral-600)',
+            flexShrink:      0,
+            textTransform:   'uppercase',
+            userSelect:      'none',
+          }}>
+            {(prompt.displayName || prompt.connectorSlug || '?').charAt(0)}
+          </span>
+        )}
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-body)',
+          fontWeight: 'var(--font-weight-medium)',
+          color:      'var(--neutral-800)',
+        }}>
+          Allow {prompt.displayName || prompt.connectorSlug} to run this action?
+        </span>
+      </div>
+      {prompt.toolSlug && (
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize:   'var(--font-size-caption)',
+          lineHeight: 'var(--line-height-caption)',
+          color:      'var(--neutral-500)',
+        }}>
+          Tool: <code style={{ fontFamily: 'var(--font-code)' }}>{prompt.toolSlug}</code>
+        </span>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
+        {prompt.options.map((opt) => {
+          const danger  = opt.style === 'danger' || opt.value === 'block'
+          const primary = opt.style === 'primary' || opt.value === 'allow' || opt.value === 'allow_once'
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={disabled}
+              onClick={() => onDecide(opt.value)}
+              style={{
+                padding:         '6px 14px',
+                borderRadius:    999,
+                border:          primary ? 'none' : '1px solid var(--neutral-200)',
+                backgroundColor: primary ? (disabled ? 'var(--neutral-200)' : 'var(--neutral-900)') : 'transparent',
+                color:           danger
+                  ? 'var(--color-tag-Red-text, #c0392b)'
+                  : primary ? (disabled ? 'var(--neutral-500)' : 'var(--neutral-white)') : 'var(--neutral-600)',
+                cursor:          disabled ? 'not-allowed' : 'pointer',
+                fontFamily:      'var(--font-body)',
+                fontSize:        'var(--font-size-caption)',
+              }}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Tool / search / file activity feed ────────────────────────────────────────
 // Lightweight chronological feed of mid-stream side effects: web searches,
 // generated images/files, live tool calls, tool progress updates. Each item
@@ -386,6 +709,24 @@ type ActivityFeedItem =
   | { kind: 'file';       data: GeneratedFileEvent; id: string }
   | { kind: 'tool';       data: ToolCallPreview;    id: string; status: 'streaming' | 'executing' | 'complete' }
   | { kind: 'progress';   data: ToolProgressEvent;  id: string }
+
+// ── Turn timeline ─────────────────────────────────────────────────────────────
+// Ordered log of everything that streams into the active turn, so the thread
+// renders in arrival order (text segment → tool → text → permission → …) rather
+// than bucketing all tools at the top and all text at the bottom. Text items
+// are extended in place by successive content tokens; a non-text event ends the
+// current text segment so the next token opens a fresh one below it. Mutating
+// kinds (tool status, progress, permission/connect resolution) keep their own
+// live state and are looked up by reference at render time.
+type TimelineItem =
+  | { kind: 'text';       id: string; text: string }
+  | { kind: 'tool';       id: string; toolKey: string }
+  | { kind: 'web_search'; id: string; data: WebSearchEvent }
+  | { kind: 'file';       id: string; data: GeneratedFileEvent }
+  | { kind: 'image';      id: string; url: string }
+  | { kind: 'progress';   id: string }
+  | { kind: 'permission'; id: string; promptId: string }
+  | { kind: 'connect';    id: string; slug: string }
 
 function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
   if (items.length === 0) return null
@@ -473,6 +814,44 @@ const feedLinkStyle: CSSProperties = {
   textDecoration: 'underline',
 }
 
+// ── Generated-image grid ──────────────────────────────────────────────────────
+// Renders images produced inside a turn (live stream or persisted history) as
+// actual thumbnails. Each opens full-size in a new tab. `unoptimized` skips the
+// Next image loader so presigned S3 URLs render without remote-pattern config.
+
+function MessageImages({ images }: { images: { url: string }[] }) {
+  if (images.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {images.map((img) => (
+        <a
+          key={img.url}
+          href={img.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display:      'block',
+            borderRadius: 12,
+            overflow:     'hidden',
+            border:       '1px solid var(--neutral-200)',
+            maxWidth:     360,
+          }}
+        >
+          <Image
+            src={img.url}
+            alt="Generated image"
+            width={0}
+            height={0}
+            sizes="100%"
+            unoptimized
+            style={{ display: 'block', width: '100%', height: 'auto', maxHeight: 360, objectFit: 'cover' }}
+          />
+        </a>
+      ))}
+    </div>
+  )
+}
+
 // ── Inner page ────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
@@ -537,15 +916,41 @@ function BrainPageInner() {
   // for the ClarificationSummary in the thread, and POST the response back
   // to /chats/prompts/{prompt_id} so the stream can resume.
 
+  // A single question inside a `question_prompt` event (the dedicated
+  // clarifying-questions event the Brain `ask_user` tool emits).
+  interface QPQuestion {
+    id:          string
+    question:    string
+    type:        string                    // single_choice | multi_choice | text | yes_no
+    options:     QuestionCardOption[]       // empty for text kind
+    placeholder?: string
+  }
   interface ActiveClarification {
     promptId:    string
-    kind:        string                    // 'choice' | 'input' | other
-    question:    string                    // user_prompt.title
-    description: string                    // user_prompt.description (optional body)
-    options:     QuestionCardOption[]      // empty for 'input' kind
+    source:      'user_prompt' | 'question_prompt'  // which SSE event produced it
+    kind:        string                    // 'choice' | 'input' | other (user_prompt)
+    question:    string                    // current question text
+    description: string                    // optional body
+    options:     QuestionCardOption[]      // empty for free-text
     index:       number                    // 1-based, increments per turn
+    openEnded:   boolean                   // current question takes free text
+    // question_prompt only — step through N questions, then POST once:
+    questions?:  QPQuestion[]
+    qCursor?:    number                    // index into `questions`
+    collected?:  Record<string, unknown>   // answers gathered so far, keyed by question id
   }
   const [activeClarification, setActiveClarification] = useState<ActiveClarification | null>(null)
+  // Connector-tool permission ask (event: permission_prompt) — the connector is
+  // linked but the tool's policy is `ask`. Rendered inline in the active turn.
+  interface ActivePermissionPrompt {
+    promptId:       string
+    connectorSlug:  string
+    displayName:    string
+    toolSlug:       string
+    options:        { value: string; label: string; style?: string }[]
+  }
+  const [activePermissionPrompt, setActivePermissionPrompt] = useState<ActivePermissionPrompt | null>(null)
+  const [permissionInFlight, setPermissionInFlight] = useState(false)
   const [selectedClarificationOption, setSelectedClarificationOption] = useState<string | undefined>(undefined)
   const [clarificationInFlight, setClarificationInFlight] = useState(false)
   const [answeredClarifications, setAnsweredClarifications] = useState<ClarificationSummaryItem[]>([])
@@ -593,44 +998,37 @@ function BrainPageInner() {
   const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
   const [brainAttachments,     setBrainAttachments]     = useState<PendingAttachment[]>([])
 
-  // ── Connectors (for ContextRail) ─────────────────────────────────────────────
-  // Cached at the page level so the rail can render the moment it slides in
-  // (during the planning → complete phase window). Refreshed once per mount.
-  const [connectors, setConnectors] = useState<ConnectorCatalogEntry[]>([])
-  useEffect(() => {
-    let cancelled = false
-    void listConnectors()
-      .then((list) => { if (!cancelled) setConnectors(list) })
-      .catch((e) => { console.warn('[Brain] listConnectors failed:', e) })
-    return () => { cancelled = true }
-  }, [])
-
-  // ── Bootstrap (GET /brain/bootstrap) ────────────────────────────────────────
-  // Page-load context: which persona is in scope, attached pins/files,
-  // linked connectors with tool counts, available models, current project.
-  // Seeds the ContextRail before the first turn and gives the page a default
-  // persona/connector set when the user hasn't picked any.
-
-  const [bootstrap, setBootstrap] = useState<BrainBootstrap | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    void getBrainBootstrap()
-      .then((b) => { if (!cancelled) setBootstrap(b) })
-      .catch((e) => { console.warn('[Brain] getBrainBootstrap failed:', e) })
-    return () => { cancelled = true }
-  }, [])
+  // Note: the ContextRail is now driven entirely by the per-turn `context` SSE
+  // event (see liveContext), so the old page-load connectors/bootstrap fetches
+  // that used to seed it have been removed.
 
   // ── Per-turn SSE event state ────────────────────────────────────────────────
   // Slots for the named/inline events that the new YAML adds. Cleared at the
   // start of each turn and on chat reset. Rendered between the ActivityBlock
   // and the StreamingMessageBubble in the active turn body.
 
-  const [webSearches,        setWebSearches]        = useState<WebSearchEvent[]>([])
+  // Search/file data now lives directly in the timeline items; only the image
+  // list (snapshot) and the latest tool-progress are kept as separate state.
   const [streamImages,       setStreamImages]       = useState<ImageEvent[]>([])
-  const [streamFiles,        setStreamFiles]        = useState<GeneratedFileEvent[]>([])
   const [toolProgress,       setToolProgress]       = useState<ToolProgressEvent | null>(null)
+
+  // ── Live turn context (event: context) ────────────────────────────────────────
+  // Snapshot of what Brain actually loaded for the current turn (persona, pins,
+  // files, connectors). Fired once at the start of each turn; drives the
+  // ContextRail. Null until a turn runs → rail stays empty at idle.
+  const [liveContext, setLiveContext] = useState<BrainContextEvent | null>(null)
   const [toolConnectPrompt,  setToolConnectPrompt]  = useState<ToolConnectPromptEvent | null>(null)
   const [liveToolCalls,      setLiveToolCalls]      = useState<Record<string, { status: 'streaming' | 'executing' | 'complete'; tool_call: ToolCallPreview }>>({})
+
+  // ── Ordered turn timeline ────────────────────────────────────────────────────
+  // The chronological render model for the active turn (see TimelineItem). Reset
+  // at the start of every turn. seenToolIdsRef tracks which tool ids already have
+  // a timeline row (so status updates don't add duplicates); progressPushedRef
+  // ensures a single progress row.
+  const [timeline, setTimeline] = useState<TimelineItem[]>([])
+  const seenToolIdsRef  = useRef<Set<string>>(new Set())
+  const progressPushedRef = useRef(false)
+  const timelineSeqRef  = useRef(0)
 
   // ── Plan-approval correlation ───────────────────────────────────────────────
   // plan_proposed → user_prompt(kind='choice') is the plan approval gate.
@@ -723,13 +1121,16 @@ function BrainPageInner() {
     setCompletedAt(null)
     setStreamError(null)
     setPausedAfterLabel(undefined)
-    setWebSearches([])
     setStreamImages([])
-    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
+    setActivePermissionPrompt(null)
     setLiveToolCalls({})
+    setTimeline([])
+    seenToolIdsRef.current = new Set()
+    progressPushedRef.current = false
     pendingPlanIdRef.current = null
+    setLiveContext(null)
     setHistoryMessages([])
     setLocalTurns([])
     setHistoryLoaded(!chatIdFromUrl)
@@ -746,9 +1147,22 @@ function BrainPageInner() {
     }
 
     void getBrainMessages(chatIdFromUrl)
-      .then((messages) => {
+      .then(async (messages) => {
         setHistoryMessages(messages)
         setHistoryLoaded(true)
+        // Reconstruct the ContextRail snapshot from what's in the fetched
+        // messages (the backend doesn't persist a context payload). Only fetch
+        // personas if a turn referenced one; skip the network call otherwise.
+        const referencesPersona = messages.some((m) =>
+          (m.plan?.plan_json?.nodes ?? []).some((n) => Boolean((n as unknown as Record<string, unknown>).persona_id))
+          || (m.tool_calls ?? []).some((t) => {
+            const tc = t as Record<string, unknown> | null
+            return tc?.tool === 'ask_user'
+          })
+        )
+        const personas = referencesPersona ? await fetchPersonas().catch(() => []) : []
+        const synth = synthesizeContextFromMessages(messages, personas)
+        if (synth) setLiveContext(synth)
       })
       .catch(() => {
         setHistoryLoaded(true)
@@ -772,8 +1186,11 @@ function BrainPageInner() {
 
     switch (name) {
       case 'plan_proposed': {
+        // The event names the DAG nodes `steps` for FE-compat and ships the
+        // dependency `edges` alongside — fold both into flow-grouped steps so
+        // PlanCard renders parallel branches as "runs at the same time".
         const rawSteps = ((d.steps ?? []) as BackendPlanStep[])
-        const steps    = rawSteps.map(mapBackendStep)
+        const steps    = applyFlowGrouping(rawSteps.map(mapBackendStep), d.edges)
         const planId   = typeof d.plan_id === 'string' ? d.plan_id : null
         pendingPlanIdRef.current = planId
         setActivePlanSteps(steps)
@@ -852,11 +1269,13 @@ function BrainPageInner() {
         clarificationCountRef.current += 1
         setActiveClarification({
           promptId,
+          source:      'user_prompt',
           kind,
           question:    typeof d.title === 'string' ? d.title : 'Quick question',
           description: typeof d.description === 'string' ? d.description : '',
           options,
           index:       clarificationCountRef.current,
+          openEnded:   kind === 'input',
         })
         setSelectedClarificationOption(undefined)
         setClarificationInFlight(false)
@@ -866,6 +1285,100 @@ function BrainPageInner() {
         // prop, but the page-side ref persists across that boundary.)
         clarificationTextRef.current = ''
         setPhase('clarifying-goal')
+        break
+      }
+
+      // Dedicated clarifying-questions event emitted by the Brain `ask_user`
+      // tool (kind="questions"). Carries a LIST of questions; we step through
+      // them one at a time in the input slot, gather answers keyed by question
+      // id, then POST {response:{answers}} once on the final question so the
+      // blocked stream resumes. Without this the stream stalls on heartbeats
+      // until the 300s prompt_gate timeout.
+      case 'question_prompt': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        const rawQs    = Array.isArray(d.questions) ? d.questions : []
+        if (!promptId || rawQs.length === 0) break
+
+        const questions: QPQuestion[] = rawQs.flatMap((q: unknown) => {
+          if (!q || typeof q !== 'object') return []
+          const obj = q as Record<string, unknown>
+          const id  = typeof obj.id === 'string' ? obj.id : ''
+          if (!id) return []
+          const optsRaw = Array.isArray(obj.options) ? obj.options : []
+          const opts: QuestionCardOption[] = optsRaw.flatMap((o: unknown) => {
+            if (!o || typeof o !== 'object') return []
+            const oo = o as Record<string, unknown>
+            const val = typeof oo.value === 'string' ? oo.value : ''
+            return val ? [{ id: val, label: typeof oo.label === 'string' ? oo.label : val }] : []
+          })
+          const type = typeof obj.type === 'string' ? obj.type : 'text'
+          // yes_no has no options in the payload — synthesize the two choices.
+          const resolvedOpts = opts.length > 0
+            ? opts
+            : type === 'yes_no'
+              ? [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]
+              : []
+          return [{
+            id,
+            question:    typeof obj.question === 'string' ? obj.question : 'Quick question',
+            type,
+            options:     resolvedOpts,
+            placeholder: typeof obj.placeholder === 'string' ? obj.placeholder : undefined,
+          }]
+        })
+        if (questions.length === 0) break
+
+        const first = questions[0]
+        clarificationCountRef.current += 1
+        setActiveClarification({
+          promptId,
+          source:      'question_prompt',
+          kind:        first.type,
+          question:    first.question,
+          // The real question lives in `question`; the prompt `title` is a
+          // generic preamble. Leave description empty so the card shows the
+          // question (the mapping prefers description when present).
+          description: '',
+          options:     first.options,
+          index:       clarificationCountRef.current,
+          openEnded:   first.options.length === 0,
+          questions,
+          qCursor:     0,
+          collected:   {},
+        })
+        setSelectedClarificationOption(undefined)
+        setClarificationInFlight(false)
+        clarificationTextRef.current = ''
+        setPhase('clarifying-goal')
+        break
+      }
+
+      // Connector-tool permission ask: the connector is linked but the tool's
+      // policy is `ask`. Distinct from tool_connect_prompt (which links an
+      // unlinked connector). Resolve by POSTing a plain string decision.
+      case 'permission_prompt': {
+        const promptId = typeof d.prompt_id === 'string' ? d.prompt_id : ''
+        if (!promptId) break
+        const optsRaw = Array.isArray(d.options) ? d.options : []
+        const opts = optsRaw.flatMap((o: unknown) => {
+          if (!o || typeof o !== 'object') return []
+          const oo = o as Record<string, unknown>
+          const value = typeof oo.value === 'string' ? oo.value : ''
+          return value ? [{ value, label: typeof oo.label === 'string' ? oo.label : value, style: typeof oo.style === 'string' ? oo.style : undefined }] : []
+        })
+        setActivePermissionPrompt({
+          promptId,
+          connectorSlug: typeof d.connector_slug === 'string' ? d.connector_slug : '',
+          displayName:   typeof d.display_name === 'string' ? d.display_name : (typeof d.connector_slug === 'string' ? d.connector_slug : ''),
+          toolSlug:      typeof d.tool_slug === 'string' ? d.tool_slug : '',
+          options:       opts.length > 0 ? opts : [
+            { value: 'allow_once', label: 'Allow once' },
+            { value: 'allow',      label: 'Always allow' },
+            { value: 'block',      label: 'Block' },
+          ],
+        })
+        setPermissionInFlight(false)
+        setTimeline((prev) => [...prev, { kind: 'permission', id: `permission-${++timelineSeqRef.current}`, promptId }])
         break
       }
 
@@ -930,14 +1443,19 @@ function BrainPageInner() {
       case 'web_search': {
         const query = typeof d.query === 'string' ? d.query : ''
         const links = Array.isArray(d.links) ? d.links : []
-        if (query) setWebSearches((prev) => [...prev, { query, links }])
+        if (query) {
+          setTimeline((prev) => [...prev, { kind: 'web_search', id: `search-${++timelineSeqRef.current}`, data: { query, links } }])
+        }
         break
       }
 
       case 'image': {
         const url    = typeof d.url    === 'string' ? d.url    : ''
         const s3_key = typeof d.s3_key === 'string' ? d.s3_key : ''
-        if (url) setStreamImages((prev) => [...prev, { url, s3_key }])
+        if (url) {
+          setStreamImages((prev) => [...prev, { url, s3_key }])
+          setTimeline((prev) => [...prev, { kind: 'image', id: `image-${++timelineSeqRef.current}`, url }])
+        }
         break
       }
 
@@ -946,7 +1464,9 @@ function BrainPageInner() {
         const s3_key    = typeof d.s3_key    === 'string' ? d.s3_key    : ''
         const filename  = typeof d.filename  === 'string' ? d.filename  : ''
         const mime_type = typeof d.mime_type === 'string' ? d.mime_type : ''
-        if (url && filename) setStreamFiles((prev) => [...prev, { url, s3_key, filename, mime_type }])
+        if (url && filename) {
+          setTimeline((prev) => [...prev, { kind: 'file', id: `file-${++timelineSeqRef.current}`, data: { url, s3_key, filename, mime_type } }])
+        }
         break
       }
 
@@ -967,6 +1487,12 @@ function BrainPageInner() {
             percent:         (d.percent         ?? null) as number | null,
             detail:          (d.detail          ?? null) as string | null,
           })
+          // One progress row, placed at first arrival; later updates flow
+          // through toolProgress.
+          if (!progressPushedRef.current) {
+            progressPushedRef.current = true
+            setTimeline((prev) => [...prev, { kind: 'progress', id: `progress-${++timelineSeqRef.current}` }])
+          }
         }
         break
       }
@@ -985,7 +1511,22 @@ function BrainPageInner() {
             tool_name,
             request_id,
           })
+          setTimeline((prev) => [...prev, { kind: 'connect', id: `connect-${++timelineSeqRef.current}`, slug }])
         }
+        break
+      }
+
+      // Per-turn context snapshot — drives the ContextRail. Fires once at the
+      // start of the turn with the persona/pins/files/connectors Brain loaded.
+      case 'context': {
+        setLiveContext({
+          persona:          (d.persona && typeof d.persona === 'object' ? d.persona : null) as BrainContextEvent['persona'],
+          user_context:     (d.user_context && typeof d.user_context === 'object' ? d.user_context : null) as BrainContextEvent['user_context'],
+          pins:             Array.isArray(d.pins)       ? (d.pins       as BrainContextEvent['pins'])       : [],
+          files:            Array.isArray(d.files)      ? (d.files      as BrainContextEvent['files'])      : [],
+          connectors:       Array.isArray(d.connectors) ? (d.connectors as BrainContextEvent['connectors']) : [],
+          available_models: Array.isArray(d.available_models) ? (d.available_models as unknown[]) : [],
+        })
         break
       }
 
@@ -1007,6 +1548,19 @@ function BrainPageInner() {
     if (t === 'content') {
       const token = (d.content as string) ?? ''
       setStreamedContent((prev) => prev + token)
+      // Append to the timeline: extend the trailing text segment, or open a new
+      // one if the previous item was a tool/search/etc. (so text lands below it).
+      if (token) {
+        setTimeline((prev) => {
+          const last = prev[prev.length - 1]
+          if (last && last.kind === 'text') {
+            const copy = prev.slice()
+            copy[copy.length - 1] = { ...last, text: last.text + token }
+            return copy
+          }
+          return [...prev, { kind: 'text', id: `text-${++timelineSeqRef.current}`, text: token }]
+        })
+      }
       setPhase((prev) =>
         prev === 'executing' || prev === 'thinking' || prev === 'planning'
           ? 'streaming'
@@ -1048,6 +1602,12 @@ function BrainPageInner() {
       : t === 'tool_executing'        ? 'executing'
       :                                 'complete'
       setLiveToolCalls((prev) => ({ ...prev, [id]: { status, tool_call: tc } }))
+      // First time we see this tool id → add a row to the timeline at its
+      // arrival position. Later status updates flow through liveToolCalls.
+      if (!seenToolIdsRef.current.has(id)) {
+        seenToolIdsRef.current.add(id)
+        setTimeline((prev) => [...prev, { kind: 'tool', id: `tool-${++timelineSeqRef.current}`, toolKey: id }])
+      }
       return
     }
 
@@ -1073,6 +1633,7 @@ function BrainPageInner() {
     currentStreamedContent: string,
     currentActivePlanSummary: string,
     currentCompletedAt: Date | null,
+    currentStreamImages: ImageEvent[],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
@@ -1083,6 +1644,7 @@ function BrainPageInner() {
         output:      currentStreamedContent,
         planSteps:   currentPlanSteps.length > 0 ? currentPlanSteps : undefined,
         planSummary: currentActivePlanSummary || undefined,
+        images:      currentStreamImages.length > 0 ? currentStreamImages : undefined,
         completedAt: currentCompletedAt ?? undefined,
         cancelled:   opts.cancelled ?? false,
       },
@@ -1101,12 +1663,14 @@ function BrainPageInner() {
     setShowCounterInput(false)
     setCounterText('')
     setPausedAfterLabel(undefined)
-    setWebSearches([])
     setStreamImages([])
-    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
+    setActivePermissionPrompt(null)
     setLiveToolCalls({})
+    setTimeline([])
+    seenToolIdsRef.current = new Set()
+    progressPushedRef.current = false
     pendingPlanIdRef.current = null
   }, [])
 
@@ -1146,12 +1710,14 @@ function BrainPageInner() {
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
     clarificationTextRef.current = ''
-    setWebSearches([])
     setStreamImages([])
-    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
+    setActivePermissionPrompt(null)
     setLiveToolCalls({})
+    setTimeline([])
+    seenToolIdsRef.current = new Set()
+    progressPushedRef.current = false
     pendingPlanIdRef.current = null
 
     const controller = new AbortController()
@@ -1231,12 +1797,13 @@ function BrainPageInner() {
         streamedContent,
         activePlanSummary,
         completedAt,
+        streamImages,
       )
     }
     void runBrainStream(value, chatId)
   }, [
     phase, chatId, planSteps, userMessage, streamedContent,
-    activePlanSummary, completedAt, snapshotAndReset, runBrainStream,
+    activePlanSummary, completedAt, streamImages, snapshotAndReset, runBrainStream,
   ])
 
   // ── Plan decisions ────────────────────────────────────────────────────────────
@@ -1331,7 +1898,71 @@ function BrainPageInner() {
     // empty textarea doesn't beat a real selection.
     const typedText  = clarificationTextRef.current.trim()
     const selectedId = selectedClarificationOption
-    const value      = typedText || selectedId || ''
+
+    // ── question_prompt: step through N questions, gather answers keyed by
+    // question id, POST {response:{answers}} once on the last one. ──
+    if (activeClarification.source === 'question_prompt') {
+      const qs     = activeClarification.questions ?? []
+      const cursor = activeClarification.qCursor ?? 0
+      const cur    = qs[cursor]
+      if (!cur) return
+
+      const isText = activeClarification.openEnded
+      // Choice → selected option value (required). Text → typed string, or
+      // null when blank (the backend accepts null for optional questions).
+      const value: unknown = isText ? (typedText || null) : (selectedId ?? null)
+      if (!isText && value == null) {
+        toast.info('Pick an option before sending.')
+        return
+      }
+      const collected = { ...(activeClarification.collected ?? {}), [cur.id]: value }
+      const displayAnswer = isText
+        ? (typedText || '(skipped)')
+        : (cur.options.find((o) => o.id === selectedId)?.label ?? String(value))
+
+      // More questions remain → advance to the next one without POSTing.
+      if (cursor + 1 < qs.length) {
+        setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+        const next = qs[cursor + 1]
+        setActiveClarification({
+          ...activeClarification,
+          kind:        next.type,
+          question:    next.question,
+          description: '',
+          options:     next.options,
+          openEnded:   next.options.length === 0,
+          qCursor:     cursor + 1,
+          collected,
+        })
+        setSelectedClarificationOption(undefined)
+        clarificationTextRef.current = ''
+        return
+      }
+
+      // Last question → POST all answers and let the stream resume.
+      setClarificationInFlight(true)
+      void respondToPrompt(activeClarification.promptId, { response: { answers: collected } })
+        .then(() => {
+          setAnsweredClarifications((prev) => [...prev, { question: cur.question, answer: displayAnswer }])
+          setActiveClarification(null)
+          setSelectedClarificationOption(undefined)
+          clarificationTextRef.current = ''
+          // Hand control back to the stream: 'thinking' lets the next content
+          // token flip to 'streaming' (clarifying-goal would swallow it).
+          setPhase('thinking')
+        })
+        .catch((e: unknown) => {
+          console.error('[Brain] question_prompt respond failed:', e)
+          const msg = e instanceof ApiError && e.status === 404
+            ? 'This prompt expired — please re-send your message.'
+            : 'Failed to submit your answer. Please try again.'
+          toast.error(msg)
+        })
+        .finally(() => setClarificationInFlight(false))
+      return
+    }
+
+    const value = typedText || selectedId || ''
 
     if (!value) {
       toast.info('Pick an option or type an answer before sending.')
@@ -1371,7 +2002,7 @@ function BrainPageInner() {
   // expired) the user has already moved on, so we just log and continue.
   const handleClarificationSkip = useCallback(() => {
     if (!activeClarification) return
-    const { promptId, question } = activeClarification
+    const { promptId, question, source } = activeClarification
 
     setActiveClarification(null)
     setSelectedClarificationOption(undefined)
@@ -1380,14 +2011,42 @@ function BrainPageInner() {
       ...prev,
       { question, answer: { type: 'skipped' as const } },
     ])
+    // question_prompt blocks the stream until it's resolved — skipping must
+    // still POST (empty answers) so the gate releases, then resume.
+    if (source === 'question_prompt') setPhase('thinking')
 
-    void respondToPrompt(promptId, { response: { decision: 'skip' } })
+    const body = source === 'question_prompt'
+      ? { response: { answers: {} } }
+      : { response: { decision: 'skip' } }
+    void respondToPrompt(promptId, body)
       .catch((e: unknown) => {
         if (!(e instanceof ApiError && e.status === 404)) {
           console.warn('[Brain] clarification skip failed:', e)
         }
       })
   }, [activeClarification])
+
+  // ── Permission prompt handler (event: permission_prompt) ────────────────────
+  // Resolve a connector-tool permission ask by POSTing a plain string decision
+  // ("allow_once" | "allow" | "block"). Unblocks the stream like clarifications.
+  const handlePermissionDecision = useCallback((decision: string) => {
+    if (!activePermissionPrompt || permissionInFlight) return
+    const { promptId } = activePermissionPrompt
+    setPermissionInFlight(true)
+    void respondToPrompt(promptId, { response: decision })
+      .then(() => {
+        setActivePermissionPrompt(null)
+        setPhase('thinking')
+      })
+      .catch((e: unknown) => {
+        console.error('[Brain] permission respond failed:', e)
+        const msg = e instanceof ApiError && e.status === 404
+          ? 'This prompt expired — please re-send your message.'
+          : 'Failed to submit your decision. Please try again.'
+        toast.error(msg)
+      })
+      .finally(() => setPermissionInFlight(false))
+  }, [activePermissionPrompt, permissionInFlight])
 
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
@@ -1423,9 +2082,10 @@ function BrainPageInner() {
       streamedContent,
       activePlanSummary,
       completedAt,
+      streamImages,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, snapshotAndReset])
+  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -1462,12 +2122,14 @@ function BrainPageInner() {
     setCompletedAt(null)
     setStreamError(null)
     setPausedAfterLabel(undefined)
-    setWebSearches([])
     setStreamImages([])
-    setStreamFiles([])
     setToolProgress(null)
     setToolConnectPrompt(null)
+    setActivePermissionPrompt(null)
     setLiveToolCalls({})
+    setTimeline([])
+    seenToolIdsRef.current = new Set()
+    progressPushedRef.current = false
     pendingPlanIdRef.current = null
     setHistoryMessages([])
     setLocalTurns([])
@@ -1475,22 +2137,28 @@ function BrainPageInner() {
 
   // ── Thread: history from server (reload path) ─────────────────────────────────
 
-  const historyElements = historyMessages.map((msg) => (
-    <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <MessageBubble role="user" content={msg.input} maxWidth="75%" />
+  const historyElements = historyMessages.map((msg) => {
+    const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
+    const images = (msg.attachments ?? []).filter((a) => a.mime_type?.startsWith('image/'))
+    return (
+      <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <MessageBubble role="user" content={msg.input} maxWidth="75%" />
+        </div>
+        {planSteps.length > 0 && (
+          <LoopHistoryCard
+            steps={planSteps}
+            summary={msg.plan?.plan_json?.summary}
+            completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
+          />
+        )}
+        {images.length > 0 && <MessageImages images={images} />}
+        {msg.output && (
+          <StreamingMessageBubble content={msg.output} isComplete />
+        )}
       </div>
-      {msg.plan && (msg.plan.plan_json?.steps?.length ?? 0) > 0 && (
-        <LoopHistoryCard
-          steps={mapHistoryPlanSteps(msg.plan)}
-          completedAt={msg.created_at ? new Date(msg.created_at) : undefined}
-        />
-      )}
-      {msg.output && (
-        <StreamingMessageBubble content={msg.output} isComplete />
-      )}
-    </div>
-  ))
+    )
+  })
 
   // ── Thread: locally completed turns (same session) ───────────────────────────
 
@@ -1502,9 +2170,11 @@ function BrainPageInner() {
       {turn.planSteps && turn.planSteps.length > 0 && (
         <LoopHistoryCard
           steps={turn.planSteps}
+          summary={turn.planSummary}
           completedAt={turn.completedAt}
         />
       )}
+      {turn.images && turn.images.length > 0 && <MessageImages images={turn.images} />}
       {turn.output && (
         <StreamingMessageBubble content={turn.output} isComplete />
       )}
@@ -1526,23 +2196,52 @@ function BrainPageInner() {
   const showPlanCard      = (phase === 'planning' || phase === 'clarifying-goal') && activePlanSteps.length > 0
   const showActivityBlock = phase === 'executing' || phase === 'paused'
 
-  // Build the side-effect feed (web searches, images, files, live tools,
-  // tool progress). Items are appended in arrival order; tool calls are
-  // keyed by id so successive streaming/executing/complete updates collapse
-  // into a single row that flips status in place.
-  const activityFeedItems = useMemo<ActivityFeedItem[]>(() => {
-    const items: ActivityFeedItem[] = []
-    webSearches.forEach((w, i)  => items.push({ kind: 'web_search', data: w, id: `search-${i}` }))
-    streamImages.forEach((im, i) => items.push({ kind: 'image',     data: im, id: `image-${i}` }))
-    streamFiles.forEach((f, i)  => items.push({ kind: 'file',      data: f, id: `file-${i}` }))
-    Object.entries(liveToolCalls).forEach(([id, entry]) =>
-      items.push({ kind: 'tool', data: entry.tool_call, id: `tool-${id}`, status: entry.status }),
-    )
-    if (toolProgress) {
-      items.push({ kind: 'progress', data: toolProgress, id: `progress-${toolProgress.tool}-${toolProgress.filename}` })
+  // Render one timeline item in arrival order. Mutating kinds read their live
+  // state by reference (tool status from liveToolCalls, the latest progress
+  // from toolProgress, the active permission/connect prompt) so a row added
+  // earlier still reflects later updates. Each non-text row reuses the same
+  // building blocks the fixed layout used (ActivityFeed row, cards), just
+  // rendered at its chronological position.
+  const renderTimelineItem = (item: TimelineItem, isLast: boolean) => {
+    switch (item.kind) {
+      case 'text':
+        return (
+          <StreamingMessageBubble
+            key={item.id}
+            content={item.text}
+            isComplete={!isLast || streamingComplete || phase === 'complete' || phase === 'cancelled' || phase === 'failed'}
+          />
+        )
+      case 'tool': {
+        const e = liveToolCalls[item.toolKey]
+        return e ? <ActivityFeed key={item.id} items={[{ kind: 'tool', data: e.tool_call, id: item.id, status: e.status }]} /> : null
+      }
+      case 'web_search':
+        return <ActivityFeed key={item.id} items={[{ kind: 'web_search', data: item.data, id: item.id }]} />
+      case 'file':
+        return <ActivityFeed key={item.id} items={[{ kind: 'file', data: item.data, id: item.id }]} />
+      case 'image':
+        return <MessageImages key={item.id} images={[{ url: item.url }]} />
+      case 'progress':
+        return toolProgress ? <ActivityFeed key={item.id} items={[{ kind: 'progress', data: toolProgress, id: item.id }]} /> : null
+      case 'permission':
+        // Only the row matching the still-open prompt renders the live card;
+        // resolved/older permission rows collapse to nothing.
+        return activePermissionPrompt?.promptId === item.promptId
+          ? <PermissionPromptCard key={item.id} prompt={activePermissionPrompt} disabled={permissionInFlight} onDecide={handlePermissionDecision} />
+          : null
+      case 'connect':
+        return toolConnectPrompt?.connector_slug === item.slug
+          ? (
+            <ToolConnectCard
+              key={item.id}
+              event={toolConnectPrompt}
+              onConnected={() => setToolConnectPrompt(null)}
+            />
+          )
+          : null
     }
-    return items
-  }, [webSearches, streamImages, streamFiles, liveToolCalls, toolProgress])
+  }
 
   const activeTurnContent = userMessage ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
@@ -1557,9 +2256,6 @@ function BrainPageInner() {
       {answeredClarifications.length > 0 && (
         <ClarificationSummary items={answeredClarifications} />
       )}
-
-      {/* Thinking */}
-      {phase === 'thinking' && <StreamingIndicator phase="thinking" />}
 
       {/* Plan card + optional counter input */}
       {showPlanCard && (
@@ -1584,31 +2280,26 @@ function BrainPageInner() {
         </>
       )}
 
-      {/* ActivityBlock — persists through executing and paused */}
+      {/* ActivityBlock — plan-step tracker; persists through executing and paused */}
       {showActivityBlock && (
         <ActivityBlock steps={planSteps} interpretation={activePlanSummary} />
       )}
 
-      {/* Connector-link CTA — surfaced mid-stream when the model called a
-          tool for an app the user hasn't linked. User clicks Connect → OAuth
-          flow → polls until linked → re-send their message. */}
-      {toolConnectPrompt && (
-        <ToolConnectCard
-          event={toolConnectPrompt}
-          onConnected={(slug) => {
-            setToolConnectPrompt(null)
-            // Refresh connector status so the ContextRail reflects the new link.
-            void listConnectors()
-              .then((list) => setConnectors(list))
-              .catch(() => {})
-            void slug
-          }}
-        />
+      {/* Complete header sits above the transcript */}
+      {phase === 'complete' && (
+        <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
       )}
 
-      {/* Side-effect feed: web searches, images, files, live tool calls,
-          tool progress. Order is creation-time; tool calls collapse by id. */}
-      <ActivityFeed items={activityFeedItems} />
+      {/* ── Ordered transcript ──────────────────────────────────────────────
+          Text segments, tool calls, web searches, files, images, the connector
+          permission/link cards — all rendered in the order they streamed in,
+          so chat and tools interleave instead of bucketing. */}
+      {timeline.map((item, i) => renderTimelineItem(item, i === timeline.length - 1))}
+
+      {/* Live cursor — thinking before the first token, composing while tokens
+          (or tools) are still arriving. */}
+      {phase === 'thinking'  && <StreamingIndicator phase="thinking" />}
+      {phase === 'streaming' && <StreamingIndicator phase="streaming" />}
 
       {/* PauseCard */}
       {phase === 'paused' && (
@@ -1620,26 +2311,9 @@ function BrainPageInner() {
         />
       )}
 
-      {/* Streaming */}
-      {phase === 'streaming' && (
-        <>
-          <StreamingIndicator phase="streaming" />
-          <StreamingMessageBubble
-            content={streamedContent}
-            isComplete={streamingComplete}
-          />
-        </>
-      )}
-
-      {/* Complete */}
-      {phase === 'complete' && (
-        <>
-          <BrainResultHeader summary={activePlanSummary || 'Analysis complete'} />
-          <StreamingMessageBubble content={streamedContent} isComplete />
-          {planSteps.length > 0 && (
-            <LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} />
-          )}
-        </>
+      {/* Completed plan recap, below the transcript */}
+      {phase === 'complete' && planSteps.length > 0 && (
+        <LoopHistoryCard steps={planSteps} completedAt={completedAt ?? undefined} />
       )}
 
       {/* Cancelled */}
@@ -1788,55 +2462,43 @@ function BrainPageInner() {
   // falls back to bootstrap-supplied defaults so the rail isn't empty before
   // the first turn. Bootstrap pins appear when no folders are attached;
   // bootstrap connectors merge with /connectors so we get tool_count for free.
+  // The rail reflects ONLY what Brain actually loaded for the turn — the live
+  // `context` event. Empty (rail closed) until a turn runs and the event fires;
+  // no selected-chip / bootstrap fallback.
   const contextRailData = useMemo<ContextRailData>(() => {
-    const bootstrapConnectorBySlug = new Map(
-      (bootstrap?.connectors ?? []).map((c) => [c.slug, c]),
-    )
-    const mergedConnectors = connectors
-      .filter((c) => c.linked)
-      .map((c) => {
-        const b = bootstrapConnectorBySlug.get(c.slug)
-        const status: 'connected' | 'failed' | 'pending' =
-          b?.status === 'failed'  ? 'failed'
-        : b?.status === 'pending' ? 'pending'
-        :                           'connected'
-        return { name: c.display_name, status }
-      })
+    if (!liveContext) return {}
 
-    const fallbackPersona = !selectedPersona && bootstrap?.persona
-      ? {
-          name:      bootstrap.persona.name,
-          handle:    bootstrap.persona.handler,
-          avatarUrl: undefined,
-        }
-      : undefined
-
-    const fallbackPins = selectedFolders.length === 0
-      ? (bootstrap?.pins ?? []).map((p) => ({
-          id:     p.pin_id,
-          title:  p.title,
-          source: p.tags?.length ? p.tags.join(' · ') : undefined,
-        }))
-      : []
+    const fmtSize = (bytes?: number): string | null => {
+      if (!bytes || bytes <= 0) return null
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
 
     return {
-      persona: selectedPersona
+      persona: liveContext.persona
         ? {
-            name:      selectedPersona.name,
-            handle:    selectedPersona.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-            avatarUrl: selectedPersona.imageUrl ?? undefined,
+            name:      liveContext.persona.name || liveContext.persona.handler || 'Persona',
+            handle:    liveContext.persona.handler || '',
+            avatarUrl: liveContext.persona.avatar_url,
           }
-        : fallbackPersona,
-      pins: selectedFolders.length > 0
-        ? selectedFolders.map((f) => ({
-            id:     f.id,
-            title:  f.name,
-            source: `${f.pin_count} pin${f.pin_count === 1 ? '' : 's'}`,
-          }))
-        : fallbackPins,
-      connectors: mergedConnectors,
+        : undefined,
+      pins: (liveContext.pins ?? []).map((p) => ({
+        id:     p.pin_id,
+        title:  p.title,
+        source: p.tags?.length ? p.tags.join(' · ') : undefined,
+      })),
+      files: (liveContext.files ?? []).map((f) => ({
+        name: f.name,
+        meta: [f.mime_type, fmtSize(f.size)].filter(Boolean).join(' · ') || undefined,
+      })),
+      connectors: (liveContext.connectors ?? []).map((c) => ({
+        name:   c.display_name || c.slug,
+        slug:   c.slug,
+        status: c.status === 'failed' ? 'failed' : c.status === 'pending' ? 'pending' : 'connected',
+      })),
     }
-  }, [selectedPersona, selectedFolders, connectors, bootstrap])
+  }, [liveContext])
 
   // ── Has any content to render ─────────────────────────────────────────────────
 
@@ -1886,10 +2548,10 @@ function BrainPageInner() {
         // ClarificationCard hides the pagination chip and prev/next arrows
         // entirely, which is the right UX for "one question at a time".
         selected:       selectedClarificationOption,
-        // For 'input' kind there are no options to pick — surface a hint
-        // that the open-ended text input is the answer field. For 'choice'
-        // kind we keep QuestionCard's default ("Something else on your mind").
-        openEndedLabel: activeClarification.kind === 'input'
+        // For free-text questions there are no options to pick — surface a
+        // hint that the open-ended text input is the answer field. For choice
+        // questions we keep QuestionCard's default ("Something else on your mind").
+        openEndedLabel: activeClarification.openEnded
                           ? 'Type your answer…'
                           : undefined,
         onSelect:         handleClarificationSelect,

@@ -36,10 +36,28 @@ export interface BackendPlanStep {
   completed_at?:   string
 }
 
+// Newer plans persist a node graph instead of a flat step list. A node carries
+// the same render-relevant fields (id/title/status) plus a model_id we
+// deliberately don't surface in the UI.
+export interface BackendPlanNode {
+  id:              string
+  kind:            string
+  title:           string
+  description?:    string
+  status?:         string
+  model_id?:       string | null
+  result_preview?: string
+  started_at?:     string
+  completed_at?:   string
+}
+
 export interface BackendPlanJson {
-  summary:             string
-  steps:               BackendPlanStep[]
-  required_connectors: string[]
+  summary:              string
+  steps?:               BackendPlanStep[]
+  nodes?:               BackendPlanNode[]
+  edges?:               unknown[]
+  plan_text?:           string
+  required_connectors?: string[]
 }
 
 export interface BrainChatListItem {
@@ -61,6 +79,59 @@ export interface BrainPlanResponse {
   created_at?:    string | null
 }
 
+// Images/files generated inside subtasks, returned per-message by GET
+// /brain/{chat_id}/messages with a freshly-signed `url`.
+export interface BrainAttachment {
+  id:         string
+  url:        string
+  s3_key:     string
+  mime_type:  string
+  file_size?: number
+  origin?:    string
+}
+
+// ── `context` SSE event ───────────────────────────────────────────────────────
+// Snapshot of everything in scope for one Brain turn (persona, pins, files,
+// connectors, …). Fired once at the start of each turn so the FE can populate
+// its context sidebar. Mirrors core/sse_schemas.py ContextEvent.
+export interface ContextPersona {
+  persona_id?:     string
+  name?:           string
+  handler?:        string
+  prompt_preview?: string
+  model_id?:       string | null
+  // Optional avatar URL — populated when the FE reconstructs context from
+  // fetched messages on chat reload (the live `context` event omits this).
+  avatar_url?:     string
+}
+export interface ContextPin {
+  pin_id:           string
+  title:            string
+  content_preview?: string
+  tags?:            string[]
+}
+export interface ContextFile {
+  name:       string
+  mime_type?: string
+  size?:      number
+  source?:    string
+}
+export interface ContextConnector {
+  slug:          string
+  display_name?: string
+  status?:       string
+  auth_mode?:    string
+  tool_count?:   number
+}
+export interface BrainContextEvent {
+  persona?:          ContextPersona | null
+  user_context?:     Record<string, unknown> | null
+  pins?:             ContextPin[]
+  files?:            ContextFile[]
+  connectors?:       ContextConnector[]
+  available_models?: unknown[]
+}
+
 export interface BrainMessage {
   id:                  string
   input:               string
@@ -71,6 +142,7 @@ export interface BrainMessage {
   created_at?:         string | null
   tool_calls?:         unknown[] | null
   plan?:               BrainPlanResponse | null
+  attachments?:        BrainAttachment[]
 }
 
 // ── Bootstrap (GET /brain/bootstrap) ──────────────────────────────────────────
@@ -314,6 +386,9 @@ export type PromptResponseBody =
   | { response: { decision: 'submit'; value: string } }
   | { response: { decision: 'skip' } }
   | { response: Record<string, unknown> }
+  // permission_prompt resolves with a plain-string decision ("allow" |
+  // "allow_once" | "block").
+  | { response: string }
 
 // ── SSE callbacks ─────────────────────────────────────────────────────────────
 

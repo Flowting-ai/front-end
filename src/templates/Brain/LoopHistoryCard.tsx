@@ -45,10 +45,60 @@ function StepStatusIcon({ status }: { status: PlanStep['status'] }) {
   return <TickTwoIcon size={14} color="var(--color-tag-Green-text)" />
 }
 
+// ── Step row ──────────────────────────────────────────────────────────────────
+
+function StepRow({ step }: { step: PlanStep }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+      <div style={{ flexShrink: 0, paddingTop: 2, lineHeight: 0 }}>
+        <StepStatusIcon status={step.status} />
+      </div>
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize:   'var(--font-size-caption)',
+        color:      step.status === 'failed'
+          ? 'var(--color-tag-Red-text)'
+          : step.status === 'skipped'
+            ? 'var(--neutral-400)'
+            : 'var(--neutral-700)',
+        lineHeight: 'var(--line-height-caption)',
+        textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
+      }}>
+        {step.label}
+      </span>
+    </div>
+  )
+}
+
+// ── Flow grouping ─────────────────────────────────────────────────────────────
+// Consecutive steps sharing a parallelGroup ran at the same time (one
+// dependency level of the plan DAG). Render them bracketed under a label so the
+// flow reads top-to-bottom with parallel branches called out.
+
+type HistItem =
+  | { kind: 'step';     step:  PlanStep }
+  | { kind: 'parallel'; steps: PlanStep[] }
+
+function groupConsecutive(steps: PlanStep[]): HistItem[] {
+  const out: HistItem[] = []
+  let i = 0
+  while (i < steps.length) {
+    const step = steps[i]
+    if (!step.parallelGroup) { out.push({ kind: 'step', step }); i++; continue }
+    const groupId = step.parallelGroup
+    const group   = [step]
+    while (i + 1 < steps.length && steps[i + 1].parallelGroup === groupId) group.push(steps[++i])
+    i++
+    out.push(group.length > 1 ? { kind: 'parallel', steps: group } : { kind: 'step', step: group[0] })
+  }
+  return out
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface LoopHistoryCardProps {
   steps:          PlanStep[]
+  summary?:       string    // overall plan goal, shown above the step list
   completedAt?:   Date
   runLabel?:      string    // overrides the auto-formatted time (e.g. "Today · 8:00 AM")
   defaultOpen?:   boolean
@@ -58,10 +108,12 @@ export interface LoopHistoryCardProps {
 
 export function LoopHistoryCard({
   steps,
+  summary,
   completedAt,
   runLabel,
   defaultOpen = false,
 }: LoopHistoryCardProps) {
+  const items = groupConsecutive(steps)
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [open, setOpen] = useState(defaultOpen)
 
@@ -186,29 +238,48 @@ export function LoopHistoryCard({
               {/* Divider */}
               <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', marginBottom: 6 }} />
 
-              {steps.map(step => (
-                <div
-                  key={step.id}
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}
-                >
-                  <div style={{ flexShrink: 0, paddingTop: 2, lineHeight: 0 }}>
-                    <StepStatusIcon status={step.status} />
+              {/* Plan goal */}
+              {summary && (
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize:   'var(--font-size-caption)',
+                  color:      'var(--neutral-500)',
+                  lineHeight: 'var(--line-height-caption)',
+                  marginBottom: 4,
+                }}>
+                  {summary}
+                </span>
+              )}
+
+              {items.map((item, idx) =>
+                item.kind === 'step' ? (
+                  <StepRow key={item.step.id} step={item.step} />
+                ) : (
+                  <div
+                    key={`parallel-${idx}`}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                  >
+                    <span style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize:   'var(--font-size-caption)',
+                      fontStyle:  'italic',
+                      color:      'var(--neutral-400)',
+                      lineHeight: 'var(--line-height-caption)',
+                    }}>
+                      Ran at the same time
+                    </span>
+                    <div style={{
+                      paddingLeft:   12,
+                      borderLeft:    '1.5px solid var(--neutral-200)',
+                      display:       'flex',
+                      flexDirection: 'column',
+                      gap:           8,
+                    }}>
+                      {item.steps.map(step => <StepRow key={step.id} step={step} />)}
+                    </div>
                   </div>
-                  <span style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-caption)',
-                    color:      step.status === 'failed'
-                      ? 'var(--color-tag-Red-text)'
-                      : step.status === 'skipped'
-                        ? 'var(--neutral-400)'
-                        : 'var(--neutral-700)',
-                    lineHeight: 'var(--line-height-caption)',
-                    textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
-                  }}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </m.div>
         )}

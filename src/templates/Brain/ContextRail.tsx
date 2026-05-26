@@ -3,6 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import { PinIcon } from '@strange-huge/icons'
+import { connectorLogoSrc } from '@/lib/connectorLogos'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,12 +21,19 @@ export interface ContextRailPin {
 
 export interface ContextRailConnector {
   name:   string
+  slug?:  string
   status: 'connected' | 'failed' | 'pending'
+}
+
+export interface ContextRailFile {
+  name:  string
+  meta?: string
 }
 
 export interface ContextRailData {
   persona?:    ContextRailPersona
   pins?:       ContextRailPin[]
+  files?:      ContextRailFile[]
   connectors?: ContextRailConnector[]
 }
 
@@ -34,18 +42,6 @@ export interface ContextRailProps {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const FALLBACK_AVATARS = [
-  '/persona-avatars/0656f3b794e38cb70243c01880ae7e8c.jpg',
-  '/persona-avatars/610d02a62c92aabef208323fb3eb963b.jpg',
-  '/persona-avatars/81fd248d2aea38920976f7d6420f90ca.jpg',
-]
-
-function getFallbackAvatar(seed: string): string {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  return FALLBACK_AVATARS[hash % FALLBACK_AVATARS.length]
-}
 
 function SectionDivider() {
   return <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', flexShrink: 0 }} />
@@ -77,63 +73,16 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
   )
 }
 
-const CONTEXT_RAIL_LOGO_MAP: Record<string, string> = {
-  'airtable':          '/connector-logos/airtable.svg',
-  'asana':             '/connector-logos/asana.svg',
-  'calendly':          '/connector-logos/calendly.svg',
-  'clickup':           '/connector-logos/clickup.svg',
-  'click-up':          '/connector-logos/clickup.svg',
-  'fireflies':         '/connector-logos/fireflies.svg',
-  'fireflies-ai':      '/connector-logos/fireflies.svg',
-  'gmail':             '/connector-logos/gmail.svg',
-  'googleads':         '/connector-logos/google-ads.svg',
-  'google-ads':        '/connector-logos/google-ads.svg',
-  'google_ads':        '/connector-logos/google-ads.svg',
-  'googlecalendar':    '/connector-logos/google-calendar.svg',
-  'google-calendar':   '/connector-logos/google-calendar.svg',
-  'google_calendar':   '/connector-logos/google-calendar.svg',
-  'googledocs':        '/connector-logos/google-docs.svg',
-  'google-docs':       '/connector-logos/google-docs.svg',
-  'google_docs':       '/connector-logos/google-docs.svg',
-  'googledrive':       '/connector-logos/google-drive.svg',
-  'google-drive':      '/connector-logos/google-drive.svg',
-  'google_drive':      '/connector-logos/google-drive.svg',
-  'googlesheets':      '/connector-logos/google-sheets.svg',
-  'google-sheets':     '/connector-logos/google-sheets.svg',
-  'google_sheets':     '/connector-logos/google-sheets.svg',
-  'hubspot':           '/connector-logos/hubspot.svg',
-  'jira':              '/connector-logos/jira.svg',
-  'linear':            '/connector-logos/linear.svg',
-  'linkedin':          '/connector-logos/linkedin.svg',
-  'meta':              '/connector-logos/meta.svg',
-  'meta-ads':          '/connector-logos/meta.svg',
-  'meta_ads':          '/connector-logos/meta.svg',
-  'metaads':           '/connector-logos/meta.svg',
-  'facebook':          '/connector-logos/meta.svg',
-  'facebook-ads':      '/connector-logos/meta.svg',
-  'facebook_ads':      '/connector-logos/meta.svg',
-  'facebookads':       '/connector-logos/meta.svg',
-  'notion':            '/connector-logos/notion.svg',
-  'outlook':           '/connector-logos/outlook.svg',
-  'microsoft-outlook': '/connector-logos/outlook.svg',
-  'salesforce':        '/connector-logos/salesforce.svg',
-  'shipengine':        '/connector-logos/shipengine.jpeg',
-  'ship-engine':       '/connector-logos/shipengine.jpeg',
-  'shopify':           '/connector-logos/shopify.svg',
-  'slack':             '/connector-logos/slack.svg',
-  'stripe':            '/connector-logos/stripe.svg',
-  'zoom':              '/connector-logos/zoom.svg',
-}
-
-function ConnectorLogo({ name, status }: { name: string; status: ContextRailConnector['status'] }) {
+// Bundled connector logos live in @/lib/connectorLogos (shared with the Brain
+// tool-connect card so both render the same brand assets).
+function ConnectorLogo({ name, slug, status }: { name: string; slug?: string; status: ContextRailConnector['status'] }) {
   const dotColor =
     status === 'connected' ? 'var(--color-tag-Green-text, #1e8a3c)' :
     status === 'failed'    ? 'var(--color-tag-Red-text, #c0392b)'   :
                              'var(--neutral-300)'
 
-  // Derive a slug from the connector name for logo lookup
-  const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')
-  const logoSrc = CONTEXT_RAIL_LOGO_MAP[slug]
+  // Resolve the bundled logo by slug (preferred) or display name.
+  const logoSrc = connectorLogoSrc(slug ?? name)
 
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, lineHeight: 0 }}>
@@ -207,10 +156,11 @@ function RailHeader() {
 // ── ContextRail ───────────────────────────────────────────────────────────────
 
 export function ContextRail({ data }: ContextRailProps) {
-  const { persona, pins, connectors } = data
+  const { persona, pins, files, connectors } = data
   const hasPins       = pins && pins.length > 0
+  const hasFiles      = files && files.length > 0
   const hasConnectors = connectors && connectors.length > 0
-  const isEmpty       = !persona && !hasPins && !hasConnectors
+  const isEmpty       = !persona && !hasPins && !hasFiles && !hasConnectors
 
   const railStyle: React.CSSProperties = {
     width:           '100%',
@@ -258,20 +208,38 @@ export function ContextRail({ data }: ContextRailProps) {
           <SectionHeader label="Persona" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px 14px' }}>
             <div style={{
-              width:        40,
-              height:       40,
-              borderRadius: 10,
-              overflow:     'hidden',
-              flexShrink:   0,
+              position:        'relative',
+              width:           40,
+              height:          40,
+              borderRadius:    10,
+              overflow:        'hidden',
+              flexShrink:      0,
+              backgroundColor: 'var(--neutral-100)',
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
             }}>
-              <Image
-                src={persona.avatarUrl ?? getFallbackAvatar(persona.name)}
-                alt=""
-                fill
-                sizes="40px"
-                style={{ objectFit: 'cover', display: 'block' }}
-                unoptimized
-              />
+              {persona.avatarUrl ? (
+                <Image
+                  src={persona.avatarUrl}
+                  alt=""
+                  fill
+                  sizes="40px"
+                  style={{ objectFit: 'cover', display: 'block' }}
+                  unoptimized
+                />
+              ) : (
+                <span style={{
+                  fontFamily:    'var(--font-body)',
+                  fontSize:      18,
+                  fontWeight:    600,
+                  color:         'var(--neutral-500)',
+                  textTransform: 'uppercase',
+                  userSelect:    'none',
+                }}>
+                  {persona.name.charAt(0)}
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
               <span style={{
@@ -286,6 +254,7 @@ export function ContextRail({ data }: ContextRailProps) {
               }}>
                 {persona.name}
               </span>
+              {persona.handle && (
               <span style={{
                 fontFamily: 'var(--font-code)',
                 fontSize:   'var(--font-size-code)',
@@ -294,6 +263,7 @@ export function ContextRail({ data }: ContextRailProps) {
               }}>
                 @{persona.handle}
               </span>
+              )}
             </div>
           </div>
         </>
@@ -348,15 +318,60 @@ export function ContextRail({ data }: ContextRailProps) {
         </>
       )}
 
+      {/* ── Files section ── */}
+      {hasFiles && (
+        <>
+          {(persona || hasPins) && <SectionDivider />}
+          <SectionHeader label="Files" count={files!.length} />
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
+            {files!.map((file, i) => (
+              <div
+                key={`${file.name}-${i}`}
+                style={{
+                  display:    'flex',
+                  flexDirection: 'column',
+                  gap:        2,
+                  padding:    '7px 16px',
+                  borderTop:  i > 0 ? '1px solid var(--neutral-100)' : 'none',
+                  minWidth:   0,
+                }}
+              >
+                <span style={{
+                  fontFamily:   'var(--font-body)',
+                  fontSize:     'var(--font-size-body)',
+                  lineHeight:   'var(--line-height-body)',
+                  color:        'var(--neutral-700)',
+                  overflow:     'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace:   'nowrap',
+                }}>
+                  {file.name}
+                </span>
+                {file.meta && (
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-caption)',
+                    lineHeight: 'var(--line-height-caption)',
+                    color:      'var(--neutral-400)',
+                  }}>
+                    {file.meta}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* ── Connectors section ── */}
       {hasConnectors && (
         <>
-          {(persona || hasPins) && <SectionDivider />}
+          {(persona || hasPins || hasFiles) && <SectionDivider />}
           <SectionHeader label="Connectors" />
           <div style={{ display: 'flex', flexDirection: 'column', padding: '2px 0 14px' }}>
             {connectors!.map((c, i) => (
               <div
-                key={c.name}
+                key={c.slug ?? c.name}
                 style={{
                   display:     'flex',
                   alignItems:  'center',
@@ -365,7 +380,7 @@ export function ContextRail({ data }: ContextRailProps) {
                   borderTop:   i > 0 ? '1px solid var(--neutral-100)' : 'none',
                 }}
               >
-                <ConnectorLogo name={c.name} status={c.status} />
+                <ConnectorLogo name={c.name} slug={c.slug} status={c.status} />
                 <span style={{
                   flex:       '1 0 0',
                   fontFamily: 'var(--font-body)',
