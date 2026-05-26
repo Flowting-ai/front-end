@@ -137,6 +137,9 @@ export function PersonaChatInterface({
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const abortRef             = useRef<(() => void) | null>(null);
   const streamContentRef     = useRef("");
+  // Set to true inside onChatId so the history-loading effect knows to skip
+  // reloading when the component itself just created the chat.
+  const justCreatedChatRef   = useRef(false);
 
   const { open: openModelSelector, models, selectModel, selectedModel } = useModelSelectorContext();
   const { processFiles, FILE_ACCEPT } = useFileUpload();
@@ -170,6 +173,15 @@ export function PersonaChatInterface({
   // eslint-disable-next-line react-doctor/no-cascading-set-state
   useEffect(() => {
     if (!initialChatId) return;
+    // When this component creates a new chat, onChatId fires and calls
+    // window.history.replaceState — Next.js router updates useSearchParams,
+    // which changes initialChatId from undefined to the new id and re-triggers
+    // this effect. In that case we must NOT reload because streaming is already
+    // in progress and the messages are already in local state.
+    if (justCreatedChatRef.current) {
+      justCreatedChatRef.current = false;
+      return;
+    }
     setIsLoadingMessages(true);
     fetchPersonaChatMessages(personaId, initialChatId)
       .then(msgs => setMessages(msgs.map(m => ({ id: m.id, role: m.role, content: m.content ?? "" }))))
@@ -228,6 +240,9 @@ export function PersonaChatInterface({
     setIsStreaming(true);
 
     const currentChatId = activeChatId;
+    // Tracks the live chatId for this send session (undefined on first send of a
+    // new chat, then updated synchronously inside onChatId before onTitle fires).
+    let resolvedChatId = currentChatId;
 
     // Accumulator for streaming reasoning sections; mutated in place and the
     // section list is re-snapshotted into setMessages on every delta so React
@@ -245,6 +260,8 @@ export function PersonaChatInterface({
 
     const callbacks: PersonaChatStreamCallbacks = {
       onChatId: (chatId: string) => {
+        resolvedChatId = chatId; // update immediately so onTitle sees the real id
+        justCreatedChatRef.current = true; // tell history effect not to reload
         setActiveChatId(chatId);
         window.history.replaceState(null, "", `/personas/${personaId}/chat?chatId=${chatId}`);
         emitPersonaChatCreated({ personaId, chatId, title: trimmed.slice(0, 80) || "New chat" });
@@ -280,8 +297,7 @@ export function PersonaChatInterface({
         setMessages(prev => prev.map(m => m.id === oldId ? { ...m, id: messageId } : m));
       },
       onTitle: (title: string) => {
-        const chatId = activeChatId;
-        if (chatId) emitPersonaChatTitleUpdated({ personaId, chatId, title });
+        if (resolvedChatId) emitPersonaChatTitleUpdated({ personaId, chatId: resolvedChatId, title });
       },
       onDone: () => {
         setMessages(prev => prev.map(m =>
