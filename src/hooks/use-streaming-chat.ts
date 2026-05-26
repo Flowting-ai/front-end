@@ -5,7 +5,7 @@ import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
 import { friendlyApiError } from "@/lib/api/client"
 import { apiFetch } from "@/lib/api/client"
-import { CHAT_STOP_ENDPOINT, PERSONA_CHAT_STOP_ENDPOINT } from "@/lib/config"
+import { CHAT_STOP_ENDPOINT } from "@/lib/config"
 import { logger } from "@/lib/logger"
 import type { UIMessage } from "@/hooks/use-chat-state"
 
@@ -52,8 +52,6 @@ export function useStreamingChat({
   const userMessageIdRef = useRef<string | null>(null)
   // Resolved chat ID (may start as null/temp and update once backend confirms)
   const resolvedChatIdRef = useRef<string | null>(null)
-  // Persona ID for the current stream, used to route stop requests correctly
-  const resolvedPersonaIdRef = useRef<string | null>(null)
 
   // ── Flush helpers ───────────────────────────────────────────────────────────
 
@@ -127,14 +125,11 @@ export function useStreamingChat({
       )
     }
 
-    // Signal the backend to stop generation
+    // Signal the backend to stop generation. Persona-overlay chats live on the
+    // regular /chats endpoint, so the regular stop endpoint applies.
     const chatId = resolvedChatIdRef.current
-    const personaId = resolvedPersonaIdRef.current
     if (chatId && !chatId.startsWith("temp-")) {
-      const stopEndpoint = personaId
-        ? PERSONA_CHAT_STOP_ENDPOINT(personaId, chatId)
-        : CHAT_STOP_ENDPOINT(chatId)
-      void apiFetch(stopEndpoint, { method: "POST" }).catch(() => {})
+      void apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" }).catch(() => {})
     }
   }
 
@@ -160,7 +155,6 @@ export function useStreamingChat({
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
-    resolvedPersonaIdRef.current = options?.personaId ?? null
 
     setStreamState?.("waiting")
 

@@ -969,30 +969,40 @@ function PersonaConfigureInstructionsContent() {
         image:       imageFile,
         imageUrl:    preserveImageUrl,
       })
+
+      // Promote the newly saved version to active so the dedicated chat page
+      // and persona-overlay chats immediately use the model + prompt the user
+      // just configured. Without this, "Save Version" only creates a draft and
+      // the active version stays pinned to whatever was last published.
+      await setActiveVersion(repoId, version.id)
+
       setVersionId(version.id)
       if (version.image_url) setImageUrl(version.image_url)
       const params = new URLSearchParams(searchParams.toString())
       params.set('versionId', version.id)
       window.history.replaceState(null, '', `?${params.toString()}`)
 
-      // Prepend to versions list, trim to MAX_VERSIONS
+      // Mark all previous versions inactive, prepend new active version, trim.
       const newItem: PersonaVersionListItem = {
         id:         version.id,
         name:       version.name,
         handler:    version.handler,
         model_id:   version.model_id,
-        is_active:  version.is_active,
+        is_active:  true,
         created_at: version.created_at,
         updated_at: version.updated_at,
       }
-      setVersions(prev => [newItem, ...prev.filter(v => v.id !== version.id)].slice(0, MAX_VERSIONS))
+      setVersions(prev => [
+        newItem,
+        ...prev.filter(v => v.id !== version.id).map(v => ({ ...v, is_active: false })),
+      ].slice(0, MAX_VERSIONS))
 
       // Store change tags for this version and advance snapshot
       setVersionsChangeTags(prev => new Map([...prev, [version.id, tags]]))
       savedSnapshotRef.current = { instruction, modelId, temperature }
       bustPersonasCache()
 
-      toast.success('Version created')
+      toast.success('Version saved')
     } catch (err) {
       console.error('[PersonaConfigure] save error:', err)
       toast.error('Failed to save version')
@@ -1015,20 +1025,26 @@ function PersonaConfigureInstructionsContent() {
   async function handlePublish() {
     if (!repoId || !versionId) return
 
-    if (hasPublishedRef.current) {
-      setRepublishModalOpen(true)
-      return
-    }
+    const wasPublished = hasPublishedRef.current
 
     setIsPublishing(true)
     try {
+      // Always promote the current draft to active — this is the whole point
+      // of clicking Publish, whether or not the persona was previously published.
       await setActiveVersion(repoId, versionId)
       bustPersonasCache()
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(publishedKey(repoId), '1')
       }
       hasPublishedRef.current = true
-      push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+
+      if (wasPublished) {
+        // Republish: confirm via modal, stay on the page.
+        setRepublishModalOpen(true)
+      } else {
+        // First publish: show the celebratory page.
+        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      }
     } catch (err) {
       console.error('[PersonaConfigure] publish error:', err)
       toast.error('Failed to publish persona')

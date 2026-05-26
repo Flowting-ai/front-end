@@ -27,6 +27,9 @@ export interface PersonaDocumentResponse {
   id: string;
   document_filename: string;
   created_at: string;
+  size_bytes?: number | null;
+  content_type?: string | null;
+  download_url?: string | null;
 }
 
 export interface PersonaVersionResponse {
@@ -206,6 +209,18 @@ export async function listVersions(repoId: string): Promise<PersonaVersionListIt
   return apiFetchJson<PersonaVersionListItem[]>(PERSONA_VERSIONS_ENDPOINT(repoId));
 }
 
+async function urlToImageFile(url: string): Promise<File | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
+    return new File([blob], `avatar.${ext}`, { type: blob.type || "image/jpeg" });
+  } catch {
+    return null;
+  }
+}
+
 export async function createVersion(params: {
   repoId: string;
   name: string;
@@ -221,8 +236,9 @@ export async function createVersion(params: {
   form.append("model_id", params.modelId);
   if (params.prompt) form.append("prompt", params.prompt);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
-  if (params.image) form.append("image", params.image);
-  else if (params.imageUrl) form.append("image_url", params.imageUrl);
+  let image: File | null = params.image ?? null;
+  if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
+  if (image) form.append("image", image);
   return apiFetchJson<PersonaVersionResponse>(PERSONA_VERSIONS_ENDPOINT(params.repoId), {
     method: "POST",
     body: form,
@@ -242,6 +258,7 @@ export async function updateVersion(params: {
   temperature?: number | null;
   image?: File | null;
   files?: File[];
+  removeDocumentIds?: string[];
 }): Promise<PersonaVersionResponse> {
   const form = new FormData();
   if (params.name != null) form.append("name", params.name);
@@ -250,6 +267,9 @@ export async function updateVersion(params: {
   if (params.temperature != null) form.append("temperature", String(params.temperature));
   if (params.image) form.append("image", params.image);
   params.files?.forEach(f => form.append("files", f));
+  if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
+    form.append("remove_document_ids", params.removeDocumentIds.join(","));
+  }
   return apiFetchJson<PersonaVersionResponse>(
     PERSONA_VERSION_DETAIL_ENDPOINT(params.repoId, params.versionId),
     { method: "PATCH", body: form },
@@ -337,10 +357,7 @@ export interface PersonaMessage {
 
 /** GET /persona/{repo_id}/chats */
 export async function fetchPersonaChats(repoId: string): Promise<PersonaChat[]> {
-  const data = await apiFetchJson<PersonaChatsResponse[] | { chats: PersonaChatsResponse[] }>(
-    PERSONA_CHATS_ENDPOINT(repoId),
-  );
-  const list = Array.isArray(data) ? data : (data.chats ?? []);
+  const list = await apiFetchJson<PersonaChatsResponse[]>(PERSONA_CHATS_ENDPOINT(repoId));
   return list.map(c => ({ id: c.id, title: c.chat_title }));
 }
 
@@ -398,15 +415,84 @@ export async function removePersonaMessage(
 
 // ── Persona test chat ─────────────────────────────────────────────────────────
 
+export interface PersonaStreamUsage {
+  completion_tokens?: number;
+  prompt_tokens?: number;
+  total_tokens?: number;
+  cost?: number;
+  [k: string]: unknown;
+}
+
+export interface PersonaDoneEventPayload {
+  usage?: PersonaStreamUsage | null;
+  reasoning_details?: unknown[] | null;
+  tool_calls?: Array<Record<string, unknown>> | null;
+  finish_reason?: string | null;
+}
+
+export interface PersonaWebSearchEvent {
+  query: string;
+  links: unknown[];
+}
+
+export interface PersonaImageEvent {
+  url: string;
+  s3_key: string;
+}
+
 export interface PersonaChatStreamCallbacks {
   /** Called with the chatId extracted from the X-Chat-Id response header. */
   onChatId?: (chatId: string) => void;
-  /** Called for each streamed text token. */
+  /** Called for each streamed assistant text token. */
   onChunk?: (delta: string) => void;
-  /** Called when the stream finishes successfully. */
-  onDone?: () => void;
+  /** Called with the persisted assistant message id (named `message_saved` event). */
+  onMessageSaved?: (messageId: string) => void;
+  /** Called when the backend auto-titles a new chat (named `title` event). */
+  onTitle?: (title: string) => void;
+  /** Called with each delta of a reasoning section's body. */
+  onReasoningBody?: (delta: string) => void;
+  /** Called when a new reasoning section opens. */
+  onReasoningHeading?: (heading: string) => void;
+  /** Called for legacy raw reasoning deltas (back-compat). */
+  onReasoning?: (delta: string) => void;
+  /** Called when a web search tool runs. */
+  onWebSearch?: (event: PersonaWebSearchEvent) => void;
+  /** Called when an image is generated. */
+  onImage?: (event: PersonaImageEvent) => void;
+  /** Called when the stream finishes successfully. Receives the `done` payload. */
+  onDone?: (payload?: PersonaDoneEventPayload) => void;
   /** Called on error (network or stream-level). */
   onError?: (error: string) => void;
+}
+
+/**
+ * Build the request body + headers for a persona-stream call. Uses
+ * `application/x-www-form-urlencoded` when no files are attached and
+ * `multipart/form-data` only when binary uploads are present.
+ *
+ * Multipart bodies POSTed through Next.js dev's streaming proxy can be
+ * buffered until the body completes, which breaks SSE — using urlencoded
+ * for the text-only path avoids that and matches what the brain client does.
+ */
+function buildStreamBody(
+  input: string,
+  options?: { files?: File[]; useMistralOcr?: boolean },
+): { body: BodyInit; headers?: HeadersInit } {
+  const hasFiles = (options?.files?.length ?? 0) > 0;
+  if (hasFiles) {
+    const form = new FormData();
+    form.append("input", input);
+    if (options?.useMistralOcr) form.append("use_mistral_ocr", "true");
+    options!.files!.forEach(f => form.append("files", f));
+    return { body: form };
+  }
+  const params = new URLSearchParams();
+  params.append("input", input);
+  if (options?.useMistralOcr) params.append("use_mistral_ocr", "true");
+  return {
+    body: params.toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  };
 }
 
 /** Shared SSE reader used by both create-chat and stream-message. */
@@ -416,16 +502,30 @@ async function readPersonaSSEStream(
 ): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = "";
+  let doneSeen = false;
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  // SSE spec: events terminated by a blank line — CR/LF/CRLF all valid.
+  const boundaryRe = /\r?\n\r?\n/;
+  const lineSplitRe = /\r?\n/;
+  // After `done`, give the server a brief window to flush trailing events
+  // (`message_saved`, `title`) and then cancel the reader so the fetch is
+  // released even if the server keeps the SSE connection idle-open.
+  let postDoneTimer: ReturnType<typeof setTimeout> | null = null;
+  const armPostDoneCancel = () => {
+    if (postDoneTimer) clearTimeout(postDoneTimer);
+    postDoneTimer = setTimeout(() => { reader.cancel().catch(() => {}); }, 1500);
+  };
   try {
     while (true) {
       // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- sequential SSE stream reader; chunks must be processed in order
       const { done, value } = await reader.read();
       if (value) {
         buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-        for (const chunk of events) {
-          const lines = chunk.split("\n");
+        let m: RegExpExecArray | null;
+        while ((m = boundaryRe.exec(buffer)) !== null) {
+          const chunk = buffer.slice(0, m.index);
+          buffer = buffer.slice(m.index + m[0].length);
+          const lines = chunk.split(lineSplitRe);
           let eventName = "";
           let dataStr = "";
           for (const line of lines) {
@@ -435,27 +535,71 @@ async function readPersonaSSEStream(
           if (!dataStr) continue;
           let parsed: Record<string, unknown>;
           try { parsed = JSON.parse(dataStr); } catch { continue; }
-          // Resolve event name from inline `type` field when no named event header
           if (!eventName && typeof parsed.type === "string") eventName = parsed.type;
-          if (eventName === "content") {
-            callbacks.onChunk?.(typeof parsed.content === "string" ? parsed.content : "");
-          } else if (eventName === "done") {
-            callbacks.onDone?.();
-            return;
-          } else if (eventName === "error") {
-            callbacks.onError?.(typeof parsed.error === "string" ? parsed.error : "Stream error");
-            return;
+          switch (eventName) {
+            case "content":
+              callbacks.onChunk?.(str(parsed.content));
+              break;
+            case "reasoning_heading":
+              callbacks.onReasoningHeading?.(str(parsed.content));
+              break;
+            case "reasoning_body":
+              callbacks.onReasoningBody?.(str(parsed.content));
+              break;
+            case "reasoning":
+              callbacks.onReasoning?.(str(parsed.content));
+              break;
+            case "message_saved":
+              if (typeof parsed.message_id === "string") {
+                callbacks.onMessageSaved?.(parsed.message_id);
+              }
+              break;
+            case "title":
+              if (typeof parsed.title === "string") {
+                callbacks.onTitle?.(parsed.title);
+              }
+              break;
+            case "web_search":
+              callbacks.onWebSearch?.({
+                query: str(parsed.query),
+                links: Array.isArray(parsed.links) ? parsed.links : [],
+              });
+              break;
+            case "image":
+              if (typeof parsed.url === "string" && typeof parsed.s3_key === "string") {
+                callbacks.onImage?.({ url: parsed.url, s3_key: parsed.s3_key });
+              }
+              break;
+            case "done":
+              doneSeen = true;
+              armPostDoneCancel();
+              callbacks.onDone?.({
+                usage: (parsed.usage as PersonaStreamUsage | null | undefined) ?? null,
+                reasoning_details: Array.isArray(parsed.reasoning_details)
+                  ? parsed.reasoning_details
+                  : null,
+                tool_calls: Array.isArray(parsed.tool_calls)
+                  ? (parsed.tool_calls as Array<Record<string, unknown>>)
+                  : null,
+                finish_reason:
+                  typeof parsed.finish_reason === "string" ? parsed.finish_reason : null,
+              });
+              break;
+            case "error":
+              callbacks.onError?.(str(parsed.error) || "Stream error");
+              return;
           }
         }
       }
       if (done) break;
     }
-    callbacks.onDone?.();
+    if (!doneSeen) callbacks.onDone?.();
   } catch (err) {
     if ((err as Error).name !== "AbortError") {
       callbacks.onError?.((err as Error).message ?? "Stream read error");
     }
   } finally {
+    if (postDoneTimer) clearTimeout(postDoneTimer);
     reader.cancel().catch(() => {});
   }
 }
@@ -470,15 +614,16 @@ export async function testVersionStream(
   versionId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
+  options?: { files?: File[] },
 ): Promise<() => void> {
   const controller = new AbortController();
-  const form = new FormData();
-  form.append("input", input);
+  const { body, headers } = buildStreamBody(input, options);
   let response: Response;
   try {
     response = await apiFetch(PERSONA_VERSION_TEST_ENDPOINT(repoId, versionId), {
       method: "POST",
-      body: form,
+      body,
+      headers,
       signal: controller.signal,
     });
   } catch (err) {
@@ -511,15 +656,16 @@ export async function createAndStreamPersonaChat(
   repoId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
+  options?: { files?: File[]; useMistralOcr?: boolean },
 ): Promise<() => void> {
   const controller = new AbortController();
-  const form = new FormData();
-  form.append("input", input);
+  const { body, headers } = buildStreamBody(input, options);
   let response: Response;
   try {
     response = await apiFetch(PERSONA_CHATS_CREATE_ENDPOINT(repoId), {
       method: "POST",
-      body: form,
+      body,
+      headers,
       signal: controller.signal,
     });
   } catch (err) {
@@ -554,15 +700,16 @@ export async function streamPersonaMessage(
   chatId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
+  options?: { files?: File[]; useMistralOcr?: boolean },
 ): Promise<() => void> {
   const controller = new AbortController();
-  const form = new FormData();
-  form.append("input", input);
+  const { body, headers } = buildStreamBody(input, options);
   let response: Response;
   try {
     response = await apiFetch(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId), {
       method: "POST",
-      body: form,
+      body,
+      headers,
       signal: controller.signal,
     });
   } catch (err) {

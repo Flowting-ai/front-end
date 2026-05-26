@@ -646,8 +646,8 @@ function ProjectChatPageInner() {
             <ChatInterface
               chatId={isNewChat ? undefined : params.chatId}
               onChatCreated={(newChatId) => {
-                if (selectedPersona) {
-                  personaChatIds.current.set(newChatId, selectedPersona.id)
+                if (selectedPersona?.activeVersionId) {
+                  personaChatIds.current.set(newChatId, selectedPersona.activeVersionId)
                 }
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
                 replace(`/project/${params.id}/chat/${newChatId}`)
@@ -671,7 +671,7 @@ function ProjectChatPageInner() {
               selectedStyleId={selectedStyleId}
               selectedPersonaId={
                 isNewChat
-                  ? (selectedPersona?.id ?? null)
+                  ? (selectedPersona?.activeVersionId ?? null)
                   : (personaChatIds.current.get(params.chatId) ?? null)
               }
               selectedPersonaSystemPrompt={isNewChat ? (selectedPersona?.systemPrompt ?? null) : null}

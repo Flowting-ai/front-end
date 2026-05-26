@@ -64,14 +64,13 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────
+  // Persona is now applied as an overlay: we always route through the regular
+  // /chats endpoints and pass persona_id as a body field. This lets style, web
+  // search, pin folders, reasoning, etc. compose with a selected persona.
   const isExistingChat = Boolean(chatId && !String(chatId).startsWith("temp-"))
-  const endpoint = personaId
-    ? isExistingChat && chatId
-      ? `${BACKEND_BASE}/persona/${personaId}/chats/${chatId}/stream`
-      : `${BACKEND_BASE}/persona/${personaId}/chats/create`
-    : isExistingChat && chatId
-      ? `${BACKEND_BASE}/chats/${chatId}/stream`
-      : `${BACKEND_BASE}/chats/create`
+  const endpoint = isExistingChat && chatId
+    ? `${BACKEND_BASE}/chats/${chatId}/stream`
+    : `${BACKEND_BASE}/chats/create`
 
   // ── Build FormData for backend ───────────────────────────────────────────────
   const fd = new FormData()
@@ -81,6 +80,7 @@ export async function POST(request: NextRequest) {
   if (pinIds)  fd.append("pin_ids", pinIds)
   if (referenceMessageId && isExistingChat) fd.append("reference_message_id", referenceMessageId)
   if (webSearch) fd.append("web_search", "true")
+  if (personaId) fd.append("persona_id", personaId)
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature) fd.append("temperature", temperature)
   if (toneId) fd.append("tone_id", toneId)

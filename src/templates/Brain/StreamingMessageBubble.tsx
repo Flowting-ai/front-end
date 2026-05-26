@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo, type JSX } from 'react'
+import React, { useState, useRef, useEffect, type JSX } from 'react'
 import { m } from 'framer-motion'
 import { CopyOneIcon } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
@@ -317,43 +317,24 @@ export function StreamingMessageBubble({
   content,
   isComplete = false,
 }: StreamingMessageBubbleProps) {
-  // Typewriter: enabled while stream is live, disabled (snap) once complete
-  const revealed = useStreamingTypewriter(content, !isComplete)
-
-  // Lightweight inline renderer used during streaming. We can't run the full
-  // markdown pipeline on every token (perf + half-formed block elements),
-  // so this only handles bold + simple block structure to give the reveal
-  // animation something to chew on.
-  const streamingSegments = useMemo(
-    () => isComplete ? null : renderBrainContent(revealed, 'brain-stream'),
-    [revealed, isComplete],
-  )
-
-  // Completed message: hand off to the full MarkdownRenderer so GFM tables,
-  // links, code blocks, math, and embedded HTML (e.g. `<table>` from LLMs
-  // that ignore the markdown-table convention) all render correctly. HTML
-  // is sanitised inside MarkdownRenderer via DOMPurify.
-  if (isComplete) {
-    return (
-      <m.div
-        initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
-        animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
-        transition={springs.moderate}
-      >
-        <MarkdownRenderer content={content} allowHtml />
-      </m.div>
-    )
-  }
+  // Render through the full markdown pipeline on every render — tables,
+  // links, ordered lists, blockquotes, inline code, math, and HTML all
+  // need to appear as soon as their syntax is complete, not after the
+  // stream ends. `closeOpenFences` inside MarkdownRenderer's preprocessing
+  // handles mid-stream unclosed code blocks; remark-gfm renders a table the
+  // moment a header + separator + first body row exist. The typewriter is
+  // deliberately bypassed for streaming Brain output — tokens should hit
+  // the screen the instant they arrive, matching how staging behaves and
+  // how the user expects "on the get go" rendering to look.
 
   return (
     <m.div
       initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
       animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
       transition={springs.moderate}
-      style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
     >
-      {streamingSegments}
-      <StreamCursor />
+      <MarkdownRenderer content={content} allowHtml />
+      {!isComplete && <StreamCursor />}
     </m.div>
   )
 }

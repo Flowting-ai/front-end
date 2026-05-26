@@ -115,7 +115,8 @@ interface ChatInterfaceProps {
   chips?: React.ReactNode;
   /** Pin folders selected in the add menu — their pins are sent as context on every send. */
   selectedFolders?: PinFolder[];
-  /** When set, routes all API calls through the persona-specific backend endpoint. */
+  /** Persona version id sent as `persona_id` on the regular /chats endpoint
+   *  to apply the persona as an overlay on top of style / web search / etc. */
   selectedPersonaId?: string | null;
   /** System instruction for the selected persona, forwarded explicitly to the backend. */
   selectedPersonaSystemPrompt?: string | null;

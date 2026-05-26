@@ -1,11 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from "@strange-huge/icons";
-import { Chip } from "@/components/Chip";
-import { Dropdown } from "@/components/Dropdown";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { ChatAddMenu, USE_STYLE_OPTIONS } from "@/components/chat/AddMenu";
+import { ChatAddMenu } from "@/components/chat/AddMenu";
 import { ModelMenu, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { ChatMessageMemo } from "@/components/chat/ChatMessage";
@@ -13,13 +10,13 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import type { UIMessage } from "@/hooks/use-chat-state";
-import type { PinFolder } from "@/lib/api/pins";
 import {
   getPersona,
   fetchPersonaChatMessages,
   createAndStreamPersonaChat,
   streamPersonaMessage,
   type Persona,
+  type PersonaChatStreamCallbacks,
 } from "@/lib/api/personas";
 import {
   emitPersonaChatCreated,
@@ -33,6 +30,8 @@ interface LocalMessage {
   role:        "user" | "assistant";
   content:     string;
   isStreaming?: boolean;
+  reasoning_sections?: Array<{ heading: string; body: string }>;
+  attachments?: Array<{ file_name: string; mime_type: string; url?: string }>;
 }
 
 export interface PersonaChatInterfaceProps {
@@ -100,12 +99,19 @@ function EmptyState({ persona }: { persona: Persona | null }) {
 
 function toUIMessage(msg: LocalMessage, chatId: string): UIMessage {
   return {
-    id:         msg.id,
-    role:       msg.role,
-    content:    msg.content ?? "",
-    created_at: "",
-    chat_id:    chatId,
-    isLoading:  msg.isStreaming,
+    id:                 msg.id,
+    role:               msg.role,
+    content:            msg.content ?? "",
+    created_at:         "",
+    chat_id:            chatId,
+    isLoading:          msg.isStreaming,
+    reasoning_sections: msg.reasoning_sections,
+    file_attachments:   msg.attachments?.map(a => ({
+      file_name: a.file_name,
+      mime_type: a.mime_type,
+      file_link: a.url,
+      origin:    "uploaded",
+    })),
   };
 }
 
@@ -124,12 +130,7 @@ export function PersonaChatInterface({
   const [isStreaming,       setIsStreaming]        = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(!!initialChatId);
 
-  // ── Add-menu feature state ────────────────────────────────────────────────
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [selectedStyleId,  setSelectedStyleId]  = useState<string | null>(null);
-  const [styleChipOpen,    setStyleChipOpen]    = useState(false);
-  const [selectedFolders,  setSelectedFolders]  = useState<PinFolder[]>([]);
-  const [attachments,      setAttachments]      = useState<PendingAttachment[]>([]);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
 
   const fileInputRef         = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -137,7 +138,7 @@ export function PersonaChatInterface({
   const abortRef             = useRef<(() => void) | null>(null);
   const streamContentRef     = useRef("");
 
-  const { open: openModelSelector, models, selectModel } = useModelSelectorContext();
+  const { open: openModelSelector, models, selectModel, selectedModel } = useModelSelectorContext();
   const { processFiles, FILE_ACCEPT } = useFileUpload();
   const modelButtonLabel = useModelButtonLabel();
 
@@ -150,12 +151,19 @@ export function PersonaChatInterface({
     getPersona(personaId).then(setPersona).catch(console.error);
   }, [personaId]);
 
+  // Force the model selector to reflect the persona's active model. We watch
+  // `selectedModel` too so any other code path that flips the selection (e.g.
+  // useModelSelection restoring from localStorage after we already synced)
+  // gets corrected on the next render.
   useEffect(() => {
-    if (!persona?.modelId || !models.length) return;
-    const match = models.find(m => String(m.modelId ?? m.id) === persona.modelId);
+    const target = persona?.modelId;
+    if (!target || !models.length) return;
+    const current = selectedModel ? String(selectedModel.modelId ?? selectedModel.id) : null;
+    if (current === target) return;
+    const match = models.find(m => String(m.modelId ?? m.id) === target);
     if (match) selectModelRef.current(match);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persona?.modelId, models]);
+  }, [persona?.modelId, models, selectedModel]);
 
   // ── Load history ──────────────────────────────────────────────────────────
 
@@ -193,59 +201,145 @@ export function PersonaChatInterface({
 
   const handleSend = useCallback(async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || isStreaming) return;
+    if ((!trimmed && attachments.length === 0) || isStreaming) return;
+
+    const filesToSend = attachments.map(a => a.file);
 
     setInput("");
     setAttachments([]);
 
     const userMsgId      = `u-${Date.now()}`;
     const assistantMsgId = `a-${Date.now()}`;
+    let resolvedAssistantId = assistantMsgId;
     streamContentRef.current = "";
 
     setMessages(prev => [
       ...prev,
-      { id: userMsgId,      role: "user",      content: trimmed },
-      { id: assistantMsgId, role: "assistant",  content: "", isStreaming: true },
+      {
+        id:          userMsgId,
+        role:        "user",
+        content:     trimmed,
+        attachments: filesToSend.length > 0
+          ? filesToSend.map(f => ({ file_name: f.name, mime_type: f.type }))
+          : undefined,
+      },
+      { id: assistantMsgId, role: "assistant", content: "", isStreaming: true },
     ]);
     setIsStreaming(true);
 
     const currentChatId = activeChatId;
 
-    const callbacks = {
+    // Accumulator for streaming reasoning sections; mutated in place and the
+    // section list is re-snapshotted into setMessages on every delta so React
+    // sees a new array reference each time.
+    const reasoningSectionsRef: Array<{ heading: string; body: string }> = [];
+    let currentReasoning: { heading: string; body: string } | null = null;
+    const flushReasoning = () => {
+      const snapshot = currentReasoning
+        ? [...reasoningSectionsRef, { ...currentReasoning }]
+        : [...reasoningSectionsRef];
+      setMessages(prev => prev.map(m =>
+        m.id === resolvedAssistantId ? { ...m, reasoning_sections: snapshot } : m,
+      ));
+    };
+
+    const callbacks: PersonaChatStreamCallbacks = {
       onChatId: (chatId: string) => {
         setActiveChatId(chatId);
         window.history.replaceState(null, "", `/personas/${personaId}/chat?chatId=${chatId}`);
-        emitPersonaChatCreated({ personaId, chatId, title: trimmed.slice(0, 80) });
+        emitPersonaChatCreated({ personaId, chatId, title: trimmed.slice(0, 80) || "New chat" });
       },
       onChunk: (delta: string) => {
+        if (currentReasoning) {
+          reasoningSectionsRef.push(currentReasoning);
+          currentReasoning = null;
+        }
         streamContentRef.current += delta;
-        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: m.content + delta } : m));
+        setMessages(prev => prev.map(m =>
+          m.id === resolvedAssistantId ? { ...m, content: m.content + delta } : m,
+        ));
+      },
+      onReasoningHeading: (heading: string) => {
+        if (currentReasoning) reasoningSectionsRef.push(currentReasoning);
+        currentReasoning = { heading, body: "" };
+        flushReasoning();
+      },
+      onReasoningBody: (delta: string) => {
+        if (!currentReasoning) currentReasoning = { heading: "Reasoning", body: "" };
+        currentReasoning.body += delta;
+        flushReasoning();
+      },
+      onReasoning: (delta: string) => {
+        if (!currentReasoning) currentReasoning = { heading: "Reasoning", body: "" };
+        currentReasoning.body += delta;
+        flushReasoning();
+      },
+      onMessageSaved: (messageId: string) => {
+        const oldId = resolvedAssistantId;
+        resolvedAssistantId = messageId;
+        setMessages(prev => prev.map(m => m.id === oldId ? { ...m, id: messageId } : m));
+      },
+      onTitle: (title: string) => {
+        const chatId = activeChatId;
+        if (chatId) emitPersonaChatTitleUpdated({ personaId, chatId, title });
       },
       onDone: () => {
-        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, isStreaming: false } : m));
+        setMessages(prev => prev.map(m =>
+          m.id === resolvedAssistantId ? { ...m, isStreaming: false } : m,
+        ));
         setIsStreaming(false);
         abortRef.current = null;
-        if (streamContentRef.current && activeChatId) {
-          emitPersonaChatTitleUpdated({ personaId, chatId: activeChatId, title: streamContentRef.current.slice(0, 80) });
-        }
         streamContentRef.current = "";
       },
       onError: (err: string) => {
-        setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: `Something went wrong: ${err}`, isStreaming: false } : m));
+        setMessages(prev => prev.map(m =>
+          m.id === resolvedAssistantId
+            ? { ...m, content: `Something went wrong: ${err}`, isStreaming: false }
+            : m,
+        ));
         setIsStreaming(false);
         abortRef.current = null;
       },
     };
 
+    const options = filesToSend.length > 0 ? { files: filesToSend } : undefined;
+
+    // Safety net: if neither onDone nor onError fires (e.g. proxy stalls,
+    // unawaited rejection), reset the streaming UI after 90s so the input
+    // can't get stuck disabled.
+    const stallTimer = setTimeout(() => {
+      setMessages(prev => prev.map(m =>
+        m.id === resolvedAssistantId && m.isStreaming
+          ? { ...m, isStreaming: false, content: m.content || "(no response — request timed out)" }
+          : m,
+      ));
+      setIsStreaming(false);
+      abortRef.current?.();
+      abortRef.current = null;
+    }, 90_000);
+    // Clear the timer once either terminal callback fires.
+    const baseOnDone = callbacks.onDone!;
+    const baseOnError = callbacks.onError!;
+    callbacks.onDone = (payload) => { clearTimeout(stallTimer); baseOnDone(payload); };
+    callbacks.onError = (err) => { clearTimeout(stallTimer); baseOnError(err); };
+
     try {
       const abort = currentChatId
-        ? await streamPersonaMessage(personaId, currentChatId, trimmed, callbacks)
-        : await createAndStreamPersonaChat(personaId, trimmed, callbacks);
+        ? await streamPersonaMessage(personaId, currentChatId, trimmed, callbacks, options)
+        : await createAndStreamPersonaChat(personaId, trimmed, callbacks, options);
       abortRef.current = abort;
-    } catch {
+    } catch (err) {
+      clearTimeout(stallTimer);
+      console.error("[PersonaChat] stream call failed", err);
+      const msg = err instanceof Error ? err.message : "Failed to send message";
+      setMessages(prev => prev.map(m =>
+        m.id === resolvedAssistantId
+          ? { ...m, content: `Something went wrong: ${msg}`, isStreaming: false }
+          : m,
+      ));
       setIsStreaming(false);
     }
-  }, [personaId, activeChatId, isStreaming]);
+  }, [personaId, activeChatId, isStreaming, attachments]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.();
@@ -253,47 +347,6 @@ export function PersonaChatInterface({
     setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m));
     setIsStreaming(false);
   }, []);
-
-  // ── Chips ─────────────────────────────────────────────────────────────────
-
-  const activeStyle = USE_STYLE_OPTIONS.find(s => s.id === selectedStyleId) ?? null;
-
-  const chips = useMemo(() => (
-    <>
-      {activeStyle && (
-        <Dropdown.Float open={styleChipOpen} onOpenChange={setStyleChipOpen} placement="top-start"
-          trigger={
-            <Chip
-              label={activeStyle.label}
-              icon={<QuillWriteTwoIcon size={20} color="var(--chip-text)" />}
-              onRemove={() => setSelectedStyleId(null)}
-              onExpand={() => setStyleChipOpen(v => !v)}
-            />
-          }
-        >
-          <Dropdown size="md">
-            <Dropdown.Section fluid>
-              {USE_STYLE_OPTIONS.map(opt => (
-                <Dropdown.Item
-                  key={opt.id} label={opt.label} subLabel={opt.subLabel} fluid
-                  selected={opt.id === "none" ? selectedStyleId === null : selectedStyleId === opt.id}
-                  onClick={() => { setSelectedStyleId(opt.id === "none" ? null : opt.id); setStyleChipOpen(false); }}
-                />
-              ))}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
-      )}
-      {selectedFolders.map(folder => (
-        <Chip key={folder.id} label={folder.name} icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
-          onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))} />
-      ))}
-      {webSearchEnabled && (
-        <Chip size="Medium" icon={<GlobalSearchIcon size={20} color="var(--chip-text)" />} label="Web search" onRemove={() => setWebSearchEnabled(false)} />
-      )}
-    </>
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [activeStyle, styleChipOpen, selectedFolders, webSearchEnabled, selectedStyleId]);
 
   const chatId = activeChatId ?? "";
 
@@ -364,22 +417,22 @@ export function PersonaChatInterface({
             onModelClick={e => openModelSelector(e.currentTarget)}
             addMenu={
               <ChatAddMenu
-                webSearchEnabled={webSearchEnabled}
-                onWebSearchChange={setWebSearchEnabled}
+                webSearchEnabled={false}
+                onWebSearchChange={() => {}}
                 onAddFilesClick={() => fileInputRef.current?.click()}
-                selectedStyleId={selectedStyleId}
-                onStyleChange={setSelectedStyleId}
-                selectedFolders={selectedFolders}
-                onFolderToggle={folder => setSelectedFolders(prev =>
-                  prev.some(f => f.id === folder.id) ? prev.filter(f => f.id !== folder.id) : [...prev, folder]
-                )}
+                selectedStyleId={null}
+                onStyleChange={() => {}}
+                selectedFolders={[]}
+                onFolderToggle={() => {}}
                 selectedPersonaId={null}
                 onPersonaChange={() => {}}
                 hidePersona
+                hideStyle
+                hideWebSearch
+                hidePinFolders
               />
             }
             modelMenu={<ModelMenu />}
-            chips={chips}
             attachmentsSlot={
               <AttachmentManager
                 attachments={attachments}

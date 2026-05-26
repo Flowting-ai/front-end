@@ -53,6 +53,9 @@ export interface ChatAddMenuProps {
   selectedPersonaId: string | null
   onPersonaChange:   (persona: SelectedPersonaInfo | null) => void
   hidePersona?:      boolean
+  hideStyle?:        boolean
+  hideWebSearch?:    boolean
+  hidePinFolders?:   boolean
 }
 
 export function ChatAddMenu({
@@ -66,6 +69,9 @@ export function ChatAddMenu({
   selectedPersonaId,
   onPersonaChange,
   hidePersona,
+  hideStyle,
+  hideWebSearch,
+  hidePinFolders,
 }: ChatAddMenuProps) {
   const { folders: contextFolders } = usePinboard()
   const pinFolders: PinFolder[] = contextFolders
@@ -92,32 +98,36 @@ export function ChatAddMenu({
     <Dropdown style={{ width: 200 }}>
       <Dropdown.Section fluid>
         <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
-        <Dropdown.Item label="Web search"           icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
-        {/* Dropdown.Float keeps submenu clicks from bubbling to the ChatInput's
-            close-on-click wrapper and dismissing the outer dropdown prematurely. */}
-        <Dropdown.Float
-          open={styleMenuOpen}
-          onOpenChange={setStyleMenuOpen}
-          placement="right-start"
-          trigger={
-            <Dropdown.Item label="Use style" icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
-          }
-        >
-          <Dropdown size="md">
-            <Dropdown.Section fluid>
-              {USE_STYLE_OPTIONS.map((opt) => (
-                <Dropdown.Item
-                  key={opt.id}
-                  label={opt.label}
-                  subLabel={opt.subLabel}
-                  selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
-                  onClick={() => { onStyleChange(opt.id === 'none' ? null : opt.id); setStyleMenuOpen(false) }}
-                  fluid
-                />
-              ))}
-            </Dropdown.Section>
-          </Dropdown>
-        </Dropdown.Float>
+        {!hideWebSearch && (
+          <Dropdown.Item label="Web search" icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
+        )}
+        {!hideStyle && (
+          /* Dropdown.Float keeps submenu clicks from bubbling to the ChatInput's
+             close-on-click wrapper and dismissing the outer dropdown prematurely. */
+          <Dropdown.Float
+            open={styleMenuOpen}
+            onOpenChange={setStyleMenuOpen}
+            placement="right-start"
+            trigger={
+              <Dropdown.Item label="Use style" icon={<QuillWriteTwoIcon />} fluid rightIcon={<ArrowRightOneIcon />} />
+            }
+          >
+            <Dropdown size="md">
+              <Dropdown.Section fluid>
+                {USE_STYLE_OPTIONS.map((opt) => (
+                  <Dropdown.Item
+                    key={opt.id}
+                    label={opt.label}
+                    subLabel={opt.subLabel}
+                    selected={opt.id === 'none' ? selectedStyleId === null : selectedStyleId === opt.id}
+                    onClick={() => { onStyleChange(opt.id === 'none' ? null : opt.id); setStyleMenuOpen(false) }}
+                    fluid
+                  />
+                ))}
+              </Dropdown.Section>
+            </Dropdown>
+          </Dropdown.Float>
+        )}
         {!hidePersona && (
           <Dropdown.Float
             open={personaMenuOpen}
@@ -156,6 +166,7 @@ export function ChatAddMenu({
             </Dropdown>
           </Dropdown.Float>
         )}
+        {!hidePinFolders && (
         <Dropdown.Float
           open={pinFoldersMenuOpen}
           onOpenChange={setPinFoldersMenuOpen}
@@ -182,6 +193,7 @@ export function ChatAddMenu({
             </Dropdown.Section>
           </Dropdown>
         </Dropdown.Float>
+        )}
       </Dropdown.Section>
     </Dropdown>
   )

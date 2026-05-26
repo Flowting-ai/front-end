@@ -7,12 +7,24 @@ import { type ClarificationType } from './lib/phase'
 export interface ClarificationCardProps {
   question:           string
   options:            QuestionCardOption[]
-  /** 1-based index shown in the pagination counter. */
-  questionIndex:      number
+  /** 1-based index of the current question. Optional — used only when
+   *  totalQuestions is also provided, to render an "N/M" pagination chip. */
+  questionIndex?:     number
+  /** Total number of questions in the clarification flow. When omitted, no
+   *  pagination chip and no prev/next arrows are shown. Callers that don't
+   *  know the total ahead of time (e.g. live SSE-driven clarification
+   *  where each question is decided on the fly) should leave this unset. */
   totalQuestions?:    number
   selected?:          string
   clarificationType?: ClarificationType
+  /** Placeholder text inside the open-ended text input. Default in
+   *  QuestionCard is "Something else on your mind". Override e.g. with
+   *  "Type your answer…" for free-text-only clarifications. */
+  openEndedLabel?:    string
   onSelect?:          (id: string) => void
+  /** Fires with the user's typed text when they submit via the open-ended
+   *  input. Without this prop, free-text answers are silently dropped. */
+  onOpenEndedSubmit?: (text: string) => void
   onSkip?:            () => void
   onSend?:            () => void
   onPrev?:            () => void
@@ -23,14 +35,23 @@ export function ClarificationCard({
   question,
   options,
   questionIndex,
-  totalQuestions = 3,
+  totalQuestions,
   selected,
+  openEndedLabel,
   onSelect,
+  onOpenEndedSubmit,
   onSkip,
   onSend,
   onPrev,
   onNext,
 }: ClarificationCardProps) {
+  // Only render pagination when the caller knows both numerator and
+  // denominator. Showing "1/3" when only one question will ever be asked
+  // is misleading; in that case we omit the chip entirely.
+  const paginationLabel = (questionIndex != null && totalQuestions != null)
+    ? `${questionIndex}/${totalQuestions}`
+    : undefined
+
   return (
     <QuestionCard
       key={question}
@@ -39,7 +60,9 @@ export function ClarificationCard({
       options={options}
       selected={selected}
       onSelect={onSelect}
-      paginationLabel={`${questionIndex}/${totalQuestions}`}
+      paginationLabel={paginationLabel}
+      openEndedLabel={openEndedLabel}
+      onOpenEndedSubmit={onOpenEndedSubmit}
       onPrev={onPrev}
       onNext={onNext}
       onSkip={onSkip}

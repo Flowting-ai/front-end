@@ -445,6 +445,10 @@ function BrainPageInner() {
   const [clarificationInFlight, setClarificationInFlight] = useState(false)
   const [answeredClarifications, setAnsweredClarifications] = useState<ClarificationSummaryItem[]>([])
   const clarificationCountRef = useRef(0)
+  // Free-text answer captured from QuestionCard's open-ended input. Held in
+  // a ref because the QuestionCard reports it only at submit time — we don't
+  // need a re-render per keystroke, just the final value when Send fires.
+  const clarificationTextRef = useRef('')
 
   // ── Pause ────────────────────────────────────────────────────────────────────
 
@@ -608,6 +612,7 @@ function BrainPageInner() {
     setClarificationInFlight(false)
     setAnsweredClarifications([])
     clarificationCountRef.current = 0
+    clarificationTextRef.current = ''
     setStreamedContent('')
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -750,6 +755,11 @@ function BrainPageInner() {
         })
         setSelectedClarificationOption(undefined)
         setClarificationInFlight(false)
+        // Wipe any text typed for the previous question so the input opens
+        // empty for the new one. (Not relying on QuestionCard's own reset:
+        // the card unmounts and remounts on question change via the `key`
+        // prop, but the page-side ref persists across that boundary.)
+        clarificationTextRef.current = ''
         setPhase('clarifying-goal')
         break
       }
@@ -1025,6 +1035,12 @@ function BrainPageInner() {
     setShowCounterInput(false)
     setCounterText('')
     setActionInFlight(false)
+    setActiveClarification(null)
+    setSelectedClarificationOption(undefined)
+    setClarificationInFlight(false)
+    setAnsweredClarifications([])
+    clarificationCountRef.current = 0
+    clarificationTextRef.current = ''
     setWebSearches([])
     setStreamImages([])
     setStreamFiles([])
@@ -1193,27 +1209,46 @@ function BrainPageInner() {
     setSelectedClarificationOption(id)
   }, [])
 
+  // QuestionCard reports typed text via onOpenEndedSubmit at the moment the
+  // user clicks Send. We stash it in a ref so handleClarificationSend (which
+  // fires synchronously immediately after) can read it without waiting for
+  // a re-render. Cleared whenever a clarification finishes one way or the
+  // other (submit, skip, close, new turn, new chat).
+  const handleClarificationOpenEnded = useCallback((text: string) => {
+    clarificationTextRef.current = text
+  }, [])
+
   const handleClarificationSend = useCallback(() => {
     if (!activeClarification || clarificationInFlight) return
-    const value = selectedClarificationOption
-    if (!value && activeClarification.kind !== 'input') return
+
+    // Typed free text wins over a previously-selected option — the user's
+    // most recent action is the intent. Strip whitespace so an opened-but-
+    // empty textarea doesn't beat a real selection.
+    const typedText  = clarificationTextRef.current.trim()
+    const selectedId = selectedClarificationOption
+    const value      = typedText || selectedId || ''
+
+    if (!value) {
+      toast.info('Pick an option or type an answer before sending.')
+      return
+    }
+
+    const displayAnswer = typedText
+      ? typedText
+      : (activeClarification.options.find((o) => o.id === selectedId)?.label ?? value)
+
     setClarificationInFlight(true)
     void respondToPrompt(activeClarification.promptId, {
-      response: { decision: 'select', value: value ?? '' },
+      response: { decision: typedText ? 'submit' : 'select', value },
     })
       .then(() => {
         setAnsweredClarifications((prev) => [
           ...prev,
-          {
-            question: activeClarification.question,
-            answer:   activeClarification.options.find((o) => o.id === value)?.label ?? value ?? '',
-          },
+          { question: activeClarification.question, answer: displayAnswer },
         ])
         setActiveClarification(null)
         setSelectedClarificationOption(undefined)
-        // Phase will be updated by the next SSE event (plan_proposed, content,
-        // user_prompt, etc.). If the prior plan is still in scope we leave
-        // phase='clarifying-goal' until the backend transitions us.
+        clarificationTextRef.current = ''
       })
       .catch((e: unknown) => {
         console.error('[Brain] clarification respond failed:', e)
@@ -1225,30 +1260,29 @@ function BrainPageInner() {
       .finally(() => setClarificationInFlight(false))
   }, [activeClarification, selectedClarificationOption, clarificationInFlight])
 
+  // Skip is also the close (X) handler — see ClarificationCard's onClose={onSkip}.
+  // Optimistic: dismiss the card immediately so the user gets instant
+  // feedback. The POST runs in the background; if it returns 404 (prompt
+  // expired) the user has already moved on, so we just log and continue.
   const handleClarificationSkip = useCallback(() => {
-    if (!activeClarification || clarificationInFlight) return
-    setClarificationInFlight(true)
-    void respondToPrompt(activeClarification.promptId, {
-      response: { decision: 'skip' },
-    })
-      .then(() => {
-        setAnsweredClarifications((prev) => [
-          ...prev,
-          {
-            question: activeClarification.question,
-            answer:   { type: 'skipped' as const },
-          },
-        ])
-        setActiveClarification(null)
-        setSelectedClarificationOption(undefined)
-      })
+    if (!activeClarification) return
+    const { promptId, question } = activeClarification
+
+    setActiveClarification(null)
+    setSelectedClarificationOption(undefined)
+    clarificationTextRef.current = ''
+    setAnsweredClarifications((prev) => [
+      ...prev,
+      { question, answer: { type: 'skipped' as const } },
+    ])
+
+    void respondToPrompt(promptId, { response: { decision: 'skip' } })
       .catch((e: unknown) => {
         if (!(e instanceof ApiError && e.status === 404)) {
           console.warn('[Brain] clarification skip failed:', e)
         }
       })
-      .finally(() => setClarificationInFlight(false))
-  }, [activeClarification, clarificationInFlight])
+  }, [activeClarification])
 
   // ── Stop ──────────────────────────────────────────────────────────────────────
 
@@ -1312,6 +1346,12 @@ function BrainPageInner() {
     setShowCounterInput(false)
     setCounterText('')
     setActionInFlight(false)
+    setActiveClarification(null)
+    setSelectedClarificationOption(undefined)
+    setClarificationInFlight(false)
+    setAnsweredClarifications([])
+    clarificationCountRef.current = 0
+    clarificationTextRef.current = ''
     setStreamedContent('')
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -1406,6 +1446,12 @@ function BrainPageInner() {
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <MessageBubble role="user" content={userMessage} maxWidth="75%" />
       </div>
+
+      {/* Answered clarification Q&As — read-only stacked card, placed right
+          after the user message exactly like the Full-thread story. */}
+      {answeredClarifications.length > 0 && (
+        <ClarificationSummary items={answeredClarifications} />
+      )}
 
       {/* Thinking */}
       {phase === 'thinking' && <StreamingIndicator phase="thinking" />}
@@ -1712,10 +1758,10 @@ function BrainPageInner() {
       onSend={handleSend}
       contextRailData={contextRailData}
       clarificationProps={activeClarification ? {
-        // The backend's `title` is a generic preamble ("A few details to
-        // get this right"). The actual model-generated question lives in
-        // `description`. Prefer description; fall back to title only when
-        // the model didn't send a body. FE never invents text.
+        // The backend's `title` is usually a generic preamble. The actual
+        // model-generated question lives in `description`. Prefer the
+        // longer body; fall back to the title only when the model didn't
+        // send one. FE never invents the question text.
         question:       activeClarification.description?.trim()
                           ? activeClarification.description
                           : activeClarification.question,
@@ -1730,11 +1776,21 @@ function BrainPageInner() {
                             : activeClarification.kind === 'confirm'
                               ? [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]
                               : [],
-        questionIndex:  activeClarification.index,
+        // No questionIndex / totalQuestions on purpose: we don't know how
+        // many questions Brain will ask up front. With both omitted the
+        // ClarificationCard hides the pagination chip and prev/next arrows
+        // entirely, which is the right UX for "one question at a time".
         selected:       selectedClarificationOption,
-        onSelect:       handleClarificationSelect,
-        onSend:         handleClarificationSend,
-        onSkip:         handleClarificationSkip,
+        // For 'input' kind there are no options to pick — surface a hint
+        // that the open-ended text input is the answer field. For 'choice'
+        // kind we keep QuestionCard's default ("Something else on your mind").
+        openEndedLabel: activeClarification.kind === 'input'
+                          ? 'Type your answer…'
+                          : undefined,
+        onSelect:         handleClarificationSelect,
+        onOpenEndedSubmit: handleClarificationOpenEnded,
+        onSend:           handleClarificationSend,
+        onSkip:           handleClarificationSkip,
       } : undefined}
       chatInputProps={{
         isStreaming: brainIsStreaming,

@@ -258,8 +258,11 @@ function ChatPageInner() {
       const s = loadChatSettings(chatIdFromUrl);
       setWebSearchEnabled(s?.webSearch ?? false);
       setSelectedPersona(s?.persona ?? null);
-      // Restore persona routing for chats we previously created as persona chats
-      if (s?.persona?.id) personaChatIds.current.set(chatIdFromUrl, s.persona.id);
+      // Restore persona overlay for chats we previously sent persona_id for.
+      // Stored value is the version id (what the backend expects on /chats),
+      // with a fall-back to s.persona.id for entries saved before that change.
+      const restoredVersionId = s?.persona?.activeVersionId ?? s?.persona?.id;
+      if (restoredVersionId) personaChatIds.current.set(chatIdFromUrl, restoredVersionId);
     } else {
       setWebSearchEnabled(false);
       setSelectedPersona(null);
@@ -676,10 +679,10 @@ function ChatPageInner() {
       updated_at: new Date().toISOString(),
       starred: false,
     });
-    // Register persona routing for this chat and persist its initial settings.
-    // selectedPersona is captured from the closure at creation time.
-    if (selectedPersona) {
-      personaChatIds.current.set(chatId, selectedPersona.id);
+    // Register persona overlay for this chat. The backend's persona_id field
+    // on /chats expects the persona's version id, not the repo id.
+    if (selectedPersona?.activeVersionId) {
+      personaChatIds.current.set(chatId, selectedPersona.activeVersionId);
     }
     saveChatSettings(chatId, { webSearch: webSearchEnabled, persona: selectedPersona });
   };
@@ -948,7 +951,7 @@ function ChatPageInner() {
               chips={chips}
               selectedFolders={selectedFolders}
               selectedStyleId={selectedStyleId}
-              selectedPersonaId={selectedPersona?.id ?? null}
+              selectedPersonaId={selectedPersona?.activeVersionId ?? null}
               selectedPersonaSystemPrompt={selectedPersona?.systemPrompt ?? null}
               selectedPersonaTemperature={selectedPersona?.temperature ?? null}
               scrollToMessageId={msgFromUrl}
