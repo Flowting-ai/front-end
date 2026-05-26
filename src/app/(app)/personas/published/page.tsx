@@ -371,6 +371,7 @@ function PersonaPublishedContent() {
               {/* Persona image */}
               <div
                 style={{
+                  position: 'relative',
                   width: 152,
                   height: 152,
                   borderRadius: 32,

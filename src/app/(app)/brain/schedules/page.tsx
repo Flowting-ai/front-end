@@ -185,13 +185,15 @@ function BrainSchedulesPageInner() {
 
   const handleEdit = useCallback(() => {
     if (!selectedDetail) return
-    setEditingSchedule({
-      name:         selectedDetail.name,
-      instructions: selectedDetail.instructions,
-      frequency:    selectedDetail.frequency,
-    })
-    setEditModalOpen(true)
-  }, [selectedDetail])
+    const linkedChatId = selectedDetail.chatId
+    if (linkedChatId) {
+      toast.info('Any updates to scheduled tasks must be done via the prompts in the related scheduled task chat')
+      push(`/brain?id=${linkedChatId}`)
+    } else {
+      toast.info('Any updates to scheduled tasks must be done via the prompts in the related scheduled task chat')
+      push('/brain')
+    }
+  }, [selectedDetail, push])
 
   const handleSave = useCallback((data: ScheduleEditData) => {
     const isEdit = !!(editingSchedule && selectedId)

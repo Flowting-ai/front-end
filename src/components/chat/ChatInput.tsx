@@ -74,6 +74,17 @@ export interface ChatInputProps
    * The parent moves selection state and calls `onSelect` on "select".
    */
   onPinNavigate?: (action: "up" | "down" | "select" | "close") => void;
+  /**
+   * When true, the model selector button is shown but non-interactive
+   * (greyed out, pointer-events disabled). Use when a persona's model
+   * is fixed and should not be changed.
+   */
+  disabledModelSelector?: boolean;
+  /**
+   * When true, the model selector button is hidden entirely from the footer.
+   * Use in persona chat where the model is fully managed by the persona.
+   */
+  hideModelSelector?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -99,6 +110,8 @@ export function ChatInput(
     onMentionChange,
     isPinDropdownOpen = false,
     onPinNavigate,
+    disabledModelSelector = false,
+    hideModelSelector = false,
     className,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
@@ -467,53 +480,74 @@ export function ChatInput(
             alignItems: "center",
             justifyContent: "space-between",
             width: "100%",
+            gap: "8px",
           }}
         >
-          {/* Left: attach button + chips slot */}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {addMenu !== undefined ? (
-              <Dropdown.Float
-                open={addMenuOpen}
-                onOpenChange={setAddMenuOpen}
-                placement="top-start"
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    size={szBtn}
-                    icon={<PlusSignIcon size={20} />}
-                    aria-label="Add attachment"
-                    disabled={disabled}
-                  />
-                }
-              >
-                {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
-                {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
-                <div onClick={() => setAddMenuOpen(false)}>
-                  {addMenu}
-                </div>
-              </Dropdown.Float>
-            ) : (
-              <IconButton
-                variant="ghost"
-                size={szBtn}
-                icon={<PlusSignIcon size={20} />}
-                aria-label="Add attachment"
-                onClick={onAdd}
-                disabled={disabled}
-              />
-            )}
+          {/* Left: attach button + chips slot — flex:1 so chips scroll without pushing the right side */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
+            <div style={{ flexShrink: 0 }}>
+              {addMenu !== undefined ? (
+                <Dropdown.Float
+                  open={addMenuOpen}
+                  onOpenChange={setAddMenuOpen}
+                  placement="top-start"
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      size={szBtn}
+                      icon={<PlusSignIcon size={20} />}
+                      aria-label="Add attachment"
+                      disabled={disabled}
+                    />
+                  }
+                >
+                  {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
+                  {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- click-only wrapper; keyboard users select items directly */}
+                  <div onClick={() => setAddMenuOpen(false)}>
+                    {addMenu}
+                  </div>
+                </Dropdown.Float>
+              ) : (
+                <IconButton
+                  variant="ghost"
+                  size={szBtn}
+                  icon={<PlusSignIcon size={20} />}
+                  aria-label="Add attachment"
+                  onClick={onAdd}
+                  disabled={disabled}
+                />
+              )}
+            </div>
             {chips && (
               <div
-                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  overflowX: "auto",
+                  scrollbarWidth: "none",
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
               >
                 {chips}
               </div>
             )}
           </div>
 
-          {/* Right: model selector + action button */}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {modelMenu !== undefined ? (
+          {/* Right: model selector + action button — never shrinks */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+            {hideModelSelector ? null : disabledModelSelector ? (
+              <Button
+                variant="ghost"
+                size={szBtn}
+                rightIcon={<ArrowDownOneIcon size={16} />}
+                disabled
+                style={{ opacity: 0.45, pointerEvents: "none" }}
+              >
+                {modelName}
+              </Button>
+            ) : modelMenu !== undefined ? (
               <Dropdown.Float
                 open={modelMenuOpen}
                 onOpenChange={setModelMenuOpen}

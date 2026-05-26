@@ -177,11 +177,13 @@ export interface ToolProgressEvent {
 }
 
 export interface ToolConnectPromptEvent {
-  connector_slug: string
-  display_name:   string
-  auth_mode:      string
-  tool_name:      string
-  request_id:     string
+  connector_slug:  string
+  display_name:    string
+  auth_mode:       string
+  tool_name:       string
+  request_id:      string
+  /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */
+  api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
 }
 
 export type UserPromptKind = 'permission' | 'confirm' | 'choice' | 'input'

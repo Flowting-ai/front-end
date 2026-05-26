@@ -295,15 +295,15 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     ))
 
     try {
-      await removeProjectDocumentApi(projectId, fileId)
+      // DELETE /projects/{project_id}/files/{document_id} returns the updated ProjectResponse directly.
+      const updated = await removeProjectDocumentApi(projectId, fileId)
       if (removedName) {
         const stored = loadStoredSizes(projectId)
         stored.delete(removedName)
         saveStoredSizes(projectId, stored)
       }
-      const refreshed = await fetchProject(projectId)
       const storedSizes = loadStoredSizes(projectId)
-      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(refreshed, p, storedSizes) : p))
+      setProjects(prev => prev.map(p => p.id === projectId ? apiToProject(updated, p, storedSizes) : p))
     } catch (err) {
       if (snapshot) setProjects(prev => prev.map(p => p.id === projectId ? snapshot : p))
       toast.error('Failed to remove file', { description: err instanceof Error ? err.message : undefined })

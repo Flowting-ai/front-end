@@ -4,7 +4,14 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from '@/hooks/use-chat-state'
-import { getConnector, initiateLink, updateConnector, pollConnectorUntilActive } from '@/lib/api/connectors'
+import {
+  getConnector,
+  initiateLink,
+  updateConnector,
+  pollConnectorUntilActive,
+  DEFAULT_API_KEY_FIELD,
+  type ApiKeyField,
+} from '@/lib/api/connectors'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -110,21 +117,26 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   const [errorMsg,     setErrorMsg]     = useState('')
   // api_key flow
   const [apiKeyFields, setApiKeyFields] = useState<Record<string, string>>({})
-  const [fieldNames,   setFieldNames]   = useState<string[] | null>(null)
+  const [fieldDefs,    setFieldDefs]    = useState<ApiKeyField[] | null>(
+    prompt.api_key_fields && prompt.api_key_fields.length > 0 ? prompt.api_key_fields : null,
+  )
   const [showApiForm,  setShowApiForm]  = useState(false)
   const abortedRef = useRef(false)
 
-  // For api_key connectors, fetch the required field names when showing the form
+  // Fetch field definitions from the catalog only when the SSE event didn't
+  // carry them and the form has been opened for the first time.
   useEffect(() => {
-    if (prompt.auth_mode !== 'api_key' || !showApiForm || fieldNames !== null) return
+    if (prompt.auth_mode !== 'api_key' || fieldDefs !== null || !showApiForm) return
     getConnector(prompt.connector_slug)
       .then((entry) => {
-        if (!abortedRef.current) setFieldNames(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key'])
+        if (!abortedRef.current) {
+          setFieldDefs(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+        }
       })
       .catch(() => {
-        if (!abortedRef.current) setFieldNames(['api_key'])
+        if (!abortedRef.current) setFieldDefs([DEFAULT_API_KEY_FIELD])
       })
-  }, [prompt.auth_mode, prompt.connector_slug, showApiForm, fieldNames])
+  }, [prompt.auth_mode, prompt.connector_slug, showApiForm, fieldDefs])
 
   useEffect(() => {
     return () => { abortedRef.current = true }
@@ -174,7 +186,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   const handleApiKey = useCallback(() => {
     setState('connecting')
     setErrorMsg('')
-    updateConnector(prompt.connector_slug, { credentials: apiKeyFields })
+    updateConnector(prompt.connector_slug, { credentials: apiKeyFields as Record<string, string> })
       .then(() => {
         if (abortedRef.current) return
         setState('connected')
@@ -240,21 +252,21 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
               style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 8 }}
             >
               {/* Render one input per field returned by the connector catalog */}
-              {(fieldNames ?? ['api_key']).map((field) => (
-                <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(fieldDefs ?? [DEFAULT_API_KEY_FIELD]).map((field) => (
+                <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <label
-                    htmlFor={`cf-${prompt.connector_slug}-${field}`}
-                    style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)', textTransform: 'capitalize' }}
+                    htmlFor={`cf-${prompt.connector_slug}-${field.name}`}
+                    style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}
                   >
-                    {field.replace(/_/g, ' ')}
+                    {field.label}
                   </label>
                   <input
-                    id={`cf-${prompt.connector_slug}-${field}`}
-                    type="password"
+                    id={`cf-${prompt.connector_slug}-${field.name}`}
+                    type={field.secret ? 'password' : 'text'}
                     autoComplete="off"
-                    placeholder={field.replace(/_/g, ' ')}
-                    value={apiKeyFields[field] ?? ''}
-                    onChange={(e) => setApiKeyFields((prev) => ({ ...prev, [field]: e.target.value }))}
+                    placeholder={field.help ?? field.label}
+                    value={apiKeyFields[field.name] ?? ''}
+                    onChange={(e) => setApiKeyFields((prev) => ({ ...prev, [field.name]: e.target.value }))}
                     style={{
                       padding:         '8px 10px',
                       borderRadius:    8,
@@ -275,7 +287,9 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
                   onClick={handleApiKey}
                   disabled={
                     state === 'connecting' ||
-                    !(fieldNames ?? ['api_key']).every((f) => (apiKeyFields[f] ?? '').trim())
+                    !(fieldDefs ?? [DEFAULT_API_KEY_FIELD])
+                      .filter((f) => f.required)
+                      .every((f) => (apiKeyFields[f.name] ?? '').trim())
                   }
                 >
                   {state === 'connecting' ? 'Connecting…' : 'Connect'}

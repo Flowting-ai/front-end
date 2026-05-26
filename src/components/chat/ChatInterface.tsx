@@ -115,6 +115,11 @@ interface ChatInterfaceProps {
   chips?: React.ReactNode;
   /** Pin folders selected in the add menu — their pins are sent as context on every send. */
   selectedFolders?: PinFolder[];
+  /**
+   * Pin IDs from @-mentions made on the new-chat landing page before the first send.
+   * These are one-shot: only used by the initial auto-send when ChatInterface mounts.
+   */
+  initialMentionedPinIds?: string[];
   /** Persona version id sent as `persona_id` on the regular /chats endpoint
    *  to apply the persona as an overlay on top of style / web search / etc. */
   selectedPersonaId?: string | null;
@@ -129,6 +134,11 @@ interface ChatInterfaceProps {
    * loading. Navigated here from the pinboard "Show in chat" button.
    */
   scrollToMessageId?: string | null;
+  /**
+   * When true, the model selector button is shown but non-interactive.
+   * Use when a persona's model is locked and should not be changed.
+   */
+  disabledModelSelector?: boolean;
 }
 
 export function ChatInterface({
@@ -150,11 +160,13 @@ export function ChatInterface({
   onClearInitialFiles,
   chips,
   selectedFolders,
+  initialMentionedPinIds,
   selectedPersonaId,
   selectedPersonaSystemPrompt,
   selectedPersonaTemperature,
   selectedStyleId,
   scrollToMessageId,
+  disabledModelSelector,
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 }: ChatInterfaceProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -268,14 +280,15 @@ export function ChatInterface({
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
-        : undefined;
+        : [];
+      const allInitialPinIds = [...new Set([...folderPinIds, ...(initialMentionedPinIds ?? [])])];
       fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
         files: files.length > 0 ? files : undefined,
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
-        pinIds: folderPinIds,
+        pinIds: allInitialPinIds.length > 0 ? allInitialPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
@@ -459,7 +472,9 @@ export function ChatInterface({
 
     const folderPinIds = selectedFolders && selectedFolders.length > 0
       ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
-      : undefined;
+      : [];
+    const mentionedPinIds = mentionedPins.map(m => m.id);
+    const allPinIds = [...new Set([...folderPinIds, ...mentionedPinIds])];
 
     try {
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
@@ -469,7 +484,7 @@ export function ChatInterface({
         files: allFiles.length > 0 ? allFiles : undefined,
         algorithm: algorithm ?? undefined,
         userMessageId: userMsgId,
-        pinIds: folderPinIds,
+        pinIds: allPinIds.length > 0 ? allPinIds : undefined,
         personaId: selectedPersonaId ?? undefined,
         systemPrompt: selectedPersonaSystemPrompt ?? undefined,
         temperature: selectedPersonaTemperature ?? undefined,
@@ -707,6 +722,7 @@ export function ChatInterface({
             modelName={selectedModel ?? "Souvenir"}
             addMenu={addMenu}
             modelMenu={modelMenu}
+            disabledModelSelector={disabledModelSelector}
             chips={
               mentionedPins.length > 0 ? (
                 <>

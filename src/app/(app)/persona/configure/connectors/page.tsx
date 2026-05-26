@@ -267,6 +267,7 @@ function PersonaConfigureConnectorsContent() {
               alignItems: 'center',
               justifyContent: 'space-between',
               height: 36,
+              position: 'relative',
             }}
           >
             {/* Back arrow */}
@@ -280,8 +281,8 @@ function PersonaConfigureConnectorsContent() {
               />
             </div>
 
-            {/* Tabs */}
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'flex-start', flexShrink: 0 }}>
+            {/* Tabs — absolutely centered so left/right items don't affect positioning */}
+            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
                 style={{

@@ -77,31 +77,94 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
   )
 }
 
+const CONTEXT_RAIL_LOGO_MAP: Record<string, string> = {
+  'airtable':          '/connector-logos/airtable.svg',
+  'asana':             '/connector-logos/asana.svg',
+  'calendly':          '/connector-logos/calendly.svg',
+  'clickup':           '/connector-logos/clickup.svg',
+  'click-up':          '/connector-logos/clickup.svg',
+  'fireflies':         '/connector-logos/fireflies.svg',
+  'fireflies-ai':      '/connector-logos/fireflies.svg',
+  'gmail':             '/connector-logos/gmail.svg',
+  'googleads':         '/connector-logos/google-ads.svg',
+  'google-ads':        '/connector-logos/google-ads.svg',
+  'google_ads':        '/connector-logos/google-ads.svg',
+  'googlecalendar':    '/connector-logos/google-calendar.svg',
+  'google-calendar':   '/connector-logos/google-calendar.svg',
+  'google_calendar':   '/connector-logos/google-calendar.svg',
+  'googledocs':        '/connector-logos/google-docs.svg',
+  'google-docs':       '/connector-logos/google-docs.svg',
+  'google_docs':       '/connector-logos/google-docs.svg',
+  'googledrive':       '/connector-logos/google-drive.svg',
+  'google-drive':      '/connector-logos/google-drive.svg',
+  'google_drive':      '/connector-logos/google-drive.svg',
+  'googlesheets':      '/connector-logos/google-sheets.svg',
+  'google-sheets':     '/connector-logos/google-sheets.svg',
+  'google_sheets':     '/connector-logos/google-sheets.svg',
+  'hubspot':           '/connector-logos/hubspot.svg',
+  'jira':              '/connector-logos/jira.svg',
+  'linear':            '/connector-logos/linear.svg',
+  'linkedin':          '/connector-logos/linkedin.svg',
+  'meta':              '/connector-logos/meta.svg',
+  'meta-ads':          '/connector-logos/meta.svg',
+  'meta_ads':          '/connector-logos/meta.svg',
+  'metaads':           '/connector-logos/meta.svg',
+  'facebook':          '/connector-logos/meta.svg',
+  'facebook-ads':      '/connector-logos/meta.svg',
+  'facebook_ads':      '/connector-logos/meta.svg',
+  'facebookads':       '/connector-logos/meta.svg',
+  'notion':            '/connector-logos/notion.svg',
+  'outlook':           '/connector-logos/outlook.svg',
+  'microsoft-outlook': '/connector-logos/outlook.svg',
+  'salesforce':        '/connector-logos/salesforce.svg',
+  'shipengine':        '/connector-logos/shipengine.jpeg',
+  'ship-engine':       '/connector-logos/shipengine.jpeg',
+  'shopify':           '/connector-logos/shopify.svg',
+  'slack':             '/connector-logos/slack.svg',
+  'stripe':            '/connector-logos/stripe.svg',
+  'zoom':              '/connector-logos/zoom.svg',
+}
+
 function ConnectorLogo({ name, status }: { name: string; status: ContextRailConnector['status'] }) {
   const dotColor =
     status === 'connected' ? 'var(--color-tag-Green-text, #1e8a3c)' :
     status === 'failed'    ? 'var(--color-tag-Red-text, #c0392b)'   :
                              'var(--neutral-300)'
+
+  // Derive a slug from the connector name for logo lookup
+  const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')
+  const logoSrc = CONTEXT_RAIL_LOGO_MAP[slug]
+
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, lineHeight: 0 }}>
-      {/* Connector logo placeholder — replace with ConnectorIcon once @strange-huge/icons/connectors is available */}
-      <span style={{
-        width:           16,
-        height:          16,
-        borderRadius:    3,
-        backgroundColor: 'var(--neutral-200)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        fontFamily:      'var(--font-body)',
-        fontSize: 12,
-        fontWeight:      600,
-        color:           'var(--neutral-600)',
-        userSelect:      'none',
-        textTransform:   'uppercase',
-      }}>
-        {name.charAt(0)}
-      </span>
+      {logoSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+        <img
+          src={logoSrc}
+          alt={name}
+          width={16}
+          height={16}
+          style={{ objectFit: 'contain', display: 'block' }}
+        />
+      ) : (
+        <span style={{
+          width:           16,
+          height:          16,
+          borderRadius:    3,
+          backgroundColor: 'var(--neutral-200)',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          fontFamily:      'var(--font-body)',
+          fontSize:        12,
+          fontWeight:      600,
+          color:           'var(--neutral-600)',
+          userSelect:      'none',
+          textTransform:   'uppercase',
+        }}>
+          {name.charAt(0)}
+        </span>
+      )}
       <span style={{
         position:        'absolute',
         bottom:          -2,

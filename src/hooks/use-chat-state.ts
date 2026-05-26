@@ -13,13 +13,15 @@ import type { Message } from "@/types/chat"
 /** Emitted when the LLM tries to use a connector that is not yet linked. */
 export interface ConnectorConnectPrompt {
   /** Unique request ID from the backend (for deduplication). */
-  request_id:    string
-  connector_slug: string
-  display_name:  string
-  auth_mode:     'oauth2' | 'api_key'
-  tool_name:     string
+  request_id:      string
+  connector_slug:  string
+  display_name:    string
+  auth_mode:       'oauth2' | 'api_key'
+  tool_name:       string
+  /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */
+  api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
   /** Optional icon URL for the connector. */
-  icon_url?:     string
+  icon_url?:       string
 }
 
 /** Emitted when the LLM tries to call a connector tool whose policy is "ask". */

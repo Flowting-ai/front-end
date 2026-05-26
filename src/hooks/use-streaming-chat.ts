@@ -752,14 +752,25 @@ export function useStreamingChat({
 
           if (eventName === "tool_connect_prompt") {
             // Backend requests the user to link a connector before the tool can run.
-            // Schema: { connector_slug, display_name, auth_mode, tool_name, request_id, icon_url? }
+            // Schema: { connector_slug, display_name, auth_mode, tool_name, request_id, api_key_fields?, icon_url? }
+            // api_key_fields is an array of ApiKeyField objects: { name, label, help?, secret, required }
+            type ApiKeyField = import("@/lib/api/connectors").ApiKeyField
+            const rawFields = parsed.api_key_fields
+            const apiKeyFields: ApiKeyField[] | undefined = Array.isArray(rawFields)
+              ? rawFields.filter(
+                  (f): f is ApiKeyField =>
+                    typeof f === 'object' && f !== null &&
+                    typeof (f as Record<string, unknown>).name === 'string',
+                )
+              : undefined
             const prompt: import("@/hooks/use-chat-state").ConnectorConnectPrompt = {
-              request_id:     asString(parsed.request_id) ?? `ccp-${Date.now()}`,
-              connector_slug: asString(parsed.connector_slug) ?? "",
-              display_name:   asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
-              auth_mode:      (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
-              tool_name:      asString(parsed.tool_name) ?? "",
-              icon_url:       asString(parsed.icon_url),
+              request_id:      asString(parsed.request_id) ?? `ccp-${Date.now()}`,
+              connector_slug:  asString(parsed.connector_slug) ?? "",
+              display_name:    asString(parsed.display_name) ?? asString(parsed.connector_slug) ?? "",
+              auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
+              tool_name:       asString(parsed.tool_name) ?? "",
+              api_key_fields:  apiKeyFields,
+              icon_url:        asString(parsed.icon_url),
             }
             const msgId = loadingMessageIdRef.current
             if (msgId) {

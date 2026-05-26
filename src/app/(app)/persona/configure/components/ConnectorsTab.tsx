@@ -10,9 +10,60 @@ import {
   updateConnector,
   unlinkConnector,
   pollConnectorUntilActive,
+  DEFAULT_API_KEY_FIELD,
 } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
+
+// ── Connector logo map ────────────────────────────────────────────────────────
+
+const CONNECTOR_LOGO_MAP: Record<string, string> = {
+  'airtable':             '/connector-logos/airtable.svg',
+  'asana':                '/connector-logos/asana.svg',
+  'calendly':             '/connector-logos/calendly.svg',
+  'clickup':              '/connector-logos/clickup.svg',
+  'click-up':             '/connector-logos/clickup.svg',
+  'fireflies':            '/connector-logos/fireflies.svg',
+  'fireflies-ai':         '/connector-logos/fireflies.svg',
+  'gmail':                '/connector-logos/gmail.svg',
+  'googleads':            '/connector-logos/google-ads.svg',
+  'google-ads':           '/connector-logos/google-ads.svg',
+  'google_ads':           '/connector-logos/google-ads.svg',
+  'googlecalendar':       '/connector-logos/google-calendar.svg',
+  'google-calendar':      '/connector-logos/google-calendar.svg',
+  'google_calendar':      '/connector-logos/google-calendar.svg',
+  'googledocs':           '/connector-logos/google-docs.svg',
+  'google-docs':          '/connector-logos/google-docs.svg',
+  'google_docs':          '/connector-logos/google-docs.svg',
+  'googledrive':          '/connector-logos/google-drive.svg',
+  'google-drive':         '/connector-logos/google-drive.svg',
+  'google_drive':         '/connector-logos/google-drive.svg',
+  'googlesheets':         '/connector-logos/google-sheets.svg',
+  'google-sheets':        '/connector-logos/google-sheets.svg',
+  'google_sheets':        '/connector-logos/google-sheets.svg',
+  'hubspot':              '/connector-logos/hubspot.svg',
+  'jira':                 '/connector-logos/jira.svg',
+  'linear':               '/connector-logos/linear.svg',
+  'linkedin':             '/connector-logos/linkedin.svg',
+  'meta':                 '/connector-logos/meta.svg',
+  'meta-ads':             '/connector-logos/meta.svg',
+  'meta_ads':             '/connector-logos/meta.svg',
+  'metaads':              '/connector-logos/meta.svg',
+  'facebook':             '/connector-logos/meta.svg',
+  'facebook-ads':         '/connector-logos/meta.svg',
+  'facebook_ads':         '/connector-logos/meta.svg',
+  'facebookads':          '/connector-logos/meta.svg',
+  'notion':               '/connector-logos/notion.svg',
+  'outlook':              '/connector-logos/outlook.svg',
+  'microsoft-outlook':    '/connector-logos/outlook.svg',
+  'salesforce':           '/connector-logos/salesforce.svg',
+  'shipengine':           '/connector-logos/shipengine.jpeg',
+  'ship-engine':          '/connector-logos/shipengine.jpeg',
+  'shopify':              '/connector-logos/shopify.svg',
+  'slack':                '/connector-logos/slack.svg',
+  'stripe':               '/connector-logos/stripe.svg',
+  'zoom':                 '/connector-logos/zoom.svg',
+}
 
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
@@ -71,6 +122,21 @@ const KNOWN_LOGOS = new Set<string>([
 ])
 
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
+  const localLogo = CONNECTOR_LOGO_MAP[entry.slug]
+
+  if (localLogo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+      <img
+        src={localLogo}
+        alt={entry.display_name}
+        width={size}
+        height={size}
+        style={{ objectFit: 'contain', flexShrink: 0 }}
+      />
+    )
+  }
+
   if (entry.icon_url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL, external domain not in next config
@@ -79,22 +145,11 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
         alt={entry.display_name}
         width={size}
         height={size}
-        style={{ borderRadius: 6, objectFit: 'contain' }}
-      />
-    )
-  }
-  if (KNOWN_LOGOS.has(entry.slug)) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local SVG icon, variable path prevents next/image static analysis
-      <img
-        src={`/icons/connectors/${entry.slug}.svg`}
-        alt={entry.display_name}
-        width={size}
-        height={size}
         style={{ objectFit: 'contain', flexShrink: 0 }}
       />
     )
   }
+
   const letter = entry.display_name.charAt(0).toUpperCase()
   const hue    = [...entry.slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
   return (
@@ -476,27 +531,27 @@ function useConnectFlow(
 // ── API-key inline form ───────────────────────────────────────────────────────
 
 function ApiKeyForm({ fields, values, onChange, onSubmit, onCancel, submitting }: {
-  fields:     string[]
+  fields:     ApiKeyField[]
   values:     Record<string, string>
   onChange:   (vals: Record<string, string>) => void
   onSubmit:   () => void
   onCancel:   () => void
   submitting: boolean
 }) {
-  const allFilled = fields.every(f => (values[f] ?? '').trim())
+  const allFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
       {fields.map(field => (
-        <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)', textTransform: 'capitalize' }}>
-            {field.replace(/_/g, ' ')}
+        <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}>
+            {field.label}
           </label>
           <input
-            type="password"
+            type={field.secret ? 'password' : 'text'}
             autoComplete="off"
-            placeholder={field.replace(/_/g, ' ')}
-            value={values[field] ?? ''}
-            onChange={e => onChange({ ...values, [field]: e.target.value })}
+            placeholder={field.help ?? field.label}
+            value={values[field.name] ?? ''}
+            onChange={e => onChange({ ...values, [field.name]: e.target.value })}
             // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--neutral-300)', fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'white' }}
           />
@@ -606,7 +661,7 @@ function ConnectorCard({ entry, onManage, onUpdate }: {
 
       {showApiForm && !isActive && (
         <ApiKeyForm
-          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
+          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
           values={apiKeyValues}
           onChange={setApiKeyValues}
           onSubmit={submitApiKey}

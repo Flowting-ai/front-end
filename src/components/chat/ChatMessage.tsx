@@ -165,6 +165,8 @@ interface ChatMessageProps {
   showReasoning?: boolean;
   /** Pre-computed pin status for this message — avoids context subscription churn */
   pinned?: boolean;
+  /** When true, hides the Pin/Unpin action button from the hover actions bar. */
+  hidePinAction?: boolean;
   onRegenerate?: () => void;
   onEdit?: (messageId: string, newContent: string) => void;
   onCitationsClick?: () => void;
@@ -179,6 +181,7 @@ export function ChatMessage({
   chatId,
   showReasoning = true,
   pinned: pinnedProp = false,
+  hidePinAction = false,
   onRegenerate,
   onEdit,
   onFollowUp,
@@ -839,11 +842,13 @@ export function ChatMessage({
             pointerEvents: isHovered && !message.isLoading ? "auto" : "none",
           }}
         >
-          <ActionIconButton
-            icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
-            label={pinned ? "Unpin" : "Pin"}
-            onClick={handlePin}
-          />
+          {!hidePinAction && (
+            <ActionIconButton
+              icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
+              label={pinned ? "Unpin" : "Pin"}
+              onClick={handlePin}
+            />
+          )}
           <ActionIconButton
             icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
             label={copied ? "Copied" : "Copy"}
@@ -912,7 +917,8 @@ function areMessagePropsEqual(prev: ChatMessageProps, next: ChatMessageProps): b
     prev.isNewMessage === next.isNewMessage &&
     prev.chatId === next.chatId &&
     prev.showReasoning === next.showReasoning &&
-    prev.pinned === next.pinned
+    prev.pinned === next.pinned &&
+    prev.hidePinAction === next.hidePinAction
   )
 }
 

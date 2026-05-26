@@ -11,8 +11,9 @@ import {
   updateConnector,
   unlinkConnector,
   pollConnectorUntilActive,
+  DEFAULT_API_KEY_FIELD,
 } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
+import type { ApiKeyField, ConnectorCatalogEntry, ConnectorTool } from '@/lib/api/connectors'
 import { ApiError } from '@/lib/api/client'
 import { Button } from '@/components/Button'
 
@@ -692,33 +693,32 @@ function ApiKeyForm({
   onCancel,
   submitting,
 }: {
-  fields:     string[]
+  fields:     ApiKeyField[]
   values:     Record<string, string>
   onChange:   (vals: Record<string, string>) => void
   onSubmit:   () => void
   onCancel:   () => void
   submitting: boolean
 }) {
-  const allFilled = fields.every(f => (values[f] ?? '').trim())
+  const allFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
       {fields.map(field => (
-        <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{
-            fontFamily:    'var(--font-body)',
-            fontSize:      12,
-            fontWeight:    500,
-            color:         'var(--neutral-600)',
-            textTransform: 'capitalize',
+            fontFamily: 'var(--font-body)',
+            fontSize:   12,
+            fontWeight: 500,
+            color:      'var(--neutral-600)',
           }}>
-            {field.replace(/_/g, ' ')}
+            {field.label}
           </label>
           <input
-            type="password"
+            type={field.secret ? 'password' : 'text'}
             autoComplete="off"
-            placeholder={field.replace(/_/g, ' ')}
-            value={values[field] ?? ''}
-            onChange={e => onChange({ ...values, [field]: e.target.value })}
+            placeholder={field.help ?? field.label}
+            value={values[field.name] ?? ''}
+            onChange={e => onChange({ ...values, [field.name]: e.target.value })}
             style={{
               padding:         '7px 10px',
               borderRadius:    8,
@@ -873,7 +873,7 @@ function ConnectorCard({
       {/* API key form (inline) */}
       {showApiForm && !isActive && (
         <ApiKeyForm
-          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : ['api_key']}
+          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
           values={apiKeyValues}
           onChange={setApiKeyValues}
           onSubmit={submitApiKey}

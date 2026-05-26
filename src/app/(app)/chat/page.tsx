@@ -26,7 +26,6 @@ import { ChatAddMenu, USE_STYLE_OPTIONS, type SelectedPersonaInfo } from "@/comp
 import { fetchPersonas, getVersion } from "@/lib/api/personas";
 import { ModelMenu } from "@/components/chat/ModelMenu";
 import {
-  FolderOneIcon,
   GlobalSearchIcon,
   QuillWriteTwoIcon,
   QuillWriteOneIcon,
@@ -277,6 +276,8 @@ function ChatPageInner() {
   }, [activeChatId, webSearchEnabled, selectedPersona]);
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([]);
   const [addMenuFiles, setAddMenuFiles] = useState<File[]>([]);
+  // Pin IDs from @-mentions made on the new-chat landing, passed once to ChatInterface for the initial send.
+  const [initialMentionedPinIds, setInitialMentionedPinIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { processFiles, FILE_ACCEPT } = useFileUpload();
 
@@ -457,14 +458,18 @@ function ChatPageInner() {
     />
   ) : null;
 
-  const folderChips = selectedFolders.map(folder => (
-    <Chip
-      key={folder.id}
-      label={folder.name}
-      icon={<FolderOneIcon size={20} color="var(--chip-text)" />}
-      onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
-    />
-  ));
+  // Expand each selected folder into individual pin chips (mirrors @ mention behaviour).
+  // Removing any pin chip deselects the entire folder it belongs to.
+  const folderPinChips = selectedFolders.flatMap(folder => {
+    const folderPins = pins.filter(p => p.folderId === folder.id);
+    return folderPins.map(pin => (
+      <MentionChip
+        key={`folder-pin-${pin.id}`}
+        label={pin.title || pin.content.slice(0, 50) || pin.id}
+        onRemove={() => setSelectedFolders(prev => prev.filter(f => f.id !== folder.id))}
+      />
+    ));
+  });
 
   const personaChip = selectedPersona ? (
     <Dropdown.Float
@@ -503,16 +508,16 @@ function ChatPageInner() {
     </Dropdown.Float>
   ) : null;
 
-  // Chips for ChatInterface (style + folders + web search + persona)
-  const chips: React.ReactNode = (styleChip || folderChips.length > 0 || webSearchChip || personaChip) ? (
-    <>{styleChip}{folderChips}{webSearchChip}{personaChip}</>
+  // Chips for ChatInterface (style + folder-expanded pin chips + web search + persona)
+  const chips: React.ReactNode = (styleChip || folderPinChips.length > 0 || webSearchChip || personaChip) ? (
+    <>{styleChip}{folderPinChips}{webSearchChip}{personaChip}</>
   ) : undefined;
 
-  // Chips for the new-chat input (adds pin mention chips on top)
+  // Chips for the new-chat input (style + folder-expanded pin chips + @-mention pin chips + web search + persona)
   const newChatChips: React.ReactNode = (
     <>
       {styleChip}
-      {folderChips}
+      {folderPinChips}
       {newChatMentionedPins.map((mp) => (
         <MentionChip key={mp.id} label={mp.label} onRemove={() => handleNewChatRemoveMention(mp.id)} />
       ))}
@@ -653,6 +658,7 @@ function ChatPageInner() {
   });
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (selectedPersona) return;
     openModelSelector(e.currentTarget);
   };
 
@@ -712,9 +718,12 @@ function ChatPageInner() {
   const handleNewChatSend = (value: string) => {
     if (!value.trim()) return;
     const pendingFiles = newChatAttachments.map((a) => a.file);
+    // Capture @-mention pin IDs before clearing so they are forwarded to the initial send.
+    const mentionedIds = newChatMentionedPins.map(m => m.id);
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
     setNewChatMentionedPins([]);
+    setInitialMentionedPinIds(mentionedIds);
     const composed = selectedMode
       ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
       : value.trim();
@@ -836,9 +845,10 @@ function ChatPageInner() {
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
                       modelName={modelButtonLabel}
-                      onModelClick={handleModelClick}
+                      onModelClick={selectedPersona ? undefined : handleModelClick}
                       addMenu={addMenu}
-                      modelMenu={<ModelMenu />}
+                      modelMenu={selectedPersona ? undefined : <ModelMenu />}
+                      disabledModelSelector={!!selectedPersona}
                       chips={newChatChips}
                       attachmentsSlot={
                         <AttachmentManager
@@ -940,10 +950,12 @@ function ChatPageInner() {
               onChatMoveToTop={handleChatMoveToTop}
               selectedModel={modelButtonLabel}
               selectedModelId={selectedModel?.id}
-              onModelClick={handleModelClick}
+              onModelClick={selectedPersona ? undefined : handleModelClick}
               addMenu={addMenu}
-              modelMenu={<ModelMenu />}
+              modelMenu={selectedPersona ? undefined : <ModelMenu />}
+              disabledModelSelector={!!selectedPersona}
               initialPrompt={initialPrompt}
+              initialMentionedPinIds={initialMentionedPinIds}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatAddMenu } from "@/components/chat/AddMenu";
-import { ModelMenu, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { ChatMessageMemo } from "@/components/chat/ChatMessage";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -12,6 +11,7 @@ import { useFileUpload } from "@/hooks/use-file-upload";
 import type { UIMessage } from "@/hooks/use-chat-state";
 import {
   getPersona,
+  getVersion,
   fetchPersonaChatMessages,
   createAndStreamPersonaChat,
   streamPersonaMessage,
@@ -130,7 +130,12 @@ export function PersonaChatInterface({
   const [isStreaming,       setIsStreaming]        = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(!!initialChatId);
 
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachments,       setAttachments]       = useState<PendingAttachment[]>([]);
+  const [webSearchEnabled,  setWebSearchEnabled]  = useState(false);
+  const [selectedStyleId,   setSelectedStyleId]   = useState<string | null>(null);
+  // Persona avatar image URL — falls back to fetching the active version when
+  // the repo detail endpoint doesn't embed active_version.image_url.
+  const [personaImageUrl,   setPersonaImageUrl]   = useState<string | null>(null);
 
   const fileInputRef         = useRef<HTMLInputElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -141,9 +146,8 @@ export function PersonaChatInterface({
   // reloading when the component itself just created the chat.
   const justCreatedChatRef   = useRef(false);
 
-  const { open: openModelSelector, models, selectModel, selectedModel } = useModelSelectorContext();
+  const { models, selectModel, selectedModel } = useModelSelectorContext();
   const { processFiles, FILE_ACCEPT } = useFileUpload();
-  const modelButtonLabel = useModelButtonLabel();
 
   const selectModelRef = useRef(selectModel);
   selectModelRef.current = selectModel;
@@ -151,7 +155,21 @@ export function PersonaChatInterface({
   // ── Persona load + model sync ─────────────────────────────────────────────
 
   useEffect(() => {
-    getPersona(personaId).then(setPersona).catch(console.error);
+    let cancelled = false;
+    getPersona(personaId).then(p => {
+      if (cancelled) return;
+      setPersona(p);
+      if (p.imageUrl) {
+        setPersonaImageUrl(p.imageUrl);
+      } else if (p.activeVersionId) {
+        // Active version may not be embedded in the repo detail response —
+        // fetch it separately to retrieve the profile avatar image.
+        getVersion(p.id, p.activeVersionId)
+          .then(v => { if (!cancelled && v.image_url) setPersonaImageUrl(v.image_url); })
+          .catch(() => {});
+      }
+    }).catch(console.error);
+    return () => { cancelled = true; };
   }, [personaId]);
 
   // Force the model selector to reflect the persona's active model. We watch
@@ -386,7 +404,7 @@ export function PersonaChatInterface({
 
           {/* Empty state */}
           {!isLoadingMessages && messages.length === 0 && (
-            <EmptyState persona={persona} />
+            <EmptyState persona={persona ? { ...persona, imageUrl: personaImageUrl } : null} />
           )}
 
           {/* Messages */}
@@ -397,6 +415,7 @@ export function PersonaChatInterface({
               isLast={idx === messages.length - 1}
               isNewMessage={idx === messages.length - 1 && isStreaming}
               chatId={chatId || undefined}
+              hidePinAction
             />
           ))}
 
@@ -429,26 +448,22 @@ export function PersonaChatInterface({
             isStreaming={isStreaming}
             disabled={isStreaming}
             placeholder={`Message ${persona?.name || "persona"}…`}
-            modelName={modelButtonLabel}
-            onModelClick={e => openModelSelector(e.currentTarget)}
             addMenu={
               <ChatAddMenu
-                webSearchEnabled={false}
-                onWebSearchChange={() => {}}
+                webSearchEnabled={webSearchEnabled}
+                onWebSearchChange={setWebSearchEnabled}
                 onAddFilesClick={() => fileInputRef.current?.click()}
-                selectedStyleId={null}
-                onStyleChange={() => {}}
+                selectedStyleId={selectedStyleId}
+                onStyleChange={setSelectedStyleId}
                 selectedFolders={[]}
                 onFolderToggle={() => {}}
                 selectedPersonaId={null}
                 onPersonaChange={() => {}}
                 hidePersona
-                hideStyle
-                hideWebSearch
                 hidePinFolders
               />
             }
-            modelMenu={<ModelMenu />}
+            hideModelSelector
             attachmentsSlot={
               <AttachmentManager
                 attachments={attachments}

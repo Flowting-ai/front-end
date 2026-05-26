@@ -31,7 +31,16 @@ import { FolderOneIcon, GlobalSearchIcon, QuillWriteTwoIcon } from '@strange-hug
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { fetchPersonas, getVersion } from '@/lib/api/personas'
 import type { PinFolder } from '@/lib/api/pins'
-import { listConnectors, initiateLink, pollConnectorUntilActive, type ConnectorCatalogEntry } from '@/lib/api/connectors'
+import {
+  listConnectors,
+  initiateLink,
+  pollConnectorUntilActive,
+  getConnector,
+  updateConnector,
+  DEFAULT_API_KEY_FIELD,
+  type ApiKeyField,
+  type ConnectorCatalogEntry,
+} from '@/lib/api/connectors'
 import { toast } from 'sonner'
 import {
   startBrainChat,
@@ -181,8 +190,8 @@ function CounterInput({ value, onChange, onSend, onCancel, disabled = false }: C
 
 // ── Tool connect prompt card ──────────────────────────────────────────────────
 // Rendered inline when the model calls a connector tool for an app the user
-// hasn't linked. Clicking "Connect" launches the OAuth/API-key flow and polls
-// until the connector reports linked, then prompts the user to re-send.
+// hasn't linked. For OAuth connectors, opens a popup and polls until linked.
+// For api_key connectors, renders an inline credential form and PATCHes directly.
 
 interface ToolConnectCardProps {
   event:        ToolConnectPromptEvent
@@ -190,41 +199,115 @@ interface ToolConnectCardProps {
 }
 
 function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
-  const [busy,  setBusy]  = useState(false)
-  const [done,  setDone]  = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [busy,   setBusy]   = useState(false)
+  const [done,   setDone]   = useState(false)
+  const [error,  setError]  = useState<string | null>(null)
+  const [fields, setFields] = useState<ApiKeyField[] | null>(
+    event.api_key_fields && event.api_key_fields.length > 0 ? event.api_key_fields : null,
+  )
+  const [creds,  setCreds]  = useState<Record<string, string>>({})
+  const abortedRef = useRef(false)
 
-  const handleConnect = useCallback(async () => {
+  useEffect(() => {
+    abortedRef.current = false
+    return () => { abortedRef.current = true }
+  }, [])
+
+  // For api_key connectors without fields in the SSE payload, fetch from catalog
+  useEffect(() => {
+    if (event.auth_mode !== 'api_key' || fields !== null) return
+    getConnector(event.connector_slug)
+      .then((entry) => {
+        if (!abortedRef.current) {
+          setFields(entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD])
+        }
+      })
+      .catch(() => {
+        if (!abortedRef.current) setFields([DEFAULT_API_KEY_FIELD])
+      })
+  }, [event.auth_mode, event.connector_slug, fields])
+
+  const handleOAuth = useCallback(async () => {
     if (busy || done) return
     setBusy(true)
     setError(null)
     try {
       const { redirect_url } = await initiateLink(event.connector_slug)
-      if (redirect_url) {
-        window.open(redirect_url, '_blank', 'noopener')
-      }
+      if (redirect_url) window.open(redirect_url, '_blank', 'noopener')
       await pollConnectorUntilActive(event.connector_slug)
+      if (abortedRef.current) return
       setDone(true)
       onConnected?.(event.connector_slug)
       toast.success(`${event.display_name} connected — re-send your message to continue.`)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to connect.'
-      setError(msg)
+      if (abortedRef.current) return
+      setError(e instanceof Error ? e.message : 'Failed to connect.')
     } finally {
       setBusy(false)
     }
   }, [busy, done, event.connector_slug, event.display_name, onConnected])
 
+  const handleApiKey = useCallback(async () => {
+    if (busy || done) return
+    setBusy(true)
+    setError(null)
+    try {
+      await updateConnector(event.connector_slug, { credentials: creds })
+      if (abortedRef.current) return
+      setDone(true)
+      onConnected?.(event.connector_slug)
+      toast.success(`${event.display_name} connected — re-send your message to continue.`)
+    } catch (e) {
+      if (abortedRef.current) return
+      setError(e instanceof Error ? e.message : 'Failed to save credentials.')
+    } finally {
+      setBusy(false)
+    }
+  }, [busy, done, event.connector_slug, event.display_name, creds, onConnected])
+
+  const resolvedFields = fields ?? [DEFAULT_API_KEY_FIELD]
+  const allFilled = resolvedFields.filter((f) => f.required).every((f) => (creds[f.name] ?? '').trim())
+
+  const cardStyle: CSSProperties = {
+    display:         'flex',
+    flexDirection:   'column',
+    gap:             8,
+    padding:         '14px 16px',
+    borderRadius:    12,
+    border:          '1px solid var(--neutral-200)',
+    backgroundColor: 'var(--neutral-white)',
+  }
+  const labelStyle: CSSProperties = {
+    fontFamily: 'var(--font-body)',
+    fontSize:   'var(--font-size-caption)',
+    fontWeight: 500,
+    color:      'var(--neutral-600)',
+  }
+  const inputStyle: CSSProperties = {
+    padding:         '7px 10px',
+    borderRadius:    8,
+    border:          '1px solid var(--neutral-300)',
+    fontFamily:      'var(--font-body)',
+    fontSize:        'var(--font-size-caption)',
+    // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed
+    outline:         'none',
+    width:           '100%',
+    boxSizing:       'border-box',
+    backgroundColor: 'var(--neutral-white)',
+  }
+  const btnStyle = (primary: boolean, disabled: boolean): CSSProperties => ({
+    padding:         '6px 14px',
+    borderRadius:    999,
+    border:          primary ? 'none' : '1px solid var(--neutral-200)',
+    backgroundColor: primary ? (disabled ? 'var(--neutral-200)' : 'var(--neutral-900)') : 'transparent',
+    color:           primary ? (disabled ? 'var(--neutral-500)' : 'var(--neutral-white)') : 'var(--neutral-600)',
+    cursor:          disabled ? 'not-allowed' : 'pointer',
+    fontFamily:      'var(--font-body)',
+    fontSize:        'var(--font-size-caption)',
+  })
+
   return (
-    <div style={{
-      display:        'flex',
-      flexDirection:  'column',
-      gap:            8,
-      padding:        '14px 16px',
-      borderRadius:   12,
-      border:         '1px solid var(--neutral-200)',
-      backgroundColor:'var(--neutral-white)',
-    }}>
+    <div style={cardStyle}>
       <span style={{
         fontFamily: 'var(--font-body)',
         fontSize:   'var(--font-size-body)',
@@ -239,32 +322,54 @@ function ToolConnectCard({ event, onConnected }: ToolConnectCardProps) {
         lineHeight: 'var(--line-height-caption)',
         color:      'var(--neutral-500)',
       }}>
-        Brain needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name} ({event.auth_mode}).
+        Brain needs <code style={{ fontFamily: 'var(--font-code)' }}>{event.tool_name}</code> from {event.display_name}.
       </span>
+
       {error && (
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--color-tag-Red-text, #c0392b)' }}>
           {error}
         </span>
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          onClick={handleConnect}
-          disabled={busy || done}
-          style={{
-            padding:        '6px 14px',
-            borderRadius:   999,
-            border:         'none',
-            backgroundColor: done ? 'var(--neutral-200)' : 'var(--neutral-900)',
-            color:           done ? 'var(--neutral-500)' : 'var(--neutral-white)',
-            cursor:          busy || done ? 'not-allowed' : 'pointer',
-            fontFamily:      'var(--font-body)',
-            fontSize:        'var(--font-size-caption)',
-          }}
-        >
-          {done ? 'Connected' : busy ? 'Connecting…' : `Connect ${event.display_name}`}
-        </button>
-      </div>
+
+      {event.auth_mode === 'api_key' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {resolvedFields.map((field) => (
+            <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={labelStyle}>{field.label}</label>
+              <input
+                type={field.secret ? 'password' : 'text'}
+                autoComplete="off"
+                placeholder={field.help ?? field.label}
+                value={creds[field.name] ?? ''}
+                disabled={busy || done}
+                onChange={(e) => setCreds((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={() => void handleApiKey()}
+              disabled={busy || done || !allFilled}
+              style={btnStyle(true, busy || done || !allFilled)}
+            >
+              {done ? 'Connected' : busy ? 'Connecting…' : `Connect ${event.display_name}`}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={() => void handleOAuth()}
+            disabled={busy || done}
+            style={btnStyle(true, busy || done)}
+          >
+            {done ? 'Connected' : busy ? 'Connecting…' : `Connect ${event.display_name}`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1799,6 +1904,7 @@ function BrainPageInner() {
         addMenu,
         modelMenu: <ModelMenu />,
         modelName: modelButtonLabel,
+        hideModelSelector: true,
         chips,
         attachmentsSlot: (
           <AttachmentManager

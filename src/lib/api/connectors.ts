@@ -14,13 +14,35 @@ export interface ConnectorTool {
   policy: 'allow' | 'block' | 'ask' | 'allow_once'
 }
 
+/** Rich descriptor for a single credential field returned by GET /connectors/{slug}. */
+export interface ApiKeyField {
+  /** Key used in the PATCH credentials payload (e.g. "subdomain", "generic_api_key"). */
+  name:      string
+  /** Human-readable label shown above the input (e.g. "Store Subdomain"). */
+  label:     string
+  /** Placeholder / hint text (e.g. "your-store-name", "shpat_..."). */
+  help?:     string
+  /** When true the input should be rendered as type="password". */
+  secret:    boolean
+  /** When true the Connect button stays disabled until this field has a value. */
+  required:  boolean
+}
+
+/** Fallback field used when the catalog entry omits api_key_fields entirely. */
+export const DEFAULT_API_KEY_FIELD: ApiKeyField = {
+  name:     'api_key',
+  label:    'API Key',
+  secret:   true,
+  required: true,
+}
+
 export interface ConnectorCatalogEntry {
   slug:            string
   display_name:    string
   auth_mode:       'oauth2' | 'api_key'
   description:     string
   tools?:          ConnectorTool[]
-  api_key_fields?: string[]
+  api_key_fields?: ApiKeyField[]
   linked:          boolean
   /** Not in OpenAPI spec — kept for back-compat with code that reads it. */
   icon_url?:       string
@@ -72,6 +94,51 @@ export async function unlinkConnector(slug: string): Promise<void> {
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to unlink connector: ${res.status}`)
   }
+}
+
+// ── Credential-field metadata ─────────────────────────────────────────────────
+// Human-readable labels, security hints, and placeholder hints for well-known
+// connector fields. Used by all connect forms to pick input type and labels.
+
+const FIELD_LABELS: Record<string, string> = {
+  subdomain:       'Store Subdomain',
+  generic_api_key: 'Admin API Access Token',
+  api_key:         'API Key',
+  access_token:    'Access Token',
+  shop:            'Shop Domain',
+  store_name:      'Store Name',
+  username:        'Username',
+  password:        'Password',
+  client_id:       'Client ID',
+  client_secret:   'Client Secret',
+}
+
+const FIELD_PLACEHOLDERS: Record<string, string> = {
+  subdomain:       'your-store-name',
+  generic_api_key: 'shpat_...',
+  api_key:         'sk_...',
+  client_secret:   'cs_...',
+}
+
+const SECRET_KEYWORDS = ['key', 'token', 'secret', 'password', 'api'] as const
+
+/** True when a credential field should be rendered as a masked (password) input. */
+export function isSecretField(name: string): boolean {
+  const lower = name.toLowerCase()
+  return SECRET_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
+/** Human-readable label for a credential field. */
+export function fieldLabel(name: string): string {
+  return (
+    FIELD_LABELS[name] ??
+    name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  )
+}
+
+/** Placeholder hint string for a credential field, or undefined. */
+export function fieldPlaceholder(name: string): string | undefined {
+  return FIELD_PLACEHOLDERS[name]
 }
 
 /**
