@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion } from '@/lib/api/personas'
+import { updateVersion, listVersions, type PersonaVersionListItem } from '@/lib/api/personas'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -37,14 +37,31 @@ const TAB_ROUTES: Partial<Record<Tab, string>> = {
   Connectors:   '/persona/configure/connectors',
 }
 
+const MAX_VERSIONS = 5
+
+function formatVersionDate(iso: string): string {
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} · ${time}`
+}
+
+function nameInitials(name: string): string {
+  return (name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
 // ── Floating menu ─────────────────────────────────────────────────────────────
 
 function FloatingMenu({
   testChatOpen,
   onToggleTestChat,
+  versionsOpen,
+  onToggleVersions,
 }: {
   testChatOpen: boolean
   onToggleTestChat: () => void
+  versionsOpen: boolean
+  onToggleVersions: () => void
 }) {
   return (
     <div
@@ -123,8 +140,10 @@ function FloatingMenu({
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </button>
 
-      {/* Save versions */}
+      {/* Versions */}
       <button
+        onClick={onToggleVersions}
+        title={versionsOpen ? 'Close versions' : 'View versions'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -133,10 +152,27 @@ function FloatingMenu({
           borderRadius: 8,
           border: 'none',
           cursor: 'pointer',
-          backgroundColor: 'transparent',
-          opacity: 0.7,
+          position: 'relative',
+          backgroundColor: versionsOpen ? 'rgba(237,225,215,0.6)' : 'transparent',
+          boxShadow: versionsOpen
+            ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(182,172,164,0.4)'
+            : 'none',
+          transition: 'background-color 150ms, box-shadow 150ms',
         }}
       >
+        {versionsOpen && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 'inherit',
+              boxShadow:
+                'inset 0px 1px 0px 0px rgba(247,242,237,0.61), inset 0px -1px 0px 0px rgba(106,98,93,0.05)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
         <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
       </button>
     </div>
@@ -152,8 +188,27 @@ function PersonaConfigureSharingContent() {
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionId   = searchParams.get('versionId') ?? ''
 
-  const [testChatOpen, setTestChatOpen] = useState(false)
-  const [isSaving,     setIsSaving]     = useState(false)
+  const [testChatOpen,    setTestChatOpen]    = useState(false)
+  const [versionsOpen,    setVersionsOpen]    = useState(false)
+  const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [restoringId,     setRestoringId]     = useState<string | null>(null)
+  const [isSaving,        setIsSaving]        = useState(false)
+
+  useEffect(() => {
+    if (!versionsOpen || !repoId) return
+    setVersionsLoading(true)
+    listVersions(repoId)
+      .then(v => setVersions(v.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, MAX_VERSIONS)))
+      .catch(() => {})
+      .finally(() => setVersionsLoading(false))
+  }, [versionsOpen, repoId])
+
+  function handleRestoreVersion(targetId: string) {
+    if (!repoId || restoringId) return
+    setRestoringId(targetId)
+    push(`/persona/configure/instructions?repoId=${repoId}&versionId=${targetId}&name=${encodeURIComponent(personaName)}`)
+  }
 
   async function handleSaveVersion() {
     if (!repoId || !versionId) return
@@ -300,16 +355,28 @@ function PersonaConfigureSharingContent() {
                 icon={<MoreVerticalIcon size={20} />}
                 aria-label="More options"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<QuillWriteOneIcon size={16} />}
-                onClick={handleSaveVersion}
-                disabled={!repoId || !versionId || isSaving}
-                loading={isSaving}
-              >
-                {isSaving ? 'Saving…' : 'Save version'}
-              </Button>
+              {testChatOpen ? (
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  icon={<QuillWriteOneIcon size={16} />}
+                  aria-label="Save version"
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                  loading={isSaving}
+                />
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!repoId || !versionId || isSaving}
+                  loading={isSaving}
+                >
+                  {isSaving ? 'Saving…' : 'Save version'}
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"
@@ -360,7 +427,12 @@ function PersonaConfigureSharingContent() {
             zIndex: 10,
           }}
         >
-          <FloatingMenu testChatOpen={testChatOpen} onToggleTestChat={() => setTestChatOpen(v => !v)} />
+          <FloatingMenu
+            testChatOpen={testChatOpen}
+            onToggleTestChat={() => setTestChatOpen(v => !v)}
+            versionsOpen={versionsOpen}
+            onToggleVersions={() => setVersionsOpen(v => !v)}
+          />
         </div>
       </div>
 
@@ -480,6 +552,78 @@ function PersonaConfigureSharingContent() {
                 textareaLabel="Test message"
                 modelName="Souvenir"
               />
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Versions panel ─────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {versionsOpen && (
+          <m.div
+            key="versions-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 400, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+            style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, height: '100%', paddingLeft: 5, paddingRight: 5, paddingTop: 12, paddingBottom: 12, overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+                  <FolderLibraryIcon size={20} color="var(--neutral-700)" animated />
+                </div>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>Versions</p>
+              </div>
+              <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close versions" onClick={() => setVersionsOpen(false)} />
+            </div>
+            <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 4 }}>
+              {versionsLoading ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
+              ) : versions.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: '24px 0', textAlign: 'center' }}>No versions yet. Use &ldquo;Save version&rdquo; to create one.</p>
+              ) : versions.map((v, i) => {
+                const isCurrent = v.id === versionId
+                const vNum = versions.length - i
+                const vLabel = `v${String(vNum).padStart(3, '0')}`
+                const handle = v.handler ? `@${v.handler}·${vLabel}` : vLabel
+                const dateStr = formatVersionDate(v.created_at)
+                const initials = nameInitials(v.name || personaName)
+                return (
+                  <div key={v.id} style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 16, backgroundColor: isCurrent ? 'var(--neutral-white)' : 'var(--neutral-50)', border: isCurrent ? 'none' : '1px dashed var(--neutral-300)', boxShadow: isCurrent ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' : 'none', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
+                      <div style={{ width: 37, height: 37, borderRadius: 8, flexShrink: 0, backgroundColor: 'var(--neutral-100)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-600)', lineHeight: 1 }}>{initials}</span>
+                      </div>
+                      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%' }}>
+                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }}>{v.name || personaName}</p>
+                          <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, flexShrink: 0 }}>{dateStr}</p>
+                        </div>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{handle}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', width: '100%' }}>
+                      {isCurrent ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px 6px', borderRadius: 8, flexShrink: 0, cursor: 'default', background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)', boxShadow: '0px 0px 0px 1px black', position: 'relative' }}>
+                          <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08', pointerEvents: 'none' }} />
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap' }}>Current</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleRestoreVersion(v.id)}
+                          disabled={!!restoringId}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: restoringId ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: restoringId ? 0.5 : 1, transition: 'opacity 150ms' }}
+                        >
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
+                            {restoringId === v.id ? 'Loading…' : 'Restore'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </m.div>
         )}

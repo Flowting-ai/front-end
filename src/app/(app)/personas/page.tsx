@@ -18,6 +18,7 @@ import { fetchPersonas, bustPersonasCache, deletePersona, togglePause, type Pers
 import Tabs from '@/components/Tabs'
 import { PersonaCard } from '@/components/PersonaCard'
 import { usePinboard } from '@/context/pinboard-context'
+import { toast } from 'sonner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ const RECOMMENDED: Persona[] = [
     status: 'active',
     activeVersionId: null,
     versionCount: 1,
+    hasSystemInstructions: true,
     createdAt: '',
     updatedAt: '',
   },
@@ -58,6 +60,7 @@ const RECOMMENDED: Persona[] = [
     status: 'active',
     activeVersionId: null,
     versionCount: 1,
+    hasSystemInstructions: true,
     createdAt: '',
     updatedAt: '',
   },
@@ -75,6 +78,7 @@ const RECOMMENDED: Persona[] = [
     status: 'active',
     activeVersionId: null,
     versionCount: 1,
+    hasSystemInstructions: true,
     createdAt: '',
     updatedAt: '',
   },
@@ -353,13 +357,15 @@ export default function PersonasPage() {
     za:       'Z to A',
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, name?: string) {
     try {
       await deletePersona(id)
       bustPersonasCache()
       setPersonas(prev => prev.filter(p => p.id !== id))
+      toast.success(name ? `"${name}" deleted` : 'Persona deleted')
     } catch (err) {
       console.error('Failed to delete persona:', err)
+      toast.error('Failed to delete persona. Please try again.')
     }
   }
 
@@ -656,7 +662,7 @@ export default function PersonasPage() {
                       {gridRows[vRow.index].map(persona => (
                         <PersonaCard
                           key={persona.id}
-                          variant={persona.status === 'draft' ? 'draft' : 'default'}
+                          variant={persona.status === 'draft' || !persona.hasSystemInstructions ? 'draft' : 'default'}
                           name={persona.name}
                           handle={persona.handle.replace(/^@/, '')}
                           description={persona.description}
@@ -689,7 +695,7 @@ export default function PersonasPage() {
         <DeleteDialog
           name={deleteTarget.name}
           onConfirm={() => {
-            handleDelete(deleteTarget.id)
+            handleDelete(deleteTarget.id, deleteTarget.name)
             setDeleteTarget(null)
           }}
           onCancel={() => setDeleteTarget(null)}

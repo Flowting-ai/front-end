@@ -94,6 +94,8 @@ export interface Persona {
   status: PersonaStatus;
   activeVersionId: string | null;
   versionCount: number;
+  /** True when the active version has a non-empty system prompt. */
+  hasSystemInstructions: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,6 +123,11 @@ function normalizeRepo(repo: PersonaRepoResponse): Persona {
       : "paused",
     activeVersionId: repo.active_version_id,
     versionCount: repo.version_count,
+    // If the list endpoint doesn't embed active_version (v is null) but
+    // active_version_id exists, we can't inspect the prompt — assume it has
+    // instructions. Only mark false when we have the version object and the
+    // prompt is genuinely blank, or when there's no active version at all.
+    hasSystemInstructions: v !== null ? !!(v.prompt?.trim()) : repo.active_version_id !== null,
     createdAt: repo.created_at,
     updatedAt: repo.updated_at,
   };

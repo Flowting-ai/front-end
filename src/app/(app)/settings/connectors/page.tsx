@@ -60,22 +60,97 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
 
 // ── Connector icon / avatar ───────────────────────────────────────────────────
 
-// Slugs we have a local brand SVG for at /public/icons/connectors/{slug}.svg.
-// Sourced from Simple Icons (CC0 / public domain). Anything not in this set
-// falls back to the hashed letter tile.
-const KNOWN_LOGOS = new Set<string>([
-  'gmail',
-  'googlecalendar',
-  'googledrive',
-  'googledocs',
-  'googlesheets',
-  'clickup',
-  'zoom',
-  'shopify',
-  'notion',
-])
+// Maps connector slugs (as returned by the API) to local logo files under
+// /public/connector-logos/. Covers all common slug variants (hyphenated,
+// underscored, camelCase) so the lookup is resilient to API naming changes.
+const CONNECTOR_LOGO_MAP: Record<string, string> = {
+  // Airtable
+  'airtable':             '/connector-logos/airtable.svg',
+  // Asana
+  'asana':                '/connector-logos/asana.svg',
+  // Calendly
+  'calendly':             '/connector-logos/calendly.svg',
+  // ClickUp
+  'clickup':              '/connector-logos/clickup.svg',
+  'click-up':             '/connector-logos/clickup.svg',
+  // Fireflies
+  'fireflies':            '/connector-logos/fireflies.svg',
+  'fireflies-ai':         '/connector-logos/fireflies.svg',
+  // Gmail
+  'gmail':                '/connector-logos/gmail.svg',
+  // Google Ads
+  'googleads':            '/connector-logos/google-ads.svg',
+  'google-ads':           '/connector-logos/google-ads.svg',
+  'google_ads':           '/connector-logos/google-ads.svg',
+  // Google Calendar
+  'googlecalendar':       '/connector-logos/google-calendar.svg',
+  'google-calendar':      '/connector-logos/google-calendar.svg',
+  'google_calendar':      '/connector-logos/google-calendar.svg',
+  // Google Docs
+  'googledocs':           '/connector-logos/google-docs.svg',
+  'google-docs':          '/connector-logos/google-docs.svg',
+  'google_docs':          '/connector-logos/google-docs.svg',
+  // Google Drive
+  'googledrive':          '/connector-logos/google-drive.svg',
+  'google-drive':         '/connector-logos/google-drive.svg',
+  'google_drive':         '/connector-logos/google-drive.svg',
+  // Google Sheets
+  'googlesheets':         '/connector-logos/google-sheets.svg',
+  'google-sheets':        '/connector-logos/google-sheets.svg',
+  'google_sheets':        '/connector-logos/google-sheets.svg',
+  // HubSpot
+  'hubspot':              '/connector-logos/hubspot.svg',
+  // Jira
+  'jira':                 '/connector-logos/jira.svg',
+  // Linear
+  'linear':               '/connector-logos/linear.svg',
+  // LinkedIn
+  'linkedin':             '/connector-logos/linkedin.svg',
+  // Meta / Meta Ads / Facebook Ads
+  'meta':                 '/connector-logos/meta.svg',
+  'meta-ads':             '/connector-logos/meta.svg',
+  'meta_ads':             '/connector-logos/meta.svg',
+  'metaads':              '/connector-logos/meta.svg',
+  'facebook':             '/connector-logos/meta.svg',
+  'facebook-ads':         '/connector-logos/meta.svg',
+  'facebook_ads':         '/connector-logos/meta.svg',
+  'facebookads':          '/connector-logos/meta.svg',
+  // Notion
+  'notion':               '/connector-logos/notion.svg',
+  // Outlook
+  'outlook':              '/connector-logos/outlook.svg',
+  'microsoft-outlook':    '/connector-logos/outlook.svg',
+  // Salesforce
+  'salesforce':           '/connector-logos/salesforce.svg',
+  // ShipEngine
+  'shipengine':           '/connector-logos/shipengine.jpeg',
+  'ship-engine':          '/connector-logos/shipengine.jpeg',
+  // Shopify
+  'shopify':              '/connector-logos/shopify.svg',
+  // Slack
+  'slack':                '/connector-logos/slack.svg',
+  // Stripe
+  'stripe':               '/connector-logos/stripe.svg',
+  // Zoom
+  'zoom':                 '/connector-logos/zoom.svg',
+}
 
 function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
+  const localLogo = CONNECTOR_LOGO_MAP[entry.slug]
+
+  if (localLogo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
+      <img
+        src={localLogo}
+        alt={entry.display_name}
+        width={size}
+        height={size}
+        style={{ objectFit: 'contain', flexShrink: 0 }}
+      />
+    )
+  }
+
   if (entry.icon_url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL, external domain not in next config
@@ -84,30 +159,18 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
         alt={entry.display_name}
         width={size}
         height={size}
-        style={{ borderRadius: 6, objectFit: 'contain' }}
-      />
-    )
-  }
-  if (KNOWN_LOGOS.has(entry.slug)) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local SVG icon, variable path prevents next/image static analysis
-      <img
-        src={`/icons/connectors/${entry.slug}.svg`}
-        alt={entry.display_name}
-        width={size}
-        height={size}
         style={{ objectFit: 'contain', flexShrink: 0 }}
       />
     )
   }
-  // Unknown connector — letter tile fallback (e.g. fireflies, shipengine).
+
+  // Unknown connector — deterministic letter tile fallback.
   const letter = entry.display_name.charAt(0).toUpperCase()
   const hue    = [...entry.slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
   return (
     <div style={{
       width:           size,
       height:          size,
-      borderRadius:    6,
       backgroundColor: `hsl(${hue} 60% 90%)`,
       color:           `hsl(${hue} 60% 35%)`,
       display:         'flex',

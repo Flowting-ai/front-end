@@ -1208,16 +1208,28 @@ function PersonaConfigureInstructionsContent() {
                 icon={<MoreHorizontalIcon size={20} />}
                 aria-label="More options"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                leftIcon={<QuillWriteOneIcon size={16} />}
-                onClick={handleSaveVersion}
-                disabled={!canSave}
-                loading={isSaving}
-              >
-                {isSaving ? 'Saving…' : 'Save version'}
-              </Button>
+              {testChatOpen ? (
+                <IconButton
+                  variant="outline"
+                  size="sm"
+                  icon={<QuillWriteOneIcon size={16} />}
+                  aria-label="Save version"
+                  onClick={handleSaveVersion}
+                  disabled={!canSave}
+                  loading={isSaving}
+                />
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<QuillWriteOneIcon size={16} />}
+                  onClick={handleSaveVersion}
+                  disabled={!canSave}
+                  loading={isSaving}
+                >
+                  {isSaving ? 'Saving…' : 'Save version'}
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"

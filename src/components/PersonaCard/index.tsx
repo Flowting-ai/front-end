@@ -720,12 +720,6 @@ function PersonaCardInner({
                                   onClick={() => { setMenuOpen(false); onMenuEdit?.() }}
                                 />
                                 <Dropdown.Item
-                                  label="Duplicate"
-                                  icon={<CopyOneIcon />}
-                                  fluid
-                                  onClick={() => { setMenuOpen(false); onMenuDuplicate?.() }}
-                                />
-                                <Dropdown.Item
                                   label={paused ? 'Resume' : 'Pause'}
                                   icon={paused ? <ArrowRightTwoIcon /> : <StopCircleIcon />}
                                   fluid
