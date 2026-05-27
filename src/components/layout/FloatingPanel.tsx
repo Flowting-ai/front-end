@@ -25,7 +25,7 @@ function useCurrentChatId(): string | undefined {
 }
 
 function FloatingPanelImpl() {
-  const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
+  const { isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard, prefetch: prefetchPinboard } = usePinboard()
   const { isOpen: highlightOpen, toggle: toggleHighlight, close: closeHighlight, highlights } = useHighlight()
   const { isOpen: compareOpen, toggle: toggleCompare } = useCompare()
   const currentChatId = useCurrentChatId()
@@ -107,6 +107,7 @@ function FloatingPanelImpl() {
             label="Pinboard"
             active={pinboardOpen}
             onClick={handleTogglePinboard}
+            onMouseEnter={prefetchPinboard}
           />
           <FloatingMenuItem
             icon={<AtomOneIcon size={20} />}

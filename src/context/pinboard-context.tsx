@@ -7,12 +7,55 @@ import {
   deletePin,
   listPins,
   listPinFolders,
-  getPin,
   updatePinTags as updatePinTags_api,
   type PinComment,
 } from "@/lib/api/pins";
 
-// â”€â”€ Pin Data Shape â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Stale-while-revalidate cache ──────────────────────────────────────────────
+// Module-level so it survives HMR remounts within the same session.
+// localStorage gives instant hydration across page refreshes.
+
+interface PinboardSnapshot {
+  pins:    PinItem[];
+  folders: PinFolderView[];
+  savedAt: number;
+}
+
+const CACHE_KEY    = "sb_pinboard_v1";
+const CACHE_TTL_MS = 60_000; // 60 s — revalidate after this even if cached
+
+// In-memory layer: avoids a JSON.parse on every render in development
+let memCache: PinboardSnapshot | null = null;
+
+function readCache(): PinboardSnapshot | null {
+  if (memCache) return memCache;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    memCache = JSON.parse(raw) as PinboardSnapshot;
+    return memCache;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(pins: PinItem[], folders: PinFolderView[]): void {
+  const snap: PinboardSnapshot = { pins, folders, savedAt: Date.now() };
+  memCache = snap;
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(snap));
+  } catch {
+    // Storage full / unavailable — in-memory cache still works
+  }
+}
+
+function isCacheFresh(snap: PinboardSnapshot): boolean {
+  return Date.now() - snap.savedAt < CACHE_TTL_MS;
+}
+
+// ── Pin Data Shape ────────────────────────────────────────────────────────────
 
 export type PinCategory =
   | "Code"
@@ -47,7 +90,7 @@ export interface PinItem {
   comments?: PinComment[];
 }
 
-// â”€â”€ Context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Context â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 interface PinboardContextValue {
   pins: PinItem[];
@@ -73,6 +116,8 @@ interface PinboardContextValue {
   addFolder: (folder: PinFolderView) => void;
   removeFolder: (folderId: string) => void;
   renameFolder: (folderId: string, name: string) => void;
+  /** Start fetching pin data early (e.g. on button hover) without opening the panel */
+  prefetch: () => void;
 }
 
 const PinboardContext = createContext<PinboardContextValue | null>(null);
@@ -92,13 +137,17 @@ const PinboardActionsContext = createContext<PinboardActionsContextValue | null>
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
 export function PinboardProvider({ children }: { children: React.ReactNode }) {
+  // Always start with server-safe defaults so SSR and client initial render
+  // produce identical HTML (no hydration mismatch). Cache is applied client-
+  // side in the mount useEffect below, before the first browser paint.
   const [pins,       setPins]       = useState<PinItem[]>([]);
   const [folders,    setFolders]    = useState<PinFolderView[]>([]);
   const [isLoading,  setIsLoading]  = useState(true);
   const [isOpen,     setIsOpen]     = useState(false);
   const [chatFilter, setChatFilter] = useState<string | null>(null);
-  const enrichedRef           = useRef(false);
-  const pendingEnrichmentRef  = useRef<PinItem[]>([]);
+
+  const fetchingRef   = useRef(false);
+  const cacheWriteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const open            = useCallback(() => { setChatFilter(null); setIsOpen(true) }, []);
   const close           = useCallback(() => { setChatFilter(null); setIsOpen(false) }, []);
@@ -106,11 +155,19 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   const openForChat     = useCallback((chatId: string) => { setChatFilter(chatId); setIsOpen(true) }, []);
   const clearChatFilter = useCallback(() => setChatFilter(null), []);
 
-  // â”€â”€ Load pins + folders in parallel on mount â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
-  useEffect(() => {
+  // ── Core load: fetch pins + folders, update state + cache ─────────────────
+  // Shared by the mount effect and prefetch(). fetchingRef prevents duplicate
+  // in-flight requests; skipIfFresh avoids redundant network calls when data
+  // was loaded recently.
+  const load = useCallback((skipIfFresh = true) => {
+    if (fetchingRef.current) return;
+    if (skipIfFresh) {
+      const snap = readCache();
+      if (snap && isCacheFresh(snap)) return;
+    }
+    fetchingRef.current = true;
     Promise.all([listPins(), listPinFolders()])
-      .then(async ([apiPins, apiFolders]) => {
+      .then(([apiPins, apiFolders]) => {
         const items: PinItem[] = apiPins.map((p) => ({
           id:         p.id,
           content:    p.content,
@@ -125,81 +182,56 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
           folderName: p.folder_name,
           comments:   p.comments,
         }));
-
-        setFolders(apiFolders.map((f) => ({ id: f.id, label: f.name, pinCount: f.pin_count })));
+        const folderItems = apiFolders.map((f) => ({ id: f.id, label: f.name, pinCount: f.pin_count }));
         setPins(items);
-        setIsLoading(false); // unblock FCP â€” pins render immediately with whatever the list returned
-
-        // Store pins needing tag/comment enrichment; defer the N+1 getPin calls
-        // until the pinboard actually opens so they don't fire on every page load.
-        const pinsWithoutTags = items.filter((p) => !p.tags || p.tags.length === 0);
-        pendingEnrichmentRef.current = pinsWithoutTags;
+        setFolders(folderItems);
+        setIsLoading(false);
+        writeCache(items, folderItems);
       })
       .catch((err) => {
         console.error("[PinboardContext] Failed to load pins", err);
         setIsLoading(false);
+      })
+      .finally(() => {
+        fetchingRef.current = false;
       });
   }, []);
 
-  // â”€â”€ Deferred tag/comment enrichment â€” fires once when pinboard first opens â”€â”€
+  // On mount (client only — never runs on server):
+  //  1. If fresh cache exists, apply it immediately (React 18 batches the three
+  //     setStates into one re-render — no visible flash).
+  //  2. If cache is stale or missing, fetch from network.
+  // This keeps SSR/client initial HTML identical (both start with isLoading:true)
+  // while still giving instant data on return visits.
   useEffect(() => {
-    if (!isOpen || enrichedRef.current) return;
-    const pinsWithoutTags = pendingEnrichmentRef.current;
-    enrichedRef.current = true;
-    if (!pinsWithoutTags.length) return;
+    const snap = readCache();
+    if (snap) {
+      setPins(snap.pins);
+      setFolders(snap.folders);
+      setIsLoading(false);
+      if (!isCacheFresh(snap)) load(false); // stale — revalidate in background
+    } else {
+      load(false); // no cache — fetch fresh
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load is stable; intentional mount-only
+  }, []);
 
-    const BATCH = 3;
-    (async () => {
-      const allResults: Array<{
-        id: string;
-        tags?: string[];
-        comments?: PinComment[];
-      } | null> = [];
+  // Debounced cache write for mutations (add/remove/rename/tag updates).
+  // 500 ms debounce batches rapid optimistic updates into a single write.
+  useEffect(() => {
+    if (isLoading) return;
+    if (cacheWriteRef.current) clearTimeout(cacheWriteRef.current);
+    cacheWriteRef.current = setTimeout(() => writeCache(pins, folders), 500);
+    return () => {
+      if (cacheWriteRef.current) clearTimeout(cacheWriteRef.current);
+    };
+  }, [pins, folders, isLoading]);
 
-      for (let i = 0; i < pinsWithoutTags.length; i += BATCH) {
-        const batch = pinsWithoutTags.slice(i, i + BATCH);
-        const batchResults = await Promise.all(
-          batch.map(async (pin) => {
-            try {
-              const detail   = await getPin(pin.id);
-              const hasTags  = detail.tags     && detail.tags.length     > 0;
-              const hasCmts  = detail.comments && detail.comments.length > 0;
-              if (!hasTags && !hasCmts) return null;
-              return {
-                id:       pin.id,
-                tags:     hasTags ? detail.tags     : undefined,
-                comments: hasCmts ? detail.comments : undefined,
-              };
-            } catch {
-              return null;
-            }
-          }),
-        );
-        allResults.push(...batchResults);
-      }
+  // Prefetch: start loading before the user clicks (e.g. on button hover).
+  // No-op if data is fresh or a fetch is already in-flight.
+  const prefetch = useCallback(() => load(), [load]);
 
-      const valid = allResults.filter(Boolean) as Array<{
-        id: string;
-        tags?: string[];
-        comments?: PinComment[];
-      }>;
-      if (!valid.length) return;
-      const enrichMap = new Map(valid.map((e) => [e.id, e]));
-      setPins((prev) =>
-        prev.map((p) => {
-          const e = enrichMap.get(p.id);
-          if (!e) return p;
-          return {
-            ...p,
-            ...(e.tags     ? { tags:     e.tags     } : {}),
-            ...(e.comments ? { comments: e.comments } : {}),
-          };
-        }),
-      );
-    })();
-  }, [isOpen]);
-
-  // â”€â”€ addPin - optimistic, persisted to backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ addPin - optimistic, persisted to backend â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const addPin = useCallback(async (pin: Omit<PinItem, "id" | "createdAt">) => {
     let tempId: string | null = null;
     setPins((prev) => {
@@ -233,7 +265,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // â”€â”€ clonePin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ clonePin â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const clonePin = useCallback(async (original: PinItem) => {
     const tempId    = `pin-temp-${Date.now()}`;
     const optimistic: PinItem = { ...original, id: tempId, createdAt: new Date().toISOString() };
@@ -261,7 +293,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // â”€â”€ removePin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ removePin â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const removePin = useCallback((id: string) => {
     setPins((prev) => prev.filter((p) => p.id !== id));
     if (!id.startsWith("pin-temp-")) {
@@ -271,7 +303,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // â”€â”€ removePinByMessage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€ removePinByMessage â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   const removePinByMessage = useCallback((messageId: string) => {
     let targetId: string | undefined;
     setPins((prev) => {
@@ -356,6 +388,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
       addPin, clonePin, removePin, removePinByMessage, isPinned,
       updatePinCategory, updatePinFolder, updatePinTags,
       addFolder, removeFolder, renameFolder,
+      prefetch,
     }),
     // primitives + stable callbacks — new object only when something actually changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -378,7 +411,7 @@ export function PinboardProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// â”€â”€ Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Hook â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export function usePinboard(): PinboardContextValue {
   const ctx = use(PinboardContext);

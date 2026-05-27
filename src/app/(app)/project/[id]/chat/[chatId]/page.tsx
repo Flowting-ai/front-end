@@ -12,7 +12,6 @@ import { InitialPrompts }                                  from '@/components/ch
 import { ModelSwitchDialog }                               from '@/components/chat/ModelSwitchDialog'
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
-import { useChatHistoryContext }                           from '@/context/chat-history-context'
 import { useProjects }                                     from '@/context/projects-context'
 import { useFileUpload }                                   from '@/hooks/use-file-upload'
 import { useFileDrop }                                     from '@/hooks/use-file-drop'
@@ -155,6 +154,16 @@ const TEMPLATE_CARDS: Array<{ icon: React.ReactNode; label: string; prompt: stri
   { icon: <AuctionIcon       size={24} color="var(--green-500)"  animated />, label: 'Compare and evaluate my options',     prompt: 'Help me compare and evaluate my options' },
 ]
 
+// ── Loading / not-found screens ───────────────────────────────────────────────
+
+function CentredMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+      <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>{children}</p>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
@@ -164,8 +173,13 @@ function ProjectChatPageInner() {
   const searchParams  = useSearchParams()
   const qParam        = searchParams.get('q')
 
-  const { getProject, getChats, addChat, loadProjectChats } = useProjects()
-  const { addOptimistic }          = useChatHistoryContext()
+  const {
+    loading: projectsContextLoading,
+    getProject,
+    getChats,
+    addChat,
+    loadProjectChats,
+  } = useProjects()
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
   const isNewChat = params.chatId === 'new'
@@ -174,7 +188,21 @@ function ProjectChatPageInner() {
   const chats   = getChats(params.id)
   const chat    = isNewChat ? undefined : chats.find(c => c.id === params.chatId)
 
-  useEffect(() => { loadProjectChats(params.id) }, [params.id, loadProjectChats])
+  // ── Chat-loading state ────────────────────────────────────────────────────
+  // Start as true so we never flash "Chat not found" before data arrives.
+  const [chatsLoading, setChatsLoading] = useState(true)
+
+  // Track a chat ID we just created in THIS render session.  Using a ref
+  // (not state) avoids a second render cycle and survives the URL replace
+  // without the component unmounting.  We use it to bypass the "chat not
+  // found" guard during the brief window between addChat() and the context
+  // state update being committed after router.replace().
+  const justCreatedChatIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    setChatsLoading(true)
+    loadProjectChats(params.id).finally(() => setChatsLoading(false))
+  }, [params.id, loadProjectChats])
 
   const [hasMessages,        setHasMessages]        = useState(!!qParam)
   const [initialPrompt,      setInitialPrompt]      = useState<string | null>(qParam)
@@ -460,14 +488,30 @@ function ProjectChatPageInner() {
     setSelectedMode(null)
   }
 
-  // ── Guard ─────────────────────────────────────────────────────────────────
+  // ── Route guard — with loading gates to prevent instant "not found" ───────
+  //
+  // Priority:
+  //   1. Project still loading from context bootstrap → show spinner.
+  //   2. Project definitively not found → show error.
+  //   3. Existing chat: chats still loading → show spinner.
+  //   4. Existing chat: just created in this session (race-condition window) → let through.
+  //   5. Existing chat: definitively not found after chats loaded → show error.
 
-  if (!project || (!isNewChat && !chat)) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Chat not found.</p>
-      </div>
-    )
+  if (!project) {
+    if (projectsContextLoading) {
+      return <CentredMessage>Loading…</CentredMessage>
+    }
+    return <CentredMessage>Project not found.</CentredMessage>
+  }
+
+  if (!isNewChat) {
+    const isJustCreated = params.chatId === justCreatedChatIdRef.current
+    if (!chat && !isJustCreated) {
+      if (chatsLoading) {
+        return <CentredMessage>Loading…</CentredMessage>
+      }
+      return <CentredMessage>Chat not found.</CentredMessage>
+    }
   }
 
   // Show the new-chat UI only when we are on the /chat/new route AND
@@ -649,6 +693,9 @@ function ProjectChatPageInner() {
                 if (selectedPersona?.activeVersionId) {
                   personaChatIds.current.set(newChatId, selectedPersona.activeVersionId)
                 }
+                // Record the ID BEFORE calling replace() so the guard lets this
+                // render through even if setChats() hasn't been committed yet.
+                justCreatedChatIdRef.current = newChatId
                 addChat(params.id, newChatId, initialPrompt?.slice(0, 60) ?? '')
                 replace(`/project/${params.id}/chat/${newChatId}`)
               }}

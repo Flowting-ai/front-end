@@ -12,6 +12,7 @@ import {
   updateProjectApi,
   deleteProjectApi,
   addChatToProject,
+  removeChatFromProject,
   removeProjectDocumentApi,
   addProjectFilesApi,
 } from '@/lib/api/projects'
@@ -373,10 +374,13 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeChat = useCallback((projectId: string, chatId: string) => {
+    // Optimistic removal
     setChats(prev => prev.filter(c => !(c.projectId === projectId && c.id === chatId)))
     setProjects(prev => prev.map(p =>
       p.id === projectId ? { ...p, chatCount: Math.max(0, p.chatCount - 1) } : p,
     ))
+    // Best-effort API call — non-fatal if the chat was never linked (e.g. addChatToProject failed)
+    removeChatFromProject(projectId, chatId).catch(() => {})
   }, [])
 
   const renameChat = useCallback((projectId: string, chatId: string, title: string) => {

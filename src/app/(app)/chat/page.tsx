@@ -709,8 +709,15 @@ function ChatPageInner() {
     if (newlyCreatedChatIdRef.current === chatId) {
       const capturedId = chatId;
       newlyCreatedChatIdRef.current = null;
-      setTimeout(() => refreshChatTitle(capturedId), 2500);
-      setTimeout(() => refreshChatTitle(capturedId), 5000);
+      // Chain: only schedule the 5 s backstop AFTER the 2.5 s attempt completes.
+      // refreshChatTitle() bails out early (no network call) if the title is
+      // already set, so the second attempt is a no-op when the first succeeded.
+      // Chaining prevents both from firing network requests simultaneously when
+      // the backend is slow.
+      setTimeout(async () => {
+        await refreshChatTitle(capturedId);
+        setTimeout(() => refreshChatTitle(capturedId), 2500);
+      }, 2500);
     }
   };
 

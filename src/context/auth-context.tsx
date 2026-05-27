@@ -226,7 +226,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch user profile once after hydration
+  // Fetch user profile once after hydration.
+  //
+  // Deps: [isHydrated] only — jwtToken is intentionally NOT a dep.
+  // Including jwtToken would re-fire this on every 30 s token refresh, sending
+  // a GET /users/me every half-minute.  isHydrated flips exactly once (false →
+  // true) and jwtToken is already set in the same React batch (see hydrate()),
+  // so the token is always available when this effect runs.
+  // Explicit re-fetches go through refreshUser().
   useEffect(() => {
     if (!isHydrated || !jwtToken) return;
     let mounted = true;
@@ -240,7 +247,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     return () => { mounted = false; };
-  }, [isHydrated, jwtToken]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- jwtToken intentionally omitted; see comment above
+  }, [isHydrated]);
 
   const isAuthenticated = isHydrated && jwtToken !== null;
 

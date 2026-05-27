@@ -144,21 +144,28 @@ export function fieldPlaceholder(name: string): string | undefined {
 /**
  * Poll GET /connectors/{slug} until `linked: true`, or until timeoutMs elapses.
  *
- * Per the API contract, `linked` is the source of truth for connection state —
- * Composio is queried fresh on every GET /connectors call, so it flips true
- * the moment OAuth completes.
+ * Uses exponential backoff (2 s → 4 s → 8 s → … capped at 30 s) so a 2-minute
+ * wait generates ~9 requests instead of 60.  The cap prevents the interval from
+ * growing so large that a fast OAuth completion goes undetected for too long.
  */
 export async function pollConnectorUntilActive(
   slug: string,
-  { intervalMs = 2000, timeoutMs = 120_000 }: { intervalMs?: number; timeoutMs?: number } = {},
+  {
+    initialIntervalMs = 2_000,
+    maxIntervalMs     = 30_000,
+    timeoutMs         = 120_000,
+  }: { initialIntervalMs?: number; maxIntervalMs?: number; timeoutMs?: number } = {},
 ): Promise<ConnectorCatalogEntry> {
   const deadline = Date.now() + timeoutMs
+  let intervalMs  = initialIntervalMs
   while (Date.now() < deadline) {
     // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- polling loop; each check is gated on the previous result
     const entry = await getConnector(slug)
     if (entry.linked) return entry
     // eslint-disable-next-line no-await-in-loop, react-doctor/async-await-in-loop -- intentional delay between polls
     await new Promise<void>((resolve) => setTimeout(resolve, intervalMs))
+    // Double the interval each round, but never exceed the cap.
+    intervalMs = Math.min(intervalMs * 2, maxIntervalMs)
   }
   throw new Error(`Connector ${slug} did not become linked within ${timeoutMs}ms`)
 }
