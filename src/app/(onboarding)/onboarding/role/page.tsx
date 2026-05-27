@@ -141,6 +141,21 @@ export default function OnboardingRolePage() {
   return (
     <div
       style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        backgroundImage: "url('/icons/souvenir-bg.svg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
+    <div
+      style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -326,6 +341,7 @@ export default function OnboardingRolePage() {
       >
         Log out
       </a>
+    </div>
     </div>
   );
 }

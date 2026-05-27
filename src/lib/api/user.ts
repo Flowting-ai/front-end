@@ -246,19 +246,47 @@ export async function updateUser(payload: {
   return normalizeUserProfile(json);
 }
 
+// Map frontend display tones → backend-accepted enum values.
+// Backend valid values: professional | balanced | casual | concise | creative |
+//   academic | witty | socratic | empathetic | executive | teaching | other
+const TONE_API_MAP: Record<string, string> = {
+  Direct: "concise",
+  Balanced: "balanced",
+  Warm: "empathetic",
+};
+
 export async function updateOnboarding(payload: {
   user_role?: string | null;
   ai_tone?: string | null;
   role_fit?: string | null;
   onboarding_completed?: boolean;
-}): Promise<UserProfile | null> {
+}): Promise<UserOnboarding | null> {
+  const mappedPayload = {
+    ...payload,
+    ai_tone: payload.ai_tone ? (TONE_API_MAP[payload.ai_tone] ?? payload.ai_tone) : payload.ai_tone,
+  };
   const response = await apiFetch(USER_ONBOARDING_ENDPOINT, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(mappedPayload),
   });
-  if (!response.ok) return null;
-  const json = await response.json();
-  return normalizeUserProfile(json);
+  if (!response.ok) {
+    // Clone so the body can be read once for logging without consuming it
+    const errText = await response.clone().text();
+    console.error(
+      `[updateOnboarding] PATCH failed — status ${response.status}`,
+      errText,
+      "payload:", payload,
+    );
+    return null;
+  }
+  // API returns OnboardingSummary, not UserResponse — parse directly
+  const json = (await response.json()) as Record<string, unknown>;
+  return {
+    completed: Boolean(json.completed),
+    user_role: typeof json.user_role === "string" ? json.user_role : null,
+    ai_tone: typeof json.ai_tone === "string" ? json.ai_tone : null,
+    role_fit: typeof json.role_fit === "string" ? json.role_fit : null,
+  };
 }
 
 export async function deleteUser(): Promise<void> {

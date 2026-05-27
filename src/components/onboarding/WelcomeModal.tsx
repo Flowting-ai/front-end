@@ -117,8 +117,9 @@ function WelcomeModalImpl() {
     setVisible(false);
   };
 
-  const tone = user ? undefined : "Balanced"; // fallback - real value comes from API
-  const hasImport = false; // will be true when context imports are implemented
+  const firstName = user?.firstName || user?.name?.split(" ")[0] || "there";
+  const role = user?.onboardingRole ?? "—";
+  const tone = user?.onboardingTone ?? "—";
 
   return (
     <AnimatePresence>
@@ -185,7 +186,7 @@ function WelcomeModalImpl() {
                 textAlign: "center",
               }}
             >
-              {"You're in. Welcome to Souvenir."}
+              {`Welcome, ${firstName}. Your workspace is ready.`}
             </h2>
 
             {/* Subline */}
@@ -200,46 +201,32 @@ function WelcomeModalImpl() {
                 textAlign: "center",
               }}
             >
-              Your workspace is provisioned. Memory and routing are configured.
+              {"Here's what we've set up for you."}
             </p>
 
             {/* Status cards */}
             <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
               <StatusCard
                 icon="✦"
-                title="Receipt sent"
-                subtitle={user?.email ?? "your email"}
+                title="Profile"
+                subtitle={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || (user?.email ?? "Set")}
               />
               <StatusCard
                 icon="◎"
-                title="Memory seeded"
-                subtitle={hasImport ? "From your import" : "Ready for context"}
+                title="Role"
+                subtitle={role}
               />
               <StatusCard
                 icon="◈"
-                title="Tone & routing set"
-                subtitle="Balanced · Normal"
+                title="Tone"
+                subtitle={tone}
               />
             </div>
 
             {/* CTA */}
             <Button size="sm" rightIcon={<span style={{ fontSize: 12 }}>→</span>} onClick={handleClose}>
-              Open my workspace
+              View your workspace
             </Button>
-
-            {/* Fine print */}
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: 400,
-                fontSize: "12px",
-                lineHeight: "16px",
-                color: "black",
-                margin: 0,
-              }}
-            >
-              Invoice will arrive within 1 hour
-            </p>
           </m.div>
         </>
       )}

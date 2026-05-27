@@ -992,7 +992,7 @@ function LeftSidebarImpl({
   };
 
   const displayName = user
-    ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.name || ""
+    ? user.firstName?.trim() || user.name?.split(" ")[0]?.trim() || ""
     : "";
 
   const sectionProps: SectionProps = {

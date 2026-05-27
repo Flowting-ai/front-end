@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/auth-context'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/Button'
+import { updateUser, updateOnboarding } from '@/lib/api/user'
+import { toast } from 'sonner'
 
 // ── Section card wrapper ──────────────────────────────────────────────────────
 
@@ -62,21 +64,49 @@ function CardSection({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AccountPage() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
 
-  const initialFullName = user
-    ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
-    : ''
+  const initialFirstName = user?.firstName ?? ''
+  const initialLastName  = user?.lastName  ?? ''
+  const initialFullName  = `${initialFirstName} ${initialLastName}`.trim() || user?.name || ''
 
   const [fullName,    setFullName]    = useState(initialFullName)
   const [displayName, setDisplayName] = useState(user?.name?.split(' ')[0] ?? '')
+  const [role,        setRole]        = useState(user?.onboardingRole ?? '')
+  const [tone,        setTone]        = useState(user?.onboardingTone ?? '')
   const [isSaving,    setIsSaving]    = useState(false)
+
+  // Sync from auth context once user loads
+  useEffect(() => {
+    if (!user) return
+    const fn = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || ''
+    setFullName(fn)
+    setDisplayName(user.name?.split(' ')[0] ?? '')
+    setRole(user.onboardingRole ?? '')
+    setTone(user.onboardingTone ?? '')
+  }, [user])
 
   const handleSave = async () => {
     setIsSaving(true)
-    // TODO: wire to PATCH /api/backend/user endpoint
-    await new Promise(r => setTimeout(r, 800))
-    setIsSaving(false)
+    try {
+      const parts = fullName.trim().split(/\s+/)
+      const firstName = parts[0] ?? ''
+      const lastName  = parts.slice(1).join(' ') || null
+
+      await Promise.all([
+        updateUser({ first_name: firstName || null, last_name: lastName }),
+        updateOnboarding({
+          user_role: role.trim() || null,
+          ai_tone:   tone.trim() || null,
+        }),
+      ])
+      await refreshUser()
+      toast.success('Account saved')
+    } catch {
+      toast.error('Failed to save — please try again')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleDeleteAccount = () => {
@@ -203,15 +233,16 @@ export default function AccountPage() {
             </div>
           </CardSection>
 
-          {/* Role + Email (read-only) */}
-          <CardSection padTop={12} padBottom={12}>
+          {/* Role + Email */}
+          <CardSection divider padTop={12} padBottom={24}>
             <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
               <InputField
                 fluid
                 label="Role"
-                value=""
-                placeholder="-"
-                disabled
+                value={role}
+                onChange={setRole}
+                placeholder="e.g. Founder, Engineer…"
+                subtitle="Used to personalise AI routing"
               />
               <InputField
                 fluid
@@ -220,6 +251,21 @@ export default function AccountPage() {
                 disabled
                 subtitle="Used for billing and notifications"
               />
+            </div>
+          </CardSection>
+
+          {/* AI Tone */}
+          <CardSection padTop={12} padBottom={12}>
+            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+              <InputField
+                fluid
+                label="AI Tone"
+                value={tone}
+                onChange={setTone}
+                placeholder="e.g. Balanced, Direct, Warm…"
+                subtitle="Default tone for all AI responses in your workspace"
+              />
+              <div style={{ flex: '1 0 0' }} />
             </div>
           </CardSection>
 

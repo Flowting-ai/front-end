@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
+import { updateOnboarding, updateUser } from "@/lib/api/user";
+import { toast } from "sonner";
 import type { OnboardingTone } from "@/context/onboarding-context";
 
 const TONES: Array<{ id: OnboardingTone; subtitle: string; symbol: string }> = [
@@ -111,8 +115,70 @@ function ToneCard({
 export default function OnboardingTonePage() {
   const { push } = useRouter();
   const { data, setTone } = useOnboarding();
+  const { refreshUser, setUser, user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleContinue = async () => {
+    if (isSubmitting || data.tone === null) return;
+    setIsSubmitting(true);
+    try {
+      const roleValue = data.role === "Other" ? data.roleOther : (data.role ?? null);
+      const payload = {
+        user_role: roleValue,
+        ai_tone: data.tone,
+        role_fit: data.nickname || null,
+        onboarding_completed: true,
+      };
+      console.log("[onboarding/tone] submitting payload:", payload);
+
+      const [onboardingResult] = await Promise.all([
+        updateOnboarding(payload),
+        updateUser({ first_name: data.firstName || null, last_name: data.lastName || null }),
+      ]);
+
+      if (onboardingResult === null) {
+        toast.error("Failed to save preferences — please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Immediately mark onboarding complete in auth state so OnboardingGuard
+      // does not redirect when the chat page mounts.
+      if (user) {
+        setUser({
+          ...user,
+          onboardingCompleted: true,
+          onboardingRole: onboardingResult.user_role ?? user.onboardingRole,
+          onboardingTone: onboardingResult.ai_tone ?? user.onboardingTone,
+        });
+      }
+
+      // Full refresh in background — don't await so navigation isn't blocked
+      void refreshUser();
+      push("/chat?welcome=1");
+    } catch (err) {
+      console.error("Onboarding submission failed", err);
+      toast.error("Something went wrong — please try again.");
+      setIsSubmitting(false);
+    }
+  };
 
   return (
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        backgroundImage: "url('/icons/souvenir-bg.svg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
     <div
       style={{
         display: "flex",
@@ -171,11 +237,12 @@ export default function OnboardingTonePage() {
         <Button variant="outline" size="sm" onClick={() => push("/onboarding/role")}>
           Back
         </Button>
-        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances to import step; flow context makes action clear */}
+        {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" completes onboarding; flow context makes action clear */}
         <Button
           size="sm"
-          disabled={data.tone === null}
-          onClick={() => push("/onboarding/import")}
+          disabled={data.tone === null || isSubmitting}
+          loading={isSubmitting}
+          onClick={() => void handleContinue()}
         >
           Continue
         </Button>
@@ -195,6 +262,7 @@ export default function OnboardingTonePage() {
       >
         Log out
       </a>
+    </div>
     </div>
   );
 }

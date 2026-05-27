@@ -14,8 +14,8 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
       window.location.href = "/auth/login";
       return;
     }
-    // Only redirect if we have user data and onboarding is explicitly not completed
-    if (user && user.onboardingCompleted === false) {
+    // Redirect if onboarding is not completed (false) or has no record yet (null)
+    if (user && user.onboardingCompleted !== true) {
       replace("/onboarding/welcome");
     }
   }, [isHydrated, isAuthenticated, user, replace]);
