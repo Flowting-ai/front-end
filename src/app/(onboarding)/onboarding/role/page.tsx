@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
@@ -314,7 +313,7 @@ export default function OnboardingRolePage() {
       </div>
 
       {/* Log out */}
-      <Link
+      <a
         href="/auth/logout"
         style={{
           fontFamily: "var(--font-body)",
@@ -326,7 +325,7 @@ export default function OnboardingRolePage() {
         }}
       >
         Log out
-      </Link>
+      </a>
     </div>
   );
 }

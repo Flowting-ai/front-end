@@ -205,8 +205,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     clearAuth();
     if (typeof window !== "undefined") {
-      const returnTo = encodeURIComponent(window.location.origin + "/auth/login");
-      window.location.href = `/auth/logout?returnTo=${returnTo}`;
+      // Hits our /auth/logout route handler, which clears the local session
+      // cookie and redirects to Auth0's /v2/logout (clearing the IdP session
+      // too) before returning to the login page.
+      window.location.href = "/auth/logout";
     }
   };
 

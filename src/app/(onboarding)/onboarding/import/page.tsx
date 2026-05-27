@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
@@ -337,7 +336,7 @@ export default function OnboardingImportPage() {
       </div>
 
       {/* Log out */}
-      <Link
+      <a
         href="/auth/logout"
         style={{
           fontFamily: "var(--font-body)",
@@ -349,7 +348,7 @@ export default function OnboardingImportPage() {
         }}
       >
         Log out
-      </Link>
+      </a>
     </div>
   );
 }

@@ -934,7 +934,15 @@ export function Sidebar({
 
                 <DropdownMenu.Item
                   style={accountMenuItemDestructiveStyle}
-                  onSelect={() => onLogoutClick?.()}
+                  onSelect={() => {
+                    // Match front-end: authenticated → run the logout flow;
+                    // unauthenticated → send the user to login instead.
+                    if (isAuthenticated) {
+                      onLogoutClick?.()
+                    } else if (typeof window !== 'undefined') {
+                      window.location.href = '/auth/login'
+                    }
+                  }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--red-50, #fff5f5)' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
                 >
