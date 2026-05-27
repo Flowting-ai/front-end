@@ -33,7 +33,7 @@ import { FloatingMenuItem } from '@/components/FloatingMenuItem'
 export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
-  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats } = useProjects()
+  const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading } = useProjects()
   const { pins, isOpen: pinboardOpen, toggle: togglePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector } = useModelSelectorContext()
@@ -43,8 +43,11 @@ export default function ProjectPage() {
   const chats   = getChats(params.id)
 
   useEffect(() => {
-    void loadProject(params.id)
-    void loadProjectChats(params.id)
+    setProjectLoading(true)
+    Promise.all([
+      loadProject(params.id),
+      loadProjectChats(params.id),
+    ]).finally(() => setProjectLoading(false))
   }, [params.id, loadProject, loadProjectChats])
 
   const [menuOpen,         setMenuOpen]         = useState(false)
@@ -62,6 +65,7 @@ export default function ProjectPage() {
   const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
   const [newChatAttachments,   setNewChatAttachments]   = useState<PendingAttachment[]>([])
   const [pendingFiles,     setPendingFiles]     = useState<File[]>([])
+  const [projectLoading,   setProjectLoading]   = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { processFiles, FILE_ACCEPT } = useFileUpload()
 
@@ -76,6 +80,13 @@ export default function ProjectPage() {
   }, [personaChipOpen])
 
   if (!project) {
+    if (projectsLoading || projectLoading) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Loading…</p>
+        </div>
+      )
+    }
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <p style={{ fontFamily: 'var(--font-body)', color: '#857a72' }}>Project not found.</p>

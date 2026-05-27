@@ -167,20 +167,29 @@ export function ProjectInstructionsPanel({ value, onSave, maxLength = 2000, onOp
             Add instructions to steer this project towards the right direction…
           </p>
         ) : (
-          <p
+          <div
+            {...(value.length >= 400 ? { className: 'kaya-scrollbar' } : {})}
             style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-regular)',
-              fontSize:   '14px',
-              lineHeight: '22px',
-              color:      '#1a1714',
-              margin:     0,
-              whiteSpace: 'pre-wrap',
-              wordBreak:  'break-word',
+              overflowY:           value.length >= 400 ? 'auto'    : 'visible',
+              maxHeight:           value.length >= 400 ? '240px'   : 'none',
+              overscrollBehaviorY: 'contain',
             }}
           >
-            {value}
-          </p>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   '14px',
+                lineHeight: '22px',
+                color:      '#1a1714',
+                margin:     0,
+                whiteSpace: 'pre-wrap',
+                wordBreak:  'break-word',
+              }}
+            >
+              {value}
+            </p>
+          </div>
         )}
       </div>
     )

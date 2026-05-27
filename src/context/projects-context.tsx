@@ -126,12 +126,14 @@ function apiToProject(
   existing?: Project,
   uploadedSizes?: Map<string, number>,
 ): Project {
+  // Priority: server size_bytes > uploaded/existing localStorage > 0
   const knownSizes = new Map<string, number>([
     ...(existing?.files.map((f): [string, number] => [f.name, f.sizeBytes]) ?? []),
     ...(uploadedSizes ? [...uploadedSizes] : []),
   ])
   const files = api.documents.map(doc => {
-    const sizeBytes = knownSizes.get(doc.filename) ?? 0
+    const serverSize = doc.sizeBytes != null && doc.sizeBytes > 0 ? doc.sizeBytes : null
+    const sizeBytes  = serverSize ?? knownSizes.get(doc.filename) ?? 0
     // Reuse existing record (preserves any extra local state) but refresh size/url.
     const match = existing?.files.find(f => f.id === doc.id)
     if (match) return { ...match, sizeBytes, sizeLabel: formatBytes(sizeBytes), url: doc.fileLink ?? match.url }
@@ -257,11 +259,56 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     try {
       const api = await fetchProject(id)
       const storedSizes = loadStoredSizes(id)
+
+      // Persist any sizes the server already knows about into localStorage.
+      const serverSizes = new Map<string, number>(
+        api.documents
+          .filter(doc => doc.sizeBytes != null && doc.sizeBytes > 0)
+          .map(doc => [doc.filename, doc.sizeBytes!]),
+      )
+      if (serverSizes.size > 0) {
+        saveStoredSizes(id, new Map([...storedSizes, ...serverSizes]))
+      }
+      const mergedSizes = new Map([...storedSizes, ...serverSizes])
+
       setProjects(prev => {
         const existing = prev.find(p => p.id === id)
-        const full = apiToProject(api, existing, storedSizes)
+        const full = apiToProject(api, existing, mergedSizes)
         return existing ? prev.map(p => p.id === id ? full : p) : [full, ...prev]
       })
+
+      // Background: HEAD-request sizes for docs the server AND localStorage both lack.
+      const missing = api.documents.filter(
+        doc => !mergedSizes.has(doc.filename) && doc.fileLink,
+      )
+      if (missing.length > 0) {
+        const settled = await Promise.allSettled(
+          missing.map(async doc => {
+            const res = await fetch(doc.fileLink, { method: 'HEAD' })
+            const len  = res.headers.get('content-length')
+            return { name: doc.filename, size: len ? parseInt(len, 10) : 0 }
+          }),
+        )
+        const resolved = new Map<string, number>()
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value.size > 0) {
+            resolved.set(r.value.name, r.value.size)
+          }
+        }
+        if (resolved.size > 0) {
+          saveStoredSizes(id, new Map([...loadStoredSizes(id), ...resolved]))
+          setProjects(prev => prev.map(p => {
+            if (p.id !== id) return p
+            return {
+              ...p,
+              files: p.files.map(f => {
+                const size = resolved.get(f.name)
+                return size ? { ...f, sizeBytes: size, sizeLabel: formatBytes(size) } : f
+              }),
+            }
+          }))
+        }
+      }
     } catch (err) {
       toast.error('Failed to load project', { description: err instanceof Error ? err.message : undefined })
     }

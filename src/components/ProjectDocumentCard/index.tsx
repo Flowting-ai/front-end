@@ -189,19 +189,17 @@ export function ProjectDocumentCard(
           {/* Badge row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Badge label={badgeLabel} color={uploading ? 'Neutral' : color} />
-            {sizeLabel && (
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  fontSize:   '12px',
-                  lineHeight: '16px',
-                  color:      'var(--neutral-600)',
-                }}
-              >
-                {sizeLabel}
-              </span>
-            )}
+            <span
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   '12px',
+                lineHeight: '16px',
+                color:      'var(--neutral-600)',
+              }}
+            >
+              {sizeLabel || '—'}
+            </span>
           </div>
         </div>
       </m.div>

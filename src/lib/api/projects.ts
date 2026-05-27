@@ -17,6 +17,7 @@ export interface ProjectDocumentResponse {
   document_filename: string
   file_link:         string
   created_at:        string
+  size_bytes?:       number | null
 }
 
 export interface ProjectSummary {
@@ -53,6 +54,7 @@ export interface ApiProjectDocument {
   filename:  string
   fileLink:  string
   createdAt: string
+  sizeBytes: number | null
 }
 
 export interface ApiProjectSummary {
@@ -85,7 +87,7 @@ export interface ApiProjectChat {
 // ── Normalizers ───────────────────────────────────────────────────────────────
 
 function normalizeDocument(d: ProjectDocumentResponse): ApiProjectDocument {
-  return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at }
+  return { id: d.id, filename: d.document_filename, fileLink: d.file_link, createdAt: d.created_at, sizeBytes: d.size_bytes ?? null }
 }
 
 function normalizeProjectSummary(p: ProjectSummary): ApiProjectSummary {

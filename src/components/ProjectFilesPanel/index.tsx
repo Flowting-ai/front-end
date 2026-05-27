@@ -95,7 +95,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
             : '1px solid var(--neutral-100)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',
-          minHeight:     '400px',
+          minHeight:     isEmpty ? '400px' : 'unset',
           boxSizing:     'border-box',
           overflow:      'hidden',
           transition:    'background 180ms, border-color 180ms',
@@ -189,11 +189,12 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           <div
             className="kaya-scrollbar"
             style={{
-              display:       'flex',
-              flexDirection: 'column',
-              gap:           '6px',
-              overflowY:     'auto',
-              flex:          '1 1 0',
+              display:             'flex',
+              flexDirection:       'column',
+              gap:                 '6px',
+              overflowY:           'auto',
+              maxHeight:           '240px',
+              overscrollBehaviorY: 'contain',
             }}
           >
             <AnimatePresence initial={false}>
