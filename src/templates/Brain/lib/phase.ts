@@ -12,6 +12,8 @@ export type Phase =
   | 'executing'          // ActivityBlock running, stop button live
   | 'paused'             // User hit stop. Brain finished current node. PauseCard shown.
   | 'node-failed'        // A plan step failed. NodeFailureCard shown inline.
+  | 'fix-proposed'       // Brain self-diagnosed the failure — FixProposalCard shown. Apply → executing; Cancel → cancelled.
+  | 'stuck'              // Brain cannot proceed without human input — StuckCard shown.
   | 'streaming'          // Output streaming into thread
   | 'complete'           // Loop finished. LoopHistoryCard shown. Resets to idle.
   | 'cancelled'          // User cancelled at PlanCard or PauseCard
@@ -29,8 +31,10 @@ export const PHASE_RENDERS: Record<Phase, string> = {
   'executing':        'ActivityBlock with live step states. Stop button in ChatInput.',
   'paused':           'PauseCard: Continue / Change direction / Cancel.',
   'node-failed':      'NodeFailureCard inline: Re-run / [Skip if non-critical] / Cancel.',
+  'fix-proposed':     'FixProposalCard: Brain self-diagnosed failure. Apply fix → executing; Try different / Cancel → cancelled.',
+  'stuck':            'StuckCard: Brain cannot proceed. User provides context → back to executing; Cancel → cancelled.',
   'streaming':        'StreamingMessageBubble. StreamingIndicator "streaming" phase.',
-  'complete':         'Full output + ArtifactCard + LoopHistoryCard. SmartPinOffer if eligible.',
+  'complete':         'Full output + ArtifactCard + ExternalOutputCard + LoopHistoryCard.',
   'cancelled':        'No thread component. Loop ends cleanly, session resets to idle.',
   'failed':           'Toast notification only. No thread component — resets to idle.',
 }
@@ -51,9 +55,11 @@ export const PHASE_TRANSITIONS: Record<Phase, Phase[]> = {
   'souvenir':        ['confirming-pins', 'planning'],
   'confirming-pins': ['planning'],
   'planning':        ['executing', 'cancelled'],
-  'executing':       ['streaming', 'paused', 'node-failed', 'failed'],
+  'executing':       ['streaming', 'paused', 'node-failed', 'stuck', 'failed'],
   'paused':          ['executing', 'planning', 'cancelled'],
-  'node-failed':     ['executing', 'cancelled'],        // Re-run → executing, Cancel → cancelled
+  'node-failed':     ['executing', 'fix-proposed', 'stuck', 'cancelled'], // Re-run → executing, Brain diagnoses → fix-proposed, stuck for ambiguous failures
+  'fix-proposed':    ['executing', 'cancelled'],               // Apply fix → executing, Cancel/Try different → cancelled
+  'stuck':           ['executing', 'cancelled'],               // User provides context → executing; Cancel → cancelled
   'streaming':       ['complete'],
   'complete':        ['idle'],
   'cancelled':       ['idle'],
@@ -96,6 +102,11 @@ export interface PlanStep {
   status:              StepStatus
   requiresConnector?:  ConnectorRequirement
   parallelGroup?:      string              // steps sharing the same string execute simultaneously
+  rationale?:          string              // optional 1-sentence explanation of why Brain included this step
+  /** Connectors Brain has called for this step — shown as "via X" chips once touched. */
+  connectorDisclosure?: string[]
+  /** Live streaming detail shown while the step is executing. */
+  streamDetail?:        string
 }
 
 // Loop — one task submission within a Thread

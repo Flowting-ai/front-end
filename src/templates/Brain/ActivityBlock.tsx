@@ -90,7 +90,7 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
       borderRadius:    isActive ? 12 : 0,
       padding:         isActive ? '4px 6px 4px 4px' : '0',
       margin:          isActive ? '0 -6px' : '0',
-      transition:      'background-color 0.3s ease',
+      transition:      'background-color 150ms ease',
     }}>
       {/* Circle + connector */}
       <div style={{
@@ -111,7 +111,7 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
               : 'var(--neutral-200)',
             marginTop:       4,
             minHeight:       12,
-            transition:      'background-color 0.4s ease',
+            transition:      'background-color 150ms ease',
           }} />
         )}
       </div>
@@ -138,7 +138,7 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
                 ? 'var(--neutral-500)'
                 : 'var(--neutral-800)',
             textDecoration: step.status === 'skipped' ? 'line-through' : 'none',
-            transition:  'color 0.3s ease',
+            transition:  'color 150ms ease',
           }}>
             {step.label}
           </span>
@@ -157,7 +157,19 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
           )}
         </div>
 
-        {step.connector && isActive && (
+        {isActive && step.streamDetail && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-400)',
+            fontStyle:  'italic',
+          }}>
+            {step.streamDetail}
+          </span>
+        )}
+
+        {step.connector && isActive && !step.connectorDisclosure?.length && (
           <span style={{
             fontFamily: 'var(--font-body)',
             fontSize:   'var(--font-size-caption)',
@@ -167,6 +179,24 @@ function LiveStepRow({ step, index, isLast }: LiveStepRowProps) {
           }}>
             via {step.connector}
           </span>
+        )}
+
+        {step.connectorDisclosure && step.connectorDisclosure.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+            {step.connectorDisclosure.map(c => (
+              <span key={c} style={{
+                fontFamily:      'var(--font-body)',
+                fontSize:        'var(--font-size-caption)',
+                lineHeight:      'var(--line-height-caption)',
+                color:           'var(--neutral-400)',
+                backgroundColor: 'var(--neutral-100)',
+                borderRadius:    4,
+                padding:         '1px 6px',
+              }}>
+                via {c}
+              </span>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -204,7 +234,7 @@ export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
           fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-500)',
+          color:      'var(--neutral-600)',
           lineHeight: 'var(--line-height-caption)',
         }}>
           Running
@@ -212,7 +242,7 @@ export function ActivityBlock({ steps, interpretation }: ActivityBlockProps) {
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
-          color:      'var(--neutral-300)',
+          color:      'var(--neutral-500)',
           lineHeight: 'var(--line-height-caption)',
           marginLeft: 'auto',
         }}>

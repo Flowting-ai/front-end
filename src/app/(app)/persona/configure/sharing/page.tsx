@@ -362,7 +362,7 @@ function PersonaConfigureSharingContent() {
                   icon={<QuillWriteOneIcon size={16} />}
                   aria-label="Save version"
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={true}
                   loading={isSaving}
                 />
               ) : (
@@ -371,7 +371,7 @@ function PersonaConfigureSharingContent() {
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={true}
                   loading={isSaving}
                 >
                   {isSaving ? 'Saving…' : 'Save version'}

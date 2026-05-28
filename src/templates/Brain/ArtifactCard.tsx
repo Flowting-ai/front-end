@@ -3,6 +3,7 @@
 import React from 'react'
 import { m } from 'framer-motion'
 import { ArrowRightOneIcon, FileTwoIcon } from '@strange-huge/icons'
+import { Badge } from '@/components/Badge'
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 
@@ -15,10 +16,14 @@ export interface ArtifactCardProps {
   meta?:    string
   /** Makes the card clickable — shows a right arrow indicator. */
   onClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** When set, shows "Draft v{N}" badge and a "See history" link. */
+  draftVersion?: number
+  /** Called when "See history" is clicked. */
+  onViewHistory?: () => void
 }
 
 // ── CARD_SHADOW ─────────────────────────────────────────────────────────────────
-const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)'
+const CARD_SHADOW = 'var(--shadow-card-default)'
 
 // ── ArtifactCard ────────────────────────────────────────────────────────────────
 /**
@@ -27,7 +32,7 @@ const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba
  *
  * Sits below the streaming output in the thread.
  */
-export function ArtifactCard({ icon, title, meta, onClick }: ArtifactCardProps) {
+export function ArtifactCard({ icon, title, meta, onClick, draftVersion, onViewHistory }: ArtifactCardProps) {
   const defaultIcon = <FileTwoIcon size={20} color="var(--neutral-500)" />
   const isClickable = onClick != null
 
@@ -73,13 +78,38 @@ export function ArtifactCard({ icon, title, meta, onClick }: ArtifactCardProps) 
             fontFamily:   'var(--font-body)',
             fontSize:     'var(--font-size-caption)',
             lineHeight:   'var(--line-height-caption)',
-            color:        'var(--neutral-400)',
+            color:        'var(--neutral-500)',
             overflow:     'hidden',
             textOverflow: 'ellipsis',
             whiteSpace:   'nowrap',
           }}>
             {meta}
           </span>
+        )}
+        {draftVersion != null && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <Badge color="Blue" label={`Draft v${draftVersion}`} />
+            {onViewHistory && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onViewHistory() }}
+                style={{
+                  fontFamily:          'var(--font-body)',
+                  fontSize:            'var(--font-size-caption)',
+                  lineHeight:          'var(--line-height-caption)',
+                  color:               'var(--neutral-400)',
+                  background:          'none',
+                  border:              'none',
+                  padding:             0,
+                  cursor:              'pointer',
+                  textDecoration:      'underline',
+                  textUnderlineOffset: '2px',
+                }}
+              >
+                See history
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -97,9 +127,9 @@ export function ArtifactCard({ icon, title, meta, onClick }: ArtifactCardProps) 
   return (
     <m.button
       type="button"
-      className="brain-artifact-card"
+      className="brain-artifact-card brain-card-action"
       onClick={onClick}
-      whileTap={{ scale: 0.99 }}
+      whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
       style={{
         display:      'block',

@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
-import Image from 'next/image'
+import React, { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import {
   WorkflowSquareTenIcon,
@@ -19,7 +18,7 @@ import type { PlanStep, ConnectorRequirement } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)'
+const CARD_SHADOW = 'var(--shadow-card-default)'
 
 let planStepsAnimatedOnce = false
 
@@ -95,14 +94,17 @@ function StepCircle({ status, index, size = 28 }: StepCircleProps) {
     )
   }
   return (
-    <div style={{
-      ...base,
-      border:     '1.5px solid var(--neutral-300)',
-      color:      'var(--neutral-500)',
-      fontSize:   size <= 22 ? '11px' : '12px',
-      fontFamily: 'var(--font-body)',
-      fontWeight: 500,
-    }}>
+    <div
+      aria-label={`Step ${index + 1}`}
+      style={{
+        ...base,
+        border:     '1.5px solid var(--neutral-300)',
+        color:      'var(--neutral-500)',
+        fontSize:   size <= 22 ? '11px' : '12px',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+      }}
+    >
       {index + 1}
     </div>
   )
@@ -170,7 +172,7 @@ function ConnectorRow({ connector }: { connector: ConnectorRequirement }) {
         overflow:        'hidden',
       }}>
         {connector.logoUrl
-          ? <Image src={connector.logoUrl} alt="" width={20} height={20} unoptimized style={{ objectFit: 'contain' }} />
+          ? <img src={connector.logoUrl} alt="" style={{ width: 20, height: 20, objectFit: 'contain' }} />
           : <div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: 'var(--neutral-200)' }} />
         }
       </div>
@@ -222,84 +224,139 @@ interface PlanStepRowProps {
 
 function PlanStepRow({ step, index, isLast, animDelay, dimmed }: PlanStepRowProps) {
   const needsAuth = !!step.requiresConnector && !step.requiresConnector.isConnected
+  const [showWhy, setShowWhy] = useState(false)
+  const whyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showWhy) return
+    const handler = (e: MouseEvent) => {
+      if (!whyRef.current?.contains(e.target as Node)) setShowWhy(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showWhy])
 
   return (
     <m.div
-      style={{ overflow: 'hidden' }}
-      initial={planStepsAnimatedOnce ? false : { height: 0 }}
-      animate={{ height: 'auto' }}
-      transition={{ ...springs.slow, delay: animDelay }}
+      initial={planStepsAnimatedOnce ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, delay: animDelay, ease: 'easeOut' }}
     >
-      <m.div
-        initial={planStepsAnimatedOnce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.24, delay: animDelay + 0.08, ease: 'easeOut' }}
-      >
+      <div style={{
+        display:    'flex',
+        gap:        10,
+        opacity:    dimmed ? 0.35 : 1,
+        transition: 'opacity 0.35s ease',
+      }}>
+        {/* Circle + connector line */}
         <div style={{
-          display:    'flex',
-          gap:        10,
-          opacity:    dimmed ? 0.45 : 1,
-          transition: 'opacity 0.3s ease',
+          display:       'flex',
+          flexDirection: 'column',
+          alignItems:    'center',
+          flexShrink:    0,
+          width:         28,
         }}>
-          {/* Circle + connector line */}
-          <div style={{
-            display:       'flex',
-            flexDirection: 'column',
-            alignItems:    'center',
-            flexShrink:    0,
-            width:         28,
-          }}>
-            <StepCircle status={step.status} index={index} />
-            {!isLast && (
-              <div style={{
-                flex:            '1 0 0',
-                width:           1,
-                backgroundColor: 'var(--neutral-200)',
-                marginTop:       4,
-                minHeight:       12,
-              }} />
-            )}
-          </div>
-
-          {/* Content */}
-          <div style={{
-            flex:          '1 0 0',
-            minWidth:      0,
-            paddingTop:    4,
-            paddingBottom: isLast ? 0 : 14,
-            display:       'flex',
-            flexDirection: 'column',
-            gap:           4,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-body)',
-                fontWeight: 'var(--font-weight-medium)',
-                lineHeight: 'var(--line-height-body)',
-                color:      'var(--neutral-800)',
-              }}>
-                {step.label}
-              </span>
-              <StepBadges step={step} />
-            </div>
-
-            {step.connector && !isLast && !needsAuth && (
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                fontStyle:  'italic',
-                color:      'var(--neutral-400)',
-                lineHeight: 'var(--line-height-caption)',
-              }}>
-                via {step.connector}
-              </span>
-            )}
-
-            {needsAuth && <ConnectorRow connector={step.requiresConnector!} />}
-          </div>
+          <StepCircle status={step.status} index={index} />
+          {!isLast && (
+            <div style={{
+              flex:            '1 0 0',
+              width:           1,
+              backgroundColor: 'var(--neutral-200)',
+              marginTop:       4,
+              minHeight:       12,
+            }} />
+          )}
         </div>
-      </m.div>
+
+        {/* Content */}
+        <div style={{
+          flex:          '1 0 0',
+          minWidth:      0,
+          paddingTop:    4,
+          paddingBottom: isLast ? 0 : 14,
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           4,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-body)',
+              fontWeight: 'var(--font-weight-medium)',
+              lineHeight: 'var(--line-height-body)',
+              color:      'var(--neutral-800)',
+            }}>
+              {step.label}
+            </span>
+            <StepBadges step={step} />
+            {step.rationale && (
+              <div ref={whyRef} style={{ position: 'relative', display: 'inline-flex' }}>
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setShowWhy(v => !v) }}
+                  aria-label="Why this step?"
+                  style={{
+                    display:        'inline-flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                    width:          16,
+                    height:         16,
+                    borderRadius:   '50%',
+                    border:         '1px solid var(--neutral-200)',
+                    background:     'none',
+                    cursor:         'pointer',
+                    flexShrink:     0,
+                    fontFamily:     'var(--font-body)',
+                    fontSize:       '10px',
+                    fontWeight:     600,
+                    color:          'var(--neutral-400)',
+                    lineHeight:     1,
+                    padding:        0,
+                  }}
+                >
+                  ?
+                </button>
+                {showWhy && (
+                  <div style={{
+                    position:        'absolute',
+                    bottom:          'calc(100% + 6px)',
+                    left:            '50%',
+                    transform:       'translateX(-50%)',
+                    backgroundColor: 'var(--neutral-900)',
+                    color:           'var(--neutral-0, #fff)',
+                    fontFamily:      'var(--font-body)',
+                    fontSize:        'var(--font-size-caption)',
+                    lineHeight:      'var(--line-height-caption)',
+                    padding:         '6px 10px',
+                    borderRadius:    8,
+                    whiteSpace:      'normal' as React.CSSProperties['whiteSpace'],
+                    maxWidth:        240,
+                    zIndex:          20,
+                    boxShadow:       '0 4px 16px rgba(0,0,0,0.18)',
+                    pointerEvents:   'none',
+                  }}>
+                    {step.rationale}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {step.connector && !isLast && !needsAuth && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-caption)',
+              fontStyle:  'italic',
+              color:      'var(--neutral-400)',
+              lineHeight: 'var(--line-height-caption)',
+            }}>
+              via {step.connector}
+            </span>
+          )}
+
+          {needsAuth && <ConnectorRow connector={step.requiresConnector!} />}
+        </div>
+      </div>
     </m.div>
   )
 }
@@ -351,88 +408,81 @@ interface PlanParallelGroupProps {
 function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: PlanParallelGroupProps) {
   return (
     <m.div
-      style={{ overflow: 'hidden' }}
-      initial={planStepsAnimatedOnce ? false : { height: 0 }}
-      animate={{ height: 'auto' }}
-      transition={{ ...springs.slow, delay: animDelay }}
+      initial={planStepsAnimatedOnce ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, delay: animDelay, ease: 'easeOut' }}
     >
-      <m.div
-        initial={planStepsAnimatedOnce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.24, delay: animDelay + 0.08, ease: 'easeOut' }}
-      >
+      <div style={{
+        display:    'flex',
+        gap:        10,
+        opacity:    dimmed ? 0.35 : 1,
+        transition: 'opacity 0.35s ease',
+      }}>
+        {/* Left col — connector line only, no circle, flows through the group */}
         <div style={{
-          display:    'flex',
-          gap:        10,
-          opacity:    dimmed ? 0.45 : 1,
-          transition: 'opacity 0.3s ease',
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          flexShrink:     0,
+          width:          28,
         }}>
-          {/* Left col — connector line only, no circle, flows through the group */}
           <div style={{
-            display:        'flex',
-            flexDirection:  'column',
-            alignItems:     'center',
-            flexShrink:     0,
-            width:          28,
-          }}>
+            flex:            '1 0 0',
+            width:           1,
+            backgroundColor: 'var(--neutral-200)',
+            minHeight:       12,
+          }} />
+          {!isLast && (
             <div style={{
               flex:            '1 0 0',
               width:           1,
               backgroundColor: 'var(--neutral-200)',
               minHeight:       12,
             }} />
-            {!isLast && (
-              <div style={{
-                flex:            '1 0 0',
-                width:           1,
-                backgroundColor: 'var(--neutral-200)',
-                minHeight:       12,
-              }} />
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Right col — group container */}
+        {/* Right col — group container */}
+        <div style={{
+          flex:          '1 0 0',
+          minWidth:      0,
+          paddingBottom: isLast ? 0 : 14,
+          paddingTop:    2,
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           6,
+        }}>
+          {/* "Runs at the same time" label */}
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            fontStyle:  'italic',
+            color:      'var(--neutral-400)',
+            lineHeight: 'var(--line-height-caption)',
+          }}>
+            Runs at the same time
+          </span>
+
+          {/* Bracket container */}
           <div style={{
-            flex:          '1 0 0',
-            minWidth:      0,
-            paddingBottom: isLast ? 0 : 14,
-            paddingTop:    2,
+            paddingLeft:   12,
+            borderLeft:    '1.5px solid var(--neutral-200)',
             display:       'flex',
             flexDirection: 'column',
-            gap:           6,
+            gap:           10,
+            paddingTop:    2,
+            paddingBottom: 2,
           }}>
-            {/* "Runs at the same time" label */}
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-caption)',
-              fontStyle:  'italic',
-              color:      'var(--neutral-400)',
-              lineHeight: 'var(--line-height-caption)',
-            }}>
-              Runs at the same time
-            </span>
-
-            {/* Bracket container */}
-            <div style={{
-              paddingLeft:  12,
-              borderLeft:   '1.5px solid var(--neutral-200)',
-              display:      'flex',
-              flexDirection:'column',
-              gap:          10,
-              paddingTop:   2,
-              paddingBottom:2,
-            }}>
-              {steps.map((step, i) => (
-                <CompactStepRow
-                  key={step.id}
-                  step={step}
-                  globalIndex={startIndex + i}
-                />
-              ))}
-            </div>
+            {steps.map((step, i) => (
+              <CompactStepRow
+                key={step.id}
+                step={step}
+                globalIndex={startIndex + i}
+              />
+            ))}
           </div>
         </div>
-      </m.div>
+      </div>
     </m.div>
   )
 }
@@ -440,33 +490,73 @@ function PlanParallelGroup({ steps, startIndex, isLast, animDelay, dimmed }: Pla
 // ── PlanCard ──────────────────────────────────────────────────────────────────
 
 export interface PlanCardProps {
-  steps:           PlanStep[]
-  interpretation?: string
-  onApprove?:      () => void
-  onCounter?:      () => void
-  onCancel?:       () => void
+  steps:                 PlanStep[]
+  interpretation?:       string
+  onApprove?:            () => void
+  onCounter?:            () => void
+  onCancel?:             () => void
   /** Disable all three action buttons. Used while the user_prompt is not
    *  yet available, or while a decision is mid-flight, to prevent races
    *  that would silently no-op on the backend. */
-  actionsDisabled?: boolean
+  actionsDisabled?:      boolean
+  /**
+   * How many times the user has approved a plan without countering.
+   * When ≥ 3, a progressive delegation hint appears below the action buttons.
+   */
+  approvalCount?:        number
+  onSetupAutoApprove?:   () => void
 }
 
-export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel, actionsDisabled = false }: PlanCardProps) {
-  const items           = groupSteps(steps)
+export function PlanCard({
+  steps,
+  interpretation,
+  onApprove,
+  onCounter,
+  onCancel,
+  actionsDisabled = false,
+  approvalCount   = 0,
+  onSetupAutoApprove,
+}: PlanCardProps) {
+  const items        = groupSteps(steps)
   const allConnected = steps.every(s => !s.requiresConnector || s.requiresConnector.isConnected)
+  const cardRef      = useRef<HTMLDivElement>(null)
+
+  const isBlockedByPredecessor = (itemIndex: number): boolean => {
+    for (let i = 0; i < itemIndex; i++) {
+      const prev = items[i]
+      if (prev.kind === 'step' && prev.step.requiresConnector && !prev.step.requiresConnector.isConnected) return true
+      if (prev.kind === 'parallel' && prev.steps.some(s => s.requiresConnector && !s.requiresConnector.isConnected)) return true
+    }
+    return false
+  }
 
   useEffect(() => { planStepsAnimatedOnce = true }, [])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'Enter' || !allConnected || actionsDisabled) return
+      const tag = (document.activeElement as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      const focused = document.activeElement
+      if (focused && focused !== document.body && !cardRef.current?.contains(focused)) return
+      e.preventDefault()
+      onApprove?.()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [allConnected, actionsDisabled, onApprove])
+
   return (
-    <div style={{
+    <div ref={cardRef} style={{
       backgroundColor: 'var(--neutral-white)',
-      borderRadius:    24,
+      borderRadius:    12,
       padding:         20,
       boxShadow:       CARD_SHADOW,
       maxWidth:        '100%',
       display:         'flex',
       flexDirection:   'column',
       gap:             12,
+      isolation:       'isolate',
     }}>
 
       {/* Header */}
@@ -476,7 +566,7 @@ export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel
           fontFamily: 'var(--font-body)',
           fontSize:   'var(--font-size-caption)',
           fontWeight: 'var(--font-weight-medium)',
-          color:      'var(--neutral-500)',
+          color:      'var(--neutral-600)',
           lineHeight: 'var(--line-height-caption)',
         }}>
           Plan
@@ -510,7 +600,7 @@ export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {items.map((item, itemIndex) => {
           const isLast    = itemIndex === items.length - 1
-          const dimmed    = itemIndex > 0
+          const dimmed    = isBlockedByPredecessor(itemIndex)
           const animDelay = 0.12 + itemIndex * 0.08
 
           if (item.kind === 'step') {
@@ -558,6 +648,52 @@ export function PlanCard({ steps, interpretation, onApprove, onCounter, onCancel
           </Button>
         </div>
 
+        {/* Keyboard hint — only shown when approve is available */}
+        {allConnected && !actionsDisabled && (
+          <p style={{ margin: 0, textAlign: 'right' }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color:      'var(--neutral-500)',
+            }}>
+              ⌘↵ to approve
+            </span>
+          </p>
+        )}
+
+        {/* Progressive delegation hint — appears after 3 uncontested approvals */}
+        {approvalCount >= 3 && (
+          <p style={{ margin: 0, textAlign: 'right' }}>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize:   'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color:      'var(--neutral-500)',
+            }}>
+              You&apos;ve approved {approvalCount} plans without changes. Auto-approve similar tasks?{' '}
+            </span>
+            <button
+              type="button"
+              onClick={onSetupAutoApprove}
+              style={{
+                background:          'none',
+                border:              'none',
+                padding:             0,
+                cursor:              'pointer',
+                fontFamily:          'var(--font-body)',
+                fontSize:            'var(--font-size-caption)',
+                fontWeight:          'var(--font-weight-medium)',
+                lineHeight:          'var(--line-height-caption)',
+                color:               'var(--neutral-600)',
+                textDecoration:      'underline',
+                textUnderlineOffset: '2px',
+              }}
+            >
+              Set up
+            </button>
+          </p>
+        )}
       </div>
     </div>
   )

@@ -27,9 +27,16 @@ import {
   uploadDocument,
   deleteDocument,
   listVersions,
+  setActiveVersion,
+  bustPersonasCache,
   type PersonaVersionResponse,
   type PersonaVersionListItem,
 } from '@/lib/api/personas'
+import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
+
+function publishedVersionKey(repoId: string) {
+  return `persona_live_version_${repoId}`
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -206,7 +213,10 @@ function PersonaConfigureKnowledgeContent() {
   const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [restoringId,     setRestoringId]     = useState<string | null>(null)
-  const [isSaving,        setIsSaving]        = useState(false)
+  const [isSaving,             setIsSaving]             = useState(false)
+  const [isPublishing,         setIsPublishing]         = useState(false)
+  const [isDirty,              setIsDirty]              = useState(false)
+  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
   const [files, setFiles] = useState<KnowledgeFile[]>([])
   const [isLoading, setIsLoading] = useState(!!repoId && !!versionId)
 
@@ -355,15 +365,18 @@ function PersonaConfigureKnowledgeContent() {
       if (last?.status === 'fulfilled') setFiles(docsToFilesWithSizes(last.value))
     }
 
-    // Toast per-file results
+    // Toast per-file results; mark dirty when at least one upload succeeded
+    let anyUploaded = false
     results.forEach((result, i) => {
       if (result.status === 'fulfilled') {
         toast.success(`Uploaded ${rawFiles[i].name}`)
+        anyUploaded = true
       } else {
         console.error('[KnowledgePage] upload error:', result.reason)
         toast.error(`Failed to upload ${rawFiles[i].name}`)
       }
     })
+    if (anyUploaded) setIsDirty(true)
   }
 
   // ── Preview a file ─────────────────────────────────────────────────────────
@@ -416,6 +429,7 @@ function PersonaConfigureKnowledgeContent() {
 
     // Delete succeeded
     toast.success(`Removed \u201c${file.name}\u201d`)
+    setIsDirty(true)
 
     // Silently reload to sync with server — if this fails, the optimistic
     // removal already shows the correct UI so we just log and move on.
@@ -453,11 +467,11 @@ function PersonaConfigureKnowledgeContent() {
   // ── Save version ─────────────────────────────────────────────────────────
 
   async function handleSaveVersion() {
-    if (!repoId || !versionId) return
+    if (!isDirty || !repoId || !versionId) return
     setIsSaving(true)
     try {
-      // updateVersion patches in place, preserving document attachments on this versionId.
       await updateVersion({ repoId, versionId, name: personaName || undefined })
+      setIsDirty(false)
       toast.success('Version saved')
     } catch (err) {
       console.error('[KnowledgePage] save error:', err)
@@ -467,11 +481,43 @@ function PersonaConfigureKnowledgeContent() {
     }
   }
 
+  async function handlePublish() {
+    if (!repoId || !versionId) return
+    const storedLiveId = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    const wasPublished = !!storedLiveId
+    setIsPublishing(true)
+    try {
+      await setActiveVersion(repoId, versionId)
+      bustPersonasCache()
+      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+      if (wasPublished) {
+        toast.success(`"${personaName}" is now live with the latest changes`)
+        setRepublishModalOpen(true)
+      } else {
+        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      }
+    } catch (err) {
+      console.error('[KnowledgePage] publish error:', err)
+      toast.error('Failed to publish')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
   // ── Tab navigation ────────────────────────────────────────────────────────
+
+  function safeNavigate(href: string) {
+    if (isDirty && !window.confirm('You have unsaved knowledge changes. Leave without saving?')) return
+    push(href)
+  }
+  function safeBack() {
+    if (isDirty && !window.confirm('You have unsaved knowledge changes. Leave without saving?')) return
+    back()
+  }
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
-    if (route) push(`${route}?${searchParams.toString()}`)
+    if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
   return (
@@ -499,7 +545,7 @@ function PersonaConfigureKnowledgeContent() {
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36, position: 'relative' }}>
             <div style={{ flexShrink: 0 }}>
-              <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={() => back()} />
+              <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={safeBack} />
             </div>
 
             {/* Tabs — absolutely centered so left/right items don't affect positioning */}
@@ -552,7 +598,7 @@ function PersonaConfigureKnowledgeContent() {
                   icon={<QuillWriteOneIcon size={16} />}
                   aria-label="Save version"
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={!isDirty || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 />
               ) : (
@@ -561,13 +607,21 @@ function PersonaConfigureKnowledgeContent() {
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={!isDirty || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 >
                   {isSaving ? 'Saving…' : 'Save version'}
                 </Button>
               )}
-              <Button variant="default" size="sm" rightIcon={<ArrowUpRightOneIcon size={16} />}>Publish</Button>
+              <Button
+                variant="default"
+                size="sm"
+                rightIcon={<ArrowUpRightOneIcon size={16} />}
+                onClick={handlePublish}
+                disabled={!repoId || !versionId || isPublishing}
+              >
+                {isPublishing ? 'Publishing…' : 'Publish'}
+              </Button>
             </div>
           </div>
           <div style={{ height: 32, flexShrink: 0 }} />
@@ -606,6 +660,15 @@ function PersonaConfigureKnowledgeContent() {
           />
         </div>
       </div>
+
+      {republishModalOpen && (
+        <RepublishModal
+          personaName={personaName || 'Persona'}
+          superLinkActive={false}
+          onClose={() => setRepublishModalOpen(false)}
+          onDone={() => { setRepublishModalOpen(false); push('/personas') }}
+        />
+      )}
 
       {/* ── Test chat panel ────────────────────────────────────────────────── */}
       <AnimatePresence>

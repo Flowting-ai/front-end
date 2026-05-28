@@ -14,7 +14,7 @@ import type { PlanStep } from './lib/phase'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(59,54,50,0.1)'
+const CARD_SHADOW = 'var(--shadow-card-default)'
 
 // ── Step status icon ──────────────────────────────────────────────────────────
 
@@ -115,7 +115,8 @@ export function LoopHistoryCard({
 }: LoopHistoryCardProps) {
   const items = groupConsecutive(steps)
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [open, setOpen] = useState(defaultOpen)
+  const [open,          setOpen]          = useState(defaultOpen)
+  const [headerHovered, setHeaderHovered] = useState(false)
 
   const completedCount = steps.filter(s => s.status === 'complete').length
   const failedCount    = steps.filter(s => s.status === 'failed').length
@@ -128,8 +129,8 @@ export function LoopHistoryCard({
   return (
     <div style={{
       backgroundColor: 'var(--neutral-white)',
-      borderRadius:    24,
-      padding:         20,
+      borderRadius:    12,
+      padding:         '14px 16px',
       boxShadow:       CARD_SHADOW,
       maxWidth:        '100%',
       display:         'flex',
@@ -139,17 +140,24 @@ export function LoopHistoryCard({
 
       {/* Header — always visible, toggle on click */}
       <button
+        type="button"
+        className="brain-card-action"
         onClick={() => setOpen(v => !v)}
+        onMouseEnter={() => setHeaderHovered(true)}
+        onMouseLeave={() => setHeaderHovered(false)}
         style={{
           display:         'flex',
           alignItems:      'center',
           gap:             8,
-          background:      'none',
+          background:      headerHovered ? 'var(--neutral-50)' : 'none',
           border:          'none',
-          padding:         0,
+          padding:         '4px 6px',
+          margin:          '-4px -6px',
+          borderRadius:    8,
           cursor:          'pointer',
-          width:           '100%',
+          width:           'calc(100% + 12px)',
           textAlign:       'left',
+          transition:      'background-color 150ms ease',
         }}
       >
         <PlayListIcon size={14} color="var(--neutral-400)" />
@@ -215,7 +223,7 @@ export function LoopHistoryCard({
           transition={springs.fast}
           style={{ flexShrink: 0, lineHeight: 0 }}
         >
-          <ArrowDownOneIcon size={14} color="var(--neutral-400)" />
+          <ArrowDownOneIcon size={12} color="var(--neutral-400)" />
         </m.div>
       </button>
 
@@ -223,11 +231,10 @@ export function LoopHistoryCard({
       <AnimatePresence initial={false}>
         {open && (
           <m.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{    height: 0, opacity: 0 }}
-            transition={{ ...springs.moderate, opacity: { duration: 0.15 } }}
-            style={{ overflow: 'hidden' }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1,  y: 0  }}
+            exit={{    opacity: 0,  y: -4 }}
+            transition={springs.fast}
           >
             <div style={{
               display:       'flex',

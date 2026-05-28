@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
+import { TEMPLATE_PRESETS } from '../../_data/template-presets'
 
 const MAX_CHARS = 120
 const WIZARD_KEY = 'persona_wizard_draft'
@@ -17,11 +18,14 @@ function PurposePageContent() {
   const template = searchParams.get('template') ?? ''
 
   const [purpose, setPurpose] = useState(() => {
-    // Prefill from sessionStorage if user navigated back
     if (typeof window === 'undefined') return ''
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      return draft.purpose ?? ''
+      // Restore if same template (back navigation)
+      if (draft.template === template && draft.purpose) return draft.purpose
+      // Pre-fill from template preset on first visit
+      if (template) return TEMPLATE_PRESETS[template]?.purpose ?? ''
+      return ''
     } catch { return '' }
   })
 
@@ -35,8 +39,15 @@ function PurposePageContent() {
   function handleContinue() {
     try {
       const existing = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      // Clear name/tone from previous runs in case user came back and changed purpose
-      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ ...existing, purpose, name: undefined, tone: undefined }))
+      // Clear name/tone from previous runs in case user came back and changed purpose.
+      // Store template so downstream pages (and the instructions page) can read it.
+      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({
+        ...existing,
+        purpose,
+        name:     undefined,
+        tone:     undefined,
+        template: template || undefined,
+      }))
     } catch { /* ignore */ }
     push(`/personas/basics/name${buildQuery()}`)
   }

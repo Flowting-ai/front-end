@@ -59,6 +59,20 @@ import { ScheduleDeleteModal, type ScheduleDeleteModalProps } from './ScheduleDe
 export { ScheduleDeleteModal, type ScheduleDeleteModalProps }
 import { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector } from './ContextRail'
 export { ContextRail, type ContextRailProps, type ContextRailData, type ContextRailPersona, type ContextRailPin, type ContextRailConnector }
+import { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction } from './ExternalOutputCard'
+export { ExternalOutputCard, type ExternalOutputCardProps, type ExternalOutputAction }
+import { BrainDigestCard, type BrainDigestCardProps, type DigestItem } from './BrainDigestCard'
+export { BrainDigestCard, type BrainDigestCardProps, type DigestItem }
+import { FixProposalCard, type FixProposalCardProps, type FixProposalDiff } from './FixProposalCard'
+export { FixProposalCard, type FixProposalCardProps, type FixProposalDiff }
+import { LoopRecord, type LoopRecordProps } from './LoopRecord'
+export { LoopRecord, type LoopRecordProps }
+import { BrainProjectView, type BrainProjectViewProps, type ProjectThread } from './BrainProjectView'
+export { BrainProjectView, type BrainProjectViewProps, type ProjectThread }
+import { ProjectConfigPanel, type ProjectConfigPanelProps, type ProjectConfig } from './ProjectConfigPanel'
+export { ProjectConfigPanel, type ProjectConfigPanelProps, type ProjectConfig }
+import { StuckCard, type StuckCardProps } from './StuckCard'
+export { StuckCard, type StuckCardProps }
 import { type Phase, PHASE_TRANSITIONS } from './lib/phase'
 
 // ── Phases where the ContextRail is visible ───────────────────────────────────

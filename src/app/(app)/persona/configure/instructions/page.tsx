@@ -47,6 +47,7 @@ import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
+import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
 import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import { useFileUpload } from '@/hooks/use-file-upload'
@@ -557,8 +558,8 @@ function matchModel(
 
 // ── Session-storage keys ─────────────────────────────────────────────────────
 
-function publishedKey(repoId: string) {
-  return `persona_published_${repoId}`
+function publishedVersionKey(repoId: string) {
+  return `persona_live_version_${repoId}`
 }
 
 // Reads the avatar data-URL saved by the Profile tab.
@@ -632,7 +633,7 @@ function PersonaConfigureInstructionsContent() {
   const [confirmDeleteOldestOpen,   setConfirmDeleteOldestOpen]   = useState(false)
   const [versionsChangeTags,        setVersionsChangeTags]        = useState<Map<string, string[]>>(new Map())
 
-  const hasPublishedRef   = useRef(false)
+  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
   const hasInitialisedRef = useRef(false)
   const savedSnapshotRef  = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
 
@@ -731,12 +732,14 @@ function PersonaConfigureInstructionsContent() {
       let wizardName = ''
       let wizardPurpose = ''
       let wizardTone = ''
+      let wizardTemplate = ''
       if (typeof window !== 'undefined' && !repoIdParam) {
         try {
           const draft = JSON.parse(sessionStorage.getItem('persona_wizard_draft') ?? '{}')
-          wizardName    = draft.name    ?? ''
-          wizardPurpose = draft.purpose ?? ''
-          wizardTone    = draft.tone    ?? ''
+          wizardName     = draft.name     ?? ''
+          wizardPurpose  = draft.purpose  ?? ''
+          wizardTone     = draft.tone     ?? ''
+          wizardTemplate = draft.template ?? ''
           sessionStorage.removeItem('persona_wizard_draft')
         } catch { /* ignore */ }
       }
@@ -774,9 +777,7 @@ function PersonaConfigureInstructionsContent() {
           modelId:     version.model_id ?? '',
           temperature: version.temperature ?? 0.5,
         }
-        if (typeof window !== 'undefined') {
-          hasPublishedRef.current = sessionStorage.getItem(publishedKey(repoIdParam)) === '1'
-        }
+        setPublishedVersionId(repo.active_version?.id ?? null)
       } else if (repoIdParam) {
         // ── Repo exists but no specific version — load most-recently saved version
         const [repo, versionList] = await Promise.all([
@@ -830,9 +831,7 @@ function PersonaConfigureInstructionsContent() {
         } else {
           setSelectedModel(firstModel)
         }
-        if (typeof window !== 'undefined') {
-          hasPublishedRef.current = sessionStorage.getItem(publishedKey(repoIdParam)) === '1'
-        }
+        setPublishedVersionId(repo.active_version?.id ?? null)
       } else {
         // ── New persona - create repo + initial version ───────────────────────
         if (!firstModel) {
@@ -840,19 +839,29 @@ function PersonaConfigureInstructionsContent() {
           push('/personas')
           return
         }
-        setSelectedModel(firstModel)
 
         const effectiveName = wizardName || 'Untitled Persona'
-
         if (wizardName) setPersonaName(wizardName)
 
-        // Purpose is stored as the persona description only - system instruction starts empty
-        const initialPrompt = ''
+        // Resolve template preset (if the wizard was started from a template card)
+        const templatePreset = wizardTemplate ? (TEMPLATE_PRESETS[wizardTemplate] ?? null) : null
 
-        const firstModelKey = stableKey(firstModel) ?? ''
+        // Use the template's system instruction, or start empty for blank personas
+        const initialPrompt = templatePreset?.systemInstruction ?? ''
+
+        // Pick the best model: try to match the template's model hint first, fall back to firstModel
+        let chosenModel = firstModel
+        if (templatePreset?.modelHint && fetchedModels.length > 0) {
+          const hint = templatePreset.modelHint.toLowerCase()
+          const hinted = fetchedModels.find(m => m.modelName.toLowerCase().includes(hint))
+          if (hinted) chosenModel = hinted
+        }
+        setSelectedModel(chosenModel)
+
+        const chosenModelKey = stableKey(chosenModel) ?? ''
         const repo = await createPersonaRepo({
           name:    effectiveName,
-          modelId: firstModelKey,
+          modelId: chosenModelKey,
           prompt:  initialPrompt,
         })
 
@@ -863,10 +872,10 @@ function PersonaConfigureInstructionsContent() {
         setVersionId(newVersionId)
         setPersonaName(repo.name)
         resetInstructionHistory(initialPrompt)
-        writePersonaModelCache(newRepoId, firstModel)
+        writePersonaModelCache(newRepoId, chosenModel)
         savedSnapshotRef.current = {
           instruction: initialPrompt,
-          modelId:     firstModelKey,
+          modelId:     chosenModelKey,
           temperature: 0.5,
         }
 
@@ -929,7 +938,7 @@ function PersonaConfigureInstructionsContent() {
       params.set('versionId', targetId)
       window.history.replaceState(null, '', `?${params.toString()}`)
       savedSnapshotRef.current = null  // mark dirty so save button enables immediately
-      toast.success('Version restored — save to keep changes')
+      toast.success('Version restored — click Publish to make it live')
     } catch {
       toast.error('Failed to restore version')
     } finally {
@@ -970,11 +979,8 @@ function PersonaConfigureInstructionsContent() {
         imageUrl:    preserveImageUrl,
       })
 
-      // Promote the newly saved version to active so the dedicated chat page
-      // and persona-overlay chats immediately use the model + prompt the user
-      // just configured. Without this, "Save Version" only creates a draft and
-      // the active version stays pinned to whatever was last published.
-      await setActiveVersion(repoId, version.id)
+      // Save version only — does NOT publish or change the active version.
+      // The persona only becomes live in the library when the user clicks Publish.
 
       setVersionId(version.id)
       if (version.image_url) setImageUrl(version.image_url)
@@ -982,19 +988,19 @@ function PersonaConfigureInstructionsContent() {
       params.set('versionId', version.id)
       window.history.replaceState(null, '', `?${params.toString()}`)
 
-      // Mark all previous versions inactive, prepend new active version, trim.
+      // Prepend the new draft version; the active (published) version is unchanged.
       const newItem: PersonaVersionListItem = {
         id:         version.id,
         name:       version.name,
         handler:    version.handler,
         model_id:   version.model_id,
-        is_active:  true,
+        is_active:  false,
         created_at: version.created_at,
         updated_at: version.updated_at,
       }
       setVersions(prev => [
         newItem,
-        ...prev.filter(v => v.id !== version.id).map(v => ({ ...v, is_active: false })),
+        ...prev.filter(v => v.id !== version.id),
       ].slice(0, MAX_VERSIONS))
 
       // Store change tags for this version and advance snapshot
@@ -1025,21 +1031,55 @@ function PersonaConfigureInstructionsContent() {
   async function handlePublish() {
     if (!repoId || !versionId) return
 
-    const wasPublished = hasPublishedRef.current
-
+    const wasPublished = !!publishedVersionId
     setIsPublishing(true)
+
     try {
-      // Always promote the current draft to active — this is the whole point
-      // of clicking Publish, whether or not the persona was previously published.
-      await setActiveVersion(repoId, versionId)
-      bustPersonasCache()
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(publishedKey(repoId), '1')
+      // If the editor has unsaved changes, save them as a new version first so the
+      // published persona always reflects exactly what the user sees in the editor.
+      let publishVersionId = versionId
+      if (isDirty && hasContent) {
+        const modelId = selectedModel ? stableKey(selectedModel) : null
+        if (modelId) {
+          let imageFile: File | null = null
+          let preserveImageUrl: string | null = null
+          const avatarDataUrl = readProfileAvatar(repoId)
+          if (avatarDataUrl?.startsWith('data:')) {
+            imageFile = dataUrlToFile(avatarDataUrl, 'avatar.jpg')
+          } else if (imageUrl) {
+            preserveImageUrl = imageUrl
+          }
+          const version = await createVersion({
+            repoId,
+            name:        personaName,
+            modelId,
+            prompt:      instruction,
+            temperature,
+            image:       imageFile,
+            imageUrl:    preserveImageUrl,
+          })
+          publishVersionId = version.id
+          setVersionId(version.id)
+          if (version.image_url) setImageUrl(version.image_url)
+          const params = new URLSearchParams(searchParams.toString())
+          params.set('versionId', version.id)
+          window.history.replaceState(null, '', `?${params.toString()}`)
+          savedSnapshotRef.current = { instruction, modelId, temperature }
+        }
       }
-      hasPublishedRef.current = true
+
+      // Make the version live — this is what creates/updates the persona card in the library.
+      await setActiveVersion(repoId, publishVersionId)
+      bustPersonasCache()
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(publishedVersionKey(repoId), publishVersionId)
+      }
+      setPublishedVersionId(publishVersionId)
 
       if (wasPublished) {
-        // Republish: confirm via modal, stay on the page.
+        // Republish: show toast + confirm via modal, stay on page.
+        toast.success(`"${personaName}" is now live with the latest changes`)
         setRepublishModalOpen(true)
       } else {
         // First publish: show the celebratory page.
@@ -1060,8 +1100,31 @@ function PersonaConfigureInstructionsContent() {
     currentModelId !== savedSnapshotRef.current.modelId ||
     temperature !== savedSnapshotRef.current.temperature
   const hasContent = instruction.trim().length > 0
-  const canPublish = hasContent && !!repoId && !!versionId && !isPublishing
+
+  // isPublished: current version IS the published one with no pending changes.
+  // needsRepublish: user has published before but the editor is now ahead of what's live.
+  const isPublished    = !!publishedVersionId && publishedVersionId === versionId && !isDirty
+  const needsRepublish = !!publishedVersionId && (publishedVersionId !== versionId || isDirty)
+
+  const canPublish = hasContent && !!repoId && !!versionId && !isPublishing && !isPublished
   const canSave    = isDirty && hasContent && !!repoId && !!selectedModel && !isSaving
+
+  // Warn the browser when navigating away (tab close / external nav) if there are unpublished changes.
+  useEffect(() => {
+    if (!needsRepublish) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) { e.preventDefault() }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [needsRepublish])
+
+  function safeNavigate(href: string) {
+    if (needsRepublish && !window.confirm('You have unpublished changes. Leave without publishing?')) return
+    push(href)
+  }
+  function safeBack() {
+    if (needsRepublish && !window.confirm('You have unpublished changes. Leave without publishing?')) return
+    back()
+  }
 
   const handleAddConversation = (userSays: string, personaReplies: string) => {
     setExampleConversations(prev => [...prev, { id: crypto.randomUUID(), userSays, personaReplies }])
@@ -1086,7 +1149,7 @@ function PersonaConfigureInstructionsContent() {
     const params = new URLSearchParams(searchParams.toString())
     if (repoId)    params.set('repoId',    repoId)
     if (versionId) params.set('versionId', versionId)
-    push(`${route}?${params.toString()}`)
+    safeNavigate(`${route}?${params.toString()}`)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1131,7 +1194,7 @@ function PersonaConfigureInstructionsContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => back()}
+                onClick={safeBack}
               />
             </div>
 
@@ -1208,6 +1271,30 @@ function PersonaConfigureInstructionsContent() {
                 icon={<MoreHorizontalIcon size={20} />}
                 aria-label="More options"
               />
+              {isPublished && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '2px 8px', borderRadius: 6, flexShrink: 0,
+                  backgroundColor: '#d1fae5', color: '#065f46',
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0px 1px 1.5px 0px rgba(2,24,15,0.15), 0px 0px 0px 1px rgba(16,110,60,0.3)',
+                }}>
+                  Live
+                </span>
+              )}
+              {needsRepublish && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '2px 8px', borderRadius: 6, flexShrink: 0,
+                  backgroundColor: '#fef3c7', color: '#92400e',
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)',
+                }}>
+                  Unpublished
+                </span>
+              )}
               {testChatOpen ? (
                 <IconButton
                   variant="outline"
@@ -1690,7 +1777,8 @@ function PersonaConfigureInstructionsContent() {
                 </p>
               ) : (
                 versions.map((v, i) => {
-                  const isCurrent  = v.id === versionId
+                  const isCurrent    = v.id === versionId
+                  const isLive       = v.id === publishedVersionId
                   const isRestoring_ = restoringId === v.id
                   const vNum       = versions.length - i
                   const vLabel     = `v${String(vNum).padStart(3, '0')}`
@@ -1737,10 +1825,23 @@ function PersonaConfigureInstructionsContent() {
 
                         {/* Name + handle + date */}
                         <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%' }}>
-                            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }}>
-                              {v.name || personaName}
-                            </p>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
+                              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {v.name || personaName}
+                              </p>
+                              {isLive && (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  padding: '1px 5px', borderRadius: 5, flexShrink: 0,
+                                  backgroundColor: '#d1fae5', color: '#065f46',
+                                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px',
+                                  boxShadow: '0px 0px 0px 1px rgba(16,110,60,0.35)',
+                                }}>
+                                  Live
+                                </span>
+                              )}
+                            </div>
                             <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, flexShrink: 0 }}>
                               {dateStr}
                             </p>

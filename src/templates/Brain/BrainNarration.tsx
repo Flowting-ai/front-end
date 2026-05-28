@@ -53,11 +53,11 @@ function useStreamingTypewriter(fullText: string, enabled: boolean) {
   return fullText.slice(0, displayLen)
 }
 
-// ── Inline code renderer ────────────────────────────────────────────────────────
-// Splits on backticks and renders inline code spans.
+// ── Inline code + citation renderer ────────────────────────────────────────────
+// Splits on backtick code spans AND [N] citation refs.
 
 function renderNarrationText(text: string): React.ReactNode[] {
-  const parts = text.split(/(`[^`]+`)/g)
+  const parts = text.split(/(`[^`]+`|\[\d+\])/g)
   // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
   return parts.map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`')) {
@@ -76,6 +76,24 @@ function renderNarrationText(text: string): React.ReactNode[] {
         </code>
       )
     }
+    if (/^\[\d+\]$/.test(part)) {
+      const num = part.slice(1, -1)
+      return (
+        // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- regex-split text segments have no IDs; positions are stable
+        <sup key={i} aria-label={`citation ${num}`} style={{
+          fontFamily:      'var(--font-body)',
+          fontSize:        '10px',
+          lineHeight:      1,
+          color:           'var(--neutral-700)',
+          backgroundColor: 'var(--neutral-100)',
+          borderRadius:    3,
+          padding:         '1px 4px',
+          marginLeft:      1,
+        }}>
+          {num}
+        </sup>
+      )
+    }
     return part
   })
 }
@@ -85,13 +103,45 @@ function NarrationText({ text }: { text: string }) {
   return <>{renderNarrationText(text)}</>
 }
 
+// ── ConfidenceDot ──────────────────────────────────────────────────────────────
+
+function ConfidenceDot({ level }: { level: 'high' | 'low' }) {
+  const color = level === 'high'
+    ? 'var(--color-tag-Green-text)'
+    : 'var(--color-tag-Yellow-text)'
+  return (
+    <span style={{
+      display:         'inline-block',
+      width:           6,
+      height:          6,
+      borderRadius:    '50%',
+      backgroundColor: color,
+      marginRight:     6,
+      flexShrink:      0,
+      verticalAlign:   'middle',
+      position:        'relative',
+      top:             -1,
+    }} />
+  )
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────────
 
 export interface BrainNarrationProps {
-  /** The prose text Brain says between phases. Supports `inline code`. */
-  text:          string
+  /** The prose text Brain says between phases. Supports `inline code` and [N] citations. */
+  text:           string
   /** When true, animates text in with a typewriter effect + cursor. @default false */
-  isStreaming?:  boolean
+  isStreaming?:   boolean
+  /**
+   * Attaches a confidence dot to the narration.
+   * 'high' → green dot (Brain is proceeding confidently).
+   * 'low'  → amber dot + "Want me to double-check?" inline CTA.
+   */
+  confidence?:    'high' | 'low'
+  /** Called when user clicks "Yes, check again" on a low-confidence narration. */
+  onDoubleCheck?: () => void
+  /** Citation sources — when provided, [1][2] etc. in text are linked to these. */
+  citations?: Array<{ index: number; title: string; url?: string }>
 }
 
 // ── BrainNarration ─────────────────────────────────────────────────────────────
@@ -100,22 +150,100 @@ export interface BrainNarrationProps {
  * "Now let me load the `search_events` tool…" style prose.
  * Streams in live during execution; sits static in history.
  */
-export function BrainNarration({ text, isStreaming = false }: BrainNarrationProps) {
-  const displayed = useStreamingTypewriter(text, isStreaming)
+export function BrainNarration({
+  text,
+  isStreaming = false,
+  confidence,
+  onDoubleCheck,
+  citations,
+}: BrainNarrationProps) {
+  const displayed  = useStreamingTypewriter(text, isStreaming)
   const isComplete = displayed.length >= text.length
 
   return (
-    <p style={{
-      margin:      0,
-      fontFamily:  'var(--font-body)',
-      fontSize:    'var(--font-size-body)',
-      fontWeight:  'var(--font-weight-regular)',
-      lineHeight:  'var(--line-height-body)',
-      color:       'var(--neutral-800)',
-    }}>
-      <NarrationText text={displayed} />
-      {isStreaming && !isComplete && <StreamCursor />}
-    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{
+        margin:      0,
+        fontFamily:  'var(--font-body)',
+        fontSize:    'var(--font-size-body)',
+        fontWeight:  'var(--font-weight-regular)',
+        lineHeight:  'var(--line-height-body)',
+        color:       'var(--neutral-800)',
+      }}>
+        {confidence && <ConfidenceDot level={confidence} />}
+        <NarrationText text={displayed} />
+        {isStreaming && !isComplete && <StreamCursor />}
+      </p>
+
+      {/* Citations list — shown when citations prop is provided */}
+      {citations && citations.length > 0 && (
+        <div style={{
+          display:       'flex',
+          flexDirection: 'column',
+          gap:           2,
+          marginTop:     4,
+          paddingTop:    8,
+          borderTop:     '1px solid var(--neutral-100)',
+        }}>
+          {citations.map(c => (
+            <div key={c.index} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+              <span aria-hidden style={{
+                fontFamily:      'var(--font-body)',
+                fontSize:        '10px',
+                color:           'var(--neutral-700)',
+                backgroundColor: 'var(--neutral-100)',
+                borderRadius:    3,
+                padding:         '1px 4px',
+                flexShrink:      0,
+              }}>
+                {c.index}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                lineHeight: 'var(--line-height-caption)',
+                color:      'var(--neutral-600)',
+              }}>
+                {c.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Low-confidence double-check CTA — shown once streaming is complete */}
+      {confidence === 'low' && isComplete && (
+        <p style={{ margin: 0 }}>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-400)',
+          }}>
+            Want me to double-check this step?{' '}
+          </span>
+          <button
+            type="button"
+            onClick={onDoubleCheck}
+            style={{
+              background:          'none',
+              border:              'none',
+              padding:             0,
+              cursor:              'pointer',
+              fontFamily:          'var(--font-body)',
+              fontSize:            'var(--font-size-caption)',
+              fontWeight:          'var(--font-weight-medium)',
+              lineHeight:          'var(--line-height-caption)',
+              color:               'var(--neutral-500)',
+              textDecoration:      'underline',
+              textUnderlineOffset: '2px',
+            }}
+          >
+            Yes, check again
+          </button>
+        </p>
+      )}
+    </div>
   )
 }
 

@@ -22,10 +22,11 @@ import { IconButton } from '@/components/IconButton'
 import { toast } from 'sonner'
 import { ChatInput } from '@/components/ChatInput'
 import ProfileTab from '@/app/(app)/persona/configure/components/ProfileTab'
+import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
 import { DEFAULT_LANGUAGE } from '@/app/(app)/personas/new/constants'
 import {
   getPersonaRepo, updateVersion, setActiveVersion,
-  testVersionStream, listVersions,
+  testVersionStream, listVersions, bustPersonasCache,
   type PersonaChatStreamCallbacks,
   type PersonaVersionListItem,
 } from '@/lib/api/personas'
@@ -36,6 +37,10 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
+
+function publishedVersionKey(repoId: string) {
+  return `persona_live_version_${repoId}`
+}
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, data] = dataUrl.split(',')
@@ -219,8 +224,11 @@ function PersonaConfigureProfileContent() {
   const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [restoringId,     setRestoringId]     = useState<string | null>(null)
-  const [isSaving,        setIsSaving]        = useState(false)
-  const [isPublishing,    setIsPublishing]    = useState(false)
+  const [isSaving,             setIsSaving]             = useState(false)
+  const [isPublishing,         setIsPublishing]         = useState(false)
+  const [isDirty,              setIsDirty]              = useState(false)
+  const [republishModalOpen,   setRepublishModalOpen]   = useState(false)
+  const isDirtyRef = useRef(false)
 
   // ── Test-chat streaming state ────────────────────────────────────────────────
   const [personaModelName,  setPersonaModelName]  = useState<string>('AI')
@@ -380,6 +388,20 @@ function PersonaConfigureProfileContent() {
     }
   }
 
+  function markDirty() {
+    if (!isInitializedRef.current) return
+    if (!isDirtyRef.current) { isDirtyRef.current = true; setIsDirty(true) }
+  }
+
+  function safeNavigate(href: string) {
+    if (isDirty && !window.confirm('You have unsaved profile changes. Leave without saving?')) return
+    push(href)
+  }
+  function safeBack() {
+    if (isDirty && !window.confirm('You have unsaved profile changes. Leave without saving?')) return
+    back()
+  }
+
   function handleTestChatAddFiles() { testChatFileInputRef.current?.click() }
 
   function handleTestChatFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -423,7 +445,7 @@ function PersonaConfigureProfileContent() {
   }
 
   async function handleSaveVersion() {
-    if (!repoId || !versionId) return
+    if (!isDirty || !repoId || !versionId) return
     setIsSaving(true)
     try {
       let imageFile: File | undefined
@@ -431,6 +453,8 @@ function PersonaConfigureProfileContent() {
         imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
       }
       await updateVersion({ repoId, versionId, name: personaName, prompt: personaDescription, ...(imageFile ? { image: imageFile } : {}) })
+      isDirtyRef.current = false
+      setIsDirty(false)
       toast.success('Profile saved')
     } catch (err) {
       console.error('[ProfilePage] save error:', err)
@@ -442,17 +466,29 @@ function PersonaConfigureProfileContent() {
 
   async function handlePublish() {
     if (!repoId || !versionId) return
+    const storedLiveId = typeof window !== 'undefined' ? sessionStorage.getItem(publishedVersionKey(repoId)) : null
+    const wasPublished = !!storedLiveId
     setIsPublishing(true)
     try {
       let imageFile: File | undefined
       if (avatarUrl?.startsWith('data:')) {
         imageFile = dataUrlToFile(avatarUrl, 'avatar.jpg')
       }
-      if (imageFile || personaName || personaDescription) {
+      if (isDirty || imageFile) {
         await updateVersion({ repoId, versionId, name: personaName, prompt: personaDescription, ...(imageFile ? { image: imageFile } : {}) })
+        isDirtyRef.current = false
+        setIsDirty(false)
       }
       await setActiveVersion(repoId, versionId)
-      push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      bustPersonasCache()
+      if (typeof window !== 'undefined') sessionStorage.setItem(publishedVersionKey(repoId), versionId)
+
+      if (wasPublished) {
+        toast.success(`"${personaName}" is now live with the latest changes`)
+        setRepublishModalOpen(true)
+      } else {
+        push(`/personas/published?name=${encodeURIComponent(personaName)}&repoId=${repoId}`)
+      }
     } catch (err) {
       console.error('[ProfilePage] publish error:', err)
       toast.error('Failed to publish')
@@ -463,9 +499,7 @@ function PersonaConfigureProfileContent() {
 
   const handleTabClick = (tab: Tab) => {
     const route = TAB_ROUTES[tab]
-    if (route) {
-      push(`${route}?${searchParams.toString()}`)
-    }
+    if (route) safeNavigate(`${route}?${searchParams.toString()}`)
   }
 
   return (
@@ -516,7 +550,7 @@ function PersonaConfigureProfileContent() {
                 size="md"
                 icon={<ArrowLeftOneIcon size={20} />}
                 aria-label="Go back"
-                onClick={() => back()}
+                onClick={safeBack}
               />
             </div>
 
@@ -600,7 +634,7 @@ function PersonaConfigureProfileContent() {
                   icon={<QuillWriteOneIcon size={16} />}
                   aria-label="Save version"
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={!isDirty || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 />
               ) : (
@@ -609,7 +643,7 @@ function PersonaConfigureProfileContent() {
                   size="sm"
                   leftIcon={<QuillWriteOneIcon size={16} />}
                   onClick={handleSaveVersion}
-                  disabled={!repoId || !versionId || isSaving}
+                  disabled={!isDirty || !repoId || !versionId || isSaving}
                   loading={isSaving}
                 >
                   {isSaving ? 'Saving…' : 'Save version'}
@@ -654,19 +688,19 @@ function PersonaConfigureProfileContent() {
           >
             <ProfileTab
               avatarUrl={avatarUrl}
-              onAvatarChange={setAvatarUrl}
+              onAvatarChange={v => { setAvatarUrl(v); markDirty() }}
               personaName={personaName}
-              onPersonaNameChange={setPersonaName}
+              onPersonaNameChange={v => { setPersonaName(v); markDirty() }}
               personaHandle={personaHandle}
-              onPersonaHandleChange={setPersonaHandle}
+              onPersonaHandleChange={v => { setPersonaHandle(v); markDirty() }}
               personaDescription={personaDescription}
-              onPersonaDescriptionChange={setPersonaDescription}
+              onPersonaDescriptionChange={v => { setPersonaDescription(v); markDirty() }}
               personaTags={personaTags}
-              onPersonaTagsChange={setPersonaTags}
+              onPersonaTagsChange={v => { setPersonaTags(v); markDirty() }}
               isMultilingual={isMultilingual}
-              onIsMultilingualChange={setIsMultilingual}
+              onIsMultilingualChange={v => { setIsMultilingual(v); markDirty() }}
               selectedLanguages={selectedLanguages}
-              onSelectedLanguagesChange={setSelectedLanguages}
+              onSelectedLanguagesChange={v => { setSelectedLanguages(v); markDirty() }}
             />
             <div style={{ height: 24, flexShrink: 0 }} />
           </div>
@@ -877,6 +911,15 @@ function PersonaConfigureProfileContent() {
           </m.div>
         )}
       </AnimatePresence>
+
+      {republishModalOpen && (
+        <RepublishModal
+          personaName={personaName || 'Persona'}
+          superLinkActive={false}
+          onClose={() => setRepublishModalOpen(false)}
+          onDone={() => { setRepublishModalOpen(false); push('/personas') }}
+        />
+      )}
 
       {/* ── Versions panel ─────────────────────────────────────────────────── */}
       <AnimatePresence>

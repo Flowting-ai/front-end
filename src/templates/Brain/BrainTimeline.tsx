@@ -9,6 +9,8 @@ import {
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { springs } from '@/lib/springs'
+import { Badge, type BadgeColor } from '@/components/Badge'
+import { Chip, type ChipColor } from '@/components/Chip'
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 
@@ -39,17 +41,12 @@ export interface BrainTimelineProps {
   showDone?: boolean
 }
 
-// ── Chip colour maps ─────────────────────────────────────────────────────────────
+// ── KDS colour maps ─────────────────────────────────────────────────────────────
 
-const CHIP_BG: Record<BrainTimelineResultVariant, string> = {
-  default: 'var(--neutral-100)',
-  success: 'var(--color-tag-Green-bg, #e8f5e9)',
-  error:   'var(--color-tag-Red-bg, #ffebee)',
-}
-const CHIP_COLOR: Record<BrainTimelineResultVariant, string> = {
-  default: 'var(--neutral-500)',
-  success: 'var(--color-tag-Green-text)',
-  error:   'var(--color-tag-Red-text)',
+const RESULT_COLOR: Record<BrainTimelineResultVariant, BadgeColor & ChipColor> = {
+  default: 'Neutral',
+  success: 'Green',
+  error:   'Red',
 }
 
 // ── TimelineRow ─────────────────────────────────────────────────────────────────
@@ -138,56 +135,26 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
 
           {result && (
             result.details ? (
-              <button
-                type="button"
-                className="brain-timeline-chip"
+              <Chip
+                size="Small"
+                color={RESULT_COLOR[variant]}
+                label={result.label}
+                onExpand={() => setChipOpen(o => !o)}
+                rightLabel={chipOpen ? 'Hide details' : 'Show details'}
+                rightIcon={
+                  <m.span
+                    animate={{ rotate: chipOpen ? 180 : 0 }}
+                    transition={springs.fast}
+                    style={{ display: 'inline-flex', lineHeight: 0 }}
+                  >
+                    <ArrowDownOneIcon size={14} color="var(--chip-text)" />
+                  </m.span>
+                }
                 aria-expanded={chipOpen}
                 aria-controls={detailsId}
-                aria-label={`${result.label} — ${chipOpen ? 'hide' : 'show'} details`}
-                onClick={() => setChipOpen(o => !o)}
-                style={{
-                  display:         'inline-flex',
-                  alignItems:      'center',
-                  gap:             4,
-                  padding:         '2px 8px',
-                  borderRadius:    999,
-                  border:          'none',
-                  // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-                  outline:         'none',
-                  backgroundColor: CHIP_BG[variant],
-                  color:           CHIP_COLOR[variant],
-                  fontFamily:      'var(--font-body)',
-                  fontSize:        'var(--font-size-caption)',
-                  fontWeight:      'var(--font-weight-medium)',
-                  lineHeight:      'var(--line-height-caption)',
-                  cursor:          'pointer',
-                  flexShrink:      0,
-                }}
-              >
-                {result.label}
-                <m.span
-                  animate={{ rotate: chipOpen ? 180 : 0 }}
-                  transition={springs.fast}
-                  style={{ lineHeight: 0, display: 'inline-flex' }}
-                >
-                  <ArrowDownOneIcon size={10} color={CHIP_COLOR[variant]} />
-                </m.span>
-              </button>
+              />
             ) : (
-              <span style={{
-                display:         'inline-flex',
-                padding:         '2px 8px',
-                borderRadius:    999,
-                backgroundColor: CHIP_BG[variant],
-                color:           CHIP_COLOR[variant],
-                fontFamily:      'var(--font-body)',
-                fontSize:        'var(--font-size-caption)',
-                fontWeight:      'var(--font-weight-medium)',
-                lineHeight:      'var(--line-height-caption)',
-                flexShrink:      0,
-              }}>
-                {result.label}
-              </span>
+              <Badge color={RESULT_COLOR[variant]} label={result.label} />
             )
           )}
         </div>
@@ -204,6 +171,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
               style={{ overflow: 'hidden' }}
             >
               <pre
+                tabIndex={-1}
                 className="kaya-scrollbar"
                 style={{
                   margin:              0,
@@ -217,6 +185,7 @@ function TimelineRow({ item, isLast }: { item: BrainTimelineItem; isLast: boolea
                   color:               'var(--neutral-600)',
                   overflowX:           'auto',
                   overscrollBehaviorX: 'contain',
+                  outline:             'none',
                   whiteSpace:          'pre-wrap',
                   wordBreak:           'break-word',
                   boxSizing:           'border-box',

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
+import { TEMPLATE_PRESETS } from '../../_data/template-presets'
 
 // ── Session-storage key ────────────────────────────────────────────────────
 
@@ -108,7 +109,17 @@ function TonePageContent() {
   const searchParams = useSearchParams()
   const template = searchParams.get('template') ?? ''
 
-  const [selectedTone, setSelectedTone] = useState<string | null>(null)
+  const [selectedTone, setSelectedTone] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
+      // Restore if same template (back navigation)
+      if (draft.template === template && draft.tone) return draft.tone
+      // Pre-select from template preset on first visit
+      if (template) return TEMPLATE_PRESETS[template]?.tone ?? null
+      return null
+    } catch { return null }
+  })
   const [displayName, setDisplayName] = useState('{name}')
 
   // Read persona name from sessionStorage (stored by the name page)

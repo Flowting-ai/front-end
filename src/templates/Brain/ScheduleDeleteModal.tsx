@@ -120,27 +120,9 @@ export function ScheduleDeleteModal({
               <Button variant="ghost" size="sm" onClick={onClose}>
                 Cancel
               </Button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                style={{
-                  fontFamily:      'var(--font-body)',
-                  fontSize:        'var(--font-size-body)',
-                  fontWeight:      'var(--font-weight-medium)',
-                  lineHeight:      'var(--line-height-body)',
-                  color:           'var(--color-tag-Red-text, #c0392b)',
-                  backgroundColor: 'transparent',
-                  border:          '1px solid var(--color-tag-Red-bg, #fde8e8)',
-                  borderRadius:    8,
-                  padding:         '6px 14px',
-                  cursor:          'pointer',
-                  transition:      'background-color 0.12s ease',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-tag-Red-bg, #fde8e8)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
+              <Button variant="danger" size="sm" onClick={handleConfirm}>
                 Delete schedule
-              </button>
+              </Button>
             </div>
 
           </m.div>

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Badge } from '@/components/Badge'
 
 // ── Answer display types ─────────────────────────────────────────────────────────
 // Mirrors QuestionCard's three input types + open-ended + skipped.
@@ -25,28 +26,6 @@ export interface ClarificationSummaryProps {
   items: ClarificationSummaryItem[]
 }
 
-// ── Chip — shared pill style for multi + rank answers ───────────────────────────
-
-function AnswerChip({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      display:         'inline-flex',
-      alignItems:      'center',
-      gap:             4,
-      padding:         '2px 8px',
-      borderRadius:    999,
-      backgroundColor: 'var(--neutral-100)',
-      color:           'var(--neutral-500)',
-      fontFamily:      'var(--font-body)',
-      fontSize:        'var(--font-size-caption)',
-      fontWeight:      'var(--font-weight-medium)',
-      lineHeight:      'var(--line-height-caption)',
-    }}>
-      {children}
-    </span>
-  )
-}
-
 // ── AnswerDisplay ────────────────────────────────────────────────────────────────
 
 function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string }) {
@@ -59,7 +38,7 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
         fontFamily: 'var(--font-body)',
         fontSize:   'var(--font-size-body)',
         lineHeight: 'var(--line-height-body)',
-        color:      'var(--neutral-300)',
+        color:      'var(--neutral-400)',
       }}>
         Skipped
       </span>
@@ -68,9 +47,10 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
 
   if (display.type === 'multi') {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {display.values.map((v) => (
-          <AnswerChip key={v}>{v}</AnswerChip>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {display.values.map((v, i) => (
+          // eslint-disable-next-line react-doctor/no-array-index-as-key -- answer values are static, index is stable
+          <Badge key={i} color="Neutral" label={v} />
         ))}
       </div>
     )
@@ -78,14 +58,10 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
 
   if (display.type === 'rank') {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {display.items.map((v, i) => (
-          <AnswerChip key={v}>
-            <span style={{ color: 'var(--neutral-400)', fontWeight: 'var(--font-weight-medium)' }}>
-              {i + 1}
-            </span>
-            {v}
-          </AnswerChip>
+          // eslint-disable-next-line react-doctor/no-array-index-as-key -- ranked items are static, index is stable
+          <Badge key={i} color="Neutral" label={`${i + 1} ${v}`} />
         ))}
       </div>
     )
@@ -97,7 +73,7 @@ function AnswerDisplay({ answer }: { answer: ClarificationAnswerDisplay | string
       fontFamily: 'var(--font-body)',
       fontSize:   'var(--font-size-body)',
       lineHeight: 'var(--line-height-body)',
-      color:      'var(--neutral-500)',
+      color:      'var(--neutral-600)',
     }}>
       {display.value}
     </span>

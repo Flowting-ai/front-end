@@ -27,12 +27,12 @@ const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const MINUTES = ['00', '15', '30', '45']
 
-function pad2(n: number) { return String(n).padStart(2, '0') }
-
 function formatFrequency(type: FrequencyType, hour: number, minute: string, day: DayOfWeek): string {
-  const time = `${pad2(hour)}:${minute}`
-  if (type === 'daily') return `Daily · ${time}`
-  return `Weekly · ${day} · ${time}`
+  const period = hour < 12 ? 'AM' : 'PM'
+  const h12    = hour % 12 === 0 ? 12 : hour % 12
+  const time   = `${h12}:${minute} ${period}`
+  if (type === 'daily') return `Daily • ${time}`
+  return `Weekly • ${day} ${time}`
 }
 
 // ── Input styles ──────────────────────────────────────────────────────────────
@@ -257,7 +257,7 @@ export function ScheduleEditModal({
                   onChange={e => setHour(Number(e.target.value))}
                   style={selectStyle}
                 >
-                  {HOURS.map(h => <option key={h} value={h}>{pad2(h)}:00</option>)}
+                  {HOURS.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
                 </select>
                 <select
                   value={minute}

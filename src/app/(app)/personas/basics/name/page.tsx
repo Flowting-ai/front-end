@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { WizardShell, STEPS_BASICS } from '../../_components/WizardShell'
+import { TEMPLATE_PRESETS } from '../../_data/template-presets'
 
 // ── Session-storage key (shared across wizard pages) ─────────────────────────
 
@@ -24,11 +25,14 @@ function NamePageContent() {
   const template = searchParams.get('template') ?? ''
 
   const [name, setName] = useState(() => {
-    // Prefill from sessionStorage if user navigated back
     if (typeof window === 'undefined') return ''
     try {
       const draft = JSON.parse(sessionStorage.getItem(WIZARD_KEY) ?? '{}')
-      return draft.name ?? ''
+      // Restore if same template (back navigation)
+      if (draft.template === template && draft.name) return draft.name
+      // Pre-fill from template preset on first visit
+      if (template) return TEMPLATE_PRESETS[template]?.name ?? ''
+      return ''
     } catch { return '' }
   })
 

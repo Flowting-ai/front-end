@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import { AnimatePresence, m } from 'framer-motion'
-import { UserIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { UserIcon, ArrowRightOneIcon, TickTwoIcon } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
+import { Badge } from '@/components/Badge'
 import { springs } from '@/lib/springs'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -251,25 +251,30 @@ export function PersonaSelectionCard({
         gap:           0,
         borderRadius:  12,
         border:        '1px solid var(--neutral-200)',
-        overflow:      'hidden',
       }}>
         {personas.map((p, i) => {
           const isSelected    = p.id === selected
           const isRecommended = p.id === recommendedId
           const avatarSrc     = p.avatarUrl ?? getFallbackAvatar(p.name)
+          const isFirst       = i === 0
+          const isLast        = i === personas.length - 1
 
           return (
             <label
               key={p.id}
               style={{
-                display:         'flex',
-                alignItems:      'flex-start',
-                gap:             10,
-                padding:         '12px 14px',
-                borderTop:       i > 0 ? '1px solid var(--neutral-200)' : 'none',
-                cursor:          'pointer',
-                backgroundColor: isSelected ? 'var(--neutral-50)' : 'var(--neutral-white)',
-                transition:      'background-color 0.12s ease',
+                display:               'flex',
+                alignItems:            'center',
+                gap:                   10,
+                padding:               '12px 14px',
+                borderTop:             i > 0 ? '1px solid var(--neutral-200)' : 'none',
+                cursor:                'pointer',
+                backgroundColor:       isSelected ? 'var(--neutral-50)' : 'var(--neutral-white)',
+                transition:            'background-color 150ms ease',
+                borderTopLeftRadius:   isFirst ? 12 : 0,
+                borderTopRightRadius:  isFirst ? 12 : 0,
+                borderBottomLeftRadius:  isLast ? 12 : 0,
+                borderBottomRightRadius: isLast ? 12 : 0,
               }}
             >
               <input
@@ -281,22 +286,38 @@ export function PersonaSelectionCard({
                 style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
               />
 
-              {/* Custom radio indicator */}
+              {/* Number / checkmark indicator */}
               <div style={{
-                width:           14,
-                height:          14,
-                borderRadius:    999,
-                border:          isSelected ? '4px solid var(--neutral-700)' : '1.5px solid var(--neutral-300)',
+                width:           22,
+                height:          22,
+                borderRadius:    6,
+                border:          isSelected ? 'none' : '1.5px solid var(--neutral-200)',
                 flexShrink:      0,
-                backgroundColor: isSelected ? 'var(--neutral-white)' : 'transparent',
+                backgroundColor: isSelected ? 'var(--neutral-800)' : 'transparent',
                 boxSizing:       'border-box',
-                transition:      'border 0.12s ease',
-                marginTop:       3,
-              }} />
+                transition:      'background-color 150ms ease, border 150ms ease',
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+              }}>
+                {isSelected ? (
+                  <TickTwoIcon size={12} color="var(--neutral-white)" />
+                ) : (
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   '11px',
+                    fontWeight: 'var(--font-weight-medium)',
+                    lineHeight: 1,
+                    color:      'var(--neutral-400)',
+                  }}>
+                    {i + 1}
+                  </span>
+                )}
+              </div>
 
               {/* Avatar */}
               <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                <Image src={avatarSrc} alt="" fill sizes="44px" unoptimized style={{ objectFit: 'cover', display: 'block' }} />
+                <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               </div>
 
               {/* Name · handle · description */}
@@ -309,25 +330,12 @@ export function PersonaSelectionCard({
                     fontWeight: 'var(--font-weight-medium)',
                     lineHeight: 'var(--line-height-body)',
                     color:      isSelected ? 'var(--neutral-800)' : 'var(--neutral-600)',
-                    transition: 'color 0.12s ease',
+                    transition: 'color 150ms ease',
                   }}>
                     {p.name}
                   </span>
                   {isRecommended && (
-                    <span style={{
-                      display:         'inline-flex',
-                      padding:         '1px 7px',
-                      borderRadius:    999,
-                      backgroundColor: 'var(--neutral-100)',
-                      fontFamily:      'var(--font-body)',
-                      fontSize:        'var(--font-size-caption)',
-                      fontWeight:      'var(--font-weight-medium)',
-                      lineHeight:      'var(--line-height-caption)',
-                      color:           'var(--neutral-500)',
-                      flexShrink:      0,
-                    }}>
-                      Recommended
-                    </span>
+                    <Badge color="Neutral" label="Recommended" />
                   )}
                 </div>
 
@@ -342,15 +350,11 @@ export function PersonaSelectionCard({
 
                 {p.description && (
                   <span style={{
-                    marginTop:       2,
-                    fontFamily:      'var(--font-body)',
-                    fontSize:        'var(--font-size-caption)',
-                    lineHeight:      'var(--line-height-caption)',
-                    color:           'var(--neutral-500)',
-                    display:         '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow:        'hidden',
+                    marginTop:  2,
+                    fontFamily: 'var(--font-body)',
+                    fontSize:   'var(--font-size-caption)',
+                    lineHeight: 'var(--line-height-caption)',
+                    color:      'var(--neutral-500)',
                   }}>
                     {p.description}
                   </span>

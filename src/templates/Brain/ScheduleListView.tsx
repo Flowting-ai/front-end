@@ -29,6 +29,7 @@ function SuggestionChip({ label, onClick }: { label: string; onClick?: () => voi
   return (
     <button
       type="button"
+      className="brain-card-action"
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

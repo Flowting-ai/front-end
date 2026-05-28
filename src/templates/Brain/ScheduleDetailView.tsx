@@ -10,16 +10,18 @@ import {
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
+import { Badge } from '@/components/Badge'
 import { LoopHistoryCard } from './LoopHistoryCard'
 import type { PlanStep } from './lib/phase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ScheduleRunRecord {
-  id:           string
-  label:        string     // e.g. "Today · 8:00 AM" — shown in run card header
-  steps:        PlanStep[]
-  completedAt?: Date
+  id:            string
+  label:         string     // e.g. "Today · 8:00 AM" — shown in run card header
+  steps:         PlanStep[]
+  completedAt?:  Date
+  onViewThread?: () => void  // navigate to the full thread for this run
 }
 
 export interface ScheduleDetailItem {
@@ -159,20 +161,7 @@ export function ScheduleDetailView({
       }}>
         <Toggle checked={isActive} onChange={handleToggle} />
 
-        <span style={{
-          display:         'inline-flex',
-          padding:         '2px 8px',
-          borderRadius:    999,
-          backgroundColor: isActive ? 'var(--color-tag-Green-bg, #e8f5e9)' : 'var(--neutral-100)',
-          fontFamily:      'var(--font-body)',
-          fontSize:        'var(--font-size-caption)',
-          fontWeight:      'var(--font-weight-medium)',
-          lineHeight:      'var(--line-height-caption)',
-          color:           isActive ? 'var(--color-tag-Green-text, #1e8a3c)' : 'var(--neutral-400)',
-          transition:      'background-color 0.15s ease, color 0.15s ease',
-        }}>
-          {isActive ? 'Active' : 'Paused'}
-        </span>
+        <Badge color={isActive ? 'Green' : 'Neutral'} label={isActive ? 'Active' : 'Paused'} />
 
         <span style={{ width: 1, height: 14, backgroundColor: 'var(--neutral-200)', flexShrink: 0 }} />
 
@@ -331,19 +320,7 @@ export function ScheduleDetailView({
             Run history
           </span>
           {history.length > 0 && (
-            <span style={{
-              display:         'inline-flex',
-              padding:         '1px 7px',
-              borderRadius:    999,
-              backgroundColor: 'var(--neutral-100)',
-              fontFamily:      'var(--font-body)',
-              fontSize:        'var(--font-size-caption)',
-              fontWeight:      'var(--font-weight-medium)',
-              lineHeight:      'var(--line-height-caption)',
-              color:           'var(--neutral-400)',
-            }}>
-              {history.length}
-            </span>
+            <Badge color="Neutral" label={String(history.length)} />
           )}
         </div>
 
@@ -364,12 +341,37 @@ export function ScheduleDetailView({
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {history.map(run => (
-              <LoopHistoryCard
-                key={run.id}
-                steps={run.steps}
-                completedAt={run.completedAt}
-                runLabel={run.label}
-              />
+              <div key={run.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <LoopHistoryCard
+                  steps={run.steps}
+                  completedAt={run.completedAt}
+                  runLabel={run.label}
+                />
+                {run.onViewThread && (
+                  <button
+                    type="button"
+                    onClick={run.onViewThread}
+                    style={{
+                      display:         'inline-flex',
+                      alignItems:      'center',
+                      gap:             3,
+                      alignSelf:       'flex-end',
+                      background:      'none',
+                      border:          'none',
+                      padding:         '2px 4px',
+                      cursor:          'pointer',
+                      fontFamily:      'var(--font-body)',
+                      fontSize:        'var(--font-size-caption)',
+                      fontWeight:      'var(--font-weight-medium)',
+                      lineHeight:      'var(--line-height-caption)',
+                      color:           'var(--neutral-400)',
+                    }}
+                  >
+                    View full thread
+                    <ArrowRightOneIcon size={12} color="var(--neutral-400)" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}
