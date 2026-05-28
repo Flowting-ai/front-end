@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { m, AnimatePresence } from 'framer-motion'
 import { InformationCircleIcon, FolderOneIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/Button'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -138,57 +139,6 @@ function ProjectRow({ project, selected, onSelect }: ProjectRowProps) {
           }} />
         )}
       </div>
-    </button>
-  )
-}
-
-// ── ModalButton ───────────────────────────────────────────────────────────────
-
-interface ModalButtonProps {
-  children:  React.ReactNode
-  variant?:  'ghost' | 'primary'
-  disabled?: boolean
-  onClick?:  () => void
-}
-
-function ModalButton({ children, variant = 'ghost', disabled = false, onClick }: ModalButtonProps) {
-  const [hovered, setHovered] = useState(false)
-  const isPrimary = variant === 'primary'
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      onMouseEnter={() => !disabled && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         '8px 16px',
-        borderRadius:    10,
-        border:          'none',
-        backgroundColor: isPrimary
-          ? disabled ? 'var(--neutral-200)' : hovered ? 'var(--neutral-900)' : 'var(--neutral-800)'
-          : hovered ? 'var(--neutral-100)' : 'transparent',
-        boxShadow: isPrimary && !disabled
-          ? '0px 1px 2px 0px rgba(82,75,71,0.16), 0px 0px 0px 1px rgba(59,54,50,0.12)'
-          : 'none',
-        fontFamily:  'var(--font-body)',
-        fontSize:    'var(--font-size-body)',
-        fontWeight:  500,
-        lineHeight:  'var(--line-height-body)',
-        color:       isPrimary
-          ? disabled ? 'var(--neutral-400)' : 'var(--neutral-white)'
-          : 'var(--neutral-600)',
-        cursor:      disabled ? 'not-allowed' : 'pointer',
-        transition:  'background-color 120ms, box-shadow 120ms',
-        whiteSpace:  'nowrap',
-        flexShrink:  0,
-      }}
-    >
-      {children}
     </button>
   )
 }
@@ -388,12 +338,12 @@ export function MoveToProjectModal({
               padding:        '12px 16px 16px',
               borderTop:      '1px solid var(--neutral-100)',
             }}>
-              <ModalButton variant="ghost" onClick={handleClose}>
+              <Button variant="ghost" onClick={handleClose}>
                 Cancel
-              </ModalButton>
-              <ModalButton variant="primary" disabled={!selectedId} onClick={handleConfirm}>
+              </Button>
+              <Button variant="default" disabled={!selectedId} onClick={handleConfirm}>
                 Move to project
-              </ModalButton>
+              </Button>
             </div>
 
           </m.div>

@@ -1428,7 +1428,7 @@ function PinboardExpandedImpl({ onClose, onExport }: PinboardExpandedProps) {
             style={{
               position:        'fixed',
               inset:           0,
-              zIndex:          20,
+              zIndex:          51,
               display:         'flex',
               alignItems:      'center',
               justifyContent:  'center',

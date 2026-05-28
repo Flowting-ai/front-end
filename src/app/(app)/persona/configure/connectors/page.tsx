@@ -5,6 +5,8 @@ import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { updateVersion, listVersions, type PersonaVersionListItem } from '@/lib/api/personas'
+import { listConnectors } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -17,10 +19,12 @@ import {
   CancelOneIcon,
   ExpandIcon,
   ViewOffSlashIcon,
+  ArrowShrinkTwoIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
+import { Dropdown } from '@/components/Dropdown'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -188,12 +192,24 @@ function PersonaConfigureConnectorsContent() {
   const repoId      = searchParams.get('repoId')    ?? ''
   const versionId   = searchParams.get('versionId') ?? ''
 
-  const [testChatOpen,    setTestChatOpen]    = useState(false)
-  const [versionsOpen,    setVersionsOpen]    = useState(false)
-  const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
-  const [versionsLoading, setVersionsLoading] = useState(false)
-  const [restoringId,     setRestoringId]     = useState<string | null>(null)
-  const [isSaving,        setIsSaving]        = useState(false)
+  const [testChatOpen,       setTestChatOpen]       = useState(false)
+  const [testChatExpanded,   setTestChatExpanded]   = useState(false)
+  const [versionsOpen,       setVersionsOpen]       = useState(false)
+  const [versions,           setVersions]           = useState<PersonaVersionListItem[]>([])
+  const [versionsLoading,    setVersionsLoading]    = useState(false)
+  const [restoringId,        setRestoringId]        = useState<string | null>(null)
+  const [isSaving,           setIsSaving]           = useState(false)
+  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
+  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
+  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
+
+  useEffect(() => {
+    if (!testChatOpen) return
+    if (connectorCatalog.length > 0) return
+    listConnectors()
+      .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
+      .catch(() => {})
+  }, [testChatOpen])
 
   useEffect(() => {
     if (!versionsOpen || !repoId) return
@@ -433,7 +449,7 @@ function PersonaConfigureConnectorsContent() {
 
       {/* ── Test chat panel (slides in from right) ─────────────────────────── */}
       <AnimatePresence>
-        {testChatOpen && (
+        {testChatOpen && !testChatExpanded && (
           <m.div
             key="test-chat"
             initial={{ width: 0, opacity: 0 }}
@@ -489,28 +505,66 @@ function PersonaConfigureConnectorsContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {/* <div style={{ opacity: 0.7 }}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<ViewOffSlashIcon size={16} />}
-                    rightIcon={<ArrowDownOneIcon size={16} />}
-                  >
-                    Mock connector
-                  </Button>
-                </div>
+                <Dropdown.Float
+                  open={mockDropdownOpen}
+                  onOpenChange={setMockDropdownOpen}
+                  placement="bottom-end"
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<ViewOffSlashIcon size={16} />}
+                      rightIcon={<ArrowDownOneIcon size={16} />}
+                    >
+                      {mockedConnectors.size === 0
+                        ? 'Mock connector'
+                        : mockedConnectors.size === 1
+                          ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
+                          : `Mocking ${mockedConnectors.size}`}
+                    </Button>
+                  }
+                >
+                  <Dropdown size="md">
+                    <Dropdown.Section
+                      label="Mock connectors"
+                      fluid
+                    >
+                      {connectorCatalog.length === 0
+                        ? <Dropdown.Item label="No connected connectors" fluid disabled />
+                        : connectorCatalog.map(c => (
+                          <Dropdown.Item
+                            key={c.slug}
+                            label={c.display_name}
+                            fluid
+                            showCheckbox
+                            checkboxChecked={mockedConnectors.has(c.slug)}
+                            onCheckboxChange={() => {
+                              setMockedConnectors(prev => {
+                                const next = new Set(prev)
+                                if (next.has(c.slug)) next.delete(c.slug)
+                                else next.add(c.slug)
+                                return next
+                              })
+                            }}
+                          />
+                        ))
+                      }
+                    </Dropdown.Section>
+                  </Dropdown>
+                </Dropdown.Float>
                 <IconButton
                   variant="outline"
                   size="md"
-                  icon={<ExpandIcon size={20} />}
-                  aria-label="Expand test chat"
-                /> */}
+                  icon={testChatExpanded ? <ArrowShrinkTwoIcon size={20} /> : <ExpandIcon size={20} />}
+                  aria-label={testChatExpanded ? 'Collapse test chat' : 'Expand test chat'}
+                  onClick={() => setTestChatExpanded(e => !e)}
+                />
                 <IconButton
                   variant="outline"
                   size="md"
                   icon={<CancelOneIcon size={20} />}
                   aria-label="Close test chat"
-                  onClick={() => setTestChatOpen(false)}
+                  onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }}
                 />
               </div>
             </div>
@@ -548,6 +602,137 @@ function PersonaConfigureConnectorsContent() {
                 modelName="Souvenir"
               />
             </div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Test chat expanded overlay ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {testChatOpen && testChatExpanded && (
+          <m.div
+            key="test-chat-expanded"
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) setTestChatExpanded(false) }}
+          >
+            <m.div
+              initial={{ y: 16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 8, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
+              style={{
+                width: 'min(780px, 90vw)',
+                height: 'min(680px, 85vh)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                backgroundColor: 'var(--neutral-white)',
+                border: '1px solid var(--neutral-200)',
+                borderRadius: 20,
+                padding: 16,
+                overflow: 'hidden',
+                boxShadow: '0px 24px 48px rgba(0,0,0,0.18), 0px 0px 0px 1px rgba(59,54,50,0.08)',
+              }}
+            >
+              {/* Expanded chat header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }} />
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+                    {personaName || 'Name'}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <Dropdown.Float
+                    open={mockDropdownOpen}
+                    onOpenChange={setMockDropdownOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<ViewOffSlashIcon size={16} />}
+                        rightIcon={<ArrowDownOneIcon size={16} />}
+                      >
+                        {mockedConnectors.size === 0
+                          ? 'Mock connector'
+                          : mockedConnectors.size === 1
+                            ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
+                            : `Mocking ${mockedConnectors.size}`}
+                      </Button>
+                    }
+                  >
+                    <Dropdown size="md">
+                      <Dropdown.Section label="Mock connectors" fluid>
+                        {connectorCatalog.length === 0
+                          ? <Dropdown.Item label="No connected connectors" fluid disabled />
+                          : connectorCatalog.map(c => (
+                            <Dropdown.Item
+                              key={c.slug}
+                              label={c.display_name}
+                              fluid
+                              showCheckbox
+                              checkboxChecked={mockedConnectors.has(c.slug)}
+                              onCheckboxChange={() => {
+                                setMockedConnectors(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(c.slug)) next.delete(c.slug)
+                                  else next.add(c.slug)
+                                  return next
+                                })
+                              }}
+                            />
+                          ))
+                        }
+                      </Dropdown.Section>
+                    </Dropdown>
+                  </Dropdown.Float>
+                  <IconButton
+                    variant="outline"
+                    size="md"
+                    icon={<ArrowShrinkTwoIcon size={20} />}
+                    aria-label="Collapse test chat"
+                    onClick={() => setTestChatExpanded(false)}
+                  />
+                  <IconButton
+                    variant="outline"
+                    size="md"
+                    icon={<CancelOneIcon size={20} />}
+                    aria-label="Close test chat"
+                    onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }}
+                  />
+                </div>
+              </div>
+
+              {/* Messages area */}
+              <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                  {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
+                </p>
+              </div>
+
+              {/* Chat input */}
+              <div style={{ flexShrink: 0 }}>
+                <ChatInput
+                  placeholder={`Message ${personaName || 'persona'}...`}
+                  textareaLabel="Test message"
+                  modelName="Souvenir"
+                />
+              </div>
+            </m.div>
           </m.div>
         )}
       </AnimatePresence>

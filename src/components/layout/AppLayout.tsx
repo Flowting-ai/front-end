@@ -91,13 +91,13 @@ export function AppLayout({
         />
       </Suspense>
 
-      {/* ── Center column - neutral-50 bg, 10px vertical padding ── */}
+      {/* ── Center column - neutral-50 bg, 10px vertical padding, 10px right gap (removed when any panel is open) ── */}
       <div
         style={{
           flex:            "1 0 0",
           minWidth:        0,
           display:         "flex",
-          padding:         "10px 0",
+          padding:         (pinboardOpen || highlightOpen) ? "10px 0" : "10px 10px 10px 0",
           backgroundColor: "var(--neutral-50)",
         }}
       >

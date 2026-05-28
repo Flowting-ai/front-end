@@ -50,7 +50,10 @@ export function useChatHistory(): UseChatHistoryResult {
     try {
       const cursor = reset ? undefined : cursorRef.current;
       const res = await listChats(cursor);
-      const incoming = res.chats ?? [];
+      // Exclude chats linked to a project — those belong to their project page,
+      // not the global chat list. project_id is set by the backend when a chat
+      // is successfully linked via POST /projects/{id}/chats/{chat_id}.
+      const incoming = (res.chats ?? []).filter((c) => !c.project_id);
       setChats((prev) => {
         if (reset) return incoming;
         // Deduplicate: skip entries that are already present in `prev`

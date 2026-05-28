@@ -897,7 +897,6 @@ function ChatPageInner() {
                           size="sm"
                           leftIcon={btn.icon}
                           disabled={btn.disabled}
-                          selected={selectedMode === btn.mode}
                           aria-pressed={selectedMode === btn.mode}
                           onClick={btn.disabled ? undefined : () =>
                             setSelectedMode((prev) => (prev === btn.mode ? null : btn.mode))

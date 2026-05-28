@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { PlusSignIcon, MoreVerticalIcon } from '@strange-huge/icons'
+import { PlusSignIcon } from '@strange-huge/icons'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/Button'
 import {
   listConnectors,
   initiateLink,
@@ -84,17 +85,6 @@ function XIcon() {
   )
 }
 
-function ChevronRightIcon({ rotated }: { rotated?: boolean }) {
-  return (
-    <svg
-      width="16" height="16" viewBox="0 0 16 16" fill="none"
-      style={{ transform: rotated ? 'rotate(90deg)' : undefined, transition: 'transform 200ms', flexShrink: 0 }}
-    >
-      <path d="M6 4L10 8L6 12" stroke="var(--neutral-400)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
 function SpinnerIcon({ size = 14 }: { size?: number }) {
   return (
     <svg
@@ -107,46 +97,46 @@ function SpinnerIcon({ size = 14 }: { size?: number }) {
   )
 }
 
+function DownloadIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 3v10M6 9l4 4 4-4M4 15h12" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function FilterIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M3 5h14M6 10h8M9 15h2" stroke="var(--neutral-500)" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function ChevronDownIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 // ── Connector icon / avatar ───────────────────────────────────────────────────
 
-const KNOWN_LOGOS = new Set<string>([
-  'gmail',
-  'googlecalendar',
-  'googledrive',
-  'googledocs',
-  'googlesheets',
-  'clickup',
-  'zoom',
-  'shopify',
-  'notion',
-])
-
-function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; size?: number }) {
+function ConnectorAvatar({ entry, size = 26 }: { entry: ConnectorCatalogEntry; size?: number }) {
   const localLogo = CONNECTOR_LOGO_MAP[entry.slug]
 
   if (localLogo) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset, variable path prevents next/image static analysis
-      <img
-        src={localLogo}
-        alt={entry.display_name}
-        width={size}
-        height={size}
-        style={{ objectFit: 'contain', flexShrink: 0 }}
-      />
+      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- local brand asset
+      <img src={localLogo} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
     )
   }
 
   if (entry.icon_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL, external domain not in next config
-      <img
-        src={entry.icon_url}
-        alt={entry.display_name}
-        width={size}
-        height={size}
-        style={{ objectFit: 'contain', flexShrink: 0 }}
-      />
+      // eslint-disable-next-line @next/next/no-img-element, react-doctor/nextjs-no-img-element -- dynamic connector icon URL
+      <img src={entry.icon_url} alt={entry.display_name} width={size} height={size} style={{ objectFit: 'contain', flexShrink: 0 }} />
     )
   }
 
@@ -154,21 +144,77 @@ function ConnectorAvatar({ entry, size = 32 }: { entry: ConnectorCatalogEntry; s
   const hue    = [...entry.slug].reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
   return (
     <div style={{
-      width:           size,
-      height:          size,
-      borderRadius:    6,
-      backgroundColor: `hsl(${hue} 60% 90%)`,
-      color:           `hsl(${hue} 60% 35%)`,
-      display:         'flex',
-      alignItems:      'center',
-      justifyContent:  'center',
-      fontFamily:      'var(--font-body)',
-      fontWeight:      700,
-      fontSize:        size * 0.45,
-      flexShrink:      0,
-      userSelect:      'none',
+      width: size, height: size, borderRadius: 4,
+      backgroundColor: `hsl(${hue} 60% 90%)`, color: `hsl(${hue} 60% 35%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: size * 0.45,
+      flexShrink: 0, userSelect: 'none',
     }}>
       {letter}
+    </div>
+  )
+}
+
+// ── Toggle switch ─────────────────────────────────────────────────────────────
+
+function ToggleSwitch({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={disabled}
+      aria-checked={on}
+      role="switch"
+      style={{
+        position: 'relative', display: 'inline-block',
+        width: 34, height: 20, borderRadius: 20,
+        border: 'none', padding: 0, cursor: disabled ? 'not-allowed' : 'pointer', flexShrink: 0,
+        backgroundColor: on ? '#6e98cb' : 'var(--neutral-200, #d1c6bd)',
+        boxShadow: on
+          ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.7)'
+          : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(106,98,93,0.3)',
+        transition: 'background-color 200ms',
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 2, left: on ? 16 : 2,
+        width: 16, height: 16, borderRadius: '50%',
+        backgroundColor: 'white',
+        boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px rgba(19,84,135,0.4)',
+        transition: 'left 200ms',
+      }} />
+    </button>
+  )
+}
+
+// ── Status badges ─────────────────────────────────────────────────────────────
+
+function OnBadge() {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      height: 20, padding: '2px 4px', borderRadius: 6,
+      backgroundColor: '#e9dfc9',
+      boxShadow: '0px 1px 1.5px 0px rgba(20,16,5,0.2), 0px 0px 0px 1px rgba(143,116,39,0.5)',
+    }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6d5921' }}>
+        ON
+      </span>
+    </div>
+  )
+}
+
+function ConnectedBadge() {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      height: 20, padding: '2px 4px', borderRadius: 6,
+      backgroundColor: 'var(--neutral-100, #ede1d7)',
+      boxShadow: '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)',
+      position: 'relative',
+    }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--neutral-700, #524b47)', position: 'relative' }}>
+        Connected
+      </span>
     </div>
   )
 }
@@ -207,22 +253,12 @@ function PolicyDropdown({ value, onChange, disabled }: {
         disabled={disabled}
         onClick={() => setOpen(o => !o)}
         style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          gap:             6,
-          padding:         '4px 10px',
-          borderRadius:    8,
-          border:          'none',
-          cursor:          disabled ? 'not-allowed' : 'pointer',
-          opacity:         disabled ? 0.5 : 1,
-          backgroundColor: 'white',
-          boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
-          fontFamily:      'var(--font-body)',
-          fontWeight:      500,
-          fontSize:        13,
-          lineHeight:      '20px',
-          color:           'var(--neutral-700)',
-          whiteSpace:      'nowrap',
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+          borderRadius: 8, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.5 : 1, backgroundColor: 'white',
+          boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-200)',
+          fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '20px',
+          color: 'var(--neutral-700)', whiteSpace: 'nowrap',
         }}
       >
         {value}
@@ -232,37 +268,24 @@ function PolicyDropdown({ value, onChange, disabled }: {
       </button>
       {open && (
         <>
-          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
+          {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- interactive div */}
           <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpen(false)} />
           <div style={{
-            position:        'absolute',
-            right:           0,
-            top:             'calc(100% + 4px)',
-            backgroundColor: 'white',
-            borderRadius:    10,
-            boxShadow:       '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
-            overflow:        'hidden',
-            zIndex:          20,
-            minWidth:        130,
+            position: 'absolute', right: 0, top: 'calc(100% + 4px)',
+            backgroundColor: 'white', borderRadius: 10,
+            boxShadow: '0px 4px 16px 0px rgba(38,33,30,0.12), 0px 0px 0px 1px var(--neutral-100)',
+            overflow: 'hidden', zIndex: 20, minWidth: 130,
           }}>
             {POLICY_OPTIONS.map(opt => (
               <button
                 key={opt}
                 onClick={() => { onChange(opt); setOpen(false) }}
                 style={{
-                  display:         'flex',
-                  width:           '100%',
-                  padding:         '8px 12px',
-                  border:          'none',
+                  display: 'flex', width: '100%', padding: '8px 12px', border: 'none',
                   backgroundColor: opt === value ? 'var(--neutral-50)' : 'transparent',
-                  cursor:          'pointer',
-                  fontFamily:      'var(--font-body)',
-                  fontWeight:      opt === value ? 500 : 400,
-                  fontSize:        13,
-                  lineHeight:      '20px',
-                  color:           'var(--neutral-700)',
-                  textAlign:       'left',
-                  whiteSpace:      'nowrap',
+                  cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: opt === value ? 500 : 400,
+                  fontSize: 13, lineHeight: '20px', color: 'var(--neutral-700)',
+                  textAlign: 'left', whiteSpace: 'nowrap',
                 }}
               >
                 {opt}
@@ -282,7 +305,7 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
   onClose:  () => void
   onUpdate: (updated: ConnectorCatalogEntry) => void
 }) {
-  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern
   const [tools,     setTools]     = useState<ConnectorTool[]>(entry.tools ?? [])
   const [saving,    setSaving]    = useState<string | null>(null)
   const [unlinking, setUnlinking] = useState(false)
@@ -299,7 +322,7 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
     setTools(prev => prev.map(t => t.slug === toolSlug ? { ...t, policy: apiPolicy } : t))
     setSaving(toolSlug)
     try {
-      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
+      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard
       const updated = await updateConnector(entry.slug, { permissions: [{ slug: toolSlug, policy: apiPolicy }] })
       if (abortedRef.current) return
       setTools(updated.tools ?? [])
@@ -318,7 +341,7 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
     if (abortedRef.current) return
     setUnlinking(true)
     try {
-      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard: check if unmounted after async call, not before
+      // eslint-disable-next-line react-doctor/async-defer-await -- abort-guard
       await unlinkConnector(entry.slug)
       if (abortedRef.current) return
       toast.success(`${entry.display_name} disconnected`)
@@ -337,38 +360,23 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
 
   return (
     <>
-      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop overlay; Escape handled in useEffect */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }}
-      />
+      {/* eslint-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- backdrop overlay */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(38,33,30,0.32)', zIndex: 50 }} />
       <div className="kaya-scrollbar" style={{
-        position:        'fixed',
-        top:             '50%',
-        left:            '50%',
-        transform:       'translate(-50%, -50%)',
-        zIndex:          51,
-        backgroundColor: 'white',
-        borderRadius:    16,
-        boxShadow:       '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
-        width:           680,
-        maxWidth:        'calc(100vw - 48px)',
-        maxHeight:       'calc(100vh - 96px)',
-        overflowY:       'auto',
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        zIndex: 51, backgroundColor: 'white', borderRadius: 16,
+        boxShadow: '0px 8px 32px 0px rgba(38,33,30,0.18), 0px 0px 0px 1px var(--neutral-100)',
+        width: 680, maxWidth: 'calc(100vw - 48px)', maxHeight: 'calc(100vh - 96px)', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px 16px', borderBottom: '1px solid var(--neutral-100)' }}>
-          <ConnectorAvatar entry={entry} size={36} />
+          <div style={{ width: 38, height: 38, backgroundColor: 'white', border: '1px solid var(--neutral-100)', borderRadius: 5, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ConnectorAvatar entry={entry} size={26} />
+          </div>
           <div style={{ flex: '1 0 0', minWidth: 0 }}>
             <h2 style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 18, lineHeight: '26px', color: 'var(--neutral-900)', margin: 0 }}>
               {entry.display_name}
             </h2>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', padding: '1px 6px', borderRadius: 6,
-              backgroundColor: 'var(--green-50)', boxShadow: '0px 0px 0px 1px rgba(128,183,7,0.4)',
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--green-800)',
-            }}>
-              Connected
-            </span>
+            <ConnectedBadge />
           </div>
           <button
             onClick={onClose}
@@ -389,7 +397,7 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
             Tool permissions
           </p>
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', margin: '0 0 16px' }}>
-            Choose when Brain is allowed to use each tool.
+            Choose when this persona is allowed to use each tool.
           </p>
 
           {tools.length === 0 ? (
@@ -419,7 +427,6 @@ function ToolPermissionsModal({ entry, onClose, onUpdate }: {
                   onClick={() => setExpanded(e => !e)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 0', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}
                 >
-                  <ChevronRightIcon rotated={expanded} />
                   {expanded ? 'Show less' : `Show ${tools.length - COLLAPSED_COUNT} more tools`}
                 </button>
               )}
@@ -540,7 +547,7 @@ function ApiKeyForm({ fields, values, onChange, onSubmit, onCancel, submitting }
 }) {
   const allFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {fields.map(field => (
         <div key={field.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <label style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-600)' }}>
@@ -552,7 +559,7 @@ function ApiKeyForm({ fields, values, onChange, onSubmit, onCancel, submitting }
             placeholder={field.help ?? field.label}
             value={values[field.name] ?? ''}
             onChange={e => onChange({ ...values, [field.name]: e.target.value })}
-            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
+            // eslint-disable-next-line react-doctor/no-outline-none -- focus-visible handled globally
             style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--neutral-300)', fontFamily: 'var(--font-body)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'white' }}
           />
         </div>
@@ -586,188 +593,244 @@ function ApiKeyForm({ fields, values, onChange, onSubmit, onCancel, submitting }
   )
 }
 
-// ── Connector card ────────────────────────────────────────────────────────────
+// ── Connector row (personal) ──────────────────────────────────────────────────
 
-function ConnectorCard({ entry, onManage, onUpdate }: {
-  entry:    ConnectorCatalogEntry
-  onManage: (e: ConnectorCatalogEntry) => void
-  onUpdate: (updated: ConnectorCatalogEntry) => void
+function ConnectorRow({ entry, isExpanded, onExpandToggle, onManage, onUpdate }: {
+  entry:          ConnectorCatalogEntry
+  isExpanded:     boolean
+  onExpandToggle: (slug: string) => void
+  onManage:       (e: ConnectorCatalogEntry) => void
+  onUpdate:       (updated: ConnectorCatalogEntry) => void
 }) {
-  const [showApiForm, setShowApiForm] = useState(false)
-  const { state, errorMsg, apiKeyValues, setApiKeyValues, startOAuth, submitApiKey } = useConnectFlow(entry, (updated) => {
-    setShowApiForm(false)
-    onUpdate(updated)
-  })
+  const [disconnecting, setDisconnecting] = useState(false)
 
-  const isActive     = entry.linked
+  const { state, errorMsg, apiKeyValues, setApiKeyValues, startOAuth, submitApiKey } = useConnectFlow(
+    entry,
+    (updated) => {
+      onExpandToggle(entry.slug)
+      onUpdate(updated)
+    },
+  )
+
   const isPolling    = state === 'polling'
   const isOpening    = state === 'opening'
   const isSubmitting = state === 'submitting'
+  const isBusy       = isPolling || isOpening || isSubmitting || disconnecting
 
-  const handleConnectClick = () => {
-    if (entry.auth_mode === 'api_key') {
-      setShowApiForm(true)
-    } else {
-      startOAuth()
+  const handleToggleOff = async () => {
+    if (disconnecting) return
+    setDisconnecting(true)
+    try {
+      await unlinkConnector(entry.slug)
+      toast.success(`${entry.display_name} disconnected`)
+      onUpdate({ ...entry, linked: false, tools: [] })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+    } finally {
+      setDisconnecting(false)
     }
   }
 
+  const handleConnectClick = () => {
+    onExpandToggle(entry.slug)
+  }
+
+  const handleContinueWithOAuth = () => {
+    startOAuth()
+  }
+
   return (
-    <div style={{
-      backgroundColor: 'white',
-      borderRadius:    16,
-      padding:         16,
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             12,
-      boxShadow:       '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ConnectorAvatar entry={entry} size={32} />
-          </div>
-          <div style={{ flex: '1 0 0', minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {entry.display_name}
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-400)', margin: 0, textTransform: 'capitalize' }}>
-              {entry.auth_mode === 'api_key' ? 'API Key' : 'OAuth'}
-            </p>
-          </div>
+    <>
+      {/* Row */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        height: 56, padding: '0 12px', borderRadius: 12,
+      }}>
+        {/* Logo */}
+        <div style={{
+          width: 38, height: 38, backgroundColor: 'white', borderRadius: 5,
+          padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <ConnectorAvatar entry={entry} size={26} />
         </div>
-        {isActive && (
+
+        {/* Name + subtitle */}
+        <div style={{ flex: '1 0 0', minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {entry.display_name}
+          </p>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#827a74', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {entry.description}
+          </p>
+        </div>
+
+        {/* Right controls */}
+        {entry.linked ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <OnBadge />
+            <ToggleSwitch on={true} onChange={() => void handleToggleOff()} disabled={disconnecting} />
+          </div>
+        ) : (
           <button
-            onClick={() => onManage(entry)}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, border: 'none', backgroundColor: 'transparent', cursor: 'pointer', flexShrink: 0, color: 'var(--neutral-500)' }}
+            onClick={handleConnectClick}
+            disabled={isBusy}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 2, padding: '5px 8px',
+              borderRadius: 8, border: 'none', cursor: isBusy ? 'not-allowed' : 'pointer',
+              opacity: isBusy ? 0.7 : 1,
+              backgroundColor: 'rgba(255,255,255,0)',
+              boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)',
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
+              color: 'var(--neutral-800, #3b3632)', whiteSpace: 'nowrap', flexShrink: 0,
+            }}
           >
-            <MoreVerticalIcon size={20} />
+            {isPolling ? <><SpinnerIcon size={12} /> Connecting…</> : isOpening ? 'Opening…' : (
+              <>
+                Connect
+                <ChevronDownIcon size={16} />
+              </>
+            )}
           </button>
         )}
       </div>
 
-      <p style={{
-        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0,
-        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-      } as React.CSSProperties}>
-        {entry.description}
-      </p>
-
-      {state === 'error' && errorMsg && (
-        <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--red-600, #DC2626)' }}>
-          {errorMsg}
-        </p>
-      )}
-
-      {showApiForm && !isActive && (
-        <ApiKeyForm
-          fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
-          values={apiKeyValues}
-          onChange={setApiKeyValues}
-          onSubmit={submitApiKey}
-          onCancel={() => setShowApiForm(false)}
-          submitting={isSubmitting}
-        />
-      )}
-
-      {!showApiForm && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {isActive ? (
-            <button
-              onClick={() => onManage(entry)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                backgroundColor: 'white', boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap',
-              }}
-            >
-              Manage
-            </button>
-          ) : (
-            <button
-              onClick={handleConnectClick}
-              disabled={isOpening || isPolling || isSubmitting}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: 'none',
-                cursor: (isOpening || isPolling || isSubmitting) ? 'not-allowed' : 'pointer',
-                opacity: (isOpening || isPolling || isSubmitting) ? 0.7 : 1,
-                background: 'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)',
-                boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.24), 0px 0px 0px 1px var(--neutral-800)',
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'white', whiteSpace: 'nowrap',
-              }}
-            >
-              {isPolling ? <><SpinnerIcon size={12} /> Connecting…</> : isOpening ? 'Opening…' : 'Connect'}
-            </button>
-          )}
+      {/* Inline connect panel (API key only — OAuth opens popup) */}
+      {isExpanded && !entry.linked && entry.auth_mode === 'api_key' && (
+        <div style={{ padding: '0 12px 16px 12px' }}>
+          <div style={{ padding: '16px', borderRadius: 10, backgroundColor: 'white', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a', margin: '0 0 4px' }}>
+              Connect {entry.display_name}
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6a625d', margin: '0 0 12px' }}>
+              {entry.description}. This connection is stored in Settings and can be removed at any time.
+            </p>
+            {state === 'error' && errorMsg && (
+              <p style={{ margin: '0 0 8px', fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--red-600, #DC2626)' }}>
+                {errorMsg}
+              </p>
+            )}
+            <ApiKeyForm
+              fields={entry.api_key_fields && entry.api_key_fields.length > 0 ? entry.api_key_fields : [DEFAULT_API_KEY_FIELD]}
+              values={apiKeyValues}
+              onChange={setApiKeyValues}
+              onSubmit={submitApiKey}
+              onCancel={() => onExpandToggle(entry.slug)}
+              submitting={isSubmitting}
+            />
+          </div>
         </div>
       )}
+
+      {/* Inline connect panel (OAuth) */}
+      {isExpanded && !entry.linked && entry.auth_mode === 'oauth2' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 16px 12px', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 0 0', minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#0a0a0a', margin: 0, whiteSpace: 'nowrap' }}>
+              Connect {entry.display_name}
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6a625d', margin: 0, maxWidth: 560 }}>
+              Sign in to {entry.display_name} to allow this persona to access your account.<br />
+              This connection is stored in Settings and can be removed at any time.
+            </p>
+            {state === 'error' && errorMsg && (
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--red-600, #DC2626)' }}>
+                {errorMsg}
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {!isBusy && (
+              <button
+                onClick={() => onExpandToggle(entry.slug)}
+                style={{ padding: '6px 10px 8px', borderRadius: 8, border: '1px solid var(--neutral-200)', backgroundColor: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, color: 'var(--neutral-700)' }}
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              onClick={handleContinueWithOAuth}
+              disabled={isBusy}
+              style={{
+                position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '6px 10px 8px', borderRadius: 8, border: 'none',
+                cursor: isBusy ? 'not-allowed' : 'pointer', overflow: 'hidden',
+                boxShadow: '0px 0px 0px 1px black, 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
+              }}
+            >
+              <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)', pointerEvents: 'none' }} />
+              <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)', pointerEvents: 'none' }} />
+              <span style={{ position: 'relative', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'white', whiteSpace: 'nowrap' }}>
+                {isBusy ? <><SpinnerIcon size={12} /> Connecting…</> : `Continue with ${entry.display_name}`}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── Workspace connector row (read-only) ───────────────────────────────────────
+
+function WorkspaceConnectorRow({ entry, workspaceName }: {
+  entry:         ConnectorCatalogEntry
+  workspaceName: string
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      height: 56, padding: '0 12px', borderRadius: 12,
+    }}>
+      <div style={{
+        width: 38, height: 38, backgroundColor: 'white', borderRadius: 5,
+        padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <ConnectorAvatar entry={entry} size={26} />
+      </div>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#3b3632', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {entry.display_name}
+        </p>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#827a74', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {entry.description}
+        </p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, lineHeight: '16px', color: '#6a625d', whiteSpace: 'nowrap' }}>
+          {workspaceName}
+        </span>
+        <ConnectedBadge />
+      </div>
     </div>
   )
 }
 
 // ── Loading skeleton ──────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonRow() {
   return (
-    <div style={{
-      backgroundColor: 'white', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
-      boxShadow: '0px 2px 2.8px 0px var(--neutral-200), 0px 0px 0px 1px var(--neutral-200)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: 'var(--neutral-100)' }} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 14, width: '55%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-          <div style={{ height: 11, width: '30%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-        </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 56, padding: '0 12px' }}>
+      <div style={{ width: 38, height: 38, borderRadius: 5, backgroundColor: 'var(--neutral-100)' }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ height: 14, width: '40%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
+        <div style={{ height: 11, width: '60%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
       </div>
-      <div style={{ height: 11, width: '90%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-      <div style={{ height: 11, width: '70%', borderRadius: 4, backgroundColor: 'var(--neutral-100)' }} />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ height: 32, width: 80, borderRadius: 8, backgroundColor: 'var(--neutral-100)' }} />
-      </div>
+      <div style={{ height: 20, width: 60, borderRadius: 6, backgroundColor: 'var(--neutral-100)' }} />
     </div>
-  )
-}
-
-// ── Dark primary button ───────────────────────────────────────────────────────
-
-function PrimaryDarkButton({ children, leftIcon, onClick, ariaLabel }: {
-  children:  React.ReactNode
-  leftIcon?: React.ReactNode
-  onClick?:  () => void
-  ariaLabel?: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: '6px 10px 8px',
-        borderRadius: 10, border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0,
-        boxShadow: '0px 0px 0px 1px var(--neutral-black, black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4)',
-      }}
-    >
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, var(--neutral-700) 0%, var(--neutral-900) 100%)', pointerEvents: 'none' }} />
-      <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08, inset 0px -2.545px 4px -2.182px rgba(247,242,237,0.5)', pointerEvents: 'none' }} />
-      {leftIcon && <span style={{ position: 'relative', display: 'inline-flex' }}>{leftIcon}</span>}
-      <span style={{ position: 'relative', padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-50)', whiteSpace: 'nowrap' }}>
-        {children}
-      </span>
-    </button>
   )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; useReducer refactor deferred
+// eslint-disable-next-line react-doctor/prefer-useReducer -- multiple useState calls; refactor deferred
 export default function ConnectorsTab() {
   const { push } = useRouter()
-  const [connectors,  setConnectors]  = useState<ConnectorCatalogEntry[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [loadError,   setLoadError]   = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [modalEntry,  setModalEntry]  = useState<ConnectorCatalogEntry | null>(null)
+  const [connectors,   setConnectors]   = useState<ConnectorCatalogEntry[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [loadError,    setLoadError]    = useState('')
+  const [searchQuery,  setSearchQuery]  = useState('')
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null)
+  const [modalEntry,   setModalEntry]   = useState<ConnectorCatalogEntry | null>(null)
 
   const fetchConnectors = useCallback(async () => {
     setLoading(true)
@@ -792,8 +855,8 @@ export default function ConnectorsTab() {
     if (!updated.linked) setModalEntry(null)
   }, [])
 
-  const handleManage = useCallback((entry: ConnectorCatalogEntry) => {
-    setModalEntry(entry)
+  const handleExpandToggle = useCallback((slug: string) => {
+    setExpandedSlug(prev => prev === slug ? null : slug)
   }, [])
 
   const filtered = searchQuery.trim()
@@ -804,8 +867,10 @@ export default function ConnectorsTab() {
       )
     : connectors
 
-  const connected = filtered.filter(c => c.linked)
-  const available = filtered.filter(c => !c.linked)
+  // Workspace connectors would come from the API when supported (scope: 'workspace').
+  // For now this list is always empty; the section only renders when populated.
+  const workspaceConnectors: ConnectorCatalogEntry[] = []
+  const personalConnectors = filtered
 
   const sectionLabel: React.CSSProperties = {
     fontFamily: 'var(--font-body)',
@@ -818,44 +883,53 @@ export default function ConnectorsTab() {
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', paddingTop: 3 }}>
 
         {/* Heading + Add connectors button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
-            Connectors
+            Connectors Management
           </h2>
-          <PrimaryDarkButton
-            leftIcon={<PlusSignIcon size={16} color="var(--neutral-50)" />}
-            ariaLabel="Go to connector settings"
+          <Button
+            leftIcon={<PlusSignIcon size={16} />}
             onClick={() => push('/settings/connectors')}
           >
             Add connectors
-          </PrimaryDarkButton>
+          </Button>
         </div>
 
-        {/* Search */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'white', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
-          <SearchIcon />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search connectors…"
-            // eslint-disable-next-line react-doctor/no-outline-none -- browser outline suppressed; :focus-visible handled by container or global styles
-            style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#6a625d', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
-              <XIcon />
+        {/* Search + filter actions */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 2, padding: '7px 10px', borderRadius: 10, backgroundColor: 'white', boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' }}>
+            <SearchIcon />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search connectors…"
+              // eslint-disable-next-line react-doctor/no-outline-none -- focus-visible handled globally
+              style={{ flex: 1, minWidth: 0, padding: '0 2px', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: '#6a625d', backgroundColor: 'transparent', border: 'none', outline: 'none' }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} style={{ display: 'flex', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
+                <XIcon />
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px' }}>
+            <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 8, border: 'none', backgroundColor: 'transparent', cursor: 'pointer' }}>
+              <DownloadIcon />
             </button>
-          )}
+            <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, borderRadius: 8, border: 'none', backgroundColor: 'transparent', cursor: 'pointer' }}>
+              <FilterIcon />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10 }}>
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
         ) : loadError ? (
           <div style={{ padding: '24px 0', textAlign: 'center' as const }}>
@@ -869,42 +943,42 @@ export default function ConnectorsTab() {
               Retry
             </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0, padding: '24px 0', textAlign: 'center' as const }}>
-            {searchQuery ? `No connectors found for "${searchQuery}"` : 'No connectors available.'}
-          </p>
         ) : (
           <>
-            {connected.length > 0 && (
-              <section style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <p style={sectionLabel}>Connected</p>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', padding: '1px 6px', borderRadius: 6,
-                    backgroundColor: 'var(--green-50)', boxShadow: '0px 0px 0px 1px rgba(128,183,7,0.4)',
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px', color: 'var(--green-800)',
-                  }}>
-                    {connected.length} active
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {connected.map(c => (
-                    <ConnectorCard key={c.slug} entry={c} onManage={handleManage} onUpdate={handleUpdate} />
+            {/* Workspace Connectors */}
+            {workspaceConnectors.length > 0 && (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <p style={sectionLabel}>Workspace Connectors</p>
+                <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
+                  {workspaceConnectors.map(c => (
+                    <WorkspaceConnectorRow key={c.slug} entry={c} workspaceName="Workspace" />
                   ))}
                 </div>
               </section>
             )}
 
-            {available.length > 0 && (
-              <section style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <p style={sectionLabel}>{connected.length > 0 ? 'Available to connect' : 'All Connectors'}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {available.map(c => (
-                    <ConnectorCard key={c.slug} entry={c} onManage={handleManage} onUpdate={handleUpdate} />
+            {/* Personal Connectors */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={sectionLabel}>Personal Connectors</p>
+              {personalConnectors.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: 0, padding: '24px 0', textAlign: 'center' as const }}>
+                  {searchQuery ? `No connectors found for "${searchQuery}"` : 'No connectors available.'}
+                </p>
+              ) : (
+                <div style={{ backgroundColor: 'var(--neutral-50, #f7f2ed)', borderRadius: 10, overflow: 'hidden' }}>
+                  {personalConnectors.map(c => (
+                    <ConnectorRow
+                      key={c.slug}
+                      entry={c}
+                      isExpanded={expandedSlug === c.slug}
+                      onExpandToggle={handleExpandToggle}
+                      onManage={setModalEntry}
+                      onUpdate={handleUpdate}
+                    />
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
           </>
         )}
 

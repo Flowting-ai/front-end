@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { Button } from "@/components/Button";
 
 interface DeleteChatDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ export function DeleteChatDialog({
             inset: 0,
             backgroundColor: "var(--neutral-900-40, rgba(0,0,0,0.4))",
             backdropFilter: "blur(2px)",
-            zIndex: 20,
+            zIndex: 100,
           }}
         />
         <Dialog.Content
@@ -54,7 +55,7 @@ export function DeleteChatDialog({
             borderRadius: "16px",
             padding: "24px",
             width: "min(420px, 90vw)",
-            zIndex: 21,
+            zIndex: 101,
             boxShadow:
               "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)",
             display: "flex",
@@ -98,45 +99,12 @@ export function DeleteChatDialog({
               gap: "8px",
             }}
           >
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isDeleting}
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: "var(--font-weight-medium)",
-                fontSize: "var(--font-size-body)",
-                color: "var(--neutral-700)",
-                backgroundColor: "var(--neutral-100)",
-                border: "none",
-                borderRadius: "10px",
-                padding: "8px 16px",
-                cursor: isDeleting ? "not-allowed" : "pointer",
-                opacity: isDeleting ? 0.5 : 1,
-              }}
-            >
+            <Button variant="ghost" onClick={onCancel} disabled={isDeleting}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={isDeleting}
-              style={{
-                fontFamily: "var(--font-body)",
-                fontWeight: "var(--font-weight-medium)",
-                fontSize: "var(--font-size-body)",
-                color: "var(--neutral-white)",
-                backgroundColor: "var(--red-500)",
-                border: "none",
-                borderRadius: "10px",
-                padding: "8px 16px",
-                cursor: isDeleting ? "not-allowed" : "pointer",
-                opacity: isDeleting ? 0.7 : 1,
-                minWidth: "80px",
-              }}
-            >
-              {isDeleting ? "Deleting…" : "Delete"}
-            </button>
+            </Button>
+            <Button variant="danger" onClick={handleConfirm} disabled={isDeleting} loading={isDeleting}>
+              Delete
+            </Button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

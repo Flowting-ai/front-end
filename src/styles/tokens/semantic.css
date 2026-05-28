@@ -53,6 +53,15 @@
   /* Inner hover: top highlight + bottom depth */
   --shadow-button-secondary-inner-hover: var(--shadow-item-inner);
 
+  /* ── Button / Danger ─────────────────────────────────────────────────────
+     Red extension of Button/Secondary — shares secondary shadow tokens,
+     only bg and text colors differ.
+     ─────────────────────────────────────────────────────────────────────────── */
+  --button-danger-bg:            var(--red-500);
+  --button-danger-bg-hover:      var(--red-600);
+  --button-danger-text:          var(--neutral-white);
+  --button-danger-text-disabled: var(--red-100);
+
   /* ── Button / Ghost + Outline - Hover/Active shared ──────────────────────── */
   --button-subtle-border-hover: var(--color-interactive-subtle-border-hover);
 

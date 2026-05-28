@@ -1,6 +1,6 @@
 "use client"
 
-import { apiFetch, apiFetchJson } from './client'
+import { apiFetch, apiFetchJson, ApiError } from './client'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
@@ -209,7 +209,10 @@ export async function fetchProjectChats(projectId: string): Promise<ApiProjectCh
 
 /** POST /projects/{project_id}/chats/{chat_id} */
 export async function addChatToProject(projectId: string, chatId: string): Promise<void> {
-  await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'POST' })
+  const res = await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'POST' })
+  if (!res.ok) {
+    throw new ApiError(res.status, 'add_chat_failed', `Failed to link chat to project (${res.status})`)
+  }
 }
 
 /** DELETE /projects/{project_id}/chats/{chat_id} */

@@ -7,7 +7,11 @@ import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/IconButton'
 import { Button } from '@/components/Button'
+import { Badge, type BadgeColor } from '@/components/Badge'
+import { ChipInput } from '@/components/ChipInput'
 import type { ProjectTag } from '@/context/projects-context'
+
+const TAG_COLORS: BadgeColor[] = ['Blue', 'Green', 'Yellow', 'Purple', 'Red', 'Brown']
 
 const EMPTY_PROJECT_TAGS: ProjectTag[] = []
 
@@ -56,9 +60,12 @@ export function EditProjectModal({
   open, name, description, tags = EMPTY_PROJECT_TAGS, onSave, onClose,
 }: EditProjectModalProps) {
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [draftName, setDraftName] = useState(name)
+  const [draftName, setDraftName]   = useState(name)
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
-  const [draftDesc, setDraftDesc] = useState(description)
+  const [draftDesc, setDraftDesc]   = useState(description)
+  // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
+  const [draftTags, setDraftTags]   = useState<ProjectTag[]>(tags)
+  const [tagInput,  setTagInput]    = useState('')
   const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
@@ -66,9 +73,23 @@ export function EditProjectModal({
     if (open && !prevOpenRef.current) {
       setDraftName(name)
       setDraftDesc(description)
+      setDraftTags(tags)
+      setTagInput('')
     }
     prevOpenRef.current = open
-  }, [open, name, description])
+  }, [open, name, description, tags])
+
+  function commitTag() {
+    const label = tagInput.trim()
+    if (!label || draftTags.some(t => t.label.toLowerCase() === label.toLowerCase())) return
+    const color = TAG_COLORS[draftTags.length % TAG_COLORS.length]
+    setDraftTags(prev => [...prev, { id: crypto.randomUUID(), label, color }])
+    setTagInput('')
+  }
+
+  function removeTag(id: string) {
+    setDraftTags(prev => prev.filter(t => t.id !== id))
+  }
 
   const closeOnEscape = useEffectEvent(onClose)
   useEffect(() => {
@@ -80,7 +101,7 @@ export function EditProjectModal({
 
   function handleSave() {
     if (!draftName.trim()) return
-    onSave(draftName.trim(), draftDesc.trim(), tags)
+    onSave(draftName.trim(), draftDesc.trim(), draftTags)
     onClose()
   }
 
@@ -205,6 +226,68 @@ export function EditProjectModal({
                   onFocus={focusInput}
                   onBlur={blurInput}
                 />
+              </div>
+
+              {/* Tags */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={LABEL_STYLE}>Tags</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                  <AnimatePresence initial={false}>
+                    {draftTags.map((tag) => (
+                      <m.div
+                        key={tag.id}
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        transition={{ duration: 0.12 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
+                      >
+                        <Badge label={tag.label} color={tag.color} />
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag.id)}
+                          aria-label={`Remove tag ${tag.label}`}
+                          style={{
+                            display:        'flex',
+                            alignItems:     'center',
+                            justifyContent: 'center',
+                            width:          16,
+                            height:         16,
+                            borderRadius:   '50%',
+                            border:         'none',
+                            background:     'transparent',
+                            cursor:         'pointer',
+                            padding:        0,
+                            color:          'var(--neutral-500)',
+                          }}
+                        >
+                          <CancelOneIcon style={{ width: 10, height: 10 }} />
+                        </button>
+                      </m.div>
+                    ))}
+                  </AnimatePresence>
+                  <ChipInput
+                    placeholder="Add tag…"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+                    }}
+                    aria-label="New tag"
+                  />
+                </div>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 'var(--font-weight-regular)',
+                    fontSize:   '11px',
+                    lineHeight: '16px',
+                    color:      'var(--neutral-500)',
+                    margin:     0,
+                  }}
+                >
+                  Press Enter to add a tag
+                </p>
               </div>
             </div>
 

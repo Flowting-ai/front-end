@@ -34,7 +34,7 @@ export default function ProjectPage() {
   const params  = useParams<{ id: string }>()
   const { push }  = useRouter()
   const { getProject, getChats, updateProject, deleteProject, loadProject, uploadFiles, removeFile, removeChat, renameChat, loadProjectChats, loading: projectsLoading } = useProjects()
-  const { pins, isOpen: pinboardOpen, toggle: togglePinboard } = usePinboard()
+  const { pins, isOpen: pinboardOpen, toggle: togglePinboard, close: closePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
   const { open: openModelSelector } = useModelSelectorContext()
   const modelButtonLabel = useModelButtonLabel()
@@ -133,15 +133,15 @@ export default function ProjectPage() {
         <ArrowLeftOneIcon style={{ width: 20, height: 20, color: '#524b47' }} />
       </button>
 
-      {/* ── Left column - scrollable main content ─────────────────────── */}
+      {/* ── Left column - fixed header + scrollable chat list ─────────── */}
       <div
-        className="kaya-scrollbar"
         style={{
           flex:      '1 0 0',
           minWidth:  0,
           height:    '100%',
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          overflow:  'hidden',
+          display:   'flex',
+          flexDirection: 'column',
         }}
       >
         <div
@@ -152,10 +152,11 @@ export default function ProjectPage() {
             padding:       '87px 24px 40px',
             boxSizing:     'border-box',
             gap:           '12px',
+            height:        '100%',
           }}
         >
           {/* Title section */}
-          <div style={{ width: '100%', maxWidth: '679px', marginBottom: '27px' }}>
+          <div style={{ width: '100%', maxWidth: '679px', marginBottom: '27px', flexShrink: 0 }}>
             <div
               style={{
                 display:        'flex',
@@ -251,7 +252,7 @@ export default function ProjectPage() {
           </div>
 
           {/* Chat input */}
-          <div style={{ width: '100%', maxWidth: '679px' }}>
+          <div style={{ width: '100%', maxWidth: '679px', flexShrink: 0 }}>
             <input
               ref={fileInputRef}
               type="file"
@@ -386,7 +387,10 @@ export default function ProjectPage() {
           </div>
 
           {/* Chat list */}
-          <div style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div
+            className="kaya-scrollbar"
+            style={{ width: '100%', maxWidth: '679px', display: 'flex', flexDirection: 'column', gap: '2px', flex: '1 1 0', minHeight: 0, overflowY: 'auto', padding: 3 }}
+          >
             {chats.length === 0 ? (
               <ProjectChatEmptyRow />
             ) : (
@@ -426,13 +430,19 @@ export default function ProjectPage() {
             icon={<SettingsOneIcon size={20} animated />}
             label="Instructions & Files"
             active={panelOpen}
-            onClick={() => setPanelOpen(v => !v)}
+            onClick={() => {
+              if (!panelOpen) closePinboard()
+              setPanelOpen(v => !v)
+            }}
           />
           <FloatingMenuItem
             icon={<PinIcon size={20} />}
             label="Pinboard"
             active={pinboardOpen}
-            onClick={togglePinboard}
+            onClick={() => {
+              if (!pinboardOpen) setPanelOpen(false)
+              togglePinboard()
+            }}
           />
         </FloatingMenu>
       </div>

@@ -281,21 +281,23 @@ function DefaultFilterMenu({
   return (
     <Dropdown>
       <Dropdown.Section fluid>
-        <Dropdown.Submenu
-          trigger={
-            <Dropdown.Item
-              label="Tags"
-              rightIcon={<ArrowRightOneIcon />}
-              fluid
+        {tags.length > 0 && (
+          <Dropdown.Submenu
+            trigger={
+              <Dropdown.Item
+                label="Tags"
+                rightIcon={<ArrowRightOneIcon />}
+                fluid
+              />
+            }
+          >
+            <TagsSubmenu
+              tags={tags}
+              selectedIds={selectedTagIds}
+              onToggle={onToggleTag}
             />
-          }
-        >
-          <TagsSubmenu
-            tags={tags}
-            selectedIds={selectedTagIds}
-            onToggle={onToggleTag}
-          />
-        </Dropdown.Submenu>
+          </Dropdown.Submenu>
+        )}
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item
@@ -311,21 +313,23 @@ function DefaultFilterMenu({
             onToggle={onToggleCategory}
           />
         </Dropdown.Submenu>
-        <Dropdown.Submenu
-          trigger={
-            <Dropdown.Item
-              label="Content type"
-              rightIcon={<ArrowRightOneIcon />}
-              fluid
+        {contentTypes.length > 0 && (
+          <Dropdown.Submenu
+            trigger={
+              <Dropdown.Item
+                label="Content type"
+                rightIcon={<ArrowRightOneIcon />}
+                fluid
+              />
+            }
+          >
+            <CheckboxListSubmenu
+              items={contentTypes}
+              selectedIds={selectedContentTypeIds}
+              onToggle={onToggleContentType}
             />
-          }
-        >
-          <CheckboxListSubmenu
-            items={contentTypes}
-            selectedIds={selectedContentTypeIds}
-            onToggle={onToggleContentType}
-          />
-        </Dropdown.Submenu>
+          </Dropdown.Submenu>
+        )}
       </Dropdown.Section>
     </Dropdown>
   )

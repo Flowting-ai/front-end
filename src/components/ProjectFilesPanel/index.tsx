@@ -65,7 +65,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
     function handleDrop(e: React.DragEvent) {
       e.preventDefault()
       setDragging(false)
-      if (e.dataTransfer.files.length > 0) void triggerUpload(e.dataTransfer.files)
+      if (!isUploading && e.dataTransfer.files.length > 0) void triggerUpload(e.dataTransfer.files)
     }
 
     function handleDragOver(e: React.DragEvent) {
@@ -195,6 +195,7 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
               overflowY:           'auto',
               maxHeight:           '240px',
               overscrollBehaviorY: 'contain',
+              padding:             '3px',
             }}
           >
             <AnimatePresence initial={false}>

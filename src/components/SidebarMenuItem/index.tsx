@@ -144,11 +144,15 @@ export function SidebarMenuItem({
     const lastEnterRef = useRef<number>(0)
 
     useEffect(() => {
-      if (isEditVariant && inputRef.current) {
-        inputRef.current.focus()
-        inputRef.current.select()
-        cancelledRef.current = false
-      }
+      if (!isEditVariant) return
+      cancelledRef.current = false
+      const id = requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.focus()
+          inputRef.current.select()
+        }
+      })
+      return () => cancelAnimationFrame(id)
     }, [isEditVariant])
 
     // ── chat-item marquee ──────────────────────────────────────────────────────

@@ -86,6 +86,21 @@ function saveStoredSizes(projectId: string, sizes: Map<string, number>) {
   try { localStorage.setItem(storageSizesKey(projectId), JSON.stringify([...sizes])) } catch {}
 }
 
+function storageTagsKey(projectId: string) { return `project-tags:${projectId}` }
+
+function loadStoredTags(projectId: string): ProjectTag[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(storageTagsKey(projectId))
+    return raw ? JSON.parse(raw) as ProjectTag[] : []
+  } catch { return [] }
+}
+
+function saveStoredTags(projectId: string, tags: ProjectTag[]) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(storageTagsKey(projectId), JSON.stringify(tags)) } catch {}
+}
+
 function formatBytes(bytes: number): string {
   if (bytes <= 0)          return ''
   if (bytes < 1024)        return `${bytes} B`
@@ -114,7 +129,7 @@ function summaryToProject(s: ApiProjectSummary): Project {
     name:         s.title,
     description:  s.description,
     instructions: '',
-    tags:         [],
+    tags:         loadStoredTags(s.id),
     files:        [],
     chatCount:    s.chatCount,
     updatedAt:    s.updatedAt,
@@ -132,7 +147,10 @@ function apiToProject(
     ...(existing?.files.map((f): [string, number] => [f.name, f.sizeBytes]) ?? []),
     ...(uploadedSizes ? [...uploadedSizes] : []),
   ])
-  const files = api.documents.map(doc => {
+  // Skip ghost records: backend creates a DB row before type-validation, so a
+  // rejected upload leaves a document with an empty file_link. Filter these out
+  // so they never appear in the UI (they surface via PATCH/GET responses).
+  const files = api.documents.filter(doc => !!doc.fileLink).map(doc => {
     const serverSize = doc.sizeBytes != null && doc.sizeBytes > 0 ? doc.sizeBytes : null
     const sizeBytes  = serverSize ?? knownSizes.get(doc.filename) ?? 0
     // Reuse existing record (preserves any extra local state) but refresh size/url.
@@ -145,7 +163,7 @@ function apiToProject(
     name:         api.title,
     description:  api.description,
     instructions: api.systemInstruction,
-    tags:         existing?.tags ?? [],
+    tags:         existing?.tags ?? loadStoredTags(api.id),
     files,
     chatCount:    existing?.chatCount ?? 0,
     updatedAt:    api.updatedAt,
@@ -222,6 +240,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     setProjects(prev => prev.map(p =>
       p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p,
     ))
+
+    if (patch.tags !== undefined) saveStoredTags(id, patch.tags)
 
     const apiPatch: Parameters<typeof updateProjectApi>[1] = {}
     if (patch.name !== undefined)         apiPatch.title = patch.name
@@ -345,6 +365,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     try {
       // DELETE /projects/{project_id}/files/{document_id} returns the updated ProjectResponse directly.
       const updated = await removeProjectDocumentApi(projectId, fileId)
+      // Guard: if the backend returned 200 but the file is still in the response, treat it as failure.
+      if (updated.documents.some(d => d.id === fileId)) {
+        throw new Error('File could not be removed')
+      }
       if (removedName) {
         const stored = loadStoredSizes(projectId)
         stored.delete(removedName)
@@ -397,6 +421,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         ...prev.filter(c => c.projectId !== projectId),
         ...mapped,
       ])
+      // Sync chatCount to match the authoritative list from the API.
+      setProjects(prev => prev.map(p =>
+        p.id === projectId ? { ...p, chatCount: mapped.length } : p,
+      ))
     } catch (err) {
       toast.error('Failed to load project chats', { description: err instanceof Error ? err.message : undefined })
     }

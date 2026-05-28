@@ -110,7 +110,8 @@ function RightSidebarImpl() {
     return sidebarSearchParams.get("id") ?? undefined
   })()
 
-  const [categoryFilter, setCategoryFilter] = useState<PinCategory | "All">("All")
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+  const [selectedTagIds,      setSelectedTagIds]      = useState<string[]>([])
   const [rawSearch,      setRawSearch]      = useState("")
   const searchQuery = useDebounce(rawSearch, 150)
   const [sortOrder,      setSortOrder]      = useState<string>("newest")
@@ -274,7 +275,16 @@ function RightSidebarImpl() {
     [contextFolders],
   )
 
-  void setCategoryFilter
+  // Derive unique tags from all loaded pins so the filter menu shows real data.
+  const availableTags = useMemo(() => {
+    const seen = new Set<string>()
+    for (const pin of pins) {
+      for (const tag of pin.tags ?? []) seen.add(tag)
+    }
+    return Array.from(seen)
+      .sort()
+      .map((name) => ({ id: `tag-${name.toLowerCase().replace(/\s+/g, '-')}`, label: name }))
+  }, [pins])
 
   const chatNameById = useMemo((): Map<string, string> => {
     const map = new Map<string, string>()
@@ -352,7 +362,20 @@ function RightSidebarImpl() {
       result = result.filter((p) => p.folderId === selectedFolderId)
     }
 
-    if (categoryFilter !== "All") result = result.filter((p) => p.category === categoryFilter)
+    if (selectedCategoryIds.length > 0) {
+      result = result.filter((p) =>
+        selectedCategoryIds.some(
+          (id) => id.replace('category-', '').toLowerCase() === p.category.toLowerCase(),
+        ),
+      )
+    }
+    if (selectedTagIds.length > 0) {
+      result = result.filter((p) =>
+        p.tags?.some((tag) =>
+          selectedTagIds.includes(`tag-${tag.toLowerCase().replace(/\s+/g, '-')}`),
+        ),
+      )
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       result = result.filter(
@@ -389,7 +412,7 @@ function RightSidebarImpl() {
       const h = getHandlers(p.id)
       return toPinboardPin(p, chatNameById, h.onExport, h.onDelete, h.onDuplicate, h.onShowInChat)
     })
-  }, [pins, selectedViewId, selectedFolderId, effectiveChatId, categoryFilter, searchQuery, sortOrder, chatNameById, getHandlers])
+  }, [pins, selectedViewId, selectedFolderId, effectiveChatId, selectedCategoryIds, selectedTagIds, searchQuery, sortOrder, chatNameById, getHandlers])
 
   return (
     <>
@@ -420,7 +443,12 @@ function RightSidebarImpl() {
             personalFolders={folders}
             onSearch={setRawSearch}
             onClose={close}
-            filterDisabled
+            tags={availableTags}
+            selectedCategoryIds={selectedCategoryIds}
+            onSelectedCategoryIdsChange={(ids) => setSelectedCategoryIds([...ids])}
+            selectedTagIds={selectedTagIds}
+            onSelectedTagIdsChange={(ids) => setSelectedTagIds([...ids])}
+            contentTypes={[]}
             defaultSelectedSortId="newest"
             onSelectedSortIdChange={v => setSortOrder(v ?? 'newest')}
             onExport={() => exportPins(filteredRawRef.current, chatNameByIdRef.current)}
@@ -609,7 +637,7 @@ function RightSidebarImpl() {
             style={{
               position:        "fixed",
               inset:           0,
-              zIndex:          20,
+              zIndex:          22,
               display:         "flex",
               alignItems:      "center",
               justifyContent:  "center",

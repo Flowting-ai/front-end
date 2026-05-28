@@ -38,7 +38,7 @@ function formatTimestamp(iso: string | undefined | null): string {
 export default function ChatsPage() {
   const { push }                       = useRouter()
   const { chats, isLoading, rename, remove, removeLocal, star } = useChatHistoryContext()
-  const { projects }                              = useProjects()
+  const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
   const pinCountMap = useMemo(() => {
@@ -125,23 +125,35 @@ export default function ChatsPage() {
     setIsMoving(true)
     const ids = [...selectedIds]
     try {
-      await Promise.all(ids.map((id) => addChatToProject(projectId, id)))
-      // Remove moved chats from the local list — they now live inside the project.
-      // We use removeLocal (not remove) to avoid calling the backend delete API,
-      // which would destroy the chat data that the project now references.
-      removeLocal(...ids)
-      const project = projects.find((p) => p.id === projectId)
-      toast.success(
-        `Moved ${ids.length} chat${ids.length > 1 ? 's' : ''} to "${project?.name ?? 'project'}"`,
-      )
-      setMoveModalOpen(false)
-      exitSelection()
-    } catch {
-      toast.error('Failed to move some chats')
+      const results = await Promise.allSettled(ids.map((id) => addChatToProject(projectId, id)))
+      const succeeded = ids.filter((_, i) => results[i].status === 'fulfilled')
+      const failCount = ids.length - succeeded.length
+
+      for (const id of succeeded) {
+        const title = chats.find(c => c.id === id)?.title ?? ''
+        addChat(projectId, id, title)
+      }
+
+      if (succeeded.length > 0) {
+        // Remove moved chats from local list — they now live inside the project.
+        // Use removeLocal (not remove) to avoid calling the backend delete API.
+        removeLocal(...succeeded)
+        const project = projects.find((p) => p.id === projectId)
+        const baseMsg = `Moved ${succeeded.length} chat${succeeded.length > 1 ? 's' : ''} to "${project?.name ?? 'project'}"`
+        if (failCount > 0) {
+          toast.warning(`${baseMsg} (${failCount} failed)`)
+        } else {
+          toast.success(baseMsg)
+        }
+        setMoveModalOpen(false)
+        exitSelection()
+      } else {
+        toast.error('Failed to move chats to project')
+      }
     } finally {
       setIsMoving(false)
     }
-  }, [selectedIds, projects, removeLocal, exitSelection])
+  }, [selectedIds, projects, chats, removeLocal, exitSelection, addChat])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -297,6 +309,23 @@ export default function ChatsPage() {
               </div>
             )}
 
+            {/* Selection empty state */}
+            {selectionMode && chats.length === 0 && (
+              <p
+                style={{
+                  margin:     '32px 0',
+                  textAlign:  'center',
+                  fontFamily: 'var(--font-title)',
+                  fontSize:   24,
+                  fontWeight: 400,
+                  lineHeight: '32px',
+                  color:      'var(--neutral-400)',
+                }}
+              >
+                No chats yet to select
+              </p>
+            )}
+
             {/* Virtualized rows */}
             {filteredChats.length > 0 && (
               <div style={{ position: 'relative', height: rowVirtualizer.getTotalSize() }}>
@@ -330,7 +359,7 @@ export default function ChatsPage() {
                         onClick={() => handleOpenChat(chat.id)}
                         onRename={(newTitle) => rename(chat.id, newTitle)}
                         onStar={() => star(chat.id)}
-                        onDelete={() => remove(chat.id)}
+                        onDelete={() => { remove(chat.id); toast.success('Chat deleted') }}
                       />
                     </div>
                   )
