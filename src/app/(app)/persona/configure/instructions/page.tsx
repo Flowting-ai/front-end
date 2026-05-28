@@ -18,16 +18,13 @@ import {
   PlusSignIcon,
   CancelOneIcon,
   ExpandIcon,
-  ViewOffSlashIcon,
   ArrowShrinkTwoIcon,
+  ViewOffSlashIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
-import { Dropdown } from '@/components/Dropdown'
-import { listConnectors } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
 import ExampleConversationModal from '@/app/(app)/persona/configure/components/ExampleConversationModal'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
@@ -52,12 +49,19 @@ import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
+import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
+import { ActivitiesSection } from '@/components/chat/ActivityRow'
+import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
+import type { ActivityItem } from '@/hooks/use-chat-state'
 import { ChatAddMenu, type SelectedPersonaInfo as AddMenuPersonaInfo } from '@/components/chat/AddMenu'
 import { AttachmentManager, type PendingAttachment } from '@/components/chat/AttachmentManager'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
+import { Dropdown } from '@/components/Dropdown'
+import { listConnectors } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -647,7 +651,7 @@ function PersonaConfigureInstructionsContent() {
 
   // ── Test-chat state ─────────────────────────────────────────────────────────
 
-  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean }
+  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[] }
   const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
   // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
   const [isStreaming,   setIsStreaming]   = useState(false)
@@ -681,6 +685,12 @@ function PersonaConfigureInstructionsContent() {
     )
   }
 
+  // Auto-scroll to bottom when new content arrives
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatMessages])
+
   useEffect(() => {
     if (!testChatOpen) return
     if (connectorCatalog.length > 0) return
@@ -688,12 +698,6 @@ function PersonaConfigureInstructionsContent() {
       .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
       .catch(() => {})
   }, [testChatOpen])
-
-  // Auto-scroll to bottom when new content arrives
-  useEffect(() => {
-    const el = chatScrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [chatMessages])
 
   async function handleTestChatSend(value: string) {
     if (!value.trim() || !repoId || !versionId || isStreaming) return
@@ -724,10 +728,28 @@ function PersonaConfigureInstructionsContent() {
         )
         setIsStreaming(false)
       },
+      onConnectPrompt: (prompt) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, connectPrompts: [...(m.connectPrompts ?? []), prompt] } : m)
+      ),
+      onPermissionPrompt: (prompt) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt] } : m)
+      ),
+      onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev =>
+        prev.map(m => {
+          if (m.id !== asstMsgId) return m
+          const acts = m.activities ?? []
+          const idx  = acts.findIndex(a => a.id === item.id)
+          if (idx >= 0) {
+            const updated = [...acts]; updated[idx] = { ...acts[idx], ...item } as ActivityItem
+            return { ...m, activities: updated }
+          }
+          return { ...m, activities: [...acts, item as ActivityItem] }
+        })
+      ),
     }
 
     try {
-      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks)
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { disabledConnectors: [...mockedConnectors] })
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -1647,16 +1669,44 @@ function PersonaConfigureInstructionsContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Dropdown.Float open={mockDropdownOpen} onOpenChange={setMockDropdownOpen} placement="bottom-end" trigger={
-                  <Button variant="outline" size="sm" leftIcon={<ViewOffSlashIcon size={16} />} rightIcon={<ArrowDownOneIcon size={16} />}>
-                    {mockedConnectors.size === 0 ? 'Mock connector' : mockedConnectors.size === 1 ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector' : `Mocking ${mockedConnectors.size}`}
-                  </Button>
-                }>
+                <Dropdown.Float
+                  open={mockDropdownOpen}
+                  onOpenChange={setMockDropdownOpen}
+                  placement="bottom-end"
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<ViewOffSlashIcon size={16} />}
+                      rightIcon={<ArrowDownOneIcon size={16} />}
+                    >
+                      {mockedConnectors.size === 0
+                        ? 'Mock connector'
+                        : mockedConnectors.size === 1
+                          ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
+                          : `Mocking ${mockedConnectors.size}`}
+                    </Button>
+                  }
+                >
                   <Dropdown size="md">
                     <Dropdown.Section label="Mock connectors" fluid>
-                      {connectorCatalog.length === 0 ? <Dropdown.Item label="No connected connectors" fluid disabled /> : connectorCatalog.map(c => (
-                        <Dropdown.Item key={c.slug} label={c.display_name} fluid showCheckbox checkboxChecked={mockedConnectors.has(c.slug)} onCheckboxChange={() => setMockedConnectors(prev => { const n = new Set(prev); n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug); return n })} />
-                      ))}
+                      {connectorCatalog.length === 0
+                        ? <Dropdown.Item label="No connected connectors" fluid disabled />
+                        : connectorCatalog.map(c => (
+                          <Dropdown.Item
+                            key={c.slug}
+                            label={c.display_name}
+                            fluid
+                            showCheckbox
+                            checkboxChecked={mockedConnectors.has(c.slug)}
+                            onCheckboxChange={() => setMockedConnectors(prev => {
+                              const n = new Set(prev)
+                              n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
+                              return n
+                            })}
+                          />
+                        ))
+                      }
                     </Dropdown.Section>
                   </Dropdown>
                 </Dropdown.Float>
@@ -1679,10 +1729,12 @@ function PersonaConfigureInstructionsContent() {
                     }}
                   >
                     {msg.role === 'assistant' ? (
-                      <StreamingMessageBubble
-                        content={msg.text}
-                        isComplete={!msg.isStreaming}
-                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                        {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
+                        {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
+                        {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
+                        {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+                      </div>
                     ) : (
                       <MessageBubble
                         role={msg.role}
@@ -1756,16 +1808,44 @@ function PersonaConfigureInstructionsContent() {
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>{personaName || 'Name'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <Dropdown.Float open={mockDropdownOpen} onOpenChange={setMockDropdownOpen} placement="bottom-end" trigger={
-                    <Button variant="outline" size="sm" leftIcon={<ViewOffSlashIcon size={16} />} rightIcon={<ArrowDownOneIcon size={16} />}>
-                      {mockedConnectors.size === 0 ? 'Mock connector' : mockedConnectors.size === 1 ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector' : `Mocking ${mockedConnectors.size}`}
-                    </Button>
-                  }>
+                  <Dropdown.Float
+                    open={mockDropdownOpen}
+                    onOpenChange={setMockDropdownOpen}
+                    placement="bottom-end"
+                    trigger={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<ViewOffSlashIcon size={16} />}
+                        rightIcon={<ArrowDownOneIcon size={16} />}
+                      >
+                        {mockedConnectors.size === 0
+                          ? 'Mock connector'
+                          : mockedConnectors.size === 1
+                            ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
+                            : `Mocking ${mockedConnectors.size}`}
+                      </Button>
+                    }
+                  >
                     <Dropdown size="md">
                       <Dropdown.Section label="Mock connectors" fluid>
-                        {connectorCatalog.length === 0 ? <Dropdown.Item label="No connected connectors" fluid disabled /> : connectorCatalog.map(c => (
-                          <Dropdown.Item key={c.slug} label={c.display_name} fluid showCheckbox checkboxChecked={mockedConnectors.has(c.slug)} onCheckboxChange={() => setMockedConnectors(prev => { const n = new Set(prev); n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug); return n })} />
-                        ))}
+                        {connectorCatalog.length === 0
+                          ? <Dropdown.Item label="No connected connectors" fluid disabled />
+                          : connectorCatalog.map(c => (
+                            <Dropdown.Item
+                              key={c.slug}
+                              label={c.display_name}
+                              fluid
+                              showCheckbox
+                              checkboxChecked={mockedConnectors.has(c.slug)}
+                              onCheckboxChange={() => setMockedConnectors(prev => {
+                                const n = new Set(prev)
+                                n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
+                                return n
+                              })}
+                            />
+                          ))
+                        }
                       </Dropdown.Section>
                     </Dropdown>
                   </Dropdown.Float>
@@ -1779,7 +1859,13 @@ function PersonaConfigureInstructionsContent() {
                 ) : (
                   chatMessages.map(msg => (
                     <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      {msg.role === 'assistant' ? <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} /> : <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />}
+                      {msg.role === 'assistant' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                          {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
+                          {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
+                          {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+                        </div>
+                      ) : <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />}
                     </div>
                   ))
                 )}

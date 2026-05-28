@@ -1,12 +1,16 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion, listVersions, type PersonaVersionListItem } from '@/lib/api/personas'
-import { listConnectors } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { updateVersion, listVersions, testVersionStream, type PersonaVersionListItem, type PersonaChatStreamCallbacks } from '@/lib/api/personas'
+import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
+import { ActivitiesSection } from '@/components/chat/ActivityRow'
+import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
+import type { ActivityItem } from '@/hooks/use-chat-state'
+import { MessageBubble } from '@/components/MessageBubble'
+import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import {
   ArrowLeftOneIcon,
   MoreVerticalIcon,
@@ -15,17 +19,19 @@ import {
   UserAiIcon,
   AiIdeaIcon,
   FolderLibraryIcon,
-  ArrowDownOneIcon,
   CancelOneIcon,
   ExpandIcon,
-  ViewOffSlashIcon,
   ArrowShrinkTwoIcon,
+  ViewOffSlashIcon,
+  ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
-import { Dropdown } from '@/components/Dropdown'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
+import { Dropdown } from '@/components/Dropdown'
+import { listConnectors } from '@/lib/api/connectors'
+import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -194,14 +200,26 @@ function PersonaConfigureConnectorsContent() {
 
   const [testChatOpen,       setTestChatOpen]       = useState(false)
   const [testChatExpanded,   setTestChatExpanded]   = useState(false)
+  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
+  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
+  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
   const [versionsOpen,       setVersionsOpen]       = useState(false)
   const [versions,           setVersions]           = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,    setVersionsLoading]    = useState(false)
   const [restoringId,        setRestoringId]        = useState<string | null>(null)
   const [isSaving,           setIsSaving]           = useState(false)
-  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
-  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
-  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
+
+  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[] }
+  const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
+  // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards send to prevent duplicate submissions
+  const [isStreaming,   setIsStreaming]   = useState(false)
+  const abortStreamRef  = useRef<(() => void) | null>(null)
+  const chatScrollRef   = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chatMessages])
 
   useEffect(() => {
     if (!testChatOpen) return
@@ -210,6 +228,46 @@ function PersonaConfigureConnectorsContent() {
       .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
       .catch(() => {})
   }, [testChatOpen])
+
+  async function handleTestChatSend(value: string) {
+    if (!value.trim() || !repoId || !versionId || isStreaming) return
+    const userMsgId = `user-${Date.now()}`
+    const asstMsgId = `asst-${Date.now()}`
+    setChatMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user',      text: value.trim() },
+      { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
+    ])
+    setIsStreaming(true)
+    const callbacks: PersonaChatStreamCallbacks = {
+      onChunk: (delta) => setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: m.text + delta } : m)),
+      onDone:  ()      => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, isStreaming: false } : m)); setIsStreaming(false) },
+      onError: (err)   => { setChatMessages(prev => prev.map(m => m.id === asstMsgId ? { ...m, text: `⚠ ${err}`, isStreaming: false } : m)); setIsStreaming(false) },
+      onConnectPrompt: (prompt) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, connectPrompts: [...(m.connectPrompts ?? []), prompt] } : m)
+      ),
+      onPermissionPrompt: (prompt) => setChatMessages(prev =>
+        prev.map(m => m.id === asstMsgId ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt] } : m)
+      ),
+      onToolActivity: (item: PersonaActivityItem) => setChatMessages(prev =>
+        prev.map(m => {
+          if (m.id !== asstMsgId) return m
+          const acts = m.activities ?? []
+          const idx  = acts.findIndex(a => a.id === item.id)
+          if (idx >= 0) {
+            const updated = [...acts]; updated[idx] = { ...acts[idx], ...item } as ActivityItem
+            return { ...m, activities: updated }
+          }
+          return { ...m, activities: [...acts, item as ActivityItem] }
+        })
+      ),
+    }
+    try {
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { disabledConnectors: [...mockedConnectors] })
+    } catch (err) {
+      callbacks.onError?.((err as Error).message ?? 'Failed to send message')
+    }
+  }
 
   useEffect(() => {
     if (!versionsOpen || !repoId) return
@@ -525,10 +583,7 @@ function PersonaConfigureConnectorsContent() {
                   }
                 >
                   <Dropdown size="md">
-                    <Dropdown.Section
-                      label="Mock connectors"
-                      fluid
-                    >
+                    <Dropdown.Section label="Mock connectors" fluid>
                       {connectorCatalog.length === 0
                         ? <Dropdown.Item label="No connected connectors" fluid disabled />
                         : connectorCatalog.map(c => (
@@ -538,14 +593,11 @@ function PersonaConfigureConnectorsContent() {
                             fluid
                             showCheckbox
                             checkboxChecked={mockedConnectors.has(c.slug)}
-                            onCheckboxChange={() => {
-                              setMockedConnectors(prev => {
-                                const next = new Set(prev)
-                                if (next.has(c.slug)) next.delete(c.slug)
-                                else next.add(c.slug)
-                                return next
-                              })
-                            }}
+                            onCheckboxChange={() => setMockedConnectors(prev => {
+                              const n = new Set(prev)
+                              n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
+                              return n
+                            })}
                           />
                         ))
                       }
@@ -570,28 +622,25 @@ function PersonaConfigureConnectorsContent() {
             </div>
 
             {/* Messages area */}
-            <div
-              className="kaya-scrollbar"
-              style={{
-                flex: '1 0 0',
-                minHeight: 0,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: 16,
-                  lineHeight: '22px',
-                  color: 'var(--neutral-600)',
-                  margin: 0,
-                }}
-              >
-                {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
-              </p>
+            <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+              {chatMessages.length === 0 ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                  {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
+                </p>
+              ) : (
+                chatMessages.map(msg => (
+                  <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    {msg.role === 'assistant' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                        {msg.activities && msg.activities.length > 0 && <ActivitiesSection activities={msg.activities} />}
+                        {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
+                        {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
+                        {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+                      </div>
+                    ) : <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />}
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Chat input */}
@@ -600,6 +649,7 @@ function PersonaConfigureConnectorsContent() {
                 placeholder={`Message ${personaName || 'persona'}...`}
                 textareaLabel="Test message"
                 modelName="Souvenir"
+                onSend={handleTestChatSend}
               />
             </div>
           </m.div>
@@ -686,14 +736,11 @@ function PersonaConfigureConnectorsContent() {
                               fluid
                               showCheckbox
                               checkboxChecked={mockedConnectors.has(c.slug)}
-                              onCheckboxChange={() => {
-                                setMockedConnectors(prev => {
-                                  const next = new Set(prev)
-                                  if (next.has(c.slug)) next.delete(c.slug)
-                                  else next.add(c.slug)
-                                  return next
-                                })
-                              }}
+                              onCheckboxChange={() => setMockedConnectors(prev => {
+                                const n = new Set(prev)
+                                n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
+                                return n
+                              })}
                             />
                           ))
                         }
@@ -718,10 +765,24 @@ function PersonaConfigureConnectorsContent() {
               </div>
 
               {/* Messages area */}
-              <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
-                  {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
-                </p>
+              <div ref={chatScrollRef} className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 8px' }}>
+                {chatMessages.length === 0 ? (
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                    {`Hi! I'm ${personaName || 'your persona'}. Test me here while you configure.`}
+                  </p>
+                ) : (
+                  chatMessages.map(msg => (
+                    <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      {msg.role === 'assistant' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                          {msg.text && <StreamingMessageBubble content={msg.text} isComplete={!msg.isStreaming} />}
+                          {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
+                          {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
+                        </div>
+                      ) : <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />}
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Chat input */}
@@ -730,6 +791,7 @@ function PersonaConfigureConnectorsContent() {
                   placeholder={`Message ${personaName || 'persona'}...`}
                   textareaLabel="Test message"
                   modelName="Souvenir"
+                  onSend={handleTestChatSend}
                 />
               </div>
             </m.div>

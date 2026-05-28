@@ -447,6 +447,44 @@ export interface PersonaImageEvent {
   s3_key: string;
 }
 
+export type PersonaActivityType =
+  | 'web-search' | 'read-pages' | 'csv-execute' | 'fetch-resource'
+  | 'tool-call'  | 'doc-execute' | 'docx-progress' | 'skills' | 'other'
+
+export type PersonaActivityStatus = 'start' | 'executing' | 'reading' | 'done' | 'error'
+
+export interface PersonaActivityItem {
+  id:               string
+  type:             PersonaActivityType
+  toolName?:        string
+  label?:           string
+  detail?:          string
+  status:           PersonaActivityStatus
+  durationS?:       number
+  progressMessage?: string
+  codePreview?:     string
+  filename?:        string
+}
+
+export interface PersonaConnectPrompt {
+  request_id:     string
+  connector_slug: string
+  display_name:   string
+  auth_mode:      'oauth2' | 'api_key'
+  tool_name:      string
+  api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
+  icon_url?:      string
+}
+
+export interface PersonaPermissionPrompt {
+  request_id:      string
+  connector_slug:  string
+  display_name:    string
+  tool_name:       string
+  suggested_args?: Record<string, unknown>
+  icon_url?:       string
+}
+
 export interface PersonaChatStreamCallbacks {
   /** Called with the chatId extracted from the X-Chat-Id response header. */
   onChatId?: (chatId: string) => void;
@@ -466,6 +504,12 @@ export interface PersonaChatStreamCallbacks {
   onWebSearch?: (event: PersonaWebSearchEvent) => void;
   /** Called when an image is generated. */
   onImage?: (event: PersonaImageEvent) => void;
+  /** Called when a tool starts executing, progresses, or completes. Upsert by id. */
+  onToolActivity?: (item: PersonaActivityItem) => void;
+  /** Called when the backend requests the user link a connector. */
+  onConnectPrompt?: (prompt: PersonaConnectPrompt) => void;
+  /** Called when the backend requests permission to run a connector tool. */
+  onPermissionPrompt?: (prompt: PersonaPermissionPrompt) => void;
   /** Called when the stream finishes successfully. Receives the `done` payload. */
   onDone?: (payload?: PersonaDoneEventPayload) => void;
   /** Called on error (network or stream-level). */
@@ -483,7 +527,7 @@ export interface PersonaChatStreamCallbacks {
  */
 function buildStreamBody(
   input: string,
-  options?: { files?: File[]; useMistralOcr?: boolean },
+  options?: { files?: File[]; useMistralOcr?: boolean; disabledConnectors?: string[] },
 ): { body: BodyInit; headers?: HeadersInit } {
   const hasFiles = (options?.files?.length ?? 0) > 0;
   if (hasFiles) {
@@ -491,15 +535,29 @@ function buildStreamBody(
     form.append("input", input);
     if (options?.useMistralOcr) form.append("use_mistral_ocr", "true");
     options!.files!.forEach(f => form.append("files", f));
+    options?.disabledConnectors?.forEach(slug => form.append("disabled_connectors", slug));
     return { body: form };
   }
   const params = new URLSearchParams();
   params.append("input", input);
   if (options?.useMistralOcr) params.append("use_mistral_ocr", "true");
+  options?.disabledConnectors?.forEach(slug => params.append("disabled_connectors", slug));
   return {
     body: params.toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   };
+}
+
+function toolNameToActivityType(name: string): PersonaActivityType {
+  const l = name.toLowerCase()
+  if (l === 'web_search' || l.includes('search'))                        return 'web-search'
+  if (l === 'read_pages' || l.includes('read_pdf'))                      return 'read-pages'
+  if (l === 'csv_execute' || l.includes('csv'))                          return 'csv-execute'
+  if (l === 'fetch_resource' || l.includes('fetch'))                     return 'fetch-resource'
+  if (l === 'doc_execute')                                               return 'doc-execute'
+  if (l === 'docx_execute' || l.includes('docx') || l.includes('document')) return 'docx-progress'
+  if (l === 'skills')                                                    return 'skills'
+  return 'tool-call'
 }
 
 /** Shared SSE reader used by both create-chat and stream-message. */
@@ -511,6 +569,7 @@ async function readPersonaSSEStream(
   let buffer = "";
   let doneSeen = false;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const toolCallIdByName = new Map<string, string>();
   // SSE spec: events terminated by a blank line — CR/LF/CRLF all valid.
   const boundaryRe = /\r?\n\r?\n/;
   const lineSplitRe = /\r?\n/;
@@ -592,6 +651,82 @@ async function readPersonaSSEStream(
                   typeof parsed.finish_reason === "string" ? parsed.finish_reason : null,
               });
               break;
+            case "tool_calls_streaming":
+              break; // partial args — no UI update needed
+            case "tool_executing": {
+              const toolCall = parsed.tool_call as Record<string, unknown> | undefined
+              const toolName = str(toolCall?.name ?? parsed.content) || "tool"
+              const label    = str(parsed.label) || undefined
+              const callId   = str(toolCall?.tool_call_id) || `te-${toolName}-${Date.now()}`
+              toolCallIdByName.set(toolName, callId)
+              callbacks.onToolActivity?.({
+                id: callId, type: toolNameToActivityType(toolName), toolName,
+                label, detail: label ?? toolName.replace(/_/g, " "), status: "executing",
+              })
+              break
+            }
+            case "tool_progress": {
+              const toolName = str(parsed.tool) || "unknown"
+              const label    = str(parsed.label) || undefined
+              const status   = (str(parsed.status) || "executing") as PersonaActivityStatus
+              const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${str(parsed.filename) || "x"}`
+              callbacks.onToolActivity?.({
+                id: activityId, type: toolNameToActivityType(toolName), toolName,
+                label, detail: label ?? toolName, status,
+                filename:        str(parsed.filename)      || undefined,
+                progressMessage: str(parsed.message)       || undefined,
+                codePreview:     str(parsed.code_preview)  || undefined,
+              })
+              break
+            }
+            case "tool_complete": {
+              const toolCall   = parsed.tool_call as Record<string, unknown> | undefined
+              const toolName   = str(toolCall?.name ?? parsed.content) || undefined
+              const callId     = str(toolCall?.tool_call_id) || (toolName ? toolCallIdByName.get(toolName) : undefined)
+              const label      = str(parsed.label) || undefined
+              const durationS  = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
+              if (toolName) toolCallIdByName.delete(toolName)
+              if (callId) {
+                callbacks.onToolActivity?.({
+                  id: callId, type: toolName ? toolNameToActivityType(toolName) : "tool-call",
+                  toolName, label, detail: label ?? toolName, status: "done", durationS,
+                })
+              }
+              break
+            }
+            case "tool_connect_prompt": {
+              type ApiKeyField = import('@/lib/api/connectors').ApiKeyField
+              const rawFields = parsed.api_key_fields
+              const apiKeyFields: ApiKeyField[] | undefined = Array.isArray(rawFields)
+                ? rawFields.filter(
+                    (f): f is ApiKeyField =>
+                      typeof f === 'object' && f !== null &&
+                      typeof (f as Record<string, unknown>).name === 'string',
+                  )
+                : undefined
+              callbacks.onConnectPrompt?.({
+                request_id:     typeof parsed.request_id === 'string' ? parsed.request_id : `ccp-${Date.now()}`,
+                connector_slug: str(parsed.connector_slug),
+                display_name:   str(parsed.display_name) || str(parsed.connector_slug),
+                auth_mode:      (str(parsed.auth_mode) || 'oauth2') as 'oauth2' | 'api_key',
+                tool_name:      str(parsed.tool_name),
+                api_key_fields: apiKeyFields,
+                icon_url:       str(parsed.icon_url) || undefined,
+              })
+              break
+            }
+            case "tool_permission_prompt":
+              callbacks.onPermissionPrompt?.({
+                request_id:     typeof parsed.request_id === 'string' ? parsed.request_id : `cpp-${Date.now()}`,
+                connector_slug: str(parsed.connector_slug),
+                display_name:   str(parsed.display_name) || str(parsed.connector_slug),
+                tool_name:      str(parsed.tool_name),
+                suggested_args: typeof parsed.suggested_args === 'object' && parsed.suggested_args !== null
+                  ? (parsed.suggested_args as Record<string, unknown>)
+                  : undefined,
+                icon_url:       str(parsed.icon_url) || undefined,
+              })
+              break
             case "error":
               callbacks.onError?.(str(parsed.error) || "Stream error");
               return;
@@ -621,7 +756,7 @@ export async function testVersionStream(
   versionId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[] },
+  options?: { files?: File[]; disabledConnectors?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);
