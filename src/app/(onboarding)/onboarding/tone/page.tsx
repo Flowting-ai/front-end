@@ -122,25 +122,27 @@ export default function OnboardingTonePage() {
     if (isSubmitting || data.tone === null) return;
     setIsSubmitting(true);
     try {
-      const roleValue = data.role === "Other" ? data.roleOther : (data.role ?? null);
       const payload = {
-        user_role: roleValue,
+        user_role: data.role ?? null,
         ai_tone: data.tone,
-        role_fit: data.nickname || null,
+        role_fit: data.role === "Other" && data.roleOther.trim()
+          ? data.roleOther.trim()
+          : (data.nickname || null),
         onboarding_completed: true,
       };
-      console.log("[onboarding/tone] submitting payload:", payload);
 
-      const [onboardingResult] = await Promise.all([
-        updateOnboarding(payload),
-        updateUser({ first_name: data.firstName || null, last_name: data.lastName || null }),
-      ]);
+      // Critical path: complete onboarding. Awaited so we can check for errors.
+      const onboardingResult = await updateOnboarding(payload);
 
       if (onboardingResult === null) {
         toast.error("Failed to save preferences — please try again.");
         setIsSubmitting(false);
         return;
       }
+
+      // Name was already saved on the welcome step. Fire and forget here so a
+      // transient /users/me failure never blocks onboarding completion.
+      void updateUser({ first_name: data.firstName || null, last_name: data.lastName || null });
 
       // Immediately mark onboarding complete in auth state so OnboardingGuard
       // does not redirect when the chat page mounts.

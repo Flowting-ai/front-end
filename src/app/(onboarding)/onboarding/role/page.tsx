@@ -6,6 +6,7 @@ import { useOnboarding } from "@/context/onboarding-context";
 import { Button } from "@/components/Button";
 import type { OnboardingRole } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
+import { updateOnboarding } from "@/lib/api/user";
 
 // Persona avatar placeholder colors per role
 const ROLE_COLORS: Record<OnboardingRole, string> = {
@@ -137,6 +138,20 @@ export default function OnboardingRolePage() {
   const { push } = useRouter();
   const { data, setRole, setRoleOther } = useOnboarding();
   const canContinue = data.role !== null && (data.role !== "Other" || data.roleOther.trim().length > 0);
+
+  const handleContinue = () => {
+    if (!canContinue) return;
+    // Persist role selection to backend as user progresses — fire and forget.
+    // Send the display name; updateOnboarding maps it to the backend enum.
+    const patchPayload: { user_role: string; role_fit?: string } = {
+      user_role: data.role!,
+    };
+    if (data.role === "Other" && data.roleOther.trim()) {
+      patchPayload.role_fit = data.roleOther.trim();
+    }
+    void updateOnboarding(patchPayload);
+    push("/onboarding/tone");
+  };
 
   return (
     <div
@@ -322,7 +337,7 @@ export default function OnboardingRolePage() {
           Back
         </Button>
         {/* eslint-disable-next-line react-doctor/design-no-vague-button-label -- onboarding wizard: "Continue" advances to tone step; flow context makes action clear */}
-        <Button size="sm" disabled={!canContinue} onClick={() => push("/onboarding/tone")}>
+        <Button size="sm" disabled={!canContinue} onClick={handleContinue}>
           Continue
         </Button>
       </div>

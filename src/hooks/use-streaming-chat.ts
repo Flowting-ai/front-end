@@ -562,6 +562,33 @@ export function useStreamingChat({
               }
             }
 
+            // ── response_blocks (structured content including tags) ────────────
+            // The backend includes response_blocks in the message_saved payload
+            // for any structured content generated during streaming. Merge them
+            // into the message so that tags are available when the user pins.
+            const rawResponseBlocks = Array.isArray(savedMsg.response_blocks)
+              ? (savedMsg.response_blocks as Array<Record<string, unknown>>)
+              : null
+            if (rawResponseBlocks && rawResponseBlocks.length > 0 && currentMsgId) {
+              const validBlocks = rawResponseBlocks.filter(
+                (b): b is import("@/hooks/use-chat-state").ResponseBlock =>
+                  b !== null && typeof b === "object" && typeof b.kind === "string",
+              )
+              if (validBlocks.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== currentMsgId) return msg
+                    const existing = msg.responseBlocks ?? []
+                    // Only add blocks not already delivered via structured_block events.
+                    const toAdd = validBlocks.filter((b) => !existing.some((e) => e.kind === b.kind))
+                    return toAdd.length > 0
+                      ? { ...msg, responseBlocks: [...existing, ...toAdd] }
+                      : msg
+                  }),
+                )
+              }
+            }
+
             continue
           }
 

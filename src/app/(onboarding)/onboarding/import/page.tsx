@@ -33,15 +33,14 @@ export default function OnboardingImportPage() {
   const submitOnboarding = async (skipContext = false) => {
     setLoading(true);
     try {
-      const roleValue =
-        data.role === "Other" ? data.roleOther : (data.role ?? undefined);
-
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
         updateOnboarding({
-          user_role: roleValue ?? null,
+          user_role: data.role ?? null,
           ai_tone: data.tone,
-          role_fit: data.nickname || null,
+          role_fit: data.role === "Other" && data.roleOther.trim()
+            ? data.roleOther.trim()
+            : (data.nickname || null),
           onboarding_completed: true,
         }),
       ]);

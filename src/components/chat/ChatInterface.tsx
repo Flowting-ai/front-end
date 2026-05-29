@@ -116,10 +116,10 @@ interface ChatInterfaceProps {
   /** Pin folders selected in the add menu — their pins are sent as context on every send. */
   selectedFolders?: PinFolder[];
   /**
-   * Pin IDs from @-mentions made on the new-chat landing page before the first send.
+   * @-mentioned pins (id + label) from the new-chat landing page before the first send.
    * These are one-shot: only used by the initial auto-send when ChatInterface mounts.
    */
-  initialMentionedPinIds?: string[];
+  initialMentionedPins?: Array<{ id: string; label: string }>;
   /** Persona version id sent as `persona_id` on the regular /chats endpoint
    *  to apply the persona as an overlay on top of style / web search / etc. */
   selectedPersonaId?: string | null;
@@ -160,7 +160,7 @@ export function ChatInterface({
   onClearInitialFiles,
   chips,
   selectedFolders,
-  initialMentionedPinIds,
+  initialMentionedPins,
   selectedPersonaId,
   selectedPersonaSystemPrompt,
   selectedPersonaTemperature,
@@ -273,7 +273,12 @@ export function ChatInterface({
       // Use initialFiles (passed separately from addMenuFiles) so the absorb
       // effect never sees these files and doesn't show them in the input strip.
       const files = initialFiles && initialFiles.length > 0 ? [...initialFiles] : [];
-      const userMsgId = addOptimisticUserMessage(content, files.length > 0 ? files : undefined);
+      const initialMentionedPinObjects = initialMentionedPins ?? [];
+      const userMsgId = addOptimisticUserMessage(
+        content,
+        files.length > 0 ? files : undefined,
+        initialMentionedPinObjects.length > 0 ? initialMentionedPinObjects : undefined,
+      );
       const loadingId = addLoadingAssistantMessage();
       setAttachments([]);
       onClearInitialFiles?.();
@@ -281,7 +286,7 @@ export function ChatInterface({
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
         : [];
-      const allInitialPinIds = [...new Set([...folderPinIds, ...(initialMentionedPinIds ?? [])])];
+      const allInitialPinIds = [...new Set([...folderPinIds, ...initialMentionedPinObjects.map(p => p.id)])];
       fetchAiResponse(content, null, loadingId, algorithm ? null : selectedModelId, {
         webSearch: webSearchEnabled,
         enableReasoning,
@@ -463,7 +468,13 @@ export function ChatInterface({
     if (!text.trim() && allFiles.length === 0) return;
 
     const content = text.trim();
-    const userMsgId = addOptimisticUserMessage(content, allFiles.length > 0 ? allFiles : undefined);
+    // Capture mentionedPins before clearing so they're stored on the optimistic message.
+    const capturedMentionedPins = mentionedPins;
+    const userMsgId = addOptimisticUserMessage(
+      content,
+      allFiles.length > 0 ? allFiles : undefined,
+      capturedMentionedPins.length > 0 ? capturedMentionedPins : undefined,
+    );
     const loadingId = addLoadingAssistantMessage();
     setInputValue("");
     setAttachments([]);
@@ -473,7 +484,7 @@ export function ChatInterface({
     const folderPinIds = selectedFolders && selectedFolders.length > 0
       ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
       : [];
-    const mentionedPinIds = mentionedPins.map(m => m.id);
+    const mentionedPinIds = capturedMentionedPins.map(m => m.id);
     const allPinIds = [...new Set([...folderPinIds, ...mentionedPinIds])];
 
     try {

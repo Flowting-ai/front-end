@@ -276,8 +276,8 @@ function ChatPageInner() {
   }, [activeChatId, webSearchEnabled, selectedPersona]);
   const [newChatAttachments, setNewChatAttachments] = useState<PendingAttachment[]>([]);
   const [addMenuFiles, setAddMenuFiles] = useState<File[]>([]);
-  // Pin IDs from @-mentions made on the new-chat landing, passed once to ChatInterface for the initial send.
-  const [initialMentionedPinIds, setInitialMentionedPinIds] = useState<string[]>([]);
+  // @-mentioned pins from the new-chat landing, passed once to ChatInterface for the initial send.
+  const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { processFiles, FILE_ACCEPT } = useFileUpload();
 
@@ -725,12 +725,11 @@ function ChatPageInner() {
   const handleNewChatSend = (value: string) => {
     if (!value.trim()) return;
     const pendingFiles = newChatAttachments.map((a) => a.file);
-    // Capture @-mention pin IDs before clearing so they are forwarded to the initial send.
-    const mentionedIds = newChatMentionedPins.map(m => m.id);
+    // Capture @-mention pins (with labels) before clearing so they are forwarded to the initial send.
     setAddMenuFiles(pendingFiles);
     setNewChatAttachments([]);
+    setInitialMentionedPins([...newChatMentionedPins]);
     setNewChatMentionedPins([]);
-    setInitialMentionedPinIds(mentionedIds);
     const composed = selectedMode
       ? `${MODE_PROMPT_PREFIX[selectedMode]}: ${value.trim()}`
       : value.trim();
@@ -961,7 +960,7 @@ function ChatPageInner() {
               modelMenu={selectedPersona ? undefined : <ModelMenu />}
               disabledModelSelector={!!selectedPersona}
               initialPrompt={initialPrompt}
-              initialMentionedPinIds={initialMentionedPinIds}
+              initialMentionedPins={initialMentionedPins}
               webSearchEnabled={webSearchEnabled}
               enableReasoning={enableReasoning}
               addMenuFiles={addMenuFiles}

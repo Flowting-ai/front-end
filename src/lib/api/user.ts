@@ -246,6 +246,19 @@ export async function updateUser(payload: {
   return normalizeUserProfile(json);
 }
 
+// Map frontend display roles → backend-accepted enum values.
+// Backend valid values: founder | student | creator | engineer | marketing_sales |
+//   researcher | enterprise | other
+const ROLE_API_MAP: Record<string, string> = {
+  Founder: "founder",
+  Marketer: "marketing_sales",
+  Designer: "creator",
+  Engineer: "engineer",
+  Operator: "enterprise",
+  "Student / Researcher": "researcher",
+  Other: "other",
+};
+
 // Map frontend display tones → backend-accepted enum values.
 // Backend valid values: professional | balanced | casual | concise | creative |
 //   academic | witty | socratic | empathetic | executive | teaching | other
@@ -261,24 +274,41 @@ export async function updateOnboarding(payload: {
   role_fit?: string | null;
   onboarding_completed?: boolean;
 }): Promise<UserOnboarding | null> {
-  const mappedPayload = {
+  const mapped = {
     ...payload,
-    ai_tone: payload.ai_tone ? (TONE_API_MAP[payload.ai_tone] ?? payload.ai_tone) : payload.ai_tone,
+    user_role: payload.user_role
+      ? (ROLE_API_MAP[payload.user_role] ?? payload.user_role)
+      : payload.user_role,
+    ai_tone: payload.ai_tone
+      ? (TONE_API_MAP[payload.ai_tone] ?? payload.ai_tone)
+      : payload.ai_tone,
   };
+
+  // Send only fields that have a concrete value. Sending explicit `null` for
+  // optional fields can trigger pydantic 422s on some backend versions, and is
+  // also incorrect PATCH semantics ("omit field" ≠ "set field to null").
+  const cleanPayload: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(mapped)) {
+    if (v !== null && v !== undefined) {
+      cleanPayload[k] = v;
+    }
+  }
+
   const response = await apiFetch(USER_ONBOARDING_ENDPOINT, {
     method: "PATCH",
-    body: JSON.stringify(mappedPayload),
+    body: JSON.stringify(cleanPayload),
   });
+
   if (!response.ok) {
-    // Clone so the body can be read once for logging without consuming it
     const errText = await response.clone().text();
     console.error(
       `[updateOnboarding] PATCH failed — status ${response.status}`,
       errText,
-      "payload:", payload,
+      "clean payload:", cleanPayload,
     );
     return null;
   }
+
   // API returns OnboardingSummary, not UserResponse — parse directly
   const json = (await response.json()) as Record<string, unknown>;
   return {

@@ -271,6 +271,11 @@ export function ChatMessage({
     }
     const title =
       message.content.slice(0, 80).split("\n")[0] || "Pinned response";
+
+    // Extract tag labels from any `tags` ResponseBlock delivered via structured_block SSE events.
+    const tagsFromBlocks = (message.responseBlocks ?? [])
+      .flatMap((b) => b.kind === "tags" ? b.data.tags.map((t) => t.label) : []);
+
     addPin({
       content: message.content,
       title,
@@ -278,6 +283,7 @@ export function ChatMessage({
       messageId: message.id,
       modelName: message.modelName || message.model,
       chatId,
+      ...(tagsFromBlocks.length > 0 ? { tags: tagsFromBlocks } : {}),
     });
     openPinboard();
   };
@@ -336,6 +342,50 @@ export function ChatMessage({
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: "85%" }}>
+          {/* Pin attachment chips - appear above file chips and bubble */}
+          {message.mentionedPins && message.mentionedPins.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
+              {message.mentionedPins.map((pin) => (
+                <div
+                  key={pin.id}
+                  style={{
+                    display:         "inline-flex",
+                    alignItems:      "center",
+                    gap:             "5px",
+                    padding:         "4px 8px",
+                    borderRadius:    "8px",
+                    backgroundColor: "rgba(59,54,50,0.07)",
+                    border:          "1px solid rgba(59,54,50,0.10)",
+                    maxWidth:        "220px",
+                  }}
+                >
+                  {/* Pin icon */}
+                  <svg
+                    width="12" height="12" viewBox="0 0 24 24"
+                    fill="none" stroke="var(--neutral-500)" strokeWidth="1.8"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                    <circle cx="12" cy="9" r="2.5"/>
+                  </svg>
+                  <span
+                    style={{
+                      fontFamily:   "var(--font-body)",
+                      fontSize:     "12px",
+                      fontWeight:   500,
+                      color:        "var(--neutral-700)",
+                      overflow:     "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace:   "nowrap",
+                    }}
+                  >
+                    @{pin.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {/* File attachment chips - appear above the message bubble */}
           {message.attachments && message.attachments.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>

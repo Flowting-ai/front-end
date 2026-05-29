@@ -62,6 +62,8 @@ export interface UIMessage extends Message {
   connectorConnectPrompts?: ConnectorConnectPrompt[]
   /** Connector "permission" prompts emitted mid-stream when a tool policy is "ask". */
   connectorPermissionPrompts?: ConnectorPermissionPrompt[]
+  /** @-mentioned pins attached to this user message (optimistic; not persisted across refresh). */
+  mentionedPins?: Array<{ id: string; label: string }>
 }
 
 /** Model selection metadata from the backend. */
@@ -256,7 +258,7 @@ export interface UseChatStateResult {
   hasMoreMessages: boolean
   loadMoreMessages: () => Promise<void>
   /** Inserts an optimistic user message and returns its temp ID. */
-  addOptimisticUserMessage: (content: string, files?: File[]) => string
+  addOptimisticUserMessage: (content: string, files?: File[], mentionedPins?: Array<{ id: string; label: string }>) => string
   /** Inserts an empty loading assistant message and returns its temp ID. */
   addLoadingAssistantMessage: () => string
   /** Removes the last `n` messages (for rollback on error). */
@@ -349,7 +351,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
-  const addOptimisticUserMessage = useCallback((content: string, files?: File[]): string => {
+  const addOptimisticUserMessage = useCallback((content: string, files?: File[], mentionedPins?: Array<{ id: string; label: string }>): string => {
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
       id,
@@ -367,6 +369,7 @@ export function useChatState(chatId: string | undefined): UseChatStateResult {
             uploadProgress:  0,
           }))
         : undefined,
+      mentionedPins: mentionedPins && mentionedPins.length > 0 ? mentionedPins : undefined,
     }
     setMessages((prev) => [...prev, msg])
     return id
