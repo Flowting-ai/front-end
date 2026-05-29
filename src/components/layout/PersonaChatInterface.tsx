@@ -9,6 +9,7 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import type { UIMessage } from "@/hooks/use-chat-state";
+import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/hooks/use-chat-state";
 import {
   getPersona,
   getVersion,
@@ -31,7 +32,9 @@ interface LocalMessage {
   content:     string;
   isStreaming?: boolean;
   reasoning_sections?: Array<{ heading: string; body: string }>;
-  attachments?: Array<{ file_name: string; mime_type: string; url?: string }>;
+  attachments?: Array<{ file_name: string; mime_type: string; url?: string; file_size?: number }>;
+  connectPrompts?:    ConnectorConnectPrompt[];
+  permissionPrompts?: ConnectorPermissionPrompt[];
 }
 
 export interface PersonaChatInterfaceProps {
@@ -106,12 +109,16 @@ function toUIMessage(msg: LocalMessage, chatId: string): UIMessage {
     chat_id:            chatId,
     isLoading:          msg.isStreaming,
     reasoning_sections: msg.reasoning_sections,
-    file_attachments:   msg.attachments?.map(a => ({
+    // Map to Attachment[] so ChatMessage renders the file chips in the user bubble
+    attachments: msg.attachments?.map((a, i) => ({
+      id:        `att-${msg.id}-${i}`,
       file_name: a.file_name,
-      mime_type: a.mime_type,
-      file_link: a.url,
-      origin:    "uploaded",
+      file_type: a.mime_type,
+      file_size: a.file_size ?? 0,
+      url:       a.url,
     })),
+    connectorConnectPrompts:    msg.connectPrompts,
+    connectorPermissionPrompts: msg.permissionPrompts,
   };
 }
 
@@ -250,7 +257,7 @@ export function PersonaChatInterface({
         role:        "user",
         content:     trimmed,
         attachments: filesToSend.length > 0
-          ? filesToSend.map(f => ({ file_name: f.name, mime_type: f.type }))
+          ? filesToSend.map(f => ({ file_name: f.name, mime_type: f.type, file_size: f.size }))
           : undefined,
       },
       { id: assistantMsgId, role: "assistant", content: "", isStreaming: true },
@@ -316,6 +323,20 @@ export function PersonaChatInterface({
       },
       onTitle: (title: string) => {
         if (resolvedChatId) emitPersonaChatTitleUpdated({ personaId, chatId: resolvedChatId, title });
+      },
+      onConnectPrompt: (prompt) => {
+        setMessages(prev => prev.map(m =>
+          m.id === resolvedAssistantId
+            ? { ...m, connectPrompts: [...(m.connectPrompts ?? []), prompt as ConnectorConnectPrompt] }
+            : m,
+        ));
+      },
+      onPermissionPrompt: (prompt) => {
+        setMessages(prev => prev.map(m =>
+          m.id === resolvedAssistantId
+            ? { ...m, permissionPrompts: [...(m.permissionPrompts ?? []), prompt as ConnectorPermissionPrompt] }
+            : m,
+        ));
       },
       onDone: () => {
         setMessages(prev => prev.map(m =>

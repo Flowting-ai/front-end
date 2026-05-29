@@ -62,6 +62,7 @@ import {
   type WebSearchEvent,
 } from '@/lib/api/brain'
 import { ApiError } from '@/lib/api/client'
+import { isExtractable, extractText } from '@/lib/brain-file-extract'
 import { linkScheduleToChat, consumePendingPrompt } from '@/lib/scheduleLinks'
 import { connectorLogoSrc, connectorDisplayName } from '@/lib/connectorLogos'
 import type { ContextRailData } from '@/templates/Brain/ContextRail'
@@ -283,6 +284,79 @@ function synthesizeContextFromMessages(
   }
 }
 
+// ── User attachment metadata (file info kept after upload for display) ────────
+
+interface UserAttachment {
+  file_name: string
+  file_type: string
+  file_size: number
+}
+
+// isExtractable / extractText are imported from @/lib/brain-file-extract.
+
+function AttachmentChips({ attachments }: { attachments: UserAttachment[] }) {
+  if (!attachments.length) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end' }}>
+      {attachments.map((att, i) => {
+        const ext = att.file_name.split('.').pop()?.toUpperCase() ?? 'FILE'
+        const isImage = att.file_type.startsWith('image/')
+        return (
+          <div
+            key={i}
+            style={{
+              display:         'inline-flex',
+              alignItems:      'center',
+              gap:             '5px',
+              padding:         '4px 8px',
+              borderRadius:    '8px',
+              backgroundColor: 'rgba(59,54,50,0.07)',
+              border:          '1px solid rgba(59,54,50,0.10)',
+              maxWidth:        '220px',
+            }}
+          >
+            <svg
+              width="12" height="12" viewBox="0 0 24 24"
+              fill="none" stroke="var(--neutral-500)" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              {isImage ? (
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </>
+              ) : (
+                <>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </>
+              )}
+            </svg>
+            <span
+              style={{
+                fontFamily:   'var(--font-body)',
+                fontSize:     '12px',
+                fontWeight:   500,
+                color:        'var(--neutral-700)',
+                overflow:     'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace:   'nowrap',
+              }}
+            >
+              {att.file_name}
+            </span>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--neutral-400)', flexShrink: 0 }}>
+              {ext}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Local completed-turn snapshot (built up during the session) ───────────────
 
 interface LocalTurn {
@@ -294,6 +368,7 @@ interface LocalTurn {
   images?:      ImageEvent[]
   completedAt?: Date
   cancelled:    boolean
+  attachments?: UserAttachment[]
 }
 
 // ── Counter input UI ──────────────────────────────────────────────────────────
@@ -997,6 +1072,34 @@ function BrainPageInner() {
   const [chipPersonas,         setChipPersonas]         = useState<SelectedPersonaInfo[]>([])
   const [loadingChipPersonas,  setLoadingChipPersonas]  = useState(false)
   const [brainAttachments,     setBrainAttachments]     = useState<PendingAttachment[]>([])
+  const [userAttachments,      setUserAttachments]      = useState<UserAttachment[]>([])
+
+  // ── Persist file attachment metadata to localStorage for reload recovery ───────
+  // BrainMessage from the server carries no input-file info, so we stash the
+  // attachment metadata client-side keyed by chatId + message text.
+
+  useEffect(() => {
+    if (phase !== 'complete' || !userAttachments.length || !chatId || !userMessage) return
+    try {
+      const key = `brain_input_files_${chatId}`
+      const existing: { userInput: string; attachments: UserAttachment[] }[] =
+        JSON.parse(localStorage.getItem(key) ?? '[]')
+      if (existing.some(e => e.userInput === userMessage)) return
+      localStorage.setItem(key, JSON.stringify([...existing, { userInput: userMessage, attachments: userAttachments }]))
+    } catch { /* localStorage unavailable (private mode, quota) */ }
+  }, [phase, userAttachments, chatId, userMessage])
+
+  const storedHistoryAttachments = useMemo<Record<string, UserAttachment[]>>(() => {
+    if (!chatId) return {}
+    try {
+      const key = `brain_input_files_${chatId}`
+      const stored: { userInput: string; attachments: UserAttachment[] }[] =
+        JSON.parse(localStorage.getItem(key) ?? '[]')
+      return Object.fromEntries(stored.map(s => [s.userInput, s.attachments]))
+    } catch {
+      return {}
+    }
+  }, [chatId, historyLoaded])
 
   // Note: the ContextRail is now driven entirely by the per-turn `context` SSE
   // event (see liveContext), so the old page-load connectors/bootstrap fetches
@@ -1040,6 +1143,57 @@ function BrainPageInner() {
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const selectModelRef  = useRef(selectModel)
   selectModelRef.current = selectModel
+
+  // ── Auto-scroll ───────────────────────────────────────────────────────────────
+  // threadRef is forwarded to BrainShell's scrollable thread container.
+  // isNearBottomRef tracks whether the user is within 120px of the bottom so we
+  // don't hijack scroll position when they've intentionally scrolled up to read.
+
+  const threadRef       = useRef<HTMLDivElement>(null)
+  const isNearBottomRef = useRef(true)
+
+  // Attach scroll listener once on mount to keep isNearBottomRef in sync.
+  useEffect(() => {
+    const el = threadRef.current
+    if (!el) return
+    const onScroll = () => {
+      isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const scrollToBottom = useCallback((force = false) => {
+    const el = threadRef.current
+    if (!el) return
+    if (force || isNearBottomRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [])
+
+  // Scroll as streaming text arrives.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { scrollToBottom() }, [streamedContent])
+
+  // Scroll when a new timeline item is added (tool call, connect / permission card, etc.).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { scrollToBottom() }, [timeline.length])
+
+  // Phase transitions — force-scroll when a card needs user action.
+  useEffect(() => {
+    if (phase === 'idle') return
+    const needsAction = phase === 'planning' || phase === 'paused' || phase === 'complete'
+    scrollToBottom(needsAction)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  // Connector permission card appeared — always scroll into view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (toolConnectPrompt) scrollToBottom(true) }, [toolConnectPrompt?.connector_slug])
+
+  // Permission prompt card appeared — always scroll into view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activePermissionPrompt) scrollToBottom(true) }, [activePermissionPrompt?.promptId])
 
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
@@ -1103,6 +1257,7 @@ function BrainPageInner() {
     setChatId(chatIdFromUrl)
     setPhase('idle')
     setUserMessage('')
+    setUserAttachments([])
     setActivePlanSteps([])
     setActivePlanSummary('')
     setPromptId('')
@@ -1634,6 +1789,7 @@ function BrainPageInner() {
     currentActivePlanSummary: string,
     currentCompletedAt: Date | null,
     currentStreamImages: ImageEvent[],
+    currentAttachments: UserAttachment[] = [],
   ) => {
     const key = `turn-${++turnCounterRef.current}`
     setLocalTurns((prev) => [
@@ -1647,11 +1803,13 @@ function BrainPageInner() {
         images:      currentStreamImages.length > 0 ? currentStreamImages : undefined,
         completedAt: currentCompletedAt ?? undefined,
         cancelled:   opts.cancelled ?? false,
+        attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
       },
     ])
 
     // Reset all active-turn state
     setUserMessage('')
+    setUserAttachments([])
     setStreamedContent('')
     setStreamingComplete(false)
     setCompletedAt(null)
@@ -1680,6 +1838,9 @@ function BrainPageInner() {
     input:            string,
     existingChatId:   string | null,
     fromScheduleId?:  string,
+    files?:           File[],
+    displayInput?:    string,  // what shows in the user bubble (defaults to input)
+    allDisplayFiles?: File[],  // all files to show as chips (includes text-extracted ones)
   ) => {
     if (completeTimerRef.current) {
       clearTimeout(completeTimerRef.current)
@@ -1691,7 +1852,8 @@ function BrainPageInner() {
     // new turn's state (e.g., late `content` tokens after the user retries).
     abortRef.current?.abort()
 
-    setUserMessage(input)
+    setUserMessage(displayInput ?? input)
+    setUserAttachments((allDisplayFiles ?? files)?.map(f => ({ file_name: f.name, file_type: f.type, file_size: f.size })) ?? [])
     setPhase('thinking')
     setStreamedContent('')
     setStreamingComplete(false)
@@ -1727,8 +1889,9 @@ function BrainPageInner() {
       let response: Response
       let resolvedChatId = existingChatId
 
+      const fileOpts = files?.length ? { files } : {}
       if (!resolvedChatId) {
-        const result = await startBrainChat(input, {}, controller.signal)
+        const result = await startBrainChat(input, fileOpts, controller.signal)
         resolvedChatId = result.chatId
         response = result.stream
         if (resolvedChatId) {
@@ -1745,7 +1908,7 @@ function BrainPageInner() {
           toast.warning('Chat started but cannot be saved to the URL. Refreshing will lose it.')
         }
       } else {
-        response = await continueBrainChat(resolvedChatId, input, {}, controller.signal)
+        response = await continueBrainChat(resolvedChatId, input, fileOpts, controller.signal)
       }
 
       await consumeBrainStream(response, {
@@ -1789,7 +1952,6 @@ function BrainPageInner() {
   const handleSend = useCallback((value: string) => {
     const terminalPhases: Phase[] = ['complete', 'cancelled', 'failed']
     if (terminalPhases.includes(phase)) {
-      // Archive the finished turn before starting a new one
       snapshotAndReset(
         { cancelled: phase === 'cancelled' },
         planSteps,
@@ -1798,12 +1960,53 @@ function BrainPageInner() {
         activePlanSummary,
         completedAt,
         streamImages,
+        userAttachments,
       )
     }
-    void runBrainStream(value, chatId)
+
+    const allFiles = brainAttachments.map(a => a.file)
+    setBrainAttachments([])
+
+    const doSend = async () => {
+      // Extract text from every file we can read client-side (PDF via pdfjs,
+      // DOCX/PPTX/XLSX via ZIP+XML, plain text via FileReader). Files whose
+      // text we can extract are injected as <document> blocks in the message
+      // so the LLM receives the actual content regardless of backend support.
+      // Files we cannot extract (raw images) are still sent via FormData.
+      const blocks: string[] = []
+      const binaryFiles: File[] = []
+
+      await Promise.all(allFiles.map(async f => {
+        if (isExtractable(f)) {
+          const text = await extractText(f)
+          if (text.trim()) {
+            blocks.push(`<document name="${f.name}">\n${text.trim()}\n</document>`)
+            return
+          }
+        }
+        binaryFiles.push(f)
+      }))
+
+      const prefix     = blocks.join('\n\n')
+      const apiMessage = prefix
+        ? (value.trim() ? `${prefix}\n\n${value}` : prefix)
+        : value
+
+      void runBrainStream(
+        apiMessage,
+        chatId,
+        undefined,
+        binaryFiles.length > 0 ? binaryFiles : undefined,
+        value,   // shown in user bubble (original text, no injected content)
+        allFiles.length > 0 ? allFiles : undefined,  // all files shown as chips (incl. text-extracted)
+      )
+    }
+
+    void doSend()
   }, [
     phase, chatId, planSteps, userMessage, streamedContent,
     activePlanSummary, completedAt, streamImages, snapshotAndReset, runBrainStream,
+    brainAttachments, userAttachments,
   ])
 
   // ── Plan decisions ────────────────────────────────────────────────────────────
@@ -2083,9 +2286,10 @@ function BrainPageInner() {
       activePlanSummary,
       completedAt,
       streamImages,
+      userAttachments,
     )
     setPhase('idle')
-  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset])
+  }, [phase, planSteps, userMessage, streamedContent, activePlanSummary, completedAt, streamImages, snapshotAndReset, userAttachments])
 
   // ── New chat ─────────────────────────────────────────────────────────────────
   // Used by both the sidebar's "Brain" button and the "+ New chat" entry.
@@ -2104,6 +2308,7 @@ function BrainPageInner() {
     setChatId(null)
     setPhase('idle')
     setUserMessage('')
+    setUserAttachments([])
     setActivePlanSteps([])
     setActivePlanSummary('')
     setPromptId('')
@@ -2140,9 +2345,11 @@ function BrainPageInner() {
   const historyElements = historyMessages.map((msg) => {
     const planSteps = msg.plan ? mapHistoryPlanSteps(msg.plan) : []
     const images = (msg.attachments ?? []).filter((a) => a.mime_type?.startsWith('image/'))
+    const msgAttachments = storedHistoryAttachments[msg.input]
     return (
       <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {msgAttachments && <AttachmentChips attachments={msgAttachments} />}
           <MessageBubble role="user" content={msg.input} maxWidth="75%" />
         </div>
         {planSteps.length > 0 && (
@@ -2164,7 +2371,8 @@ function BrainPageInner() {
 
   const localTurnElements = localTurns.map((turn) => (
     <div key={turn.key} style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        {turn.attachments && <AttachmentChips attachments={turn.attachments} />}
         <MessageBubble role="user" content={turn.userInput} maxWidth="75%" />
       </div>
       {turn.planSteps && turn.planSteps.length > 0 && (
@@ -2247,7 +2455,8 @@ function BrainPageInner() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 40 }}>
 
       {/* User message bubble */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+        <AttachmentChips attachments={userAttachments} />
         <MessageBubble role="user" content={userMessage} maxWidth="75%" />
       </div>
 
@@ -2524,6 +2733,7 @@ function BrainPageInner() {
       defaultPhase={phase}
       onSend={handleSend}
       contextRailData={contextRailData}
+      threadRef={threadRef}
       clarificationProps={activeClarification ? {
         // The backend's `title` is usually a generic preamble. The actual
         // model-generated question lives in `description`. Prefer the

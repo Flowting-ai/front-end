@@ -12,6 +12,7 @@ import {
   PERSONA_VERSION_TEST_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_ENDPOINT,
   PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT,
+  PERSONA_VERSION_CONNECTORS_ENDPOINT,
   PERSONA_CHATS_ENDPOINT,
   PERSONA_CHATS_CREATE_ENDPOINT,
   PERSONA_CHAT_MESSAGES_ENDPOINT,
@@ -45,6 +46,8 @@ export interface PersonaVersionResponse {
   temperature: number | null;
   documents: PersonaDocumentResponse[];
   total_usage: number;
+  /** Slugs of connectors enabled for this version. Null/absent = all linked connectors. */
+  connector_slugs: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -264,6 +267,8 @@ export async function updateVersion(params: {
   modelId?: string;
   temperature?: number | null;
   image?: File | null;
+  /** Existing image URL to carry forward when no new image file is provided. */
+  imageUrl?: string | null;
   files?: File[];
   removeDocumentIds?: string[];
 }): Promise<PersonaVersionResponse> {
@@ -272,7 +277,9 @@ export async function updateVersion(params: {
   if (params.prompt != null) form.append("prompt", params.prompt);
   if (params.modelId != null) form.append("model_id", params.modelId);
   if (params.temperature != null) form.append("temperature", String(params.temperature));
-  if (params.image) form.append("image", params.image);
+  let image: File | null = params.image ?? null;
+  if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
+  if (image) form.append("image", image);
   params.files?.forEach(f => form.append("files", f));
   if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
     form.append("remove_document_ids", params.removeDocumentIds.join(","));
@@ -308,6 +315,27 @@ export async function deleteDocument(repoId: string, versionId: string, document
     throw new Error(`Failed to delete document (${response.status})`);
   }
   // 2xx — success. DELETE often returns 204 No Content; don't attempt JSON parse.
+}
+
+// ── Version connectors ────────────────────────────────────────────────────────
+
+/**
+ * PUT /persona/{repo_id}/versions/{persona_id}/connectors
+ * Full-replace the set of connectors enabled for this version.
+ * Pass an empty array to detach all connectors from this version.
+ */
+export async function setVersionConnectors(
+  repoId: string,
+  versionId: string,
+  connectorSlugs: string[],
+): Promise<PersonaVersionResponse> {
+  return apiFetchJson<PersonaVersionResponse>(
+    PERSONA_VERSION_CONNECTORS_ENDPOINT(repoId, versionId),
+    {
+      method: 'PUT',
+      body: JSON.stringify({ connector_slugs: connectorSlugs }),
+    },
+  );
 }
 
 // ── Enhance prompt ────────────────────────────────────────────────────────────
@@ -527,7 +555,14 @@ export interface PersonaChatStreamCallbacks {
  */
 function buildStreamBody(
   input: string,
-  options?: { files?: File[]; useMistralOcr?: boolean; disabledConnectors?: string[] },
+  options?: {
+    files?: File[];
+    useMistralOcr?: boolean;
+    disabledConnectors?: string[];
+    /** Connector slugs enabled for this persona version — forwarded to the backend so
+     *  the test/chat endpoint knows which connector tools are in scope. */
+    connectorSlugs?: string[];
+  },
 ): { body: BodyInit; headers?: HeadersInit } {
   const hasFiles = (options?.files?.length ?? 0) > 0;
   if (hasFiles) {
@@ -536,12 +571,14 @@ function buildStreamBody(
     if (options?.useMistralOcr) form.append("use_mistral_ocr", "true");
     options!.files!.forEach(f => form.append("files", f));
     options?.disabledConnectors?.forEach(slug => form.append("disabled_connectors", slug));
+    options?.connectorSlugs?.forEach(slug => form.append("connector_slugs", slug));
     return { body: form };
   }
   const params = new URLSearchParams();
   params.append("input", input);
   if (options?.useMistralOcr) params.append("use_mistral_ocr", "true");
   options?.disabledConnectors?.forEach(slug => params.append("disabled_connectors", slug));
+  options?.connectorSlugs?.forEach(slug => params.append("connector_slugs", slug));
   return {
     body: params.toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -756,7 +793,7 @@ export async function testVersionStream(
   versionId: string,
   input: string,
   callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; disabledConnectors?: string[] },
+  options?: { files?: File[]; disabledConnectors?: string[]; connectorSlugs?: string[] },
 ): Promise<() => void> {
   const controller = new AbortController();
   const { body, headers } = buildStreamBody(input, options);

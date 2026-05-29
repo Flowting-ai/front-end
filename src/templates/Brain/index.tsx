@@ -156,6 +156,8 @@ export interface BrainShellProps {
   onShare?: React.MouseEventHandler<HTMLButtonElement>
   /** Real content for the ContextRail — persona, pins, connectors. */
   contextRailData?: ContextRailData
+  /** Ref forwarded to the scrollable thread container — used by the page for auto-scroll. */
+  threadRef?: React.RefObject<HTMLDivElement | null>
 }
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
@@ -183,6 +185,7 @@ export function BrainShell({
   onSend,
   onShare,
   contextRailData,
+  threadRef,
 }: BrainShellProps) {
   // eslint-disable-next-line react-doctor/no-derived-useState -- intentional draft-state pattern; reset handled by key prop or effect
   const [phase,      setPhase]      = useState<Phase>(defaultPhase)
@@ -287,6 +290,7 @@ export function BrainShell({
             {/* Thread slot — spans full content-area width; scrollbar sits at glass card inner edge.
                 Inner wrapper owns the 28px horizontal padding so content aligns with inputs below. */}
             <div
+              ref={threadRef}
               data-slot="brain-thread"
               style={{
                 flex:                '1 0 0',

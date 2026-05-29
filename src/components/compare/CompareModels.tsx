@@ -18,6 +18,8 @@ import { MODELS_ENDPOINT } from "@/lib/config";
 import { getModelLlmId } from "@/lib/model-icons";
 import { apiFetch } from "@/lib/api/client";
 import { usePinboardActions } from "@/context/pinboard-context";
+import { ConnectPromptCard, PermissionPromptCard } from "@/components/chat/ConnectorPrompts";
+import type { ConnectorConnectPrompt, ConnectorPermissionPrompt } from "@/hooks/use-chat-state";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { sanitizeKaTeX, sanitizeURL } from "@/lib/security";
@@ -713,6 +715,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
   const [expandedModelId,  setExpandedModelId]  = useState<string | null>(null);
   const [testCredits,      setTestCredits]      = useState<Record<string, number>>({});
   const [testMessageIds,   setTestMessageIds]   = useState<Record<string, string>>({});
+  const [connectPromptsPerModel,    setConnectPromptsPerModel]    = useState<Record<string, import('@/hooks/use-chat-state').ConnectorConnectPrompt[]>>({});
+  const [permissionPromptsPerModel, setPermissionPromptsPerModel] = useState<Record<string, import('@/hooks/use-chat-state').ConnectorPermissionPrompt[]>>({});
   const [filterOpen,      setFilterOpen]      = useState(false);
   const [selectedTiers,   setSelectedTiers]   = useState<Set<string>>(new Set());
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -912,6 +916,8 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
     setTestCredits({});
     setTestMessageIds({});
     setStreamingModels(new Set());
+    setConnectPromptsPerModel({});
+    setPermissionPromptsPerModel({});
 
     try {
       const modelIds      = selectedModels.map((id) => id.trim()).filter((id) => id.length > 0);
@@ -1027,6 +1033,35 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
               streamingResponses[modelIdStr] = `Error: ${errText}`;
               setTestResponses({ ...streamingResponses });
               setStreamingModels((prev) => { const n = new Set(prev); n.delete(modelIdStr); return n; });
+              break;
+            }
+            case "tool_connect_prompt": {
+              const prompt: ConnectorConnectPrompt = {
+                request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `ccp-${Date.now()}`,
+                connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
+                display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
+                auth_mode:      (typeof payload.auth_mode     === "string" ? payload.auth_mode      : "oauth2") as "oauth2" | "api_key",
+                tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+                icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
+              };
+              setConnectPromptsPerModel((prev) => ({
+                ...prev,
+                [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+              }));
+              break;
+            }
+            case "tool_permission_prompt": {
+              const prompt: ConnectorPermissionPrompt = {
+                request_id:     typeof payload.request_id     === "string" ? payload.request_id     : `cpp-${Date.now()}`,
+                connector_slug: typeof payload.connector_slug === "string" ? payload.connector_slug : "",
+                display_name:   typeof payload.display_name   === "string" ? payload.display_name   : (typeof payload.connector_slug === "string" ? payload.connector_slug : ""),
+                tool_name:      typeof payload.tool_name      === "string" ? payload.tool_name      : "",
+                icon_url:       typeof payload.icon_url       === "string" ? payload.icon_url       : undefined,
+              };
+              setPermissionPromptsPerModel((prev) => ({
+                ...prev,
+                [modelIdStr]: [...(prev[modelIdStr] ?? []), prompt],
+              }));
               break;
             }
           }
@@ -1239,6 +1274,17 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         )}
                       </div>
+                      {/* Connector prompts — shown below the response in expanded view */}
+                      {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                          {connectPromptsPerModel[responseKey]?.map((p) => (
+                            <ConnectPromptCard key={p.request_id} prompt={p} />
+                          ))}
+                          {permissionPromptsPerModel[responseKey]?.map((p) => (
+                            <PermissionPromptCard key={p.request_id} prompt={p} />
+                          ))}
+                        </div>
+                      )}
                       {/* Bottom action bar */}
                       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
@@ -1325,6 +1371,17 @@ export default function CompareModels({ selectedModel, onModelSelect, onClose }:
                           </div>
                         )}
                       </div>
+                      {/* Connector prompts — shown below the response */}
+                      {(connectPromptsPerModel[responseKey]?.length > 0 || permissionPromptsPerModel[responseKey]?.length > 0) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                          {connectPromptsPerModel[responseKey]?.map((p) => (
+                            <ConnectPromptCard key={p.request_id} prompt={p} />
+                          ))}
+                          {permissionPromptsPerModel[responseKey]?.map((p) => (
+                            <PermissionPromptCard key={p.request_id} prompt={p} />
+                          ))}
+                        </div>
+                      )}
                       {/* Bottom bar: credits */}
                       {credits !== undefined && (
                         <div style={{ display: "flex", alignItems: "center", paddingTop: 2, paddingBottom: 2, flexShrink: 0 }}>

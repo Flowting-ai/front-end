@@ -303,9 +303,10 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         doc => !mergedSizes.has(doc.filename) && doc.fileLink,
       )
       if (missing.length > 0) {
+        const headCtrl = new AbortController()
         const settled = await Promise.allSettled(
           missing.map(async doc => {
-            const res = await fetch(doc.fileLink, { method: 'HEAD' })
+            const res = await fetch(doc.fileLink, { method: 'HEAD', signal: headCtrl.signal })
             const len  = res.headers.get('content-length')
             return { name: doc.filename, size: len ? parseInt(len, 10) : 0 }
           }),

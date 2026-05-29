@@ -74,6 +74,45 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
         - HTTPBearer: []
+  /persona/{repo_id}/guide:
+    post:
+      tags:
+        - persona
+      summary: Guide
+      description: Stream advice on improving a draft persona. The FE sends the current editor state (the version being edited); all saved versions of the repo are pulled in as context.
+      operationId: guide_persona__repo_id__guide_post
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaGuideRequest'
+      responses:
+        '200':
+          description: Streaming advice via Server-Sent Events.
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream — emits content delta events identical in shape to the chat stream.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /persona/{repo_id}:
     get:
       tags:
@@ -363,6 +402,48 @@ paths:
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/versions/{persona_id}/connectors:
+    put:
+      tags:
+        - persona
+      summary: Set Version Connectors
+      operationId: set_version_connectors_persona__repo_id__versions__persona_id__connectors_put
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+        - name: persona_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Persona Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPersonaConnectors'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaResponse'
         '422':
           description: Validation Error
           content:
@@ -1287,6 +1368,22 @@ components:
               type: array
             - type: 'null'
           title: Files
+        connector_slugs:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Connector Slugs
+          description: Slugs of connectors enabled for this persona version. When omitted the backend falls back to the version's stored connector_slugs.
+        disabled_connectors:
+          anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+          title: Disabled Connectors
+          description: Slugs to temporarily disable during this test run (mock mode). Applied on top of connector_slugs.
       type: object
       required:
         - input
@@ -1355,6 +1452,39 @@ components:
       required:
         - chat_id
       title: DeletePersonaChat
+    PersonaGuideRequest:
+      properties:
+        prompt:
+          type: string
+          title: Prompt
+          description: Current system instruction in the editor.
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        temperature:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Temperature
+      type: object
+      required:
+        - prompt
+      title: PersonaGuideRequest
+    SetPersonaConnectors:
+      properties:
+        connector_slugs:
+          items:
+            type: string
+          type: array
+          title: Connector Slugs
+          description: Full replacement set of connector slugs to attach to this version. Send an empty array to detach all connectors.
+      type: object
+      required:
+        - connector_slugs
+      title: SetPersonaConnectors
     EnhancePromptResponse:
       properties:
         enhanced_prompt:

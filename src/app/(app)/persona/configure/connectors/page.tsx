@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { updateVersion, listVersions, testVersionStream, type PersonaVersionListItem, type PersonaChatStreamCallbacks } from '@/lib/api/personas'
+import { updateVersion, getVersion, listVersions, testVersionStream, type PersonaVersionListItem, type PersonaChatStreamCallbacks } from '@/lib/api/personas'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
@@ -22,16 +22,12 @@ import {
   CancelOneIcon,
   ExpandIcon,
   ArrowShrinkTwoIcon,
-  ViewOffSlashIcon,
-  ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
 import { ChatInput } from '@/components/ChatInput'
 import ConnectorsTab from '@/app/(app)/persona/configure/components/ConnectorsTab'
-import { Dropdown } from '@/components/Dropdown'
-import { listConnectors } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
+import { VersionCard } from '@/components/VersionCard'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -200,10 +196,9 @@ function PersonaConfigureConnectorsContent() {
 
   const [testChatOpen,       setTestChatOpen]       = useState(false)
   const [testChatExpanded,   setTestChatExpanded]   = useState(false)
-  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
-  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
-  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
+  const [connectorSlugs,     setConnectorSlugs]     = useState<string[] | null>(null)
   const [versionsOpen,       setVersionsOpen]       = useState(false)
+  const anyPanelOpen = testChatOpen || versionsOpen
   const [versions,           setVersions]           = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,    setVersionsLoading]    = useState(false)
   const [restoringId,        setRestoringId]        = useState<string | null>(null)
@@ -222,12 +217,11 @@ function PersonaConfigureConnectorsContent() {
   }, [chatMessages])
 
   useEffect(() => {
-    if (!testChatOpen) return
-    if (connectorCatalog.length > 0) return
-    listConnectors()
-      .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
+    if (!repoId || !versionId) return
+    getVersion(repoId, versionId)
+      .then(v => { if (v.connector_slugs != null) setConnectorSlugs(v.connector_slugs) })
       .catch(() => {})
-  }, [testChatOpen])
+  }, [repoId, versionId])
 
   async function handleTestChatSend(value: string) {
     if (!value.trim() || !repoId || !versionId || isStreaming) return
@@ -263,7 +257,7 @@ function PersonaConfigureConnectorsContent() {
       ),
     }
     try {
-      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { disabledConnectors: [...mockedConnectors] })
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { connectorSlugs: connectorSlugs ?? undefined })
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -339,7 +333,8 @@ function PersonaConfigureConnectorsContent() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: anyPanelOpen ? 'flex-start' : 'space-between',
+              gap: anyPanelOpen ? 8 : 0,
               height: 36,
               position: 'relative',
             }}
@@ -356,7 +351,7 @@ function PersonaConfigureConnectorsContent() {
             </div>
 
             {/* Tabs — absolutely centered so left/right items don't affect positioning */}
-            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
+            <div style={anyPanelOpen ? { display: 'inline-flex', alignItems: 'flex-start' } : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
                 style={{
@@ -391,11 +386,7 @@ function PersonaConfigureConnectorsContent() {
                         fontWeight: 500,
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: isActive
-                          ? 'var(--blue-600)'
-                          : MUTED_TABS.has(tab)
-                          ? 'var(--neutral-500)'
-                          : 'var(--neutral-700)',
+                        color: isActive ? 'var(--blue-600)' : 'var(--neutral-700)',
                         whiteSpace: 'nowrap',
                         transition: 'background-color 150ms, box-shadow 150ms, color 150ms',
                         position: 'relative',
@@ -421,14 +412,14 @@ function PersonaConfigureConnectorsContent() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
               <IconButton
                 variant="outline"
                 size="md"
                 icon={<MoreVerticalIcon size={20} />}
                 aria-label="More options"
               />
-              {testChatOpen ? (
+              {anyPanelOpen ? (
                 <IconButton
                   variant="outline"
                   size="sm"
@@ -482,7 +473,7 @@ function PersonaConfigureConnectorsContent() {
               paddingBottom: 32,
             }}
           >
-            <ConnectorsTab />
+            <ConnectorsTab repoId={repoId || undefined} versionId={versionId || undefined} />
           </div>
         </div>
 
@@ -563,47 +554,6 @@ function PersonaConfigureConnectorsContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Dropdown.Float
-                  open={mockDropdownOpen}
-                  onOpenChange={setMockDropdownOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<ViewOffSlashIcon size={16} />}
-                      rightIcon={<ArrowDownOneIcon size={16} />}
-                    >
-                      {mockedConnectors.size === 0
-                        ? 'Mock connector'
-                        : mockedConnectors.size === 1
-                          ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                          : `Mocking ${mockedConnectors.size}`}
-                    </Button>
-                  }
-                >
-                  <Dropdown size="md">
-                    <Dropdown.Section label="Mock connectors" fluid>
-                      {connectorCatalog.length === 0
-                        ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                        : connectorCatalog.map(c => (
-                          <Dropdown.Item
-                            key={c.slug}
-                            label={c.display_name}
-                            fluid
-                            showCheckbox
-                            checkboxChecked={mockedConnectors.has(c.slug)}
-                            onCheckboxChange={() => setMockedConnectors(prev => {
-                              const n = new Set(prev)
-                              n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                              return n
-                            })}
-                          />
-                        ))
-                      }
-                    </Dropdown.Section>
-                  </Dropdown>
-                </Dropdown.Float>
                 <IconButton
                   variant="outline"
                   size="md"
@@ -706,47 +656,6 @@ function PersonaConfigureConnectorsContent() {
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <Dropdown.Float
-                    open={mockDropdownOpen}
-                    onOpenChange={setMockDropdownOpen}
-                    placement="bottom-end"
-                    trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<ViewOffSlashIcon size={16} />}
-                        rightIcon={<ArrowDownOneIcon size={16} />}
-                      >
-                        {mockedConnectors.size === 0
-                          ? 'Mock connector'
-                          : mockedConnectors.size === 1
-                            ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                            : `Mocking ${mockedConnectors.size}`}
-                      </Button>
-                    }
-                  >
-                    <Dropdown size="md">
-                      <Dropdown.Section label="Mock connectors" fluid>
-                        {connectorCatalog.length === 0
-                          ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                          : connectorCatalog.map(c => (
-                            <Dropdown.Item
-                              key={c.slug}
-                              label={c.display_name}
-                              fluid
-                              showCheckbox
-                              checkboxChecked={mockedConnectors.has(c.slug)}
-                              onCheckboxChange={() => setMockedConnectors(prev => {
-                                const n = new Set(prev)
-                                n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                                return n
-                              })}
-                            />
-                          ))
-                        }
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
                   <IconButton
                     variant="outline"
                     size="md"
@@ -830,40 +739,17 @@ function PersonaConfigureConnectorsContent() {
                 const vLabel = `v${String(vNum).padStart(3, '0')}`
                 const handle = v.handler ? `@${v.handler}·${vLabel}` : vLabel
                 const dateStr = formatVersionDate(v.created_at)
-                const initials = nameInitials(v.name || personaName)
                 return (
-                  <div key={v.id} style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: 12, borderRadius: 16, backgroundColor: isCurrent ? 'var(--neutral-white)' : 'var(--neutral-50)', border: isCurrent ? 'none' : '1px dashed var(--neutral-300)', boxShadow: isCurrent ? '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)' : 'none', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%' }}>
-                      <div style={{ width: 37, height: 37, borderRadius: 8, flexShrink: 0, backgroundColor: 'var(--neutral-100)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--neutral-600)', lineHeight: 1 }}>{initials}</span>
-                      </div>
-                      <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', whiteSpace: 'nowrap', width: '100%' }}>
-                          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }}>{v.name || personaName}</p>
-                          <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, flexShrink: 0 }}>{dateStr}</p>
-                        </div>
-                        <p style={{ fontFamily: 'monospace', fontWeight: 400, fontSize: 13, lineHeight: '16px', color: 'var(--neutral-500)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{handle}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', width: '100%' }}>
-                      {isCurrent ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px 6px', borderRadius: 8, flexShrink: 0, cursor: 'default', background: 'linear-gradient(180deg, #524b47 0%, #26211e 100%)', boxShadow: '0px 0px 0px 1px black', position: 'relative' }}>
-                          <div aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'inset 0px 1px 0.364px 0px rgba(247,242,237,0.3), inset 0px -2.182px 0.364px 0px #120c08', pointerEvents: 'none' }} />
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: '#f7f2ed', whiteSpace: 'nowrap' }}>Current</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleRestoreVersion(v.id)}
-                          disabled={!!restoringId}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '5px 8px', borderRadius: 8, border: 'none', flexShrink: 0, cursor: restoringId ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', opacity: restoringId ? 0.5 : 1, transition: 'opacity 150ms' }}
-                        >
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)', whiteSpace: 'nowrap' }}>
-                            {restoringId === v.id ? 'Loading…' : 'Restore'}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <VersionCard
+                    key={v.id}
+                    variant={isCurrent ? 'default' : 'restore'}
+                    personaName={v.name || personaName}
+                    timestamp={dateStr}
+                    versionSlug={handle}
+                    onRestore={() => handleRestoreVersion(v.id)}
+                    disabled={!isCurrent && !!restoringId}
+                    style={{ flexShrink: 0 }}
+                  />
                 )
               })}
             </div>

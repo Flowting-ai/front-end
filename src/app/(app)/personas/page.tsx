@@ -10,6 +10,8 @@ import {
   ArrowDownOneIcon,
   CopyOneIcon,
   PenOneIcon,
+  CancelOneIcon,
+  FilterMailIcon,
 } from '@strange-huge/icons'
 import { Button } from '@/components/Button'
 import { IconButton } from '@/components/IconButton'
@@ -275,6 +277,7 @@ export default function PersonasPage() {
   const [activeTab,    setActiveTab]    = useState<TabId>('my-personas')
   const [personas,     setPersonas]     = useState<Persona[]>([])
   const [draftAvatarMap, setDraftAvatarMap] = useState<Record<string, string>>({})
+  const [draftTagsMap,   setDraftTagsMap]   = useState<Record<string, string[]>>({})
   const [isLoading,    setIsLoading]    = useState(true)
   const [search,       setSearch]       = useState('')
   const [sort,         setSort]         = useState<SortKey>('activity')
@@ -298,15 +301,18 @@ export default function PersonasPage() {
         setPersonas(list)
         // Build draft-avatar overrides from sessionStorage (covers the case
         // where the user uploaded an image but hasn't saved to the API yet).
-        const overrides: Record<string, string> = {}
+        const avatarOverrides: Record<string, string>   = {}
+        const tagOverrides:    Record<string, string[]> = {}
         for (const p of list) {
           try {
             const raw = sessionStorage.getItem(`persona_profile_${p.id}`)
             const draft = JSON.parse(raw ?? 'null') as Record<string, unknown> | null
-            if (typeof draft?.avatarUrl === 'string') overrides[p.id] = draft.avatarUrl
+            if (typeof draft?.avatarUrl === 'string') avatarOverrides[p.id] = draft.avatarUrl
+            if (Array.isArray(draft?.personaTags))   tagOverrides[p.id]    = draft.personaTags as string[]
           } catch { /* ignore quota / parse errors */ }
         }
-        setDraftAvatarMap(overrides)
+        setDraftAvatarMap(avatarOverrides)
+        setDraftTagsMap(tagOverrides)
       })
       .catch(console.error)
       .finally(() => setIsLoading(false))
@@ -327,10 +333,7 @@ export default function PersonasPage() {
 
   const filtered = useMemo(() => {
     const searched = search.trim()
-      ? tagFiltered.filter(p => {
-          const q = search.toLowerCase()
-          return p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
-        })
+      ? tagFiltered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
       : tagFiltered
     if (sort === 'az') return searched.toSorted((a, b) => a.name.localeCompare(b.name))
     if (sort === 'za') return searched.toSorted((a, b) => b.name.localeCompare(a.name))
@@ -369,14 +372,16 @@ export default function PersonasPage() {
     }
   }
 
-  async function handlePauseToggle(id: string) {
+  async function handlePauseToggle(id: string, name: string, currentlyPaused: boolean) {
     try {
       await togglePause(id)
       setPersonas(prev => prev.map(p =>
         p.id === id ? { ...p, isPaused: !p.isPaused, isActive: p.isPaused } : p
       ))
+      toast.success(currentlyPaused ? `"${name}" resumed` : `"${name}" paused`)
     } catch (err) {
       console.error('Failed to toggle pause:', err)
+      toast.error(`Failed to ${currentlyPaused ? 'resume' : 'pause'} persona. Please try again.`)
     }
   }
 
@@ -390,6 +395,7 @@ export default function PersonasPage() {
           flex: '1 1 0',
           minHeight: 0,
           overflow: 'hidden',
+          padding: 3,
         }}
       >
       <div
@@ -502,6 +508,27 @@ export default function PersonasPage() {
                         padding: '0 2px',
                       }}
                     />
+                    {search && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        onClick={() => setSearch('')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'none',
+                          border: 'none',
+                          padding: 2,
+                          cursor: 'pointer',
+                          color: 'var(--neutral-400)',
+                          flexShrink: 0,
+                          borderRadius: 4,
+                        }}
+                      >
+                        <CancelOneIcon size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -538,7 +565,7 @@ export default function PersonasPage() {
                     onOpenChange={setFilterOpen}
                     placement="bottom-end"
                     trigger={
-                      <Button variant="secondary" disabled>
+                      <Button variant="secondary" disabled leftIcon={<FilterMailIcon animated />}>
                         Filter
                       </Button>
                     }
@@ -667,13 +694,14 @@ export default function PersonasPage() {
                           handle={persona.handle.replace(/^@/, '')}
                           description={persona.description}
                           avatarUrl={draftAvatarMap[persona.id] ?? persona.imageUrl ?? undefined}
+                          tags={draftTagsMap[persona.id] ?? persona.tags}
                           paused={persona.isPaused}
                           visibility="private"
-                          onEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
+                          onEdit={() => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) }}
                           onUseInChat={() => push(`/personas/${persona.id}/chat`)}
-                          onResume={() => handlePauseToggle(persona.id)}
-                          onMenuEdit={() => push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`)}
-                          onMenuPauseToggle={() => handlePauseToggle(persona.id)}
+                          onResume={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
+                          onMenuEdit={() => { toast.success(`Editing "${persona.name}"`); push(`/persona/configure/instructions?repoId=${persona.id}&name=${encodeURIComponent(persona.name)}`) }}
+                          onMenuPauseToggle={() => handlePauseToggle(persona.id, persona.name, persona.isPaused)}
                           onMenuDelete={() => setDeleteTarget(persona)}
                         />
                       ))}

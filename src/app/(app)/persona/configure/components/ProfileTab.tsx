@@ -94,6 +94,8 @@ export default function ProfileTab({
   const [newTagInput, setNewTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
 
   const DESCRIPTION_MAX = 120;
 
@@ -139,6 +141,16 @@ export default function ProfileTab({
       setIsCompressing(false);
     }
   }, [onAvatarChange]);
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items ?? [])
+      const img = items.find(i => i.kind === 'file' && i.type.startsWith('image/'))
+      if (img) { const f = img.getAsFile(); if (f) processAvatar(f) }
+    }
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [processAvatar]);
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,7 +207,13 @@ export default function ProfileTab({
       {/* Avatar */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#524b47", margin: 0 }}>Avatar</p>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true) }}
+          onDragLeave={() => { dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false) }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); dragCounter.current = 0; setIsDragOver(false); const f = e.dataTransfer.files[0]; if (f) processAvatar(f) }}
+          style={{ display: "flex", alignItems: "center", gap: 12, borderRadius: 10, outline: isDragOver ? "2px solid rgba(82,75,71,0.45)" : "2px solid transparent", outlineOffset: 2, transition: "outline 100ms" }}
+        >
           <div
             style={{
               position: "relative",
@@ -236,9 +254,11 @@ export default function ProfileTab({
                 cursor: "pointer",
               }}
             >
-              {isCompressing ? "Processing…" : "Change image"}
+              {isCompressing ? "Processing…" : avatarUrl ? "Change Image" : "Upload Image"}
             </button>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>drag &amp; drop · paste</p>
+            {!avatarUrl && (
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#524b47", margin: 0 }}>drag &amp; drop · paste</p>
+            )}
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
         </div>

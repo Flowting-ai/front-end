@@ -87,12 +87,16 @@ export function ChatAddMenu({
   // eslint-disable-next-line react-doctor/no-cascading-set-state -- React 18+ batches these; useReducer refactor tracked separately
   useEffect(() => {
     if (!personaMenuOpen) return
-    setLoadingPersonas(true)
+    // fetchPersonas() has an internal 30s cache + in-flight dedup.
+    // Only show the spinner when there are no cached results yet so
+    // repeat opens don't flash "Loading…" on already-populated lists.
+    const needsLoad = personas.length === 0
+    if (needsLoad) setLoadingPersonas(true)
     fetchPersonas()
       .then(setPersonas)
       .catch(() => setPersonas([]))
       .finally(() => setLoadingPersonas(false))
-  }, [personaMenuOpen])
+  }, [personaMenuOpen]) // eslint-disable-line react-hooks/exhaustive-deps -- personas.length read only for the initial guard, not a dep
 
   return (
     <Dropdown style={{ width: 200 }}>

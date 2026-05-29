@@ -81,16 +81,26 @@ export function HighlightProvider({ children }: { children: React.ReactNode }) {
 
   // â”€â”€ Actions (stable refs â€” never change identity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+  // AbortController for the latest in-flight load; cancels stale fetches when
+  // the user navigates between chats faster than the network responds.
+  const loadAbortRef = useRef<AbortController | null>(null)
+
   const loadForChat = useCallback((chatId: string) => {
     if (filterModeRef.current === 'all') return
+    loadAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    loadAbortRef.current = ctrl
     getHighlights(chatId)
-      .then(data => setHighlights(data.map(responseToEntry)))
+      .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
       .catch(() => {/* silently ignore */})
   }, [])
 
   const loadAll = useCallback(() => {
+    loadAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    loadAbortRef.current = ctrl
     getAllHighlights()
-      .then(data => setHighlights(data.map(responseToEntry)))
+      .then(data => { if (!ctrl.signal.aborted) setHighlights(data.map(responseToEntry)) })
       .catch(() => {/* silently ignore */})
   }, [])
 

@@ -566,6 +566,7 @@ function PersonaCardInner({
             : undefined,
           cursor:          'default',
           boxSizing:       'border-box' as const,
+          zIndex:          menuOpen ? 100 : undefined,
           ...style,
         }}
         {...props}
@@ -618,8 +619,6 @@ function PersonaCardInner({
                   alignItems:     'flex-start',
                   justifyContent: 'space-between',
                   gap:            4,
-                  opacity:        paused ? 0.6 : 1,
-                  transition:     'opacity 0.2s ease',
                 }}
               >
                 <span
@@ -634,6 +633,8 @@ function PersonaCardInner({
                     overflow:     'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace:   'nowrap',
+                    opacity:      paused ? 0.6 : 1,
+                    transition:   'opacity 0.2s ease',
                   }}
                 >
                   {name}

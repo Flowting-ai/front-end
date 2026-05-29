@@ -42,6 +42,10 @@ export function useChatHistory(): UseChatHistoryResult {
   // without stale-closure issues inside async callbacks / setTimeout handlers.
   const chatsRef = useRef<Chat[]>(chats);
   useEffect(() => { chatsRef.current = chats }, [chats]);
+  // Deduplication: map of chatId → in-flight refreshChatTitle promise.
+  // Prevents the staggered 2.5s/5s title-refresh timers from firing two
+  // concurrent listChats() calls for the same newly-created chat.
+  const refreshInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
 
   const loadChats = async (reset: boolean) => {
     if (loadingRef.current) return;
@@ -142,24 +146,34 @@ export function useChatHistory(): UseChatHistoryResult {
    * staggered second timeout (5 s) from firing a redundant listChats() after
    * the first timeout (2.5 s) already resolved it.
    */
-  const refreshChatTitle = async (chatId: string): Promise<void> => {
+  const refreshChatTitle = (chatId: string): Promise<void> => {
     const current = chatsRef.current.find((c) => c.id === chatId);
-    if (current?.title && current.title !== "New chat" && current.title !== "Untitled") return;
-    try {
-      const res = await listChats(undefined);
-      const found = (res.chats ?? []).find((c) => c.id === chatId);
-      if (
-        found?.title &&
-        found.title !== "New chat" &&
-        found.title !== "Untitled"
-      ) {
-        setChats((prev) =>
-          prev.map((c) => (c.id === chatId ? { ...c, title: found.title } : c)),
-        );
-      }
-    } catch {
-      // non-fatal — sidebar will show correct title on next full refresh
+    if (current?.title && current.title !== "New chat" && current.title !== "Untitled") {
+      return Promise.resolve();
     }
+    // Return the existing in-flight promise if one is already running for this chat
+    // — prevents staggered timeouts (2.5s + 5s) from issuing two concurrent listChats() calls.
+    const existing = refreshInFlightRef.current.get(chatId);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      try {
+        const res = await listChats(undefined);
+        const found = (res.chats ?? []).find((c) => c.id === chatId);
+        if (found?.title && found.title !== "New chat" && found.title !== "Untitled") {
+          setChats((prev) =>
+            prev.map((c) => (c.id === chatId ? { ...c, title: found.title } : c)),
+          );
+        }
+      } catch {
+        // non-fatal — sidebar will show correct title on next full refresh
+      } finally {
+        refreshInFlightRef.current.delete(chatId);
+      }
+    })();
+
+    refreshInFlightRef.current.set(chatId, promise);
+    return promise;
   };
 
   const renameLocal = (chatId: string, title: string) => {

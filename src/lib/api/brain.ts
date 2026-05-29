@@ -509,29 +509,75 @@ export async function consumeBrainStream(
   }
 }
 
-// ── Start new Brain chat ──────────────────────────────────────────────────────
+// ── Shared opts type ─────────────────────────────────────────────────────────
+
+export type BrainStreamOpts = {
+  persona_id?:      string
+  pin_ids?:         string[]
+  use_mistral_ocr?: boolean
+  files?:           File[]
+}
 
 /**
- * POST /brain/create — opens an SSE stream and returns the new chat ID
- * (from the X-Chat-Id response header) plus the raw Response for streaming.
+ * Build a urlencoded body for text-only brain requests.
+ * When files are present the caller uses /api/brain-chat instead (server-side
+ * proxy that re-assembles the FormData so FastAPI receives a complete body
+ * with content-length — the generic /api/backend proxy streams raw bytes and
+ * its chunked multipart is silently ignored by the backend parser).
  */
-export async function startBrainChat(
-  input:   string,
-  opts:    { persona_id?: string; pin_ids?: string[]; use_mistral_ocr?: boolean } = {},
-  signal?: AbortSignal,
-): Promise<{ chatId: string; stream: Response }> {
+function buildTextBody(
+  input: string,
+  opts:  Omit<BrainStreamOpts, 'files'>,
+): { body: BodyInit; headers: HeadersInit } {
   const params = new URLSearchParams()
   params.append('input', input)
   if (opts.persona_id) params.append('persona_id', opts.persona_id)
   if (opts.pin_ids?.length) params.append('pin_ids', JSON.stringify(opts.pin_ids))
   if (opts.use_mistral_ocr) params.append('use_mistral_ocr', 'true')
+  return { body: params, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+}
 
-  const response = await apiFetch(BRAIN_CREATE, {
-    method:  'POST',
-    body:    params,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    signal,
-  })
+/** Build a FormData body for the /api/brain-chat server-side proxy. */
+function buildFileBody(
+  input:   string,
+  chatId:  string | null,
+  opts:    BrainStreamOpts,
+): FormData {
+  const fd = new FormData()
+  fd.append('input', input)
+  if (chatId)           fd.append('chatId', chatId)
+  if (opts.persona_id)  fd.append('persona_id', opts.persona_id)
+  if (opts.pin_ids?.length) fd.append('pin_ids', JSON.stringify(opts.pin_ids))
+  if (opts.use_mistral_ocr) fd.append('use_mistral_ocr', 'true')
+  opts.files!.forEach(f => fd.append('files', f))
+  return fd
+}
+
+// ── Start new Brain chat ──────────────────────────────────────────────────────
+
+/**
+ * POST /brain/create (text-only) or /api/brain-chat (with files).
+ * Returns the new chat ID plus the raw SSE Response.
+ */
+export async function startBrainChat(
+  input:   string,
+  opts:    BrainStreamOpts = {},
+  signal?: AbortSignal,
+): Promise<{ chatId: string; stream: Response }> {
+  let response: Response
+
+  if (opts.files?.length) {
+    // Route through the server-side proxy so FastAPI receives a complete
+    // multipart body (content-length included) rather than a chunked stream.
+    response = await apiFetch('/api/brain-chat', {
+      method: 'POST',
+      body:   buildFileBody(input, null, opts),
+      signal,
+    })
+  } else {
+    const { body, headers } = buildTextBody(input, opts)
+    response = await apiFetch(BRAIN_CREATE, { method: 'POST', body, headers, signal })
+  }
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
@@ -546,26 +592,26 @@ export async function startBrainChat(
 // ── Continue existing Brain chat ──────────────────────────────────────────────
 
 /**
- * POST /brain/{chat_id}/stream — opens an SSE stream for a follow-up turn.
+ * POST /brain/{chat_id}/stream (text-only) or /api/brain-chat (with files).
  */
 export async function continueBrainChat(
   chatId:  string,
   input:   string,
-  opts:    { persona_id?: string; pin_ids?: string[]; use_mistral_ocr?: boolean } = {},
+  opts:    BrainStreamOpts = {},
   signal?: AbortSignal,
 ): Promise<Response> {
-  const params = new URLSearchParams()
-  params.append('input', input)
-  if (opts.persona_id) params.append('persona_id', opts.persona_id)
-  if (opts.pin_ids?.length) params.append('pin_ids', JSON.stringify(opts.pin_ids))
-  if (opts.use_mistral_ocr) params.append('use_mistral_ocr', 'true')
+  let response: Response
 
-  const response = await apiFetch(BRAIN_STREAM(chatId), {
-    method:  'POST',
-    body:    params,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    signal,
-  })
+  if (opts.files?.length) {
+    response = await apiFetch('/api/brain-chat', {
+      method: 'POST',
+      body:   buildFileBody(input, chatId, opts),
+      signal,
+    })
+  } else {
+    const { body, headers } = buildTextBody(input, opts)
+    response = await apiFetch(BRAIN_STREAM(chatId), { method: 'POST', body, headers, signal })
+  }
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '')

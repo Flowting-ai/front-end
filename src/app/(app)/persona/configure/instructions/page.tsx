@@ -19,7 +19,6 @@ import {
   CancelOneIcon,
   ExpandIcon,
   ArrowShrinkTwoIcon,
-  ViewOffSlashIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -49,6 +48,7 @@ import type { AIModel } from '@/types/ai-model'
 import { LlmIcon } from '@strange-huge/icons/llm'
 import { getModelLlmId } from '@/lib/model-icons'
 import { TEMPLATE_PRESETS } from '@/app/(app)/personas/_data/template-presets'
+import { pickTemplateAvatar } from '@/lib/persona-template-avatars'
 import { ConnectPromptCard, PermissionPromptCard } from '@/components/chat/ConnectorPrompts'
 import { ActivitiesSection } from '@/components/chat/ActivityRow'
 import type { PersonaConnectPrompt, PersonaPermissionPrompt, PersonaActivityItem } from '@/lib/api/personas'
@@ -59,9 +59,6 @@ import { useFileUpload } from '@/hooks/use-file-upload'
 import type { PinFolder } from '@/lib/api/pins'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
-import { Dropdown } from '@/components/Dropdown'
-import { listConnectors } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -178,11 +175,15 @@ function FloatingMenuButton({
 function FloatingMenu({
   testChatOpen,
   onToggleTestChat,
+  aiSuggestOpen,
+  onToggleAiSuggest,
   versionsOpen,
   onToggleVersions,
 }: {
   testChatOpen: boolean
   onToggleTestChat: () => void
+  aiSuggestOpen: boolean
+  onToggleAiSuggest: () => void
   versionsOpen: boolean
   onToggleVersions: () => void
 }) {
@@ -213,7 +214,7 @@ function FloatingMenu({
       <FloatingMenuButton active={testChatOpen} title={testChatOpen ? 'Close test chat' : 'Open test chat'} onClick={onToggleTestChat}>
         <UserAiIcon size={20} color="var(--neutral-700)" animated />
       </FloatingMenuButton>
-      <FloatingMenuButton active={false} title="AI suggestions" onClick={() => {}}>
+      <FloatingMenuButton active={aiSuggestOpen} title={aiSuggestOpen ? 'Close AI suggestions' : 'AI suggestions'} onClick={onToggleAiSuggest}>
         <AiIdeaIcon size={20} color="var(--neutral-700)" animated />
       </FloatingMenuButton>
       <FloatingMenuButton active={versionsOpen} title={versionsOpen ? 'Close versions' : 'View versions'} onClick={onToggleVersions}>
@@ -626,18 +627,18 @@ function PersonaConfigureInstructionsContent() {
   const [selectedModel,  setSelectedModel]  = useState<AIModel | null>(null)
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false)
   const [imageUrl,    setImageUrl]    = useState<string | null>(() => readProfileAvatar(repoIdParam))
+  const [connectorSlugs, setConnectorSlugs] = useState<string[] | null>(null)
   const [isInitialising, setIsInitialising] = useState(true)
   const [isSaving,      setIsSaving]      = useState(false)
   const [isPublishing,  setIsPublishing]  = useState(false)
   const [testChatOpen,       setTestChatOpen]       = useState(false)
   const [testChatExpanded,   setTestChatExpanded]   = useState(false)
-  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
-  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
-  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
+
   const [exampleConvOpen, setExampleConvOpen] = useState(false)
   const [exampleConvExpanded, setExampleConvExpanded] = useState(false)
   const [exampleConversations, setExampleConversations] = useState<Array<{ id: string; userSays: string; personaReplies: string }>>([])
   const [republishModalOpen, setRepublishModalOpen] = useState(false)
+  const [aiSuggestOpen,             setAiSuggestOpen]             = useState(false)
   const [versionsOpen,              setVersionsOpen]              = useState(false)
   const [versions,                  setVersions]                  = useState<PersonaVersionListItem[]>([])
   const [versionsLoading,           setVersionsLoading]           = useState(false)
@@ -645,13 +646,15 @@ function PersonaConfigureInstructionsContent() {
   const [confirmDeleteOldestOpen,   setConfirmDeleteOldestOpen]   = useState(false)
   const [versionsChangeTags,        setVersionsChangeTags]        = useState<Map<string, string[]>>(new Map())
 
+  const anyPanelOpen = testChatOpen || versionsOpen || aiSuggestOpen
+
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null)
   const hasInitialisedRef = useRef(false)
   const savedSnapshotRef  = useRef<{ instruction: string; modelId: string; temperature: number } | null>(null)
 
   // ── Test-chat state ─────────────────────────────────────────────────────────
 
-  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[] }
+  type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[]; attachments?: Array<{ file_name: string; mime_type: string; file_size?: number }> }
   const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
   // eslint-disable-next-line react-doctor/rerender-state-only-in-handlers -- isStreaming guards the send handler to prevent duplicate submissions
   const [isStreaming,   setIsStreaming]   = useState(false)
@@ -691,23 +694,27 @@ function PersonaConfigureInstructionsContent() {
     if (el) el.scrollTop = el.scrollHeight
   }, [chatMessages])
 
-  useEffect(() => {
-    if (!testChatOpen) return
-    if (connectorCatalog.length > 0) return
-    listConnectors()
-      .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
-      .catch(() => {})
-  }, [testChatOpen])
-
   async function handleTestChatSend(value: string) {
-    if (!value.trim() || !repoId || !versionId || isStreaming) return
+    const trimmedValue = value.trim()
+    const filesToSend = testChatAttachments.map(a => a.file)
+    if ((!trimmedValue && filesToSend.length === 0) || !repoId || !versionId || isStreaming) return
+
+    // Capture and clear attachments before setting messages
+    setTestChatAttachments([])
 
     const userMsgId = `user-${Date.now()}`
     const asstMsgId = `asst-${Date.now()}`
 
     setChatMessages(prev => [
       ...prev,
-      { id: userMsgId, role: 'user',      text: value.trim() },
+      {
+        id:          userMsgId,
+        role:        'user',
+        text:        trimmedValue,
+        attachments: filesToSend.length > 0
+          ? filesToSend.map(f => ({ file_name: f.name, mime_type: f.type, file_size: f.size }))
+          : undefined,
+      },
       { id: asstMsgId, role: 'assistant', text: '', isStreaming: true },
     ])
     setIsStreaming(true)
@@ -749,7 +756,13 @@ function PersonaConfigureInstructionsContent() {
     }
 
     try {
-      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { disabledConnectors: [...mockedConnectors] })
+      abortStreamRef.current = await testVersionStream(
+        repoId,
+        versionId,
+        trimmedValue,
+        callbacks,
+        { files: filesToSend.length > 0 ? filesToSend : undefined, connectorSlugs: connectorSlugs ?? undefined },
+      )
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -803,6 +816,7 @@ function PersonaConfigureInstructionsContent() {
         resetInstructionHistory(prompt)
         setTemperature(version.temperature ?? 0.5)
         setImageUrl(readProfileAvatar(repoIdParam) ?? version.image_url ?? null)
+        if (version.connector_slugs != null) setConnectorSlugs(version.connector_slugs)
         const resolvedModel1 = matchModel(fetchedModels, version.model_id, repoIdParam, firstModel)
         setSelectedModel(resolvedModel1)
         if (resolvedModel1) writePersonaModelCache(repoIdParam, resolvedModel1)
@@ -835,6 +849,7 @@ function PersonaConfigureInstructionsContent() {
           resetInstructionHistory(prompt)
           setTemperature(fullVersion.temperature ?? 0.5)
           setImageUrl(readProfileAvatar(repoIdParam) ?? fullVersion.image_url ?? null)
+          if (fullVersion.connector_slugs != null) setConnectorSlugs(fullVersion.connector_slugs)
           setVersionId(fullVersion.id)
           // Stamp URL so a reload goes straight to this version
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${fullVersion.id}`)
@@ -854,6 +869,7 @@ function PersonaConfigureInstructionsContent() {
           resetInstructionHistory(prompt)
           setTemperature(repo.active_version.temperature ?? 0.5)
           setImageUrl(readProfileAvatar(repoIdParam) ?? repo.active_version.image_url ?? null)
+          if (repo.active_version.connector_slugs != null) setConnectorSlugs(repo.active_version.connector_slugs)
           setVersionId(repo.active_version.id)
           window.history.replaceState(null, '', `?repoId=${repoIdParam}&versionId=${repo.active_version.id}`)
           const resolvedModel3 = matchModel(fetchedModels, repo.active_version.model_id, repoIdParam, firstModel)
@@ -923,6 +939,18 @@ function PersonaConfigureInstructionsContent() {
         // Preserve wizard purpose for the Profile tab to use as description
         if (wizardPurpose) {
           sessionStorage.setItem(`persona_wizard_purpose_${newRepoId}`, wizardPurpose)
+        }
+
+        // Assign a random avatar for template-created personas so the card has
+        // a face immediately. Blank ("Custom") personas keep the initials fallback.
+        if (wizardTemplate) {
+          const avatarPath = pickTemplateAvatar()
+          setImageUrl(avatarPath)
+          try {
+            const profileKey = `persona_profile_${newRepoId}`
+            const existing = JSON.parse(sessionStorage.getItem(profileKey) ?? '{}') as Record<string, unknown>
+            sessionStorage.setItem(profileKey, JSON.stringify({ ...existing, avatarUrl: avatarPath }))
+          } catch { /* ignore quota errors */ }
         }
       }
     } catch (err) {
@@ -1224,7 +1252,7 @@ function PersonaConfigureInstructionsContent() {
       >
         {/* ── Top navigation bar ─────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: anyPanelOpen ? 'flex-start' : 'space-between', gap: anyPanelOpen ? 8 : 0, height: 36, position: 'relative' }}>
             {/* Back arrow */}
             <div style={{ flexShrink: 0 }}>
               <IconButton
@@ -1236,8 +1264,11 @@ function PersonaConfigureInstructionsContent() {
               />
             </div>
 
-            {/* Tabs — absolutely centered so left/right items don't affect positioning */}
-            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
+            {/* Tabs — centered when no panel open, left-aligned when a panel is open */}
+            <div style={anyPanelOpen
+              ? { display: 'inline-flex', alignItems: 'flex-start' }
+              : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }
+            }>
               <div
                 aria-hidden
                 style={{
@@ -1272,11 +1303,7 @@ function PersonaConfigureInstructionsContent() {
                         fontWeight: 500,
                         fontSize: 14,
                         lineHeight: '22px',
-                        color: isActive
-                          ? 'var(--blue-600)'
-                          : MUTED_TABS.has(tab)
-                          ? 'var(--neutral-500)'
-                          : 'var(--neutral-700)',
+                        color: isActive ? 'var(--blue-600)' : 'var(--neutral-700)',
                         whiteSpace: 'nowrap',
                         transition: 'background-color 150ms, box-shadow 150ms, color 150ms',
                         position: 'relative',
@@ -1302,26 +1329,14 @@ function PersonaConfigureInstructionsContent() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
               <IconButton
                 variant="outline"
                 size="md"
                 icon={<MoreHorizontalIcon size={20} />}
                 aria-label="More options"
               />
-              {needsRepublish && (
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '2px 8px', borderRadius: 6, flexShrink: 0,
-                  backgroundColor: '#fef3c7', color: '#92400e',
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, lineHeight: '16px',
-                  whiteSpace: 'nowrap',
-                  boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)',
-                }}>
-                  Unpublished
-                </span>
-              )}
-              {testChatOpen ? (
+              {anyPanelOpen ? (
                 <IconButton
                   variant="outline"
                   size="sm"
@@ -1353,6 +1368,38 @@ function PersonaConfigureInstructionsContent() {
                 {isPublishing ? 'Publishing…' : 'Publish'}
               </Button>
             </div>
+
+            {/* Live / Unpublished badge — centered below the tab bar */}
+            {(isPublished || needsRepublish) && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: 6,
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1px 8px',
+                  borderRadius: 6,
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize: 11,
+                  lineHeight: '16px',
+                  whiteSpace: 'nowrap',
+                  ...(isPublished
+                    ? { backgroundColor: '#d1fae5', color: '#065f46', boxShadow: '0px 0px 0px 1px rgba(6,95,70,0.2)' }
+                    : { backgroundColor: '#fef3c7', color: '#92400e', boxShadow: '0px 1px 1.5px 0px rgba(24,15,2,0.15), 0px 0px 0px 1px rgba(146,64,14,0.3)' }
+                  ),
+                }}>
+                  {isPublished ? 'Live' : 'Unpublished'}
+                </span>
+              </div>
+            )}
           </div>
 
           <div style={{ height: 32, flexShrink: 0 }} />
@@ -1612,9 +1659,11 @@ function PersonaConfigureInstructionsContent() {
         <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
           <FloatingMenu
             testChatOpen={testChatOpen}
-            onToggleTestChat={() => setTestChatOpen(v => !v)}
+            onToggleTestChat={() => { const next = !testChatOpen; setTestChatOpen(next); if (next) { setAiSuggestOpen(false); setVersionsOpen(false) } }}
+            aiSuggestOpen={aiSuggestOpen}
+            onToggleAiSuggest={() => { const next = !aiSuggestOpen; setAiSuggestOpen(next); if (next) { setTestChatOpen(false); setVersionsOpen(false) } }}
             versionsOpen={versionsOpen}
-            onToggleVersions={() => setVersionsOpen(v => !v)}
+            onToggleVersions={() => { const next = !versionsOpen; setVersionsOpen(next); if (next) { setTestChatOpen(false); setAiSuggestOpen(false) } }}
           />
         </div>
       </div>
@@ -1659,57 +1708,16 @@ function PersonaConfigureInstructionsContent() {
               overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
                   {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
                 </div>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {personaName || 'Name'}
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Dropdown.Float
-                  open={mockDropdownOpen}
-                  onOpenChange={setMockDropdownOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<ViewOffSlashIcon size={16} />}
-                      rightIcon={<ArrowDownOneIcon size={16} />}
-                    >
-                      {mockedConnectors.size === 0
-                        ? 'Mock connector'
-                        : mockedConnectors.size === 1
-                          ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                          : `Mocking ${mockedConnectors.size}`}
-                    </Button>
-                  }
-                >
-                  <Dropdown size="md">
-                    <Dropdown.Section label="Mock connectors" fluid>
-                      {connectorCatalog.length === 0
-                        ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                        : connectorCatalog.map(c => (
-                          <Dropdown.Item
-                            key={c.slug}
-                            label={c.display_name}
-                            fluid
-                            showCheckbox
-                            checkboxChecked={mockedConnectors.has(c.slug)}
-                            onCheckboxChange={() => setMockedConnectors(prev => {
-                              const n = new Set(prev)
-                              n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                              return n
-                            })}
-                          />
-                        ))
-                      }
-                    </Dropdown.Section>
-                  </Dropdown>
-                </Dropdown.Float>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                 <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" onClick={() => setTestChatExpanded(true)} />
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
               </div>
@@ -1736,12 +1744,44 @@ function PersonaConfigureInstructionsContent() {
                         {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
                       </div>
                     ) : (
-                      <MessageBubble
-                        role={msg.role}
-                        content={msg.text}
-                        maxWidth="85%"
-                        hideActions
-                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                            {msg.attachments.map((att, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  display:         'inline-flex',
+                                  alignItems:      'center',
+                                  gap:             5,
+                                  padding:         '4px 8px',
+                                  borderRadius:    8,
+                                  backgroundColor: 'rgba(59,54,50,0.07)',
+                                  border:          '1px solid rgba(59,54,50,0.10)',
+                                  maxWidth:        200,
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                  {att.mime_type.startsWith('image/') ? (
+                                    <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>
+                                  ) : (
+                                    <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>
+                                  )}
+                                </svg>
+                                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {att.file_name}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <MessageBubble
+                          role={msg.role}
+                          content={msg.text}
+                          maxWidth="85%"
+                          hideActions
+                        />
+                      </div>
                     )}
                   </div>
                 ))
@@ -1800,55 +1840,14 @@ function PersonaConfigureInstructionsContent() {
             <m.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 8, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.7, delay: 0.04 }}
               style={{ width: 'min(780px, 90vw)', height: 'min(680px, 85vh)', display: 'flex', flexDirection: 'column', gap: 16, backgroundColor: 'var(--neutral-white)', border: '1px solid var(--neutral-200)', borderRadius: 20, padding: 16, overflow: 'hidden', boxShadow: '0px 24px 48px rgba(0,0,0,0.18), 0px 0px 0px 1px rgba(59,54,50,0.08)' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, flexShrink: 0, backgroundColor: 'var(--neutral-100)', boxShadow: '0px 0px 0px 1px rgba(59,54,50,0.3)', overflow: 'hidden' }}>
                     {imageUrl && <Image src={imageUrl} alt="" fill sizes="36px" style={{ objectFit: 'cover' }} unoptimized />}
                   </div>
-                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>{personaName || 'Name'}</p>
+                  <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{personaName || 'Name'}</p>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <Dropdown.Float
-                    open={mockDropdownOpen}
-                    onOpenChange={setMockDropdownOpen}
-                    placement="bottom-end"
-                    trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<ViewOffSlashIcon size={16} />}
-                        rightIcon={<ArrowDownOneIcon size={16} />}
-                      >
-                        {mockedConnectors.size === 0
-                          ? 'Mock connector'
-                          : mockedConnectors.size === 1
-                            ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                            : `Mocking ${mockedConnectors.size}`}
-                      </Button>
-                    }
-                  >
-                    <Dropdown size="md">
-                      <Dropdown.Section label="Mock connectors" fluid>
-                        {connectorCatalog.length === 0
-                          ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                          : connectorCatalog.map(c => (
-                            <Dropdown.Item
-                              key={c.slug}
-                              label={c.display_name}
-                              fluid
-                              showCheckbox
-                              checkboxChecked={mockedConnectors.has(c.slug)}
-                              onCheckboxChange={() => setMockedConnectors(prev => {
-                                const n = new Set(prev)
-                                n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                                return n
-                              })}
-                            />
-                          ))
-                        }
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                   <IconButton variant="outline" size="md" icon={<ArrowShrinkTwoIcon size={20} />} aria-label="Collapse test chat" onClick={() => setTestChatExpanded(false)} />
                   <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
                 </div>
@@ -1865,7 +1864,41 @@ function PersonaConfigureInstructionsContent() {
                           {msg.connectPrompts?.map(p => <ConnectPromptCard key={p.request_id} prompt={p} />)}
                           {msg.permissionPrompts?.map(p => <PermissionPromptCard key={p.request_id} prompt={p} />)}
                         </div>
-                      ) : <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />}
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                              {msg.attachments.map((att, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    display:         'inline-flex',
+                                    alignItems:      'center',
+                                    gap:             5,
+                                    padding:         '4px 8px',
+                                    borderRadius:    8,
+                                    backgroundColor: 'rgba(59,54,50,0.07)',
+                                    border:          '1px solid rgba(59,54,50,0.10)',
+                                    maxWidth:        200,
+                                  }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neutral-500)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                    {att.mime_type.startsWith('image/') ? (
+                                      <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></>
+                                    ) : (
+                                      <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>
+                                    )}
+                                  </svg>
+                                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--neutral-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {att.file_name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <MessageBubble role={msg.role} content={msg.text} maxWidth="85%" hideActions />
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -1926,7 +1959,8 @@ function PersonaConfigureInstructionsContent() {
             </div>
 
             {/* Version list */}
-            <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 4 }}>
+            <div style={{ flex: '1 0 0', minHeight: 0, overflow: 'hidden', padding: 3 }}>
+            <div className="kaya-scrollbar" style={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {versionsLoading ? (
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>Loading…</p>
               ) : versions.length === 0 ? (
@@ -2097,6 +2131,7 @@ function PersonaConfigureInstructionsContent() {
                   )
                 })
               )}
+            </div>
             </div>
           </m.div>
         )}

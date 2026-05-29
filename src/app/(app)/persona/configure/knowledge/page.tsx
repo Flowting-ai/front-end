@@ -14,7 +14,6 @@ import {
   CancelOneIcon,
   ExpandIcon,
   ArrowShrinkTwoIcon,
-  ViewOffSlashIcon,
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { toast } from 'sonner'
@@ -42,9 +41,6 @@ import type { ActivityItem } from '@/hooks/use-chat-state'
 import { MessageBubble } from '@/components/MessageBubble'
 import { StreamingMessageBubble } from '@/templates/Brain/StreamingMessageBubble'
 import RepublishModal from '@/app/(app)/persona/configure/components/RepublishModal'
-import { Dropdown } from '@/components/Dropdown'
-import { listConnectors } from '@/lib/api/connectors'
-import type { ConnectorCatalogEntry } from '@/lib/api/connectors'
 
 function publishedVersionKey(repoId: string) {
   return `persona_live_version_${repoId}`
@@ -222,9 +218,7 @@ function PersonaConfigureKnowledgeContent() {
 
   const [testChatOpen,       setTestChatOpen]       = useState(false)
   const [testChatExpanded,   setTestChatExpanded]   = useState(false)
-  const [mockDropdownOpen,   setMockDropdownOpen]   = useState(false)
-  const [mockedConnectors,   setMockedConnectors]   = useState<Set<string>>(new Set())
-  const [connectorCatalog,   setConnectorCatalog]   = useState<ConnectorCatalogEntry[]>([])
+  const [connectorSlugs,     setConnectorSlugs]     = useState<string[] | null>(null)
 
   type ChatMsg = { id: string; role: 'user' | 'assistant'; text: string; isStreaming?: boolean; connectPrompts?: PersonaConnectPrompt[]; permissionPrompts?: PersonaPermissionPrompt[]; activities?: ActivityItem[] }
   const [chatMessages,  setChatMessages]  = useState<ChatMsg[]>([])
@@ -234,6 +228,7 @@ function PersonaConfigureKnowledgeContent() {
   const chatScrollRef   = useRef<HTMLDivElement>(null)
 
   const [versionsOpen,    setVersionsOpen]    = useState(false)
+  const anyPanelOpen = testChatOpen || versionsOpen
   const [versions,        setVersions]        = useState<PersonaVersionListItem[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [restoringId,     setRestoringId]     = useState<string | null>(null)
@@ -268,12 +263,11 @@ function PersonaConfigureKnowledgeContent() {
   }, [chatMessages])
 
   useEffect(() => {
-    if (!testChatOpen) return
-    if (connectorCatalog.length > 0) return
-    listConnectors()
-      .then(cs => setConnectorCatalog(cs.filter(c => c.linked)))
+    if (!repoId || !versionId) return
+    getVersion(repoId, versionId)
+      .then(v => { if (v.connector_slugs != null) setConnectorSlugs(v.connector_slugs) })
       .catch(() => {})
-  }, [testChatOpen])
+  }, [repoId, versionId])
 
   async function handleTestChatSend(value: string) {
     if (!value.trim() || !repoId || !versionId || isStreaming) return
@@ -309,7 +303,7 @@ function PersonaConfigureKnowledgeContent() {
       ),
     }
     try {
-      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { disabledConnectors: [...mockedConnectors] })
+      abortStreamRef.current = await testVersionStream(repoId, versionId, value.trim(), callbacks, { connectorSlugs: connectorSlugs ?? undefined })
     } catch (err) {
       callbacks.onError?.((err as Error).message ?? 'Failed to send message')
     }
@@ -620,13 +614,13 @@ function PersonaConfigureKnowledgeContent() {
       >
         {/* ── Top navigation bar ────────────────────────────────────────────── */}
         <div style={{ flexShrink: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 36, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: anyPanelOpen ? 'flex-start' : 'space-between', gap: anyPanelOpen ? 8 : 0, height: 36, position: 'relative' }}>
             <div style={{ flexShrink: 0 }}>
               <IconButton variant="ghost" size="md" icon={<ArrowLeftOneIcon size={20} />} aria-label="Go back" onClick={safeBack} />
             </div>
 
             {/* Tabs — absolutely centered so left/right items don't affect positioning */}
-            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
+            <div style={anyPanelOpen ? { display: 'inline-flex', alignItems: 'flex-start' } : { position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'flex-start' }}>
               <div
                 aria-hidden
                 style={{
@@ -649,7 +643,7 @@ function PersonaConfigureKnowledgeContent() {
                         backgroundColor: isActive ? 'var(--neutral-white)' : 'transparent',
                         boxShadow: isActive ? '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100), inset 0px -1px 0px 0px rgba(38,33,30,0.1)' : 'none',
                         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 14, lineHeight: '22px',
-                        color: isActive ? 'var(--blue-600)' : MUTED_TABS.has(tab) ? 'var(--neutral-500)' : 'var(--neutral-700)',
+                        color: isActive ? 'var(--blue-600)' : 'var(--neutral-700)',
                         whiteSpace: 'nowrap',
                         transition: 'background-color 150ms, box-shadow 150ms, color 150ms',
                         position: 'relative',
@@ -666,9 +660,9 @@ function PersonaConfigureKnowledgeContent() {
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: anyPanelOpen ? 'auto' : undefined }}>
               <IconButton variant="outline" size="md" icon={<MoreVerticalIcon size={20} />} aria-label="More options" />
-              {testChatOpen ? (
+              {anyPanelOpen ? (
                 <IconButton
                   variant="outline"
                   size="sm"
@@ -770,47 +764,6 @@ function PersonaConfigureKnowledgeContent() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Dropdown.Float
-                  open={mockDropdownOpen}
-                  onOpenChange={setMockDropdownOpen}
-                  placement="bottom-end"
-                  trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<ViewOffSlashIcon size={16} />}
-                      rightIcon={<ArrowDownOneIcon size={16} />}
-                    >
-                      {mockedConnectors.size === 0
-                        ? 'Mock connector'
-                        : mockedConnectors.size === 1
-                          ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                          : `Mocking ${mockedConnectors.size}`}
-                    </Button>
-                  }
-                >
-                  <Dropdown size="md">
-                    <Dropdown.Section label="Mock connectors" fluid>
-                      {connectorCatalog.length === 0
-                        ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                        : connectorCatalog.map(c => (
-                          <Dropdown.Item
-                            key={c.slug}
-                            label={c.display_name}
-                            fluid
-                            showCheckbox
-                            checkboxChecked={mockedConnectors.has(c.slug)}
-                            onCheckboxChange={() => setMockedConnectors(prev => {
-                              const n = new Set(prev)
-                              n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                              return n
-                            })}
-                          />
-                        ))
-                      }
-                    </Dropdown.Section>
-                  </Dropdown>
-                </Dropdown.Float>
                 <IconButton variant="outline" size="md" icon={<ExpandIcon size={20} />} aria-label="Expand test chat" onClick={() => setTestChatExpanded(true)} />
                 <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
               </div>
@@ -858,47 +811,6 @@ function PersonaConfigureKnowledgeContent() {
                   <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: '#1a1916', margin: 0, whiteSpace: 'nowrap' }}>{personaName || 'Name'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <Dropdown.Float
-                    open={mockDropdownOpen}
-                    onOpenChange={setMockDropdownOpen}
-                    placement="bottom-end"
-                    trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        leftIcon={<ViewOffSlashIcon size={16} />}
-                        rightIcon={<ArrowDownOneIcon size={16} />}
-                      >
-                        {mockedConnectors.size === 0
-                          ? 'Mock connector'
-                          : mockedConnectors.size === 1
-                            ? connectorCatalog.find(c => mockedConnectors.has(c.slug))?.display_name ?? 'Mock connector'
-                            : `Mocking ${mockedConnectors.size}`}
-                      </Button>
-                    }
-                  >
-                    <Dropdown size="md">
-                      <Dropdown.Section label="Mock connectors" fluid>
-                        {connectorCatalog.length === 0
-                          ? <Dropdown.Item label="No connected connectors" fluid disabled />
-                          : connectorCatalog.map(c => (
-                            <Dropdown.Item
-                              key={c.slug}
-                              label={c.display_name}
-                              fluid
-                              showCheckbox
-                              checkboxChecked={mockedConnectors.has(c.slug)}
-                              onCheckboxChange={() => setMockedConnectors(prev => {
-                                const n = new Set(prev)
-                                n.has(c.slug) ? n.delete(c.slug) : n.add(c.slug)
-                                return n
-                              })}
-                            />
-                          ))
-                        }
-                      </Dropdown.Section>
-                    </Dropdown>
-                  </Dropdown.Float>
                   <IconButton variant="outline" size="md" icon={<ArrowShrinkTwoIcon size={20} />} aria-label="Collapse test chat" onClick={() => setTestChatExpanded(false)} />
                   <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Close test chat" onClick={() => { setTestChatOpen(false); setTestChatExpanded(false) }} />
                 </div>
