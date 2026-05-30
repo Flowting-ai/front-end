@@ -6,18 +6,18 @@ import { useAuth } from "@/context/auth-context";
 import { useOnboarding } from "@/context/onboarding-context";
 import { InputField } from "@/components/InputField";
 import { Button } from "@/components/Button";
-import { updateUser, updateOnboarding } from "@/lib/api/user";
+import { updateUser } from "@/lib/api/user";
 
 export default function OnboardingWelcomePage() {
   const { push } = useRouter();
   const { isHydrated, isAuthenticated, user, logout } = useAuth();
   const { data, setFirstName, setLastName, setNickname } = useOnboarding();
 
-  // Pre-fill from existing user profile (including nickname from role_fit)
+  // Pre-fill name from existing user profile. Nickname has no backend field yet,
+  // so it is collected fresh each time and not pre-filled.
   useEffect(() => {
     if (user?.firstName && !data.firstName) setFirstName(user.firstName);
     if (user?.lastName && !data.lastName) setLastName(user.lastName);
-    if (user?.onboardingNickname && !data.nickname) setNickname(user.onboardingNickname);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -35,11 +35,10 @@ export default function OnboardingWelcomePage() {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    // Persist name and nickname to backend as user progresses — fire and forget
+    // Persist name to backend as user progresses — fire and forget. Nickname is
+    // kept in onboarding state for this session; there is no backend field for it
+    // (role_fit is a team-size enum, not free text).
     void updateUser({ first_name: data.firstName.trim(), last_name: data.lastName.trim() });
-    if (data.nickname.trim()) {
-      void updateOnboarding({ role_fit: data.nickname.trim() });
-    }
     push("/onboarding/role");
   };
 

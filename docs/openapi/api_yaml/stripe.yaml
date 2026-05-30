@@ -57,6 +57,48 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
       security:
         - HTTPBearer: []
+  /stripe/topup/charge:
+    post:
+      tags:
+        - stripe
+      summary: Charge Topup Now
+      operationId: charge_topup_now_stripe_topup_charge_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopUpSessionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopUpChargeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+        - HTTPBearer: []
+  /stripe/trial:
+    post:
+      tags:
+        - stripe
+      summary: Start My Trial
+      operationId: start_my_trial_stripe_trial_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionActionResponse'
+      security:
+        - HTTPBearer: []
   /stripe/subscription:
     delete:
       tags:
@@ -68,11 +110,103 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/SubscriptionActionResponse'
+      security:
+        - HTTPBearer: []
+  /stripe/subscription/resume:
+    post:
+      tags:
+        - stripe
+      summary: Resume My Subscription
+      operationId: resume_my_subscription_stripe_subscription_resume_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionActionResponse'
+      security:
+        - HTTPBearer: []
+  /stripe/billing:
+    get:
+      tags:
+        - stripe
+      summary: Get My Billing
+      operationId: get_my_billing_stripe_billing_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingInfo'
+      security:
+        - HTTPBearer: []
+  /stripe/portal:
+    post:
+      tags:
+        - stripe
+      summary: Open Billing Portal
+      operationId: open_billing_portal_stripe_portal_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingPortalResponse'
       security:
         - HTTPBearer: []
 components:
   schemas:
+    BillingInfo:
+      properties:
+        plan_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Plan Type
+        subscription_status:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Subscription Status
+        current_period_end:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Period End
+        cancel_at_period_end:
+          type: boolean
+          title: Cancel At Period End
+          default: false
+        payment_method:
+          anyOf:
+            - $ref: '#/components/schemas/PaymentMethodInfo'
+            - type: 'null'
+        invoices:
+          items:
+            $ref: '#/components/schemas/InvoiceInfo'
+          type: array
+          title: Invoices
+          default: []
+        upcoming_invoice:
+          anyOf:
+            - $ref: '#/components/schemas/UpcomingInvoiceInfo'
+            - type: 'null'
+      type: object
+      title: BillingInfo
+    BillingPortalResponse:
+      properties:
+        portal_url:
+          type: string
+          title: Portal Url
+      type: object
+      required:
+        - portal_url
+      title: BillingPortalResponse
     CreateCheckoutSessionRequest:
       properties:
         plan_type:
@@ -105,6 +239,11 @@ components:
           minimum: 1
           title: Amount Usd
           description: 'Dollars to add as credit (1:1 conversion). Stripe minimum: $1.'
+        idempotency_key:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Idempotency Key
       type: object
       required:
         - amount_usd
@@ -127,13 +266,127 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    InvoiceInfo:
+      properties:
+        amount_paid:
+          type: number
+          title: Amount Paid
+        currency:
+          type: string
+          title: Currency
+        status:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Status
+        created:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Created
+        invoice_url:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Invoice Url
+        invoice_pdf:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Invoice Pdf
+      type: object
+      required:
+        - amount_paid
+        - currency
+      title: InvoiceInfo
+    PaymentMethodInfo:
+      properties:
+        brand:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Brand
+        last4:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Last4
+        exp_month:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Exp Month
+        exp_year:
+          anyOf:
+            - type: integer
+            - type: 'null'
+          title: Exp Year
+        funding:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Funding
+      type: object
+      title: PaymentMethodInfo
     PlanType:
       type: string
       enum:
         - starter
         - pro
         - power
+        - trial
       title: PlanType
+    SubscriptionActionResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        plan_type:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Plan Type
+        current_period_end:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Current Period End
+      type: object
+      required:
+        - status
+      title: SubscriptionActionResponse
+    TopUpChargeResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        client_secret:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Client Secret
+      type: object
+      required:
+        - status
+      title: TopUpChargeResponse
+    UpcomingInvoiceInfo:
+      properties:
+        amount_due:
+          type: number
+          title: Amount Due
+        currency:
+          type: string
+          title: Currency
+        next_payment_date:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Next Payment Date
+      type: object
+      required:
+        - amount_due
+        - currency
+      title: UpcomingInvoiceInfo
     ValidationError:
       properties:
         loc:

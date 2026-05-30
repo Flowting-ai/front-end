@@ -335,6 +335,11 @@ components:
           type: string
           title: System Instruction
           default: ''
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
         files:
           anyOf:
             - items:
@@ -364,6 +369,11 @@ components:
             - type: string
             - type: 'null'
           title: System Instruction
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
       type: object
       title: Body_update_project_projects__project_id__patch
     HTTPValidationError:
@@ -387,6 +397,10 @@ components:
         starred:
           type: boolean
           title: Starred
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
         updated_at:
           type: string
           format: date-time
@@ -399,6 +413,7 @@ components:
         - id
         - chat_title
         - starred
+        - created_at
         - updated_at
         - message_count
       title: ProjectChatSummary
@@ -440,6 +455,12 @@ components:
         system_instruction:
           type: string
           title: System Instruction
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
         created_at:
           type: string
           format: date-time
@@ -475,6 +496,16 @@ components:
         description:
           type: string
           title: Description
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
         updated_at:
           type: string
           format: date-time
@@ -490,6 +521,7 @@ components:
         - id
         - title
         - description
+        - created_at
         - updated_at
         - chat_count
         - document_count

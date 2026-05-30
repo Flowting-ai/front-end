@@ -9,6 +9,7 @@ import { Sidebar, SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection }
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
+import { usePinboard } from "@/context/pinboard-context";
 import { fetchPersonas, fetchPersonaChats, renamePersonaChat, deletePersonaChat } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
@@ -25,6 +26,33 @@ function readCollapsed(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem("sidebar_collapsed") === "true";
 }
+
+// ── Navigable destinations for global search ──────────────────────────────────
+// Static "pages" surfaced in search so users can jump anywhere in the app — not
+// just to chats/projects. `keywords` widens matching beyond the visible label
+// (e.g. "subscription" → Usage & Billing). Only enabled routes are listed; keep
+// in sync with the nav in SettingsSidebar / the sidebar's section buttons.
+
+interface NavPage {
+  id:        string;
+  title:     string;
+  subtitle:  string;
+  route:     string;
+  keywords:  string;
+}
+
+const NAV_PAGES: NavPage[] = [
+  { id: "page-chats",      title: "Chat Board",      subtitle: "All chats",      route: "/chats",               keywords: "chats history conversations board recents" },
+  { id: "page-projects",   title: "Projects",        subtitle: "Workspaces",     route: "/projects",            keywords: "projects folders workspaces" },
+  { id: "page-personas",   title: "Personas",        subtitle: "AI agents",      route: "/personas",            keywords: "personas agents assistants bots ai" },
+  { id: "page-brain",      title: "Brain",           subtitle: "Knowledge",      route: "/brain",               keywords: "brain knowledge agent memory context" },
+  { id: "page-schedules",  title: "Schedules",       subtitle: "Brain",          route: "/brain/schedules",     keywords: "schedules scheduled tasks automation cron jobs brain" },
+  { id: "page-account",    title: "Account",         subtitle: "Settings",       route: "/settings/account",    keywords: "account profile settings me user" },
+  { id: "page-billing",    title: "Usage & Billing", subtitle: "Settings",       route: "/settings/billing",    keywords: "billing usage payment subscription invoice plan credits cost" },
+  { id: "page-ai",         title: "AI & Models",     subtitle: "Settings",       route: "/settings/ai",         keywords: "ai models llm settings default model" },
+  { id: "page-connectors", title: "Connectors",      subtitle: "Settings",       route: "/settings/connectors", keywords: "connectors integrations tools apps mcp" },
+  { id: "page-help",       title: "Help & Legal",    subtitle: "Settings",       route: "/settings/help",       keywords: "help legal support docs terms privacy faq" },
+];
 
 // ── Section show/hide animation - matches Sidebar design system ───────────────
 
@@ -863,10 +891,13 @@ function LeftSidebarImpl({
   const { user, logout, isAuthenticated } = useAuth();
   const chatHistory = useChatHistoryContext();
   const { chats: projectChats, projects } = useProjects();
+  const { pins, openForChat: openPinboardForChat, open: openPinboard } = usePinboard();
 
   // ── Global search state ───────────────────────────────────────────────────
-  const [searchOpen,  setSearchOpen]  = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen,    setSearchOpen]    = useState(false);
+  const [searchQuery,   setSearchQuery]   = useState('');
+  // Personas are lazy-loaded the first time search opens (30s-cached fetch).
+  const [searchPersonas, setSearchPersonas] = useState<Persona[]>([]);
 
   const isPersonaPage = pathname?.startsWith("/personas") || pathname?.startsWith("/persona");
   const isProjectPage = pathname?.startsWith("/project") ?? false;
@@ -911,6 +942,17 @@ function LeftSidebarImpl({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Lazy-load personas the first time the search modal opens. fetchPersonas is
+  // 30s-cached + deduped, so reopening is cheap.
+  useEffect(() => {
+    if (!searchOpen) return;
+    let cancelled = false;
+    fetchPersonas()
+      .then(p => { if (!cancelled) setSearchPersonas(p); })
+      .catch(() => { /* search still works without personas */ });
+    return () => { cancelled = true; };
+  }, [searchOpen]);
+
   // ── Search data ───────────────────────────────────────────────────────────
 
   // Last 5 non-project chats as "recents" shown when query is empty
@@ -925,7 +967,8 @@ function LeftSidebarImpl({
       }));
   }, [chatHistory.chats, projectChatIdSet]);
 
-  // Filter chats + projects by query
+  // Global search — matches across every entity in the app: chats, projects,
+  // personas, pinned messages, and navigable pages (settings, brain, etc.).
   const searchResults = useMemo<SearchResult[]>(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
@@ -949,16 +992,81 @@ function LeftSidebarImpl({
         subtitle: p.description || undefined,
       }));
 
-    return [...chatResults, ...projectResults];
-  }, [searchQuery, chatHistory.chats, projects]);
+    const personaResults: SearchResult[] = searchPersonas
+      .filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.handle.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        p.tags.some(t => t.toLowerCase().includes(q)),
+      )
+      .slice(0, 10)
+      .map(p => ({
+        id:       p.id,
+        type:     'persona' as const,
+        title:    p.name,
+        subtitle: p.handle || undefined,
+      }));
+
+    const pinResults: SearchResult[] = pins
+      .filter(p =>
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.content || '').toLowerCase().includes(q) ||
+        (p.tags ?? []).some(t => t.toLowerCase().includes(q)),
+      )
+      .slice(0, 10)
+      .map(p => ({
+        id:       p.id,
+        type:     'pin' as const,
+        title:    p.title || 'Untitled pin',
+        subtitle: p.chatName ? `in ${p.chatName}` : undefined,
+      }));
+
+    const pageResults: SearchResult[] = NAV_PAGES
+      .filter(pg =>
+        pg.title.toLowerCase().includes(q) ||
+        pg.subtitle.toLowerCase().includes(q) ||
+        pg.keywords.includes(q),
+      )
+      .map(pg => ({
+        id:       pg.id,
+        type:     'page' as const,
+        title:    pg.title,
+        subtitle: pg.subtitle,
+      }));
+
+    return [...chatResults, ...projectResults, ...personaResults, ...pinResults, ...pageResults];
+  }, [searchQuery, chatHistory.chats, projects, searchPersonas, pins]);
 
   const handleSearchSelect = useCallback((result: SearchResult) => {
-    if (result.type === 'chat') {
-      push(`/chat?id=${result.id}`);
-    } else if (result.type === 'project') {
-      push(`/project/${result.id}`);
+    switch (result.type) {
+      case 'chat':
+        push(`/chat?id=${result.id}`);
+        break;
+      case 'project':
+        push(`/project/${result.id}`);
+        break;
+      case 'persona':
+        push(`/personas/${result.id}/chat`);
+        break;
+      case 'pin': {
+        // Jump to the source chat and open the pinboard filtered to it; fall
+        // back to just opening the pinboard if the pin has no chat link.
+        const pin = pins.find(p => p.id === result.id);
+        if (pin?.chatId) {
+          push(`/chat?id=${pin.chatId}`);
+          openPinboardForChat(pin.chatId);
+        } else {
+          openPinboard();
+        }
+        break;
+      }
+      case 'page': {
+        const page = NAV_PAGES.find(p => p.id === result.id);
+        if (page) push(page.route);
+        break;
+      }
     }
-  }, [push]);
+  }, [push, pins, openPinboardForChat, openPinboard]);
 
   const resolvedActiveChatId = activeChatId ?? chatSearchParams.get("id") ?? undefined;
 

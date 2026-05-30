@@ -117,6 +117,14 @@ paths:
           schema:
             type: string
             title: Slug
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - $ref: '#/components/schemas/LinkRequest'
+                - type: 'null'
+              title: Body
       responses:
         '200':
           description: Successful Response
@@ -132,6 +140,34 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    ApiKeyField:
+      properties:
+        name:
+          type: string
+          title: Name
+        label:
+          type: string
+          title: Label
+        help:
+          type: string
+          title: Help
+          default: ''
+        secret:
+          type: boolean
+          title: Secret
+          default: false
+        required:
+          type: boolean
+          title: Required
+          default: true
+      type: object
+      required:
+        - name
+        - label
+      title: ApiKeyField
+      description: |-
+        One credential input the FE renders for an api_key connector. Mirrors
+        Composio's connected-account initiation field metadata.
     ConnectorCatalogEntry:
       properties:
         slug:
@@ -156,7 +192,7 @@ components:
           title: Tools
         api_key_fields:
           items:
-            type: string
+            $ref: '#/components/schemas/ApiKeyField'
           type: array
           title: Api Key Fields
         linked:
@@ -190,6 +226,23 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    LinkRequest:
+      properties:
+        init_data:
+          anyOf:
+            - additionalProperties:
+                type: string
+              type: object
+            - type: 'null'
+          title: Init Data
+      type: object
+      title: LinkRequest
+      description: |-
+        Body for POST /connectors/{slug}/link. Most OAuth connectors don't
+        need anything here, but per-tenant OAuth (Shopify subdomain, etc.)
+        requires init fields up front — the FE collects them via a small form
+        matching the connector's `api_key_fields` and submits them in
+        `init_data` (e.g. {"subdomain": "store-name"}).
     LinkResponse:
       properties:
         connector_slug:

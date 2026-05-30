@@ -142,14 +142,10 @@ export default function OnboardingRolePage() {
   const handleContinue = () => {
     if (!canContinue) return;
     // Persist role selection to backend as user progresses — fire and forget.
-    // Send the display name; updateOnboarding maps it to the backend enum.
-    const patchPayload: { user_role: string; role_fit?: string } = {
-      user_role: data.role!,
-    };
-    if (data.role === "Other" && data.roleOther.trim()) {
-      patchPayload.role_fit = data.roleOther.trim();
-    }
-    void updateOnboarding(patchPayload);
+    // updateOnboarding maps the display name to the backend enum. The "Other"
+    // free-text detail (data.roleOther) is session-only — there is no backend
+    // field for it, and role_fit is a separate team-size enum, not free text.
+    void updateOnboarding({ user_role: data.role! });
     push("/onboarding/tone");
   };
 

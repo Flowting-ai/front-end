@@ -122,12 +122,12 @@ export default function OnboardingTonePage() {
     if (isSubmitting || data.tone === null) return;
     setIsSubmitting(true);
     try {
+      // Note: role_fit is a backend enum (team size: just_me|small_team|large_team)
+      // and has no UI step yet, so it is intentionally not sent. The nickname and
+      // "Other" role text are session-only — there is no backend field for them.
       const payload = {
         user_role: data.role ?? null,
         ai_tone: data.tone,
-        role_fit: data.role === "Other" && data.roleOther.trim()
-          ? data.roleOther.trim()
-          : (data.nickname || null),
         onboarding_completed: true,
       };
 

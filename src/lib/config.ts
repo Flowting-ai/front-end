@@ -25,6 +25,9 @@ export const USER_ONBOARDING_ENDPOINT = withBase("/users/me/onboarding");
 export const STRIPE_CHECKOUT_ENDPOINT = "/api/stripe/checkout";
 export const STRIPE_SUBSCRIPTION_ENDPOINT = "/api/stripe/subscription";
 export const STRIPE_TOPUP_ENDPOINT = "/api/stripe/topup";
+/** Backend (proxied) Stripe reads — billing snapshot + hosted portal link. */
+export const STRIPE_BILLING_ENDPOINT = withBase("/stripe/billing");
+export const STRIPE_PORTAL_ENDPOINT = withBase("/stripe/portal");
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");

@@ -79,7 +79,10 @@ paths:
       tags:
         - persona
       summary: Guide
-      description: Stream advice on improving a draft persona. The FE sends the current editor state (the version being edited); all saved versions of the repo are pulled in as context.
+      description: |-
+        Stream advice on improving a draft persona. The FE sends the current
+        editor state (the version being edited); all saved versions of the repo are
+        pulled in as context. The draft persona need not be saved.
       operationId: guide_persona__repo_id__guide_post
       security:
         - HTTPBearer: []
@@ -99,14 +102,201 @@ paths:
               $ref: '#/components/schemas/PersonaGuideRequest'
       responses:
         '200':
-          description: Streaming advice via Server-Sent Events.
+          description: |-
+            Streaming persona chat response via Server-Sent Events.
+
+            Two kinds of events arrive on the same SSE stream:
+
+            **Named events** (`event: <name>\ndata: {...}`) — lifecycle, tools, model:
+
+            - **`message_saved`**
+            - **`title`**
+            - **`web_search`**
+            - **`image`**
+
+            **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
+
+            - **`reasoning_heading`**
+            - **`reasoning_body`**
+            - **`reasoning`**
+            - **`content`**
+            - **`done`**
+            - **`error`**
           content:
             application/json:
               schema: {}
             text/event-stream:
               schema:
                 type: string
-                description: SSE stream — emits content delta events identical in shape to the chat stream.
+                description: SSE stream
+              x-sse-events:
+                message_saved:
+                  properties:
+                    message_id:
+                      title: Message Id
+                      type: string
+                  required:
+                    - message_id
+                  title: MessageSavedEvent
+                  type: object
+                title:
+                  properties:
+                    title:
+                      title: Title
+                      type: string
+                  required:
+                    - title
+                  title: TitleEvent
+                  type: object
+                web_search:
+                  properties:
+                    query:
+                      title: Query
+                      type: string
+                    links:
+                      items: {}
+                      title: Links
+                      type: array
+                  required:
+                    - query
+                    - links
+                  title: WebSearchEvent
+                  type: object
+                image:
+                  properties:
+                    url:
+                      title: Url
+                      type: string
+                    s3_key:
+                      title: S3 Key
+                      type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
+                  required:
+                    - url
+                    - s3_key
+                  title: ImageEvent
+                  type: object
+                reasoning_heading:
+                  description: |-
+                    Opens a new reasoning section. Subsequent `reasoning_body` events
+                    append to this section's body until the next `reasoning_heading`
+                    or the first `content` event.
+                  properties:
+                    type:
+                      default: reasoning_heading
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningHeadingEvent
+                  type: object
+                reasoning_body:
+                  description: Appends a delta to the current reasoning section's body.
+                  properties:
+                    type:
+                      default: reasoning_body
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningBodyEvent
+                  type: object
+                reasoning:
+                  description: |-
+                    Legacy: full raw reasoning text delta. Kept for backward compat —
+                    new clients should use `reasoning_heading` + `reasoning_body` instead.
+                  properties:
+                    type:
+                      default: reasoning
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ReasoningEvent
+                  type: object
+                content:
+                  description: Token of the assistant's visible answer. Concat into the answer text.
+                  properties:
+                    type:
+                      default: content
+                      title: Type
+                      type: string
+                    content:
+                      title: Content
+                      type: string
+                  required:
+                    - content
+                  title: ContentEvent
+                  type: object
+                done:
+                  description: |-
+                    End of an agentic round. The final `done` is followed by
+                    `message_saved`. `finish_reason` of `length`, `incomplete`, or
+                    `content_filter` indicates a truncated response.
+                  properties:
+                    type:
+                      default: done
+                      title: Type
+                      type: string
+                    usage:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Usage
+                    reasoning_details:
+                      anyOf:
+                        - items: {}
+                          type: array
+                        - type: 'null'
+                      title: Reasoning Details
+                    tool_calls:
+                      anyOf:
+                        - items:
+                            additionalProperties: true
+                            type: object
+                          type: array
+                        - type: 'null'
+                      title: Tool Calls
+                    finish_reason:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Finish Reason
+                  title: DoneEvent
+                  type: object
+                error:
+                  description: Stream-level error. May still be followed by a final `done`.
+                  properties:
+                    type:
+                      default: error
+                      title: Type
+                      type: string
+                    error:
+                      title: Error
+                      type: string
+                  required:
+                    - error
+                  title: ErrorEvent
+                  type: object
         '422':
           description: Validation Error
           content:
@@ -408,48 +598,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /persona/{repo_id}/versions/{persona_id}/connectors:
-    put:
-      tags:
-        - persona
-      summary: Set Version Connectors
-      operationId: set_version_connectors_persona__repo_id__versions__persona_id__connectors_put
-      security:
-        - HTTPBearer: []
-      parameters:
-        - name: repo_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Repo Id
-        - name: persona_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            title: Persona Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetPersonaConnectors'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonaResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /persona/{repo_id}/versions/{persona_id}/document:
     post:
       tags:
@@ -522,6 +670,48 @@ paths:
             type: string
             format: uuid
             title: Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /persona/{repo_id}/versions/{persona_id}/connectors:
+    put:
+      tags:
+        - persona
+      summary: Set Version Connectors
+      operationId: set_version_connectors_persona__repo_id__versions__persona_id__connectors_put
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: repo_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Repo Id
+        - name: persona_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Persona Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPersonaConnectors'
       responses:
         '200':
           description: Successful Response
@@ -733,6 +923,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -994,6 +1194,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -1243,11 +1453,21 @@ components:
           type: string
           title: Prompt
           default: ''
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
         temperature:
           anyOf:
             - type: number
             - type: 'null'
           title: Temperature
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
         files:
           anyOf:
             - items:
@@ -1280,11 +1500,21 @@ components:
           type: string
           title: Prompt
           default: ''
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
         temperature:
           anyOf:
             - type: number
             - type: 'null'
           title: Temperature
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
         files:
           anyOf:
             - items:
@@ -1368,22 +1598,6 @@ components:
               type: array
             - type: 'null'
           title: Files
-        connector_slugs:
-          anyOf:
-            - items:
-                type: string
-              type: array
-            - type: 'null'
-          title: Connector Slugs
-          description: Slugs of connectors enabled for this persona version. When omitted the backend falls back to the version's stored connector_slugs.
-        disabled_connectors:
-          anyOf:
-            - items:
-                type: string
-              type: array
-            - type: 'null'
-          title: Disabled Connectors
-          description: Slugs to temporarily disable during this test run (mock mode). Applied on top of connector_slugs.
       type: object
       required:
         - input
@@ -1400,6 +1614,11 @@ components:
             - type: string
             - type: 'null'
           title: Prompt
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
         model_id:
           anyOf:
             - type: string
@@ -1411,6 +1630,11 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
+        tags:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Tags
         image:
           anyOf:
             - type: string
@@ -1452,39 +1676,6 @@ components:
       required:
         - chat_id
       title: DeletePersonaChat
-    PersonaGuideRequest:
-      properties:
-        prompt:
-          type: string
-          title: Prompt
-          description: Current system instruction in the editor.
-        model_id:
-          anyOf:
-            - type: string
-              format: uuid
-            - type: 'null'
-          title: Model Id
-        temperature:
-          anyOf:
-            - type: number
-            - type: 'null'
-          title: Temperature
-      type: object
-      required:
-        - prompt
-      title: PersonaGuideRequest
-    SetPersonaConnectors:
-      properties:
-        connector_slugs:
-          items:
-            type: string
-          type: array
-          title: Connector Slugs
-          description: Full replacement set of connector slugs to attach to this version. Send an empty array to detach all connectors.
-      type: object
-      required:
-        - connector_slugs
-      title: SetPersonaConnectors
     EnhancePromptResponse:
       properties:
         enhanced_prompt:
@@ -1537,6 +1728,22 @@ components:
         - input
         - output
       title: GetPersonaMessages
+    GuideMessage:
+      properties:
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+          title: Role
+        content:
+          type: string
+          title: Content
+      type: object
+      required:
+        - role
+        - content
+      title: GuideMessage
     HTTPValidationError:
       properties:
         detail:
@@ -1613,14 +1820,71 @@ components:
         mime_type:
           type: string
           title: Mime Type
+        file_size:
+          type: integer
+          title: File Size
         origin:
           type: string
           title: Origin
       type: object
       required:
         - mime_type
+        - file_size
         - origin
       title: PersonaFileAttachment
+    PersonaGuideRequest:
+      properties:
+        question:
+          type: string
+          title: Question
+        prompt:
+          type: string
+          title: Prompt
+          default: ''
+        description:
+          type: string
+          title: Description
+          default: ''
+        name:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Name
+        model_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Model Id
+        temperature:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Temperature
+        connectors:
+          items:
+            type: string
+          type: array
+          title: Connectors
+          default: []
+        history:
+          items:
+            $ref: '#/components/schemas/GuideMessage'
+          type: array
+          title: History
+          default: []
+        web_search:
+          type: boolean
+          title: Web Search
+          default: false
+      type: object
+      required:
+        - question
+      title: PersonaGuideRequest
+      description: |-
+        The current draft persona config + a question. The persona need not be
+        saved — the FE sends whatever's in the editor. History is replayed by the
+        FE each call (in-memory only; nothing is persisted server-side).
     PersonaRepoResponse:
       properties:
         id:
@@ -1683,6 +1947,11 @@ components:
         prompt:
           type: string
           title: Prompt
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Description
         is_active:
           type: boolean
           title: Is Active
@@ -1707,11 +1976,23 @@ components:
             - type: number
             - type: 'null'
           title: Temperature
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
         documents:
           items:
             $ref: '#/components/schemas/PersonaDocumentResponse'
           type: array
           title: Documents
+          default: []
+        connectors:
+          items:
+            type: string
+          type: array
+          title: Connectors
           default: []
         total_usage:
           type: number
@@ -1757,6 +2038,12 @@ components:
         is_active:
           type: boolean
           title: Is Active
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+          default: []
         created_at:
           type: string
           format: date-time
@@ -1798,6 +2085,17 @@ components:
       required:
         - persona_id
       title: SetActiveVersion
+    SetPersonaConnectors:
+      properties:
+        slugs:
+          items:
+            type: string
+          type: array
+          title: Slugs
+          default: []
+      type: object
+      title: SetPersonaConnectors
+      description: Replace a persona version's assigned connector set with `slugs`.
     ValidationError:
       properties:
         loc:

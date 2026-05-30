@@ -75,9 +75,11 @@ paths:
             - **`generated_file`**
             - **`tool_progress`**
             - **`docx_progress`**
-            - **`project_memory`**
+            - **`memory_updated`**
             - **`tool_connect_prompt`**
             - **`user_prompt`**
+            - **`question_prompt`**
+            - **`permission_prompt`**
 
             **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
 
@@ -176,6 +178,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -195,11 +207,15 @@ paths:
                     mime_type:
                       title: Mime Type
                       type: string
+                    file_size:
+                      title: File Size
+                      type: integer
                   required:
                     - url
                     - s3_key
                     - filename
                     - mime_type
+                    - file_size
                   title: GeneratedFileEvent
                   type: object
                 tool_progress:
@@ -296,22 +312,30 @@ paths:
                     - filename
                   title: DocxProgressEvent
                   type: object
-                project_memory:
+                memory_updated:
+                  description: |-
+                    Emitted when user_memory or project_memory has been replaced by an LLM
+                    tool call. `scope` is 'user' or 'project'; `scope_id` is the auth0_id or
+                    project_id (as string). `version` is the new opaque CAS counter.
                   properties:
-                    entry_id:
-                      title: Entry Id
+                    scope:
+                      title: Scope
                       type: string
-                    project_id:
-                      title: Project Id
+                    scope_id:
+                      title: Scope Id
                       type: string
-                    content:
-                      title: Content
+                    memory:
+                      title: Memory
                       type: string
+                    version:
+                      title: Version
+                      type: integer
                   required:
-                    - entry_id
-                    - project_id
-                    - content
-                  title: ProjectMemoryEvent
+                    - scope
+                    - scope_id
+                    - memory
+                    - version
+                  title: MemoryUpdatedEvent
                   type: object
                 tool_connect_prompt:
                   description: |-
@@ -396,6 +420,83 @@ paths:
                     - kind
                     - title
                   title: UserPromptEvent
+                  type: object
+                question_prompt:
+                  description: |-
+                    The assistant is asking the user one or more clarifying questions.
+
+                    Dedicated, fully-typed replacement for `user_prompt` kind=questions.
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": {"answers": {question_id: value}}}`.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    title:
+                      default: ''
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    questions:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Questions
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                  title: QuestionPromptEvent
+                  type: object
+                permission_prompt:
+                  description: |-
+                    The assistant wants to run a connector action whose per-tool policy
+                    is `ask`. Dedicated replacement for `user_prompt` kind=permission.
+
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": "allow" | "allow_once" | "block"}` (a plain string).
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    tool_slug:
+                      title: Tool Slug
+                      type: string
+                    suggested_args:
+                      additionalProperties: true
+                      default: {}
+                      title: Suggested Args
+                      type: object
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                    - connector_slug
+                    - display_name
+                    - tool_slug
+                  title: PermissionPromptEvent
                   type: object
                 reasoning_heading:
                   description: |-
@@ -648,9 +749,11 @@ paths:
             - **`generated_file`**
             - **`tool_progress`**
             - **`docx_progress`**
-            - **`project_memory`**
+            - **`memory_updated`**
             - **`tool_connect_prompt`**
             - **`user_prompt`**
+            - **`question_prompt`**
+            - **`permission_prompt`**
 
             **Inline events** (`data: {"type":"<name>",...}`) — streaming LLM tokens, reasoning, tool execution:
 
@@ -749,6 +852,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -768,11 +881,15 @@ paths:
                     mime_type:
                       title: Mime Type
                       type: string
+                    file_size:
+                      title: File Size
+                      type: integer
                   required:
                     - url
                     - s3_key
                     - filename
                     - mime_type
+                    - file_size
                   title: GeneratedFileEvent
                   type: object
                 tool_progress:
@@ -869,22 +986,30 @@ paths:
                     - filename
                   title: DocxProgressEvent
                   type: object
-                project_memory:
+                memory_updated:
+                  description: |-
+                    Emitted when user_memory or project_memory has been replaced by an LLM
+                    tool call. `scope` is 'user' or 'project'; `scope_id` is the auth0_id or
+                    project_id (as string). `version` is the new opaque CAS counter.
                   properties:
-                    entry_id:
-                      title: Entry Id
+                    scope:
+                      title: Scope
                       type: string
-                    project_id:
-                      title: Project Id
+                    scope_id:
+                      title: Scope Id
                       type: string
-                    content:
-                      title: Content
+                    memory:
+                      title: Memory
                       type: string
+                    version:
+                      title: Version
+                      type: integer
                   required:
-                    - entry_id
-                    - project_id
-                    - content
-                  title: ProjectMemoryEvent
+                    - scope
+                    - scope_id
+                    - memory
+                    - version
+                  title: MemoryUpdatedEvent
                   type: object
                 tool_connect_prompt:
                   description: |-
@@ -969,6 +1094,83 @@ paths:
                     - kind
                     - title
                   title: UserPromptEvent
+                  type: object
+                question_prompt:
+                  description: |-
+                    The assistant is asking the user one or more clarifying questions.
+
+                    Dedicated, fully-typed replacement for `user_prompt` kind=questions.
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": {"answers": {question_id: value}}}`.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    title:
+                      default: ''
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    questions:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Questions
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                  title: QuestionPromptEvent
+                  type: object
+                permission_prompt:
+                  description: |-
+                    The assistant wants to run a connector action whose per-tool policy
+                    is `ask`. Dedicated replacement for `user_prompt` kind=permission.
+
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": "allow" | "allow_once" | "block"}` (a plain string).
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    tool_slug:
+                      title: Tool Slug
+                      type: string
+                    suggested_args:
+                      additionalProperties: true
+                      default: {}
+                      title: Suggested Args
+                      type: object
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                    - connector_slug
+                    - display_name
+                    - tool_slug
+                  title: PermissionPromptEvent
                   type: object
                 reasoning_heading:
                   description: |-
@@ -1414,6 +1616,12 @@ components:
               format: uuid
             - type: 'null'
           title: Reference Message Id
+        replace_message_id:
+          anyOf:
+            - type: string
+              format: uuid
+            - type: 'null'
+          title: Replace Message Id
         use_mistral_ocr:
           type: boolean
           title: Use Mistral Ocr
@@ -1492,12 +1700,16 @@ components:
         mime_type:
           type: string
           title: Mime Type
+        file_size:
+          type: integer
+          title: File Size
         origin:
           type: string
           title: Origin
       type: object
       required:
         - mime_type
+        - file_size
         - origin
       title: FileAttachment
     GetMessages:

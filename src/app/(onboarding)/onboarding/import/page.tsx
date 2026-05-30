@@ -35,12 +35,11 @@ export default function OnboardingImportPage() {
     try {
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
+        // role_fit (team-size enum) has no UI step yet and is intentionally
+        // omitted; nickname / "Other" role text have no backend field.
         updateOnboarding({
           user_role: data.role ?? null,
           ai_tone: data.tone,
-          role_fit: data.role === "Other" && data.roleOther.trim()
-            ? data.roleOther.trim()
-            : (data.nickname || null),
           onboarding_completed: true,
         }),
       ]);

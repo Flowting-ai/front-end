@@ -20,6 +20,7 @@ import {
 } from "@/hooks/use-streaming-chat";
 import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard, type PinItem } from "@/context/pinboard-context";
+import { useAuth } from "@/context/auth-context";
 import type { PinFolder } from "@/lib/api/pins";
 import type { PinMentionable } from "./PinMentionDropdown";
 import type { Source } from "@/types/chat";
@@ -208,6 +209,9 @@ export function ChatInterface({
   // Muse framework state — consumed from context to compute algorithm for API calls
   const { museActive, museAdvanced } = useModelSelectorContext();
 
+  // Auth context — refreshUser for updating usage after stream completes
+  const { refreshUser } = useAuth();
+
   // Pin data for the @-mention dropdown — read from context (no extra fetch).
   const { pins, isPinned } = usePinboard();
 
@@ -258,6 +262,7 @@ export function ChatInterface({
     onTitleUpdate,
     onChatMoveToTop: (id) => moveToTop(id),
     setStreamState,
+    onStreamDone: refreshUser,
   });
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";

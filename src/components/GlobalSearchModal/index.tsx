@@ -9,6 +9,7 @@ import {
   PinIcon,
   UserAiIcon,
   MessagePreviewOneIcon,
+  DashboardSquareOneIcon,
 } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { TabItem }    from '@/components/TabItem'
@@ -21,7 +22,7 @@ const SHADOW_FOCUSED = '0px 0px 0px 1.5px var(--blue-400)'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type SearchResultType = 'chat' | 'project' | 'persona' | 'pin'
+export type SearchResultType = 'chat' | 'project' | 'persona' | 'pin' | 'page'
 
 export interface SearchResult {
   /** Unique stable id — also used as DOM id for aria-activedescendant */
@@ -29,7 +30,7 @@ export interface SearchResult {
   type:      SearchResultType
   /** Primary text, truncated with ellipsis */
   title:     string
-  /** Secondary line — projects: description; pins: "in [chat title]"; personas: tagline */
+  /** Secondary line — projects: description; pins: "in [chat title]"; personas: handle; pages: section */
   subtitle?: string
   /** Right-side metadata — chats: "Today", "Yesterday", "Past month" */
   meta?:     string
@@ -62,6 +63,7 @@ const TYPE_ICON_BG: Record<SearchResultType, string> = {
   project: 'var(--color-tag-Purple-bg)',
   persona: 'var(--color-tag-Green-bg-soft)',
   pin:     'var(--color-tag-Yellow-bg)',
+  page:    'var(--color-tag-Neutral-bg)',
 }
 
 const TYPE_ICON_COLOR: Record<SearchResultType, string> = {
@@ -69,6 +71,7 @@ const TYPE_ICON_COLOR: Record<SearchResultType, string> = {
   project: 'var(--color-tag-Purple-text)',
   persona: 'var(--color-tag-Green-text)',
   pin:     'var(--color-tag-Yellow-text)',
+  page:    'var(--color-tag-Neutral-text)',
 }
 
 // ── Icon map by type ──────────────────────────────────────────────────────────
@@ -78,6 +81,7 @@ const TYPE_ICON: Record<SearchResultType, React.ComponentType<{ size: number; co
   project: FolderOneIcon,
   persona: UserAiIcon,
   pin:     PinIcon,
+  page:    DashboardSquareOneIcon,
 }
 
 const TYPE_LABEL: Record<SearchResultType, string> = {
@@ -85,6 +89,7 @@ const TYPE_LABEL: Record<SearchResultType, string> = {
   project: 'Projects',
   persona: 'Personas',
   pin:     'Pins',
+  page:    'Pages',
 }
 
 // ── highlightMatch ────────────────────────────────────────────────────────────
@@ -325,7 +330,7 @@ function KbdHint({ keys, label }: { keys: string[]; label: string }) {
 
 // ── GlobalSearchModal ─────────────────────────────────────────────────────────
 
-const SECTION_ORDER: SearchResultType[] = ['chat', 'project', 'persona', 'pin']
+const SECTION_ORDER: SearchResultType[] = ['chat', 'project', 'persona', 'pin', 'page']
 const MAX_PER_SECTION = 4
 
 type FilterValue = 'all' | SearchResultType
@@ -336,6 +341,7 @@ const FILTER_TABS: { value: FilterValue; label: string }[] = [
   { value: 'project', label: 'Projects' },
   { value: 'persona', label: 'Personas' },
   { value: 'pin',     label: 'Pins' },
+  { value: 'page',    label: 'Pages' },
 ]
 
 export function GlobalSearchModal({
@@ -553,7 +559,7 @@ export function GlobalSearchModal({
                 <InputField
                   ref={inputRef}
                   fluid
-                  placeholder="Search chats, projects, personas…"
+                  placeholder="Search chats, projects, personas, pins, pages…"
                   leftIcon={<SearchOneIcon size={16} color="var(--neutral-400)" />}
                   value={query}
                   onChange={handleQueryChange}

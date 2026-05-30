@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  STRIPE_BILLING_ENDPOINT,
   STRIPE_CHECKOUT_ENDPOINT,
+  STRIPE_PORTAL_ENDPOINT,
   STRIPE_SUBSCRIPTION_ENDPOINT,
   STRIPE_TOPUP_ENDPOINT,
   USER_CREATE_ENDPOINT,
@@ -58,6 +60,16 @@ export interface UserUpcomingInvoice {
 }
 
 export interface UserUsage {
+  /** Period credit allowance (API field `credits`). */
+  credits: number;
+  /** Credits consumed in the current period (API field `spent_this_period`). */
+  spent_this_period: number;
+  by_category?: {
+    chat?: number;
+    persona?: number;
+    workflow?: number;
+  };
+  // ── Legacy mirrors (kept populated by normalizeUserProfile for back-compat) ──
   monthly_limit: number;
   monthly_used: number;
   monthly_remaining: number;
@@ -69,11 +81,6 @@ export interface UserUsage {
   daily_remaining: number;
   daily_used_pct?: number;
   last_reset_date?: string;
-  by_category?: {
-    chat?: number;
-    persona?: number;
-    workflow?: number;
-  };
   daily_by_category?: {
     chat?: number;
     persona?: number;
@@ -94,6 +101,7 @@ export interface UserProfile {
   last_name: string | null;
   email: string | null;
   phone_number: string | null;
+  profile_picture: string | null;
   plan_type: UserPlanType | null;
   subscription_status?: string | null;
   current_period_end?: string | null;
@@ -125,17 +133,33 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       ? [root.payment_method as UserPaymentMethod]
       : [];
 
+  // The API nests plan details under `plan` (PlanSummary). Older payloads kept
+  // them flat on the root — read either, preferring the nested object.
+  const planObj = (root.plan && typeof root.plan === "object"
+    ? (root.plan as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  const planType = parsePlanTierFromApi(planObj.plan_type ?? root.plan_type);
+
   return {
     auth0_id: String(root.auth0_id ?? ""),
     first_name: typeof root.first_name === "string" ? root.first_name : null,
     last_name: typeof root.last_name === "string" ? root.last_name : null,
     email: typeof root.email === "string" ? root.email : null,
     phone_number: typeof root.phone_number === "string" ? root.phone_number : null,
-    plan_type: parsePlanTierFromApi(root.plan_type),
+    profile_picture: typeof root.profile_picture === "string" ? root.profile_picture : null,
+    plan_type: planType,
     subscription_status:
-      typeof root.subscription_status === "string" ? root.subscription_status : null,
+      typeof planObj.subscription_status === "string"
+        ? planObj.subscription_status
+        : typeof root.subscription_status === "string"
+          ? root.subscription_status
+          : null,
     current_period_end:
-      typeof root.current_period_end === "string" ? root.current_period_end : null,
+      typeof planObj.current_period_end === "string"
+        ? planObj.current_period_end
+        : typeof root.current_period_end === "string"
+          ? root.current_period_end
+          : null,
     next_billing_date:
       typeof root.next_billing_date === "string"
         ? root.next_billing_date
@@ -161,18 +185,36 @@ function normalizeUserProfile(raw: unknown): UserProfile {
       root.usage && typeof root.usage === "object"
         ? (() => {
             const u = root.usage as Record<string, unknown>;
-            const ml = typeof u.monthly_limit === "number" ? u.monthly_limit : 0;
-            const mu = typeof u.monthly_used === "number" ? u.monthly_used : 0;
+            // Current API shape: { credits, spent_this_period, by_category{chat,persona} }.
+            // `credits` is the period allowance; `spent_this_period` is consumption.
+            // Older payloads used monthly_limit/monthly_used — fall back to those.
+            const credits =
+              typeof u.credits === "number"
+                ? u.credits
+                : typeof u.monthly_limit === "number"
+                  ? u.monthly_limit
+                  : 0;
+            const spent =
+              typeof u.spent_this_period === "number"
+                ? u.spent_this_period
+                : typeof u.monthly_used === "number"
+                  ? u.monthly_used
+                  : 0;
             const dl = typeof u.daily_limit === "number" ? u.daily_limit : 0;
             const du = typeof u.daily_used === "number" ? u.daily_used : 0;
             return {
               ...(u as object),
-              monthly_limit: ml,
-              monthly_used: mu,
+              credits,
+              spent_this_period: spent,
+              // Legacy mirrors so existing consumers (auth-context, sidebar) keep working.
+              monthly_limit: credits,
+              monthly_used: spent,
               monthly_remaining:
-                typeof u.monthly_remaining === "number" ? u.monthly_remaining : ml - mu,
+                typeof u.monthly_remaining === "number"
+                  ? u.monthly_remaining
+                  : credits - spent,
               bonus_credits: typeof u.bonus_credits === "number" ? u.bonus_credits : 0,
-              effective_limit: typeof u.effective_limit === "number" ? u.effective_limit : ml,
+              effective_limit: typeof u.effective_limit === "number" ? u.effective_limit : credits,
               daily_limit: dl,
               daily_used: du,
               daily_remaining:
@@ -200,6 +242,41 @@ function normalizeUserProfile(raw: unknown): UserProfile {
   };
 }
 
+// ── Billing snapshot (GET /stripe/billing → BillingInfo) ──────────────────────
+
+export interface BillingPaymentMethod {
+  brand: string | null;
+  last4: string | null;
+  exp_month: number | null;
+  exp_year: number | null;
+  funding?: string | null;
+}
+
+export interface BillingInvoice {
+  amount_paid: number;
+  currency: string;
+  status: string | null;
+  created: string | null;
+  invoice_url: string | null;
+  invoice_pdf: string | null;
+}
+
+export interface BillingUpcomingInvoice {
+  amount_due: number;
+  currency: string;
+  next_payment_date: string | null;
+}
+
+export interface BillingInfo {
+  plan_type: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  payment_method: BillingPaymentMethod | null;
+  invoices: BillingInvoice[];
+  upcoming_invoice: BillingUpcomingInvoice | null;
+}
+
 export interface CheckoutSessionResponse {
   checkout_url: string;
   session_id: string;
@@ -222,6 +299,11 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, { method: "GET" });
   if (!response.ok) return null;
   const json = await response.json();
+  if (process.env.NODE_ENV === "development") {
+    const root = (json as Record<string, unknown>)?.data ?? (json as Record<string, unknown>)?.user ?? json;
+    const u = (root as Record<string, unknown>)?.usage;
+    console.log("[fetchCurrentUser] plan_type:", (root as Record<string, unknown>)?.plan_type, "usage:", JSON.stringify(u));
+  }
   return normalizeUserProfile(json);
 }
 
@@ -236,6 +318,7 @@ export async function updateUser(payload: {
   first_name?: string | null;
   last_name?: string | null;
   phone_number?: string | null;
+  profile_picture?: string | null;
 }): Promise<UserProfile | null> {
   const response = await apiFetch(USER_ENDPOINT, {
     method: "PATCH",
@@ -268,6 +351,12 @@ const TONE_API_MAP: Record<string, string> = {
   Warm: "empathetic",
 };
 
+// `role_fit` is a backend enum describing team size — it is NOT free text.
+// The onboarding UI has historically passed nicknames / "Other" role
+// descriptions here, which the backend rejects with a 422. We drop any value
+// that isn't a valid enum member before sending.
+const VALID_ROLE_FIT = new Set(["just_me", "small_team", "large_team"]);
+
 export async function updateOnboarding(payload: {
   user_role?: string | null;
   ai_tone?: string | null;
@@ -282,6 +371,11 @@ export async function updateOnboarding(payload: {
     ai_tone: payload.ai_tone
       ? (TONE_API_MAP[payload.ai_tone] ?? payload.ai_tone)
       : payload.ai_tone,
+    // Only forward role_fit when it is a valid enum value; free text (nicknames,
+    // "Other" role descriptions) is dropped so it never triggers a 422.
+    role_fit: payload.role_fit && VALID_ROLE_FIT.has(payload.role_fit)
+      ? payload.role_fit
+      : undefined,
   };
 
   // Send only fields that have a concrete value. Sending explicit `null` for
@@ -292,6 +386,13 @@ export async function updateOnboarding(payload: {
     if (v !== null && v !== undefined) {
       cleanPayload[k] = v;
     }
+  }
+
+  // Nothing valid to send (e.g. a nickname-only write whose role_fit was
+  // dropped) — skip the network round-trip entirely. Callers that send such
+  // payloads are fire-and-forget and don't inspect the result.
+  if (Object.keys(cleanPayload).length === 0) {
+    return null;
   }
 
   const response = await apiFetch(USER_ONBOARDING_ENDPOINT, {
@@ -385,6 +486,44 @@ export async function createTopUpSession(amount_usd: number): Promise<TopUpSessi
   }
 
   return data as TopUpSessionResponse;
+}
+
+/**
+ * Billing snapshot — payment method, invoices, upcoming invoice, and cancel
+ * state. Lives on the backend (proxied), separate from `/users/me`.
+ */
+export async function fetchBilling(): Promise<BillingInfo | null> {
+  const response = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
+  if (!response.ok) return null;
+  const raw = (await response.json()) as Record<string, unknown>;
+  const root = (raw.data ?? raw) as Record<string, unknown>;
+  const pm =
+    root.payment_method && typeof root.payment_method === "object"
+      ? (root.payment_method as BillingPaymentMethod)
+      : null;
+  const upcoming =
+    root.upcoming_invoice && typeof root.upcoming_invoice === "object"
+      ? (root.upcoming_invoice as BillingUpcomingInvoice)
+      : null;
+  return {
+    plan_type: typeof root.plan_type === "string" ? root.plan_type : null,
+    subscription_status:
+      typeof root.subscription_status === "string" ? root.subscription_status : null,
+    current_period_end:
+      typeof root.current_period_end === "string" ? root.current_period_end : null,
+    cancel_at_period_end: Boolean(root.cancel_at_period_end),
+    payment_method: pm,
+    invoices: Array.isArray(root.invoices) ? (root.invoices as BillingInvoice[]) : [],
+    upcoming_invoice: upcoming,
+  };
+}
+
+/** Create a Stripe hosted billing-portal session and return its URL. */
+export async function openBillingPortal(): Promise<string | null> {
+  const response = await apiFetch(STRIPE_PORTAL_ENDPOINT, { method: "POST" });
+  if (!response.ok) return null;
+  const data = (await response.json()) as { portal_url?: string } | Record<string, unknown>;
+  return typeof data.portal_url === "string" ? data.portal_url : null;
 }
 
 export async function cancelSubscription(): Promise<{ status: string }> {

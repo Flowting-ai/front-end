@@ -50,6 +50,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+        - scheduled-tasks
+      summary: Update Task
+      description: |-
+        Pause (is_active=false) or resume (is_active=true) a task. Resuming
+        recomputes next_run_at from the schedule; a schedule with no future run
+        can't be resumed.
+      operationId: update_task_tasks__task_id__patch
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduledTaskUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledTaskDetail'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /tasks/{task_id}/run:
     post:
       tags:
@@ -102,10 +140,6 @@ components:
           type: string
           title: Plan Text
           default: ''
-        plan_json:
-          additionalProperties: true
-          type: object
-          title: Plan Json
         schedule_json:
           additionalProperties: true
           type: object
@@ -128,6 +162,14 @@ components:
         run_count:
           type: integer
           title: Run Count
+        success_count:
+          type: integer
+          title: Success Count
+          default: 0
+        failure_count:
+          type: integer
+          title: Failure Count
+          default: 0
         created_at:
           anyOf:
             - type: string
@@ -140,20 +182,34 @@ components:
               format: date-time
             - type: 'null'
           title: Updated At
+        plan_json:
+          additionalProperties: true
+          type: object
+          title: Plan Json
         runs:
           items:
             $ref: '#/components/schemas/ScheduledTaskRunResponse'
           type: array
           title: Runs
           default: []
+        success_rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Success Rate
+          description: |-
+            Completed runs / runs that reached a terminal status. None until the
+            task has run at least once.
+          readOnly: true
       type: object
       required:
         - id
         - title
-        - plan_json
         - schedule_json
         - is_active
         - run_count
+        - plan_json
+        - success_rate
       title: ScheduledTaskDetail
       description: GET /tasks/{id} — task + plan + run history.
     ScheduledTaskListItem:
@@ -191,6 +247,14 @@ components:
         run_count:
           type: integer
           title: Run Count
+        success_count:
+          type: integer
+          title: Success Count
+          default: 0
+        failure_count:
+          type: integer
+          title: Failure Count
+          default: 0
         created_at:
           anyOf:
             - type: string
@@ -203,6 +267,15 @@ components:
               format: date-time
             - type: 'null'
           title: Updated At
+        success_rate:
+          anyOf:
+            - type: number
+            - type: 'null'
+          title: Success Rate
+          description: |-
+            Completed runs / runs that reached a terminal status. None until the
+            task has run at least once.
+          readOnly: true
       type: object
       required:
         - id
@@ -210,6 +283,7 @@ components:
         - schedule_json
         - is_active
         - run_count
+        - success_rate
       title: ScheduledTaskListItem
       description: Row returned by GET /tasks.
     ScheduledTaskLogResponse:
@@ -295,6 +369,16 @@ components:
         - id
         - status
       title: ScheduledTaskRunResponse
+    ScheduledTaskUpdate:
+      properties:
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+        - is_active
+      title: ScheduledTaskUpdate
+      description: PATCH /tasks/{id} — pause/resume from the UI.
     ValidationError:
       properties:
         loc:

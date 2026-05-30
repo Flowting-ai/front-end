@@ -75,6 +75,9 @@ paths:
             - **`tool_progress`**
             - **`tool_connect_prompt`**
             - **`user_prompt`**
+            - **`question_prompt`**
+            - **`permission_prompt`**
+            - **`context`**
             - **`plan_proposed`**
             - **`plan_approved`**
             - **`plan_countered`**
@@ -142,6 +145,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -161,11 +174,15 @@ paths:
                     mime_type:
                       title: Mime Type
                       type: string
+                    file_size:
+                      title: File Size
+                      type: integer
                   required:
                     - url
                     - s3_key
                     - filename
                     - mime_type
+                    - file_size
                   title: GeneratedFileEvent
                   type: object
                 tool_progress:
@@ -303,6 +320,155 @@ paths:
                     - kind
                     - title
                   title: UserPromptEvent
+                  type: object
+                question_prompt:
+                  description: |-
+                    The assistant is asking the user one or more clarifying questions.
+
+                    Dedicated, fully-typed replacement for `user_prompt` kind=questions.
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": {"answers": {question_id: value}}}`.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    title:
+                      default: ''
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    questions:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Questions
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                  title: QuestionPromptEvent
+                  type: object
+                permission_prompt:
+                  description: |-
+                    The assistant wants to run a connector action whose per-tool policy
+                    is `ask`. Dedicated replacement for `user_prompt` kind=permission.
+
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": "allow" | "allow_once" | "block"}` (a plain string).
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    tool_slug:
+                      title: Tool Slug
+                      type: string
+                    suggested_args:
+                      additionalProperties: true
+                      default: {}
+                      title: Suggested Args
+                      type: object
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                    - connector_slug
+                    - display_name
+                    - tool_slug
+                  title: PermissionPromptEvent
+                  type: object
+                context:
+                  description: |-
+                    Snapshot of EVERYTHING that's in context for this turn — what the
+                    assistant can see / reach. Fires once at the start of a Brain turn
+                    so the FE can populate its context sidebar before any plan / content
+                    events arrive.
+
+                    Fields are intentionally broad and optional so new context sources
+                    (skills, projects, files, custom blocks) can be added without
+                    breaking older FE consumers.
+                  properties:
+                    persona:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Persona
+                    user_context:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: User Context
+                    pins:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Pins
+                      type: array
+                    files:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Files
+                      type: array
+                    connectors:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Connectors
+                      type: array
+                    available_models:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Available Models
+                      type: array
+                    project:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Project
+                    documents:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Documents
+                      type: array
+                    loaded_skills:
+                      default: []
+                      items:
+                        type: string
+                      title: Loaded Skills
+                      type: array
+                  title: ContextEvent
                   type: object
                 plan_proposed:
                   properties:
@@ -634,6 +800,9 @@ paths:
             - **`tool_progress`**
             - **`tool_connect_prompt`**
             - **`user_prompt`**
+            - **`question_prompt`**
+            - **`permission_prompt`**
+            - **`context`**
             - **`plan_proposed`**
             - **`plan_approved`**
             - **`plan_countered`**
@@ -701,6 +870,16 @@ paths:
                     s3_key:
                       title: S3 Key
                       type: string
+                    plan_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Plan Id
+                    step_id:
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                      title: Step Id
                   required:
                     - url
                     - s3_key
@@ -720,11 +899,15 @@ paths:
                     mime_type:
                       title: Mime Type
                       type: string
+                    file_size:
+                      title: File Size
+                      type: integer
                   required:
                     - url
                     - s3_key
                     - filename
                     - mime_type
+                    - file_size
                   title: GeneratedFileEvent
                   type: object
                 tool_progress:
@@ -862,6 +1045,155 @@ paths:
                     - kind
                     - title
                   title: UserPromptEvent
+                  type: object
+                question_prompt:
+                  description: |-
+                    The assistant is asking the user one or more clarifying questions.
+
+                    Dedicated, fully-typed replacement for `user_prompt` kind=questions.
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": {"answers": {question_id: value}}}`.
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    title:
+                      default: ''
+                      title: Title
+                      type: string
+                    description:
+                      default: ''
+                      title: Description
+                      type: string
+                    questions:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Questions
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                  title: QuestionPromptEvent
+                  type: object
+                permission_prompt:
+                  description: |-
+                    The assistant wants to run a connector action whose per-tool policy
+                    is `ask`. Dedicated replacement for `user_prompt` kind=permission.
+
+                    Resolve by POSTing to `respond_url` with
+                    `{"response": "allow" | "allow_once" | "block"}` (a plain string).
+                  properties:
+                    prompt_id:
+                      title: Prompt Id
+                      type: string
+                    respond_url:
+                      title: Respond Url
+                      type: string
+                    connector_slug:
+                      title: Connector Slug
+                      type: string
+                    display_name:
+                      title: Display Name
+                      type: string
+                    tool_slug:
+                      title: Tool Slug
+                      type: string
+                    suggested_args:
+                      additionalProperties: true
+                      default: {}
+                      title: Suggested Args
+                      type: object
+                    options:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Options
+                      type: array
+                  required:
+                    - prompt_id
+                    - respond_url
+                    - connector_slug
+                    - display_name
+                    - tool_slug
+                  title: PermissionPromptEvent
+                  type: object
+                context:
+                  description: |-
+                    Snapshot of EVERYTHING that's in context for this turn — what the
+                    assistant can see / reach. Fires once at the start of a Brain turn
+                    so the FE can populate its context sidebar before any plan / content
+                    events arrive.
+
+                    Fields are intentionally broad and optional so new context sources
+                    (skills, projects, files, custom blocks) can be added without
+                    breaking older FE consumers.
+                  properties:
+                    persona:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Persona
+                    user_context:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: User Context
+                    pins:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Pins
+                      type: array
+                    files:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Files
+                      type: array
+                    connectors:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Connectors
+                      type: array
+                    available_models:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Available Models
+                      type: array
+                    project:
+                      anyOf:
+                        - additionalProperties: true
+                          type: object
+                        - type: 'null'
+                      title: Project
+                    documents:
+                      default: []
+                      items:
+                        additionalProperties: true
+                        type: object
+                      title: Documents
+                      type: array
+                    loaded_skills:
+                      default: []
+                      items:
+                        type: string
+                      title: Loaded Skills
+                      type: array
+                  title: ContextEvent
                   type: object
                 plan_proposed:
                   properties:
@@ -1428,6 +1760,13 @@ components:
           anyOf:
             - $ref: '#/components/schemas/BrainPlanResponse'
             - type: 'null'
+        attachments:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Attachments
+          default: []
       type: object
       required:
         - id

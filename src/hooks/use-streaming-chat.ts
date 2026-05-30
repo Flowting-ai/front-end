@@ -23,6 +23,8 @@ export interface UseStreamingChatParams {
   onChatMoveToTop?: (chatId: string) => void
   /** Optional - lets the caller render a loading indicator from stream state. */
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
+  /** Called after a stream completes successfully (for refreshing usage data). */
+  onStreamDone?: () => void
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -37,6 +39,7 @@ export function useStreamingChat({
   onTitleUpdate,
   onChatMoveToTop,
   setStreamState,
+  onStreamDone,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -1253,6 +1256,7 @@ export function useStreamingChat({
       }
 
       setStreamState?.("done")
+      onStreamDone?.()
     } catch (error) {
       stopFlushInterval()
       flushPending()
