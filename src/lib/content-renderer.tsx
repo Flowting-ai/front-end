@@ -20,13 +20,7 @@ import { MarkdownRenderer } from "./markdown-utils"
 import type { HighlightSpec } from "./markdown-utils"
 import { XmlTable } from "@/components/chat/XmlTable"
 import { XmlChart } from "@/components/chat/XmlChart"
-import { renderTextBlock } from "@/components/chat/ResponseBlocks"
 import type { WebCitation } from "@/hooks/use-chat-state"
-
-function StreamingTextBlock({ text, citations, cursor }: { text: string; citations?: WebCitation[]; cursor?: React.ReactNode }) {
-  // eslint-disable-next-line react-doctor/no-render-in-render -- renderTextBlock is a stable module-level helper used across multiple call sites
-  return <>{renderTextBlock(text, citations, cursor)}</>
-}
 
 // ---------------------------------------------------------------------------
 // Pending block placeholder
@@ -121,27 +115,21 @@ export function ContentRenderer({
           return null
         }
 
-        if (isStreaming) {
-          // Streaming: use inline renderTextBlock so content flows
-          // naturally with the trailing BreathingDot cursor.
-          return (
-            // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
-            <StreamingTextBlock key={i}
-              text={seg.text}
-              citations={webCitations}
-              cursor={isLast ? cursor : undefined}
-            />
-          )
-        }
-
-        // Completed message: full MarkdownRenderer (GFM, math, code blocks…)
+        // Use MarkdownRenderer for both streaming and completed messages.
+        // This provides full GFM tables, fenced code highlighting, KaTeX math,
+        // and proper block-level structure at all times — matching the quality
+        // of ChatGPT and Claude. The closeOpenFences preprocessing inside
+        // MarkdownRenderer handles partially-streamed code fences gracefully.
         return (
           // eslint-disable-next-line react/no-array-index-as-key, react-doctor/no-array-index-as-key -- segment index is stable; no other unique key available
-          <MarkdownRenderer key={i}
-            content={seg.text}
-            webCitations={webCitations}
-            highlights={highlights}
-          />
+          <React.Fragment key={i}>
+            <MarkdownRenderer
+              content={seg.text}
+              webCitations={webCitations}
+              highlights={isStreaming ? undefined : highlights}
+            />
+            {isStreaming && isLast && cursor}
+          </React.Fragment>
         )
       }
     }

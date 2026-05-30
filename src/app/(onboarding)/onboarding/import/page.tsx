@@ -6,6 +6,8 @@ import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/Button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
+import { apiFetch } from "@/lib/api/client";
+import { MEMORY_USER_ENDPOINT } from "@/lib/config";
 
 const UNIVERSAL_PROMPT = `Based on everything you know about me - past conversations, saved memories, any standing instructions or preferences I've set - write a single paragraph (no headers, no bullets, no markdown) that briefs another AI assistant on how to work with me effectively. Cover:
 
@@ -35,14 +37,20 @@ export default function OnboardingImportPage() {
     try {
       await Promise.all([
         updateUser({ first_name: data.firstName, last_name: data.lastName }),
-        // role_fit (team-size enum) has no UI step yet and is intentionally
-        // omitted; nickname / "Other" role text have no backend field.
         updateOnboarding({
           user_role: data.role ?? null,
           ai_tone: data.tone,
           onboarding_completed: true,
         }),
       ]);
+
+      // Send user memory/context to backend if provided
+      if (!skipContext && data.aiContext.trim().length > 0) {
+        await apiFetch(MEMORY_USER_ENDPOINT, {
+          method: "POST",
+          body: JSON.stringify({ content: data.aiContext.trim() }),
+        });
+      }
 
       await refreshUser();
       push("/chat?welcome=1");
@@ -54,6 +62,21 @@ export default function OnboardingImportPage() {
   };
 
   return (
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--neutral-50, #f7f2ed)",
+        backgroundImage: "url('/icons/souvenir-bg.svg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
     <div
       style={{
         display: "flex",
@@ -314,7 +337,11 @@ export default function OnboardingImportPage() {
       </div>
 
       {/* Action buttons */}
+      {/* Action buttons */}
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+        <Button variant="outline" size="sm" onClick={() => push("/onboarding/tone")} disabled={loading}>
+          Back
+        </Button>
         <Button
           size="sm"
           loading={loading}
@@ -347,6 +374,7 @@ export default function OnboardingImportPage() {
       >
         Log out
       </a>
+    </div>
     </div>
   );
 }

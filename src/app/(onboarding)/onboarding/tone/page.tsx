@@ -115,7 +115,7 @@ function ToneCard({
 export default function OnboardingTonePage() {
   const { push } = useRouter();
   const { data, setTone } = useOnboarding();
-  const { refreshUser, setUser, user } = useAuth();
+  const { setUser, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleContinue = async () => {
@@ -128,10 +128,10 @@ export default function OnboardingTonePage() {
       const payload = {
         user_role: data.role ?? null,
         ai_tone: data.tone,
-        onboarding_completed: true,
+        onboarding_completed: false,
       };
 
-      // Critical path: complete onboarding. Awaited so we can check for errors.
+      // Save tone/role. Onboarding is NOT marked complete — that happens on the import step.
       const onboardingResult = await updateOnboarding(payload);
 
       if (onboardingResult === null) {
@@ -144,20 +144,16 @@ export default function OnboardingTonePage() {
       // transient /users/me failure never blocks onboarding completion.
       void updateUser({ first_name: data.firstName || null, last_name: data.lastName || null });
 
-      // Immediately mark onboarding complete in auth state so OnboardingGuard
-      // does not redirect when the chat page mounts.
+      // Update auth state with role/tone but do NOT mark onboarding complete yet.
       if (user) {
         setUser({
           ...user,
-          onboardingCompleted: true,
           onboardingRole: onboardingResult.user_role ?? user.onboardingRole,
           onboardingTone: onboardingResult.ai_tone ?? user.onboardingTone,
         });
       }
 
-      // Full refresh in background — don't await so navigation isn't blocked
-      void refreshUser();
-      push("/chat?welcome=1");
+      push("/onboarding/import");
     } catch (err) {
       console.error("Onboarding submission failed", err);
       toast.error("Something went wrong — please try again.");

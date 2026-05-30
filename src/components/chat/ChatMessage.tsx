@@ -139,10 +139,10 @@ function StandaloneActivitiesBlock({
   );
 }
 
-// ── StreamingTextContent - renders live content as inline text with BreathingDot ──
-// Used only while isLoading=true so paragraphs don't "snap in" as markdown blocks.
-// Structured blocks (<table>, <chart>) are rendered as real components even
-// during streaming; only the markdown prose uses the inline inline renderTextBlock path.
+// ── StreamingTextContent - renders live content with BreathingDot cursor ──────
+// Uses full MarkdownRenderer (same as completed messages) for consistent
+// formatting quality during streaming — code blocks, math, GFM tables all
+// render properly while the stream is active.
 
 function StreamingTextContent({ content, citations }: { content: string; citations?: WebCitation[] }) {
   const dot = (

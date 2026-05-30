@@ -25,6 +25,11 @@ export interface UseStreamingChatParams {
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
   /** Called after a stream completes successfully (for refreshing usage data). */
   onStreamDone?: () => void
+  /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
+  endpoint?: string
+  /** Custom stop handler. When provided, called instead of the default CHAT_STOP_ENDPOINT call.
+   *  Receives the resolved chatId. Use for persona chat stop endpoints. */
+  onStopBackend?: (chatId: string) => void
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -40,6 +45,8 @@ export function useStreamingChat({
   onChatMoveToTop,
   setStreamState,
   onStreamDone,
+  endpoint = "/api/chat",
+  onStopBackend,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -128,11 +135,14 @@ export function useStreamingChat({
       )
     }
 
-    // Signal the backend to stop generation. Persona-overlay chats live on the
-    // regular /chats endpoint, so the regular stop endpoint applies.
+    // Signal the backend to stop generation.
     const chatId = resolvedChatIdRef.current
     if (chatId && !chatId.startsWith("temp-")) {
-      void apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" }).catch(() => {})
+      if (onStopBackend) {
+        onStopBackend(chatId)
+      } else {
+        void apiFetch(CHAT_STOP_ENDPOINT(chatId), { method: "POST" }).catch(() => {})
+      }
     }
   }
 
@@ -151,7 +161,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[] },
   ): Promise<void> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -196,6 +206,7 @@ export function useStreamingChat({
       if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
       if (options?.temperature != null) fd.append("temperature", String(options.temperature))
       if (options?.toneId) fd.append("toneId", options.toneId)
+      options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
       options?.files?.forEach((f) => fd.append("files", f))
 
       let buffer = ""
@@ -206,19 +217,20 @@ export function useStreamingChat({
       const processSSEText = (text: string) => {
         buffer += text
 
-        // SSE events separated by \n\n; some backends use \n before "event:"
-        const rawChunks = buffer.split("\n\n")
+        // SSE events are separated by a blank line (\n\n, \r\n\r\n, or \r\r).
+        // Split on any double-newline variant to handle all backends.
+        const rawChunks = buffer.split(/\r?\n\r?\n/)
         buffer = rawChunks.pop() ?? ""
 
         const events: string[] = []
         for (const raw of rawChunks) {
-          for (const part of raw.split(/\n(?=event:)/)) events.push(part)
+          for (const part of raw.split(/\r?\n(?=event:)/)) events.push(part)
         }
 
         for (const eventStr of events) {
-          const lines = eventStr.split("\n")
+          const lines = eventStr.split(/\r?\n/)
           let eventName = ""
-          let dataStr = ""
+          let dataLines: string[] = []
 
           for (const line of lines) {
             if (line.startsWith("event:")) {
@@ -226,16 +238,19 @@ export function useStreamingChat({
               if (inlineData !== -1) {
                 eventName = line.slice(6, inlineData).trim()
                 const inlineRaw = line.slice(inlineData + 5)
-                dataStr += inlineRaw.startsWith(" ") ? inlineRaw.slice(1) : inlineRaw
+                dataLines.push(inlineRaw.startsWith(" ") ? inlineRaw.slice(1) : inlineRaw)
               } else {
                 eventName = line.slice(6).trim()
               }
             } else if (line.startsWith("data:")) {
               // Per SSE spec: strip exactly one leading space (the protocol separator), preserve all other whitespace
               const raw = line.slice(5)
-              dataStr += raw.startsWith(" ") ? raw.slice(1) : raw
+              dataLines.push(raw.startsWith(" ") ? raw.slice(1) : raw)
             }
           }
+
+          // Per SSE spec: multiple data lines are joined with \n
+          const dataStr = dataLines.join("\n").trim()
 
           if (!dataStr) continue
 
@@ -245,6 +260,8 @@ export function useStreamingChat({
           } catch {
             // Plain text token (not JSON) - treat as content chunk
             // The backend sends `data: <token>` for LLM content
+            // Skip empty/whitespace-only tokens that result from SSE comment lines or keepalives
+            if (!dataStr.trim()) continue
             const wasEmpty = !assistantContent
             assistantContent = mergeStreamingText(assistantContent, dataStr)
             const { visibleText, thinkingText } = extractThinkingContent(assistantContent)
@@ -544,10 +561,15 @@ export function useStreamingChat({
                     prev.map((msg) => {
                       if (msg.id !== userMsgId) return msg
                       const existing = msg.attachments ?? []
-                      const updated = existing.map((att) => {
+                      // Try filename match first; fall back to positional match
+                      // for backends that don't return file_name (e.g. persona chat).
+                      const updated = existing.map((att, idx) => {
                           // eslint-disable-next-line react-doctor/js-index-maps -- uploadedAtts is tiny (1-5 files); Map overhead not justified
                         const match = uploadedAtts.find((u) => u.filename === att.file_name)
-                        return match ? { ...att, url: match.url } : att
+                        if (match) return { ...att, url: match.url, uploading: false }
+                        // Positional fallback: if no name match and this slot has no URL yet
+                        if (!att.url && uploadedAtts[idx]) return { ...att, url: uploadedAtts[idx].url, uploading: false }
+                        return att
                       })
                       // If the optimistic message had no attachments yet (initial-prompt path),
                       // create them fresh from the backend data.
@@ -747,36 +769,86 @@ export function useStreamingChat({
             const label = asString(parsed.label)
             const toolCallId = asString(toolCall?.tool_call_id) ?? `te-${toolName}-${Date.now()}`
 
-            // Register this tool_call_id so subsequent tool_progress events can find this activity
+            // Check if tool_calls_streaming already created a preliminary activity
+            const existingActivityId = toolCallIdByName.get(toolName)
+
+            // Register the real tool_call_id so subsequent tool_progress/tool_complete events can find it
             toolCallIdByName.set(toolName, toolCallId)
 
             const activityType = toolNameToType(toolName)
             const detail = label ?? toolName.replace(/_/g, " ")
 
-            const activity: import("@/hooks/use-chat-state").ActivityItem = {
-              id: toolCallId,
-              type: activityType,
-              toolName,
-              label,
-              detail,
-              status: "executing",
-            }
-
             const msgId = loadingMessageIdRef.current
             if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === msgId
-                    ? { ...msg, activities: [...(msg.activities ?? []), activity] }
-                    : msg,
-                ),
-              )
+              if (existingActivityId && existingActivityId !== toolCallId) {
+                // Upgrade the preliminary activity: replace its ID and set status to "executing"
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== msgId) return msg
+                    return {
+                      ...msg,
+                      activities: (msg.activities ?? []).map((a) =>
+                        a.id === existingActivityId
+                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: label ?? a.detail }
+                          : a,
+                      ),
+                    }
+                  }),
+                )
+              } else {
+                // No preliminary activity — create a new one
+                const activity: import("@/hooks/use-chat-state").ActivityItem = {
+                  id: toolCallId,
+                  type: activityType,
+                  toolName,
+                  label,
+                  detail,
+                  status: "executing",
+                }
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === msgId
+                      ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                      : msg,
+                  ),
+                )
+              }
             }
             continue
           }
 
           if (eventName === "tool_calls_streaming" || parsed.type === "tool_calls_streaming") {
-            // Streaming partial tool call arguments - no UI update needed
+            // Model is streaming tool call arguments — show early activity indicator
+            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
+            const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? ""
+            if (toolName) {
+              const existingId = toolCallIdByName.get(toolName)
+              if (!existingId) {
+                // First streaming chunk for this tool — create a preliminary activity
+                const callId = `tcs-${toolName}-${Date.now()}`
+                toolCallIdByName.set(toolName, callId)
+                const activityType = toolNameToType(toolName)
+                const label = asString(parsed.label) ?? undefined
+                const activity: import("@/hooks/use-chat-state").ActivityItem = {
+                  id: callId,
+                  type: activityType,
+                  toolName,
+                  label,
+                  detail: label ?? toolName.replace(/_/g, " "),
+                  status: "start",
+                }
+                const msgId = loadingMessageIdRef.current
+                if (msgId) {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === msgId
+                        ? { ...msg, activities: [...(msg.activities ?? []), activity] }
+                        : msg,
+                    ),
+                  )
+                }
+              }
+            }
             continue
           }
 
@@ -1054,10 +1126,13 @@ export function useStreamingChat({
                   prev.map((msg) => {
                     if (msg.id !== doneUserMsgId) return msg
                     const existing = msg.attachments ?? []
-                    const updated = existing.map((att) => {
+                    const updated = existing.map((att, idx) => {
                         // eslint-disable-next-line react-doctor/js-index-maps -- uploadedFromDone is tiny (1-5 files); Map overhead not justified
                         const match = uploadedFromDone.find((u) => u.filename === att.file_name)
-                      return match ? { ...att, url: match.url } : att
+                      if (match) return { ...att, url: match.url, uploading: false }
+                      // Positional fallback for backends without file_name
+                      if (!att.url && uploadedFromDone[idx]) return { ...att, url: uploadedFromDone[idx].url, uploading: false }
+                      return att
                     })
                     const merged = existing.length > 0 ? updated : uploadedFromDone.map((u, i) => ({
                       id: `srv-att-${i}-${Date.now()}`,
@@ -1139,7 +1214,7 @@ export function useStreamingChat({
         const xhr = new XMLHttpRequest()
         xhrRef.current = xhr
 
-        xhr.open("POST", "/api/chat")
+        xhr.open("POST", endpoint)
 
         // Report real browser→proxy upload progress per file byte count
         if (options?.files?.length && options.onUploadProgress) {

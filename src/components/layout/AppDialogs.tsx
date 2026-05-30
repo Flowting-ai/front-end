@@ -6,6 +6,7 @@ import { DeleteChatDialog } from "./DeleteChatDialog";
 import CompareModels from "@/components/compare/CompareModels";
 import { useCompare } from "@/context/compare-context";
 import { useModelSelectorContext } from "@/context/model-selector-context";
+import { CreditsExhaustedModal } from "@/components/shared/CreditsExhaustedModal";
 import type { AIModel } from "@/types/ai-model";
 
 // ── Event types ───────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ export function AppDialogs() {
         />
       )}
       <CompareDialog />
+      <CreditsExhaustedModal />
     </>
   );
 }

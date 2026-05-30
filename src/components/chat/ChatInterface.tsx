@@ -275,9 +275,14 @@ export function ChatInterface({
   sendInitialPrompt.current = async (prompt: string) => {
     const content = prompt.trim();
     if (content && !chatId) {
-      // Use initialFiles (passed separately from addMenuFiles) so the absorb
-      // effect never sees these files and doesn't show them in the input strip.
-      const files = initialFiles && initialFiles.length > 0 ? [...initialFiles] : [];
+      // Use initialFiles if provided, otherwise fall back to addMenuFiles.
+      // The landing page passes files via addMenuFiles (not initialFiles), so
+      // we must check both to avoid sending the message without attachments.
+      const files = (initialFiles && initialFiles.length > 0)
+        ? [...initialFiles]
+        : (addMenuFiles && addMenuFiles.length > 0)
+          ? [...addMenuFiles]
+          : [];
       const initialMentionedPinObjects = initialMentionedPins ?? [];
       const userMsgId = addOptimisticUserMessage(
         content,
@@ -287,6 +292,7 @@ export function ChatInterface({
       const loadingId = addLoadingAssistantMessage();
       setAttachments([]);
       onClearInitialFiles?.();
+      onClearAddMenuFiles?.();
       const algorithm = museActive ? (museAdvanced ? 'pro' : 'base') : null;
       const folderPinIds = selectedFolders && selectedFolders.length > 0
         ? pins.filter(p => p.folderId && selectedFolders.some(f => f.id === p.folderId)).map(p => p.id)
@@ -381,8 +387,11 @@ export function ChatInterface({
   // so the files stay in addMenuFiles until the user actually sends. This also fixes
   // a StrictMode issue where calling clear here would wipe addMenuFiles before the
   // component remounts, preventing the second effect run from absorbing anything.
+  // Skip when initialPrompt is present: sendInitialPrompt handles files directly
+  // and absorbing here would duplicate them (causing "file already exists" toasts).
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
+    if (initialPromptSentRef.current || initialPrompt) return;
     setAttachments((prev) => processFiles(addMenuFiles, prev));
   }, [addMenuFiles]);
 

@@ -598,34 +598,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
                 <Upload size={16} color="#524b47" />
                 Upload Files
               </button>
-              {SOURCE_BUTTONS.map((src) => (
-                <button
-                  key={src.key}
-                  type="button"
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    height: 80,
-                    padding: "0 12px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(59,54,50,0.3)",
-                    backgroundColor: "transparent",
-                    cursor: "pointer",
-                    fontFamily: "var(--font-body)",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: "#524b47",
-                    minWidth: 0,
-                  }}
-                >
-                  <Upload size={16} color="#524b47" />
-                  {src.label}
-                </button>
-              ))}
             </div>
           </div>
           <div
@@ -776,27 +748,6 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
               fontFamily: "var(--font-body)",
               fontSize: 14,
               fontWeight: 500,
-              color: "#524b47",
-              border: "1px solid rgba(59,54,50,0.3)",
-              backgroundColor: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            <Plus size={16} color="#524b47" />
-            Add URL
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
-              padding: "6px 10px",
-              borderRadius: 10,
-              fontFamily: "var(--font-body)",
-              fontSize: 14,
-              fontWeight: 500,
               color: "#f7f2ed",
               position: "relative",
               overflow: "hidden",
@@ -807,7 +758,7 @@ export default function KnowledgeTab({ files, onFilesChange, onRawFilesSelected,
             }}
           >
             <Plus size={16} color="#f7f2ed" />
-            Upload
+            Upload Files
           </button>
         </div>
       </div>

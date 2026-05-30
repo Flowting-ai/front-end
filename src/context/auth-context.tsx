@@ -87,12 +87,29 @@ function mapProfileToUser(profile: UserProfile): AuthUser {
   let creditsRemainingDisplay: string | null = null;
 
   if (plan && profile.usage) {
+    // Subscribed user — compute from plan credits
     const c = usageToCredits(plan, profile.usage.monthly_used);
     creditsTotal = c.total;
     creditsUsed = c.used;
     creditsRemaining = c.remaining;
     creditsDisplay = formatCredits(c.total);
     creditsRemainingDisplay = formatCredits(c.remaining);
+  } else if (profile.credits) {
+    // Trial / unsubscribed user — use billing credits object directly
+    // Values are in dollars; multiply by 1000 for credit units display
+    // trial.amount is the original total allowance (stays constant)
+    const bc = profile.credits;
+    creditsTotal = bc.trial
+      ? Math.round(bc.trial.amount * 1000)
+      : Math.round(bc.total_credits * 1000);
+    const totalUsed =
+      (bc.used?.chat ?? 0) + (bc.used?.persona ?? 0) + (bc.used?.brain ?? 0);
+    creditsUsed = Math.round(totalUsed * 1000);
+    creditsRemaining = bc.trial
+      ? Math.round(bc.trial.remaining * 1000)
+      : Math.max(creditsTotal - creditsUsed, 0);
+    creditsDisplay = formatCredits(creditsTotal);
+    creditsRemainingDisplay = formatCredits(creditsRemaining);
   }
 
   return {

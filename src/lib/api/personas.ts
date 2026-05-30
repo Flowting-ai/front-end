@@ -365,6 +365,8 @@ export interface PersonaFileAttachment {
   file_link: string;
   mime_type: string;
   origin:    string;
+  file_name?: string;
+  name?: string;
 }
 
 export interface GetPersonaMessages {
@@ -388,6 +390,8 @@ export interface PersonaMessage {
   role:        "user" | "assistant";
   content:     string;
   created_at?: string;
+  /** File attachments returned by the backend (uploaded files with their S3 links). */
+  file_attachments?: PersonaFileAttachment[];
 }
 
 /** GET /persona/{repo_id}/chats */
@@ -406,8 +410,18 @@ export async function fetchPersonaChatMessages(
   );
   const out: PersonaMessage[] = [];
   for (const t of turns) {
-    if (t.input)  out.push({ id: `${t.id}:in`,  role: "user",      content: t.input  });
-    if (t.output) out.push({ id: `${t.id}:out`, role: "assistant", content: t.output });
+    if (t.input)  out.push({
+      id: `${t.id}:in`,
+      role: "user",
+      content: t.input,
+      file_attachments: t.file_attachments?.filter(a => a.origin === "uploaded" || a.origin === "user"),
+    });
+    if (t.output) out.push({
+      id: `${t.id}:out`,
+      role: "assistant",
+      content: t.output,
+      file_attachments: t.file_attachments?.filter(a => a.origin === "generated"),
+    });
   }
   return out;
 }

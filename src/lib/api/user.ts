@@ -88,6 +88,26 @@ export interface UserUsage {
   };
 }
 
+export interface TrialCredits {
+  amount: number;
+  remaining: number;
+  used: number;
+  starts_at?: string | null;
+  expires_at?: string | null;
+}
+
+export interface BillingCredits {
+  total_credits: number;
+  plan_credits: number;
+  topup_credits: number;
+  trial?: TrialCredits | null;
+  used?: {
+    chat?: number;
+    persona?: number;
+    brain?: number;
+  } | null;
+}
+
 export interface UserOnboarding {
   completed: boolean;
   user_role?: string | null;
@@ -112,6 +132,7 @@ export interface UserProfile {
   upcoming_invoice?: UserUpcomingInvoice | null;
   usage?: UserUsage | null;
   onboarding?: UserOnboarding | null;
+  credits?: BillingCredits | null;
   connections?: unknown[];
   billing_portal_url?: string | null;
   created_at: string | null;
@@ -234,6 +255,36 @@ function normalizeUserProfile(raw: unknown): UserProfile {
             } as UserOnboarding;
           })()
         : null,
+    credits:
+      root.credits && typeof root.credits === "object"
+        ? (() => {
+            const c = root.credits as Record<string, unknown>;
+            const trial =
+              c.trial && typeof c.trial === "object"
+                ? (() => {
+                    const t = c.trial as Record<string, unknown>;
+                    return {
+                      amount: typeof t.amount === "number" ? t.amount : 0,
+                      remaining: typeof t.remaining === "number" ? t.remaining : 0,
+                      used: typeof t.used === "number" ? t.used : 0,
+                      starts_at: typeof t.starts_at === "string" ? t.starts_at : null,
+                      expires_at: typeof t.expires_at === "string" ? t.expires_at : null,
+                    } as TrialCredits;
+                  })()
+                : null;
+            const used =
+              c.used && typeof c.used === "object"
+                ? (c.used as { chat?: number; persona?: number; brain?: number })
+                : null;
+            return {
+              total_credits: typeof c.total_credits === "number" ? c.total_credits : 0,
+              plan_credits: typeof c.plan_credits === "number" ? c.plan_credits : 0,
+              topup_credits: typeof c.topup_credits === "number" ? c.topup_credits : 0,
+              trial,
+              used,
+            } as BillingCredits;
+          })()
+        : null,
     connections: Array.isArray(root.connections) ? root.connections : [],
     billing_portal_url:
       typeof root.billing_portal_url === "string" ? root.billing_portal_url : null,
@@ -275,6 +326,7 @@ export interface BillingInfo {
   payment_method: BillingPaymentMethod | null;
   invoices: BillingInvoice[];
   upcoming_invoice: BillingUpcomingInvoice | null;
+  credits: BillingCredits | null;
 }
 
 export interface CheckoutSessionResponse {
@@ -505,6 +557,36 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
     root.upcoming_invoice && typeof root.upcoming_invoice === "object"
       ? (root.upcoming_invoice as BillingUpcomingInvoice)
       : null;
+  const credits =
+    root.credits && typeof root.credits === "object"
+      ? (() => {
+          const c = root.credits as Record<string, unknown>;
+          const trial =
+            c.trial && typeof c.trial === "object"
+              ? (() => {
+                  const t = c.trial as Record<string, unknown>;
+                  return {
+                    amount: typeof t.amount === "number" ? t.amount : 0,
+                    remaining: typeof t.remaining === "number" ? t.remaining : 0,
+                    used: typeof t.used === "number" ? t.used : 0,
+                    starts_at: typeof t.starts_at === "string" ? t.starts_at : null,
+                    expires_at: typeof t.expires_at === "string" ? t.expires_at : null,
+                  } as TrialCredits;
+                })()
+              : null;
+          const used =
+            c.used && typeof c.used === "object"
+              ? (c.used as { chat?: number; persona?: number; brain?: number })
+              : null;
+          return {
+            total_credits: typeof c.total_credits === "number" ? c.total_credits : 0,
+            plan_credits: typeof c.plan_credits === "number" ? c.plan_credits : 0,
+            topup_credits: typeof c.topup_credits === "number" ? c.topup_credits : 0,
+            trial,
+            used,
+          } as BillingCredits;
+        })()
+      : null;
   return {
     plan_type: typeof root.plan_type === "string" ? root.plan_type : null,
     subscription_status:
@@ -515,6 +597,7 @@ export async function fetchBilling(): Promise<BillingInfo | null> {
     payment_method: pm,
     invoices: Array.isArray(root.invoices) ? (root.invoices as BillingInvoice[]) : [],
     upcoming_invoice: upcoming,
+    credits,
   };
 }
 

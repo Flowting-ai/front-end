@@ -34,13 +34,13 @@ function determineNextOnboardingPath(root: Record<string, unknown>): string {
     return false;
   };
 
-  // New frontend onboarding flow: welcome → role → tone (tone saves and completes)
-  // All data is saved at once on the tone step, so incomplete users
+  // New frontend onboarding flow: welcome → role → tone → import (import saves and completes)
+  // All data is saved at once on the import step, so incomplete users
   // always start from the beginning (/onboarding/welcome).
   if (!filled("user_role", "userRole")) return "/onboarding/welcome";
   if (!filled("ai_tone", "aiTone")) return "/onboarding/role";
-  // Both fields filled but onboarding not marked complete (e.g. API failure at tone step)
-  return "/onboarding/tone";
+  // Both role and tone filled but onboarding not marked complete → import step
+  return "/onboarding/import";
 }
 
 async function fetchOnboardingState(): Promise<OnboardingStateResult> {

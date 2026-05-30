@@ -28,6 +28,11 @@ export const STRIPE_TOPUP_ENDPOINT = "/api/stripe/topup";
 /** Backend (proxied) Stripe reads — billing snapshot + hosted portal link. */
 export const STRIPE_BILLING_ENDPOINT = withBase("/stripe/billing");
 export const STRIPE_PORTAL_ENDPOINT = withBase("/stripe/portal");
+/** Start a free trial (grants 1000 credits). */
+export const STRIPE_TRIAL_ENDPOINT = withBase("/stripe/trial");
+
+// ── Memory ───────────────────────────────────────────────────────────────────
+export const MEMORY_USER_ENDPOINT = withBase("/memory/user");
 
 // ── Chats ────────────────────────────────────────────────────────────────────
 export const CHATS_ENDPOINT = withBase("/chats");

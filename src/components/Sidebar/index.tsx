@@ -577,6 +577,8 @@ export function Sidebar({
           backgroundColor: 'var(--neutral-50)',
           overflowX:       'hidden',
           flexShrink:      0,
+          zIndex:          0,
+          isolation:       'isolate',
           // eslint-disable-next-line react-doctor/no-layout-transition-inline -- sidebar width is dynamic state
           transition:      'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}

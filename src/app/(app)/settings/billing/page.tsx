@@ -70,6 +70,7 @@ interface BillingSnapshot {
   creditsUsed:      number
   chatCredits:      number
   personaCredits:   number
+  brainCredits:     number
   nextBilling:      string
   periodEnd:        string | null
   cancelAtPeriodEnd: boolean
@@ -253,14 +254,32 @@ export default function BillingPage() {
   )
 
   // Live snapshot (when the profile is loaded) or fall back to the cached one.
+  // Credits come from billing response (GET /stripe/billing → credits object)
+  // for trial users who have no plan_type on /users/me.
+  // trial.amount is the original total allowance; total_credits may decrease as credits are consumed.
+  const billingCreditsTotal = billing?.credits?.trial
+    ? Math.round(billing.credits.trial.amount * 1000)
+    : billing?.credits
+      ? Math.round(billing.credits.total_credits * 1000)
+      : null;
+  const billingCreditsRemaining = billing?.credits?.trial
+    ? Math.round(billing.credits.trial.remaining * 1000)
+    : billingCreditsTotal;
+  const billingCreditsUsed = billing?.credits?.trial
+    ? Math.round(billing.credits.trial.used * 1000)
+    : billing?.credits?.used
+      ? Math.round(((billing.credits.used.chat ?? 0) + (billing.credits.used.persona ?? 0) + (billing.credits.used.brain ?? 0)) * 1000)
+      : 0;
+
   const liveSnap: BillingSnapshot | null = liveReady
     ? {
         planType:         user?.planType ?? null,
-        creditsTotal:     user?.creditsTotal     ?? 0,
-        creditsRemaining: user?.creditsRemaining ?? 0,
-        creditsUsed:      user?.creditsUsed      ?? 0,
-        chatCredits:      Math.round((user?.usage?.by_category?.chat    ?? 0) * 1000),
-        personaCredits:   Math.round((user?.usage?.by_category?.persona ?? 0) * 1000),
+        creditsTotal:     user?.creditsTotal     ?? billingCreditsTotal ?? 0,
+        creditsRemaining: user?.creditsRemaining ?? billingCreditsRemaining ?? 0,
+        creditsUsed:      user?.creditsUsed      ?? billingCreditsUsed ?? 0,
+        chatCredits:      Math.round((billing?.credits?.used?.chat ?? user?.usage?.by_category?.chat ?? 0) * 1000),
+        personaCredits:   Math.round((billing?.credits?.used?.persona ?? user?.usage?.by_category?.persona ?? 0) * 1000),
+        brainCredits:     Math.round((billing?.credits?.used?.brain ?? 0) * 1000),
         nextBilling:      nextBillingLive,
         periodEnd:        billing?.current_period_end ?? user?.currentPeriodEnd ?? null,
         cancelAtPeriodEnd: billing?.cancel_at_period_end ?? user?.cancelAtPeriodEnd ?? false,
@@ -279,14 +298,16 @@ export default function BillingPage() {
   const showSkeleton = !portalMounted || !display
 
   const planType         = display?.planType ?? null
-  const planName         = planType ? planType.charAt(0).toUpperCase() + planType.slice(1) : 'No'
-  const planPrice        = planType ? (PLAN_PRICES[planType] ?? 0) : 0
-  const planFeatures     = planType ? (PLAN_FEATURE_LIST[planType] ?? []) : []
   const creditsTotal     = display?.creditsTotal     ?? 0
   const creditsRemaining = display?.creditsRemaining ?? 0
   const creditsUsed      = display?.creditsUsed      ?? 0
+  const isTrialUser       = !planType && creditsTotal > 0
+  const planName         = planType ? planType.charAt(0).toUpperCase() + planType.slice(1) : isTrialUser ? 'Trial' : 'No'
+  const planPrice        = planType ? (PLAN_PRICES[planType] ?? 0) : 0
+  const planFeatures     = planType ? (PLAN_FEATURE_LIST[planType] ?? []) : []
   const chatCredits      = display?.chatCredits      ?? 0
   const personaCredits   = display?.personaCredits   ?? 0
+  const brainCredits     = display?.brainCredits     ?? 0
   const nextBilling      = display?.nextBilling      ?? '-'
   const periodEnd        = display?.periodEnd        ?? null
   const cancelAtPeriodEnd = display?.cancelAtPeriodEnd ?? false
@@ -503,7 +524,7 @@ export default function BillingPage() {
                 <p style={titleH(24)}>{planName} Plan</p>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <p style={medLabel(14)}>{nextBilling !== '-' ? `Next billing: ${nextBilling}` : 'No upcoming billing'}</p>
+                  <p style={medLabel(14)}>{isTrialUser ? `${fmtNum(creditsRemaining)} of ${fmtNum(creditsTotal)} credits remaining` : nextBilling !== '-' ? `Next billing: ${nextBilling}` : 'No upcoming billing'}</p>
                   {planPrice > 0 && (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', padding: '2px 4px', borderRadius: 6,
@@ -514,11 +535,26 @@ export default function BillingPage() {
                       {planPrice}$/month
                     </span>
                   )}
+                  {isTrialUser && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', padding: '2px 6px', borderRadius: 6,
+                      backgroundColor: 'var(--green-100, #e8f5d6)',
+                      boxShadow: '0px 1px 1.5px 0px rgba(2,24,5,0.12), 0px 0px 0px 1px var(--green-200, #c5e6a0)',
+                      fontFamily: BODY, fontWeight: 500, fontSize: 11, lineHeight: '16px', color: 'var(--green-700, #4a7a0a)', whiteSpace: 'nowrap',
+                    }}>
+                      Free Trial
+                    </span>
+                  )}
                 </div>
 
                 {planFeatures.length > 0 && (
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.ink, margin: 0 }}>
                     {planFeatures.join(' · ')}
+                  </p>
+                )}
+                {isTrialUser && (
+                  <p style={{ fontFamily: BODY, fontWeight: 400, fontSize: 14, lineHeight: '22px', color: C.muted, margin: 0 }}>
+                    You have {fmtNum(creditsRemaining)} trial credits. Subscribe to a plan for full access and more credits.
                   </p>
                 )}
 
@@ -551,14 +587,14 @@ export default function BillingPage() {
               {/* Stat cards */}
               <div style={{ display: 'flex', gap: 9, alignItems: 'stretch' }}>
                 <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
-                  <p style={medLabel(14)}>Monthly Credits</p>
+                  <p style={medLabel(14)}>{isTrialUser ? 'Trial Credits' : 'Monthly Credits'}</p>
                   <p style={titleH(24)}>{fmtNum(creditsTotal)}</p>
-                  <p style={regMuted}>Resets {resetDate}</p>
+                  <p style={regMuted}>{isTrialUser ? 'One-time trial allowance' : `Resets ${resetDate}`}</p>
                 </div>
                 <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
                   <p style={medLabel(14)}>Credits Remaining</p>
                   <p style={titleH(24)}>{fmtNum(creditsRemaining)}</p>
-                  <p style={regMuted}>{fmtNum(creditsUsed)} used this month</p>
+                  <p style={regMuted}>{fmtNum(creditsUsed)} used{isTrialUser ? '' : ' this month'}</p>
                 </div>
                 <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12, padding: 12, borderRadius: 8, backgroundColor: C.white, boxShadow: CARD_RING }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -585,8 +621,9 @@ export default function BillingPage() {
                 <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 16, lineHeight: '22px', color: C.ink, margin: 0 }}>
                   Monthly Limits
                 </p>
-                <UsageRow label="Chat Board"    used={chatCredits}    total={creditsTotal} value={`${fmtNum(chatCredits)}/${fmtNum(creditsTotal)}`} />
-                <UsageRow label="AI Assistants" used={personaCredits} total={creditsTotal} value={`${fmtNum(personaCredits)}/${fmtNum(creditsTotal)}`} />
+                <UsageRow label="Chat Board"    used={chatCredits}    total={creditsTotal} value={`${fmtNum(chatCredits)} / ${fmtNum(creditsTotal)}`} />
+                <UsageRow label="AI Assistants" used={personaCredits} total={creditsTotal} value={`${fmtNum(personaCredits)} / ${fmtNum(creditsTotal)}`} />
+                <UsageRow label="Brain"          used={brainCredits}   total={creditsTotal} value={`${fmtNum(brainCredits)} / ${fmtNum(creditsTotal)}`} />
               </div>
             </SectionCard>
 
